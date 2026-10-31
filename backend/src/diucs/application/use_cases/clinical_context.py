@@ -28,7 +28,7 @@ from diucs.application.actor import Actor
 from diucs.application.ports.outbound.audit import AuditEntry, AuditRecord
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.use_cases.audit_replay import age_words, status_word
+from diucs.application.use_cases.audit_replay import age_words, figure_text, status_word
 from diucs.domain.codes import Role, Status
 from diucs.domain.errors import NotFound
 from diucs.domain.model.clinical import ClinicalRequestRecord
@@ -101,27 +101,6 @@ class AdvisorContact:
     via: str | None
     phone: str | None
     name: str | None
-
-
-def _count(value: object) -> int | None:
-    """A whole count of zero or more; a bool, a float or a negative number is not one."""
-    if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
-        return value
-    return None
-
-
-def figure_text(status: Status, number: object, over_by: object) -> str | None:
-    """What the service could take, or how far over capacity it was, and nothing otherwise. The
-    number a snapshot holds for an over-capacity service is the used count (DEC-391): it is not a
-    figure, so an over-capacity service shows its `over_by` or none. A service that is not
-    accepting, not updated or out of hours shows none: its figure is not what it could take."""
-    if status in (Status.ACCEPTING, Status.LIMITED):
-        count = _count(number)
-        return None if count is None else str(count)
-    if status is Status.OVER_CAPACITY:
-        over = _count(over_by)
-        return None if over is None or over == 0 else f"+{over}"
-    return None
 
 
 def why_text(row: Mapping[str, Any]) -> str | None:

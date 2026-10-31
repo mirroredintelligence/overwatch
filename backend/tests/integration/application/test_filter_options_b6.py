@@ -269,3 +269,50 @@ async def test_another_tenants_phone_is_never_offered(
 
     assert all(option.service_id != "svc-b-only" for option in result.options)
     assert all(option.phone != "01305 900999" for option in result.options)
+
+
+# H-193, KI-474: the display on the record carries the name and the position of each option.
+
+
+async def test_the_display_on_the_record_has_each_options_name_and_the_position_it_was_shown_at(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, tenant_id: str
+) -> None:
+    await _seed(uow_factory, neo4j_driver, tenant_id)
+    # UCR West has a site and a short drive; UCR East has none and so comes last.
+    travel = FixedTravelTime(ROUTED, {(PATIENT_SITE, WEST_SITE): TravelRange(5, 10, "fixed")})
+
+    result = await _run(uow_factory, travel)
+
+    async with uow_factory() as uow:
+        shown = [r.entry for r in await uow.audit.records() if r.entry.use_case == "FilterOptions"]
+    assert len(shown) == 1
+    rows = {row["id"]: row for row in shown[0].snapshot["services"]}
+    assert [o.service_id for o in result.options][0] == UCR_WEST
+    assert rows[UCR_WEST]["order"] == 1
+    assert rows[UCR_WEST]["name"] == "UCR West"
+    positions = sorted(row["order"] for row in rows.values() if row["shown_as"] == "option")
+    assert positions == list(range(1, len(positions) + 1))
+    for row in rows.values():
+        if row["shown_as"] == "not-suitable":
+            assert "order" not in row
+
+
+async def test_a_display_that_cannot_be_written_down_is_never_shown(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, tenant_id: str
+) -> None:
+    await _seed(uow_factory, neo4j_driver, tenant_id)
+
+    class _Broken:
+        """A factory whose second unit (the audit) fails: the answer must not leave."""
+
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def __call__(self) -> Any:
+            self.calls += 1
+            if self.calls >= 3:  # the board unit, the read unit, then the audit unit
+                raise ConnectionError("audit store down")
+            return uow_factory()
+
+    with pytest.raises(ConnectionError):
+        await _run(_Broken())

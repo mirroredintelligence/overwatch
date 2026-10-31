@@ -327,12 +327,17 @@ def _snapshot_row(
     criteria: ServiceCriteria | None,
     shown_as: str,
     reason: str | None = None,
+    order: int | None = None,
 ) -> dict[str, Any]:
     """One service of a display. `over_by` is how far over capacity it was (the used count in
     `number` is not that figure, DEC-391) and `reason` is the code of why it was not suitable: both
-    are read by a clinician who is shown what the advisor saw (W9G, H-190)."""
+    are read by a clinician who is shown what the advisor saw (W9G, H-190). `name` is the name the
+    advisor saw, so a replay shows it as it was (KI-474), and `order` is the position an option was
+    shown at, nearest first, so the replay and the planning analysis know which was first (H-193,
+    KI-476); a service that was not suitable is in no order."""
     row: dict[str, Any] = {
         "id": entry.service_id,
+        "name": entry.name,
         "status": entry.status.value,
         "number": number,
         "data_age_seconds": None if data_age is None else int(data_age.total_seconds()),
@@ -342,6 +347,8 @@ def _snapshot_row(
     }
     if reason is not None:
         row["reason"] = reason_code(reason)
+    if order is not None:
+        row["order"] = order
     return row
 
 
@@ -434,33 +441,46 @@ class FilterOptions:
                 )
                 rows.append(_snapshot_row(entry, number, data_age, current, SHOWN_AS_OPTION))
 
-            await uow.audit.append(
-                AuditEntry(
-                    action=READ_ACTION,
-                    use_case=FILTER_OPTIONS,
-                    actor=command.actor,
-                    entity_ids=(case.id, *service_ids),
-                    snapshot={"reference": case.reference, "services": rows},
-                    at=now,
-                )
-            )
-            await uow.commit()
+            reference = case.reference
+            case_id = case.id
 
         # The unit has closed: the travel estimates are awaited here, all at once, so an engine
         # that is slow or down costs one timeout and not one per service (KI-350).
         ranges = await asyncio.gather(
             *(self._travel_range(patient, candidate.site) for candidate in candidates)
         )
-        options = [
-            self._option(candidate, travel, now)
-            for candidate, travel in zip(candidates, ranges, strict=True)
-        ]
+        options = sorted(
+            (
+                self._option(candidate, travel, now)
+                for candidate, travel in zip(candidates, ranges, strict=True)
+            ),
+            key=option_order_key,
+        )
+        # The display is written down once the order the advisor will see it in is known: each
+        # option's position is in its row (H-193). It is written in a unit of its own, and before
+        # the answer leaves, so an advisor is never shown a display that is not on the record.
+        shown_at = {option.service_id: position for position, option in enumerate(options, 1)}
+        for row in rows:
+            if row["shown_as"] == SHOWN_AS_OPTION:
+                row["order"] = shown_at[row["id"]]
+        async with self._uow_factory() as audit_uow:
+            await audit_uow.audit.append(
+                AuditEntry(
+                    action=READ_ACTION,
+                    use_case=FILTER_OPTIONS,
+                    actor=command.actor,
+                    entity_ids=(case_id, *service_ids),
+                    snapshot={"reference": reference, "services": rows},
+                    at=now,
+                )
+            )
+            await audit_uow.commit()
         not_found = patient is None
         out_of_area = bool(criteria) and all(
             district not in item.districts for item in criteria.values()
         )
         return FilterOptionsResult(
-            options=tuple(sorted(options, key=option_order_key)),
+            options=tuple(options),
             not_suitable=tuple(sorted(not_suitable, key=lambda item: (item.name, item.service_id))),
             generated_at=now,
             patient=None if patient is None else patient.lat_lon,

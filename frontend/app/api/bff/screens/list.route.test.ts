@@ -20,15 +20,18 @@ const ROW = {
   location: 'Level 2',
   state: 'online',
   boardScope: 'tenant',
+  networkId: null,
+  networkName: null,
+  networkAvailable: true,
+  scopeVersion: 1,
   pairedAt: '2026-10-27T10:00:00Z',
   lastSeenAt: '2026-10-30T09:59:20Z',
   revokedAt: null,
 };
-const ANSWER = { scope: 'tenant', asOf: '2026-10-30T10:00:00Z', screens: [ROW] };
-// What the back end sends: each row also has the device's own `status` and the board setting (TEN-067),
-// and the list has the networks a tenant may choose. The page of this bundle reads none of them.
-const SETTING = { status: 'active', networkId: null, networkName: null, networkAvailable: true, scopeVersion: 1 };
-const BACKEND = { ...ANSWER, networks: [], screens: [{ ...ROW, ...SETTING }] };
+const NETWORKS = [{ id: 'net-west', name: 'West Dorset system' }];
+const ANSWER = { scope: 'tenant', asOf: '2026-10-30T10:00:00Z', screens: [ROW], networks: NETWORKS };
+// What the back end sends: each row also has the device's own `status`, which the page does not read.
+const BACKEND = { ...ANSWER, screens: [{ ...ROW, status: 'active' }] };
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
@@ -38,8 +41,10 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe('GET /api/bff/screens', () => {
-  it('is 401 with no session and 403 for every role but lead', async () => {
+  it('is 401 with no session and 403 for every role but lead and tenant administrator (the back end’s two)', async () => {
     expect((await GET(await leadRequest(URL_, null))).status).toBe(401);
+    server.use(http.get(`${ROOT}/screens`, () => HttpResponse.json(BACKEND)));
+    expect((await GET(await leadRequest(URL_, 'tenant-admin'))).status).toBe(200);
     for (const role of ['advisor', 'clinical', 'owner', 'exec', 'wall', 'reporter', 'support', 'audit'] as const) {
       expect((await GET(await leadRequest(URL_, role))).status, role).toBe(403);
     }
@@ -62,7 +67,7 @@ describe('GET /api/bff/screens', () => {
   });
 
   it('never passes on a field the page does not know, such as a hash the back end sent by mistake', async () => {
-    server.use(http.get(`${ROOT}/screens`, () => HttpResponse.json({ ...BACKEND, screens: [{ ...ROW, ...SETTING, tokenHash: 'a'.repeat(64) }] })));
+    server.use(http.get(`${ROOT}/screens`, () => HttpResponse.json({ ...BACKEND, screens: [{ ...ROW, status: 'active', tokenHash: 'a'.repeat(64) }] })));
     const response = await GET(await leadRequest(URL_, 'lead'));
     expect(await response.text()).not.toContain('tokenHash');
   });

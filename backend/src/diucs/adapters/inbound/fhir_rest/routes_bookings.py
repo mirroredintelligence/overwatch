@@ -17,6 +17,8 @@ reporter, answers the same 404 as an unknown id.
 """
 
 import json
+import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Annotated, Any, Final, Literal
@@ -36,7 +38,7 @@ from diucs.adapters.inbound.fhir_rest.errors import operation_outcome
 from diucs.adapters.inbound.fhir_rest.mapping import validate_outbound
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
 from diucs.application.uow_idempotency import UnitOfWorkIdempotency
 from diucs.application.use_cases.cancel_booking import CancelBooking, CancelBookingCommand
 from diucs.application.use_cases.clinical_advice import ReadClinicalRequest
@@ -68,9 +70,11 @@ from diucs.domain.codes import (
     WithdrawReason,
 )
 from diucs.domain.errors import InvalidTransition, NotFound, ValidationFailed
+from diucs.domain.model.booking import Booking
 from diucs.domain.rules.booking_response import responder_may_act
 
 BOOKING_REQUEST: Final = "booking-request"
+_FOCUS: Final = re.compile(r"ServiceRequest/([A-Za-z0-9.-]{1,64})")
 OPERATION_BASE: Final = f"{BASE_URL}OperationDefinition/"
 CREATE_ROLES: Final = (Role.ADVISOR, Role.CLINICAL)
 NO_BOOKING: Final = "no booking with this id"
@@ -81,7 +85,7 @@ SEEING_ROLES: Final = (Role.ADVISOR, Role.CLINICAL)
 router = APIRouter(prefix="/fhir")
 capability.register_resource(
     "Task",
-    ("create", "read"),
+    ("create", "read", "search-type"),
     tuple(
         f"{OPERATION_BASE}{name}"
         for name in ("respond", "cancel", "withdraw", "not-reached", "acknowledge")
@@ -234,18 +238,59 @@ async def _optional_json(request: Request) -> Any:
         raise ValidationFailed("body", "is not valid JSON") from None
 
 
+async def _delivery_of(uow: UnitOfWork, booking: Booking) -> str | None:
+    """The delivery state of the message that asked the service (queued, sent, delivered, failed),
+    or None when the booking has no message or the message is gone (H-494)."""
+    if booking.request_message_id is None:
+        return None
+    message = await uow.communications.get(booking.request_message_id)
+    return None if message is None else message.delivery_status
+
+
+async def _seen(uow: UnitOfWork, booking: Booking, actor: Actor) -> dict[str, Any]:
+    delivery = await _delivery_of(uow, booking)
+    task = Task.model_validate(booking_to_fhir(booking, delivery_status=delivery))
+    seen = PROJECTIONS.project(task, actor)
+    return validate_outbound(seen.model_dump(by_alias=True, exclude_none=True, mode="json"))
+
+
 async def _booking_seen_by(
     factory: UnitOfWorkFactory, booking_id: str, actor: Actor
 ) -> dict[str, Any]:
-    """The booking as the caller may see it: the stored Task, projected for the caller's role
-    (R02). A reporter's view of another service's booking is refused before this is called."""
+    """The booking as the caller may see it: the stored Task, with the delivery state of its request
+    read now, projected for the caller's role (R02). A reporter's view of another service's booking
+    is refused before this is called."""
     async with factory() as uow:
         booking = await uow.bookings.get(booking_id)
-    if booking is None:
-        raise NotFound(NO_BOOKING)
-    task = Task.model_validate(booking_to_fhir(booking))
-    seen = PROJECTIONS.project(task, actor)
-    return validate_outbound(seen.model_dump(by_alias=True, exclude_none=True, mode="json"))
+        if booking is None:
+            raise NotFound(NO_BOOKING)
+        return await _seen(uow, booking, actor)
+
+
+def _search_bundle(entries: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "resourceType": "Bundle",
+        "type": "searchset",
+        "total": len(entries),
+        "entry": [{"fullUrl": f"Task/{task['id']}", "resource": task} for task in entries],
+    }
+
+
+def parse_search(query: Mapping[str, str]) -> tuple[Literal["case", "alerts"], str]:
+    """What a search of bookings asks for: the bookings of one case (`focus=ServiceRequest/<id>`) or
+    the open alerts (`alert=open`), one of the two and nothing else. Anything else is refused, and
+    the message names the parameter, never the value."""
+    names = set(query)
+    if names == {"focus"}:
+        match = _FOCUS.fullmatch(query["focus"])
+        if match is None:
+            raise ValidationFailed("focus", "must be ServiceRequest/<case id>")
+        return "case", match.group(1)
+    if names == {"alert"}:
+        if query["alert"] != "open":
+            raise ValidationFailed("alert", "must be open")
+        return "alerts", ""
+    raise ValidationFailed("search", "name focus or alert, and nothing else")
 
 
 def _request_booking(container: ApiContainer) -> RequestBooking:
@@ -290,6 +335,27 @@ async def create_booking(
         content=content,
         status_code=201,
         headers={"Location": f"/fhir/Task/{result.booking_id}"},
+    )
+
+
+async def search_bookings(request: Request, actor: Actor) -> Response:
+    """The bookings of a case, or the open alerts: for an advisor or a clinician; any other role
+    reads the one 404 of an unknown id (WB4). `GET /fhir/Task` is one path with several searches:
+    routes_clinical.read_tasks dispatches by its parameters and calls this when no `code` is
+    given."""
+    if actor.role not in SEEING_ROLES:
+        raise NotFound(NO_BOOKING)
+    kind, case_id = parse_search(dict(request.query_params))
+    container = get_container(request)
+    async with container.uow_factory() as uow:
+        found = (
+            await uow.bookings.for_case(case_id)
+            if kind == "case"
+            else await uow.bookings.unacknowledged_exceptions()
+        )
+        entries = [await _seen(uow, booking, actor) for booking in found]
+    return FhirJSONResponse(
+        content=_search_bundle(entries), status_code=200, headers={"Cache-Control": "no-store"}
     )
 
 
@@ -447,14 +513,13 @@ async def acknowledge(
     path = acknowledgement_path(booking.status)
     if path is None:
         return operation_outcome(409, "business-rule", NOT_ACKNOWLEDGEABLE)
-    if path == "withdrawn":
-        await AcknowledgeWithdrawal(
-            container.uow_factory,
-            UnitOfWorkIdempotency(container.uow_factory),
-            container.clock,
-        ).execute(
-            AcknowledgeWithdrawalCommand(idempotency_key=key, actor=actor, booking_id=booking_id)
-        )
+    # Both a withdrawal and a not-reached report are acknowledged and stored on the booking
+    # (KI-451); only a withdrawal has an escalation to cancel.
+    await AcknowledgeWithdrawal(
+        container.uow_factory,
+        UnitOfWorkIdempotency(container.uow_factory),
+        container.clock,
+    ).execute(AcknowledgeWithdrawalCommand(idempotency_key=key, actor=actor, booking_id=booking_id))
     at: datetime = container.clock.now()
     body: dict[str, Any] = {
         "resourceType": "Parameters",

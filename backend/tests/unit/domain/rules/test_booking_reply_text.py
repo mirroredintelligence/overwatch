@@ -199,3 +199,28 @@ def test_a_text_that_is_not_a_booking_word_is_not_a_booking_reply(
     parsed: tuple[ParsedReply, ...],
 ) -> None:
     assert plan(parsed, [open_ref("bk-1", "4821")], []) is None
+
+
+# -- KI-452: a reason belongs to the phone's latest decline, not to the first service in the list --
+
+
+def test_a_digit_sets_the_reason_of_the_latest_decline_whatever_the_order_of_the_list() -> None:
+    """A phone that holds two services has two declines waiting for a reason. `latest` is listed by
+    service id, so the first one is not the one the person has just declined."""
+    older = booking("bk-a", "4821", BookingStatus.DECLINED, responded_at=NOW - timedelta(minutes=8))
+    newer = booking("bk-b", "4822", BookingStatus.DECLINED, responded_at=NOW - timedelta(minutes=2))
+
+    for latest in ((older, newer), (newer, older)):
+        result = plan_booking_text((Number(2),), [], latest, NOW, default_service_id=DEFAULT)
+        assert result == SetReason("bk-b", SERVICE, DeclineReason.OUTSIDE_CRITERIA)
+
+
+def test_a_decline_outside_the_window_is_passed_over_for_one_inside_it() -> None:
+    old = booking("bk-a", "4821", BookingStatus.DECLINED, responded_at=NOW - timedelta(minutes=30))
+    recent = booking(
+        "bk-b", "4822", BookingStatus.DECLINED, responded_at=NOW - timedelta(minutes=3)
+    )
+
+    result = plan_booking_text((Number(1),), [], (old, recent), NOW, default_service_id=DEFAULT)
+
+    assert result == SetReason("bk-b", SERVICE, DeclineReason.FULL)

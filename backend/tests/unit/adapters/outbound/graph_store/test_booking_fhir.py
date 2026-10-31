@@ -55,6 +55,57 @@ def test_every_status_round_trips_through_the_fhir_task(status: BookingStatus) -
     assert booking_from_fhir(booking_to_fhir(booking)) == booking
 
 
+def _with_extras(booking: Booking) -> Booking:
+    from dataclasses import replace
+
+    return replace(
+        booking,
+        phone_prompt_at=datetime(2026, 10, 25, 13, 21, tzinfo=UTC),
+        request_message_id="comm-77",
+    )
+
+
+@pytest.mark.parametrize("status", list(BookingStatus), ids=lambda s: s.value)
+def test_the_phone_prompt_time_and_the_request_message_round_trip(status: BookingStatus) -> None:
+    booking = _with_extras(_booking_in(status))
+
+    assert booking_from_fhir(booking_to_fhir(booking)) == booking
+
+
+@pytest.mark.parametrize("status", [BookingStatus.WITHDRAWN, BookingStatus.NOT_REACHED])
+def test_an_acknowledgement_round_trips_with_who_and_when(status: BookingStatus) -> None:
+    booking = _booking_in(status).with_acknowledgement(
+        "prac-advisor-2", datetime(2026, 10, 25, 13, 25, tzinfo=UTC)
+    )
+
+    resource = booking_to_fhir(booking)
+
+    assert booking_from_fhir(resource) == booking
+    types = {entry["type"]["coding"][0]["code"] for entry in resource["output"]}
+    assert {"acknowledged-at", "acknowledged-by"} <= types
+
+
+def test_an_unacknowledged_booking_has_no_acknowledgement_output() -> None:
+    resource = booking_to_fhir(_booking_in(BookingStatus.WITHDRAWN))
+
+    types = {entry["type"]["coding"][0]["code"] for entry in resource["output"]}
+    assert not {"acknowledged-at", "acknowledged-by", "phone-prompt-at", "request-message"} & types
+
+
+def test_the_delivery_state_of_the_request_is_a_read_time_output_not_stored() -> None:
+    booking = _with_extras(_booking_in(BookingStatus.REQUESTED))
+
+    shown = booking_to_fhir(booking, delivery_status="delivered")
+
+    entry = next(
+        item for item in shown["output"] if item["type"]["coding"][0]["code"] == "request-delivery"
+    )
+    assert entry["valueString"] == "delivered"
+    assert booking_from_fhir(shown) == booking
+    stored = booking_to_fhir(booking)
+    assert all(item["type"]["coding"][0]["code"] != "request-delivery" for item in stored["output"])
+
+
 def test_the_task_carries_the_reference_owner_focus_and_requester() -> None:
     resource = booking_to_fhir(_booking_in(BookingStatus.REQUESTED))
 

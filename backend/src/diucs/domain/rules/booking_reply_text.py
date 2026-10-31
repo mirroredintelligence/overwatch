@@ -126,7 +126,9 @@ def _set_reason(digit: int, latest: Sequence[Booking], now: datetime) -> SetReas
     reason = _DECLINE_REASON_BY_DIGIT.get(digit)
     if reason is None:
         return None
-    for booking in latest:
+    # The phone's most recent decline first: `latest` is listed by service, so the first in the list
+    # is not the one the person has just declined (KI-452).
+    for booking in sorted(latest, key=_responded_at, reverse=True):
         if booking.status is not BookingStatus.DECLINED or booking.reason is not None:
             continue
         if booking.responded_at is None:
@@ -135,3 +137,7 @@ def _set_reason(digit: int, latest: Sequence[Booking], now: datetime) -> SetReas
             continue
         return SetReason(booking.id, booking.service_id, reason)
     return None
+
+
+def _responded_at(booking: Booking) -> datetime:
+    return booking.responded_at or booking.requested_at

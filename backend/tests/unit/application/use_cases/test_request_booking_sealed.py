@@ -12,6 +12,7 @@ Sample values only: the case holds its district, never a full postcode (DEC-067)
 
 import json
 import random
+import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from types import SimpleNamespace
@@ -44,6 +45,12 @@ TOKEN = "Tq7-LinkTokenAbCdEfGhIjKlMnOpQrSt_u"
 LINK_HOST = "https://unit.diucs.example"
 FULL_LINK = f"{LINK_HOST}/l/{TOKEN}"
 DISTRICT = "DT4"
+
+
+def _as_word(text: str) -> re.Pattern[str]:
+    return re.compile(r"(?<![A-Za-z0-9+/=_-])" + re.escape(text) + r"(?![A-Za-z0-9+/=_-])")
+
+
 WORDING = TenantWording(
     system_name="Unit test capacity",
     referral_system_name="SystmOne",
@@ -118,6 +125,8 @@ class _Unit:
         self.stores["idempotency"] = _Idempotency()
         role = SimpleNamespace(id=ROLE_ID, channel=self.channel, practitioner_id="prac-1")
         reporter = SimpleNamespace(phone_hash="p" * 64)
+        # No configuration version in force: the tenant's policy is the default (WB4).
+        self.tenant_config = SimpleNamespace(current_version=self._async(None))
         self.cases = SimpleNamespace(get=self._async(CASE))
         self.services = SimpleNamespace(
             get=self._async(SimpleNamespace(id=SERVICE_ID, name="UCR West", active=True))
@@ -310,8 +319,11 @@ async def test_no_token_full_link_or_postcode_is_stored_or_queued_in_clear(
 
     assert TOKEN not in everything
     assert FULL_LINK not in everything
-    assert DISTRICT not in everything
-    assert "8XX" not in everything
+    # The district and the postcode tail are looked for as words, not as any run of characters: the
+    # sealed content is random base64, which holds "DT4" or "8XX" by chance in about one run in a
+    # hundred. A value in clear would stand alone, between characters that are not base64.
+    assert _as_word(DISTRICT).search(everything) is None
+    assert _as_word("8XX").search(everything) is None
 
 
 async def test_the_opened_content_holds_no_postcode_or_district() -> None:

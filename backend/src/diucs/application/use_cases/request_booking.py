@@ -13,7 +13,7 @@ QueryBoard opens its own unit and a unit may not be nested (DEC-146).
 import hashlib
 import random
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Final
 
@@ -28,12 +28,12 @@ from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWork
 from diucs.application.scheduling import schedule_work
 from diucs.application.sealed_send import queue_message
 from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
-from diucs.application.tenant_settings import resolve_link_base
+from diucs.application.tenant_settings import read_policy, resolve_link_base
 from diucs.application.use_cases.query_board import QueryBoard, QueryBoardQuery
 from diucs.application.use_cases.send_prompts import LinkTokenServiceFactory
 from diucs.application.use_cases.suspend_service import WordingFor
 from diucs.application.work import WorkKind
-from diucs.domain.codes import AgeBand, BookingStatus, Channel, NeedCategory, Role, Urgency
+from diucs.domain.codes import AgeBand, BookingStatus, Channel, Role, Urgency
 from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
 from diucs.domain.events import BookingRequested
 from diucs.domain.messages.catalogue import MessageId
@@ -50,6 +50,7 @@ from diucs.domain.rules.booking_rules import (
 )
 from diucs.domain.rules.booking_state import is_open
 from diucs.domain.rules.london_time import format_hhmm
+from diucs.domain.rules.need_words import need_words
 
 LinkBaseUrlFor = Callable[[ScopeId], str | Awaitable[str]]
 """Text or an awaitable of text (`resolve_link_base`): the serving process's source is async."""
@@ -67,8 +68,6 @@ URGENCY_WORDING: Final[dict[Urgency, str]] = {
     Urgency.TODAY: "today",
     Urgency.PLANNED: "planned",
 }
-MAX_NEEDS_SHOWN: Final = 2
-"""A request names at most the first two needs (U17, the prompt's "need" field)."""
 _MESSAGE_FOR_CHANNEL: Final[dict[Channel, MessageId]] = {
     Channel.TEXT: MessageId.B1,
     Channel.EMAIL: MessageId.B2,
@@ -107,11 +106,8 @@ def urgency_wording(urgency: Urgency) -> str:
 
 
 def need_text(case: Case) -> str:
-    """The needs the request names: the first one, or the first two joined with "and"."""
-    if not case.needs:
-        raise ValidationFailed("needs", "an open case has at least one need")
-    shown: tuple[NeedCategory, ...] = case.needs[:MAX_NEEDS_SHOWN]
-    return " and ".join(need.value for need in shown)
+    """The needs of the case in plain words (DEC-062 item 2): all of them, no code (DEC-1150)."""
+    return need_words(case.needs)
 
 
 def message_for_channel(channel: Channel) -> MessageId:
@@ -273,6 +269,7 @@ class RequestBooking:
             if not can_request([b.status for b in await uow.bookings.open_for_service(profile.id)]):
                 raise Conflict("this service already has a booking request waiting for a reply")
 
+            policy = await read_policy(uow)
             reporters = await uow.people.reporter_roles_for_service(profile.id, now)
             if not reporters:
                 raise ValidationFailed("service", "has no reporter to send the request to")
@@ -285,7 +282,8 @@ class RequestBooking:
             referral_system_name = self._referral_system_name(wording, channel)
 
             reference = await self._free_reference(uow)
-            reply_by = booking_reply_by(now)
+            reply_by = booking_reply_by(now, policy)
+            phone_at = phone_prompt_at(now, policy)
             booking = Booking(
                 id=self._ids.new_id(),
                 reference=reference,
@@ -295,8 +293,8 @@ class RequestBooking:
                 status=BookingStatus.REQUESTED,
                 requested_at=now,
                 reply_by=reply_by,
+                phone_prompt_at=phone_at,
             )
-            await uow.bookings.add(booking)
 
             link: str | None = None
             if channel is not Channel.PUSH:
@@ -318,7 +316,7 @@ class RequestBooking:
                 reply_by=reply_by,
                 referral_system_name=referral_system_name,
             )
-            await queue_message(
+            request_message_id = await queue_message(
                 uow,
                 self._ids,
                 self._sealer,
@@ -329,6 +327,9 @@ class RequestBooking:
                 now=now,
                 link=link,
             )
+            # The booking keeps the id of the message that asked the service, so a read can say what
+            # is known of its delivery (H-494).
+            await uow.bookings.add(replace(booking, request_message_id=request_message_id))
             await uow.outbox.add(
                 outbox_message_for(
                     BookingRequested(
@@ -341,7 +342,6 @@ class RequestBooking:
                     now=now,
                 )
             )
-            phone_at = phone_prompt_at(now)
             await schedule_work(
                 uow,
                 self._ids,

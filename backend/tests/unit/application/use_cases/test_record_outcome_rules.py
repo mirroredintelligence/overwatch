@@ -84,7 +84,7 @@ def test_the_summary_has_the_nine_rows_in_order_with_the_stored_district() -> No
         ("Referrer", "Ambulance crew"),
         ("Age band", "80+"),
         ("Postcode", "DT4"),
-        ("Needs", "Fall, frailty"),
+        ("Needs", "Fall, no injury and frailty"),
         ("Urgency", "Within 2 hrs"),
         ("Scores", "NEWS2 2 · Frailty scale 6"),
         ("Destination", "UCR West"),

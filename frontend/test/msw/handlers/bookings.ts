@@ -1,11 +1,14 @@
 import { http, HttpResponse, type HttpResponseResolver } from 'msw';
 import {
   BOOKING_ID,
+  CASE_REF,
+  searchBundle,
   SERVICE_WITH_OPEN_REQUEST,
   STATE_CANCELLED,
   STATE_REQUESTED,
   TASK_CONFIRMED,
   TASK_REQUESTED,
+  TASK_WITHDRAWN,
 } from '@/test/fixtures/bookings';
 
 // The advisor's booking routes as the browser sees them (BFF, W20), and the back end's Task routes
@@ -21,7 +24,20 @@ export const bookingStore: { current: { status: string } & Record<string, unknow
   refuseCancel: false,
 };
 
+/** The case's bookings as the BFF's list answers them (`GET /api/bff/bookings?case=`). Tests set it. */
+export const caseBookings: { current: Record<string, unknown>[] } = { current: [] };
+/** The open alerts as the BFF's list answers them (`GET /api/bff/bookings?alert=open`). Tests set it. */
+export const openAlerts: { current: Record<string, unknown>[] } = { current: [] };
+/** The case of every read of a case's bookings, newest last. */
+export const seenBookingCaseReads: string[] = [];
+/** The number of reads of the open alerts. */
+export const seenAlertReads: { count: number } = { count: 0 };
+
 export function resetBookingRequests() {
+  caseBookings.current = [];
+  openAlerts.current = [];
+  seenBookingCaseReads.length = 0;
+  seenAlertReads.count = 0;
   seenBookingPosts.length = 0;
   seenBookingReads.length = 0;
   seenBookingCancels.length = 0;
@@ -71,11 +87,27 @@ export const bookingHandlers = [
     }
     return HttpResponse.json(STATE_REQUESTED, { status: 201, headers: { 'Cache-Control': 'no-store' } });
   }) as HttpResponseResolver),
+  http.get('/api/bff/bookings', (({ request }) => {
+    const url = new URL(request.url);
+    const caseRef = url.searchParams.get('case');
+    if (caseRef !== null) {
+      seenBookingCaseReads.push(caseRef);
+      return HttpResponse.json({ bookings: caseBookings.current }, { headers: { 'Cache-Control': 'no-store' } });
+    }
+    if (url.searchParams.get('alert') === 'open') {
+      seenAlertReads.count += 1;
+      return HttpResponse.json({ bookings: openAlerts.current }, { headers: { 'Cache-Control': 'no-store' } });
+    }
+    return HttpResponse.json({ code: 'invalid' }, { status: 400 });
+  }) as HttpResponseResolver),
   http.get('/api/bff/bookings/:id', (({ params }) => {
     seenBookingReads.push(String(params.id));
     return HttpResponse.json(bookingStore.current, { headers: { 'Cache-Control': 'no-store' } });
   }) as HttpResponseResolver),
 ];
+
+/** The query of every search of Tasks the back end saw, newest last. */
+export const seenTaskSearches: string[] = [];
 
 /** The back end's Task routes, for the BFF's route tests. */
 export const BACKEND_TASK_HANDLERS = (root: string) => [
@@ -97,6 +129,19 @@ export const BACKEND_TASK_HANDLERS = (root: string) => [
       resourceType: 'Parameters',
       parameter: [{ name: 'acknowledged', valueBoolean: true }],
     })) as HttpResponseResolver),
+  http.get(`${root}/Task`, (({ request }) => {
+    const url = new URL(request.url);
+    const focus = url.searchParams.get('focus');
+    if (focus !== null) {
+      seenTaskSearches.push(url.search);
+      return HttpResponse.json(searchBundle(focus === `ServiceRequest/${CASE_REF}` ? [TASK_REQUESTED, TASK_CONFIRMED] : []));
+    }
+    if (url.searchParams.get('alert') === 'open') {
+      seenTaskSearches.push(url.search);
+      return HttpResponse.json(searchBundle([TASK_WITHDRAWN]));
+    }
+    return HttpResponse.json({ resourceType: 'OperationOutcome', issue: [] }, { status: 400 });
+  }) as HttpResponseResolver),
   http.get(`${root}/Task/:id`, (({ params }) => {
     if (params.id === 'missing') return HttpResponse.json({ resourceType: 'OperationOutcome', issue: [] }, { status: 404 });
     return HttpResponse.json(TASK_CONFIRMED);

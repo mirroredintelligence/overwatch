@@ -4,9 +4,10 @@ import { CSRF_COOKIE, CSRF_HEADER, csrfTokenFor } from '@/lib/auth/csrf';
 import { SESSION_COOKIE, sealSession, type Role, type Session } from '@/lib/auth/session';
 import { requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
 import { CASE_REF, SERVICE_ID, STATE_REQUESTED } from '@/test/fixtures/bookings';
+import { http, HttpResponse } from 'msw';
 import { server } from '@/test/msw/server';
-import { BACKEND_TASK_HANDLERS } from '@/test/msw/handlers/bookings';
-import { POST } from './route';
+import { BACKEND_TASK_HANDLERS, seenTaskSearches } from '@/test/msw/handlers/bookings';
+import { GET, POST } from './route';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
@@ -89,5 +90,74 @@ describe('POST /api/bff/bookings', () => {
     const response = await post({ body: { caseRef: CASE_REF, serviceId: 'ucr-busy' } });
     expect(response.status).toBe(409);
     expect(await response.json()).toEqual({ code: 'open-request' });
+  });
+});
+
+
+async function get(query: string, role: Role | null = 'advisor') {
+  const cookies: Record<string, string> = {};
+  if (role !== null) cookies[SESSION_COOKIE] = await sealSession(session(role));
+  return GET(requestWithCookies(`${URL_}${query}`, cookies));
+}
+
+describe('GET /api/bff/bookings?case=', () => {
+  beforeEach(() => {
+    seenTaskSearches.length = 0;
+  });
+
+  it('refuses a request with no session', async () => {
+    expect((await get(`?case=${CASE_REF}`, null)).status).toBe(401);
+  });
+
+  it.each(['reporter', 'lead', 'clinical'] as const)('refuses the role %s', async (role) => {
+    expect((await get(`?case=${CASE_REF}`, role)).status).toBe(403);
+  });
+
+  it('answers the bookings of the case as booking states, from the back end search with the session token', async () => {
+    const response = await get(`?case=${CASE_REF}`);
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { bookings: { id: string; status: string }[] };
+    expect(body.bookings.map((b) => b.status)).toEqual(['requested', 'confirmed']);
+    expect(Object.keys(body)).toEqual(['bookings']);
+    expect(seenTaskSearches).toEqual([`?focus=ServiceRequest%2F${CASE_REF}`]);
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+  });
+
+  it('answers an empty list for a case with no booking', async () => {
+    const response = await get('?case=case-none');
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ bookings: [] });
+  });
+
+  it.each(['?case=a/b', '?case=', '?case=x&alert=open', '?case=x&tenant=t', '?other=1', '', '?alert=closed'])(
+    'refuses the query %s before the back end is asked',
+    async (query) => {
+      expect((await get(query)).status).toBe(400);
+      expect(seenTaskSearches).toEqual([]);
+    },
+  );
+});
+
+describe('GET /api/bff/bookings?alert=open (H-496)', () => {
+  beforeEach(() => {
+    seenTaskSearches.length = 0;
+  });
+
+  it('answers the open alerts: the withdrawals and not-reached reports nobody has answered', async () => {
+    const response = await get('?alert=open');
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { bookings: { status: string; caseRef: string }[] };
+    expect(body.bookings).toHaveLength(1);
+    expect(body.bookings[0]).toMatchObject({ status: 'withdrawn', caseRef: CASE_REF });
+    expect(seenTaskSearches).toEqual(['?alert=open']);
+  });
+
+  it('refuses a role that is not the advisor', async () => {
+    expect((await get('?alert=open', 'reporter')).status).toBe(403);
+  });
+
+  it('does not hide a back-end failure as an empty list of alerts', async () => {
+    server.use(http.get(`${BACKEND}/Task`, () => HttpResponse.json({ resourceType: 'OperationOutcome', issue: [] }, { status: 500 })));
+    expect((await get('?alert=open')).status).toBeGreaterThanOrEqual(500);
   });
 });

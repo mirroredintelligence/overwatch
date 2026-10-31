@@ -531,8 +531,13 @@ class HandleInboundText:
         parsed = parse_reply(command.text)
         if not any(isinstance(item, BookingConfirm | BookingDecline | Number) for item in parsed):
             return None
+        named = tuple(
+            item.reference
+            for item in parsed
+            if isinstance(item, BookingConfirm | BookingDecline) and item.reference is not None
+        )
         async with self._uow_factory() as uow:
-            read = await self._read_bookings(uow, command, now)
+            read = await self._read_bookings(uow, command, now, named)
         if isinstance(read, HandleInboundTextResult):
             return read
         plan = plan_booking_text(
@@ -547,10 +552,16 @@ class HandleInboundText:
         return await self._act_on_booking(command, read, plan, now)
 
     async def _read_bookings(
-        self, uow: UnitOfWork, command: HandleInboundTextCommand, now: datetime
+        self,
+        uow: UnitOfWork,
+        command: HandleInboundTextCommand,
+        now: datetime,
+        named: Sequence[str] = (),
     ) -> _BookingRead | HandleInboundTextResult:
         """The phone's reporter services and their bookings. An unknown phone, or one with no
-        reporter role, is dropped with no reply (as for a capacity text)."""
+        reporter role, is dropped with no reply (as for a capacity text). A booking the text names
+        by its reference is read too when it is one of these services' own, so an old expired
+        request is told it expired even when the service has a newer booking (KI-453)."""
         practitioner = await uow.people.find_by_phone_hash(command.from_phone_hash)
         if practitioner is None:
             return HandleInboundTextResult(DROPPED, ())
@@ -568,7 +579,15 @@ class HandleInboundText:
             for service_id in service_ids
             for booking in open_by_service[service_id]
         )
-        latest = tuple(await uow.bookings.latest_for_services(service_ids))
+        latest = list(await uow.bookings.latest_for_services(service_ids))
+        for reference in dict.fromkeys(named):
+            found = await uow.bookings.get_by_reference(reference)
+            if (
+                found is not None
+                and found.service_id in role_ids
+                and all(found.id != seen.id for seen in latest)
+            ):
+                latest.append(found)
         actor = Actor(
             role=Role.REPORTER,
             practitioner_id=practitioner.id,
@@ -577,7 +596,7 @@ class HandleInboundText:
             service_ids=frozenset(service_ids),
             tenant_id=current_tenant(),
         )
-        return _BookingRead(actor, service_ids, role_ids, open_refs, latest)
+        return _BookingRead(actor, service_ids, role_ids, open_refs, tuple(latest))
 
     async def _act_on_booking(
         self,

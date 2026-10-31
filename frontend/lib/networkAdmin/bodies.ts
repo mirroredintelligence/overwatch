@@ -1,0 +1,54 @@
+import { invalidRequest } from '@/lib/lead/bffInput';
+import { ORGANISATION_CODE } from './ids';
+import { LISTING_REASONS, type ListingReason } from './views';
+
+// What the browser may send to the network administration routes, checked field by field before any
+// call (TEN-080). An unknown field is refused, so nothing the screens do not send reaches the back end;
+// a reason is a code, never free text; the agreement's reference and version are all that is stored of it
+// (never its content). The organisation code is the one way to name an organisation to invite, and the
+// back end's field for it is the tenant's own id: that name never comes from the browser.
+
+type Body = Record<string, unknown>;
+
+function only(body: unknown, allowed: readonly string[]): Body {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) throw invalidRequest();
+  for (const key of Object.keys(body)) if (!allowed.includes(key)) throw invalidRequest();
+  return body as Body;
+}
+
+/** A request that carries no body, or an empty one: an action that takes nothing. */
+export async function emptyBody(request: Request): Promise<void> {
+  const text = await request.text();
+  if (text.trim() === '') return;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw invalidRequest();
+  }
+  only(parsed, []);
+}
+
+export function inviteBody(body: unknown): { tenant_id: string } {
+  const b = only(body, ['organisationCode']);
+  const code = b.organisationCode;
+  if (typeof code !== 'string' || !ORGANISATION_CODE.test(code)) throw invalidRequest();
+  return { tenant_id: code };
+}
+
+const AGREEMENT_REFERENCE = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,63}$/;
+
+export function agreementBody(body: unknown): { reference: string; version: number } {
+  const b = only(body, ['reference', 'version']);
+  const { reference, version } = b;
+  if (typeof reference !== 'string' || !AGREEMENT_REFERENCE.test(reference)) throw invalidRequest();
+  if (typeof version !== 'number' || !Number.isInteger(version) || version < 1 || version > 100000) throw invalidRequest();
+  return { reference, version };
+}
+
+export function reasonBody(body: unknown): { reason: ListingReason } {
+  const b = only(body, ['reason']);
+  const { reason } = b;
+  if (typeof reason !== 'string' || !(LISTING_REASONS as readonly string[]).includes(reason)) throw invalidRequest();
+  return { reason: reason as ListingReason };
+}

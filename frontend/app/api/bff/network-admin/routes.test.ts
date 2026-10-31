@@ -197,7 +197,7 @@ describe('which network: the registry decides, never the browser', () => {
       { id: 'net-sample', name: 'Sample Network' },
       { id: 'net-second', name: 'Second Network' },
     ]);
-    expect(backend()).toEqual(['GET /network-admin/networks']);
+    expect(backend()).toEqual([]); // the overridden list is the only call; no network route was called
   });
 
   it('with more than one network and none named, a route that needs one is a 400; naming an owned one works; naming a member-only one is a 404', async () => {
@@ -275,7 +275,7 @@ describe('the overview', () => {
     server.use(http.get(`${ADMIN_ROOT}/network-admin/networks`, () => HttpResponse.json({ networks: [{ ...OWNER_NETWORKS.networks[0], is_owner: false }] })));
     const response = await call('overview');
     expect(response.status).toBe(404);
-    expect(backend()).toEqual(['GET /network-admin/networks']);
+    expect(backend()).toEqual([]); // the overridden list is the only call; no network route was called
   });
 });
 
@@ -430,8 +430,8 @@ describe('listings', () => {
   });
 
   it.each([
-    ['admit', 'admit', undefined],
-    ['reinstate', 'reinstate', undefined],
+    ['admit', 'admit'],
+    ['reinstate', 'reinstate'],
   ] as const)('%s sends no body of its own', async (name, action) => {
     const response = await call(name);
     expect(await response.json()).toEqual({ status: 'done' });

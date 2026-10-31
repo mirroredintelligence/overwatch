@@ -88,6 +88,18 @@ const TAKES_NETWORK_ID = [
   'app/api/bff/network/phones/route.ts',
   'app/api/bff/network/system-now/route.ts',
   'app/api/bff/network/week/route.ts',
+  // The network administrator's routes (TEN-080): the owner chooses among the networks it owns. Each asks
+  // the registry first, and the grant routes (`grants/[id]/...`) take no network at all.
+  'app/api/bff/network-admin/agreement/route.ts',
+  'app/api/bff/network-admin/grants/route.ts',
+  'app/api/bff/network-admin/listings/[id]/admit/route.ts',
+  'app/api/bff/network-admin/listings/[id]/decline/route.ts',
+  'app/api/bff/network-admin/listings/[id]/reinstate/route.ts',
+  'app/api/bff/network-admin/listings/[id]/suspend/route.ts',
+  'app/api/bff/network-admin/listings/route.ts',
+  'app/api/bff/network-admin/members/[id]/remove/route.ts',
+  'app/api/bff/network-admin/members/route.ts',
+  'app/api/bff/network-admin/route.ts',
 ];
 
 function textOf(file: string): string {
@@ -166,7 +178,7 @@ describe('the routes on disk', () => {
     expect(idRoutes.sort()).toEqual([...ID_ROUTES_NOT_YET_SCOPED].sort());
   });
 
-  it('say allowNetworkId on exactly the network read routes, and nowhere else (TEN-068)', () => {
+  it('say allowNetworkId on exactly the network read routes and the network administrator’s routes that need a network, and nowhere else (TEN-068, TEN-080)', () => {
     const says = files.filter((f) => /\ballowNetworkId:\s*true/.test(textOf(f)));
     expect(says.sort()).toEqual([...TAKES_NETWORK_ID].sort());
   });

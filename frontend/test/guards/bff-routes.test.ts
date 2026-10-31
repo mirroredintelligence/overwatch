@@ -1,12 +1,14 @@
 // @vitest-environment node
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ROLES, type Role } from '@/lib/auth/session';
 import { LINK_CSRF_COOKIE, renewCsrfFor } from '@/lib/links/csrf';
 import { BACKEND_ROOT, csrfFor, LINK, TENANT_HOST } from '@/test/fixtures/links';
 import { cookieWrites, requestWithCookies, resetCookieWrites, TEST_SESSION_SECRET } from '@/test/cookies';
 import { resetLinkRequests } from '@/test/msw/handlers/links';
+import { server } from '@/test/msw/server';
 import { OPERATOR_ROLES, type OperatorRole } from '@/lib/operator/session';
 import { OPERATOR_HOST, requestAsOperator } from '@/test/operator';
 import { requestAs } from '@/test/requests';
@@ -546,4 +548,135 @@ describe.each(WRITES_TAKE_JSON_ONLY)('%s (pre-session write, JSON only)', (file)
 it('has at least one pre-session write of each kind (the generated checks are not vacuous)', () => {
   expect(WRITES_NEED_PHONE_CSRF.length).toBeGreaterThan(0);
   expect(WRITES_TAKE_JSON_ONLY.length).toBeGreaterThan(0);
+});
+
+// ----------------------------------------------------------------------------------------------
+// The Twilio webhook forward (DEC-1302). These routes are NOT under /api/bff: Twilio calls them by their
+// public path, so they are a kind of their own, and the table below says which kind each file is, so a
+// route cannot appear under /webhooks without being named here.
+//
+//   webhook  a provider's server-to-server call (a public pre-session door). It has no session, no cookie,
+//            no CSRF token, no tenant and no bearer: the X-Twilio-Signature is the authentication and the
+//            BACK END checks it (over the public URL, with the auth token of the subaccount the number
+//            called belongs to), and finds the tenant from that number, never from the host. CSRF protects a
+//            browser's cookie from a page that did not ask; there is no browser and no cookie here, so
+//            there is nothing for a token to protect and the check does not apply. The forward is exempt
+//            from the BFF session and tenant-isolation checks above for that reason, and has its own below.
+//   closed   a path under /webhooks that is not one of the two: every method answers the same empty 404.
+
+type WebhookKind = 'webhook' | 'closed';
+
+const WEBHOOK_ROUTES: Record<string, WebhookKind> = {
+  'app/webhooks/sms/twilio/route.ts': 'webhook',
+  'app/webhooks/sms/twilio/status/route.ts': 'webhook',
+  'app/webhooks/[[...rest]]/route.ts': 'closed',
+};
+
+const webhookModules = import.meta.glob<Record<string, unknown>>('../../app/webhooks/**/route.ts');
+const webhookFiles = Object.keys(webhookModules).map((key) => key.replace('../../', '')).sort();
+const WEBHOOK_ONLY_FILES = webhookFiles.filter((f) => WEBHOOK_ROUTES[f] === 'webhook');
+
+describe('the webhook routes on disk', () => {
+  it('are each named in the table, and the table names none that is not there', () => {
+    expect(webhookFiles.filter((f) => !(f in WEBHOOK_ROUTES))).toEqual([]);
+    expect(Object.keys(WEBHOOK_ROUTES).filter((f) => !webhookFiles.includes(f))).toEqual([]);
+  });
+
+  it('are exactly two forwards, on the back end’s two paths, and one closed catch-all', () => {
+    expect(WEBHOOK_ONLY_FILES).toEqual(['app/webhooks/sms/twilio/route.ts', 'app/webhooks/sms/twilio/status/route.ts']);
+    expect(webhookFiles.filter((f) => WEBHOOK_ROUTES[f] === 'closed')).toEqual(['app/webhooks/[[...rest]]/route.ts']);
+  });
+
+  it('are the only routes outside /api/bff: nothing else is public by path', () => {
+    const all = Object.keys(import.meta.glob('../../app/**/route.ts')).map((key) => key.replace('../../', ''));
+    expect(all.filter((f) => !f.startsWith('app/api/bff/') && !f.startsWith('app/webhooks/'))).toEqual([]);
+    expect(files.filter((f) => f.startsWith('app/webhooks/'))).toEqual([]);
+  });
+
+  it('use no session, cookie, CSRF, tenant wrapper or request header of their own: the shared forward does the work', () => {
+    for (const file of webhookFiles) {
+      const text = textOf(file).replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '');
+      expect(text, file).not.toMatch(/\b(withBff|withOperatorBff|sessionFromRequest|getSession|preSession|csrf|cookies|headers)\b|next\/headers|next\/server/i);
+    }
+    for (const file of WEBHOOK_ONLY_FILES) expect(textOf(file), file).toMatch(/from '@\/lib\/webhooks\/forward'/);
+  });
+
+  it('export the seven methods and the dynamic setting only, each a function, and never a cache or revalidate directive', async () => {
+    for (const file of webhookFiles) {
+      const mod = await webhookModules[`../../${file}`]!();
+      expect(Object.keys(mod).sort(), file).toEqual([...VERBS, 'dynamic'].sort());
+      expect(mod.dynamic, file).toBe('force-dynamic');
+      for (const verb of VERBS) expect(typeof mod[verb], `${file} ${verb}`).toBe('function');
+    }
+  });
+});
+
+describe.each(WEBHOOK_ONLY_FILES)('%s (webhook)', (file) => {
+  const path = `/${file.replace(/^app\//, '').replace(/\/route\.ts$/, '')}`;
+  const handlerOf = async () => (await webhookModules[`../../${file}`]!()).POST as Handler;
+  const seen: Request[] = [];
+
+  beforeEach(() => {
+    seen.length = 0;
+    server.use(
+      http.post(`${BACKEND_ROOT}${path}`, ({ request }) => {
+        seen.push(request.clone());
+        return new HttpResponse('<?xml version="1.0" encoding="UTF-8"?><Response/>', { status: 200, headers: { 'Content-Type': 'text/xml' } });
+      }),
+    );
+  });
+
+  const form = { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Twilio-Signature': 'SampleSignature=' };
+
+  it('answers a call with no session, no cookie and no CSRF token by forwarding it: never a 401, a 403 or a redirect of its own', async () => {
+    const handler = await handlerOf();
+    const response = await handler(new Request(`https://${A.host}${path}`, { method: 'POST', headers: form, body: 'From=%2B447700900123' }), undefined);
+    expect(response.status).toBe(200);
+    expect(response.headers.get('location')).toBeNull();
+    expect(seen).toHaveLength(1);
+  });
+
+  it('is not changed by a staff session, an operator session or a tenant’s host: the back end sees none of them', async () => {
+    const handler = await handlerOf();
+    const staff = await requestAs(A, 'lead', { method: 'POST', path, headers: form, body: 'From=%2B447700900123', csrf: true });
+    const operator = await requestAsOperator('platform-operator', { method: 'POST', path, host: B.host, headers: { ...form, 'X-Tenant-Id': B.id }, body: 'From=%2B447700900123', csrf: true });
+    for (const request of [staff, operator]) {
+      const response = await handler(request, undefined);
+      expect(response.status).toBe(200);
+    }
+    expect(seen).toHaveLength(2);
+    for (const upstream of seen) {
+      for (const name of ['cookie', 'authorization', 'x-csrf-token', 'x-tenant-id', 'x-forwarded-host', 'x-forwarded-for', 'x-edge-auth']) {
+        expect(upstream.headers.get(name), name).toBeNull();
+      }
+      expect(new URL(upstream.url).host).toBe('backend.test');
+    }
+  });
+
+  it('takes no tenant from the request: a tenant, scope or network in the query string is dropped, not forwarded and not refused', async () => {
+    const handler = await handlerOf();
+    const response = await handler(new Request(`https://${A.host}${path}?tenant=${B.id}&scope=network&networkId=net-sample`, { method: 'POST', headers: form, body: 'x=1' }), undefined);
+    expect(response.status).toBe(200);
+    expect(new URL(seen[0]!.url).search).toBe('');
+  });
+
+  it('says no-store on every answer, whatever the back end said', async () => {
+    const handler = await handlerOf();
+    privateNoStore(await handler(new Request(`https://${A.host}${path}`, { method: 'POST', headers: form, body: 'x=1' }), undefined));
+    server.use(http.post(`${BACKEND_ROOT}${path}`, () => new HttpResponse('Forbidden', { status: 403, headers: { 'Cache-Control': 'public, max-age=60' } })));
+    privateNoStore(await handler(new Request(`https://${A.host}${path}`, { method: 'POST', headers: form, body: 'x=1' }), undefined));
+  });
+});
+
+describe.each(webhookFiles)('%s (every method that is not the forward)', (file) => {
+  it('answers an empty 404 to every method but POST of a forward, and to every method of the closed path', async () => {
+    const mod = await webhookModules[`../../${file}`]!();
+    for (const verb of VERBS) {
+      if (WEBHOOK_ROUTES[file] === 'webhook' && verb === 'POST') continue;
+      const response = await (mod[verb] as Handler)(new Request(`https://${A.host}/webhooks/x`, { method: verb }), undefined);
+      expect(response.status, verb).toBe(404);
+      expect(await response.text(), verb).toBe('');
+      expect(response.headers.get('content-type'), verb).toBeNull();
+    }
+  });
 });

@@ -94,6 +94,50 @@ describe('no session', () => {
   });
 });
 
+describe('the Twilio webhooks (DEC-1302): public, before any session', () => {
+  const PATHS = ['/webhooks/sms/twilio', '/webhooks/sms/twilio/status'];
+
+  async function post(path: string, init: { cookie?: string; headers?: Record<string, string> } = {}) {
+    const headers = new Headers({ 'content-type': 'application/x-www-form-urlencoded', 'x-twilio-signature': 'SampleSignature=', ...init.headers });
+    if (init.cookie) headers.set('cookie', init.cookie);
+    return new NextRequest(`${BASE}${path}`, { method: 'POST', headers, body: 'From=%2B447700900123' });
+  }
+
+  it.each(PATHS)('lets POST %s through with no session: no redirect to sign-in, no rewrite to the forbidden page', async (path) => {
+    const response = await proxy(await post(path));
+    expect(passes(response)).toBe(true);
+    expect(redirectedTo(response)).toBeNull();
+    expect(rewrittenTo(response)).toBeNull();
+    expect(response.status).toBe(200);
+  });
+
+  it.each(PATHS)('lets POST %s through when the browser holds a bad, expired or foreign session, or an operator’s', async (path) => {
+    for (const cookie of [`${SESSION_COOKIE}=garbage`, `${OPERATOR_COOKIE}=garbage`, `${SESSION_COOKIE}=`]) {
+      const response = await proxy(await post(path, { cookie }));
+      expect(passes(response), cookie).toBe(true);
+      expect(redirectedTo(response), cookie).toBeNull();
+    }
+  });
+
+  it('does not need the session secret to let them through', async () => {
+    vi.stubEnv('SESSION_SECRET', '');
+    for (const path of PATHS) expect(passes(await proxy(await post(path)))).toBe(true);
+  });
+
+  it('lets every path under /webhooks through too, for its own route to answer 404: the proxy guards no path of it', async () => {
+    for (const path of ['/webhooks', '/webhooks/', '/webhooks/sms/other', '/webhooks/sms/twilio/extra', '/webhooks/x/y/z']) {
+      const response = await proxy(await post(path));
+      expect(passes(response), path).toBe(true);
+      expect(redirectedTo(response), path).toBeNull();
+    }
+  });
+
+  it('is matched by the proxy’s matcher, so the policy and security headers are on the answer too', () => {
+    const patterns = config.matcher.map((m) => new RegExp(`^${m}$`));
+    for (const path of ['/webhooks/sms/twilio', '/webhooks/sms/twilio/status']) expect(patterns.some((p) => p.test(path)), path).toBe(true);
+  });
+});
+
 describe('a session that is not good', () => {
   it('sends an expired session to sign-in', async () => {
     const past = new Date(Date.now() - 9 * 3_600_000);

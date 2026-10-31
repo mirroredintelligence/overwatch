@@ -129,6 +129,48 @@ describe('inspectUpstream: what is a leak', () => {
     });
   });
 
+  describe('the Twilio webhook forward (DEC-1302): two fixed paths, no token, no session, no tenant, the back end’s own host', () => {
+    const PATHS = ['/webhooks/sms/twilio', '/webhooks/sms/twilio/status'];
+    const form = { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Twilio-Signature': 'SampleSignature=' };
+
+    it.each(PATHS)('is nothing for POST %s with only the type and the signature, and no bearer', (path) => {
+      expect(inspectUpstream(upstream(path, { method: 'POST', headers: form }), new Set([A.id]))).toEqual([]);
+      expect(inspectUpstream(upstream(path, { method: 'POST', headers: { ...form, Host: 'backend.test' } }), new Set())).toEqual([]);
+    });
+
+    it.each(PATHS)('is a leak when POST %s carries a bearer, a cookie or a forwarding or edge header', (path) => {
+      for (const headers of [
+        { Authorization: 'Bearer sample' },
+        { Cookie: 'a=b' },
+        { 'X-Forwarded-For': '203.0.113.9' },
+        { 'X-Forwarded-Host': 'overwatch.mirroredintelligence.com' },
+        { 'X-Edge-Auth': 'sample' },
+        { 'CF-Connecting-IP': '203.0.113.9' },
+        { Forwarded: 'for=203.0.113.9' },
+      ]) {
+        expect(rules(inspectUpstream(upstream(path, { method: 'POST', headers: { ...form, ...headers } }), new Set([A.id]))), JSON.stringify(headers)).toEqual(['webhook-header']);
+      }
+    });
+
+    it('is a leak when the call overrides the host with the public one (the signature is over the URL, not the host)', () => {
+      const leaks = inspectUpstream(upstream('/webhooks/sms/twilio', { method: 'POST', headers: { ...form, Host: 'overwatch.mirroredintelligence.com' } }), new Set());
+      expect(rules(leaks)).toEqual(['webhook-host']);
+    });
+
+    it('is a leak when the call has a query string or names a tenant', () => {
+      expect(rules(inspectUpstream(upstream('/webhooks/sms/twilio?tenant=b', { method: 'POST', headers: form }), new Set()))).toEqual(['tenant-query', 'webhook-query']);
+      expect(rules(inspectUpstream(upstream('/webhooks/sms/twilio?x=1', { method: 'POST', headers: form }), new Set()))).toEqual(['webhook-query']);
+      expect(rules(inspectUpstream(upstream('/webhooks/sms/twilio', { method: 'POST', headers: { ...form, 'X-Tenant-Id': B.id } }), new Set()))).toEqual(['tenant-header']);
+    });
+
+    it('is a leak when the call is not a POST to one of the two paths: any other method or any other path under /webhooks', () => {
+      expect(rules(inspectUpstream(upstream('/webhooks/sms/twilio', { method: 'GET' }), new Set()))).toEqual(['webhook-path']);
+      for (const path of ['/webhooks', '/webhooks/sms/other', '/webhooks/sms/twilio/extra', '/webhooks/sms/twilio/status/x', '/webhooks/email/twilio']) {
+        expect(rules(inspectUpstream(upstream(path, { method: 'POST', headers: form }), new Set())), path).toEqual(['webhook-path']);
+      }
+    });
+  });
+
   it('is a leak when a call to the FHIR API has no token', () => {
     expect(rules(inspectUpstream(upstream('/fhir/HealthcareService/s1'), new Set([A.id])))).toEqual(['no-token']);
   });

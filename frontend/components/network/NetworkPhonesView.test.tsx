@@ -16,9 +16,9 @@ describe('NetworkPhonesView', () => {
   it('shows the scope header, the count and a row for each service with its organisation, category and status', async () => {
     server.use(...networkBffHandlers);
     view();
-    expect(await screen.findByRole('heading', { level: 1, name: 'Sample Network phones' })).toBeInTheDocument();
+    expect(await screen.findByText('3 services from 3 organisations')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Sample Network phones' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Which board you are viewing' })).toHaveTextContent('Showing: Network, Sample Network');
-    expect(screen.getByText('3 services from 3 organisations')).toBeInTheDocument();
     const rows = screen.getAllByRole('row').slice(1);
     expect(rows).toHaveLength(3);
     expect(within(rows[0]!).getByText('UCR West')).toBeInTheDocument();

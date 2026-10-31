@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { OwnScopeHeader } from '@/components/scope/OwnScopeHeader';
 import { LeadPhonedDialog } from './LeadPhonedDialog';
 import { REFRESH_EVENTS } from '@/lib/board/useBoardFeed';
 import { dateTimeLine, servicesWord } from '@/lib/lead/format';
@@ -84,6 +85,9 @@ export function LeadOverview() {
           {dateTimeLine(now)}
         </time>
       </header>
+
+      {/* Which board this is (TEN-069), with the way to the network's System now when there is one (W17). */}
+      <OwnScopeHeader ownHref="/lead" networkHref="/network/system-now" />
 
       <nav aria-label="Shift lead pages" className={styles.actions}>
         <a href="/lead/screens">Wall screens</a>

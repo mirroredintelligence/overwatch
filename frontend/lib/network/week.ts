@@ -28,3 +28,13 @@ export function weekStartQuery(request: Request): string {
   }
   return `?weekStart=${value}`;
 }
+
+/** The Monday `weeks` weeks from a Monday (negative for earlier). */
+export function addWeeks(monday: string, weeks: number): string {
+  return new Date(Date.parse(`${monday}T00:00:00Z`) + weeks * 7 * DAY_MS).toISOString().slice(0, 10);
+}
+
+/** The date `days` days from a date `YYYY-MM-DD` (negative for earlier). */
+export function addDays(day: string, days: number): string {
+  return new Date(Date.parse(`${day}T00:00:00Z`) + days * DAY_MS).toISOString().slice(0, 10);
+}

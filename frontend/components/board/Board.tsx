@@ -1,6 +1,8 @@
 import { londonDate, londonTime } from '@/lib/board/format';
 import type { Board as BoardData } from '@/lib/board/types';
+import { OwnScopeHeader } from '@/components/scope/OwnScopeHeader';
 import { ScopeHeader } from '@/components/scope/ScopeHeader';
+import type { ScopeLinks } from '@/components/scope/ScopeSwitch';
 import styles from './Board.module.css';
 import { Legend } from './Legend';
 import { LastKnownBanner, type LastKnown } from './LastKnownBanner';
@@ -24,8 +26,14 @@ export function Board({
   streamPaused = false,
   subtitle = null,
   heading = null,
+  ownSwitch,
 }: {
   board: BoardData;
+  /**
+   * Set where a person (not a wall) reads the board: the header then offers the switch to the network board
+   * when the viewer's organisation is in a network. A wall has no switch: its administrator sets its board.
+   */
+  ownSwitch?: ScopeLinks;
   /** The tenant's own heading (its organisation and its word for its system, TEN-069), or none. */
   heading?: string | null;
   /** The tenant's own line under the heading (its coordination team name, TEN-049), or none. */
@@ -57,7 +65,7 @@ export function Board({
 
       {/* Which board this is, in words, on the screen itself: a wall has no address bar (TEN-069). It stays
           in every state, last known included. The network variant says the network's name instead (TEN-072). */}
-      <ScopeHeader scope="own" variant="wall" />
+      {ownSwitch === undefined ? <ScopeHeader scope="own" variant="wall" /> : <OwnScopeHeader {...ownSwitch} />}
 
       {lastKnown ? (
         <LastKnownBanner lastKnown={lastKnown} />

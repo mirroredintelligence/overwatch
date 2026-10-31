@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { WeekSummary } from '@/components/exec/WeekSummary';
+import { OwnScopeHeader } from '@/components/scope/OwnScopeHeader';
 import { Banner } from '@/components/ui/Banner';
 import { getSession } from '@/lib/auth/session';
 import { type AlertPreferences } from '@/lib/exec/alertPrefs';
@@ -38,6 +39,8 @@ export default async function ExecWeekPage() {
   }
   return (
     <main>
+      {/* Which board this is (TEN-069), with the way to the network's week when there is one (TEN-082). */}
+      <OwnScopeHeader ownHref="/planning/week" networkHref="/network/week" />
       <WeekSummary summary={summary} prefs={prefs} />
     </main>
   );

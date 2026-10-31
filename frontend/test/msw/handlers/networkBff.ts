@@ -63,3 +63,10 @@ export const networkBffHandlers = [
 
 /** The directory read with `history=true`, for the history page's tests. */
 export const historyDirectory = parseDirectory(DIRECTORY_HISTORY_BODY, 'backend');
+
+/**
+ * The default for every test that renders an own page with the scope header (TEN-069): the organisation is in
+ * no network, so the header says "Showing: Our organisation" and offers no switch. A test of the switch uses
+ * `networkBffHandlers`.
+ */
+export const ownScopeHandlers = [http.get('/api/bff/network', () => HttpResponse.json({ ownOrganisation: null, networks: [] }, { headers: NO_STORE }))];

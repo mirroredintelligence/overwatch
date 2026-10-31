@@ -21,8 +21,8 @@ describe('NetworkSystemNowView', () => {
     server.use(...networkBffHandlers);
     view();
     expect(await screen.findByRole('heading', { level: 1, name: 'Sample Network system now' })).toBeInTheDocument();
+    const counts = await screen.findByRole('group', { name: 'Services by status' });
     expect(screen.getByRole('region', { name: 'Which board you are viewing' })).toHaveTextContent('Showing: Network, Sample Network');
-    const counts = screen.getByRole('group', { name: 'Services by status' });
     for (const [word, n] of [['Accepting', '1'], ['Limited', '1'], ['Not accepting', '0'], ['Over capacity', '0'], ['Not updated', '1'], ['Out of hours', '0'], ['Not available on the network', '1']]) {
       const term = within(counts).getByText(word);
       expect(term.parentElement).toHaveTextContent(n as string);

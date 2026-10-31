@@ -34,7 +34,7 @@ function builtNow(): FetchedNetworkBoard {
 function mount(over: Partial<NetworkFeedOptions> = {}, networkId = 'net-sample') {
   const fetchBoard = vi.fn<(id: string, signal: AbortSignal) => Promise<FetchedNetworkBoard>>(async () => builtNow());
   const streams: FakeStream[] = [];
-  const createEventSource = vi.fn((_id: string) => {
+  const createEventSource = vi.fn<(id: string) => FakeStream>(() => {
     const stream = new FakeStream();
     streams.push(stream);
     return stream;

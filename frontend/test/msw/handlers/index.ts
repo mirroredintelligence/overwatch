@@ -5,6 +5,7 @@ import { boardHandlers } from './board';
 import { criteriaHandlers } from './criteria';
 import { leadHandlers } from './lead';
 import { linkHandlers } from './links';
+import { ownScopeHandlers } from './networkBff';
 import { profileHandlers } from './profile';
 import { registrationHandlers as reviewerRegistrationHandlers, registrationStepHandlers } from './registrations';
 import { reporterHandlers } from './reporter';
@@ -28,4 +29,5 @@ export const handlers: RequestHandler[] = [
   ...reporterHandlers,
   ...profileHandlers,
   ...tenantDataHandlers,
+  ...ownScopeHandlers,
 ];

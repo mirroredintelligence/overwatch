@@ -100,3 +100,14 @@
   font-size: var(--type-title-size);
   font-weight: var(--type-title-weight);
 }
+
+.week {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}

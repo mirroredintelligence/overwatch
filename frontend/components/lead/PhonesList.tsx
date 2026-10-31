@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { OwnScopeHeader } from '@/components/scope/OwnScopeHeader';
 import { Button } from '@/components/ui/Button';
 import { leadRead } from '@/lib/lead/browser';
 import { listOf, textOf } from '@/lib/lead/answers';
@@ -59,6 +60,8 @@ export function PhonesList() {
   return (
     <main className={styles.page}>
       <h1 className={styles.title}>Phones and services</h1>
+      {/* Which board this is (TEN-069), with the way to the network's phones when there is one (W43). */}
+      <OwnScopeHeader ownHref="/lead/phones" networkHref="/network/phones" />
 
       {failed ? (
         <p role="alert" className={styles.fieldError}>

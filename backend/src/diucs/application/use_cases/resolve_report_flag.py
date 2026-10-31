@@ -6,9 +6,9 @@ action), accepted (the figure stands) or phoned (the lead phoned the service; th
 told is recorded as a new advisor-phoned report). A resolved flag keeps its outcome, the lead who
 resolved it and the time, and it is never resolved twice. The capacity report is never edited.
 
-Decisions: DEC-246. RecordAdvisorPhoned (U13) is not built yet, so a phoned
-outcome records its figure through ReportCapacity with source advisor-phoned, which is the path
-U13 will also take.
+Decisions: DEC-246. A phoned outcome records its figure through RecordAdvisorPhoned (U13), the same
+use case an advisor's call takes, so the audit entry says what the service told and which flag the
+call resolved (KI-287).
 """
 
 import math
@@ -21,7 +21,12 @@ from diucs.application.actor import Actor
 from diucs.application.ports.outbound.audit import AuditEntry
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.report_capacity import ReportCapacity, ReportCapacityCommand
+from diucs.application.use_cases.advisor_phoned import (
+    ACCEPTING,
+    NOT_ACCEPTING,
+    RecordAdvisorPhoned,
+    RecordAdvisorPhonedCommand,
+)
 from diucs.application.use_cases.report_flags import LOOKBACK
 from diucs.domain.codes import ReportFlagReason, ReportSource, ReportType, Role
 from diucs.domain.errors import Conflict, InvalidTransition, NotAllowed, NotFound, ValidationFailed
@@ -148,6 +153,8 @@ def _many_changes(
 def _differs_from_phoned(
     service_name: str, report: CapacityReport, window: Sequence[CapacityReport]
 ) -> str:
+    if report.source is ReportSource.ADVISOR_PHONED:
+        return _phoned_against_text(service_name, report, window)
     told = [
         r
         for r in window
@@ -158,6 +165,27 @@ def _differs_from_phoned(
         return f"{given}, which differs from the figure the advisor phoned."
     phoned = max(told, key=lambda r: r.effective_at)
     return f"{given}, but the advisor phoned {phoned.value} at {format_hhmm(phoned.effective_at)}."
+
+
+def _phoned_against_text(
+    service_name: str, report: CapacityReport, window: Sequence[CapacityReport]
+) -> str:
+    """The pair for a phoned figure that contradicts the service's last report (Q10): both figures
+    with their London times."""
+    spoken = [
+        r
+        for r in window
+        if r.source in (ReportSource.TEXT, ReportSource.APP, ReportSource.LINK, ReportSource.EMAIL)
+        and r.effective_at <= report.effective_at
+    ]
+    phoned = (
+        f"{service_name}: the advisor phoned {report.value} at {format_hhmm(report.effective_at)}"
+    )
+    if not spoken:
+        return f"{phoned}, which differs from what the service reported."
+    last = max(spoken, key=lambda r: r.effective_at)
+    word = _SOURCE_WORDS[last.source]
+    return f"{phoned}, but the last {word} said {last.value} at {format_hhmm(last.effective_at)}."
 
 
 def describe_flag(
@@ -272,18 +300,18 @@ class ListReportFlags:
 
 class ResolveReportFlag:
     """Resolve one open flag. A phoned outcome first records the figure as an advisor-phoned report
-    through ReportCapacity, in its own unit of work with a key derived from the command's, so a
+    through RecordAdvisorPhoned, in its own unit of work with a key derived from the command's, so a
     retry replays it; then the flag is resolved in a unit of work of its own, under the service's
     lock. The report is never edited."""
 
     def __init__(
         self,
         uow_factory: UnitOfWorkFactory,
-        report_capacity: ReportCapacity,
+        record_phoned: RecordAdvisorPhoned,
         clock: Clock,
     ) -> None:
         self._uow_factory = uow_factory
-        self._report_capacity = report_capacity
+        self._record_phoned = record_phoned
         self._clock = clock
 
     async def execute(self, command: ResolveReportFlagCommand) -> ResolveReportFlagResult:
@@ -300,14 +328,15 @@ class ResolveReportFlag:
 
         phoned_report_id: str | None = None
         if command.outcome == "phoned":
-            recorded = await self._report_capacity.execute(
-                ReportCapacityCommand(
+            figure = command.phoned_value or 0
+            recorded = await self._record_phoned.execute(
+                RecordAdvisorPhonedCommand(
                     idempotency_key=f"resolve-flag:{scope}:{command.idempotency_key}:phoned",
                     actor=command.actor,
                     service_id=seen.service_id,
-                    value=command.phoned_value or 0,
-                    source=ReportSource.ADVISOR_PHONED,
-                    send_echo=False,
+                    told=NOT_ACCEPTING if figure == 0 else ACCEPTING,
+                    value=None if figure == 0 else figure,
+                    flag_id=seen.id,
                 )
             )
             phoned_report_id = recorded.report_id

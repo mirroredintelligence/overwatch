@@ -65,6 +65,7 @@ from diucs.application.ports.outbound.tokens import SecretStore
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.tenant_settings import DirectoryZones
 from diucs.application.uow_idempotency import UnitOfWorkIdempotency
+from diucs.application.use_cases.advisor_phoned import RecordAdvisorPhoned
 from diucs.application.use_cases.audit_replay import (
     ExportAuditReplay,
     GetAuditReplay,
@@ -461,12 +462,15 @@ async def resolve_report_flag(
     async def run() -> Response:
         result = await ResolveReportFlag(
             container.uow_factory,
-            ReportCapacity(
+            RecordAdvisorPhoned(
+                ReportCapacity(
+                    container.uow_factory,
+                    container.clock,
+                    container.ids,
+                    UnitOfWorkIdempotency(container.uow_factory),
+                    zones=DirectoryZones(container.tenants),
+                ),
                 container.uow_factory,
-                container.clock,
-                container.ids,
-                UnitOfWorkIdempotency(container.uow_factory),
-                zones=DirectoryZones(container.tenants),
             ),
             container.clock,
         ).execute(

@@ -401,3 +401,38 @@ def test_c6_without_a_confirm_limit_is_refused_and_nothing_is_guessed() -> None:
     with pytest.raises(ValidationFailed) as refusal:
         render(MessageId.C6, Channel.TEXT, service="UCR West")
     assert refusal.value.field == "confirm_limit"
+
+
+# The footer of a capacity email: three sentences, in both parts, and the link escaped (KI-173, KI-174)
+
+CAPACITY_EMAILS = (MessageId.C1, MessageId.C2, MessageId.C8)
+FOOTER_SENTENCES = (
+    "The link works once, needs no login, and expires at {reply_by}.",
+    "This email has no patient information.",
+    "Replies to this address are not read.",
+)
+
+
+@pytest.mark.parametrize("message_id", CAPACITY_EMAILS, ids=lambda m: m.value)
+def test_a_capacity_email_ends_with_all_three_footer_sentences_in_both_parts(
+    message_id: MessageId,
+) -> None:
+    fields = SAMPLE_FIELDS[message_id]
+    rendered = render(message_id, Channel.EMAIL, **fields)
+
+    footer = " ".join(sentence.format(reply_by=fields["reply_by"]) for sentence in FOOTER_SENTENCES)
+    assert rendered.html is not None
+    assert rendered.text.endswith(footer)
+    assert f"<p>{footer}</p>" in rendered.html
+
+
+@pytest.mark.parametrize("message_id", CAPACITY_EMAILS, ids=lambda m: m.value)
+def test_the_link_is_written_into_the_html_href_escaped_and_into_the_text_as_it_is(
+    message_id: MessageId,
+) -> None:
+    link = 'diucs.example/k3F9a?a=1&b="2"'
+    rendered = render(message_id, Channel.EMAIL, **{**SAMPLE_FIELDS[message_id], "link": link})
+
+    assert rendered.html is not None
+    assert 'href="diucs.example/k3F9a?a=1&amp;b=&quot;2&quot;"' in rendered.html
+    assert link not in rendered.html

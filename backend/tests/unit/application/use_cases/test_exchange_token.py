@@ -311,7 +311,7 @@ async def test_the_token_is_new_each_time_it_is_asked_for_at_a_new_instant() -> 
     assert second.expires_at == first.expires_at + timedelta(minutes=5)
 
 
-# ----------------------------------------------------------------------- staff: the network administrator
+# --------------------------------------------------------------- staff: network administrator
 # TEN-080, DEC-1260: the owner of a network signs its administrators in through its own directory:
 # a group of the owner tenant's directory is mapped to `network-admin`, and the exchange gives that
 # role only while the HOST's tenant owns an active network. The registry is asked, not the token.
@@ -363,9 +363,7 @@ async def test_a_tenant_that_owns_no_network_gives_the_one_refusal_for_the_role(
 
     with pytest.raises(ExchangeRefused) as refused:
         await exchange(
-            staff_use_case(
-                built, accepting(identity(groups=(G_NETWORK,))), ownership=_Ownership()
-            )
+            staff_use_case(built, accepting(identity(groups=(G_NETWORK,))), ownership=_Ownership())
         )
 
     assert str(refused.value) == EXCHANGE_REFUSED_MESSAGE

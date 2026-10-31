@@ -38,6 +38,7 @@ from diucs.application.use_cases.network_admin import (
     GovernanceRecorder,
     QueryNetworkAdmin,
     RecordAgreement,
+    RegistryNetworkOwnership,
 )
 from diucs.application.use_cases.network_board_projector import NetworkBoardProjector
 from diucs.application.use_cases.network_leave import EndProjections
@@ -102,3 +103,9 @@ def build_network_admin_services(container: Container) -> NetworkAdminServices:
         request_listing=RequestListing(registry, container.uow_factory, recorder, ids, clock),
         decide_listing=DecideListing(registry, recorder, clock),
     )
+
+
+def build_network_ownership(container: Container) -> RegistryNetworkOwnership:
+    """The token exchange's one question about networks: does the host's tenant own an active
+    one (TEN-080, DEC-1260)? Answered from the registry on each sign-in."""
+    return RegistryNetworkOwnership(Neo4jNetworkRegistry(container.neo4j))

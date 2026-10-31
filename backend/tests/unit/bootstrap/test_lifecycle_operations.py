@@ -39,6 +39,7 @@ def test_the_operator_is_required_and_the_command_is_one_of_the_five() -> None:
             parse_args(bad)
     assert set(COMMANDS) == {
         "network-create",
+        "network-admin-group",
         "offboard",
         "export",
         "complete-offboarding",
@@ -113,6 +114,39 @@ async def test_network_create_passes_the_arguments_and_names_no_agreement_conten
         1,
     )
     assert command.actor.tenant_id == TENANT
+
+
+async def test_network_admin_group_runs_as_the_operator_of_the_owner_and_prints_no_group() -> None:
+    group = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+    use_case = _Recorder(SimpleNamespace(created=True))
+    lifecycle = SimpleNamespace(network_admin_group=use_case, container=SimpleNamespace())
+    args = parse_args(["--operator", "op-one", "network-admin-group", TENANT, group])
+
+    lines = await run_command(lifecycle, args)  # type: ignore[arg-type]
+
+    assert lines == ["network administrators: a group is mapped"]
+    assert group not in " ".join(lines)
+    [command] = use_case.commands
+    assert command.group_object_id == group
+    assert command.actor.role is Role.PLATFORM_OPERATOR and command.actor.tenant_id == TENANT
+    assert use_case.scopes[0] is not None and use_case.scopes[0].value == TENANT
+    assert current_scope_or_none() is None
+
+    repeated = SimpleNamespace(
+        network_admin_group=_Recorder(SimpleNamespace(created=False)), container=SimpleNamespace()
+    )
+    assert await run_command(repeated, args) == [  # type: ignore[arg-type]
+        "network administrators: the group already gave the role"
+    ]
+
+
+def test_network_admin_group_needs_the_tenant_and_the_group() -> None:
+    for bad in (
+        ["--operator", "x", "network-admin-group"],
+        ["--operator", "x", "network-admin-group", TENANT],
+    ):
+        with pytest.raises(SystemExit):
+            parse_args(bad)
 
 
 async def test_a_purge_dry_run_prints_counts_by_label_set_and_says_nothing_was_deleted(

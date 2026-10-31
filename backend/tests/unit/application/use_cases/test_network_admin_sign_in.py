@@ -26,7 +26,7 @@ from diucs.application.use_cases.network_admin import (
 )
 from diucs.domain.codes import Role
 from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.model.network import MembershipStatus, NetworkStatus
+from diucs.domain.model.network import MembershipEndReason, MembershipStatus, NetworkStatus
 from diucs.domain.model.tenant_records import MappingStatus, RoleMapping
 from tests.support.network_admin_fakes import MemoryRegistry, person
 from tests.support.network_samples import (
@@ -81,7 +81,11 @@ async def test_an_owner_of_a_suspended_or_closed_network_owns_no_active_one(
 ) -> None:
     registry = registry_with_owner()
     network, settings = registry.networks[NETWORK_ID]
-    registry.networks[NETWORK_ID] = (replace(network, status=status), settings)
+    closed_at = NOW if status is NetworkStatus.CLOSED else None
+    registry.networks[NETWORK_ID] = (
+        replace(network, status=status, closed_at=closed_at),
+        settings,
+    )
 
     assert await owns_active_network(registry, OWNER) is False
 
@@ -89,13 +93,18 @@ async def test_an_owner_of_a_suspended_or_closed_network_owns_no_active_one(
 async def test_an_owner_whose_own_membership_has_ended_owns_none() -> None:
     registry = registry_with_owner()
     (owner,) = registry.members.values()
-    registry.members[owner.id] = replace(owner, status=MembershipStatus.REMOVED)
+    registry.members[owner.id] = replace(
+        owner,
+        status=MembershipStatus.REMOVED,
+        left_at=NOW,
+        end_reason=MembershipEndReason.REMOVED,
+    )
 
     assert await owns_active_network(registry, OWNER) is False
 
 
 async def test_owning_is_by_the_registry_owner_field_not_by_a_membership_row_alone() -> None:
-    # A row that says `owner` in a network another tenant owns (a damaged registry) is not ownership.
+    # A row that says `owner` in a network another tenant owns (a damaged registry) is not one.
     registry = registry_with_owner()
     network, settings = registry.networks[NETWORK_ID]
     registry.networks[NETWORK_ID] = (replace(network, owner_tenant_id=MEMBER_B), settings)
@@ -134,7 +143,7 @@ class _Audit:
 
 
 class _Unit:
-    def __init__(self, world: "_World") -> None:
+    def __init__(self, world: _World) -> None:
         self._world = world
         self.tenant_config = world.configs[
             (current_scope_or_none() or ScopeId.tenant("none-x")).value
@@ -186,9 +195,9 @@ async def run(use_case: MapNetworkAdminGroup, **over: Any) -> Any:
     fields: dict[str, Any] = {"actor": operator(), "group_object_id": GROUP}
     fields.update(over)
     with bind_tenant(over.get("tenant", OWNER)):
-        return await use_case.execute(MapNetworkAdminGroupCommand(**{
-            k: v for k, v in fields.items() if k != "tenant"
-        }))
+        return await use_case.execute(
+            MapNetworkAdminGroupCommand(**{k: v for k, v in fields.items() if k != "tenant"})
+        )
 
 
 async def test_the_operator_maps_a_group_of_the_owners_directory_to_the_role() -> None:
@@ -299,9 +308,7 @@ async def test_a_group_that_already_gives_another_role_is_a_conflict_not_an_over
 
 async def test_another_group_is_left_alone() -> None:
     world = _World()
-    world.configs[OWNER].mappings.append(
-        RoleMapping(OTHER_GROUP, Role.LEAD, MappingStatus.ACTIVE)
-    )
+    world.configs[OWNER].mappings.append(RoleMapping(OTHER_GROUP, Role.LEAD, MappingStatus.ACTIVE))
 
     await run(make(world))
 

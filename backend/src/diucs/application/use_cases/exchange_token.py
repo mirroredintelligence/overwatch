@@ -28,6 +28,7 @@ No credential, token, directory id, object id or group reaches a log line, an er
 """
 
 import logging
+from collections.abc import Collection, Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Final, Protocol
@@ -50,6 +51,7 @@ from diucs.domain.codes import Role
 from diucs.domain.errors import DomainError, NotFound
 from diucs.domain.model.device import Device
 from diucs.domain.model.tenant import Tenant
+from diucs.domain.model.tenant_records import RoleMapping
 from diucs.domain.rules.bff_token import (
     BffClaims,
     OperatorClaims,
@@ -124,6 +126,13 @@ class ExchangeDeviceCommand:
     token: str
 
 
+class NetworkOwnership(Protocol):
+    async def owns_active_network(self, tenant_id: str) -> bool:
+        """Whether this tenant is the owner of an active network, from the registry (never from a
+        token): the one condition on which `network-admin` is given (TEN-080, DEC-1260)."""
+        ...
+
+
 class DeviceResolver(Protocol):
     async def device(self, token: str) -> Device:
         """The active wall screen of the bound tenant whose token this is, or `EntryRefused`."""
@@ -162,11 +171,28 @@ class ExchangeStaffToken:
         clock: Clock,
         verifier: IdentityVerifier,
         secrets: SecretStore,
+        ownership: NetworkOwnership | None = None,
     ) -> None:
+        """`ownership` answers whether the host's tenant owns an active network. With none (a
+        process that has no network registry) the role `network-admin` is never given."""
         self._uow_factory = uow_factory
         self._clock = clock
         self._verifier = verifier
         self._secrets = secrets
+        self._ownership = ownership
+
+    async def _role(
+        self, uow_mappings: Iterable[RoleMapping], groups: Collection[str], tenant_id: str
+    ) -> Role | None:
+        """The tenant's role for the groups held. The registry is asked only when the groups would
+        give `network-admin` if the tenant owned a network, so a sign-in of anyone else never
+        depends on it; and it is asked about the host's tenant and no other."""
+        mappings = tuple(uow_mappings)
+        candidate = staff_role(mappings, groups, owns_network=True)
+        if candidate is not Role.NETWORK_ADMIN:
+            return candidate
+        owns = self._ownership is not None and await self._ownership.owns_active_network(tenant_id)
+        return staff_role(mappings, groups, owns_network=owns)
 
     async def execute(self, command: ExchangeStaffCommand) -> IssuedToken:
         signing = _secret(self._secrets, SIGNING_SECRET)
@@ -182,7 +208,9 @@ class ExchangeStaffToken:
                 raise TenantMismatch
             if not directory_is_bound(await uow.tenant_config.bindings(), identity.directory_id):
                 raise _refused("directory")
-            role = staff_role(await uow.tenant_config.role_mappings(), identity.group_ids)
+            role = await self._role(
+                await uow.tenant_config.role_mappings(), identity.group_ids, tenant.id
+            )
             if role is None:
                 raise _refused("role")
             if not may_issue(tenant, role):

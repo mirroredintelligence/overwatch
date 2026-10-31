@@ -86,6 +86,12 @@ export async function searchOds(name: string, fetcher: typeof fetch = fetch): Pr
   return list.map(parseHit).filter((hit): hit is OdsSearchHit => hit !== null);
 }
 
+/** The record's postcode: its own PostCode when given, else the one in its address (GeoLoc.Location.PostCode). */
+function postcodeOf(o: Json): string | null {
+  const address = ((o.GeoLoc as Json | undefined)?.Location as Json | undefined) ?? {};
+  return text(o.PostCode) ?? text(address.PostCode);
+}
+
 async function roleName(id: string, fetcher: typeof fetch): Promise<string | null> {
   const body = await getJson(`${ORD}/roles/${encodeURIComponent(id)}`, fetcher);
   const role = (body?.Roles as Json[] | undefined)?.[0];
@@ -105,7 +111,8 @@ export async function recordOds(code: string, fetcher: typeof fetch = fetch): Pr
   const body = await getJson(`${ORD}/organisations/${clean}`, fetcher);
   const o = body?.Organisation as Json | undefined;
   if (!o) return null;
-  const hit = parseHit({ OrgId: o.OrgId ?? clean, Name: o.Name, PostCode: o.PostCode, Status: o.Status, PrimaryRoleId: undefined });
+  // The record's OrgId is an object (root and extension), not the text the search gives: the code asked for is used.
+  const hit = parseHit({ OrgId: clean, Name: o.Name, PostCode: postcodeOf(o), Status: o.Status, PrimaryRoleId: undefined });
   if (hit === null) return null;
 
   const rolesRaw = ((o.Roles as Json | undefined)?.Role as unknown[] | undefined) ?? [];

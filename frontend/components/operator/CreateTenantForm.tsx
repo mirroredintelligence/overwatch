@@ -239,6 +239,9 @@ export function CreateTenantForm() {
               </p>
               {odsRecord.lastChangedAt !== null ? <p className={styles.text}>Last changed in the NHS directory: {odsRecord.lastChangedAt}</p> : null}
               <p className={styles.text}>The fields below are filled from this record. Check them before you create the tenant.</p>
+              {odsRecord.suggestedOrganisationType === null ? (
+                <p className={styles.text}>The NHS directory does not give this organisation an NHS type. Choose its organisation type below.</p>
+              ) : null}
               <Button variant="neutral" onClick={forgetNhs} dataEl="OP-CREATE-ODS-FORGET-BTN">
                 Choose another organisation
               </Button>

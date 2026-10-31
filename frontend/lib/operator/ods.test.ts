@@ -8,9 +8,9 @@ const SEARCH = {
 const PRACTICE = {
   Organisation: {
     Name: 'THE ARDLEIGH SURGERY',
-    OrgId: 'F81044',
+    OrgId: { root: '2.16.840.1.113883.2.1.3.2.4.18.48', assigningAuthorityName: 'HSCIC', extension: 'F81044' },
     Status: 'Active',
-    PostCode: 'CO7 7LD',
+    GeoLoc: { Location: { PostCode: 'CO7 7LD' } },
     LastChangeDate: '2025-01-01',
     Roles: { Role: [
       { id: 'RO177', primaryRole: true, Status: 'Active' },
@@ -90,6 +90,23 @@ describe('recordOds', () => {
       { id: 'RO76', name: 'GP PRACTICE', primary: false },
     ]);
     expect(record?.links).toEqual([{ relationship: 'RE4', code: '06T', name: 'NHS ESSEX ICB - 06T', role: 'RO98' }]);
+  });
+
+  it('reads a non-NHS record as the real API shapes it, with no NHS type suggested', async () => {
+    const fortrus = {
+      Organisation: {
+        Name: 'FORTRUS LIMITED',
+        OrgId: { root: '2.16.840.1.113883.2.1.3.2.4.18.48', assigningAuthorityName: 'HSCIC', extension: '8HT86' },
+        Status: 'Active',
+        LastChangeDate: '2026-04-01',
+        GeoLoc: { Location: { PostCode: 'SG1 2DX' } },
+        Roles: { Role: [{ id: 'RO157', primaryRole: true, Status: 'Active' }] },
+        Rels: { Rel: [] },
+      },
+    };
+    const record = await recordOds('8HT86', ord({ '/organisations/8HT86': fortrus, '/roles/RO157': { Roles: [{ id: 'RO157', displayName: 'NON-NHS ORGANISATION' }] } }));
+    expect(record).toMatchObject({ code: '8HT86', name: 'FORTRUS LIMITED', postcode: 'SG1 2DX', primaryRole: 'RO157', suggestedOrganisationType: null });
+    expect(record?.roles).toEqual([{ id: 'RO157', name: 'NON-NHS ORGANISATION', primary: true }]);
   });
 
   it('gives nothing for a code that is not one, or an organisation that is not there', async () => {

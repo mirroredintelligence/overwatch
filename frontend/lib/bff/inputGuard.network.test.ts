@@ -91,3 +91,82 @@ describe('allowNetworkId', () => {
     expect(handler).not.toHaveBeenCalled();
   });
 });
+
+// WB11 (TEN-072): the one route that CHANGES what a screen shows (PUT /api/bff/screens/[id]/board-scope)
+// takes the id of the network the server offered, as the top-level body key `networkId` and nowhere else:
+// `allowNetworkIdInBody`. It lets through that key, once, holding a network id, in a JSON body. Nothing
+// else is let through: not a query key, not a header, not a nested key, not a form, not another key that
+// names a tenant, a scope or a network, and every route that does not say so refuses the body key as before.
+describe('allowNetworkIdInBody', () => {
+  async function put(body: unknown, options: { allow: boolean; path?: string; type?: string; raw?: string }) {
+    const handler = inner();
+    const wrapped = withBff(handler, options.allow ? { allowNetworkIdInBody: true } : {});
+    const response = await wrapped(
+      await requestAs(TENANTS.A, 'lead', {
+        method: 'PUT',
+        csrf: true,
+        path: options.path ?? '/api/bff/screens/s-1/board-scope',
+        headers: { 'Content-Type': options.type ?? 'application/json' },
+        body: options.raw ?? JSON.stringify(body),
+      }),
+      undefined,
+    );
+    return { response, handler };
+  }
+
+  it('lets the body key networkId through on the route that allows it', async () => {
+    const { response, handler } = await put({ boardScope: 'network', networkId: 'net-sample' }, { allow: true });
+    expect(response.status).toBe(200);
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it('still refuses it on a route that does not allow it', async () => {
+    const { response, handler } = await put({ boardScope: 'network', networkId: 'net-sample' }, { allow: false });
+    expect(response.status).toBe(400);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['a value that is not a network id', { networkId: 'trust-b' }],
+    ['a value that is not a string', { networkId: 7 }],
+    ['an empty value', { networkId: '' }],
+    ['a nested networkId', { boardScope: 'network', choice: { networkId: 'net-sample' } }],
+    ['a tenant', { networkId: 'net-sample', tenantId: 'trust-b' }],
+    ['a scope key', { networkId: 'net-sample', scope: 'network' }],
+    ['a second network key', { networkId: 'net-sample', networkIds: ['net-other'] }],
+    ['a network key by another name', { networkId: 'net-sample', network_id: 'net-sample' }],
+    ['a source key', { networkId: 'net-sample', sourceTenantId: 'trust-b' }],
+  ])('refuses %s', async (_name, body) => {
+    const { response, handler } = await put(body, { allow: true });
+    expect(response.status).toBe(400);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('does not let the key through in the query or in a header', async () => {
+    const query = await put({ boardScope: 'tenant' }, { allow: true, path: '/api/bff/screens/s-1/board-scope?networkId=net-sample' });
+    expect(query.response.status).toBe(400);
+    const handler = inner();
+    const response = await withBff(handler, { allowNetworkIdInBody: true })(
+      await requestAs(TENANTS.A, 'lead', { method: 'PUT', csrf: true, headers: { 'Content-Type': 'application/json', 'X-Network-Id': 'net-sample' }, body: '{}' }),
+      undefined,
+    );
+    expect(response.status).toBe(400);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('does not let the key through in a form', async () => {
+    const { response, handler } = await put(null, { allow: true, type: 'application/x-www-form-urlencoded', raw: 'networkId=net-sample' });
+    expect(response.status).toBe(400);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('lets a body with no networkId through (a screen set to its own board)', async () => {
+    const { response } = await put({ boardScope: 'tenant' }, { allow: true });
+    expect(response.status).toBe(200);
+  });
+
+  it('does not change the query rule: allowNetworkIdInBody alone does not allow the query key', async () => {
+    const { response } = await put({ boardScope: 'tenant' }, { allow: true, path: '/api/bff/x?networkId=net-sample' });
+    expect(response.status).toBe(400);
+  });
+});

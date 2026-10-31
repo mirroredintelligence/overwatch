@@ -56,7 +56,7 @@ test('organisation: Continue with nothing shows the six problems, focused', asyn
   await page.goto(`/register/${ID}/organisation`);
   await page.getByRole('button', { name: 'Continue' }).click();
   await expect(page.getByRole('heading', { name: 'There are 6 problems' })).toBeVisible();
-  await expect(page.getByRole('alert')).toBeFocused();
+  await expect(page.locator('[data-el="REG-ERROR-SUMMARY"]')).toBeFocused();
 });
 
 test('location: a visiting service goes straight to step 3', async ({ page }) => {

@@ -121,7 +121,10 @@ test('refreshes by itself when the back end says something changed, with no relo
 
   await expect(tiles(page).first().locator('[data-el="WALL-TILE-NUMBER"]')).toHaveText('7');
   await expectCurrent(page);
-  await expect(liveRegions(page)).toHaveCount(0);
+  // The one live region on the wall is the status announcer (KI-56): always in the page, so a change of
+  // status can be said, and empty after a change of figure only, which is not news. Nothing else announces.
+  await expect(liveRegions(page)).toHaveCount(1);
+  await expect(page.locator('[role="status"][aria-live="polite"]')).toHaveText('');
 });
 
 test('closes the back end stream when the page goes away', async ({ page, request }) => {
@@ -217,16 +220,23 @@ test('the BFF stream takes no tenant from the address, a query string or a heade
   const cookies = await page.context().cookies();
   const header = cookies.map((c) => `${c.name}=${c.value}`).join('; ');
 
+  const before = await backendState(request, token);
+
   const response = await request.get(`${SITE_URL}/api/bff/events?tenant=other&scope=network`, {
     headers: { Cookie: header, 'X-Tenant-Id': 'other', 'X-Scope': 'network' },
-    timeout: 3_000,
+    timeout: 5_000,
     failOnStatusCode: false,
-  }).catch(() => null);
+  });
 
-  // The stream is open (the call times out reading it) or answers 200: either way it is this session's.
-  if (response !== null) expect(response.status()).toBe(200);
-  const state = await backendState(request, token);
-  expect(state.streamOpens).toBeGreaterThanOrEqual(2);
+  // A request that names a tenant, a scope or a network is refused outright (lib/bff/inputGuard.ts, DEC-130, DEC-132),
+  // which is stronger than ignoring the names: it answers 400 at once and opens no stream to the back end.
+  expect(response.status()).toBe(400);
+  const after = await backendState(request, token);
+  expect(after.streamOpens).toBe(before.streamOpens);
+
+  // The same call with nothing named is this session's own stream.
+  const plain = await request.get(`${SITE_URL}/api/bff/events`, { headers: { Cookie: header }, timeout: 3_000, failOnStatusCode: false }).catch(() => null);
+  if (plain !== null) expect(plain.status()).toBe(200);
 });
 
 for (const size of SIZES) {

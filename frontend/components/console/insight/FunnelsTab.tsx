@@ -1,6 +1,7 @@
 import { biggestDrop } from '@/lib/console/funnel';
 import type { Funnel } from '@/lib/console/insight';
 import styles from '../Console.module.css';
+import { StyledDiv } from '@/components/ui/Styled';
 
 // Funnels (W49): the steps as bars with their percentage as text, the biggest drop named in words,
 // and the split by channel. A group under 10 reads "fewer than 10" and has no bar.
@@ -23,11 +24,7 @@ export function FunnelsTab({ funnel }: { funnel: Funnel | null }) {
             ) : (
               <>
                 <span>{step.pct}%</span>
-                <div
-                  data-bar
-                  aria-hidden="true"
-                  style={{ width: `${step.pct}%`, height: '0.75rem', background: 'var(--c-primary)', borderRadius: 'var(--radius-chip)' }}
-                />
+                <StyledDiv data-bar aria-hidden="true" className={styles.funnelBar} css={{ width: `${step.pct}%` }} />
               </>
             )}
           </li>

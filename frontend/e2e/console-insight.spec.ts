@@ -55,5 +55,8 @@ test('the releases tab compares two releases and shows the pipeline', async ({ p
 test('an advisor is turned away from the insight page', async ({ page }) => {
   await signIn(page.context(), BASE_URL, 'advisor', TOKEN_ORG_A);
   await page.goto('/console/insight');
-  await expect(page.getByText('You do not have access to the console.')).toBeVisible();
+  // The proxy's role guard (W09) answers first, with the 403 page that names no page or role; the page's
+  // own check ("You do not have access to the console.") is the second line, behind it.
+  await expect(page.getByRole('heading', { level: 1, name: 'You do not have access to this page.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Insight' })).toHaveCount(0);
 });

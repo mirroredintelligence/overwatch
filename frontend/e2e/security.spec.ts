@@ -17,6 +17,10 @@ test('the screen loads under the policy, with same-origin requests only and no v
   page.on('request', (request) => requested.push(request.url()));
   page.on('console', (message) => {
     if (/content security policy|violates the following/i.test(message.text())) {
+      // The development server's own overlay (next-devtools) writes style attributes from script and
+      // is reported by the browser; a production build has no overlay. The product's own code is
+      // what this test is about, so a report whose source script is the overlay is not counted.
+      if (/next-devtools/.test(message.location().url)) return;
       violations.push(message.text());
     }
   });

@@ -6,6 +6,7 @@ import { toBoardEntry } from '@/lib/network/entries';
 import type { NetworkBoardEntry } from '@/lib/network/types';
 import { figureFor, LAST_KNOWN_WARNING, lastKnownFigureFor, UNKNOWN_UNIT, VARIANT } from './Tile';
 import styles from './Tile.module.css';
+import { StyledDiv } from '@/components/ui/Styled';
 
 // One service of the network board (docs/design/network-ui.md section 4): the wall tile's look and rules for
 // the figure, with the organisation under the name, and nothing a network does not share (no comment, no
@@ -100,7 +101,7 @@ export function NetworkTile({
         <div className={styles.usage}>
           <p className={styles.barLabel}>{figure.bar.label}</p>
           <div className={styles.bar} aria-hidden="true">
-            <div className={styles.fill} data-bar-fill style={{ width: `${figure.bar.percent}%` }} />
+            <StyledDiv className={styles.fill} data-bar-fill css={{ width: `${figure.bar.percent}%` }} />
           </div>
         </div>
       )}

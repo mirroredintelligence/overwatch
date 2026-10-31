@@ -1,5 +1,6 @@
 import styles from '../console/Console.module.css';
 import layout from './Planning.module.css';
+import { StyledTd } from '@/components/ui/Styled';
 
 // When the best fit was unavailable (W51, PlanningView artboard): the four bands of the day down the
 // side and the seven days across, shaded by count, with the number in each cell. The table is the
@@ -40,7 +41,7 @@ export function HeatGrid({ grid, busiest }: { grid: readonly (number | null)[][]
                 // The darkest step is the artboard's #6FB0D6 (55% of the primary): the number stays readable on it.
                 const opacity = count === null || max === 0 ? 0.08 : 0.15 + (0.4 * count) / max;
                 return (
-                  <td key={day} style={{ background: `color-mix(in srgb, var(--c-primary) ${Math.round(opacity * 100)}%, transparent)` }}>
+                  <StyledTd key={day} css={{ background: `color-mix(in srgb, var(--c-primary) ${Math.round(opacity * 100)}%, transparent)` }}>
                     {count === null ? (
                       <>
                         <span aria-hidden="true">&lt;10</span>
@@ -49,7 +50,7 @@ export function HeatGrid({ grid, busiest }: { grid: readonly (number | null)[][]
                     ) : (
                       count
                     )}
-                  </td>
+                  </StyledTd>
                 );
               })}
             </tr>

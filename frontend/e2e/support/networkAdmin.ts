@@ -11,6 +11,26 @@ import { TOKEN_ORG_A, TOKEN_ORG_B } from './tokens';
 const NOT_FOUND = { resourceType: 'OperationOutcome', issue: [{ severity: 'error', code: 'not-found', diagnostics: 'The requested resource was not found.' }] };
 const NETWORK_ID = OWNER_NETWORKS.networks[0]!.id;
 
+// Organisation B's own sharing screen: the generated fixtures give it a grant waiting for its approval
+// (capacity), an ended one (criteria) and none in force, so nothing there can be ended. The browser test of
+// ending a grant needs one in force, so the stand-in adds the directory grant organisation A has (approved
+// and in effect) as B's, and has the directory arriving, as a real back end would for a grant in force.
+const DIRECTORY_GRANT_OF_B = { ...GRANTS.grants.find((g) => g.id === 'grant-2')!, id: 'grant-2-b', organisation_name: 'Sample Area B' };
+const SHARING_WITH_DIRECTORY = {
+  ...SHARING,
+  networks: SHARING.networks.map((n) => ({
+    ...n,
+    shared: n.shared.map((k) => (k.scope === 'directory' ? { ...k, status: 'active', ended_at: null, end_reason: null } : k)),
+  })),
+};
+
+// The members fixture has organisation B behind on the agreement (accepted 1, behind), so the network is at
+// version 2; the generated owner view is at version 1 and says nothing is newer. A real back end answers
+// both from the one network record, so the stand-in does too.
+const OWNER_NETWORKS_AT_VERSION_2 = {
+  networks: OWNER_NETWORKS.networks.map((n) => ({ ...n, agreement_reference: 'DSA-2026-2', agreement_version: 2 })),
+};
+
 function send(response: ServerResponse, status: number, body: unknown) {
   response.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify(body));
 }
@@ -35,15 +55,15 @@ export async function handleNetworkAdminRoute(request: IncomingMessage, response
   const get = request.method === 'GET';
 
   if (get && pathname === '/network-admin/networks') {
-    send(response, 200, owner ? OWNER_NETWORKS : member ? MEMBER_NETWORKS : { networks: [] });
+    send(response, 200, owner ? OWNER_NETWORKS_AT_VERSION_2 : member ? MEMBER_NETWORKS : { networks: [] });
     return true;
   }
   if (get && pathname === '/network-admin/sharing') {
-    send(response, member ? 200 : 404, member ? SHARING : NOT_FOUND);
+    send(response, member ? 200 : 404, member ? SHARING_WITH_DIRECTORY : NOT_FOUND);
     return true;
   }
   if (get && pathname === '/network-admin/grants') {
-    send(response, member ? 200 : 404, member ? { grants: GRANTS.grants.filter((g) => g.organisation_name === 'Sample Area B') } : NOT_FOUND);
+    send(response, member ? 200 : 404, member ? { grants: [...GRANTS.grants.filter((g) => g.organisation_name === 'Sample Area B'), DIRECTORY_GRANT_OF_B] } : NOT_FOUND);
     return true;
   }
   const ofNetwork = /^\/network-admin\/network\/([^/]+)\/(members|projection|grants|listings)$/.exec(pathname);

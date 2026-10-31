@@ -33,7 +33,7 @@ export function DecideStep({ id }: { id: string }) {
   const [done, setDone] = useState<DecisionAction | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
 
-  if (read.status === 'failed') return <main className={styles.page}><Banner tone="warning" title="The decision could not be loaded. Try again shortly." /></main>;
+  if (read.status === 'failed') return <main className={styles.page}><h1 className={styles.heading}>Decide</h1><Banner tone="warning" title="The decision could not be loaded. Try again shortly." /></main>;
   if (read.status === 'loading') return <main className={styles.page}><p>Loading…</p></main>;
   const { missing } = read.data;
   const allowed = canApprove(missing);

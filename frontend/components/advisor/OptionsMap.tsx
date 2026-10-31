@@ -12,6 +12,7 @@ import { OptionBooking } from './OptionBooking';
 import { ServicePhone } from './ServicePhone';
 import { TravelDetails } from './TravelDetails';
 import styles from './map.module.css';
+import { StyledButton, StyledSpan } from '@/components/ui/Styled';
 
 // The options drawn as a schematic (W50): the patient's area at the postcode centre, each fixed site as a
 // labelled pin, and each visiting service as a dashed area. It is not a tile map: no tile provider is
@@ -111,16 +112,16 @@ export function OptionsMap({
         </svg>
 
         {patientArea === null ? null : (
-          <span className={styles.visiting} style={percentOf(at(0))}>
+          <StyledSpan className={styles.visiting} css={percentOf(at(0))}>
             Patient area
-          </span>
+          </StyledSpan>
         )}
         {fixed.map((option, index) => (
-          <button
+          <StyledButton
             key={option.serviceId}
             type="button"
             className={styles.pin}
-            style={percentOf(at(offset + index))}
+            css={percentOf(at(offset + index))}
             aria-label={option.name}
             aria-pressed={option.serviceId === selectedId}
             data-el={`ADV-MAP-PIN-${option.serviceId.toUpperCase()}`}
@@ -128,14 +129,14 @@ export function OptionsMap({
           >
             <ShapeIcon shape={STATUS_SHAPES[option.status]} />
             {option.name}
-          </button>
+          </StyledButton>
         ))}
         {visiting.map((option, index) => (
-          <button
+          <StyledButton
             key={option.serviceId}
             type="button"
             className={styles.pin}
-            style={percentOf(at(offset + fixed.length + index))}
+            css={percentOf(at(offset + fixed.length + index))}
             aria-label={`${option.name} (visits)`}
             aria-pressed={option.serviceId === selectedId}
             data-el={`ADV-MAP-AREA-${option.serviceId.toUpperCase()}`}
@@ -143,7 +144,7 @@ export function OptionsMap({
           >
             <ShapeIcon shape={STATUS_SHAPES[option.status]} />
             {`${option.name} (visits)`}
-          </button>
+          </StyledButton>
         ))}
       </div>
       <p className={styles.caption}>{CAPTION}</p>

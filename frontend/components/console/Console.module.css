@@ -145,3 +145,10 @@
   background: var(--c-primary);
   color: var(--c-bg);
 }
+
+/* The bar of a funnel step; its width is set from script (the page's policy refuses a style attribute). */
+.funnelBar {
+  height: 0.75rem;
+  background: var(--c-primary);
+  border-radius: var(--radius-chip);
+}

@@ -1,5 +1,6 @@
 import { formatMs, layoutSpan, QUERY_BUDGET_MS, type SpanView } from '@/lib/console/trace';
 import styles from './Console.module.css';
+import { StyledDiv } from '@/components/ui/Styled';
 
 // A trace as bars on one time line, with the same spans as a table so no timing is only a picture
 // (W48). Each bar is placed by its offset and duration, scaled to the trace's total.
@@ -12,11 +13,11 @@ export function Waterfall({ totalMs, spans }: { totalMs: number; spans: readonly
           const { leftPct, widthPct } = layoutSpan(span, totalMs);
           return (
             <div key={span.spanId} className={styles.row}>
-              <div
+              <StyledDiv
                 className={styles.bar}
                 data-span={span.spanId}
                 data-status={span.status === 'ok' ? 'ok' : 'error'}
-                style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+                css={{ left: `${leftPct}%`, width: `${widthPct}%` }}
               />
             </div>
           );

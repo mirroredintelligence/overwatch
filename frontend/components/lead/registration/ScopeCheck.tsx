@@ -43,7 +43,7 @@ export function ScopeCheck({ id }: { id: string }) {
   const [saved, setSaved] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
 
-  if (read.status === 'failed') return <main className={styles.page}><Banner tone="warning" title="This check could not be loaded. Try again shortly." /></main>;
+  if (read.status === 'failed') return <main className={styles.page}><h1 className={styles.heading}>Is it in scope?</h1><Banner tone="warning" title="This check could not be loaded. Try again shortly." /></main>;
   if (read.status === 'loading') return <main className={styles.page}><p>Loading…</p></main>;
   const pathway = read.data.pathwayName ?? 'urgent care';
 

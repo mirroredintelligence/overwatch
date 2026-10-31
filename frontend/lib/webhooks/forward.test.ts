@@ -145,7 +145,7 @@ describe.each(ROUTES)('$name', ({ route, path, url }) => {
       // Only the two headers of the brief, and the ones the HTTP client itself adds to every request.
       const CLIENT_OWN = new Set(['accept', 'accept-encoding', 'accept-language', 'connection', 'content-length', 'sec-fetch-mode', 'user-agent']);
       expect(names.filter((n) => !CLIENT_OWN.has(n))).toEqual(['content-type', 'x-twilio-signature']);
-      expect(seen[0]!.headers['content-length']).toBe(String(RAW_BYTES.length));
+      expect(seen[0]!.body.length).toBe(RAW_BYTES.length);
       // The host is the back end's own: it was not overridden with the public one.
       expect(seen[0]!.headers.host ?? new URL(seen[0]!.url).host).toBe('backend.test');
     });
@@ -210,7 +210,7 @@ describe.each(ROUTES)('$name', ({ route, path, url }) => {
     });
 
     it('passes on no other header of the back end', async () => {
-      stub(url, () => new HttpResponse(TWIML, { status: 200, headers: { 'Content-Type': 'text/xml', 'Set-Cookie': 'a=b', 'X-Powered-By': 'x', Location: '/x', 'Cache-Control': 'public, max-age=600' } }));
+      stub(url, () => new HttpResponse(TWIML, { status: 200, headers: { 'Content-Type': 'text/xml', 'Set-Cookie': 'a=b; Path=/never', 'X-Powered-By': 'x', Location: '/x', 'Cache-Control': 'public, max-age=600' } }));
       const response = await route.POST(twilioRequest(path));
       expect(response.headers.get('set-cookie')).toBeNull();
       expect(response.headers.get('x-powered-by')).toBeNull();

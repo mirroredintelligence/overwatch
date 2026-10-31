@@ -17,6 +17,12 @@ import { namesTenantInput } from '@/lib/tenant/inputNames';
 //   pre-session-host    such a call does not carry a Host that names a tenant (none, or the back end's own)
 //   bad-audience        a token for another audience (an operator token at the tenant API, a tenant's at /platform)
 //   operator-names-tenant  a token sent to /platform that names a tenant (an operator's names none)
+//   webhook-path        a call under /webhooks that is not a POST to one of the two Twilio paths (DEC-1302)
+//   webhook-query       a Twilio webhook forward with a query string (the back end refuses one)
+//   webhook-header      a Twilio webhook forward that carries an Authorization, a cookie, or a forwarding,
+//                       edge, CSRF or tenant header: the signature is its only credential
+//   webhook-host        a Twilio webhook forward that overrides the Host (the signature is over the public
+//                       URL the back end holds in its settings, not over the host the call carried)
 //
 // A test says which tenants it signs in as by building a session or request with `sessionFor` and
 // `requestAs` (test/requests.ts), which call `canary.expect`. A token the canary cannot read (the
@@ -34,6 +40,13 @@ const LINK_PATH = /^\/links(\/|$)/;
 // are not here because they carry the signed-in person's token like every other route.
 const PRE_SESSION_PATH =
   /^\/identity\/(?:code|pin|new-phone|device\/code|registration\/code|registration\/session|invitation|session-token|channel|invitations\/[^/]+\/code)(?:\/verify)?$|^\/identity\/status$|^\/invitations\/[^/]+$/;
+// The Twilio webhook forward (DEC-1302): two fixed paths, POST only, the form and the signature and nothing
+// else. No token by design (the signature is the credential), so it is not a `no-token` call, and its own
+// rules are stricter than the token calls': no query, no cookie, no bearer, no forwarding or edge header, and
+// the back end's own host.
+const WEBHOOK_AREA = /^\/webhooks(\/|$)/;
+const WEBHOOK_PATH = /^\/webhooks\/sms\/twilio(\/status)?$/;
+const WEBHOOK_HEADER = /^(authorization|cookie|proxy-authorization|forwarded|x-forwarded-.*|x-real-ip|x-edge-auth|cf-connecting-ip|x-csrf-token|x-screen-secret)$/i;
 const NETWORK_PATH = /^\/(?:fhir\/)?network\/([^/]+)(?:\/|$)/;
 const STAFF_AUDIENCE = 'diucs-api';
 // The operator door (TEN-075, TEN-083): `/platform/**` takes an operator's token (audience `diucs-ops`, no tenant).
@@ -50,7 +63,11 @@ export type LeakRule =
   | 'pre-session-bearer'
   | 'pre-session-host'
   | 'bad-audience'
-  | 'operator-names-tenant';
+  | 'operator-names-tenant'
+  | 'webhook-path'
+  | 'webhook-query'
+  | 'webhook-header'
+  | 'webhook-host';
 
 export type Leak = { rule: LeakRule; method: string; url: string };
 export type UpstreamRequest = { method: string; url: string; headers: Headers };
@@ -99,7 +116,15 @@ export function inspectUpstream(request: UpstreamRequest, expected: ReadonlySet<
   }
 
   const token = bearerOf(request.headers);
-  if (LINK_PATH.test(url.pathname)) {
+  if (WEBHOOK_AREA.test(url.pathname)) {
+    if (!WEBHOOK_PATH.test(url.pathname) || here.method !== 'POST') found.push('webhook-path');
+    else {
+      if (url.search !== '') found.push('webhook-query');
+      if ([...request.headers.keys()].some((name) => WEBHOOK_HEADER.test(name))) found.push('webhook-header');
+      const host = request.headers.get('host');
+      if (host !== null && host.toLowerCase() !== url.host.toLowerCase()) found.push('webhook-host');
+    }
+  } else if (LINK_PATH.test(url.pathname)) {
     if (token !== null) found.push('link-bearer');
   } else if (PRE_SESSION_PATH.test(url.pathname)) {
     if (request.headers.has('authorization')) found.push('pre-session-bearer');

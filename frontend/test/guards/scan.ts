@@ -124,6 +124,7 @@ export const FETCH_ALLOWLIST: Record<string, string> = {
   'lib/advisor/useBooking.ts': 'the booking hook passes the browser\'s fetch to its BFF calls',
   'lib/bff/browser.ts': 'the browser helper for the BFF\'s JSON routes (a path under /api/bff)',
   'lib/screens/client.ts': 'the wall pairing pages\' browser client: its callers pass /api/bff/screens paths',
+  'lib/webhooks/forward.ts': 'the Twilio webhook forward: two fixed paths of the back end, the form and the signature unchanged, no redirect, 10 s (DEC-1302)',
   'lib/fhir/client.ts': 'the one server-side client of the back end FHIR API (token required, no cache, no tenant)',
   'lib/auth/oidc.ts': 'the staff sign-in redeems its code at the identity provider, not at the back end',
   'app/api/bff/telemetry/route.ts': 'forwards a batch of interface events to the telemetry collector, not to the back end',
@@ -153,7 +154,7 @@ function fetchOutsideBff(text: string): number[] {
 
 function clientImportsServer(text: string): number[] {
   if (!/^\s*['"]use client['"]/m.test(text)) return [];
-  const server = /^import\s+(?!type\b)[^;]*?from\s+['"](@\/lib\/(fhir|auth\/session|links\/server|tenant\/profile)(\/[^'"]*)?|next\/headers|node:[a-z/]+)['"]/gm;
+  const server = /^import\s+(?!type\b)[^;]*?from\s+['"](@\/lib\/(fhir|auth\/session|links\/server|tenant\/profile|webhooks)(\/[^'"]*)?|next\/headers|node:[a-z/]+)['"]/gm;
   const lines: number[] = [];
   for (const match of text.matchAll(server)) lines.push(text.slice(0, match.index).split('\n').length);
   return lines;

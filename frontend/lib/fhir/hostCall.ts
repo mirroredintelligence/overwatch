@@ -52,6 +52,15 @@ export function backendRoot(value: string | undefined): string {
   return trimmed.slice(0, -FHIR_SUFFIX.length);
 }
 
+/**
+ * The origin of the back end from this process's own setting. The one place besides `callBackend` that reads
+ * the variable, for the calls that are not JSON calls with a tenant host (the Twilio webhook forward,
+ * `lib/webhooks/forward.ts`). Throws as `backendRoot` does when it is not set.
+ */
+export function backendOrigin(): string {
+  return backendRoot(process.env[BASE_URL_VARIABLE]);
+}
+
 export type BackendReply = { status: number; body: unknown; retryAfter?: string };
 
 export type BackendCall = {

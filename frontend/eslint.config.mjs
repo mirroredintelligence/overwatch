@@ -59,7 +59,7 @@ const cacheImports = {
 
 const serverOnly = [
   { group: ['next/headers'], message: 'This is a server module: a component may run in the browser. Read it in a page or route and pass props.', allowTypeImports: true },
-  { group: ['@/lib/fhir/*', '@/lib/auth/session', '@/lib/auth/oidc', '@/lib/secrets', '@/lib/secrets/*', '@/lib/links/server', '@/lib/tenant/profile'], message: 'This is a server module: a component may run in the browser. Read it in a page or route and pass props.', allowTypeImports: true },
+  { group: ['@/lib/fhir/*', '@/lib/auth/session', '@/lib/auth/oidc', '@/lib/secrets', '@/lib/secrets/*', '@/lib/webhooks/*', '@/lib/links/server', '@/lib/tenant/profile'], message: 'This is a server module: a component may run in the browser. Read it in a page or route and pass props.', allowTypeImports: true },
 ];
 
 export default defineConfig([

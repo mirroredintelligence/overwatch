@@ -4,7 +4,7 @@ import { CaseView } from '@/components/clinical/CaseView';
 import { getSession } from '@/lib/auth/session';
 import { readRequest, readSeen } from '@/lib/clinical/clinicalServer';
 
-export const metadata: Metadata = { title: 'Case - DIUCS capacity' };
+export const metadata: Metadata = { title: 'Case - Overwatch' };
 export const dynamic = 'force-dynamic';
 
 const ID = /^[A-Za-z0-9-]{1,64}$/;

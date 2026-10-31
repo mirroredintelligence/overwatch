@@ -6,7 +6,7 @@ import { getSession } from '@/lib/auth/session';
 import { readLeaders } from '@/lib/exec/leaders';
 import { readAlertPreferences } from '@/lib/exec/subscriptions';
 
-export const metadata: Metadata = { title: 'Alert settings - DIUCS capacity' };
+export const metadata: Metadata = { title: 'Alert settings - Overwatch' };
 export const dynamic = 'force-dynamic';
 
 // Alerts and escalation, reachable after set-up (W39).

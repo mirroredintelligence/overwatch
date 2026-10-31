@@ -19,7 +19,7 @@ const atkinson = Atkinson_Hyperlegible({
 });
 
 // The head names the product and no place of its own (TEN-045). The organisation's name, when the
-// host has a profile, comes from the profile (TEN-049): "<organisation> | DIUCS capacity", and a page's
+// host has a profile, comes from the profile (TEN-049): "<organisation> | Overwatch", and a page's
 // own title goes in front. With no profile (an unknown host, a back end that is down) it is the
 // product alone. The description is the same for everyone.
 export async function generateMetadata(): Promise<Metadata> {

@@ -4,7 +4,7 @@ import { ScreenForm } from '@/components/screens/ScreenForm';
 import { getSession } from '@/lib/auth/session';
 
 export const metadata: Metadata = {
-  title: 'Add a wall screen - DIUCS capacity',
+  title: 'Add a wall screen - Overwatch',
   robots: { index: false },
 };
 

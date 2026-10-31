@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { Button } from '@/components/ui/Button';
 import styles from '@/components/exec/Exec.module.css';
 
-export const metadata: Metadata = { title: 'Help - DIUCS capacity' };
+export const metadata: Metadata = { title: 'Help - Overwatch' };
 
 // The help page (W46; the share link is on for everyone since W56).
 export default function HelpPage() {

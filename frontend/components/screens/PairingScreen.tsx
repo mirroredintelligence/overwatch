@@ -17,7 +17,7 @@ export function PairingScreen({ api = SCREEN_API }: { api?: PairingApi }) {
 
   return (
     <main className={styles.page}>
-      <h1 className={styles.title}>DIUCS capacity wall screen</h1>
+      <h1 className={styles.title}>Overwatch wall screen</h1>
       <div className={styles.stage}>
         {view.disconnected === true ? (
           <div className={styles.message}>

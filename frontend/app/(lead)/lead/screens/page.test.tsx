@@ -30,7 +30,7 @@ beforeEach(() => {
 
 describe('the lead page /lead/screens', () => {
   it('is titled for the page and is not for search engines', () => {
-    expect(metadata.title).toBe('Wall screens - DIUCS capacity');
+    expect(metadata.title).toBe('Wall screens - Overwatch');
     expect(metadata.robots).toMatchObject({ index: false });
   });
 

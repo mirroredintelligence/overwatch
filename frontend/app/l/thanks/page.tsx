@@ -31,7 +31,7 @@ export default async function ThanksPage({ searchParams }: Props) {
 
   return (
     <main className={styles.page}>
-      <p className={styles.eyebrow}>DIUCS capacity update</p>
+      <p className={styles.eyebrow}>Overwatch update</p>
       <h1 className={styles.title}>Thank you</h1>
       {detail !== null ? (
         <p className={styles.question}>

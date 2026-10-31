@@ -36,7 +36,7 @@ test('shows the board for the paired screen, with a page title and the page lang
 
   await expect(page.getByRole('heading', { level: 1, name: 'Dorset urgent care capacity' })).toBeVisible();
   await expect(page.locator('[data-el="WALL-TILE"]')).toHaveCount(9);
-  await expect(page).toHaveTitle(/DIUCS capacity/);
+  await expect(page).toHaveTitle(/Overwatch/);
   await expect(page.locator('html')).toHaveAttribute('lang', 'en-GB');
   await expect(page.getByText('No patient information on this screen')).toBeVisible();
 });

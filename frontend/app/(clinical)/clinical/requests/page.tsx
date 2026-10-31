@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { QueueList } from '@/components/clinical/QueueList';
 import { getSession } from '@/lib/auth/session';
 
-export const metadata: Metadata = { title: 'Requests - DIUCS capacity' };
+export const metadata: Metadata = { title: 'Requests - Overwatch' };
 export const dynamic = 'force-dynamic';
 
 // The queue (W44). The list refreshes in the browser; the page holds no request itself.

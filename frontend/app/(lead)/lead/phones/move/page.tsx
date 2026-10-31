@@ -5,7 +5,7 @@ import { SERVICE_ID } from '@/lib/lead/routeParams';
 // Move a service to another phone (W43). At /lead/phones/move, with ?service=<id> to choose the service.
 
 export const metadata: Metadata = {
-  title: 'Move a service - DIUCS capacity',
+  title: 'Move a service - Overwatch',
   robots: { index: false },
 };
 

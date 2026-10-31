@@ -6,7 +6,7 @@ import { getSession } from '@/lib/auth/session';
 import { ALERT_ROLES, openAlerts } from '@/lib/exec/alertsServer';
 import type { AlertItem } from '@/lib/exec/alerts';
 
-export const metadata: Metadata = { title: 'Alerts - DIUCS capacity' };
+export const metadata: Metadata = { title: 'Alerts - Overwatch' };
 export const dynamic = 'force-dynamic';
 
 export default async function ExecAlertsPage() {

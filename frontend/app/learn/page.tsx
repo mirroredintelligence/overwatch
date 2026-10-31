@@ -4,7 +4,7 @@ import { LearnLibrary } from '@/components/learn/LearnLibrary';
 import styles from '@/components/console/Console.module.css';
 
 export const metadata: Metadata = {
-  title: 'DIUCS capacity: lessons',
+  title: 'Overwatch: lessons',
 };
 
 // The library holds no person's data, so it is public and needs no session.

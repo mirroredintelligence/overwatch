@@ -4,7 +4,7 @@ import { ScreenList } from '@/components/lead/ScreenList';
 import { getSession } from '@/lib/auth/session';
 
 export const metadata: Metadata = {
-  title: 'Wall screens - DIUCS capacity',
+  title: 'Wall screens - Overwatch',
   robots: { index: false },
 };
 

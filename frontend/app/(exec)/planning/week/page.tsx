@@ -10,7 +10,7 @@ import { readAlertPreferences } from '@/lib/exec/subscriptions';
 import { readWeekSummary } from '@/lib/exec/weekServer';
 import { weekEndingDefault, type WeekSummary as Summary } from '@/lib/exec/weekSummary';
 
-export const metadata: Metadata = { title: 'This week - DIUCS capacity' };
+export const metadata: Metadata = { title: 'This week - Overwatch' };
 export const dynamic = 'force-dynamic';
 
 // The last complete week (W41). The Monday switch needs the executive's preferences; when they cannot be

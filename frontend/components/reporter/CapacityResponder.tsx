@@ -86,7 +86,7 @@ export function CapacityResponder({ token, view }: Props) {
 
   return (
     <main className={styles.page}>
-      <p className={styles.eyebrow}>DIUCS capacity update</p>
+      <p className={styles.eyebrow}>Overwatch update</p>
       <h1 className={styles.title}>{view.serviceName}</h1>
 
       {recorded ? (

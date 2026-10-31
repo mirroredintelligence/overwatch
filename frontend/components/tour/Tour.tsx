@@ -93,7 +93,7 @@ export function Tour({ initialStep, initialRole }: { initialStep: TourStep; init
       {step === 'welcome' && (
         <section aria-labelledby="tour-title">
           <h1 id="tour-title" ref={headingRef} tabIndex={-1} className={styles.title}>Less chasing. Faster answers.</h1>
-          <p>DIUCS capacity replaces phone calls, emails and whiteboards with one tap or one text.</p>
+          <p>Overwatch replaces phone calls, emails and whiteboards with one tap or one text.</p>
           <ul>
             <li>Fewer phone calls</li>
             <li>Fewer catch-up meetings</li>

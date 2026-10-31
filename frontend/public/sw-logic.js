@@ -14,7 +14,7 @@
   // Keeps title, body and url. Every other field of the push payload is dropped.
   function handlePush(data) {
     var source = data && typeof data === 'object' ? data : {};
-    var title = typeof source.title === 'string' ? source.title : 'DIUCS capacity';
+    var title = typeof source.title === 'string' ? source.title : 'Overwatch';
     var body = typeof source.body === 'string' ? source.body : '';
     var url = sameOriginPath(source.url) ? source.url : FALLBACK;
     return { title: title, body: body, data: { url: url } };

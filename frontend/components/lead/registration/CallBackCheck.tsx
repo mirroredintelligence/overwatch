@@ -84,7 +84,7 @@ export function CallBackCheck({ id }: { id: string }) {
       <ol className={styles.steps}>
         <li>Ask for {name}, or the person in charge</li>
         <li>Ask: is {name} a {registrantRole} at {overview.serviceName}?</li>
-        <li>Ask: did they register for DIUCS capacity today?</li>
+        <li>Ask: did they register for Overwatch today?</li>
         <li>Do not talk about any patient</li>
       </ol>
 

@@ -155,7 +155,7 @@ export function LocationForm({ registrationId }: LocationFormProps) {
 
   return (
     <div className={styles.stack}>
-      <p className={styles.product}>DIUCS capacity</p>
+      <p className={styles.product}>Overwatch</p>
       <p className={styles.note}>Step 2 of 5 · Location</p>
       <h1 className={styles.heading}>Where is the service?</h1>
 

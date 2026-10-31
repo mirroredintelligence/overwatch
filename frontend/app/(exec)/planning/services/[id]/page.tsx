@@ -5,7 +5,7 @@ import { getSession } from '@/lib/auth/session';
 import { readBoard } from '@/lib/board/read';
 import { ALERT_ROLES } from '@/lib/exec/alertsServer';
 
-export const metadata: Metadata = { title: 'Service - DIUCS capacity' };
+export const metadata: Metadata = { title: 'Service - Overwatch' };
 export const dynamic = 'force-dynamic';
 
 export default async function ExecServicePage({ params }: { params: Promise<{ id: string }> }) {

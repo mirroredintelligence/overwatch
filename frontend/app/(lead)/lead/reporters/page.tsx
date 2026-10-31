@@ -4,7 +4,7 @@ import { SetupTracker } from '@/components/lead/SetupTracker';
 // Set-up progress for invited reporters (W43). At /lead/reporters.
 
 export const metadata: Metadata = {
-  title: 'Set-up progress - DIUCS capacity',
+  title: 'Set-up progress - Overwatch',
   robots: { index: false },
 };
 

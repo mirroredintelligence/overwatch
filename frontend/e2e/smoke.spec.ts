@@ -8,8 +8,8 @@ test('the root page names the product and the organisation of its host, and no o
   await page.goto('/');
 
   // The host's own profile gives the organisation's name (TEN-049); the product follows it.
-  await expect(page).toHaveTitle('Sample Area A | DIUCS capacity');
-  await expect(page.getByRole('heading', { level: 1, name: 'DIUCS capacity' })).toBeVisible();
+  await expect(page).toHaveTitle('Sample Area A | Overwatch');
+  await expect(page.getByRole('heading', { level: 1, name: 'Overwatch' })).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('lang', 'en-GB');
   expect(await page.locator('body').innerText()).not.toMatch(/dorset|trust|spoa|single point/i);
   // The root page is the same for every host; only the title carries the organisation.

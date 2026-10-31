@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { Tour, type TourStep } from '@/components/tour/Tour';
 
 export const metadata: Metadata = {
-  title: 'DIUCS capacity: product tour',
+  title: 'Overwatch: product tour',
 };
 
 const STEPS: readonly TourStep[] = ['welcome', 'role', 'changes', 'how', 'practice', 'week'];

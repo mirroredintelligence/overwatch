@@ -6,7 +6,7 @@ import styles from '@/components/register/register.module.css';
 // and leads on to step 1 (organisation, W54) or back to sign-in with the saved-draft note.
 
 export const metadata: Metadata = {
-  title: 'Register a service - DIUCS capacity',
+  title: 'Register a service - Overwatch',
   robots: { index: false },
 };
 
@@ -25,7 +25,7 @@ export default async function StartPage({ params }: { params: Promise<{ id: stri
   return (
     <main className={styles.main}>
       <div className={styles.panel}>
-        <p className={styles.product}>DIUCS capacity</p>
+        <p className={styles.product}>Overwatch</p>
         <h1 className={styles.heading}>Register a service</h1>
         <div className={styles.card}>
           <p className={styles.text}>It takes about 10 minutes. Have these ready:</p>

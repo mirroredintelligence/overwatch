@@ -27,7 +27,7 @@ vi.mock('@/lib/screens/client', async (importOriginal) => ({
 
 describe('the wall screen reconnect page /screen/reconnect', () => {
   it('is titled for the wall screen, is not for search engines, and is read at every request', () => {
-    expect(metadata.title).toBe('DIUCS capacity wall screen');
+    expect(metadata.title).toBe('Overwatch wall screen');
     expect(metadata.robots).toMatchObject({ index: false });
     expect(dynamic).toBe('force-dynamic');
   });
@@ -35,7 +35,7 @@ describe('the wall screen reconnect page /screen/reconnect', () => {
   it('shows the pairing screen whatever session the display holds, and takes no input', async () => {
     expect(WallReconnectPage.length).toBe(0);
     render(await WallReconnectPage());
-    expect(screen.getByRole('heading', { level: 1, name: 'DIUCS capacity wall screen' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Overwatch wall screen' })).toBeInTheDocument();
     expect(ScreenClientError).toBeDefined();
   });
 });

@@ -4,7 +4,7 @@ import { CaseSummary } from '@/components/advisor/CaseSummary';
 import { OptionsList } from '@/components/advisor/OptionsList';
 
 export const metadata: Metadata = {
-  title: 'Options · DIUCS capacity',
+  title: 'Options · Overwatch',
 };
 
 // The options step of a call (URL /advisor/case/[ref]/options). The list reads the options itself,

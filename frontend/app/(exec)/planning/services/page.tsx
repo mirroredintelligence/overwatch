@@ -7,7 +7,7 @@ import { readBoard } from '@/lib/board/read';
 import type { Board } from '@/lib/board/types';
 import { ALERT_ROLES } from '@/lib/exec/alertsServer';
 
-export const metadata: Metadata = { title: 'All services - DIUCS capacity' };
+export const metadata: Metadata = { title: 'All services - Overwatch' };
 export const dynamic = 'force-dynamic';
 
 export default async function ExecServicesPage() {

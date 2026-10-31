@@ -7,7 +7,7 @@ import { canReadBoard, readBoard } from '@/lib/board/read';
 import { FhirError } from '@/lib/fhir/client';
 
 export const metadata: Metadata = {
-  title: 'Wall board view · DIUCS capacity',
+  title: 'Wall board view · Overwatch',
 };
 
 // Read at every request: a board is never cached. The advisor sees the same board as the wall,

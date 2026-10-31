@@ -6,7 +6,7 @@ import { ScopeCheck } from '@/components/lead/registration/ScopeCheck';
 import { RegistrationOverview } from '@/components/lead/RegistrationOverview';
 
 export const metadata: Metadata = {
-  title: 'Registration review · DIUCS capacity',
+  title: 'Registration review · Overwatch',
 };
 
 export const dynamic = 'force-dynamic';

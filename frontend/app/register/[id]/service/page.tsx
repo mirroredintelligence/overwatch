@@ -6,7 +6,7 @@ import styles from '@/components/register/register.module.css';
 // answer through the BFF.
 
 export const metadata: Metadata = {
-  title: 'Describe the service - DIUCS capacity',
+  title: 'Describe the service - Overwatch',
   robots: { index: false },
 };
 

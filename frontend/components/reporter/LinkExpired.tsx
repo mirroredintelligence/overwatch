@@ -34,7 +34,7 @@ export function LinkExpired({ token, csrfToken }: { token: string; csrfToken: st
   const result = RESULT[phase];
   return (
     <main className={styles.page}>
-      <p className={styles.eyebrow}>DIUCS capacity update</p>
+      <p className={styles.eyebrow}>Overwatch update</p>
       <h1 className={styles.title}>This link has expired</h1>
       <p className={styles.question}>This link can no longer be used.</p>
       {phase !== 'sent' && csrfToken !== null ? (

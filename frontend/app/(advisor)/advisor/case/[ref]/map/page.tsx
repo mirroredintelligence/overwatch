@@ -3,7 +3,7 @@ import { CallSteps } from '@/components/advisor/CallSteps';
 import { MapScreen } from '@/components/advisor/MapScreen';
 
 export const metadata: Metadata = {
-  title: 'Map · DIUCS capacity',
+  title: 'Map · Overwatch',
 };
 
 // The map view of the options (URL /advisor/case/[ref]/map). The same services as the list, drawn.

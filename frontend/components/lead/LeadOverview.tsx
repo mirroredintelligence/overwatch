@@ -80,7 +80,7 @@ export function LeadOverview() {
   return (
     <main className={styles.page}>
       <header className={styles.header}>
-        <h1 className={styles.title}>DIUCS capacity · Shift lead</h1>
+        <h1 className={styles.title}>Overwatch · Shift lead</h1>
         <time className={styles.muted} dateTime={new Date(now).toISOString()}>
           {dateTimeLine(now)}
         </time>

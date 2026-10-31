@@ -5,7 +5,7 @@ import styles from '@/components/register/register.module.css';
 // Registration step 4, how the service reports capacity (W26).
 
 export const metadata: Metadata = {
-  title: 'How will you report capacity? - DIUCS capacity',
+  title: 'How will you report capacity? - Overwatch',
   robots: { index: false },
 };
 

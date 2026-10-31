@@ -7,7 +7,7 @@ import { readBoard } from '@/lib/board/read';
 import type { Board } from '@/lib/board/types';
 import { ALERT_ROLES } from '@/lib/exec/alertsServer';
 
-export const metadata: Metadata = { title: 'Home - DIUCS capacity' };
+export const metadata: Metadata = { title: 'Home - Overwatch' };
 export const dynamic = 'force-dynamic';
 
 // The executive's home (W40). The board is read through the back end with the caller's token; the name

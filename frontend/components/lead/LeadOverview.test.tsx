@@ -51,7 +51,7 @@ describe('LeadOverview', () => {
   it('shows the header, the chasing count and each service that needs chasing', async () => {
     render(<LeadOverview />);
     expect(await screen.findByRole('heading', { name: '2 services need chasing' })).toBeInTheDocument();
-    expect(screen.getByText('DIUCS capacity · Shift lead')).toBeInTheDocument();
+    expect(screen.getByText('Overwatch · Shift lead')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Virtual ward' })).toBeInTheDocument();
     expect(
       screen.getByText('Report was due 12:00. Overdue by 2 hrs 12 min. Last figure: 3 beds free.'),

@@ -6,7 +6,7 @@ import styles from '@/components/register/register.module.css';
 // the shift lead approves. The expected time is not in the back end yet (see the W26 fragment).
 
 export const metadata: Metadata = {
-  title: 'Submitted for approval - DIUCS capacity',
+  title: 'Submitted for approval - Overwatch',
   robots: { index: false },
 };
 
@@ -15,7 +15,7 @@ export default async function SubmittedPage({ params }: { params: Promise<{ id: 
   return (
     <main className={styles.main}>
       <div className={styles.panel}>
-        <p className={styles.product}>DIUCS capacity</p>
+        <p className={styles.product}>Overwatch</p>
         <div className={styles.card}>
           <h1 className={styles.heading}>Submitted for approval</h1>
           <p className={styles.text}>

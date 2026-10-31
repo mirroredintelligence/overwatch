@@ -5,7 +5,7 @@ import { LeadOverview } from '@/components/lead/LeadOverview';
 // page's own folder gives the path. The proxy keeps it to the lead role.
 
 export const metadata: Metadata = {
-  title: 'Shift lead - DIUCS capacity',
+  title: 'Shift lead - Overwatch',
   robots: { index: false },
 };
 

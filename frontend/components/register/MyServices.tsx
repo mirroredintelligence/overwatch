@@ -35,7 +35,7 @@ export function MyServices() {
 
   return (
     <div className={styles.stack}>
-      <p className={styles.product}>DIUCS capacity</p>
+      <p className={styles.product}>Overwatch</p>
       <h1 className={styles.heading}>My services</h1>
       {load.kind === 'loading' ? <p className={styles.text}>Loading your services.</p> : null}
       {load.kind === 'unavailable' || load.kind === 'signed-out' ? (

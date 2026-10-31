@@ -51,7 +51,7 @@ describe('root layout metadata (TEN-045, TEN-049)', () => {
   afterEach(() => vi.unstubAllEnvs());
 
   it('names the product with one constant', () => {
-    expect(PRODUCT_NAME).toBe('DIUCS capacity');
+    expect(PRODUCT_NAME).toBe('Overwatch');
   });
 
   it('puts the organisation name before the product in the title, for the host the page is served on', async () => {

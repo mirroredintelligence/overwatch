@@ -4,7 +4,7 @@ import { RemovePersonForm } from '@/components/lead/RemovePersonForm';
 // Remove a person's access (W42). At /lead/people/remove.
 
 export const metadata: Metadata = {
-  title: 'Remove access - DIUCS capacity',
+  title: 'Remove access - Overwatch',
   robots: { index: false },
 };
 

@@ -6,8 +6,8 @@ serving process takes the visitor's address from `CF-Connecting-IP` and the orig
 `X-Forwarded-Host` (a request-header rule that Cloudflare sets, replacing anything the visitor
 sent), and it does so ONLY for a request that comes from Cloudflare:
 
-- the socket peer is inside Cloudflare's published ranges (`CLOUDFLARE_RANGES`) or inside a range the
-  operator named as a trusted peer (the ingress of the platform, when it accepts traffic only from
+- the socket peer is inside Cloudflare's published ranges (`CLOUDFLARE_RANGES`) or inside a range
+  the operator named as a trusted peer (the ingress of the platform, when it accepts traffic only from
   Cloudflare and so the peer is the ingress), or
 - the request carries the origin secret in `X-Edge-Auth`, a header that Cloudflare adds with a
   transform rule and that the secret store holds (the authenticated origin pull of this design,

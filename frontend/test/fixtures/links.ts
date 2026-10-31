@@ -36,7 +36,12 @@ export const LINK = {
   stale: 'StaleLinkTokenAbcdefghijkl',
 } as const;
 
+/** The sealed thank-you detail the BFF gives a recorded figure (a stand-in: an opaque string). */
+export const THANKS_SEALED = 'sealed-thanks-sample-0123456789';
+
 export const csrfFor = (token: string) => `csrf-${token}`;
+/** The CSRF token the BFF gives a closed link for its renewal (the stand-in of lib/links/csrf.ts renewCsrfFor). */
+export const renewCsrfFor = (token: string) => `renew-${token}`;
 
 export const RECORDED_VIEW = {
   state: 'ok',
@@ -213,7 +218,8 @@ function bookingAnswerReply(token: string, body: Record<string, unknown>): LinkR
 }
 
 /** What the back end answers to `POST /links/{token}/renew`. */
-export function linkRenewReply(token: string): LinkReplyFor {
+export function linkRenewReply(token: string, given: string | null = renewCsrfFor(token)): LinkReplyFor {
+  if (given !== renewCsrfFor(token)) return { status: 403, body: { state: 'forbidden' } };
   if (token === LINK.limited) return { status: 429, body: { state: 'rate-limited' }, headers: { 'Retry-After': '600' } };
   return { status: 202, body: { state: 'accepted' } };
 }

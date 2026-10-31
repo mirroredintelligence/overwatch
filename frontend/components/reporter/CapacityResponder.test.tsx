@@ -4,7 +4,7 @@ import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { parseLinkView, type LinkView } from '@/lib/links/model';
 import { runAxe } from '@/test/a11y';
-import { EMPTY_VIEW, LINK, RECORDED_VIEW, csrfFor } from '@/test/fixtures/links';
+import { EMPTY_VIEW, LINK, RECORDED_VIEW, THANKS_SEALED, csrfFor } from '@/test/fixtures/links';
 import { resetLinkRequests, seenBackendRequests, seenBffPosts } from '@/test/msw/handlers/links';
 import { server } from '@/test/msw/server';
 import { CapacityResponder } from './CapacityResponder';
@@ -46,8 +46,12 @@ describe('CapacityResponder with a figure on record', () => {
     await waitFor(() => expect(push).toHaveBeenCalledTimes(1));
     expect(seenBffPosts).toEqual([{ token: LINK.recorded, body: { action: 'confirm' }, csrf: csrfFor(LINK.recorded) }]);
     const href = String(push.mock.calls[0]?.[0]);
-    expect(new URL(href, 'https://x.test').pathname).toBe(`/l/${LINK.recorded}/thanks`);
-    expect(new URL(href, 'https://x.test').searchParams.get('at')).toBe('2026-10-23T09:12:00Z');
+    const address = new URL(href, 'https://x.test');
+    // The address holds no link token and no figure in the clear: only the sealed detail (KI-179).
+    expect(address.pathname).toBe('/l/thanks');
+    expect(address.searchParams.get('d')).toBe(THANKS_SEALED);
+    expect(href).not.toContain(LINK.recorded);
+    expect(href).not.toContain('UCR');
   });
 
   it('steps up to 4, then sends that number', async () => {

@@ -116,3 +116,55 @@ describe('publicReply', () => {
     });
   });
 });
+
+
+describe('publicReply: what a closed link and a booking answer may tell the browser (WB4)', () => {
+  const detail = {
+    kind: 'booking',
+    reference: '4821',
+    closedAt: '2026-10-23T13:40:00Z',
+    confirmedAt: '2026-10-23T13:19:00Z',
+    cancelledAt: '2026-10-23T13:40:00Z',
+    coordinationPhone: '0300 123 4567',
+  };
+
+  it('passes the closing details of a closed link on a 410 and of a refused answer on a 409', () => {
+    expect(publicReply(410, { state: 'cancelled', ...detail }).body).toEqual({ state: 'cancelled', ...detail });
+    expect(publicReply(409, { state: 'withdrawn', ...detail }).body).toMatchObject({ state: 'withdrawn', ...detail });
+  });
+
+  it('drops anything else the back end put in a closed answer', () => {
+    const { body } = publicReply(410, { state: 'expired', ...detail, postcode: 'DT4 8XX', caseId: 'case-1001', tenant: 't-1' });
+    expect(JSON.stringify(body)).not.toMatch(/DT4|case-1001|t-1/);
+  });
+
+  it('passes the time of a confirmation, or of any other answer, on a 200', () => {
+    expect(publicReply(200, { bookingStatus: 'confirmed', changeToken: 'tok', confirmedAt: '2026-10-23T13:19:00Z' }).body).toEqual({
+      bookingStatus: 'confirmed',
+      changeToken: 'tok',
+      confirmedAt: '2026-10-23T13:19:00Z',
+    });
+    expect(publicReply(200, { bookingStatus: 'withdrawn', respondedAt: '2026-10-23T13:41:00Z' }).body).toEqual({
+      bookingStatus: 'withdrawn',
+      respondedAt: '2026-10-23T13:41:00Z',
+    });
+  });
+
+  it('says nothing more than the word on a 400 or a 403', () => {
+    expect(publicReply(400, { state: 'invalid', ...detail }).body).toEqual({ state: 'invalid' });
+    expect(publicReply(403, { state: 'forbidden', ...detail }).body).toEqual({ state: 'forbidden' });
+  });
+});
+
+describe('closedOf: the closed link the BFF passes on', () => {
+  it('reads the state word and the details of a 410 body, and says expired for a body it cannot read', async () => {
+    const { closedOf } = await import('./server');
+    expect(closedOf({ state: 'cancelled', kind: 'booking', reference: '4821', cancelledAt: '2026-10-23T13:40:00Z' })).toMatchObject({
+      state: 'cancelled',
+      kind: 'booking',
+      cancelledAt: '2026-10-23T13:40:00Z',
+    });
+    expect(closedOf(undefined).state).toBe('expired');
+    expect(closedOf({ state: 'used' }).state).toBe('used');
+  });
+});

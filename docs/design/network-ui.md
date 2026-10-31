@@ -706,11 +706,14 @@ Every id is upper case with hyphens, in the form `<AREA>-<SCREEN>-<THING>`, two 
 | `NADM-LISTING-REINSTATE-BTN` | Reinstate button | NetworkListings | TEN-080 |
 | `NADM-LISTING-REASON-SELECT` | Reason select | NetworkListings | TEN-080 |
 | `NADM-HEALTH-TABLE` | Health table | NetworkHealth | TEN-080 |
+| `NADM-GRANT-DECLINE-CONFIRM-BTN` | Decline grant confirmation | NetworkGrants dialog | TEN-080 |
+| `NADM-LISTING-CONFIRM-BTN` | Decline or pause listing confirmation (with the reason select) | NetworkListings dialog | TEN-080 |
 | `NADM-HISTORY-LINK` | History link | NetworkAdminHistory | TEN-080 |
 | `SHARE-SCOPE-CARD` | Scope card (Capacity, Directory, Criteria) | SharingOverview | TEN-081 |
 | `SHARE-FIELDS-LIST` | Field list rendered from the allowlist | SharingFields | TEN-081 |
 | `SHARE-APPROVE-BTN` | Approve button | SharingOverview | TEN-081 |
 | `SHARE-DECLINE-BTN` | Decline button | SharingOverview | TEN-081 |
+| `SHARE-DECLINE-CONFIRM-BTN` | Decline confirmation | SharingOverview dialog | TEN-081 |
 | `SHARE-PROPOSE-BTN` | Propose sharing button | SharingOverview | TEN-081 |
 | `SHARE-END-BTN` | End sharing button | SharingOverview | TEN-081 |
 | `SHARE-END-CONFIRM-BTN` | End sharing confirmation | SharingEnd | TEN-081 |
@@ -807,3 +810,17 @@ The repository snapshot of the design canvas lacks what this document adds. The 
 - The network variants of existing screens (section 9).
 
 The snapshot's existing tokens, components and status words are used as they are; no new token, colour, status word, Banner tone or motion is introduced by this document.
+
+## 15. As built: TEN-080 and TEN-081 (where the screens differ from sections 7 and 8, and why)
+
+Each point is a decision of the build (DEC-1260 to DEC-1266 in `docs/delivery/fragments/TEN-080.md` and `TEN-081.md`).
+
+- Sign-in. The network administrator is the owner organisation's own role: a group of the owner's directory is mapped to `network-admin`, and the token exchange gives the role only while the host's organisation owns an active network (the registry is asked, never the token).
+- `/network-admin/history` is a fourth page (the `History` link of N1 and the `NetworkAdminHistory` artboard). `/admin/sharing` keeps its history on the same page (`#history`), as a section.
+- `NetworkMemberEnd`: the line `A second administrator must confirm this.` is not shown. The back end ends a membership in one step (TEN-077), so the line would be untrue. A membership that is invited or active can be ended; the owner's own row and closed rows cannot.
+- `NetworkHealth`: the columns are `Organisation`, `Capacity`, `Directory`, `Criteria`, each `Sharing`, `Not sharing` or `Ended on {date}`. The registry holds no last-update time, delay or refusal count, so `Last update received`, `Delay` and `Updates refused` are not shown (nothing is invented).
+- `NetworkListings`: a listing has no service name yet, so `Service` is the organisation's own reference for the service. There is a `Reason` column. `Decline` and `Pause` open a dialog with the reason select (`Choose a reason` first) and a confirmation; a reason is one of the seven codes.
+- `NetworkGrants`: a grant nobody has approved reads `Waiting for the organisation and the network owner`; one the owner approved first reads `Waiting for the organisation`; an approved grant whose window has not started reads `Approved, starts on {date}`; a replaced one reads `Replaced by a newer version`. There is no criteria endorsement per version (DEC-136 item 4: the owner's approval of the grant covers the scope).
+- `NetworkMemberAdd`: the `Organisation code` is the organisation's own id, shown only to its own administrator on `/admin/sharing` (`Your organisation code`). An unknown, ineligible and already invited code give the one message.
+- `SharingOverview`: one more state, `Approved. Sharing starts on {date}`, for an approved grant whose window has not started (`Sharing since` would be untrue). A newer version waiting for approval shows over the one in force, which is still said. The field list is rendered from the back end's allowlist through the table of section 8; a field with no sentence stops the list and the page says so.
+- The browser's key for the kind is `kind`, not `scope`: the input guard refuses every key that names a scope.

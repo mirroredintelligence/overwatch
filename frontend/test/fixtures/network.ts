@@ -278,3 +278,62 @@ export const WEEK_WITHHELD_BODY = {
   on_time_pct: measure('capacity updates on time', null),
   pressure_over_time: [],
 };
+
+
+/**
+ * What `GET /network/{id}/options?case=` answers (routes_network.py `options_to_dict`, WB11): the other
+ * organisations' services that may take the advisor's case, and the ones that may not.
+ */
+export const OPTIONS_BODY = {
+  options: [
+    {
+      row_ref: 'lst-0002',
+      organisation_name: OTHER_ORGANISATION,
+      service_name: 'Virtual ward frailty',
+      category: 'hospital-at-home-or-virtual-ward',
+      status: 'limited',
+      effective_available: 1,
+      over_by: null,
+      unit_label: 'beds',
+      data_age_seconds: 1200,
+      fits: ['Covers this postcode', 'Takes frailty'],
+      warnings: ['Limited: phone to confirm'],
+      criteria_version: 3,
+      review_by: '2027-04-29',
+      contact_label: 'Service line',
+      contact_phone: '01632 960010',
+      position: { lat: 50.62, lon: -2.45 },
+      travel: { low_minutes: 12, high_minutes: 24 },
+    },
+    {
+      row_ref: 'lst-0005',
+      organisation_name: THIRD_ORGANISATION,
+      service_name: 'Reablement south',
+      category: 'reablement',
+      status: 'accepting',
+      effective_available: 3,
+      over_by: null,
+      unit_label: 'packages',
+      data_age_seconds: 600,
+      fits: ['Covers this postcode'],
+      warnings: [],
+      criteria_version: 1,
+      review_by: '2027-02-01',
+      contact_label: null,
+      contact_phone: null,
+      position: null,
+      travel: null,
+    },
+  ],
+  not_suitable: [
+    { row_ref: 'lst-0003', organisation_name: OTHER_ORGANISATION, service_name: 'Care packages north', reason: 'not updated for 4 hrs. Phone to confirm.' },
+    { row_ref: 'lst-0004', organisation_name: THIRD_ORGANISATION, service_name: 'Paused listing', reason: 'not available on the network. Phone to confirm.' },
+  ],
+  generated_at: NETWORK_NOW,
+  patient: { lat: 50.6, lon: -2.4 },
+  not_found: false,
+  out_of_area: false,
+  system_name: 'Sample capacity',
+  pathway_name: 'Sample pathway',
+  time_zone: 'Europe/London',
+};

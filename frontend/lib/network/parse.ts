@@ -8,6 +8,10 @@ import type {
   NetworkDirectoryEntry,
   NetworkList,
   NetworkLocation,
+  NetworkNotSuitable,
+  NetworkOption,
+  NetworkOptions,
+  NetworkPoint,
   NetworkPhone,
   NetworkPhones,
   NetworkSummary,
@@ -416,6 +420,66 @@ export function parseWeek(body: unknown, style: KeyStyle): NetworkWeek {
       const point = Shape.of(item, style, 'point');
       return { hour: point.instant('hour'), pressure: point.oneOf('pressure', PRESSURES) };
     }),
+    ...header(shape),
+  };
+}
+
+
+function point(shape: Shape, key: string): NetworkPoint | null {
+  if (shape.rawValue(key) === null) return null;
+  const inner = shape.child(key);
+  const place = { lat: inner.nullableNumber('lat'), lon: inner.nullableNumber('lon') };
+  if (place.lat === null || place.lon === null || Math.abs(place.lat) > 90 || Math.abs(place.lon) > 180) fail(`${shape.label}.${key} is not a place`);
+  return { lat: place.lat, lon: place.lon };
+}
+
+function option(item: unknown, style: KeyStyle): NetworkOption {
+  const shape = Shape.of(item, style, 'option');
+  let travel: NetworkOption['travel'] = null;
+  if (shape.rawValue('travel') !== null) {
+    const inner = shape.child('travel');
+    // The back end names these `low_minutes` and `high_minutes`; the BFF `lowMinutes` and `highMinutes`.
+    const low = inner.count('lowMinutes');
+    const high = inner.count('highMinutes');
+    if (low > high) fail('option.travel is backwards');
+    travel = { lowMinutes: low, highMinutes: high };
+  }
+  return {
+    rowRef: shape.text('rowRef'),
+    organisationName: shape.text('organisationName'),
+    serviceName: shape.text('serviceName'),
+    category: shape.oneOf('category', CATEGORIES),
+    status: shape.oneOf('status', STATUSES),
+    effectiveAvailable: shape.nullableCount('effectiveAvailable'),
+    overBy: shape.nullableCount('overBy'),
+    unitLabel: shape.nullableText('unitLabel'),
+    dataAgeSeconds: shape.nullableCount('dataAgeSeconds'),
+    fits: shape.textList('fits'),
+    warnings: shape.textList('warnings'),
+    criteriaVersion: shape.count('criteriaVersion'),
+    reviewBy: shape.date('reviewBy'),
+    contactLabel: shape.nullableText('contactLabel'),
+    contactPhone: shape.nullableText('contactPhone'),
+    position: point(shape, 'position'),
+    travel,
+  };
+}
+
+function notSuitable(item: unknown, style: KeyStyle): NetworkNotSuitable {
+  const shape = Shape.of(item, style, 'notSuitable');
+  return { rowRef: shape.text('rowRef'), organisationName: shape.text('organisationName'), serviceName: shape.text('serviceName'), reason: shape.text('reason') };
+}
+
+/** The advisor's network options (WB11): the other organisations' services that may take the case. */
+export function parseNetworkOptions(body: unknown, style: KeyStyle): NetworkOptions {
+  const shape = Shape.of(body, style, 'options');
+  return {
+    options: shape.list('options', (item) => option(item, style)),
+    notSuitable: shape.list('notSuitable', (item) => notSuitable(item, style)),
+    generatedAt: shape.instant('generatedAt'),
+    patient: point(shape, 'patient'),
+    notFound: shape.bool('notFound'),
+    outOfArea: shape.bool('outOfArea'),
     ...header(shape),
   };
 }

@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { BOARD_BODY, CRITERIA_BODY, DIRECTORY_BODY, DIRECTORY_HISTORY_BODY, NETWORKS_BODY, PHONES_BODY, SYSTEM_NOW_BODY, WEEK_BODY } from '@/test/fixtures/network';
+import { BOARD_BODY, CRITERIA_BODY, DIRECTORY_BODY, DIRECTORY_HISTORY_BODY, NETWORKS_BODY, OPTIONS_BODY, PHONES_BODY, SYSTEM_NOW_BODY, WEEK_BODY } from '@/test/fixtures/network';
 import { TOKEN_ORG_A } from './tokens';
 
 // The network routes of the stand-in back end, for the browser tests (TEN-068 to TEN-071, W17, W43,
@@ -54,6 +54,10 @@ export function handleNetworkRoute(request: IncomingMessage, response: ServerRes
       return true;
     case 'week':
       send(response, 200, WEEK_BODY);
+      return true;
+    case 'options':
+      // The advisor's own case is read in the advisor's organisation (not modelled here): the rows are the network's.
+      send(response, 200, { ...OPTIONS_BODY, generated_at: new Date().toISOString() });
       return true;
     case 'events':
       response.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store' });

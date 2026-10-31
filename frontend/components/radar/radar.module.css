@@ -1,0 +1,249 @@
+/* The radar screens (RadarWeb, RadarPhone). Tokens from app/tokens.css; the picture itself shares the map's
+   classes (advisor/map.module.css). Phone first: one column, nothing wider than the screen. */
+
+.screen {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  min-width: 0;
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--type-heading-size);
+  font-weight: var(--type-heading-weight);
+  line-height: var(--type-heading-lh);
+  color: var(--c-ink);
+}
+
+.sub,
+.note {
+  margin: 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  color: var(--c-ink-2);
+}
+
+.note {
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
+}
+
+.summary {
+  margin: 0;
+  font-size: var(--type-title-size);
+  font-weight: var(--type-title-weight);
+  line-height: var(--type-title-lh);
+  color: var(--c-ink);
+}
+
+.actions,
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--chip-h);
+  padding: 0 var(--space-3);
+  font-weight: var(--type-label-weight);
+  color: var(--c-ink);
+  text-decoration: none;
+  background: var(--c-bg);
+  border: 2px solid var(--c-ink);
+  border-radius: var(--radius-chip);
+}
+
+.tab[aria-current='page'] {
+  background: var(--c-tint);
+  border-color: var(--c-primary);
+  color: var(--c-primary-dark);
+}
+
+.tab:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.layers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.legend {
+  width: 100%;
+  padding: 0;
+  margin-bottom: var(--space-2);
+  font-weight: var(--type-label-weight);
+  color: var(--c-ink);
+}
+
+.map {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 45%;
+  padding: 2px var(--space-2);
+  font-size: var(--type-caption-size);
+  font-weight: var(--type-label-weight);
+  color: var(--c-ink);
+  background: var(--c-bg);
+  border: 2px solid var(--c-ink-2);
+  border-radius: var(--radius-chip);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.label svg {
+  flex: none;
+  width: 1.1em;
+  height: 1.1em;
+}
+
+.keyList {
+  margin: 0;
+  padding-left: var(--space-5);
+  font-size: var(--type-caption-size);
+  color: var(--c-ink-2);
+}
+
+.lane {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius);
+}
+
+.laneTitle {
+  margin: 0;
+  font-size: var(--type-title-size);
+  font-weight: var(--type-title-weight);
+  color: var(--c-ink);
+}
+
+.ways {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.way {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius);
+}
+
+.wayText {
+  display: grid;
+  min-width: 0;
+}
+
+.wayDetail {
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
+}
+
+.compare {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--type-body-size);
+  color: var(--c-ink);
+}
+
+.compare th,
+.compare td {
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--c-line);
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.compare thead th {
+  font-size: var(--type-caption-size);
+  color: var(--c-ink-2);
+}
+
+.why {
+  margin: 0;
+  padding-left: var(--space-5);
+  font-size: var(--type-body-size);
+  color: var(--c-ink-2);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* On a phone the table is a stack: each measure is a block and each figure names its service. */
+@media (max-width: 48rem) {
+  .compare thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .compare tr,
+  .compare th,
+  .compare td {
+    display: block;
+  }
+
+  .compare tr {
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--c-line);
+  }
+
+  .compare th,
+  .compare td {
+    border-bottom: 0;
+    padding: var(--space-1) 0;
+  }
+
+  .compare tbody th {
+    font-size: var(--type-label-size);
+  }
+
+  .compare td::before {
+    content: attr(data-label) ': ';
+    font-weight: var(--type-label-weight);
+  }
+}

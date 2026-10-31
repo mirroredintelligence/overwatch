@@ -8,7 +8,7 @@ import { TENANTS } from '@/test/tenants';
 
 // The CSRF token issued to the sample session: bound to its person, tenant and host (TEN-046).
 vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-const CSRF = csrfOf(TENANTS.A, 'sample-sub');
+const CSRF = await csrfOf(TENANTS.A, 'sample-sub');
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');

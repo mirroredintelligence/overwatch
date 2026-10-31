@@ -21,7 +21,7 @@ function sample(role: Session['role']): Session {
 
 // The CSRF token issued to the sample session. (SESSION_SECRET is set here, before the first test.)
 vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-const TOKEN = csrfFor(sample('advisor'));
+const TOKEN = await csrfFor(sample('advisor'));
 
 async function request(
   method: string,
@@ -459,7 +459,7 @@ describe('an id that is not in this tenant looks like an id that is nowhere (TEN
 });
 
 describe('the CSRF token is the session’s own (TEN-046)', () => {
-  const OWN = csrfFor(sessionFor(TENANTS.A, 'advisor'));
+  const own = () => csrfFor(sessionFor(TENANTS.A, 'advisor'));
   const run = async (csrf: string) => {
     const handler = vi.fn(() => new Response('done'));
     const response = await withBff(handler)(await requestAs(TENANTS.A, 'advisor', { method: 'POST', csrf }), undefined);
@@ -467,13 +467,13 @@ describe('the CSRF token is the session’s own (TEN-046)', () => {
   };
 
   it('runs the handler for the token issued to the session', async () => {
-    const { response, handler } = await run(OWN);
+    const { response, handler } = await run(await own());
     expect(response.status).toBe(200);
     expect(handler).toHaveBeenCalledOnce();
   });
 
   it('answers 403 csrf for a matching cookie and header that were issued to another tenant’s session', async () => {
-    const forB = csrfFor(sessionFor(TENANTS.B, 'advisor'));
+    const forB = await csrfFor(sessionFor(TENANTS.B, 'advisor'));
     const { response, handler } = await run(forB);
     expect(response.status).toBe(403);
     expect(await response.json()).toEqual({ code: 'csrf' });
@@ -487,7 +487,7 @@ describe('the CSRF token is the session’s own (TEN-046)', () => {
   });
 
   it('answers 403 csrf for a token issued to another person of the same tenant', async () => {
-    const { response } = await run(csrfFor(sessionFor(TENANTS.A, 'advisor', { sub: 'stf-another-person' })));
+    const { response } = await run(await csrfFor(sessionFor(TENANTS.A, 'advisor', { sub: 'stf-another-person' })));
     expect(response.status).toBe(403);
   });
 });

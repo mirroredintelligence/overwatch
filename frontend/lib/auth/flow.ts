@@ -48,8 +48,8 @@ export function see(location: string): Response {
 // purpose, so a sealed session can never be passed off as a transaction or the other way round.
 const STAFF_PURPOSE = 'diucs-staff-sign-in';
 
-function transactionKey(purpose: string): Uint8Array {
-  const derived = hkdfSync('sha256', sessionSecretKey(), purpose, 'transaction-cookie-v1', 32);
+async function transactionKey(purpose: string): Promise<Uint8Array> {
+  const derived = hkdfSync('sha256', await sessionSecretKey(), purpose, 'transaction-cookie-v1', 32);
   return new Uint8Array(derived);
 }
 
@@ -60,11 +60,11 @@ export async function sealTransaction(transaction: Transaction, now: Date, purpo
     .setProtectedHeader(ENCRYPTION)
     .setIssuedAt(seconds)
     .setExpirationTime(seconds + TRANSACTION_SECONDS)
-    .encrypt(transactionKey(purpose));
+    .encrypt(await transactionKey(purpose));
 }
 
 export async function unsealTransaction(value: string, now: Date, purpose: string = STAFF_PURPOSE): Promise<Transaction | null> {
-  const key = transactionKey(purpose); // A missing secret is a fault, not "no transaction".
+  const key = await transactionKey(purpose); // A missing secret is a fault, not "no transaction".
   if (!value) return null;
   try {
     const { payload } = await jwtDecrypt(value, key, {
@@ -107,7 +107,7 @@ export async function nextFrom(request: Request): Promise<string> {
 /** POST: the browser is sent to Entra. Reads `next` from the form and nothing else from the request. */
 export async function startSignIn(request: Request): Promise<Response> {
   try {
-    const config = loadEntraConfig();
+    const config = await loadEntraConfig();
     const transaction = newTransaction(await nextFrom(request));
     const sealed = await sealTransaction(transaction, new Date());
     const store = await cookies();
@@ -138,7 +138,7 @@ export function moveOn(destination: string): Response {
 /** GET: the browser is back from Entra. Checks everything, then creates our own session. */
 export async function completeSignIn(request: Request): Promise<Response> {
   try {
-    const config = loadEntraConfig();
+    const config = await loadEntraConfig();
     const store = await cookies();
     const now = new Date();
     // The transaction is single-use: gone from the browser whatever happens next.

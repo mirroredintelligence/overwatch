@@ -17,7 +17,7 @@ vi.mock('next/headers', async () => {
 
 // The CSRF token issued to the sample session: bound to its person, tenant and host (TEN-046).
 vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-const CSRF = csrfTokenFor({ tenantId: 'trust-a', host: 'app.test', sub: 'user-1' }, 'N'.repeat(43));
+const CSRF = await csrfTokenFor({ tenantId: 'trust-a', host: 'app.test', sub: 'user-1' }, 'N'.repeat(43));
 
 async function post(body: unknown, role: Session['role'] = 'advisor') {
   const s: Session = { role, tenantId: 'trust-a', host: 'app.test', services: [], sub: 'user-1', backendToken: TOKEN_ORG_A, expiresAt: new Date(Date.now() + 3_600_000).toISOString() };

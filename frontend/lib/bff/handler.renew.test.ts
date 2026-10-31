@@ -43,7 +43,7 @@ function reporter(tokenLeftMs: number, over: Partial<Session> = {}): Session {
 }
 
 async function call(session: Session, method = 'GET', extra: { headers?: Record<string, string>; csrf?: boolean; url?: string } = {}) {
-  const token = csrfFor(session);
+  const token = await csrfFor(session);
   const cookies: Record<string, string> = { [SESSION_COOKIE]: await sealSession(session, NOW) };
   const headers = new Headers({ Host: A.host, ...extra.headers });
   if (extra.csrf !== false) {

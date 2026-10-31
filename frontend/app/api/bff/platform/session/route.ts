@@ -15,7 +15,7 @@ const get = withOperatorBff(async (request, session) => {
   // Keep the token already in the cookie when it is this session's, so a second tab is not logged out.
   const subject = { host: session.host, sub: session.accountRef };
   const existing = readRequestCookie(request, OPERATOR_CSRF_COOKIE);
-  const csrfToken = existing && verifyOperatorCsrfToken(subject, existing) ? existing : await issueOperatorCsrf(subject);
+  const csrfToken = existing && (await verifyOperatorCsrfToken(subject, existing)) ? existing : await issueOperatorCsrf(subject);
   return Response.json({ role: view.role, accountRef: view.accountRef, expiresAt: view.expiresAt, permissions: view.permissions, csrfToken });
 });
 

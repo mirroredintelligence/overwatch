@@ -45,7 +45,7 @@ export function withOperatorBff<C = unknown>(
       if (options.roles && !options.roles.includes(session.role)) return refuse(403, 'forbidden');
 
       const check = UNSAFE_METHODS.has(request.method.toUpperCase()) || options.csrf === true;
-      if (check && !checkOperatorCsrf(request, { host: session.host, sub: session.accountRef })) return refuse(403, 'csrf');
+      if (check && !(await checkOperatorCsrf(request, { host: session.host, sub: session.accountRef }))) return refuse(403, 'csrf');
 
       if (await refusesTenantInput(request)) return refuse(400, 'invalid');
 

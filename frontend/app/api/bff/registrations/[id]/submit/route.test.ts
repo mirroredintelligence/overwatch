@@ -21,7 +21,7 @@ vi.mock('next/headers', async () => {
 const ID = 'REG-SAMPLE-1';
 // The CSRF token issued to the sample session: bound to its person, tenant and host (TEN-046).
 vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-const CSRF = csrfOf(TENANTS.A, 'person-sample-1');
+const CSRF = await csrfOf(TENANTS.A, 'person-sample-1');
 const url = `https://tenant-a.example.test/api/bff/registrations/${ID}/submit`;
 const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
 let upstream: { auth: string | null; idem: string | null; path: string } | null = null;

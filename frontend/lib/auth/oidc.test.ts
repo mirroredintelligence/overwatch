@@ -168,6 +168,7 @@ describe('loadOperatorEntraConfig', () => {
   });
 
   it('refuses the plain operator secret beside the vault, naming the variable and never the value', async () => {
+    vi.stubEnv('ENTRA_CLIENT_SECRET', '');
     vi.stubEnv('DIUCS_KEY_VAULT_URL', 'https://diucs-test.vault.azure.net');
     const error = await loadOperatorEntraConfig({ ...OPERATOR_ENV }).catch((e: unknown) => e);
     expect((error as Error).message).toContain('OPERATOR_ENTRA_CLIENT_SECRET');

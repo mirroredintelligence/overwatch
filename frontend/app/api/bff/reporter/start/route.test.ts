@@ -39,24 +39,24 @@ describe('GET /api/bff/reporter/start', () => {
     expect(body.csrfToken).toMatch(/^[A-Za-z0-9_-]{43}\.[A-Za-z0-9_-]{43}$/);
     expect(lastWrite(CSRF_COOKIE)?.value).toBe(body.csrfToken);
     const device = lastWrite(DEVICE_COOKIE)?.value ?? '';
-    expect(verifyCsrfToken(preSessionSubject(A.host, device), body.csrfToken)).toBe(true);
-    expect(verifyCsrfToken(preSessionSubject(TENANTS.B.host, device), body.csrfToken)).toBe(false);
+    expect(await verifyCsrfToken(preSessionSubject(A.host, device), body.csrfToken)).toBe(true);
+    expect(await verifyCsrfToken(preSessionSubject(TENANTS.B.host, device), body.csrfToken)).toBe(false);
   });
 
   it('keeps the token the phone already holds when it is its own, so two tabs agree', async () => {
-    const own = preSessionCsrfFor(A.host);
+    const own = await preSessionCsrfFor(A.host);
     const response = await GET(get({ [DEVICE_COOKIE]: SAMPLE_DEVICE, [CSRF_COOKIE]: own }));
     expect(((await response.json()) as { csrfToken: string }).csrfToken).toBe(own);
     expect(cookieWrites.filter((w) => w.name === CSRF_COOKIE)).toHaveLength(0);
   });
 
   it('replaces a token that was made for another host or another phone', async () => {
-    for (const planted of [preSessionCsrfFor(TENANTS.B.host), preSessionCsrfFor(A.host, 'E'.repeat(22)), 'C'.repeat(43)]) {
+    for (const planted of [await preSessionCsrfFor(TENANTS.B.host), await preSessionCsrfFor(A.host, 'E'.repeat(22)), 'C'.repeat(43)]) {
       resetCookieWrites();
       const response = await GET(get({ [DEVICE_COOKIE]: SAMPLE_DEVICE, [CSRF_COOKIE]: planted }));
       const { csrfToken } = (await response.json()) as { csrfToken: string };
       expect(csrfToken).not.toBe(planted);
-      expect(verifyCsrfToken(preSessionSubject(A.host, SAMPLE_DEVICE), csrfToken)).toBe(true);
+      expect(await verifyCsrfToken(preSessionSubject(A.host, SAMPLE_DEVICE), csrfToken)).toBe(true);
     }
   });
 
@@ -101,24 +101,24 @@ describe('GET /api/bff/reporter/start for a phone that is signed in', () => {
     const session = reporterSession();
     const response = await GET(await asReporter({}, session));
     const { csrfToken } = (await response.json()) as { csrfToken: string };
-    expect(verifyCsrfToken(session, csrfToken)).toBe(true);
-    expect(verifyCsrfToken(preSessionSubject(A.host, DEVICE), csrfToken)).toBe(false);
+    expect(await verifyCsrfToken(session, csrfToken)).toBe(true);
+    expect(await verifyCsrfToken(preSessionSubject(A.host, DEVICE), csrfToken)).toBe(false);
     expect(lastWrite(CSRF_COOKIE)?.value).toBe(csrfToken);
   });
 
   it('keeps the token the phone already holds when it is the session’s own, so two tabs agree', async () => {
     const session = reporterSession();
-    const own = csrfFor(session);
+    const own = await csrfFor(session);
     const response = await GET(await asReporter({ [CSRF_COOKIE]: own }, session));
     expect(((await response.json()) as { csrfToken: string }).csrfToken).toBe(own);
     expect(cookieWrites.filter((w) => w.name === CSRF_COOKIE)).toHaveLength(0);
   });
 
   it('replaces the phone’s pre-session token once there is a session', async () => {
-    const response = await GET(await asReporter({ [CSRF_COOKIE]: preSessionCsrfFor(A.host) }));
+    const response = await GET(await asReporter({ [CSRF_COOKIE]: await preSessionCsrfFor(A.host) }));
     const { csrfToken } = (await response.json()) as { csrfToken: string };
-    expect(csrfToken).not.toBe(preSessionCsrfFor(A.host));
-    expect(verifyCsrfToken(reporterSession(), csrfToken)).toBe(true);
+    expect(csrfToken).not.toBe(await preSessionCsrfFor(A.host));
+    expect(await verifyCsrfToken(reporterSession(), csrfToken)).toBe(true);
   });
 
   it('gives a pre-session token to a phone whose session is another host’s, expired, or not a reporter’s', async () => {
@@ -127,7 +127,7 @@ describe('GET /api/bff/reporter/start for a phone that is signed in', () => {
     for (const cookie of [other, staff, 'not-a-session']) {
       resetCookieWrites();
       const { csrfToken } = (await (await GET(get({ [DEVICE_COOKIE]: DEVICE, [SESSION_COOKIE]: cookie }))).json()) as { csrfToken: string };
-      expect(verifyCsrfToken(preSessionSubject(A.host, DEVICE), csrfToken)).toBe(true);
+      expect(await verifyCsrfToken(preSessionSubject(A.host, DEVICE), csrfToken)).toBe(true);
     }
   });
 

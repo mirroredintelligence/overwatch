@@ -21,7 +21,7 @@ vi.mock('next/headers', async () => {
 const URL_ = `https://${SIGN_IN_HOST}/api/bff/screens`;
 // The CSRF token issued to the sample session: bound to its person, tenant and host (TEN-046).
 vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-const CSRF = csrfTokenFor({ tenantId: 'trust-a', host: SIGN_IN_HOST, sub: 'stf-1' }, 'N'.repeat(43));
+const CSRF = await csrfTokenFor({ tenantId: 'trust-a', host: SIGN_IN_HOST, sub: 'stf-1' }, 'N'.repeat(43));
 
 // One token per role for the whole file: it carries an expiry in whole seconds, so two calls that straddle a
 // second would give two different tokens and a test that compares them would fail on a slow machine.

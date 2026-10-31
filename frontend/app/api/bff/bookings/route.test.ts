@@ -20,7 +20,7 @@ const KEY = '9f1c2b3a-4d5e-4f60-8a7b-1c2d3e4f5a6b';
 const TOKEN = 'token-for-advisor-one';
 // The CSRF token issued to the sample session: bound to its person, tenant and host (TEN-046).
 vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-const CSRF_VALUE = csrfTokenFor({ tenantId: 'trust-a', host: 'app.test', sub: 'advisor-1' }, 'N'.repeat(43));
+const CSRF_VALUE = await csrfTokenFor({ tenantId: 'trust-a', host: 'app.test', sub: 'advisor-1' }, 'N'.repeat(43));
 
 function session(role: Role): Session {
   return {

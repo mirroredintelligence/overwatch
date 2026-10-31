@@ -22,7 +22,7 @@ beforeEach(() => {
 });
 
 describe('linkCsrfPath', () => {
-  it('scopes the cookie to this link’s own BFF path, so two links in one browser do not collide', () => {
+  it('scopes the cookie to this link’s own BFF path, so two links in one browser do not collide', async () => {
     expect(linkCsrfPath(TOKEN)).toBe(`/api/bff/links/${TOKEN}`);
   });
 });
@@ -39,7 +39,7 @@ describe('issueLinkCsrf', () => {
 });
 
 describe('checkLinkCsrf', () => {
-  it('is true only when the header equals the cookie for this link', () => {
+  it('is true only when the header equals the cookie for this link', async () => {
     const request = requestWithCookies(URL_, { [LINK_CSRF_COOKIE]: VALUE }, {
       method: 'POST',
       headers: { 'X-CSRF-Token': VALUE },
@@ -47,7 +47,7 @@ describe('checkLinkCsrf', () => {
     expect(checkLinkCsrf(request, TOKEN)).toBe(true);
   });
 
-  it('is false with no header, no cookie, or a header that is not the cookie', () => {
+  it('is false with no header, no cookie, or a header that is not the cookie', async () => {
     const cookieOnly = requestWithCookies(URL_, { [LINK_CSRF_COOKIE]: VALUE }, { method: 'POST' });
     const headerOnly = requestWithCookies(URL_, {}, { method: 'POST', headers: { 'X-CSRF-Token': VALUE } });
     const wrong = requestWithCookies(URL_, { [LINK_CSRF_COOKIE]: VALUE }, {
@@ -59,7 +59,7 @@ describe('checkLinkCsrf', () => {
     expect(checkLinkCsrf(wrong, TOKEN)).toBe(false);
   });
 
-  it('is false for an empty value, so a blank header cannot match a blank cookie', () => {
+  it('is false for an empty value, so a blank header cannot match a blank cookie', async () => {
     const request = requestWithCookies(URL_, { [LINK_CSRF_COOKIE]: '' }, { method: 'POST', headers: { 'X-CSRF-Token': '' } });
     expect(checkLinkCsrf(request, TOKEN)).toBe(false);
   });
@@ -71,7 +71,7 @@ describe('checkLinkCsrf', () => {
 describe('the link CSRF is separate from the staff CSRF (TEN-046)', () => {
   const STAFF = sessionFor(TENANTS.A, 'advisor', { sub: 'stf-person-1' });
 
-  it('has its own cookie name, not the staff one', () => {
+  it('has its own cookie name, not the staff one', async () => {
     expect(LINK_CSRF_COOKIE).not.toBe(CSRF_COOKIE);
     expect(LINK_CSRF_COOKIE).toBe('diucs_link_csrf');
   });
@@ -91,18 +91,18 @@ describe('the link CSRF is separate from the staff CSRF (TEN-046)', () => {
     expect(`/api/bff/links/OtherLinkTokenAbcdefg`.startsWith(path)).toBe(false);
   });
 
-  it('does not accept the staff pair for a link', () => {
-    const staff = csrfTokenFor(STAFF, 'N'.repeat(43));
+  it('does not accept the staff pair for a link', async () => {
+    const staff = await csrfTokenFor(STAFF, 'N'.repeat(43));
     const request = requestWithCookies(URL_, { [CSRF_COOKIE]: staff }, { method: 'POST', headers: { 'X-CSRF-Token': staff } });
     expect(checkLinkCsrf(request, TOKEN)).toBe(false);
   });
 
-  it('does not accept the link pair for a staff request', () => {
+  it('does not accept the link pair for a staff request', async () => {
     const request = requestWithCookies(URL_, { [LINK_CSRF_COOKIE]: VALUE }, { method: 'POST', headers: { 'X-CSRF-Token': VALUE } });
-    expect(checkCsrf(request, STAFF)).toBe(false);
+    expect(await checkCsrf(request, STAFF)).toBe(false);
   });
 
-  it('does not accept one link’s pair on another link’s path', () => {
+  it('does not accept one link’s pair on another link’s path', async () => {
     const request = requestWithCookies(`https://tenant-a.example.test/api/bff/links/OtherLinkTokenAbcdefg`, { [LINK_CSRF_COOKIE]: VALUE }, {
       method: 'POST',
       headers: { 'X-CSRF-Token': VALUE },
@@ -125,31 +125,31 @@ describe('the CSRF token of a renewal (KI-178)', () => {
       headers: header === null ? {} : { 'X-CSRF-Token': header },
     });
 
-  it('is the same for the same link, different for another link, and is not the link', () => {
-    expect(renewCsrfFor(TOKEN)).toBe(renewCsrfFor(TOKEN));
-    expect(renewCsrfFor(TOKEN)).not.toBe(renewCsrfFor('OtherLinkTokenAbcdefghi'));
-    expect(renewCsrfFor(TOKEN)).toMatch(/^[0-9a-f]{64}$/);
-    expect(renewCsrfFor(TOKEN)).not.toContain(TOKEN);
+  it('is the same for the same link, different for another link, and is not the link', async () => {
+    expect(await renewCsrfFor(TOKEN)).toBe(await renewCsrfFor(TOKEN));
+    expect(await renewCsrfFor(TOKEN)).not.toBe(await renewCsrfFor('OtherLinkTokenAbcdefghi'));
+    expect(await renewCsrfFor(TOKEN)).toMatch(/^[0-9a-f]{64}$/);
+    expect(await renewCsrfFor(TOKEN)).not.toContain(TOKEN);
   });
 
-  it('is not the token that answers a capacity link, so one cannot stand in for the other', () => {
-    expect(renewCsrfFor(TOKEN)).not.toBe(VALUE);
+  it('is not the token that answers a capacity link, so one cannot stand in for the other', async () => {
+    expect(await renewCsrfFor(TOKEN)).not.toBe(VALUE);
   });
 
-  it('is accepted when the header carries it for this link', () => {
-    expect(checkRenewCsrf(renewRequest(TOKEN, renewCsrfFor(TOKEN)), TOKEN)).toBe(true);
+  it('is accepted when the header carries it for this link', async () => {
+    expect(await checkRenewCsrf(renewRequest(TOKEN, await renewCsrfFor(TOKEN)), TOKEN)).toBe(true);
   });
 
   it.each([
-    ['no header', () => null],
-    ['an empty header', () => ''],
+    ['no header', async () => null],
+    ['an empty header', async () => ''],
     ['another link’s token', () => renewCsrfFor('OtherLinkTokenAbcdefghi')],
-    ['a guess', () => 'a'.repeat(64)],
-  ])('is refused for %s', (_name, header) => {
-    expect(checkRenewCsrf(renewRequest(TOKEN, header()), TOKEN)).toBe(false);
+    ['a guess', async () => 'a'.repeat(64)],
+  ])('is refused for %s', async (_name, header) => {
+    expect(await checkRenewCsrf(renewRequest(TOKEN, await header()), TOKEN)).toBe(false);
   });
 
-  it('is refused for a request to another link’s path', () => {
-    expect(checkRenewCsrf(renewRequest('OtherLinkTokenAbcdefghi', renewCsrfFor(TOKEN)), TOKEN)).toBe(false);
+  it('is refused for a request to another link’s path', async () => {
+    expect(await checkRenewCsrf(renewRequest('OtherLinkTokenAbcdefghi', await renewCsrfFor(TOKEN)), TOKEN)).toBe(false);
   });
 });

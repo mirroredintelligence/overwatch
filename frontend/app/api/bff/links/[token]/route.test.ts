@@ -64,14 +64,14 @@ describe('GET /api/bff/links/[token]', () => {
   it('answers an expired or used link with 410, its state word and the CSRF token of its renewal, and sets no cookie', async () => {
     const response = await GET(requestWithCookies(url(LINK.expired), {}), ctx(LINK.expired));
     expect(response.status).toBe(410);
-    expect(await response.json()).toEqual({ state: 'expired', csrfToken: renewCsrfFor(LINK.expired) });
+    expect(await response.json()).toEqual({ state: 'expired', csrfToken: await renewCsrfFor(LINK.expired) });
     expect(cookieWrites).toHaveLength(0);
   });
 
   it('gives an unknown token the same answer as an expired link, so the CSRF token says nothing about which links exist', async () => {
     const unknown = await GET(requestWithCookies(url('x'), {}), ctx('NoSuchLinkTokenAbcdefghij'));
     expect(unknown.status).toBe(410);
-    expect(await unknown.json()).toEqual({ state: 'expired', csrfToken: renewCsrfFor('NoSuchLinkTokenAbcdefghij') });
+    expect(await unknown.json()).toEqual({ state: 'expired', csrfToken: await renewCsrfFor('NoSuchLinkTokenAbcdefghij') });
   });
 
   it('still answers 410 with the state word alone when there is no secret to make the renewal token', async () => {
@@ -92,7 +92,7 @@ describe('GET /api/bff/links/[token]', () => {
       confirmedAt: '2026-10-23T13:19:00Z',
       cancelledAt: '2026-10-23T13:40:00Z',
       coordinationPhone: '0300 123 4567',
-      csrfToken: renewCsrfFor(LINK.bookingCancelled),
+      csrfToken: await renewCsrfFor(LINK.bookingCancelled),
     });
   });
 
@@ -164,7 +164,7 @@ describe('POST /api/bff/links/[token]', () => {
     const token = csrfFor(LINK.expired);
     const response = await POST(post(LINK.expired, { action: 'confirm' }, token, token), ctx(LINK.expired));
     expect(response.status).toBe(410);
-    expect(await response.json()).toEqual({ state: 'expired', csrfToken: renewCsrfFor(LINK.expired) });
+    expect(await response.json()).toEqual({ state: 'expired', csrfToken: await renewCsrfFor(LINK.expired) });
   });
 
   it('answers a recorded figure without the sealed detail when there is no secret to seal it with', async () => {

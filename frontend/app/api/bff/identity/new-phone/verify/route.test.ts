@@ -21,9 +21,9 @@ beforeEach(() => {
 
 // A phone with no session: its CSRF token is bound to the host and its device id, and the call to the
 // back end carries the host as the tenant and no bearer (the leak canary checks both).
-const call = (options: { csrf?: boolean | string } = {}) =>
+const call = async (options: { csrf?: boolean | string } = {}) =>
   POST(
-    requestPreSession({
+    await requestPreSession({
       host: TENANTS.A.host,
       path: '/api/bff/identity/new-phone/verify',
       body: '{"phone":"07700900123","code":"482913"}',

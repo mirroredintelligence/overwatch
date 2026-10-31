@@ -44,7 +44,7 @@ export function preSession<C>(
     try {
       if (UNSAFE.has(request.method.toUpperCase())) {
         const subject = preSessionSubjectOf(request);
-        if (subject === null || !checkCsrf(request, subject)) return refuse(403, 'csrf');
+        if (subject === null || !(await checkCsrf(request, subject))) return refuse(403, 'csrf');
       }
       return await handler(request, context);
     } catch (error) {

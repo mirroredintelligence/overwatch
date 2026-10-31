@@ -16,7 +16,7 @@ const BACKEND_ROOT = 'http://backend.test';
 const URL_ = 'https://app.test/api/bff/console/sessions/open';
 // The CSRF token issued to the sample session: bound to its person, tenant and host (TEN-046).
 vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-const CSRF = csrfTokenFor({ tenantId: 'trust-a', host: 'app.test', sub: 'user-1' }, 'N'.repeat(43));
+const CSRF = await csrfTokenFor({ tenantId: 'trust-a', host: 'app.test', sub: 'user-1' }, 'N'.repeat(43));
 
 function session(role: Role): Session {
   return {

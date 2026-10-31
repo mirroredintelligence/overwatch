@@ -42,7 +42,7 @@ function onConsoleHost(request: Request, publicUrl: string): boolean {
 /** POST: the browser is sent to the operator's directory. Reads `next` from the form and nothing else from the request. */
 export async function startOperatorSignIn(request: Request): Promise<Response> {
   try {
-    const config = loadOperatorEntraConfig();
+    const config = await loadOperatorEntraConfig();
     if (!onConsoleHost(request, config.publicUrl)) throw new SignInRefused('transaction');
     const transaction = newTransaction(await nextFrom(request));
     const sealed = await sealTransaction(transaction, new Date(), PURPOSE);
@@ -58,7 +58,7 @@ export async function startOperatorSignIn(request: Request): Promise<Response> {
 /** GET: the browser is back from the directory. Checks everything, then creates the operator's own session. */
 export async function completeOperatorSignIn(request: Request): Promise<Response> {
   try {
-    const config = loadOperatorEntraConfig();
+    const config = await loadOperatorEntraConfig();
     const store = await cookies();
     const now = new Date();
     // The transaction is single-use: gone from the browser whatever happens next.

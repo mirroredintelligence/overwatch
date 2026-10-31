@@ -20,14 +20,15 @@ export async function sealThanks(answered: LinkAnswered, now: Date = new Date())
     .setProtectedHeader(ENCRYPTION)
     .setIssuedAt(issued)
     .setExpirationTime(issued + LIFETIME_SECONDS)
-    .encrypt(sessionSecretKey());
+    .encrypt(await sessionSecretKey());
 }
 
-/** What was sealed, or null for anything that is not a live thank-you detail sealed with this key. Never throws. */
+/** What was sealed, or null for anything that is not a live thank-you detail sealed with this key. Throws only when there is no secret. */
 export async function unsealThanks(value: string, now: Date = new Date()): Promise<LinkAnswered | null> {
   if (value === '' || value.length > 4096) return null;
+  const key = await sessionSecretKey(); // A missing secret is a fault, not "no detail".
   try {
-    const { payload, protectedHeader } = await jwtDecrypt(value, sessionSecretKey(), {
+    const { payload, protectedHeader } = await jwtDecrypt(value, key, {
       currentDate: now,
       contentEncryptionAlgorithms: ['A256GCM'],
       keyManagementAlgorithms: ['dir'],

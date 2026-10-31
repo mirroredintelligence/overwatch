@@ -385,7 +385,7 @@ describe.each(files.filter((f) => kindOf(f) === 'link'))('%s (link)', (file) => 
     const headers: Record<string, string> = { Host: host, 'Content-Type': 'application/json' };
     if (verb === 'POST' && !path.endsWith('/renew')) headers['X-CSRF-Token'] = csrfFor(token);
     // A renewal carries the renewal token the closed link's answer gave the page (KI-178).
-    if (path.endsWith('/renew')) headers['X-CSRF-Token'] = renewCsrfFor(token);
+    if (path.endsWith('/renew')) headers['X-CSRF-Token'] = await renewCsrfFor(token);
     const request = requestWithCookies(`https://${host}${path}`, cookies, {
       method: verb,
       headers,
@@ -430,7 +430,7 @@ describe.each(files.filter((f) => kindOf(f) === 'link'))('%s (link)', (file) => 
           Cookie: `${cookiePair}${link}`,
           'Content-Type': 'application/json',
           ...(verb === 'POST' && !path.endsWith('/renew') ? { 'X-CSRF-Token': csrfFor(LINK.recorded) } : {}),
-          ...(path.endsWith('/renew') ? { 'X-CSRF-Token': renewCsrfFor(LINK.recorded) } : {}),
+          ...(path.endsWith('/renew') ? { 'X-CSRF-Token': await renewCsrfFor(LINK.recorded) } : {}),
         },
         body: verb === 'POST' ? JSON.stringify({ action: 'confirm' }) : undefined,
       });

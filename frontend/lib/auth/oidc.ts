@@ -1,5 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { createRemoteJWKSet, errors, jwtVerify } from 'jose';
+import { getSecret } from '@/lib/secrets';
 
 // OpenID Connect against Microsoft Entra ID: the authorisation code flow with PKCE (S256),
 // done here with `jose` and `fetch` and not with Auth.js (DEC-210). Nothing in this file logs,
@@ -101,15 +102,19 @@ function directory(env: Env): string | null {
   return directoryFrom(env, 'ENTRA_DIRECTORY_ID');
 }
 
+// The client secrets come from the secret module (Key Vault on the pilot, DEC-1304), never from `env`: the
+// settings given here are the non-secret ones (ids, directory, addresses).
+const STAFF_SECRET = 'entra-staff-client-secret';
+const OPERATOR_SECRET = 'entra-operator-client-secret';
+
 /** Reads the settings at call time, so a missing value fails the request that needs it. */
-export function loadEntraConfig(env: Env = process.env): EntraConfig {
-  return {
-    clientId: setting(env, 'ENTRA_CLIENT_ID'),
-    clientSecret: setting(env, 'ENTRA_CLIENT_SECRET'),
-    authorityHost: origin(env, 'ENTRA_AUTHORITY_HOST', env.ENTRA_AUTHORITY_HOST || DEFAULT_AUTHORITY_HOST),
-    publicUrl: origin(env, 'DIUCS_PUBLIC_URL', setting(env, 'DIUCS_PUBLIC_URL')),
-    directoryId: directory(env),
-  };
+export async function loadEntraConfig(env: Env = process.env): Promise<EntraConfig> {
+  // The settings are checked first, so a bad one never costs a vault call; the secret is read last.
+  const clientId = setting(env, 'ENTRA_CLIENT_ID');
+  const authorityHost = origin(env, 'ENTRA_AUTHORITY_HOST', env.ENTRA_AUTHORITY_HOST || DEFAULT_AUTHORITY_HOST);
+  const publicUrl = origin(env, 'DIUCS_PUBLIC_URL', setting(env, 'DIUCS_PUBLIC_URL'));
+  const directoryId = directory(env);
+  return { clientId, clientSecret: await getSecret(STAFF_SECRET), authorityHost, publicUrl, directoryId };
 }
 
 export const OPERATOR_CALLBACK_PATH = '/api/bff/platform/auth/callback';
@@ -120,17 +125,13 @@ export const OPERATOR_CALLBACK_PATH = '/api/bff/platform/auth/callback';
  * address. It shares nothing with the staff sign-in's settings but the identity provider's address, and
  * falls back to none of them: a missing value fails the request that needs it.
  */
-export function loadOperatorEntraConfig(env: Env = process.env): EntraConfig {
+export async function loadOperatorEntraConfig(env: Env = process.env): Promise<EntraConfig> {
   const directoryId = directoryFrom(env, 'OPERATOR_ENTRA_DIRECTORY_ID');
   if (directoryId === null) throw new Error('OPERATOR_ENTRA_DIRECTORY_ID is not set');
-  return {
-    clientId: setting(env, 'OPERATOR_ENTRA_CLIENT_ID'),
-    clientSecret: setting(env, 'OPERATOR_ENTRA_CLIENT_SECRET'),
-    authorityHost: origin(env, 'ENTRA_AUTHORITY_HOST', env.ENTRA_AUTHORITY_HOST || DEFAULT_AUTHORITY_HOST),
-    publicUrl: origin(env, 'DIUCS_OPERATOR_PUBLIC_URL', setting(env, 'DIUCS_OPERATOR_PUBLIC_URL')),
-    directoryId,
-    callbackPath: OPERATOR_CALLBACK_PATH,
-  };
+  const clientId = setting(env, 'OPERATOR_ENTRA_CLIENT_ID');
+  const authorityHost = origin(env, 'ENTRA_AUTHORITY_HOST', env.ENTRA_AUTHORITY_HOST || DEFAULT_AUTHORITY_HOST);
+  const publicUrl = origin(env, 'DIUCS_OPERATOR_PUBLIC_URL', setting(env, 'DIUCS_OPERATOR_PUBLIC_URL'));
+  return { clientId, clientSecret: await getSecret(OPERATOR_SECRET), authorityHost, publicUrl, directoryId, callbackPath: OPERATOR_CALLBACK_PATH };
 }
 
 /**

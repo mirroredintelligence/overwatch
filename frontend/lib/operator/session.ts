@@ -47,8 +47,8 @@ function nonEmptyString(value: unknown): value is string {
 }
 
 /** The sealing key of an operator session: derived from the session secret, for this purpose only. */
-export function operatorSealingKey(): Uint8Array {
-  return new Uint8Array(hkdfSync('sha256', sessionSecretKey(), 'diucs-operator-session', 'operator-session-v1', 32));
+export async function operatorSealingKey(): Promise<Uint8Array> {
+  return new Uint8Array(hkdfSync('sha256', await sessionSecretKey(), 'diucs-operator-session', 'operator-session-v1', 32));
 }
 
 export async function sealOperatorSession(session: OperatorSession, now: Date = new Date()): Promise<string> {
@@ -73,12 +73,12 @@ export async function sealOperatorSession(session: OperatorSession, now: Date = 
     .setProtectedHeader(ENCRYPTION)
     .setIssuedAt(Math.floor(now.getTime() / 1000))
     .setExpirationTime(Math.floor(expiresMs / 1000))
-    .encrypt(operatorSealingKey());
+    .encrypt(await operatorSealingKey());
 }
 
 /** Returns null for anything that is not a live operator session sealed with our key. */
 export async function unsealOperatorSession(value: string, now: Date = new Date()): Promise<OperatorSession | null> {
-  const key = operatorSealingKey(); // A missing secret is a fault, not "no session".
+  const key = await operatorSealingKey(); // A missing secret is a fault, not "no session".
   if (!value) return null;
   try {
     const { payload } = await jwtDecrypt(value, key, {

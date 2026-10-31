@@ -34,14 +34,14 @@ const unavailable = () => reply({ status: 503, body: { state: 'unavailable' } })
  * its renewal. Every closed or unknown link gets a token, so it says nothing of which links exist. With no
  * secret to make the token, the answer is the state and the details alone, and no renewal can be asked.
  */
-function gone(token: string, closed: ClosedLink = parseClosed(undefined)): Response {
+async function gone(token: string, closed: ClosedLink = parseClosed(undefined)): Promise<Response> {
   const body: Record<string, unknown> = { state: closed.state };
   if (closed.kind !== null) body.kind = closed.kind;
   for (const field of ['reference', 'closedAt', 'confirmedAt', 'cancelledAt', 'coordinationPhone'] as const) {
     if (closed[field] !== null) body[field] = closed[field];
   }
   try {
-    body.csrfToken = renewCsrfFor(token);
+    body.csrfToken = await renewCsrfFor(token);
   } catch {
     // no secret: no token
   }
@@ -101,7 +101,7 @@ export async function POST(request: Request, context: Context): Promise<Response
     });
     const result = publicReply(reply_.status, reply_.body);
     await sealRecorded(result);
-    addRenewalToken(result, token);
+    await addRenewalToken(result, token);
     return reply(result, reply_.retryAfter);
   } catch {
     return unavailable();
@@ -130,10 +130,10 @@ function isAnswer(answer: Record<string, unknown>): boolean {
 }
 
 /** An answer to a link that has closed carries the CSRF token of its renewal, as a read of it does. */
-function addRenewalToken(result: { status: number; body: Record<string, unknown> }, token: string): void {
+async function addRenewalToken(result: { status: number; body: Record<string, unknown> }, token: string): Promise<void> {
   if (result.status !== 410) return;
   try {
-    result.body.csrfToken = renewCsrfFor(token);
+    result.body.csrfToken = await renewCsrfFor(token);
   } catch {
     // no secret: no token
   }

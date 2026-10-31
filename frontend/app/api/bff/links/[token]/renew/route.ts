@@ -16,7 +16,7 @@ export async function POST(request: Request, context: Context): Promise<Response
   if (!TOKEN_SHAPE.test(token)) {
     return Response.json({ state: 'accepted' }, { status: 202, headers: NO_STORE });
   }
-  if (!checkRenewCsrf(request, token)) {
+  if (!(await checkRenewCsrf(request, token))) {
     return Response.json({ state: 'forbidden' }, { status: 403, headers: NO_STORE });
   }
   try {

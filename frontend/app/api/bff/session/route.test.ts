@@ -30,7 +30,7 @@ const session: Session = sessionFor(TENANTS.A, 'advisor', {
   backendToken: BACKEND_TOKEN,
 });
 // The CSRF token the session was issued: bound to its person, tenant, host and expiry.
-const TOKEN = csrfFor(session);
+const TOKEN = await csrfFor(session);
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
@@ -84,7 +84,7 @@ describe('GET /api/bff/session', () => {
 
   it('replaces a csrf cookie that is not a token of this session: too short, the old unbound shape, or another tenant’s', async () => {
     const cookie = await sealSession(session);
-    const other = csrfFor(sessionFor(TENANTS.B, 'advisor', { sub: session.sub, host: session.host }));
+    const other = await csrfFor(sessionFor(TENANTS.B, 'advisor', { sub: session.sub, host: session.host }));
     for (const stale of ['short', 'A'.repeat(43), other]) {
       resetCookieWrites();
       const response = await GET(requestWithCookies(URL_, { [SESSION_COOKIE]: cookie, [CSRF_COOKIE]: stale }));
@@ -99,8 +99,8 @@ describe('GET /api/bff/session', () => {
     const cookie = await sealSession(session);
     const body = await (await GET(requestWithCookies(URL_, { [SESSION_COOKIE]: cookie }))).json();
     const { verifyCsrfToken } = await import('@/lib/auth/csrf');
-    expect(verifyCsrfToken(session, body.csrfToken)).toBe(true);
-    expect(verifyCsrfToken(sessionFor(TENANTS.B, 'advisor', { sub: session.sub, host: session.host }), body.csrfToken)).toBe(false);
+    expect(await verifyCsrfToken(session, body.csrfToken)).toBe(true);
+    expect(await verifyCsrfToken(sessionFor(TENANTS.B, 'advisor', { sub: session.sub, host: session.host }), body.csrfToken)).toBe(false);
   });
 
   it('returns 401 no-session with no cookie, and sets no cookie', async () => {

@@ -9,7 +9,7 @@ const get = withBff(async (request, session) => {
   // Keep the token already in the cookie when it is this session's, so a second tab is not logged
   // out; one that is not (a stale or another session's) is replaced.
   const existing = readRequestCookie(request, CSRF_COOKIE);
-  const csrfToken = existing && verifyCsrfToken(session, existing) ? existing : await issueCsrf(session);
+  const csrfToken = existing && (await verifyCsrfToken(session, existing)) ? existing : await issueCsrf(session);
   return Response.json({ role: session.role, services: session.services, csrfToken });
 });
 

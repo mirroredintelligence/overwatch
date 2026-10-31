@@ -17,7 +17,7 @@ vi.mock('next/headers', async () => {
 
 // The CSRF token issued to the sample session: bound to its person, tenant and host (TEN-046).
 vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-const CSRF = csrfOf(TENANTS.A, 'user-1');
+const CSRF = await csrfOf(TENANTS.A, 'user-1');
 const URL_ = `https://${TENANTS.A.host}/api/bff/lead/services`;
 const KEY = 'lead-setup-key-0001';
 

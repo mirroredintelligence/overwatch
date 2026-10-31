@@ -43,7 +43,7 @@ export function answer(...handlers: RequestHandler[]) {
   server.use(...handlers);
 }
 
-export function phoneCall(
+export async function phoneCall(
   route: (request: Request, context: never) => Promise<Response> | Response,
   path: string,
   body: unknown,
@@ -52,7 +52,7 @@ export function phoneCall(
 ) {
   const raw = typeof body === 'string' ? body : JSON.stringify(body);
   return route(
-    requestPreSession({ host: A.host, path, body: raw, method: 'POST', headers: { 'Content-Type': 'application/json' }, ...options }),
+    await requestPreSession({ host: A.host, path, body: raw, method: 'POST', headers: { 'Content-Type': 'application/json' }, ...options }),
     context as never,
   );
 }

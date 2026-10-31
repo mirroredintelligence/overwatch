@@ -63,7 +63,7 @@ describe('the sealed thank-you detail', () => {
       .setProtectedHeader({ alg: 'dir', enc: 'A256GCM' })
       .setIssuedAt(Math.floor(NOW.getTime() / 1000))
       .setExpirationTime(Math.floor(NOW.getTime() / 1000) + 600)
-      .encrypt(sessionSecretKey());
+      .encrypt(await sessionSecretKey());
     expect(await unsealThanks(forged, NOW)).toBeNull();
   });
 

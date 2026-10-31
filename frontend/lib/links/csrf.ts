@@ -44,22 +44,17 @@ export function checkLinkCsrf(request: Request, token: string): boolean {
  * makes one from the link and its own secret: the page reads it from the closed link's answer (a page of
  * another origin cannot read it) and sends it back in X-CSRF-Token. Nothing is stored. It is not the
  * token that answers a capacity link, and it says nothing of whether the link exists: every closed or
- * unknown link gets one. Throws when there is no secret to make it with.
+ * unknown link gets one. Throws when there is no secret to make it with (a fault, never a quiet refusal).
  */
-export function renewCsrfFor(token: string): string {
-  return createHmac('sha256', Buffer.from(sessionSecretKey())).update(`link-renew:${token}`).digest('hex');
+export async function renewCsrfFor(token: string): Promise<string> {
+  return createHmac('sha256', Buffer.from(await sessionSecretKey())).update(`link-renew:${token}`).digest('hex');
 }
 
 /** True only when the request is a renewal of this link and its header is this link's renewal token. */
-export function checkRenewCsrf(request: Request, token: string): boolean {
+export async function checkRenewCsrf(request: Request, token: string): Promise<boolean> {
   if (new URL(request.url).pathname !== `${linkCsrfPath(token)}/renew`) return false;
   const header = request.headers.get('X-CSRF-Token');
   if (!header) return false;
-  let expected: string;
-  try {
-    expected = renewCsrfFor(token);
-  } catch {
-    return false; // no secret to check it with: refused, never allowed
-  }
+  const expected = await renewCsrfFor(token); // no secret to check it with: a fault (a 5xx), never allowed and never "no match"
   return timingSafeEqual(digest(header), digest(expected));
 }

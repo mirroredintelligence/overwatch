@@ -28,8 +28,8 @@ let exchangeReply: Parameters<typeof exchangeHandler>[1];
 function pinAnswer(body: unknown, status = 200) {
   server.use(http.post(PIN_VERIFY, () => HttpResponse.json(body as Record<string, unknown>, { status })));
 }
-const call = (options: Parameters<typeof requestPreSession>[0] = {}) =>
-  POST(requestPreSession({ host: A.host, path: '/api/bff/identity/pin/verify', body: '{"pin":"123456"}', ...options }), { params: Promise.resolve({}) });
+const call = async (options: Parameters<typeof requestPreSession>[0] = {}) =>
+  POST(await requestPreSession({ host: A.host, path: '/api/bff/identity/pin/verify', body: '{"pin":"123456"}', ...options }), { params: Promise.resolve({}) });
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] });

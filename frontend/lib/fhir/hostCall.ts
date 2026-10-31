@@ -1,6 +1,7 @@
 import http from 'node:http';
 import https from 'node:https';
 import { normaliseHost } from '@/lib/auth/host';
+import { getSecret, SecretConfigurationError, SecretNotFoundError, vaultConfigured } from '@/lib/secrets';
 
 // Server-only. The calls to the back end that have no signed token to say whose they are: the token
 // exchange at sign-in and the capacity link API. The tenant for such a call is the HOST the request
@@ -12,15 +13,16 @@ import { normaliseHost } from '@/lib/auth/host';
 // - Locally and in tests the back end is reached directly, so the Host header carries it.
 // - Behind the platform ingress (Azure Container Apps) the back end is addressed by its own internal
 //   name: ingress routes on Host, so a Host naming the tenant would reach the wrong app. When
-//   DIUCS_EDGE_ORIGIN_SECRET is set (a secret from the secret store, never in the repository) the
-//   tenant host goes in X-Forwarded-Host with the secret in X-Edge-Auth, which the back end's edge
+//   there is an `edge-origin` secret (Key Vault on the pilot, DEC-1304; DIUCS_EDGE_ORIGIN_SECRET when
+//   there is no vault, as in local runs and tests) the tenant host goes in X-Forwarded-Host with the secret in X-Edge-Auth, which the back end's edge
 //   middleware accepts only with the matching secret, and the visitor's address in CF-Connecting-IP.
 //
 // It never sends an Authorization header, a tenant header, a scope or a network: a call that needs a
 // bearer token goes through `fhirFetch`.
 
 const BASE_URL_VARIABLE = 'DIUCS_FHIR_BASE_URL';
-const EDGE_SECRET_VARIABLE = 'DIUCS_EDGE_ORIGIN_SECRET';
+const EDGE_SECRET = 'edge-origin';
+const HEADER_SAFE = /^[\x21-\x7e]+$/;
 const EDGE_HEADERS = ['x-forwarded-host', 'x-edge-auth', 'cf-connecting-ip'];
 const ONE_ADDRESS = /^[0-9a-fA-F:.]{2,45}$/;
 const FHIR_SUFFIX = '/fhir';
@@ -75,19 +77,38 @@ function jsonOrUndefined(text: string): unknown {
 }
 
 /**
+ * The edge secret, or null when this run has none and does not need one (no vault, no plain variable: the
+ * back end is reached directly). With a vault a secret that is missing or unreadable is a fault, never a
+ * call without the edge header: that call would resolve the tenant from the API's own host. A value that
+ * could not be a header value is a fault too (the message names the secret, never the value).
+ */
+async function edgeSecret(): Promise<string | null> {
+  let value: string;
+  try {
+    value = await getSecret(EDGE_SECRET);
+  } catch (error) {
+    if (error instanceof SecretNotFoundError && !vaultConfigured()) return null;
+    throw error;
+  }
+  if (!HEADER_SAFE.test(value)) throw new SecretConfigurationError(`The secret ${EDGE_SECRET} is not a valid header value.`);
+  return value;
+}
+
+/**
  * One call to the back end. Rejects with BackendCallError when the back end cannot be reached or the
- * host is not a host name; a missing base URL rejects too.
+ * host is not a host name; a missing base URL rejects too, and so does an edge secret that is missing or unreadable when there is a vault
+ * (with that error, not BackendCallError: it is a fault of this app's set-up, not an outage of the back end).
  */
 export async function callBackend(call: BackendCall): Promise<BackendReply> {
   const host = call.host === null ? null : normaliseHost(call.host);
   if (host === null) throw new BackendCallError('unavailable');
   const url = new URL(call.path, backendRoot(process.env[BASE_URL_VARIABLE]));
   const payload = call.body === undefined ? undefined : JSON.stringify(call.body);
-  const edgeSecret = process.env[EDGE_SECRET_VARIABLE];
+  const edge = await edgeSecret();
   const headers: Record<string, string | number> = { Accept: 'application/json' };
-  if (edgeSecret) {
+  if (edge !== null) {
     headers['X-Forwarded-Host'] = host;
-    headers['X-Edge-Auth'] = edgeSecret;
+    headers['X-Edge-Auth'] = edge;
     if (call.clientIp !== undefined && ONE_ADDRESS.test(call.clientIp)) headers['CF-Connecting-IP'] = call.clientIp;
   } else {
     headers.Host = host;

@@ -25,14 +25,15 @@ export async function sealPending(pending: Pending, now: Date = new Date()): Pro
     .setProtectedHeader(ENCRYPTION)
     .setIssuedAt(issued)
     .setExpirationTime(issued + LIFETIME_SECONDS)
-    .encrypt(sessionSecretKey());
+    .encrypt(await sessionSecretKey());
 }
 
 /** Null for anything that is not a live pending record of ours. */
 export async function unsealPending(value: string, now: Date = new Date()): Promise<Pending | null> {
   if (!value) return null;
+  const key = await sessionSecretKey(); // A missing secret is a fault, not "no pending record".
   try {
-    const { payload } = await jwtDecrypt(value, sessionSecretKey(), {
+    const { payload } = await jwtDecrypt(value, key, {
       keyManagementAlgorithms: ['dir'],
       contentEncryptionAlgorithms: ['A256GCM'],
       currentDate: now,

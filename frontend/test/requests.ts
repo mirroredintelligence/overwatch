@@ -18,7 +18,7 @@ const SESSION_EXPIRES = new Date(Date.now() + 3_600_000).toISOString();
 export const CSRF_NONCE = 'N'.repeat(43);
 
 /** The CSRF token issued for a session (the cookie and the header carry this). Needs SESSION_SECRET. */
-export function csrfFor(session: Session): string {
+export function csrfFor(session: Session): Promise<string> {
   return csrfTokenFor(session, CSRF_NONCE);
 }
 
@@ -27,7 +27,7 @@ export function csrfFor(session: Session): string {
  * SESSION_SECRET stubbed before the call, so a test file that keeps one token for its whole run
  * stubs it first (`vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET)` at the top of the file).
  */
-export function csrfOf(tenant: TestTenant, sub: string): string {
+export function csrfOf(tenant: TestTenant, sub: string): Promise<string> {
   return csrfTokenFor({ tenantId: tenant.id, host: tenant.host, sub }, CSRF_NONCE);
 }
 
@@ -73,7 +73,7 @@ export async function requestAs(tenant: TestTenant, role: Role, options: Request
   const headers = new Headers(options.headers);
   headers.set('Host', options.host ?? tenant.host);
   if (options.csrf !== undefined && options.csrf !== false) {
-    const value = options.csrf === true ? csrfFor(session) : options.csrf;
+    const value = options.csrf === true ? await csrfFor(session) : options.csrf;
     cookies[CSRF_COOKIE] = value;
     headers.set(CSRF_HEADER, value);
   }
@@ -90,7 +90,7 @@ export async function requestAs(tenant: TestTenant, role: Role, options: Request
 export const SAMPLE_DEVICE = 'D'.repeat(22);
 
 /** The CSRF token issued to a phone on a host. Needs SESSION_SECRET. */
-export function preSessionCsrfFor(host: string, device: string = SAMPLE_DEVICE): string {
+export function preSessionCsrfFor(host: string, device: string = SAMPLE_DEVICE): Promise<string> {
   return csrfTokenFor(preSessionSubject(host, device), CSRF_NONCE);
 }
 
@@ -108,7 +108,7 @@ export type PreSessionOptions = {
 };
 
 /** A request from a phone with no session, as the reporter's pages send it. */
-export function requestPreSession(options: PreSessionOptions = {}): Request {
+export async function requestPreSession(options: PreSessionOptions = {}): Promise<Request> {
   const host = options.host ?? 'tenant-a.example.test';
   const device = options.device ?? SAMPLE_DEVICE;
   const cookies: Record<string, string> = { [DEVICE_COOKIE]: device, ...options.cookies };
@@ -116,7 +116,7 @@ export function requestPreSession(options: PreSessionOptions = {}): Request {
   headers.set('Host', host);
   const csrf = options.csrf ?? true;
   if (csrf !== false) {
-    const value = csrf === true ? preSessionCsrfFor(host, device) : csrf;
+    const value = csrf === true ? await preSessionCsrfFor(host, device) : csrf;
     cookies[CSRF_COOKIE] = value;
     headers.set(CSRF_HEADER, value);
   }

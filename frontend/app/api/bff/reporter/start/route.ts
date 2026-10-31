@@ -25,6 +25,6 @@ export async function GET(request: Request): Promise<Response> {
   const session = await sessionFromRequest(request);
   const subject = session !== null && session.role === 'reporter' ? session : preSessionSubject(host, deviceId);
   const existing = readRequestCookie(request, CSRF_COOKIE);
-  const csrfToken = existing && verifyCsrfToken(subject, existing) ? existing : await issueCsrf(subject);
+  const csrfToken = existing && (await verifyCsrfToken(subject, existing)) ? existing : await issueCsrf(subject);
   return Response.json({ csrfToken }, { headers: NO_STORE });
 }

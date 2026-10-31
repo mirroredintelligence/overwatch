@@ -122,8 +122,8 @@ describe('sealOperatorSession and unsealOperatorSession', () => {
   it('refuses a payload sealed with the operator key that carries a tenant, another kind or a tenant role', async () => {
     // Sealed by hand, as an attacker who somehow had the derived key would: the unseal still refuses it.
     const { operatorSealingKey } = await import('./session');
-    const seal = (claims: Record<string, unknown>) =>
-      new EncryptJWT(claims).setProtectedHeader({ alg: 'dir', enc: 'A256GCM' }).setIssuedAt().setExpirationTime('1h').encrypt(operatorSealingKey());
+    const seal = async (claims: Record<string, unknown>) =>
+      new EncryptJWT(claims).setProtectedHeader({ alg: 'dir', enc: 'A256GCM' }).setIssuedAt().setExpirationTime('1h').encrypt(await operatorSealingKey());
     const base = { kind: 'operator', role: 'platform-operator', host: OPERATOR_HOST, accountRef: 'ops-1', backendToken: 'x', expiresAt: new Date(Date.now() + 3_600_000).toISOString() };
     expect(await unsealOperatorSession(await seal(base))).not.toBeNull();
     expect(await unsealOperatorSession(await seal({ ...base, tenantId: 'trust-a' }))).toBeNull();

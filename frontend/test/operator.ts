@@ -33,7 +33,7 @@ export function operatorSessionFor(role: OperatorRole = 'platform-operator', ove
   };
 }
 
-export function operatorCsrfOf(session: Pick<OperatorSession, 'host' | 'accountRef'> = operatorSessionFor()): string {
+export function operatorCsrfOf(session: Pick<OperatorSession, 'host' | 'accountRef'> = operatorSessionFor()): Promise<string> {
   return operatorCsrfTokenFor({ host: session.host, sub: session.accountRef }, OPERATOR_NONCE);
 }
 
@@ -57,7 +57,7 @@ export async function requestAsOperator(role: OperatorRole = 'platform-operator'
   const headers = new Headers(options.headers);
   headers.set('Host', host);
   if (options.csrf !== undefined && options.csrf !== false) {
-    const value = options.csrf === true ? operatorCsrfOf(session) : options.csrf;
+    const value = options.csrf === true ? await operatorCsrfOf(session) : options.csrf;
     cookies[OPERATOR_CSRF_COOKIE] = value;
     headers.set('X-CSRF-Token', value);
   }

@@ -61,7 +61,7 @@ const write = withBff(
 );
 
 async function signIn() {
-  const response = await pinVerify(requestPreSession({ host: A.host, path: '/api/bff/identity/pin/verify', body: '{"pin":"123456"}' }), { params: Promise.resolve({}) });
+  const response = await pinVerify(await requestPreSession({ host: A.host, path: '/api/bff/identity/pin/verify', body: '{"pin":"123456"}' }), { params: Promise.resolve({}) });
   expect(response.status).toBe(200);
   return lastWrite(SESSION_COOKIE)?.value ?? '';
 }
@@ -89,7 +89,7 @@ describe('a reporter’s session, from the PIN to its end', () => {
   it('a write with the phone’s pre-sign-in token is refused: the pre-session token never verifies for a session', async () => {
     const cookie = await signIn();
     const { preSessionCsrfFor } = await import('@/test/requests');
-    const response = await write(writeRequest(cookie, preSessionCsrfFor(A.host)), undefined);
+    const response = await write(writeRequest(cookie, await preSessionCsrfFor(A.host)), undefined);
     expect(response.status).toBe(403);
     expect(bearers).toEqual([]);
   });

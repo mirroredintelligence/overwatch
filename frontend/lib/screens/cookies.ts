@@ -29,8 +29,8 @@ const DEVICE_TOKEN_MAX = 1024;
 
 const PURPOSE = { pairing: 'pairing-cookie-v1', device: 'device-cookie-v1' } as const;
 
-function keyFor(purpose: keyof typeof PURPOSE): Uint8Array {
-  return new Uint8Array(hkdfSync('sha256', sessionSecretKey(), 'diucs-wall-screen', PURPOSE[purpose], 32));
+async function keyFor(purpose: keyof typeof PURPOSE): Promise<Uint8Array> {
+  return new Uint8Array(hkdfSync('sha256', await sessionSecretKey(), 'diucs-wall-screen', PURPOSE[purpose], 32));
 }
 
 function options(maxAge: number) {
@@ -39,11 +39,11 @@ function options(maxAge: number) {
 
 async function seal(purpose: keyof typeof PURPOSE, claims: Record<string, string>, seconds: number): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
-  return new EncryptJWT(claims).setProtectedHeader(ENCRYPTION).setIssuedAt(now).setExpirationTime(now + seconds).encrypt(keyFor(purpose));
+  return new EncryptJWT(claims).setProtectedHeader(ENCRYPTION).setIssuedAt(now).setExpirationTime(now + seconds).encrypt(await keyFor(purpose));
 }
 
 async function open(purpose: keyof typeof PURPOSE, request: Request, name: string): Promise<Record<string, unknown> | null> {
-  const key = keyFor(purpose); // A missing secret is a fault, not "no cookie".
+  const key = await keyFor(purpose); // A missing secret is a fault, not "no cookie".
   const value = readRequestCookie(request, name);
   if (!value) return null;
   try {

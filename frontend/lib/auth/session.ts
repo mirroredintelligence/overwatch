@@ -1,5 +1,6 @@
 import { cookies, headers } from 'next/headers';
 import { EncryptJWT, jwtDecrypt } from 'jose';
+import { getSecret, SecretConfigurationError } from '@/lib/secrets';
 import { normaliseHost, requestHost } from './host';
 import { isTenantId } from './ids';
 
@@ -67,17 +68,18 @@ function validRenewal(pinSession: unknown, tokenExpiresAt: unknown): boolean {
   );
 }
 
-const SECRET_VARIABLE = 'SESSION_SECRET';
+const SECRET_NAME = 'session-secret';
 // 32 bytes in base64 are 43 characters and one '='.
 const BASE64_32_BYTES = /^[A-Za-z0-9+/]{43}=$/;
 const ENCRYPTION = { alg: 'dir', enc: 'A256GCM' } as const;
 
-function secretKey(): Uint8Array {
-  // Read at call time, so a missing value fails the request that needs it. The
-  // message names the variable only, never its value.
-  const value = process.env[SECRET_VARIABLE];
-  if (!value || !BASE64_32_BYTES.test(value)) {
-    throw new Error(`${SECRET_VARIABLE} must be set to 32 random bytes, base64 encoded`);
+// The sealing key comes from the vault at run time (DEC-1304, lib/secrets), cached there. A missing,
+// unreadable or malformed secret throws: it is a fault, never "no session" and never a pass. The messages
+// name the secret and never its value.
+async function secretKey(): Promise<Uint8Array> {
+  const value = await getSecret(SECRET_NAME);
+  if (!BASE64_32_BYTES.test(value)) {
+    throw new SecretConfigurationError(`The secret ${SECRET_NAME} must be 32 random bytes, base64 encoded (SESSION_SECRET when there is no vault).`);
   }
   return new Uint8Array(Buffer.from(value, 'base64'));
 }
@@ -121,7 +123,7 @@ export async function sealSession(session: Session, now: Date = new Date()): Pro
     .setProtectedHeader(ENCRYPTION)
     .setIssuedAt(Math.floor(now.getTime() / 1000))
     .setExpirationTime(Math.floor(expiresMs / 1000))
-    .encrypt(secretKey());
+    .encrypt(await secretKey());
 }
 
 function isRole(value: unknown): value is Role {
@@ -134,7 +136,7 @@ function nonEmptyString(value: unknown): value is string {
 
 /** Returns null for anything that is not a live session sealed with our key. */
 export async function unsealSession(value: string, now: Date = new Date()): Promise<Session | null> {
-  const key = secretKey(); // A missing secret is a fault, not "no session".
+  const key = await secretKey(); // A missing secret is a fault, not "no session".
   if (!value) return null;
   try {
     const { payload } = await jwtDecrypt(value, key, {
@@ -210,5 +212,5 @@ export async function destroySession(): Promise<void> {
   store.set(SESSION_COOKIE, '', { ...sessionCookieOptions(), maxAge: 0 });
 }
 
-/** The sealing key, for other BFF cookies that derive their own key from it (W09). */
+/** The sealing key, for other BFF cookies that derive their own key from it (W09). Async: it comes from the vault. */
 export { secretKey as sessionSecretKey };

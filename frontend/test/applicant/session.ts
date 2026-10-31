@@ -30,7 +30,7 @@ export async function callerRequest(
   options: { method?: string; body?: unknown; csrf?: boolean; idempotencyKey?: string } = {},
 ): Promise<Request> {
   const method = options.method ?? 'GET';
-  const csrf = csrfOf(TENANTS.A, APPLICANT_SUB);
+  const csrf = await csrfOf(TENANTS.A, APPLICANT_SUB);
   const cookies: Record<string, string> = { [SESSION_COOKIE]: await sessionCookie(role) };
   const headers: Record<string, string> = {};
   if (options.body !== undefined) headers['Content-Type'] = 'application/json';

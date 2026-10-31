@@ -83,6 +83,7 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'OVERWATCH_ENTRA_STAFF_CLIENT_ID', value: entraStaffClientId }
             { name: 'OVERWATCH_ENTRA_OPERATOR_CLIENT_ID', value: entraOperatorClientId }
             { name: 'OVERWATCH_OPERATOR_DIRECTORY_ID', value: operatorDirectoryId }
+            { name: 'OVERWATCH_POSTCODE_CENTROIDS_PATH', value: '/app/data/postcodes/centroids-dt-bh.csv' }
           ]
           resources: {
             cpu: json('0.25')

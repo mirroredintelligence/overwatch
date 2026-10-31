@@ -1,0 +1,159 @@
+/* Coverage by time of day and define a coverage area (RadarWeb 4 and 5). Tokens from app/tokens.css. */
+
+.screen {
+  display: grid;
+  gap: var(--space-4);
+  max-width: 56rem;
+  margin: 0 auto;
+  padding: var(--space-4);
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--type-heading-size);
+  font-weight: var(--type-heading-weight);
+  line-height: var(--type-heading-lh);
+  color: var(--c-ink);
+}
+
+.sub,
+.note {
+  margin: 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  color: var(--c-ink-2);
+}
+
+.note {
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.legend {
+  width: 100%;
+  padding: 0;
+  margin-bottom: var(--space-2);
+  font-weight: var(--type-label-weight);
+  color: var(--c-ink);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-1);
+  max-width: 14rem;
+}
+
+.input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 56px;
+  padding: 0 var(--space-4);
+  font: inherit;
+  font-size: 20px;
+  color: var(--c-ink);
+  background: var(--c-bg);
+  border: 2px solid var(--c-muted);
+  border-radius: var(--radius);
+}
+
+.input:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.overlap {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--type-body-size);
+  color: var(--c-ink);
+  background: var(--c-amber-tint);
+  border-radius: var(--radius);
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tile {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  background: var(--c-bg);
+  border: 2px solid var(--c-ink-2);
+  border-radius: var(--radius);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The state is the word as well as the border: no cover is dashed, one service solid, two or more double. */
+.tile[data-cover='none'] {
+  border-style: dashed;
+  border-color: var(--c-limited);
+}
+
+.tile[data-cover='many'] {
+  border-style: double;
+  border-width: 5px;
+  border-color: var(--c-primary);
+}
+
+.district {
+  font-size: var(--type-title-size);
+  color: var(--c-ink);
+}
+
+.cover {
+  font-weight: var(--type-label-weight);
+  color: var(--c-ink);
+}
+
+.services {
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
+}
+
+.facts {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.facts div {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.facts dt {
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
+}
+
+.facts dd {
+  margin: 0;
+  font-size: var(--type-title-size);
+  font-weight: var(--type-title-weight);
+  color: var(--c-ink);
+}

@@ -5,8 +5,8 @@ node_modules
 .next
 out
 
-# test output
-coverage
+# test output (the coverage report is at the root only: app/**/coverage is a page and a route)
+/coverage
 playwright-report
 test-results
 

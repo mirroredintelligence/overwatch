@@ -22,6 +22,26 @@ export function networkIdOf(request: Request): string {
   return value;
 }
 
+const CASE_REF = /^[A-Za-z0-9_-]{1,64}$/;
+
+/**
+ * `?case=<reference>` for the advisor's network options (WB11): the advisor's own case, named by the
+ * reference the case pages already carry. The query holds the network id and this one key and nothing else
+ * (no postcode, need or age: the back end reads the case in the advisor's own tenant), each once; anything
+ * else is a 400.
+ */
+export function caseQuery(request: Request): string {
+  const seen = new Set<string>();
+  let reference: string | null = null;
+  for (const [key, value] of new URL(request.url).searchParams) {
+    if ((key !== 'networkId' && key !== 'case') || seen.has(key)) throw invalid();
+    seen.add(key);
+    if (key === 'case') reference = value;
+  }
+  if (reference === null || !CASE_REF.test(reference)) throw invalid();
+  return `?case=${reference}`;
+}
+
 /** `?history=true` for `history=true`, nothing for none or `false`, a 400 for anything else. */
 export function historyQuery(request: Request): string {
   const value = new URL(request.url).searchParams.get('history');
@@ -34,7 +54,7 @@ export function historyQuery(request: Request): string {
 export async function readNetwork<T>(
   session: Caller,
   networkId: string,
-  path: 'board' | 'directory' | 'criteria' | 'system-now' | 'phones' | 'week',
+  path: 'board' | 'directory' | 'criteria' | 'system-now' | 'phones' | 'week' | 'options',
   parse: (body: unknown) => T,
   query = '',
 ): Promise<T> {

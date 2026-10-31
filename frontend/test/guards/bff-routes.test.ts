@@ -85,6 +85,7 @@ const TAKES_NETWORK_ID = [
   'app/api/bff/network/criteria/route.ts',
   'app/api/bff/network/directory/route.ts',
   'app/api/bff/network/events/route.ts',
+  'app/api/bff/network/options/route.ts',
   'app/api/bff/network/phones/route.ts',
   'app/api/bff/network/system-now/route.ts',
   'app/api/bff/network/week/route.ts',

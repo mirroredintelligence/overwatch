@@ -370,3 +370,145 @@ async def test_with_no_tenant_bound_the_resolver_refuses_instead_of_choosing_one
 def test_the_status_callback_is_the_inbound_webhook_of_this_deployment() -> None:
     assert status_callback_url(Settings(base_url="https://diucs.example/")) == STATUS_URL
     assert status_callback_url(Settings(base_url="https://diucs.example")) == STATUS_URL
+
+
+# Email through Twilio's own Email API: the tenant's own subaccount, the same credentials as its text
+# line, a sender address the tenant verified in Twilio (DEC-1130).
+
+
+def _twilio_channel(**changes: Any) -> TenantChannel:
+    return _channel(provider=ChannelProvider.TWILIO, secret_ref=None, **changes)
+
+
+def _twilio_email_resolver(
+    directory: _Directory | None = None,
+    secrets: FixedSecretStore | None = None,
+    seen: list[httpx.Request] | None = None,
+) -> Any:
+    http = _http(seen if seen is not None else [])
+    return TenantSenderResolver(
+        directory if directory is not None else _Directory(_line()),
+        secrets if secrets is not None else _secrets(),
+        http,
+        STATUS_URL,
+        smtp_relay=None,
+    )
+
+
+async def test_a_twilio_email_channel_resolves_to_a_sender_on_the_tenants_own_subaccount() -> None:
+    from diucs.adapters.outbound.email_twilio.twilio_email import TwilioEmail
+
+    seen: list[httpx.Request] = []
+    directory = _Directory(_line())
+    resolver = _twilio_email_resolver(directory, seen=seen)
+
+    with bind_tenant(SAMPLE_ID):
+        sender = await resolver.email_for(_twilio_channel())
+
+    assert isinstance(sender, TwilioEmail)
+    assert directory.asked == [SAMPLE_ID]
+
+
+async def test_the_twilio_email_sender_sends_from_the_channels_address_with_the_lines_credentials() -> None:
+    import base64
+    import json
+
+    seen: list[httpx.Request] = []
+    resolver = _twilio_email_resolver(seen=seen)
+
+    with bind_tenant(SAMPLE_ID):
+        sender = await resolver.email_for(_twilio_channel())
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(202, json={"operationId": "op-1"})
+
+    sender._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    receipt = await sender.send("west@example-icb.test", "Subject", "Body text", None)
+
+    assert receipt.accepted and receipt.provider_message_id == "op-1"
+    [request] = seen
+    assert request.url.host == "comms.twilio.com"
+    body = json.loads(request.content)
+    assert body["from"] == {"address": "capacity@example-icb.test", "name": "Example capacity"}
+    expected = "Basic " + base64.b64encode(f"{SID}:{TOKEN.decode()}".encode()).decode()
+    assert request.headers["authorization"] == expected
+
+
+async def test_only_the_tenants_own_text_line_token_is_read_and_the_value_is_never_shown() -> None:
+    secrets = _secrets()
+    resolver = _twilio_email_resolver(secrets=secrets)
+
+    with bind_tenant(SAMPLE_ID):
+        sender = await resolver.email_for(_twilio_channel())
+
+    assert secrets.requested == (twilio_token_ref(SAMPLE_ID),)
+    assert TOKEN.decode() not in repr(sender) + str(sender)
+
+
+async def test_no_smtp_relay_is_needed_for_twilio_email() -> None:
+    resolver = _twilio_email_resolver()
+
+    with bind_tenant(SAMPLE_ID):
+        await resolver.email_for(_twilio_channel())
+
+
+@pytest.mark.parametrize(
+    "directory",
+    [_Directory(None), _Directory(error=TenantRecordInvalid("registry fault"))],
+    ids=["no-line", "registry-fault"],
+)
+async def test_a_tenant_with_no_active_text_line_has_no_twilio_email_either(
+    directory: _Directory,
+) -> None:
+    resolver = _twilio_email_resolver(directory)
+
+    with bind_tenant(SAMPLE_ID), pytest.raises(ChannelUnavailable) as refused:
+        await resolver.email_for(_twilio_channel())
+
+    assert SAMPLE_ID in str(refused.value)
+    assert "email" in str(refused.value)  # the channel the caller asked for, not "text"
+    assert NUMBER not in str(refused.value)
+
+
+async def test_a_line_of_another_tenant_is_never_used_for_email() -> None:
+    secrets = _secrets()
+    resolver = _twilio_email_resolver(_Directory(_line("other-example-icb")), secrets)
+
+    with bind_tenant(SAMPLE_ID), pytest.raises(ChannelUnavailable):
+        await resolver.email_for(_twilio_channel())
+
+    assert secrets.requested == ()
+
+
+async def test_a_missing_token_fails_closed_for_email_too() -> None:
+    resolver = _twilio_email_resolver(secrets=_secrets(token=None))
+
+    with bind_tenant(SAMPLE_ID), pytest.raises(ChannelUnavailable) as refused:
+        await resolver.email_for(_twilio_channel())
+
+    assert "auth-token" not in str(refused.value)
+
+
+@pytest.mark.parametrize(
+    "status", [NumberStatus.RETIRED, NumberStatus.QUARANTINED], ids=lambda s: s.value
+)
+async def test_a_twilio_email_channel_that_is_not_active_is_never_used(
+    status: NumberStatus,
+) -> None:
+    secrets = _secrets()
+    resolver = _twilio_email_resolver(secrets=secrets)
+
+    with bind_tenant(SAMPLE_ID), pytest.raises(ChannelUnavailable):
+        await resolver.email_for(_twilio_channel(status=status))
+
+    assert secrets.requested == ()
+
+
+async def test_a_legacy_smtp_channel_still_resolves_to_the_smtp_sender() -> None:
+    resolver = _email_resolver()
+
+    with bind_tenant(SAMPLE_ID):
+        sender = await resolver.email_for(_channel())
+
+    assert isinstance(sender, SmtpEmail)

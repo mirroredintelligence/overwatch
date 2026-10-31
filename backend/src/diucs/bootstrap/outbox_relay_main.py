@@ -11,6 +11,10 @@ not relayed. The list of tenant ids in the environment that stood in for it is g
 applies the migrations and makes sure the audit head exists, and stops the process if either
 fails (DEC-012). A missing Service Bus connection stops it before anything opens (fail closed);
 messages say which setting is wrong and never repeat a value.
+
+With `DIUCS_KEY_VAULT_URL` set the Neo4j password, the Redis URL and the Service Bus connection are
+read from Key Vault once, at start-up, and the vault is then closed: the relay reads no other secret
+(B8, DEC-1304). A plain environment value for one of them stops the process.
 """
 
 import asyncio
@@ -23,6 +27,12 @@ from diucs.adapters.inbound.workers.outbox_relay import OutboxRelay
 from diucs.adapters.outbound.bus_servicebus.service_bus import ServiceBusEventBus
 from diucs.adapters.outbound.cache_redis.redis_cache import RedisCache
 from diucs.bootstrap.container import build
+from diucs.bootstrap.secret_store import (
+    SecretConfigError,
+    close_store,
+    load_secret_store,
+    settings_from_vault,
+)
 from diucs.bootstrap.settings import Settings
 
 SERVICE_BUS_MISSING = "DIUCS_SERVICEBUS_CONNECTION must be set for the outbox relay"
@@ -37,6 +47,20 @@ def service_bus_connection(settings: Settings) -> str:
     if secret is None:
         raise RelayConfigError(SERVICE_BUS_MISSING)
     return secret.get_secret_value()
+
+
+def prepare_settings(settings: Settings) -> Settings:
+    """The settings as the relay runs them: with a vault, the three secret settings read from it
+    (and the vault closed, since nothing else is read). Without one, the settings as given."""
+    if settings.key_vault_url is None:
+        return settings
+    store = load_secret_store(settings)
+    if store is None:
+        return settings
+    try:
+        return settings_from_vault(settings, store, address_key=False)
+    finally:
+        close_store(store)
 
 
 async def serve(settings: Settings, stop: asyncio.Event) -> None:
@@ -72,9 +96,9 @@ async def _run(settings: Settings) -> None:
 
 def main() -> None:
     try:
-        settings = Settings()
+        settings = prepare_settings(Settings())
         service_bus_connection(settings)
-    except RelayConfigError as error:
+    except (RelayConfigError, SecretConfigError) as error:
         raise SystemExit(str(error)) from None
     asyncio.run(_run(settings))
 

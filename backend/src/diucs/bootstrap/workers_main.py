@@ -18,9 +18,11 @@ which setting is wrong and never repeat a value.
 
 import asyncio
 import contextlib
+import logging
 import signal
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
+from typing import Final
 
 import httpx
 from azure.servicebus.aio import ServiceBusClient
@@ -65,7 +67,10 @@ from diucs.adapters.outbound.graph_store.unit_of_work import (
     neo4j_uow_factory,
 )
 from diucs.adapters.outbound.projection_queue import BusProjectionPublisher
-from diucs.adapters.outbound.push_webpush.web_push import configured_push_sender
+from diucs.adapters.outbound.push_webpush.web_push import (
+    VAPID_PRIVATE_KEY_SECRET,
+    configured_push_sender,
+)
 from diucs.adapters.outbound.telemetry.attributes import INSTRUMENTATION_NAME
 from diucs.adapters.outbound.telemetry.consumer import consumer_observer
 from diucs.application.network_access import NetworkAccess
@@ -73,6 +78,11 @@ from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.messaging import PushSender
 from diucs.application.ports.outbound.sealing import ContentSealer
 from diucs.application.ports.outbound.sender_resolver import SenderResolver
+from diucs.application.ports.outbound.tokens import (
+    LINK_TOKEN_SECRET,
+    SecretStore,
+    SecretStoreUnavailable,
+)
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.tenant_settings import DirectoryZones
 from diucs.application.use_cases.alerts import AlertEvaluator
@@ -99,11 +109,31 @@ from diucs.application.use_cases.report_capacity import ReportCapacity
 from diucs.application.use_cases.respond_to_booking import RespondToBooking, SetDeclineReason
 from diucs.application.work import ScheduledWork, WorkKind
 from diucs.bootstrap.container import build
+from diucs.bootstrap.secret_store import (
+    SecretConfigError,
+    close_store,
+    load_secret_store,
+    settings_from_vault,
+)
 from diucs.bootstrap.settings import Settings
 from diucs.bootstrap.telemetry import start_telemetry
 from diucs.bootstrap.tenant_senders import TenantSenderResolver, status_callback_url
+from diucs.domain.errors import NotFound
+
+log = logging.getLogger(__name__)
 
 SERVICE_BUS_MISSING = "DIUCS_SERVICEBUS_CONNECTION must be set for the queue workers"
+SECRET_STORE_MISSING: Final = (
+    "no secret store is configured for the queue workers: set DIUCS_KEY_VAULT_URL (Azure Key "
+    "Vault); they will not run in the production profile with every secret missing"
+)
+MIN_SECRET_BYTES: Final = 32
+WORKER_REQUIRED_SECRETS: Final[tuple[str, ...]] = (LINK_TOKEN_SECRET,)
+"""The platform secrets the workers must have to start: the key of the content sealer
+(`AesGcmContentSealer` seals and unseals every queued message with it) and of the link-token hashes
+(`LinkTokenService` in the scheduled work). Per tenant it is derived from this one (DEC-350)."""
+WORKER_OPTIONAL_SECRETS: Final[tuple[str, ...]] = (VAPID_PRIVATE_KEY_SECRET,)
+"""Read at start-up and optional: with no VAPID key the push runner is not started."""
 REPLIES_QUEUE = "inbound.replies"
 SENDER_HTTP_TIMEOUT_SECONDS = 10.0
 RECEIPTS_QUEUE = "inbound.receipts"
@@ -139,6 +169,65 @@ def service_bus_connection(settings: Settings) -> str:
     if secret is None:
         raise WorkersConfigError(SERVICE_BUS_MISSING)
     return secret.get_secret_value()
+
+
+def check_worker_secrets(store: SecretStore) -> None:
+    """Refuse to start when a secret the workers read is missing, weak or cannot be read. Names
+    only in the message. Warns for each optional one that is absent."""
+    missing: list[str] = []
+    weak: list[str] = []
+    unreadable: list[str] = []
+    for name in WORKER_REQUIRED_SECRETS:
+        try:
+            if len(store.get(name)) < MIN_SECRET_BYTES:
+                weak.append(name)
+        except NotFound:
+            missing.append(name)
+        except SecretStoreUnavailable:
+            unreadable.append(name)
+            break
+    if missing or weak or unreadable:
+        parts = []
+        if missing:
+            parts.append("missing: " + ", ".join(missing))
+        if weak:
+            parts.append(f"shorter than {MIN_SECRET_BYTES} bytes: " + ", ".join(weak))
+        if unreadable:
+            parts.append("could not be read: " + ", ".join(unreadable))
+        raise WorkersConfigError(
+            "the secret store does not hold what the workers read (" + "; ".join(parts) + ")"
+        )
+    for name in WORKER_OPTIONAL_SECRETS:
+        try:
+            store.get(name)
+        except NotFound:
+            log.warning("start-up: the secret %s is not in the secret store: no push is sent", name)
+        except SecretStoreUnavailable:
+            log.warning("start-up: the secret %s could not be read: no push is sent", name)
+
+
+def prepare_process(settings: Settings) -> tuple[Settings, SecretStore | None]:
+    """The settings as the workers run them and the process's secret store, before anything
+    connects. The workers read the store directly (no call to the API). A plain secret beside the
+    vault, a development directory in production and both together stop the process here (the
+    store's own checks); with a vault the Neo4j password, the Redis URL and the Service Bus
+    connection come from it (the address key is not the workers' to read). The names the workers
+    read are then checked. With no store the workers still run outside production, with every
+    secret not found, as before."""
+    try:
+        store = load_secret_store(settings)
+        if store is not None and settings.key_vault_url is not None:
+            settings = settings_from_vault(settings, store, address_key=False)
+    except SecretConfigError as error:
+        raise WorkersConfigError(str(error)) from None
+    service_bus_connection(settings)
+    if store is None:
+        if settings.profile == "production":
+            raise WorkersConfigError(SECRET_STORE_MISSING)
+        log.warning("start-up: no secret store: every secret is not found and sends fail closed")
+        return settings, None
+    check_worker_secrets(store)
+    return settings, store
 
 
 def build_runners(
@@ -230,10 +319,13 @@ async def run_workers(
     await asyncio.gather(*(loop(stop) for loop in loops))
 
 
-async def serve(settings: Settings, stop: asyncio.Event) -> None:
-    """Open every connection, run the workers until `stop` is set, and close them again."""
+async def serve(
+    settings: Settings, stop: asyncio.Event, secrets: SecretStore | None = None
+) -> None:
+    """Open every connection, run the workers until `stop` is set, and close them again.
+    `secrets` is the process's secret store (None: every secret is not found)."""
     connection = service_bus_connection(settings)
-    container = build(settings)
+    container = build(settings, secrets=secrets)
     await container.startup()  # refuses to start when Neo4j cannot be reached
     tenants = container.tenants
     # The daily criteria review run (U31) is seeded once per tenant; a restart changes nothing.
@@ -394,7 +486,7 @@ async def serve(settings: Settings, stop: asyncio.Event) -> None:
         await container.shutdown()
 
 
-async def _run(settings: Settings) -> None:
+async def _run(settings: Settings, store: SecretStore | None = None) -> None:
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
     for name in (signal.SIGINT, signal.SIGTERM):
@@ -402,19 +494,20 @@ async def _run(settings: Settings) -> None:
             loop.add_signal_handler(name, stop.set)
     provider = start_telemetry(settings)  # O01: nothing is exported without an OTLP endpoint
     try:
-        await serve(settings, stop)
+        await serve(settings, stop, store)
     finally:
         if provider is not None:
             provider.shutdown()  # flushes the last batch of spans
+        if store is not None:
+            close_store(store)
 
 
 def main() -> None:
     try:
-        settings = Settings()
-        service_bus_connection(settings)
+        settings, store = prepare_process(Settings())
     except WorkersConfigError as error:
         raise SystemExit(str(error)) from None
-    asyncio.run(_run(settings))
+    asyncio.run(_run(settings, store))
 
 
 if __name__ == "__main__":

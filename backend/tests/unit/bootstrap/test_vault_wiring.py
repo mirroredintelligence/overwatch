@@ -15,7 +15,7 @@ from pydantic import SecretStr
 
 from diucs.adapters.outbound.keyvault_secrets import KeyVaultSecretStore
 from diucs.application.ports.outbound.tokens import SecretStore
-from diucs.bootstrap import api_main, outbox_relay_main, secret_store, workers_main
+from diucs.bootstrap import api_main, outbox_relay_main, workers_main
 from diucs.bootstrap.api_main import (
     API_OPTIONAL_SECRETS,
     REQUIRED_SECRETS,
@@ -59,7 +59,9 @@ PLAIN_VARIABLES = {
 }
 
 
-def _vault(extra: dict[str, str | None] | None = None, *, platform: bool = True) -> FakeKeyVaultClient:
+def _vault(
+    extra: dict[str, str | None] | None = None, *, platform: bool = True
+) -> FakeKeyVaultClient:
     held: dict[str, str | None] = dict(SETTING_SECRETS)
     if platform:
         held.update({name: GOOD for name in REQUIRED_SECRETS})
@@ -184,9 +186,7 @@ def test_a_plain_secret_in_lower_case_is_found_too(monkeypatch: pytest.MonkeyPat
 
 def test_a_plain_secret_given_to_the_settings_directly_is_found_too() -> None:
     with pytest.raises(SecretConfigError, match="DIUCS_NEO4J_PASSWORD"):
-        settings_from_vault(
-            _settings(neo4j_password=SecretStr(PLAIN)), _store(_vault())
-        )
+        settings_from_vault(_settings(neo4j_password=SecretStr(PLAIN)), _store(_vault()))
 
 
 def test_every_plain_secret_is_named_at_once(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -302,9 +302,7 @@ def test_the_address_key_is_read_when_the_vault_holds_it_and_skipped_when_not() 
 
 
 def _api_start(monkeypatch: pytest.MonkeyPatch, client: FakeKeyVaultClient) -> Any:
-    monkeypatch.setattr(
-        api_main, "load_secret_store", lambda settings: _store(client)
-    )
+    monkeypatch.setattr(api_main, "load_secret_store", lambda settings: _store(client))
     return api_main.prepare_process(_settings())
 
 

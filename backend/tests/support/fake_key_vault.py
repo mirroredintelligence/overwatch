@@ -33,7 +33,9 @@ class FakeKeyVaultClient:
         self.entered = Event()
         self.on_call: Callable[[str], None] | None = None
 
-    def get_secret(self, name: str, version: str | None = None, **kwargs: object) -> FakeSecretBundle:
+    def get_secret(
+        self, name: str, version: str | None = None, **kwargs: object
+    ) -> FakeSecretBundle:
         self.calls.append(name)
         self.entered.set()
         if self.gate is not None:

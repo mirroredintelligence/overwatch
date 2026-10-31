@@ -33,7 +33,9 @@ from diucs.domain.rules.tenant_keys import PER_TENANT_KEY_NAMES
 
 BACKEND = Path(__file__).resolve().parents[3]
 VAULT_URL = "https://kv-diucs-pilot-test.vault.azure.net/"
-SERVICE_BUS = "Endpoint=sb://sb-test.servicebus.windows.net/;SharedAccessKeyName=k;SharedAccessKey=Zm9v"
+SERVICE_BUS = (
+    "Endpoint=sb://sb-test.servicebus.windows.net/;SharedAccessKeyName=k;SharedAccessKey=Zm9v"
+)
 
 
 @pytest.fixture(autouse=True)
@@ -332,3 +334,64 @@ def test_the_workers_lists_are_these_names_and_only_names_the_api_also_knows() -
     assert WORKER_OPTIONAL_SECRETS == ("webpush-vapid-private-key",)
     assert set(WORKER_REQUIRED_SECRETS) <= set(PER_TENANT_KEY_NAMES) | set(REQUIRED_SECRETS)
     assert set(WORKER_OPTIONAL_SECRETS) <= set(API_OPTIONAL_SECRETS)
+
+
+# ---- the address lookup key (OS Places) comes from the store
+
+
+def test_the_api_reads_the_address_key_from_the_directory_when_the_file_is_there(
+    secrets_dir: Path,
+) -> None:
+    (secrets_dir / "os-places-api-key").write_text("fake-os-key", encoding="ascii")
+    (secrets_dir / "os-places-api-key").chmod(0o600)
+    settings = Settings(secrets_dir=secrets_dir, servicebus_connection=SecretStr(SERVICE_BUS))
+
+    prepared, _ = api_main.prepare_process(settings)
+
+    assert prepared.os_places_api_key is not None
+    assert prepared.os_places_api_key.get_secret_value() == "fake-os-key"
+    assert "fake-os-key" not in repr(prepared)
+
+
+def test_the_api_starts_without_the_address_key_when_the_directory_has_none(
+    secrets_dir: Path,
+) -> None:
+    settings = Settings(secrets_dir=secrets_dir, servicebus_connection=SecretStr(SERVICE_BUS))
+
+    prepared, _ = api_main.prepare_process(settings)
+
+    assert prepared.os_places_api_key is None
+
+
+def test_with_the_directory_a_key_in_the_environment_still_works_locally(secrets_dir: Path) -> None:
+    settings = Settings(
+        secrets_dir=secrets_dir,
+        servicebus_connection=SecretStr(SERVICE_BUS),
+        os_places_api_key=SecretStr("env-key"),
+    )
+
+    prepared, _ = api_main.prepare_process(settings)
+
+    assert prepared.os_places_api_key is not None
+    assert prepared.os_places_api_key.get_secret_value() == "env-key"
+
+
+def test_the_api_entry_point_stops_when_the_address_key_is_also_in_the_environment_with_a_vault(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DIUCS_KEY_VAULT_URL", VAULT_URL)
+    monkeypatch.setenv("DIUCS_OS_PLACES_API_KEY", "PLAIN-address-key-canary")
+
+    with pytest.raises(SystemExit) as stopped:
+        api_main.main()
+
+    assert "DIUCS_OS_PLACES_API_KEY" in str(stopped.value)
+    assert "os-places-api-key" in str(stopped.value)
+    assert "PLAIN-address-key-canary" not in str(stopped.value)
+
+
+def test_the_container_takes_the_address_key_from_the_prepared_settings_only() -> None:
+    source = Path(api_main.__file__).read_text(encoding="utf-8")
+
+    assert "settings_from_vault(settings, store)" in source
+    assert "address_key_from_store" in source

@@ -42,8 +42,20 @@ class LinkTokenRepository(Protocol):
         ...
 
 
+class SecretStoreUnavailable(Exception):
+    """A secret exists or may exist but could not be read now: the vault is down, refused the
+    identity or throttled, or a file could not be opened (DEC-1304 item 4). It is deliberately not
+    `NotFound` and not a `DomainError`: no caller may read it as "not configured" and carry on with
+    a default, and no edge may turn it into a 4xx. Every caller of `SecretStore.get` handles
+    `NotFound` and nothing else, so this passes through and the request or the message fails
+    closed (a 500, or a retry of the message). The text names the secret and never a value."""
+
+
 class SecretStore(Protocol):
-    def get(self, name: str) -> bytes: ...
+    def get(self, name: str) -> bytes:
+        """The secret's bytes. `NotFound` when it is not held (or the name is not a valid one);
+        `SecretStoreUnavailable` when it could not be read now."""
+        ...
 
 
 class LinkTokenService:

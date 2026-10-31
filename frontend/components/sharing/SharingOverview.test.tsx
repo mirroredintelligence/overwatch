@@ -100,7 +100,7 @@ describe('what the page says', () => {
     await open();
     expect(within(card('Capacity')).getByRole('alert')).toHaveTextContent('We could not list the fields that are shared. Do not approve this until it is fixed.');
     expect(within(card('Capacity')).queryByRole('button', { name: /Approve/ })).not.toBeInTheDocument();
-    expect(within(card('Directory')).getByRole('button', { name: 'End sharing' })).toBeInTheDocument();
+    expect(within(card('Directory')).getByRole('button', { name: 'End sharing directory' })).toBeInTheDocument();
   });
 
   it('has no accessibility violation', async () => {
@@ -233,7 +233,7 @@ describe('proposing and ending', () => {
     const user = await open();
     await user.click(byEl('SHARE-END-BTN', card('Directory')));
     const dialog = screen.getByRole('dialog', { name: 'End sharing directory?' });
-    expect(within(dialog).getByText('New data stops being shared straight away. What was already shared stays in the network history, marked with today’s date.')).toBeInTheDocument();
+    expect(within(dialog).getByText("New data stops being shared straight away. What was already shared stays in the network history, marked with today's date.")).toBeInTheDocument();
     expect(seenNetworkAdminWrites).toEqual([]);
     await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
     expect(seenNetworkAdminWrites).toEqual([]);

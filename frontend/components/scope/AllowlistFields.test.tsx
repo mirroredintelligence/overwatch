@@ -57,7 +57,11 @@ describe('AllowlistFields', () => {
   });
 
   it('has no accessibility violation', async () => {
-    render(<AllowlistFields scope="directory" fields={SCOPES_FIELDS.directory} />);
+    render(
+      <main>
+        <AllowlistFields scope="directory" fields={SCOPES_FIELDS.directory} />
+      </main>,
+    );
     expect(await runAxe(document.body)).toHaveNoViolations();
   });
 });

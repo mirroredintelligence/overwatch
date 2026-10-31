@@ -46,3 +46,28 @@ export function useNotice(): { notice: Notice | null; say: (ok: boolean, text: s
   const clear = useCallback(() => setNotice(null), []);
   return { notice, say, clear };
 }
+
+// ---------------------------------------------------------------- the member's sharing page (TEN-081)
+
+export const SHARING_BASE = '/api/bff/sharing';
+
+export type SharingPageNetwork = {
+  id: string;
+  name: string;
+  isOwner: boolean;
+  membershipStatus: 'invited' | 'active' | 'left' | 'removed';
+  joinedAt: string | null;
+  leftAt: string | null;
+  agreementReference: string | null;
+  agreementVersion: number | null;
+  acceptedAgreementVersion: number | null;
+  agreementBehind: boolean;
+  shared: import('./views').KindState[];
+  grants: GrantRow[];
+};
+export type SharingPage = {
+  /** The organisation's own code, for its own administrator to give to the network owner. */
+  organisationCode: string;
+  allowlist: import('./views').Allowlist;
+  networks: SharingPageNetwork[];
+};

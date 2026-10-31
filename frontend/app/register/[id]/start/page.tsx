@@ -25,7 +25,6 @@ export default async function StartPage({ params }: { params: Promise<{ id: stri
   return (
     <main className={styles.main}>
       <div className={styles.panel}>
-        <p className={styles.product}>Overwatch</p>
         <h1 className={styles.heading}>Register a service</h1>
         <div className={styles.card}>
           <p className={styles.text}>It takes about 10 minutes. Have these ready:</p>

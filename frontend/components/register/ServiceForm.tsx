@@ -130,7 +130,6 @@ export function ServiceForm({ registrationId }: ServiceFormProps) {
 
   const header = (
     <>
-      <p className={styles.product}>Overwatch</p>
       <p className={styles.note}>Step 3 of 5 · Service</p>
       <h1 className={styles.heading}>Describe the service</h1>
     </>

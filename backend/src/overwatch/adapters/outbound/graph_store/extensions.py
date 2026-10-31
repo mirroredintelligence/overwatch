@@ -161,3 +161,12 @@ register_extension(
     ExtensionDef(f"{BASE_URL}StructureDefinition/consideredService", "consideredService", "string")
 )
 register_extension(ExtensionDef(f"{BASE_URL}StructureDefinition/takenAt", "takenAt", "dateTime"))
+# DEC-1305: the response target in hours and the days a visiting service goes out, set by the lead.
+register_extension(
+    ExtensionDef(
+        f"{BASE_URL}StructureDefinition/coverageResponseHours", "coverageResponseHours", "integer"
+    )
+)
+register_extension(
+    ExtensionDef(f"{BASE_URL}StructureDefinition/coverageDays", "coverageDays", "string")
+)

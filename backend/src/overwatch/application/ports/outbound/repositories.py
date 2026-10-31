@@ -4,7 +4,7 @@ Adapters: Neo4jServiceRepository and Neo4jCapacityRepository in adapters/outboun
 Reports are never updated or deleted: a correction is a new report.
 """
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime
 from typing import Any, Protocol
 
@@ -26,6 +26,7 @@ from overwatch.domain.model.people import Practitioner, PractitionerRole
 from overwatch.domain.model.registration import Invitation, Registration, ScopeEntry
 from overwatch.domain.model.service import ServiceProfile
 from overwatch.domain.model.service_move import ServiceMove
+from overwatch.domain.rules.coverage_windows import CoverageSetting, StoredCoverage
 
 
 class ServiceRepository(Protocol):
@@ -63,6 +64,23 @@ class ServiceRepository(Protocol):
 
     async def save(self, profile: ServiceProfile) -> None:
         """Insert the profile, or replace the stored one."""
+        ...
+
+    async def coverage(self, service_id: str) -> StoredCoverage | None:
+        """What is stored of the service's coverage area (DEC-1305): the districts of its coverage
+        Locations (sorted), and the response target and days the lead set, each None until set.
+        None when there is no such service."""
+        ...
+
+    async def set_coverage(
+        self, service_id: str, setting: CoverageSetting, area_ids: Mapping[str, str]
+    ) -> None:
+        """Replace the service's coverage area with these districts, the response target and the
+        days, as new versions of the stored resources, in the caller's tenant. A district the
+        service already covers keeps its Location; every other one gets a new Location whose id is
+        `area_ids[district]` (the caller names one for each). Everything else on the service is
+        kept (provider, site, availability, extensions). An unknown service raises NotFound; a
+        missing id in `area_ids` raises ValidationFailed."""
         ...
 
 

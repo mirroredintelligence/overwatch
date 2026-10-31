@@ -452,6 +452,15 @@ class FilterOptions:
         for row in rows:
             if row["shown_as"] == SHOWN_AS_OPTION:
                 row["order"] = shown_at[row["id"]]
+        not_found = patient is None
+        out_of_area = bool(criteria) and all(
+            district not in item.districts for item in criteria.values()
+        )
+        snapshot: dict[str, Any] = {"reference": reference, "services": rows}
+        if out_of_area:
+            # No district is kept (DEC-067): only that this display had nobody covering the
+            # patient's area, so the planning view can count such referrals (DEC-1305).
+            snapshot["out_of_area"] = True
         async with self._uow_factory() as audit_uow:
             await audit_uow.audit.append(
                 AuditEntry(
@@ -459,15 +468,11 @@ class FilterOptions:
                     use_case=FILTER_OPTIONS,
                     actor=command.actor,
                     entity_ids=(case_id, *service_ids),
-                    snapshot={"reference": reference, "services": rows},
+                    snapshot=snapshot,
                     at=now,
                 )
             )
             await audit_uow.commit()
-        not_found = patient is None
-        out_of_area = bool(criteria) and all(
-            district not in item.districts for item in criteria.values()
-        )
         return FilterOptionsResult(
             options=tuple(options),
             not_suitable=tuple(sorted(not_suitable, key=lambda item: (item.name, item.service_id))),

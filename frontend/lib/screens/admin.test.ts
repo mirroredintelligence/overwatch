@@ -8,7 +8,7 @@ const ROW = {
   deviceId: 's-1',
   name: 'Ward 4 corridor',
   location: 'Level 2',
-  status: 'online',
+  state: 'online',
   boardScope: 'tenant',
   pairedAt: '2026-10-27T10:00:00Z',
   lastSeenAt: '2026-10-30T09:59:20Z',
@@ -22,7 +22,7 @@ describe('screenListFrom', () => {
   });
 
   it('keeps a screen with no place and one never seen', () => {
-    const waiting = { ...ROW, location: null, status: 'waiting', lastSeenAt: null };
+    const waiting = { ...ROW, location: null, state: 'waiting', lastSeenAt: null };
     expect(screenListFrom({ ...BODY, screens: [waiting] }).screens).toEqual([waiting]);
   });
 
@@ -40,7 +40,7 @@ describe('screenListFrom', () => {
     ['a row with no id', { ...BODY, screens: [{ ...ROW, deviceId: undefined }] }],
     ['a row with an id that is not an id', { ...BODY, screens: [{ ...ROW, deviceId: '../x' }] }],
     ['a row with no name', { ...BODY, screens: [{ ...ROW, name: '' }] }],
-    ['a row with an unknown status', { ...BODY, screens: [{ ...ROW, status: 'happy' }] }],
+    ['a row with an unknown state', { ...BODY, screens: [{ ...ROW, state: 'happy' }] }],
     ['a row with an unknown board', { ...BODY, screens: [{ ...ROW, boardScope: 'moon' }] }],
     ['a row with a paired time that is not a time', { ...BODY, screens: [{ ...ROW, pairedAt: 'x' }] }],
     ['a row with a place that is a number', { ...BODY, screens: [{ ...ROW, location: 4 }] }],

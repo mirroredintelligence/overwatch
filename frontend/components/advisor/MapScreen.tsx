@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { bffFetch } from '@/lib/advisor/browser';
 import type { CaseView } from '@/lib/advisor/codes';
+import { chooseDistrict } from '@/lib/advisor/district';
 import type { OptionsParts } from '@/lib/advisor/options';
 import { AskClinicalPanel } from './AskClinicalPanel';
 import { OptionsMap } from './OptionsMap';
@@ -11,7 +12,9 @@ import { ViewToggle } from './ViewToggle';
 import styles from './map.module.css';
 
 // The map view of the options (W50). It reads the same options as the list, once per load, and the
-// case for its postcode. A postcode that is not found, or outside the area, gets its own state.
+// case for its postcode. A postcode that is not found, or outside the area, gets its own state, with the
+// districts the services cover to choose from; a district chosen is saved on the case and the options are
+// read again (W9H, DEC-1045).
 
 type Load =
   | { kind: 'loading' }
@@ -25,20 +28,30 @@ export function MapScreen({ caseId }: { caseId: string }) {
   const requested = useRef<string | null>(null);
   const id = encodeURIComponent(caseId);
 
+  const read = useCallback(async () => {
+    const [options, caseRead] = await Promise.all([
+      bffFetch<OptionsParts>(`/api/bff/cases/${id}/options`),
+      bffFetch<CaseView>(`/api/bff/cases/${id}`),
+    ]);
+    if (!options.ok) {
+      setLoad({ kind: 'failed' });
+      return;
+    }
+    setLoad({ kind: 'ready', parts: options.body, postcode: caseRead.ok ? caseRead.body.postcode : null });
+  }, [id]);
+
   useEffect(() => {
     if (requested.current === caseId) return;
     requested.current = caseId;
-    Promise.all([
-      bffFetch<OptionsParts>(`/api/bff/cases/${id}/options`),
-      bffFetch<CaseView>(`/api/bff/cases/${id}`),
-    ]).then(([options, caseRead]) => {
-      if (!options.ok) {
-        setLoad({ kind: 'failed' });
-        return;
-      }
-      setLoad({ kind: 'ready', parts: options.body, postcode: caseRead.ok ? caseRead.body.postcode : null });
-    });
-  }, [caseId, id]);
+    void read();
+  }, [caseId, read]);
+
+  // Saves the district chosen and, once it is kept, runs the options again for it.
+  const choose = async (district: string): Promise<boolean> => {
+    if (!(await chooseDistrict(caseId, district))) return false;
+    await read();
+    return true;
+  };
 
   if (load.kind === 'loading') return <p>Loading the map.</p>;
   if (load.kind === 'failed') return <p role="alert">The map could not be read. Try again.</p>;
@@ -49,7 +62,7 @@ export function MapScreen({ caseId }: { caseId: string }) {
   if (parts.notFound) {
     return (
       <>
-        <PostcodeNotFound caseId={caseId} onAskClinical={() => setAsking(true)} />
+        <PostcodeNotFound caseId={caseId} onAskClinical={() => setAsking(true)} districts={parts.districts} onChooseDistrict={choose} />
         {ask}
       </>
     );
@@ -57,7 +70,7 @@ export function MapScreen({ caseId }: { caseId: string }) {
   if (parts.outOfArea) {
     return (
       <>
-        <OutOfArea caseId={caseId} postcode={postcode ?? ''} onAskClinical={() => setAsking(true)} />
+        <OutOfArea caseId={caseId} postcode={postcode ?? 'This postcode'} onAskClinical={() => setAsking(true)} districts={parts.districts} onChooseDistrict={choose} />
         {ask}
       </>
     );

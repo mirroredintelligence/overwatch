@@ -326,6 +326,11 @@ class DeviceRegistry(Protocol):
         another tenant or a practitioner's device already holds is Conflict."""
         ...
 
+    async def peek(self, device_id: str) -> Device | None:
+        """`get` without the write lock, for reads that decide nothing single-use (TEN-067: a wall
+        screen asks for its board setting on every refresh). Another tenant's screen is None."""
+        ...
+
     async def list_screens(self) -> list[Device]:
         """Every wall screen of the bound tenant, any status, by name then id (W9I). A
         practitioner's device is never one, and another tenant's screen is never listed. Takes no

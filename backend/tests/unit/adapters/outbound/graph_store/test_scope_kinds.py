@@ -92,12 +92,13 @@ def test_a_registered_statement_is_the_one_with_the_same_kinds() -> None:
 # The partition
 
 
-def test_the_label_sets_are_disjoint_and_the_network_set_is_the_allowlist_and_two_more() -> None:
+def test_the_label_sets_are_disjoint_and_the_network_set_is_the_allowlist_and_three_more() -> None:
     assert (
         frozenset(allowlist.ALLOWLIST)
         | {
             "ProjectionSource",
             "ProjectionCursor",
+            "NetworkSample",
         }
         == scope_labels.NETWORK_ONLY_LABELS
     )

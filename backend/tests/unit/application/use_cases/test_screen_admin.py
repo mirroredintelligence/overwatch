@@ -132,7 +132,9 @@ async def test_a_revoked_screen_with_no_revoke_time_is_still_listed() -> None:
     assert [v.device_id for v in views] == ["s-1"]
 
 
-@pytest.mark.parametrize("role", [role for role in Role if role is not Role.LEAD])
+@pytest.mark.parametrize(
+    "role", [role for role in Role if role not in (Role.LEAD, Role.TENANT_ADMIN)]
+)
 async def test_every_other_role_is_refused_before_anything_is_read(role: Role) -> None:
     rig, devices = _rig()
     devices.screens["s-1"] = _screen("s-1", "Ward")
@@ -145,6 +147,18 @@ async def test_every_other_role_is_refused_before_anything_is_read(role: Role) -
     assert "devices.list_screens" not in rig.units.calls
     assert devices.screens["s-1"].status is DeviceStatus.ACTIVE
     assert rig.units.writes.names == []
+
+
+async def test_a_tenant_administrator_may_list_but_not_revoke() -> None:
+    rig, devices = _rig()
+    devices.screens["s-1"] = _screen("s-1", "Ward")
+    admin = _other(Role.TENANT_ADMIN)
+    assert len(await ListWallScreens(rig.uow_factory, rig.clock).execute(admin)) == 1
+    with pytest.raises(NotAllowed):
+        await RevokeWallScreen(rig.uow_factory, rig.clock).execute(
+            RevokeWallScreenCommand(actor=admin, device_id="s-1")
+        )
+    assert devices.screens["s-1"].status is DeviceStatus.ACTIVE
 
 
 async def test_revoking_ends_the_screen_drops_its_token_hash_and_is_audited_once() -> None:

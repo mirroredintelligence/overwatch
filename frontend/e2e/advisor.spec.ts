@@ -67,3 +67,52 @@ test.describe('call flow (W10 to W16, W20, W21, W50)', () => {
     await expect(page.getByText('Case 4821 is saved. The postcode has been cleared from this screen.')).toBeVisible();
   });
 });
+
+// District chips (W50, W9H DEC-1045, DEC-1046). When the postcode was not found or no service covers its area,
+// the options screen offers the districts the services cover; choosing one saves it on the case and runs the
+// options again. The BFF routes are answered in the page, so the flow needs no seeded back end. Written, not run.
+test.describe('district chips (W50)', () => {
+  test.beforeEach(async ({ page }) => {
+    await signIn(page.context(), SITE_URL, 'advisor', TOKEN_ORG_A);
+  });
+
+  test('a postcode not found offers the districts, and choosing one shows the options again', async ({ page }) => {
+    let chosen: unknown = null;
+    let reads = 0;
+    await page.route('**/api/bff/cases/case-1/options', async (route) => {
+      reads += 1;
+      const body =
+        reads === 1
+          ? { shownAt: '2026-10-30T14:12:00.000Z', options: [], notSuitable: [], patientArea: null, notFound: true, outOfArea: false, districts: ['DT1', 'DT3'] }
+          : { shownAt: '2026-10-30T14:13:00.000Z', options: [], notSuitable: [], patientArea: null, notFound: false, outOfArea: false, districts: [] };
+      await route.fulfill({ json: body });
+    });
+    await page.route('**/api/bff/cases/case-1/district', async (route) => {
+      chosen = route.request().postDataJSON();
+      await route.fulfill({ json: { id: 'case-1' } });
+    });
+
+    await page.goto('/advisor/case/case-1/options');
+    await expect(page.getByRole('heading', { name: 'We could not find that postcode' })).toBeVisible();
+    await expect(page.getByText('Options will use the district, with a wider travel range.')).toBeVisible();
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+
+    await page.getByRole('button', { name: 'DT3' }).click();
+
+    await expect(page.getByRole('heading', { name: 'No service fits right now' })).toBeVisible();
+    expect(chosen).toEqual({ district: 'DT3' });
+    expect(reads).toBe(2);
+  });
+
+  test('an area no service covers offers the districts too, and the other ways stay', async ({ page }) => {
+    await page.route('**/api/bff/cases/case-1/options', async (route) => {
+      await route.fulfill({ json: { shownAt: '2026-10-30T14:12:00.000Z', options: [], notSuitable: [], patientArea: null, notFound: false, outOfArea: true, districts: ['DT2'] } });
+    });
+
+    await page.goto('/advisor/case/case-1/options');
+    await expect(page.getByRole('heading', { name: 'No service covers this area' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'DT2' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Other routes under local protocol' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Change the postcode' })).toBeVisible();
+  });
+});

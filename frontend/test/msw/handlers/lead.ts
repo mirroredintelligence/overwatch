@@ -63,12 +63,13 @@ export const FLAG_CHOICES = [
  */
 export const SCREEN_LIST = {
   scope: 'tenant',
+  networks: [],
   asOf: '2026-10-30T10:00:00Z',
   screens: [
-    { deviceId: 's-2', name: 'Day room', location: null, status: 'waiting', boardScope: 'tenant', pairedAt: '2026-10-30T09:59:00Z', lastSeenAt: null, revokedAt: null },
-    { deviceId: 's-1', name: 'Ward 4 corridor', location: 'Level 2', status: 'online', boardScope: 'tenant', pairedAt: '2026-10-27T10:00:00Z', lastSeenAt: '2026-10-30T09:59:20Z', revokedAt: null },
-    { deviceId: 's-3', name: 'Reception', location: 'Ground floor', status: 'offline', boardScope: 'tenant', pairedAt: '2026-10-20T08:30:00Z', lastSeenAt: '2026-10-30T07:40:00Z', revokedAt: null },
-    { deviceId: 's-4', name: 'Old canteen screen', location: null, status: 'revoked', boardScope: 'tenant', pairedAt: '2026-10-01T08:30:00Z', lastSeenAt: '2026-10-29T16:00:00Z', revokedAt: '2026-10-29T16:05:00Z' },
+    { deviceId: 's-2', name: 'Day room', location: null, state: 'waiting', status: 'paired-unclaimed', boardScope: 'tenant', networkId: null, networkName: null, networkAvailable: true, scopeVersion: 1, pairedAt: '2026-10-30T09:59:00Z', lastSeenAt: null, revokedAt: null },
+    { deviceId: 's-1', name: 'Ward 4 corridor', location: 'Level 2', state: 'online', status: 'active', boardScope: 'tenant', networkId: null, networkName: null, networkAvailable: true, scopeVersion: 1, pairedAt: '2026-10-27T10:00:00Z', lastSeenAt: '2026-10-30T09:59:20Z', revokedAt: null },
+    { deviceId: 's-3', name: 'Reception', location: 'Ground floor', state: 'offline', status: 'active', boardScope: 'tenant', networkId: null, networkName: null, networkAvailable: true, scopeVersion: 1, pairedAt: '2026-10-20T08:30:00Z', lastSeenAt: '2026-10-30T07:40:00Z', revokedAt: null },
+    { deviceId: 's-4', name: 'Old canteen screen', location: null, state: 'revoked', status: 'revoked', boardScope: 'tenant', networkId: null, networkName: null, networkAvailable: true, scopeVersion: 1, pairedAt: '2026-10-01T08:30:00Z', lastSeenAt: '2026-10-29T16:00:00Z', revokedAt: '2026-10-29T16:05:00Z' },
   ],
 };
 
@@ -176,7 +177,7 @@ export const leadHandlers = [
   http.get('/api/bff/screens', () => HttpResponse.json(SCREEN_LIST, { headers: NO_STORE })),
   http.post('/api/bff/screens/:id/revoke', async ({ request, params }) => {
     await recorded(request, `/api/bff/screens/${String(params.id)}/revoke`);
-    return HttpResponse.json({ deviceId: String(params.id), status: 'revoked', revokedAt: '2026-10-30T10:00:00Z' }, { headers: NO_STORE });
+    return HttpResponse.json({ deviceId: String(params.id), state: 'revoked', revokedAt: '2026-10-30T10:00:00Z' }, { headers: NO_STORE });
   }),
   http.get('/api/bff/lead/phones', () => HttpResponse.json({ phones: PHONE_CHOICES }, { headers: NO_STORE })),
   http.get('/api/bff/lead/invitations', () => HttpResponse.json({ items: INVITATION_CHOICES }, { headers: NO_STORE })),

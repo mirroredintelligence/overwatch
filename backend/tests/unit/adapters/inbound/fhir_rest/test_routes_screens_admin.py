@@ -10,6 +10,7 @@ values only.
 """
 
 from datetime import timedelta
+from types import SimpleNamespace
 from typing import Annotated, Any
 
 import pytest
@@ -64,10 +65,26 @@ def _world() -> tuple[Rig, ScreenDevices]:
     return rig, devices
 
 
-def _http(rig: Rig) -> Any:
-    from tests.support.w7b_rig import client
+class _NoNetworks:
+    """The network access the list reads: this tenant belongs to no network."""
 
-    return client(rig)
+    async def networks_of_tenant(self, tenant_id: str) -> list[Any]:
+        return []
+
+
+def _http(rig: Rig) -> Any:
+    import httpx
+
+    app = create_app(rig)  # type: ignore[arg-type]
+    app.state.secrets = rig.secrets
+    app.state.cache = rig.cache
+    app.state.network_services = SimpleNamespace(access=_NoNetworks())
+    return httpx.AsyncClient(
+        transport=httpx.ASGITransport(
+            app=app, raise_app_exceptions=False, client=("203.0.113.9", 1234)
+        ),
+        base_url=f"http://{HOST}",
+    )
 
 
 # ------------------------------------------------------------------------------- the list
@@ -82,14 +99,20 @@ async def test_the_list_gives_each_screen_and_no_secret() -> None:
     assert response.headers["cache-control"] == "no-store"
     body = response.json()
     assert body["scope"] == "tenant"
+    assert body["networks"] == []
     assert body["asOf"] == "2026-10-30T10:00:00Z"
     assert body["screens"] == [
         {
             "deviceId": "s-2",
             "name": "Day room",
             "location": None,
-            "status": "waiting",
+            "status": "paired-unclaimed",
+            "state": "waiting",
             "boardScope": "tenant",
+            "networkId": None,
+            "networkName": None,
+            "networkAvailable": True,
+            "scopeVersion": 1,
             "pairedAt": "2026-10-30T09:59:00Z",
             "lastSeenAt": None,
             "revokedAt": None,
@@ -98,8 +121,13 @@ async def test_the_list_gives_each_screen_and_no_secret() -> None:
             "deviceId": "s-1",
             "name": "Ward 4 corridor",
             "location": "Level 2",
-            "status": "online",
+            "status": "active",
+            "state": "online",
             "boardScope": "tenant",
+            "networkId": None,
+            "networkName": None,
+            "networkAvailable": True,
+            "scopeVersion": 1,
             "pairedAt": "2026-10-27T10:00:00Z",
             "lastSeenAt": "2026-10-30T09:59:20Z",
             "revokedAt": None,
@@ -117,9 +145,11 @@ async def test_an_empty_tenant_gets_an_empty_list_not_a_missing_one() -> None:
     assert body["screens"] == []
 
 
-async def test_the_role_matrix_of_the_list_is_the_shift_lead_alone() -> None:
+async def test_the_role_matrix_of_the_list_is_the_lead_and_the_tenant_administrator() -> None:
     async with route_client() as client:
-        await assert_role_matrix(client, "GET", "/screens", frozenset({Role.LEAD}))
+        await assert_role_matrix(
+            client, "GET", "/screens", frozenset({Role.LEAD, Role.TENANT_ADMIN})
+        )
 
 
 # ------------------------------------------------------------------------------- the revoke

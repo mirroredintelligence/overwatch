@@ -142,14 +142,14 @@ export function ScreenList() {
                   </td>
                   <td>
                     <span className={styles.screenStatus}>
-                      <Shape status={row.status} />
-                      {STATUS_WORDS[row.status]}
+                      <Shape status={row.state} />
+                      {STATUS_WORDS[row.state]}
                     </span>
                   </td>
                   <td>{when(row.pairedAt)}</td>
-                  <td>{row.status === 'revoked' ? when(row.revokedAt) : seenText(row, list.asOf)}</td>
+                  <td>{row.state === 'revoked' ? when(row.revokedAt) : seenText(row, list.asOf)}</td>
                   <td>
-                    {row.status === 'revoked' ? null : (
+                    {row.state === 'revoked' ? null : (
                       <Button variant="secondary" onClick={() => setAsking(row)} dataEl={`LEAD-SCREEN-DISCONNECT-${row.deviceId}`}>
                         Disconnect<span className={styles.srOnly}> {row.name}</span>
                       </Button>

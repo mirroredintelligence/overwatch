@@ -262,6 +262,54 @@ PLATFORM_QUERY_IDS: Final[Mapping[str, str]] = MappingProxyType(
         "Q-TENANT-REG-NUMBERS": (
             "reads the TenantNumber registry nodes of one Tenant, for its activation facts"
         ),
+        "Q-TENANT-REG-LIST": (
+            "lists every Tenant registry node whatever its status, for the platform operator's "
+            "tenant list: registry data only, and the operator is the only caller"
+        ),
+        "Q-TENANT-REG-GET": (
+            "reads one Tenant registry node with its host and directory, for the platform "
+            "operator's tenant detail: registry data only"
+        ),
+        "Q-PLATFORM-AUDIT-LOCK": (
+            "takes the head of the platform audit chain (the platform registry's own chain, "
+            "created on first use) and reads where it stands, so appends queue on the head"
+        ),
+        "Q-PLATFORM-AUDIT-APPEND": (
+            "adds one link to the platform audit chain when the head is still at the sequence "
+            "the caller read, and moves the head: the platform registry's append-only record of "
+            "what the platform's own people did"
+        ),
+        "Q-PLATFORM-AUDIT-ENTRIES": (
+            "reads the links of the platform audit chain after a sequence, oldest first: platform "
+            "registry data, for the operator's access log and for the chain's own check"
+        ),
+        "Q-PLATFORM-AUDIT-HEAD": (
+            "reads where the platform audit chain stands: platform registry data only"
+        ),
+        "Q-SUPPORT-TICKET-ADD": (
+            "creates one SupportAccessTicket platform registry node: a support person's request "
+            "for access to one tenant, kept in the platform registry so both sides read one record"
+        ),
+        "Q-SUPPORT-TICKET-OF-TENANT": (
+            "reads one SupportAccessTicket platform registry node by id when it names the tenant "
+            "the caller gives (the bound tenant of the administrator who asks)"
+        ),
+        "Q-SUPPORT-TICKET-OF-PRINCIPAL": (
+            "reads one SupportAccessTicket platform registry node by id when the support person "
+            "the caller gives asked for it"
+        ),
+        "Q-SUPPORT-TICKETS-OF-TENANT": (
+            "lists the SupportAccessTicket platform registry nodes that name one tenant, newest "
+            "first, for that tenant's administrator"
+        ),
+        "Q-SUPPORT-TICKETS-OF-PRINCIPAL": (
+            "lists the SupportAccessTicket platform registry nodes one support person asked for, "
+            "newest first"
+        ),
+        "Q-SUPPORT-TICKET-MOVE": (
+            "changes one SupportAccessTicket platform registry node when it names the tenant and "
+            "is in the state the caller read (compare and set): a decision, an opening, an end"
+        ),
     }
 )
 
@@ -356,6 +404,38 @@ PLATFORM_STATEMENTS: Final[Mapping[str, str]] = MappingProxyType(
         "Q-TENANT-REG-NUMBERS": (
             "4d79b14ddb793344cadceda9973790d53551f1e8e1730e8bba2e13b69853c6eb"
         ),
+        "Q-TENANT-REG-LIST": ("ac2dce20e0c19f359f2cdc4450d09356326ab89cbc9e65d1e703bd67368aec6e"),
+        "Q-TENANT-REG-GET": ("73f61ba62534e1e5a48eeab6d353982534fd33f666d23484766673621bac7be0"),
+        "Q-PLATFORM-AUDIT-LOCK": (
+            "bcde6de470ba527d604ddc07a9baeec320910393f1bbddfa45dde75270c0a9ba"
+        ),
+        "Q-PLATFORM-AUDIT-APPEND": (
+            "c01aeea2e1eb4da9ad5d2c5ebad5385c759248ef16fa42bee15544ca07344bc7"
+        ),
+        "Q-PLATFORM-AUDIT-ENTRIES": (
+            "efa2cb8a32e6688ad29046b8762656440a1fa7f8f08a06f48da08c8ad9bb26c1"
+        ),
+        "Q-PLATFORM-AUDIT-HEAD": (
+            "bda6b0cff54eb347e1316c647f9adc87b39bd2fa1e0f098f0ccbdc97fbd6f6e7"
+        ),
+        "Q-SUPPORT-TICKET-ADD": (
+            "746b4e4296ed8ba20a9de7b09268b401c1ce937220376ad71c673a6dd227a75c"
+        ),
+        "Q-SUPPORT-TICKET-OF-TENANT": (
+            "0a80d9a6f5a4592c6d132eebb1270dbe9296131d0393dca116b3454851c29a44"
+        ),
+        "Q-SUPPORT-TICKET-OF-PRINCIPAL": (
+            "485cdf23b17f42882509d58d0d3951d8929006fead53fa23682f3a1d985687ea"
+        ),
+        "Q-SUPPORT-TICKETS-OF-TENANT": (
+            "2b8c4bb3101d8579494eec85603e36a0de27d6b2e4b71e38d19872c3df6cb885"
+        ),
+        "Q-SUPPORT-TICKETS-OF-PRINCIPAL": (
+            "48262d7062f10f902f62edfdc945602b303bc6eb4bb7b54289b12ddb282241ce"
+        ),
+        "Q-SUPPORT-TICKET-MOVE": (
+            "801a0ffd16d03d5f37278f7c3de90206bde3355875b76081879c83a75d7d690a"
+        ),
     }
 )
 
@@ -372,6 +452,12 @@ def statement_digest(cypher: str) -> str:
 # an id to the allowlist, and the pinned test names both.
 GLOBAL_STATEMENT_LABELS: Final[frozenset[str]] = frozenset(
     {"Tenant", "TenantNumber"} | NETWORK_REGISTRY_LABELS
+)
+# The platform's own records (TEN-075): the platform audit chain and the support-access tickets.
+# Like the registry they carry no `tenantId`; only a platform statement may name them. A global
+# statement may not (it is not on GLOBAL_STATEMENT_LABELS), so a global read cannot reach them.
+PLATFORM_RECORD_LABELS: Final[frozenset[str]] = frozenset(
+    {"PlatformAuditHead", "PlatformAuditEntry", "SupportAccessTicket"}
 )
 
 _IDENT = r"(?:[A-Za-z_]\w*|`[^`]*`)"
@@ -497,7 +583,12 @@ class ScenarioMissing(ValueError):
 
 
 def _check_global_text(
-    query_id: str, cypher: str, *, writes: bool = False, registry_writes: bool = False
+    query_id: str,
+    cypher: str,
+    *,
+    writes: bool = False,
+    registry_writes: bool = False,
+    platform: bool = False,
 ) -> None:
     """The structural checks of a global statement's text: DEFENCE IN DEPTH behind the digest pin,
     not a parser and not the guarantee (see GLOBAL_STATEMENTS). They refuse a write or procedure
@@ -538,9 +629,15 @@ def _check_global_text(
         raise ValueError(f"query {query_id}: a global write cannot assign a map")
     if registry_writes:
         allowed_labels = NETWORK_REGISTRY_LABELS
-    elif writes:
-        # A platform write works on the tenant registry: not on the network registry's labels.
-        allowed_labels = GLOBAL_STATEMENT_LABELS - NETWORK_REGISTRY_LABELS
+    elif platform:
+        # A platform statement works on the tenant registry and the platform's own records
+        # (TEN-075); a platform write is not on the network registry's labels.
+        registry = (
+            GLOBAL_STATEMENT_LABELS - NETWORK_REGISTRY_LABELS
+            if writes
+            else (GLOBAL_STATEMENT_LABELS)
+        )
+        allowed_labels = registry | PLATFORM_RECORD_LABELS
     else:
         allowed_labels = GLOBAL_STATEMENT_LABELS
     if ";" in text:
@@ -798,7 +895,7 @@ class QueryRegistry:
                 raise ValueError(f"query {query_id}: not on the platform allowlist")
             if _mentions_tenant(cypher):
                 raise ValueError(f"query {query_id}: a platform statement cannot mention $tenant")
-            _check_global_text(query_id, cypher, writes=mode == "write")
+            _check_global_text(query_id, cypher, writes=mode == "write", platform=True)
             pinned = PLATFORM_STATEMENTS.get(query_id)
             if pinned is None:
                 raise ValueError(f"query {query_id}: this platform statement has no pinned digest")

@@ -51,6 +51,13 @@ describe('ExecHome', () => {
     expect(screen.getByRole('link', { name: 'See planning flows' })).toHaveAttribute('href', '/planning/flows');
   });
 
+  it('links an executive to the alerts on their phone, and a lead, who has no phone app, to nothing of the kind (W9H)', () => {
+    const { rerender } = render(<ExecHome board={sample} name="Dorset" phoneAlerts />);
+    expect(screen.getByRole('link', { name: 'Alerts on this phone' })).toHaveAttribute('href', '/planning/phone');
+    rerender(<ExecHome board={sample} name="Dorset" />);
+    expect(screen.queryByRole('link', { name: 'Alerts on this phone' })).not.toBeInTheDocument();
+  });
+
   it('has no accessibility violations', async () => {
     const { container } = render(<ExecHome board={sample} name="Dorset" />);
     expect(await runAxe(container)).toHaveNoViolations();

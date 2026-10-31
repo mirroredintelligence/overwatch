@@ -111,6 +111,11 @@ TENANT_PARAMETER_MODULES: frozenset[str] = frozenset(
         # TEN-028: the registry's writes take the id of the tenant they work on (a platform
         # statement has no `$tenant`), exactly as the directory does.
         "diucs.adapters.outbound.graph_store.tenant_registry",
+        # TEN-075: the support-access tickets are the platform's own records. A ticket is read and
+        # moved by the id of the tenant it names (the administrator's side is given the bound
+        # tenant by the use case) and never sends a tenant to a statement: a platform statement has
+        # no `$tenant`.
+        "diucs.adapters.outbound.graph_store.support_ticket_store",
     }
 )
 

@@ -18,13 +18,17 @@ const ROW = {
   deviceId: 's-1',
   name: 'Ward 4 corridor',
   location: 'Level 2',
-  status: 'online',
+  state: 'online',
   boardScope: 'tenant',
   pairedAt: '2026-10-27T10:00:00Z',
   lastSeenAt: '2026-10-30T09:59:20Z',
   revokedAt: null,
 };
 const ANSWER = { scope: 'tenant', asOf: '2026-10-30T10:00:00Z', screens: [ROW] };
+// What the back end sends: each row also has the device's own `status` and the board setting (TEN-067),
+// and the list has the networks a tenant may choose. The page of this bundle reads none of them.
+const SETTING = { status: 'active', networkId: null, networkName: null, networkAvailable: true, scopeVersion: 1 };
+const BACKEND = { ...ANSWER, networks: [], screens: [{ ...ROW, ...SETTING }] };
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
@@ -46,7 +50,7 @@ describe('GET /api/bff/screens', () => {
     server.use(
       http.get(`${ROOT}/screens`, ({ request }) => {
         seen = { auth: request.headers.get('authorization'), url: request.url };
-        return HttpResponse.json(ANSWER);
+        return HttpResponse.json(BACKEND);
       }),
     );
     const response = await GET(await leadRequest(URL_, 'lead'));
@@ -58,13 +62,13 @@ describe('GET /api/bff/screens', () => {
   });
 
   it('never passes on a field the page does not know, such as a hash the back end sent by mistake', async () => {
-    server.use(http.get(`${ROOT}/screens`, () => HttpResponse.json({ ...ANSWER, screens: [{ ...ROW, tokenHash: 'a'.repeat(64) }] })));
+    server.use(http.get(`${ROOT}/screens`, () => HttpResponse.json({ ...BACKEND, screens: [{ ...ROW, ...SETTING, tokenHash: 'a'.repeat(64) }] })));
     const response = await GET(await leadRequest(URL_, 'lead'));
     expect(await response.text()).not.toContain('tokenHash');
   });
 
   it('answers an empty list when the back end has none, and an error, never an empty list, for a malformed answer', async () => {
-    server.use(http.get(`${ROOT}/screens`, () => HttpResponse.json({ ...ANSWER, screens: [] })));
+    server.use(http.get(`${ROOT}/screens`, () => HttpResponse.json({ ...BACKEND, screens: [] })));
     expect((await (await GET(await leadRequest(URL_, 'lead'))).json()).screens).toEqual([]);
     server.use(http.get(`${ROOT}/screens`, () => HttpResponse.json({ nothing: true })));
     expect((await GET(await leadRequest(URL_, 'lead'))).status).toBe(500);

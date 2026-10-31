@@ -3,8 +3,9 @@
 A scope is a tenant or a network, and the two hold different nodes:
 
 - `NETWORK_ONLY_LABELS`: what the projector writes into a network scope and a network read reads
-  (the five labels of the projection allowlist, `domain/rules/projection.py`, and the two
-  bookkeeping labels of a projection source and its cursor). A tenant scope never holds one.
+  (the five labels of the projection allowlist, `domain/rules/projection.py`, the two bookkeeping
+  labels of a projection source and its cursor, and the hourly sample of the board, TEN-082: counts
+  and a pressure level, no member). A tenant scope never holds one.
 - `SCOPE_GENERIC_LABELS`: platform nodes that are stamped with the scope and mean the same in
   either kind (the audit chain of the scope, the idempotency record, the processed marker).
 - `REGISTRY_NODE_LABELS`: the registry nodes, which carry no scope at all (`REGISTRY_LABELS`).
@@ -30,6 +31,7 @@ NETWORK_ONLY_LABELS: Final[frozenset[str]] = frozenset(
         "ProjectedCriteria",
         "ProjectionSource",
         "ProjectionCursor",
+        "NetworkSample",
     }
 )
 

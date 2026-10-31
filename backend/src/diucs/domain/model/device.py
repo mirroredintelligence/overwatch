@@ -13,6 +13,7 @@ from typing import Final
 
 from diucs.domain.errors import ValidationFailed
 from diucs.domain.messages.privacy_guard import find_patient_data
+from diucs.domain.model.network import check_network_id
 from diucs.domain.rules.tokens import PAIRING_CODE_VALID_FOR
 
 SCREEN_LABEL_MAX: Final = 60
@@ -36,7 +37,7 @@ class DeviceType(StrEnum):
 
 class BoardScope(StrEnum):
     """Which board the screen shows. A reader that sees anything but NETWORK shows the tenant's
-    own board (DEC-132 item 5)."""
+    own board (DEC-132 item 5). NETWORK names its network in `Device.network_id` (TEN-067)."""
 
     TENANT = "tenant"
     NETWORK = "network"
@@ -51,6 +52,10 @@ class Device:
     device_type: DeviceType
     token_hash: str | None
     board_scope: BoardScope = BoardScope.TENANT
+    network_id: str | None = None
+    scope_version: int = 1
+    """The version of the board setting (TEN-067): 1 when the screen is paired, plus one for every
+    change of `board_scope` or `network_id`. The If-Match of the setting route."""
     paired_at: datetime | None = None
     """When a lead connected the screen. Absent on a screen paired before it was recorded."""
     last_seen_at: datetime | None = None
@@ -79,6 +84,16 @@ class Device:
             )
         if self.status is DeviceStatus.ACTIVE and self.token_hash is None:
             raise ValidationFailed("token_hash", "an active screen has a token hash")
+        if self.board_scope is BoardScope.NETWORK:
+            check_network_id(self.network_id)
+        elif self.network_id is not None:
+            raise ValidationFailed("network_id", "a screen on the tenant board has no network")
+        if (
+            type(self.scope_version) is not int
+            or isinstance(self.scope_version, bool)
+            or self.scope_version < 1
+        ):
+            raise ValidationFailed("scope_version", "must be a positive whole number")
 
 
 def check_screen_label(value: str, field: str) -> str:

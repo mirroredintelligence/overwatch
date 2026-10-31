@@ -186,7 +186,7 @@ async def test_a_paired_screen_is_listed_waiting_then_offline_then_online_when_i
             SCREENS, json={"code": started["code"], "name": "Ward 4"}, headers=_lead(tenant_id)
         )
         [waiting] = await _list(c, tenant_id)
-        assert (waiting["status"], waiting["lastSeenAt"]) == ("waiting", None)
+        assert (waiting["state"], waiting["lastSeenAt"]) == ("waiting", None)
         assert waiting["pairedAt"] == "2026-10-30T10:00:00Z"
         assert waiting["name"] == "Ward 4"
 
@@ -194,14 +194,14 @@ async def test_a_paired_screen_is_listed_waiting_then_offline_then_online_when_i
             f"{START}/{started['pairingId']}", headers={"X-Screen-Secret": started["screenSecret"]}
         )
         [collected] = await _list(c, tenant_id)
-        assert (collected["status"], collected["lastSeenAt"]) == ("offline", None)
+        assert (collected["state"], collected["lastSeenAt"]) == ("offline", None)
 
         wall = await _wall_token(c, claimed.json()["deviceToken"])
         assert (
             await c.get("/wall-probe", headers={"Authorization": f"Bearer {wall}"})
         ).status_code == 200
         [online] = await _list(c, tenant_id)
-        assert online["status"] == "online"
+        assert online["state"] == "online"
         assert online["lastSeenAt"] == "2026-10-30T10:00:00Z"
 
 
@@ -231,7 +231,7 @@ async def test_a_revoked_screen_is_cut_off_at_once_and_listed_revoked(
         )
         assert again.status_code == 404
         [row] = await _list(c, tenant_id)
-        assert (row["status"], row["revokedAt"]) == ("revoked", "2026-10-30T10:00:00Z")
+        assert (row["state"], row["revokedAt"]) == ("revoked", "2026-10-30T10:00:00Z")
 
         # A second revoke, with a new key, changes nothing and writes no second audit entry.
         repeat = await c.post(
@@ -262,13 +262,13 @@ async def test_the_other_tenants_lead_sees_none_of_it_and_cannot_revoke_it(
         assert refused.status_code == 404
         wall = {"Authorization": f"Bearer {await _wall_token(a, token_a)}"}
         assert (await a.get("/wall-probe", headers=wall)).status_code == 200
-        assert [s["status"] for s in await _list(a, tenant_id)] != ["revoked"]
+        assert [s["state"] for s in await _list(a, tenant_id)] != ["revoked"]
 
         # B's lead revokes B's own screen; A's list does not change.
         own = await b.post(
             f"{SCREENS}/{device_b}/revoke", json={}, headers=_lead(other_tenant_id, "own-1")
         )
         assert own.status_code == 200
-        assert [s["status"] for s in await _list(b, other_tenant_id)] == ["revoked"]
-        assert [s["status"] for s in await _list(a, tenant_id)] != ["revoked"]
+        assert [s["state"] for s in await _list(b, other_tenant_id)] == ["revoked"]
+        assert [s["state"] for s in await _list(a, tenant_id)] != ["revoked"]
         assert (await a.get("/wall-probe", headers=wall)).status_code == 200

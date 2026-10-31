@@ -12,8 +12,9 @@
   The lead is audited once. A screen that is revoked already is answered as it is and audited no
   second time; a screen the tenant does not hold (another tenant's included) is NotFound.
 
-Both are for the shift lead alone, checked before anything is read. The tenant is the unit's (bound
-at the edge); nothing here takes one. The network scope (TEN-072's other half) lists screens of
+The list is for the shift lead and the tenant administrator, the revoke for the shift lead alone,
+each checked before anything is read. The tenant is the unit's (bound at the edge); nothing here
+takes one. The network scope (TEN-072's other half) lists screens of
 member tenants by another use case over the same view: a new use case, not a parameter of these.
 """
 
@@ -27,6 +28,7 @@ from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.tenancy import ScopeKind, TenantNotBound
 from diucs.application.use_cases.lead_views import check_lead
+from diucs.application.use_cases.wall_board_scope import ADMIN_ROLES
 from diucs.domain.errors import NotAllowed, NotFound
 from diucs.domain.model.device import (
     REVOKED_LISTED_FOR,
@@ -92,7 +94,10 @@ class ListWallScreens:
         self._clock = clock
 
     async def execute(self, actor: Actor) -> list[ScreenSummary]:
-        check_lead(actor)
+        # The shift lead and the tenant administrator list (the same roles as the board setting,
+        # TEN-067); only the lead revokes.
+        if actor.role not in ADMIN_ROLES:
+            raise NotAllowed("only a shift lead or a tenant administrator may list the screens")
         now = self._clock.now()
         async with self._uow_factory() as uow:
             found = await uow.devices.list_screens()

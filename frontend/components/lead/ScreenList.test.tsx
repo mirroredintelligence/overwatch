@@ -114,7 +114,7 @@ describe('ScreenList: disconnecting a screen', () => {
       http.get('/api/bff/screens', () => {
         reads += 1;
         const screens = SCREEN_LIST.screens.map((s) =>
-          revoked && s.deviceId === 's-1' ? { ...s, status: 'revoked', revokedAt: '2026-10-30T10:00:00Z' } : s,
+          revoked && s.deviceId === 's-1' ? { ...s, state: 'revoked', revokedAt: '2026-10-30T10:00:00Z' } : s,
         );
         return HttpResponse.json({ ...SCREEN_LIST, screens });
       }),

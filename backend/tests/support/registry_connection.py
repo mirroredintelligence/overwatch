@@ -21,7 +21,11 @@ class _Result:
 class RecordingTx:
     def __init__(self, answers: dict[str, list[dict[str, Any]] | Exception], kind: str) -> None:
         self._by_text = {REGISTRY.get(query_id).cypher: rows for query_id, rows in answers.items()}
-        self._ids = {REGISTRY.get(i).cypher: i for i in REGISTRY.ids() if i.startswith("Q-TENANT")}
+        self._ids = {
+            REGISTRY.get(i).cypher: i
+            for i in REGISTRY.ids()
+            if i.startswith(("Q-TENANT", "Q-PLATFORM", "Q-SUPPORT-TICKET"))
+        }
         self._kind = kind
         self.calls: list[tuple[str, str, dict[str, Any]]] = []
 

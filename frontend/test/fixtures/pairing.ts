@@ -90,13 +90,18 @@ export class PairingStandIn {
       deviceId: s.deviceId,
       name: s.name,
       location: s.location,
-      status: s.revokedAt !== null ? 'revoked' : s.collected ? 'online' : 'waiting',
+      state: s.revokedAt !== null ? 'revoked' : s.collected ? 'online' : 'waiting',
+      status: s.revokedAt !== null ? 'revoked' : s.collected ? 'active' : 'paired-unclaimed',
       boardScope: 'tenant',
+      networkId: null,
+      networkName: null,
+      networkAvailable: true,
+      scopeVersion: 1,
       pairedAt: iso(s.pairedAt),
       lastSeenAt: s.collected && s.revokedAt === null ? iso(now.getTime()) : null,
       revokedAt: s.revokedAt === null ? null : iso(s.revokedAt),
     }));
-    return { status: 200, body: { scope: 'tenant', asOf: iso(now.getTime()), screens }, headers: { 'Cache-Control': 'no-store' } };
+    return { status: 200, body: { scope: 'tenant', asOf: iso(now.getTime()), screens, networks: [] }, headers: { 'Cache-Control': 'no-store' } };
   }
 
   /** `POST /screens/{id}/revoke`: ends the screen at once; the same answer again for one already ended. */

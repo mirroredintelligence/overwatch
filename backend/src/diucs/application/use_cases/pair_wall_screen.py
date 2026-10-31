@@ -43,7 +43,7 @@ from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET, SecretSto
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
 from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound
 from diucs.domain.codes import Role
-from diucs.domain.errors import Conflict, DomainError, NotAllowed
+from diucs.domain.errors import Conflict, DomainError, NotAllowed, ValidationFailed
 from diucs.domain.model.device import (
     BoardScope,
     Device,
@@ -318,6 +318,10 @@ class ConfirmPairing:
         actor = command.actor
         if actor.role is not Role.LEAD or actor.practitioner_id is None:
             raise NotAllowed(LEAD_ONLY_MESSAGE)
+        if command.board_scope is not BoardScope.TENANT:
+            # A screen is paired to its own organisation's board. A network board is chosen after
+            # pairing, by `SetScreenBoardScope`, which checks the membership (TEN-067).
+            raise ValidationFailed("board_scope", "a new screen shows its own board")
         name = check_screen_label(command.screen_name, "screen_name")
         location = (
             None if command.location is None else check_screen_label(command.location, "location")

@@ -46,6 +46,7 @@ def result(
     patient: LatLon | None = PATIENT,
     not_found: bool = False,
     out_of_area: bool = False,
+    districts: tuple[str, ...] = (),
 ) -> FilterOptionsResult:
     return FilterOptionsResult(
         options=options,
@@ -54,6 +55,7 @@ def result(
         patient=patient,
         not_found=not_found,
         out_of_area=out_of_area,
+        districts=districts,
     )
 
 
@@ -132,3 +134,21 @@ def test_the_not_suitable_services_are_unchanged() -> None:
             ],
         }
     ]
+
+
+def test_the_districts_to_choose_from_are_sent_one_part_each_in_order() -> None:
+    resource = filter_result_to_fhir(
+        result(patient=None, not_found=True, districts=("DT1", "DT2", "BH1"))
+    )
+
+    assert named(resource["parameter"], "district") == [
+        {"name": "district", "valueString": "DT1"},
+        {"name": "district", "valueString": "DT2"},
+        {"name": "district", "valueString": "BH1"},
+    ]
+
+
+def test_no_districts_sends_no_district_part() -> None:
+    resource = filter_result_to_fhir(result(option()))
+
+    assert named(resource["parameter"], "district") == []

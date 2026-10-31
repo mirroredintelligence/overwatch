@@ -68,6 +68,7 @@ from diucs.application.use_cases.board_projector import BoardProjector
 from diucs.application.use_cases.confirm_capacity import ConfirmCapacity
 from diucs.application.use_cases.handle_inbound_text import HandleInboundText
 from diucs.application.use_cases.network_board_projector import NetworkBoardProjector
+from diucs.application.use_cases.network_samples import RecordNetworkSample
 from diucs.application.use_cases.project_network import ProjectNetwork
 from diucs.application.use_cases.query_board import QueryBoard
 from diucs.application.use_cases.query_network_board import QueryNetworkBoard
@@ -222,6 +223,9 @@ async def serve(settings: Settings, stop: asyncio.Event) -> None:
             network_access,
             cache,
             container.clock,
+            sampler=RecordNetworkSample(
+                neo4j_network_uow_factory(container.neo4j, clock=container.clock)
+            ),
         )
         projection_producer = ProjectNetwork(
             neo4j_uow_factory(container.neo4j, clock=container.clock, read_only=True),

@@ -23,6 +23,7 @@ command that hashes a mobile (`invite`): a process that has none refuses it, clo
     provision_tenant.py --operator NAME status TENANT
     provision_tenant.py --operator NAME suspend TENANT --mode blocked --reason security-incident
     provision_tenant.py --operator NAME resume TENANT
+    provision_tenant.py --operator NAME offboard TENANT --confirm TENANT
 
 A suspension takes effect within the edge's cache interval (60 seconds, TEN-073): this process is
 not the serving one, so it cannot make the serving process forget the tenant; the interval is the
@@ -60,11 +61,16 @@ from diucs.application.use_cases.tenant_admin import (
     VerifyDirectoryCommand,
     VerifyEntraBinding,
 )
+from diucs.application.use_cases.tenant_offboarding import (
+    StartOffboardingCommand,
+    StartTenantOffboarding,
+)
 from diucs.application.use_cases.tenant_suspend import (
     ResumeTenant,
     ResumeTenantCommand,
     SuspendTenant,
     SuspendTenantCommand,
+    TenantChanged,
 )
 from diucs.bootstrap.container import Container, build
 from diucs.bootstrap.settings import Settings
@@ -85,6 +91,7 @@ COMMANDS: Final = (
     "status",
     "suspend",
     "resume",
+    "offboard",
 )
 
 
@@ -112,12 +119,17 @@ class Provisioning:
     activate: ActivateTenant
     suspend: SuspendTenant
     resume: ResumeTenant
+    offboard: StartTenantOffboarding
     container: Container
 
 
-def build_provisioning(container: Container) -> Provisioning:
+def build_provisioning(
+    container: Container, on_changed: tuple[TenantChanged, ...] = ()
+) -> Provisioning:
     """The use cases of `tenant_admin.py` and `tenant_access.py` over the container's directory,
-    registry, units of work, clock, ids and secrets."""
+    registry, units of work, clock, ids and secrets. `on_changed` is what a process that serves
+    the REST edge passes (`auth.forget_tenant`), so a suspension, a resume or an offboarding takes
+    effect there at once; the script has none and relies on the edge's cache interval."""
     tenants = container.tenants
     registry = container.tenant_registry
     factory = container.uow_factory
@@ -146,10 +158,11 @@ def build_provisioning(container: Container) -> Provisioning:
         activate=ActivateTenant(
             tenants, registry, factory, container.ids, clock, container.area_districts_for
         ),
-        suspend=SuspendTenant(tenants, registry, factory, clock),
+        suspend=SuspendTenant(tenants, registry, factory, clock, on_changed),
         resume=ResumeTenant(
-            tenants, registry, factory, container.ids, clock, DirectoryZones(tenants)
+            tenants, registry, factory, container.ids, clock, DirectoryZones(tenants), on_changed
         ),
+        offboard=StartTenantOffboarding(tenants, registry, factory, clock, on_changed),
         container=container,
     )
 
@@ -224,6 +237,10 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
 
     resume = commands.add_parser("resume", help="resume a suspended tenant")
     resume.add_argument("tenant_id")
+
+    offboard = commands.add_parser("offboard", help="start the notice period of an offboarding")
+    offboard.add_argument("tenant_id")
+    offboard.add_argument("--confirm", required=True, help="the tenant's own id, typed again")
     return parser.parse_args(list(argv))
 
 
@@ -302,6 +319,14 @@ async def run_command(provisioning: Provisioning, args: argparse.Namespace) -> l
                 return [
                     f"tenant {resumed.tenant_id}: active again, epoch {resumed.epoch}, "
                     f"{resumed.services_prompted} services prompted"
+                ]
+            case "offboard":
+                started = await provisioning.offboard.execute(
+                    StartOffboardingCommand(actor, args.confirm)
+                )
+                return [
+                    f"tenant {started.tenant_id}: offboarding, the notice period ends "
+                    f"{started.notice_ends_at.isoformat()}"
                 ]
     raise ValueError("unknown command")
 

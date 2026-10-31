@@ -23,8 +23,11 @@ from neo4j.time import DateTime
 from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
 from diucs.adapters.outbound.graph_store.driver import run_platform_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.adapters.outbound.graph_store.tenant_directory import tenant_properties
-from diucs.application.ports.outbound.tenant_registry import TenantNumberRecord
+from diucs.adapters.outbound.graph_store.tenant_directory import (
+    tenant_from_properties,
+    tenant_properties,
+)
+from diucs.application.ports.outbound.tenant_registry import RegistryTenant, TenantNumberRecord
 from diucs.application.ports.outbound.tenants import (
     TenantRecordInvalid,
     check_secret_ref,
@@ -98,6 +101,18 @@ _NUMBERS = NamedQuery(
     mode="read",
     scope="platform",
 )
+_LIST = NamedQuery(
+    id="Q-TENANT-REG-LIST",
+    cypher="MATCH (t:Tenant) RETURN properties(t) AS tenant ORDER BY t.id",
+    mode="read",
+    scope="platform",
+)
+_GET = NamedQuery(
+    id="Q-TENANT-REG-GET",
+    cypher="MATCH (t:Tenant {id: $id}) RETURN properties(t) AS tenant, t.id AS id",
+    mode="read",
+    scope="platform",
+)
 for _query in (
     _CREATE,
     _SAVE,
@@ -106,6 +121,8 @@ for _query in (
     _PUT_NUMBER,
     _MARK_TESTED,
     _NUMBERS,
+    _LIST,
+    _GET,
 ):
     REGISTRY.register(_query)
 
@@ -269,3 +286,24 @@ class Neo4jTenantRegistry:
         check_tenant_id(tenant_id)
         rows = await self._read(_NUMBERS, id=tenant_id)
         return tuple(number_from_row(row, tenant_id) for row in rows)
+
+    async def list_all(self) -> tuple[RegistryTenant, ...]:
+        rows = await self._read(_LIST)
+        return tuple(_registry_tenant(row["tenant"]) for row in rows)
+
+    async def detail(self, tenant_id: str) -> RegistryTenant | None:
+        check_tenant_id(tenant_id)
+        rows = await self._read(_GET, id=tenant_id)
+        if not rows:
+            return None
+        if len(rows) > 1:  # the id is unique, so this is a registry fault
+            raise TenantRecordInvalid(NUMBER_RECORD_MESSAGE)
+        return _registry_tenant(rows[0]["tenant"])
+
+
+def _registry_tenant(props: Mapping[str, Any]) -> RegistryTenant:
+    """A tenant with its host and directory, from the node's properties. The record is checked by
+    the domain; a host or directory that is not in its lookup form reads as not set."""
+    host = normalise_host(props.get("host"))
+    directory = normalise_directory_id(props.get("entraDirectoryId"))
+    return RegistryTenant(tenant=tenant_from_properties(props), host=host, directory_id=directory)

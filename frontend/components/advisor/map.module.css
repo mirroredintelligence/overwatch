@@ -187,3 +187,44 @@
     display: block;
   }
 }
+
+/* The district chips (W50): buttons that choose a district, at least 48px high, so a thumb can press them. */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.chipsLegend {
+  padding: 0;
+  margin-bottom: var(--space-2);
+  font-weight: var(--type-label-weight);
+  color: var(--c-ink);
+}
+
+.chip {
+  min-height: 48px;
+  min-width: 48px;
+  padding: 0 var(--space-3);
+  font: inherit;
+  font-weight: var(--type-label-weight);
+  color: var(--c-ink);
+  background: var(--c-bg);
+  border: 2px solid var(--c-ink);
+  border-radius: var(--radius-chip);
+  cursor: pointer;
+}
+
+.chip:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.chip:disabled {
+  cursor: default;
+  color: var(--c-muted);
+  border-color: var(--c-line);
+}

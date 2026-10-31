@@ -415,7 +415,7 @@ async def test_the_confirmed_device_node_holds_only_what_a_wall_display_needs(
     rig: Rig, neo4j_driver: AsyncDriver, tenant_id: str
 ) -> None:
     started = await rig.start.execute()
-    await rig.confirm.execute(_command(started, location=None, board_scope=BoardScope.NETWORK))
+    await rig.confirm.execute(_command(started, location=None))
     props = await node_props(neo4j_driver, "Device", id=started.pairing_id)
     assert set(props) == {
         "id",
@@ -425,13 +425,26 @@ async def test_the_confirmed_device_node_holds_only_what_a_wall_display_needs(
         "deviceName",
         "boardScope",
         "pairedAt",
+        "boardScopeVersion",
         "updatedAt",
     }
     assert props["tenantId"] == tenant_id
     assert props["deviceType"] == "wall-display"
     assert props["status"] == "paired-unclaimed"
     assert props["deviceName"] == SCREEN_NAME
-    assert props["boardScope"] == "network"
+    assert props["boardScope"] == "tenant"
+    assert props["boardScopeVersion"] == 1
+
+
+async def test_a_new_screen_cannot_be_paired_to_a_network_board(
+    rig: Rig, neo4j_driver: AsyncDriver
+) -> None:
+    """A network board is set after pairing, with a membership check (TEN-067)."""
+    started = await rig.start.execute()
+    with pytest.raises(ValidationFailed):
+        await rig.confirm.execute(_command(started, board_scope=BoardScope.NETWORK))
+    assert await _device(rig, started.pairing_id) is None
+    assert await _audit_actions(rig) == []
 
 
 @pytest.mark.parametrize("typed", ["{spaced}", "{plain}", "{hyphen}", " {spaced} "])
@@ -927,7 +940,6 @@ async def test_a_replayed_confirmation_returns_the_same_result_and_writes_nothin
     [
         {"name": "Ward 5 corridor"},
         {"location": "Level 3"},
-        {"board_scope": BoardScope.NETWORK},
         {"actor": OTHER_LEAD},
         {"code": "000 000"},
     ],

@@ -11,7 +11,8 @@ export type ScreenRow = {
   deviceId: string;
   name: string;
   location: string | null;
-  status: ScreenStatus;
+  /** What the lead is told (online, offline, ...). The back end's `status` is the device's own and is not read. */
+  state: ScreenStatus;
   boardScope: ScreenBoard;
   pairedAt: string | null;
   lastSeenAt: string | null;
@@ -57,17 +58,17 @@ function optionalInstant(value: unknown): string | null {
 
 function row(value: unknown): ScreenRow {
   if (!isObject(value)) throw bad();
-  const { deviceId, name, location, status, boardScope } = value;
+  const { deviceId, name, location, state, boardScope } = value;
   if (typeof deviceId !== 'string' || !DEVICE_ID.test(deviceId)) throw bad();
   if (typeof name !== 'string' || name.length === 0 || name.length > NAME_MAX) throw bad();
   if (location !== null && location !== undefined && (typeof location !== 'string' || location.length > NAME_MAX)) throw bad();
-  if (typeof status !== 'string' || !STATUSES.includes(status as ScreenStatus)) throw bad();
+  if (typeof state !== 'string' || !STATUSES.includes(state as ScreenStatus)) throw bad();
   if (boardScope !== 'tenant' && boardScope !== 'network') throw bad();
   return {
     deviceId,
     name,
     location: typeof location === 'string' ? location : null,
-    status: status as ScreenStatus,
+    state: state as ScreenStatus,
     boardScope,
     pairedAt: optionalInstant(value.pairedAt),
     lastSeenAt: optionalInstant(value.lastSeenAt),

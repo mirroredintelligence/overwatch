@@ -258,3 +258,11 @@ describe('parseNetworkList (the BFF’s list)', () => {
     expect(() => parseNetworkList(null)).toThrow(NetworkParseError);
   });
 });
+
+
+describe('a service with no upper age limit (WB11)', () => {
+  it('reads age_max as null, as the back end sends it for "no limit", instead of refusing the whole answer', () => {
+    const body = { ...CRITERIA_BODY, entries: [{ ...CRITERIA_BODY.entries[0], age_max: null }] };
+    expect(parseCriteria(body, 'backend').entries[0]?.ageMax).toBeNull();
+  });
+});

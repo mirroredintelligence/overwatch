@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BOARD_BODY, boardEntry } from '@/test/fixtures/network';
-import { dayText, delayedOrganisations, goneOrganisations, networkToWallBoard, toBoardEntry } from './entries';
+import { agesText, dayText, delayedOrganisations, goneOrganisations, networkToWallBoard, toBoardEntry } from './entries';
 import { parseBoard } from './parse';
 import type { NetworkBoard, NetworkBoardEntry } from './types';
 
@@ -135,5 +135,13 @@ describe('networkToWallBoard', () => {
   it('shows a paused listing as Not updated with no figure and says it is paused', () => {
     const [row] = networkToWallBoard(networkBoard([entry({ presentation: 'unavailable', status: null, unitLabel: null, effectiveAvailable: null, used: null })]), null).entries;
     expect(row).toMatchObject({ status: 'not-updated', effectiveAvailable: null, used: null, paused: true, unitLabel: 'Phone to confirm' });
+  });
+});
+
+
+describe('agesText (WB11)', () => {
+  it('says the range, or "and over" when there is no upper limit', () => {
+    expect(agesText(18, 120)).toBe('18 to 120');
+    expect(agesText(18, null)).toBe('18 and over');
   });
 });

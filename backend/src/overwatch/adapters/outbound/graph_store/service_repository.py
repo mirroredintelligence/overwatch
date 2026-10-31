@@ -9,7 +9,7 @@ Also here: the codeable-concept helpers shared with capacity_repository.py. A co
 from the enum class's own code system, never from the bare value (lesson L3).
 """
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import time
 from enum import StrEnum
 from typing import Any, Final
@@ -30,12 +30,18 @@ from overwatch.domain.codes import (
     parse_code,
 )
 from overwatch.domain.errors import NotFound, ValidationFailed
+from overwatch.domain.model.registration import DISTRICT_TYPE_CODE, LOCATION_TYPE_SYSTEM
 from overwatch.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.rules.coverage_windows import CoverageSetting, StoredCoverage
 
 _DAY_CODES: Final = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 _DAY_NUMBERS: Final = {code: number for number, code in enumerate(_DAY_CODES)}
 _TIME_FORMAT: Final = "%H:%M:%S"
 _RESOURCE_TYPE: Final = "HealthcareService"
+_COVERAGE_HOURS: Final = "coverageResponseHours"
+_COVERAGE_DAYS: Final = "coverageDays"
+_PHYSICAL_TYPE_SYSTEM: Final = "http://terminology.hl7.org/CodeSystem/location-physical-type"
+_AREA: Final = "ar"
 
 _LIST_ACTIVE: Final = NamedQuery(
     id="Q-SVC-LIST-ACTIVE",
@@ -273,6 +279,75 @@ class Neo4jServiceRepository:
         expected = None if current is None else str(current["meta"]["versionId"])
         body = {key: value for key, value in resource.items() if key != "meta"}
         await self._store.put(body, expected)
+
+    async def _areas(self, service: dict[str, Any]) -> dict[str, str]:
+        """The coverage Locations of a stored service: district name to its `Location/id`."""
+        found: dict[str, str] = {}
+        for reference in _references(service, "coverageArea"):
+            area = await self._store.get(*_split(reference))
+            name = None if area is None else area.get("name")
+            if isinstance(name, str):
+                found[name] = reference
+        return found
+
+    async def coverage(self, service_id: str) -> StoredCoverage | None:
+        service = await self._store.get(_RESOURCE_TYPE, service_id)
+        if service is None:
+            return None
+        values = _extension_values(service)
+        hours = values.get(_COVERAGE_HOURS)
+        days = values.get(_COVERAGE_DAYS)
+        return StoredCoverage(
+            districts=tuple(sorted(await self._areas(service))),
+            response_hours=hours if type(hours) is int else None,
+            days=tuple(code for code in days.split(",") if code) if isinstance(days, str) else None,
+        )
+
+    async def set_coverage(
+        self, service_id: str, setting: CoverageSetting, area_ids: Mapping[str, str]
+    ) -> None:
+        service = await self._store.get(_RESOURCE_TYPE, service_id)
+        if service is None:
+            raise NotFound("no service with this id")
+        kept = await self._areas(service)
+        providers = _references(service, "providedBy")
+        references: list[str] = []
+        for district in setting.districts:
+            if district in kept:
+                references.append(kept[district])
+                continue
+            area_id = area_ids.get(district)
+            if not area_id:
+                raise ValidationFailed("districts", "a new district has no id for its Location")
+            area: dict[str, Any] = {
+                "resourceType": "Location",
+                "id": area_id,
+                "status": "active" if service.get("active") is True else "inactive",
+                "name": district,
+                "mode": "kind",
+                "type": [
+                    {
+                        "coding": [
+                            {"system": LOCATION_TYPE_SYSTEM, "code": DISTRICT_TYPE_CODE},
+                        ]
+                    }
+                ],
+                "physicalType": {"coding": [{"system": _PHYSICAL_TYPE_SYSTEM, "code": _AREA}]},
+            }
+            if providers:
+                area["managingOrganization"] = {"reference": providers[0]}
+            await self._store.put(area, None)
+            references.append(f"Location/{area_id}")
+        service["coverageArea"] = [{"reference": reference} for reference in references]
+        own = {by_short_name(_COVERAGE_HOURS), by_short_name(_COVERAGE_DAYS)}
+        own_urls = {defn.url for defn in own if defn is not None}
+        service["extension"] = [
+            entry for entry in service.get("extension", []) if entry.get("url") not in own_urls
+        ] + [
+            _extension(_COVERAGE_HOURS, setting.response_hours),
+            _extension(_COVERAGE_DAYS, ",".join(setting.days)),
+        ]
+        await self._put_with_current(service)
 
     async def save(self, profile: ServiceProfile) -> None:
         # Replace the stored version, or create it. The store checks the version after its lock,

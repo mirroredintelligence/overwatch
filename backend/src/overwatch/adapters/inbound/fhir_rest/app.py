@@ -202,6 +202,12 @@ def create_app(
 
     app.include_router(routes_planning.router)
 
+    # Coverage by postcode district (DEC-1305): who covers what by time of day, and the lead's
+    # setting of a service's area.
+    from overwatch.adapters.inbound.fhir_rest import routes_coverage
+
+    app.include_router(routes_coverage.router)
+
     # The insight console's routes (W9F): the browser's ui.* events counted into the tenant's
     # daily aggregates, and the five tabs of the insight page read back for the support role.
     from overwatch.adapters.inbound.fhir_rest import routes_insight

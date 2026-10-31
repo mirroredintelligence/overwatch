@@ -2050,6 +2050,9 @@ tenant's. Registration token: 2 hours. The BFF keeps no signing secret.
 | `GET /lead/invitations` | `{items:[{id,serviceName,role,steps:{invited,numberChecked,channelChosen,installed,notificationsOn,pinSet,firstReport},invitedAt,lastSeen,firstReportAt}]}` |
 | `POST /lead/invitations/{id}/resend` | `{invitationId,registrationId,expiresAt}`; `409` once the applicant has begun |
 | `POST /lead/invitations/{id}/switch-to-text` | `{channel:"text"}`; `409` when no mobile number is held |
+| `GET /lead/services/{id}/coverage` (DEC-1305) | `{service:{id,name},available:[district],others:[{district,service}],districts:[district],responseHours (1..72 or null before it is set),days:["mon".."sun"]}`; `404` for an unknown service or another tenant's |
+| `PUT /lead/services/{id}/coverage` (DEC-1305) | Idempotency-Key required (`400` without); body `{districts:[district] (1..60),responseHours (whole, 1..72),days:["mon".."sun"] (1..7)}` and nothing else; answers as the GET; `400` names the element; `404` as the GET |
+| `GET /planning/coverage?window=all\|night\|morning\|afternoon\|evening` (DEC-1305; shift lead and executive) | `{window,districts:[{district,services:[name]}],uncovered:{count\|null,suppressed,days:90}}`; a count under 10 (zero included) is `null` with `suppressed:true` (DEC-393); `400` for another window |
 | `GET /admin/report-flags?status=open\|closed` | the same FHIR `Bundle` of `Flag`; a closed flag has `status:"inactive"`, `period.end` and `outcome` (`checked` or `accepted`) |
 
 ## Back-end routes added for the front end, W7C: the reporter app (DEC-810 to DEC-826)

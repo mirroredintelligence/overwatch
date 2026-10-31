@@ -123,6 +123,11 @@ function handleEvents(request: IncomingMessage, response: ServerResponse) {
   }
   response.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store' });
   response.write(': keep-alive\n\n');
+  // The back end's named heartbeat every 15 s (KI-54): a page that hears none for 45 s reopens the stream.
+  const beat = setInterval(() => {
+    response.write(`event: heartbeat\ndata: {"changedAt":"${new Date().toISOString()}"}\n\n`);
+  }, 15_000);
+  response.on('close', () => clearInterval(beat));
   if (state) {
     state.streamOpens += 1;
     state.streams.add(response);

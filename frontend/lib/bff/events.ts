@@ -5,7 +5,16 @@
 // names come from R06 (`board`) and from the W06 prompt (`board.updated`,
 // `booking.updated`); see DEC-152.
 
-export const RELAYED_EVENTS: readonly string[] = ['board', 'board.updated', 'booking.updated'];
+export const RELAYED_EVENTS: readonly string[] = [
+  'board',
+  'board.updated',
+  'booking.updated',
+  'heartbeat',
+  'board-whole',
+];
+
+/** Events that carry the time and nothing else: the stream's heartbeat and a whole-board change. */
+const TIME_ONLY_EVENTS: readonly string[] = ['heartbeat', 'board-whole'];
 
 const KEEP_ALIVE = ': keep-alive\n\n';
 // A frame bigger than this is not a board event. The relay stops rather than buffer it.
@@ -16,7 +25,7 @@ const UTC_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|\+00:00)$/;
 const KINDS: readonly string[] = ['capacity', 'status', 'booking'];
 
 /** The data of an event, cut down to the fields the pages use, each checked. */
-function sanitise(data: string): string {
+function sanitise(name: string, data: string): string {
   const kept: Record<string, string> = {};
   let parsed: unknown;
   try {
@@ -26,8 +35,9 @@ function sanitise(data: string): string {
   }
   if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
     const { serviceId, kind, changedAt } = parsed as Record<string, unknown>;
-    if (typeof serviceId === 'string' && SERVICE_ID.test(serviceId)) kept.serviceId = serviceId;
-    if (typeof kind === 'string' && KINDS.includes(kind)) kept.kind = kind;
+    const timeOnly = TIME_ONLY_EVENTS.includes(name);
+    if (!timeOnly && typeof serviceId === 'string' && SERVICE_ID.test(serviceId)) kept.serviceId = serviceId;
+    if (!timeOnly && typeof kind === 'string' && KINDS.includes(kind)) kept.kind = kind;
     if (typeof changedAt === 'string' && UTC_TIME.test(changedAt) && !Number.isNaN(Date.parse(changedAt))) {
       kept.changedAt = changedAt;
     }
@@ -41,7 +51,7 @@ function dispatch(frame: Frame): string {
   if (frame.event === null && frame.data.length === 0) return frame.comment ? KEEP_ALIVE : '';
   const name = frame.event === null || frame.event === '' ? 'message' : frame.event;
   if (!RELAYED_EVENTS.includes(name)) return '';
-  return `event: ${name}\ndata: ${sanitise(frame.data.join('\n'))}\n\n`;
+  return `event: ${name}\ndata: ${sanitise(name, frame.data.join('\n'))}\n\n`;
 }
 
 /** Reads server-sent event text as it arrives, in pieces, and gives back the text to forward. */

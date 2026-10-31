@@ -23,8 +23,15 @@ const URL_ = `https://${SIGN_IN_HOST}/api/bff/screens`;
 vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
 const CSRF = csrfTokenFor({ tenantId: 'trust-a', host: SIGN_IN_HOST, sub: 'stf-1' }, 'N'.repeat(43));
 
+// One token per role for the whole file: it carries an expiry in whole seconds, so two calls that straddle a
+// second would give two different tokens and a test that compares them would fail on a slow machine.
+const issued = new Map<string, string>();
 function tokenFor(role: string) {
-  return standInToken({ sub: `stf-${role}`, role, aud: 'diucs-api', exp: Math.floor(Date.now() / 1000) + 3600 });
+  const held = issued.get(role);
+  if (held !== undefined) return held;
+  const token = standInToken({ sub: `stf-${role}`, role, aud: 'diucs-api', exp: Math.floor(Date.now() / 1000) + 3600 });
+  issued.set(role, token);
+  return token;
 }
 
 async function lead(body: unknown, options: { role?: Role | null; csrf?: boolean; raw?: string } = {}) {

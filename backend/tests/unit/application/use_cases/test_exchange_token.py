@@ -192,17 +192,34 @@ def world(
     return built
 
 
+class _Ownership:
+    """Which tenants own an active network, and which tenants it was asked about."""
+
+    def __init__(self, *owners: str, fail: bool = False) -> None:
+        self._owners = frozenset(owners)
+        self._fail = fail
+        self.asked: list[str] = []
+
+    async def owns_active_network(self, tenant_id: str) -> bool:
+        self.asked.append(tenant_id)
+        if self._fail:
+            raise ConnectionError("registry down")
+        return tenant_id in self._owners
+
+
 def staff_use_case(
     built: _World,
     verifier: FakeIdentityVerifier,
     store: FixedSecretStore | None = None,
     clock: FixedClock | None = None,
+    ownership: _Ownership | None = None,
 ) -> ExchangeStaffToken:
     return ExchangeStaffToken(
         built.factory,  # type: ignore[arg-type]
         clock or FixedClock(NOW),
         verifier,
         store or secrets(),
+        ownership,
     )
 
 
@@ -292,6 +309,162 @@ async def test_the_token_is_new_each_time_it_is_asked_for_at_a_new_instant() -> 
 
     assert first.token != second.token
     assert second.expires_at == first.expires_at + timedelta(minutes=5)
+
+
+# ----------------------------------------------------------------------- staff: the network administrator
+# TEN-080, DEC-1260: the owner of a network signs its administrators in through its own directory:
+# a group of the owner tenant's directory is mapped to `network-admin`, and the exchange gives that
+# role only while the HOST's tenant owns an active network. The registry is asked, not the token.
+
+G_NETWORK = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+
+
+def network_world(**extra: Any) -> _World:
+    mappings = [mapping(G_NETWORK, Role.NETWORK_ADMIN), mapping(G_LEAD, Role.LEAD)]
+    return world(mappings=mappings, **extra)
+
+
+async def test_an_owners_network_administrator_gets_the_role_for_the_owners_tenant() -> None:
+    ownership = _Ownership("tenant-a")
+    built = network_world()
+
+    issued = await exchange(
+        staff_use_case(built, accepting(identity(groups=(G_NETWORK,))), ownership=ownership)
+    )
+
+    claims = decode_bff_token(issued.token, SIGNING, NOW)
+    assert (claims.role, claims.tenant, claims.epoch) == (Role.NETWORK_ADMIN, "tenant-a", 4)
+    assert claims.services == frozenset()
+    (entry,) = built.audit.entries
+    assert entry.snapshot == {"role": "network-admin", "epoch": 4}
+    assert ownership.asked == ["tenant-a"]
+
+
+async def test_the_registry_is_asked_about_the_hosts_tenant_and_no_other() -> None:
+    # Tenant B owns a network; the same group on tenant A's host gives nothing.
+    ownership = _Ownership("tenant-b")
+
+    with pytest.raises(ExchangeRefused) as refused:
+        await exchange(
+            staff_use_case(
+                network_world(),
+                accepting(identity(groups=(G_NETWORK,))),
+                ownership=ownership,
+            ),
+            TENANT_A,
+        )
+
+    assert str(refused.value) == EXCHANGE_REFUSED_MESSAGE
+    assert ownership.asked == ["tenant-a"]
+
+
+async def test_a_tenant_that_owns_no_network_gives_the_one_refusal_for_the_role() -> None:
+    built = network_world()
+
+    with pytest.raises(ExchangeRefused) as refused:
+        await exchange(
+            staff_use_case(
+                built, accepting(identity(groups=(G_NETWORK,))), ownership=_Ownership()
+            )
+        )
+
+    assert str(refused.value) == EXCHANGE_REFUSED_MESSAGE
+    assert built.audit.entries == []
+    assert all(unit.commits == 0 for unit in built.units)
+
+
+async def test_a_person_who_also_holds_another_staff_group_falls_to_that_role() -> None:
+    issued = await exchange(
+        staff_use_case(
+            network_world(),
+            accepting(identity(groups=(G_NETWORK, G_LEAD))),
+            ownership=_Ownership(),
+        )
+    )
+
+    assert issued.role is Role.LEAD
+
+
+async def test_without_a_registry_the_role_is_never_given() -> None:
+    # A process with no network registry wired fails closed: the role is not given.
+    with pytest.raises(ExchangeRefused):
+        await exchange(staff_use_case(network_world(), accepting(identity(groups=(G_NETWORK,)))))
+
+
+async def test_the_registry_is_not_asked_when_the_groups_give_no_network_administrator() -> None:
+    ownership = _Ownership("tenant-a")
+
+    issued = await exchange(staff_use_case(network_world(), accepting(), ownership=ownership))
+
+    assert issued.role is Role.LEAD
+    assert ownership.asked == []
+
+
+async def test_a_registry_that_fails_is_a_fault_and_gives_no_token() -> None:
+    built = network_world()
+
+    with pytest.raises(ConnectionError):
+        await exchange(
+            staff_use_case(
+                built,
+                accepting(identity(groups=(G_NETWORK,))),
+                ownership=_Ownership("tenant-a", fail=True),
+            )
+        )
+
+    assert built.audit.entries == []
+
+
+async def test_a_retired_network_administrator_mapping_gives_nothing() -> None:
+    built = world(mappings=[mapping(G_NETWORK, Role.NETWORK_ADMIN, MappingStatus.RETIRED)])
+
+    with pytest.raises(ExchangeRefused):
+        await exchange(
+            staff_use_case(
+                built,
+                accepting(identity(groups=(G_NETWORK,))),
+                ownership=_Ownership("tenant-a"),
+            )
+        )
+
+
+@pytest.mark.parametrize("claimed", ["network-admin", "DIUCS.NetworkAdmin", "DIUCS.TenantAdmin"])
+async def test_a_role_the_identity_claims_is_never_a_network_administrator(claimed: str) -> None:
+    # The owner has a network, but the person's GROUPS map to no administrator: an app role the
+    # directory's token carries is never read for a staff role.
+    built = world(mappings=[mapping(G_LEAD, Role.LEAD)])
+    who = identity(groups=(G_OTHER,), app_roles=(claimed,))
+
+    with pytest.raises(ExchangeRefused):
+        await exchange(staff_use_case(built, accepting(who), ownership=_Ownership("tenant-a")))
+
+
+async def test_the_owner_directory_must_be_bound_for_the_owners_own_administrator() -> None:
+    # A member of another tenant's directory is no administrator of this owner's network.
+    with pytest.raises(ExchangeRefused):
+        await exchange(
+            staff_use_case(
+                network_world(),
+                accepting(identity(D_B, groups=(G_NETWORK,))),
+                ownership=_Ownership("tenant-a"),
+            )
+        )
+
+
+async def test_a_blocked_or_offboarding_owner_gets_no_administrator_token() -> None:
+    blocked = make_tenant(
+        TenantStatus.SUSPENDED, id="tenant-a", epoch=4, suspend_mode=SuspendMode.BLOCKED
+    )
+
+    with pytest.raises(ExchangeRefused):
+        await exchange(
+            staff_use_case(
+                network_world(),
+                accepting(identity(groups=(G_NETWORK,))),
+                ownership=_Ownership("tenant-a"),
+            ),
+            blocked,
+        )
 
 
 # ----------------------------------------------------------------------- staff: the binding

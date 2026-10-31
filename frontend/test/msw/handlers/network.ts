@@ -53,7 +53,7 @@ function record(request: Request): void {
 }
 
 /** A route of one network: the viewer must be a member with a role that sees a network. */
-function networkRoute(body: (request: Request, id: string) => unknown, roles: string[] = VIEW_ROLES): HttpResponseResolver {
+function networkRoute(body: (request: Request, id: string) => Record<string, unknown>, roles: string[] = VIEW_ROLES): HttpResponseResolver {
   return ({ request, params }) => {
     record(request);
     const claims = claimsFor(request);

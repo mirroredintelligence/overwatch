@@ -65,8 +65,8 @@ describe('requireOffered', () => {
   });
 
   it('is the same 404 for a tenant that is in no network, with no call to the network routes', async () => {
-    const unknown = await requireOffered(A(), 'net-other').catch((e: unknown) => e as FhirError);
-    const nonMember = await requireOffered(C(), 'net-sample').catch((e: unknown) => e as FhirError);
+    const unknown = (await requireOffered(A(), 'net-other').catch((e: unknown) => e)) as FhirError;
+    const nonMember = (await requireOffered(C(), 'net-sample').catch((e: unknown) => e)) as FhirError;
     expect(nonMember).toMatchObject({ status: 404 });
     expect(nonMember.outcome).toEqual(unknown.outcome);
     expect(networkCalls()).toEqual([]);

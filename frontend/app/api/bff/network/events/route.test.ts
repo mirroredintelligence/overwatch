@@ -52,7 +52,10 @@ describe('GET /api/bff/network/events', () => {
     const response = await get('advisor');
     expect(response.status).toBe(200);
     expect(await readAll(response.body as ReadableStream<Uint8Array>)).toBe(`event: network-board\ndata: ${CHANGED}\n\nevent: scope-ended\ndata: {}\n\n`);
-    expect(seenNetwork.map((c) => c.path)).toEqual(['/networks', `/network/${NETWORK_ID}/events`]);
+    // The registry is asked first, and the stream is opened once, after it.
+    expect(seenNetwork.map((c) => c.path)).toEqual(['/networks']);
+    expect(upstream).toHaveLength(1);
+    expect(new URL(upstream[0]!.url).pathname).toBe(`/network/${NETWORK_ID}/events`);
     expect(upstream[0]?.headers.get('accept')).toContain('text/event-stream');
   });
 

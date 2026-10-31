@@ -129,7 +129,7 @@ describe('parseDirectory', () => {
       contactLabel: 'Service line',
       contactPhone: '01632 960010',
       location: { name: 'West hub', postalDistrict: 'DT4', city: 'Sampletown', latitude: 50.6, longitude: -2.45 },
-      openingHours: [{ position: 0, days: ['mon', 'tue', 'wed', 'thu', 'fri'], allDay: false, start: '08:00', end: '20:00' }],
+      openingHours: [{ position: 0, days: [0, 1, 2, 3, 4], allDay: false, start: '08:00', end: '20:00' }],
       endedAt: null,
       endReason: null,
     });
@@ -151,7 +151,7 @@ describe('parseDirectory', () => {
 
   it('refuses an unknown end reason and a day that is not one', () => {
     expect(() => parseDirectory({ ...DIRECTORY_BODY, entries: [{ ...DIRECTORY_BODY.entries[0], end_reason: 'sacked' }] }, 'backend')).toThrow(NetworkParseError);
-    const hours = [{ position: 0, days: ['someday'], all_day: true, start: null, end: null }];
+    const hours = [{ position: 0, days: [9], all_day: true, start: null, end: null }];
     expect(() => parseDirectory({ ...DIRECTORY_BODY, entries: [{ ...DIRECTORY_BODY.entries[0], opening_hours: hours }] }, 'backend')).toThrow(NetworkParseError);
   });
 });

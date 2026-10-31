@@ -6,6 +6,7 @@ import type {
   NetworkCriteriaEntry,
   NetworkDirectory,
   NetworkDirectoryEntry,
+  NetworkList,
   NetworkLocation,
   NetworkPhone,
   NetworkPhones,
@@ -230,6 +231,12 @@ export function parseNetworks(body: unknown, style: KeyStyle): NetworkSummary[] 
       timeZone: shape.text('timeZone'),
     };
   });
+}
+
+/** The BFF's answer to `GET /api/bff/network`: the viewer's own organisation and the networks it may see. */
+export function parseNetworkList(body: unknown): NetworkList {
+  const shape = Shape.of(body, 'bff', 'networkList');
+  return { ownOrganisation: shape.nullableText('ownOrganisation'), networks: parseNetworks(body, 'bff') };
 }
 
 function boardEntry(item: unknown, style: KeyStyle): NetworkBoardEntry {

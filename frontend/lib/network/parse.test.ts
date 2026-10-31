@@ -17,6 +17,7 @@ import {
   parseBoard,
   parseCriteria,
   parseDirectory,
+  parseNetworkList,
   parseNetworks,
   parsePhones,
   parseSystemNow,
@@ -238,5 +239,22 @@ describe('parseWeek', () => {
     const shownWithout = { ...WEEK_BODY, on_time_pct: { label: 'x', value: null, hidden: false } };
     expect(() => parseWeek(hiddenWithValue, 'backend')).toThrow(NetworkParseError);
     expect(() => parseWeek(shownWithout, 'backend')).toThrow(NetworkParseError);
+  });
+});
+
+describe('parseNetworkList (the BFF’s list)', () => {
+  it('reads the viewer’s own organisation and the networks', () => {
+    const list = parseNetworkList({ ownOrganisation: 'Sample Area A', networks: parseNetworks(NETWORKS_BODY, 'backend') });
+    expect(list.ownOrganisation).toBe('Sample Area A');
+    expect(list.networks.map((n) => n.id)).toEqual(['net-sample']);
+  });
+
+  it('reads a viewer whose organisation name is not known', () => {
+    expect(parseNetworkList({ ownOrganisation: null, networks: [] })).toEqual({ ownOrganisation: null, networks: [] });
+  });
+
+  it('refuses a list that is not one', () => {
+    expect(() => parseNetworkList({ networks: [] })).toThrow(NetworkParseError);
+    expect(() => parseNetworkList(null)).toThrow(NetworkParseError);
   });
 });

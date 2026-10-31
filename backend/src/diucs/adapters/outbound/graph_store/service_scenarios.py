@@ -201,7 +201,24 @@ _POSITION_SEED: Final = TenantSeed(
     rels=(SeedRel("ward", "LOCATION", "location"),),
 )
 
+# Coverage (KI-626): svc-1 covers one area Location; svc-2 covers none, so it is left out.
+_COVERAGE_AREA: Final = SeedNode(
+    "area",
+    ("Resource", "Location"),
+    {"id": "area-1", "key": "Location/area-1", "name": Marked("DT")},
+)
+_COVERAGE_SEED: Final = TenantSeed(
+    nodes=(_WARD, _CLINIC, _COVERAGE_AREA),
+    rels=(SeedRel("ward", "COVERAGE_AREA", "area"),),
+)
+
 SCENARIOS: Final[dict[str, Scenario]] = {
+    "Q-SVC-COVERAGE": Scenario(
+        "the districts each of the tenant's visiting services covers, from its coverage areas",
+        seed=_COVERAGE_SEED,
+        params={"ids": ["svc-1", "svc-2"]},
+        expect=Expect(rows=({"id": "svc-1", "district": Marked("DT")},)),
+    ),
     "Q-SVC-POSITIONS": Scenario(
         "the site position of each of the tenant's services that has one",
         seed=_POSITION_SEED,

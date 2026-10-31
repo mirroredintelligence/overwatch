@@ -92,3 +92,58 @@ async def test_another_tenants_location_is_not_returned(
 
     assert await read_tx(neo4j_driver, count) == 0
     assert await _positions(uow_factory, ["svc-west"]) == {"svc-west": LatLon(lat=50.73, lon=-2.45)}
+
+
+# KI-626: a visiting service has coverage areas and no site (DEC-1175). Its districts are the names
+# of the Locations it covers.
+
+
+async def _seed_visiting(driver: AsyncDriver, tenant: str) -> None:
+    async def cover(tx: AsyncManagedTransaction) -> None:
+        await tx.run(
+            "MATCH (s:HealthcareService {id: 'svc-bare', tenantId: $tenant}) "
+            "CREATE (a:Resource:Location {key: 'Location/area-dt3', id: 'area-dt3', "
+            "tenantId: $tenant, name: 'DT3'}) "
+            "CREATE (b:Resource:Location {key: 'Location/area-dt4', id: 'area-dt4', "
+            "tenantId: $tenant, name: 'DT4'}) "
+            "CREATE (s)-[:COVERAGE_AREA {fhirPath: 'HealthcareService.coverageArea'}]->(a) "
+            "CREATE (s)-[:COVERAGE_AREA {fhirPath: 'HealthcareService.coverageArea'}]->(b)",
+            tenant=tenant,
+        )
+
+    await write_tx(driver, cover)
+
+
+async def test_a_visiting_service_gives_the_districts_it_covers_and_a_fixed_site_gives_none(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, tenant_id: str
+) -> None:
+    await _seed(uow_factory, neo4j_driver, tenant_id)
+    await _seed_visiting(neo4j_driver, tenant_id)
+
+    async with uow_factory() as uow:
+        found = await uow.positions.coverage_districts(["svc-west", "svc-bare"])
+
+    assert found == {"svc-bare": ("DT3", "DT4")}
+
+
+async def test_an_empty_list_has_no_coverage(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, tenant_id: str
+) -> None:
+    await _seed(uow_factory, neo4j_driver, tenant_id)
+
+    async with uow_factory() as uow:
+        assert await uow.positions.coverage_districts([]) == {}
+
+
+async def test_another_tenants_coverage_is_not_returned(
+    uow_factory: UnitOfWorkFactory,
+    uow_factory_b: UnitOfWorkFactory,
+    neo4j_driver: AsyncDriver,
+    tenant_id: str,
+    other_tenant_id: str,
+) -> None:
+    await _seed(uow_factory, neo4j_driver, tenant_id)
+    await _seed_visiting(neo4j_driver, tenant_id)
+
+    async with uow_factory_b() as uow:
+        assert await uow.positions.coverage_districts(["svc-bare"]) == {}

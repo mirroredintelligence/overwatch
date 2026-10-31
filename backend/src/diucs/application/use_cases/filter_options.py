@@ -16,6 +16,7 @@ Decisions: DEC-290 (roles, the read and its audit, no replay; its Assumed list h
 and warning texts).
 """
 
+import asyncio
 from collections.abc import Callable, Collection, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
@@ -196,6 +197,11 @@ class Option:
     locator can place."""
     legs: tuple[TravelLeg, ...] = ()
     """The travel range as legs (W50)."""
+    organisation: str | None = None
+    """The organisation of a network service (KI-349, KI-794): set only on a network option, which
+    is read only. None for the viewer's own services."""
+    organisation_source: str | None = None
+    """Where a network service's directory entry came from, as the card says it."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -203,6 +209,20 @@ class NotSuitable:
     service_id: str
     name: str
     reason: str
+
+
+@dataclass(frozen=True, slots=True)
+class _Candidate:
+    """An option read in the unit of work, before its travel is estimated (KI-350): the estimate is
+    awaited after the unit has closed, so a slow routing engine never holds a transaction open."""
+
+    entry: BoardEntry
+    current: ServiceCriteria
+    site: LatLon | None
+    covers: tuple[str, ...]
+    phone: str | None
+    fits: tuple[str, ...]
+    warnings: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -367,10 +387,12 @@ class FilterOptions:
             criteria = await uow.criteria.current_for_services(service_ids)
             suspended = await uow.flags.services_with_flag(SERVICE_FLAG_SUSPENDED)
             positions = await uow.positions.get_many(service_ids)
+            covered = await uow.positions.coverage_districts(service_ids)
+            phones = await uow.services.work_phones(service_ids)
             patient = self._postcodes.locate(district)
             today = to_london(now).date()
 
-            options: list[Option] = []
+            candidates: list[_Candidate] = []
             not_suitable: list[NotSuitable] = []
             rows: list[dict[str, Any]] = []
             for entry in board.entries:
@@ -392,32 +414,22 @@ class FilterOptions:
                     )
                     continue
 
-                travel = None
                 site = positions.get(entry.service_id)
-                if patient is not None and site is not None:
-                    travel = await self._travel_time.estimate(patient.lat_lon, site)
                 warnings = (
                     check_warnings
                     + status_warnings(entry.status)
                     + data_age_warnings(data_age)
                     + criteria_warnings(current, today)
                 )
-                options.append(
-                    Option(
-                        service_id=entry.service_id,
-                        name=entry.name,
-                        status=entry.status,
-                        effective_available=entry.effective_available,
-                        over_by=entry.over_by,
-                        unit_label=entry.unit_label,
-                        data_age=data_age,
-                        travel=travel,
+                candidates.append(
+                    _Candidate(
+                        entry=entry,
+                        current=current,
+                        site=site,
+                        covers=covered.get(entry.service_id, ()),
+                        phone=phones.get(entry.service_id),
                         fits=fits_for(current, case.needs),
                         warnings=warnings,
-                        criteria_id=current.id,
-                        criteria_version=current.version,
-                        category=entry.category,
-                        position=site,
                     )
                 )
                 rows.append(_snapshot_row(entry, number, data_age, current, SHOWN_AS_OPTION))
@@ -434,6 +446,15 @@ class FilterOptions:
             )
             await uow.commit()
 
+        # The unit has closed: the travel estimates are awaited here, all at once, so an engine
+        # that is slow or down costs one timeout and not one per service (KI-350).
+        ranges = await asyncio.gather(
+            *(self._travel_range(patient, candidate.site) for candidate in candidates)
+        )
+        options = [
+            self._option(candidate, travel, now)
+            for candidate, travel in zip(candidates, ranges, strict=True)
+        ]
         not_found = patient is None
         out_of_area = bool(criteria) and all(
             district not in item.districts for item in criteria.values()
@@ -451,6 +472,43 @@ class FilterOptions:
                 else ()
             ),
         )
+
+    async def _travel_range(
+        self, patient: Located | None, site: LatLon | None
+    ) -> TravelRange | None:
+        if patient is None or site is None:
+            return None
+        return await self._travel_time.estimate(patient.lat_lon, site)
+
+    def _option(self, candidate: _Candidate, travel: TravelRange | None, now: datetime) -> Option:
+        entry = candidate.entry
+        data_age = None if entry.reported_at is None else now - entry.reported_at
+        return Option(
+            service_id=entry.service_id,
+            name=entry.name,
+            status=entry.status,
+            effective_available=entry.effective_available,
+            over_by=entry.over_by,
+            unit_label=entry.unit_label,
+            data_age=data_age,
+            travel=travel,
+            fits=candidate.fits,
+            warnings=candidate.warnings,
+            criteria_id=candidate.current.id,
+            criteria_version=candidate.current.version,
+            category=entry.category,
+            position=candidate.site,
+            phone=candidate.phone,
+            coverage=(
+                None
+                if candidate.site is not None
+                else coverage_of(candidate.covers, self._district_place)
+            ),
+            legs=travel_legs(entry.name, travel),
+        )
+
+    def _district_place(self, district: str) -> LatLon | None:
+        return self._postcodes.district_centroid(district)
 
     def _district_choices(
         self,

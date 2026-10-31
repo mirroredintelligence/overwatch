@@ -9,6 +9,7 @@ Also here: the codeable-concept helpers shared with capacity_repository.py. A co
 from the enum class's own code system, never from the bare value (lesson L3).
 """
 
+from collections.abc import Sequence
 from datetime import time
 from enum import StrEnum
 from typing import Any, Final
@@ -225,6 +226,14 @@ class Neo4jServiceRepository:
                 if isinstance(value, str) and value.strip():
                     return value
         return None
+
+    async def work_phones(self, service_ids: Sequence[str]) -> dict[str, str]:
+        found: dict[str, str] = {}
+        for service_id in service_ids:
+            phone = await self.work_phone(service_id)
+            if phone is not None:
+                found[service_id] = phone
+        return found
 
     async def list_active(self) -> list[ServiceProfile]:
         rows = await run_query(self._tx, REGISTRY.get("Q-SVC-LIST-ACTIVE"))

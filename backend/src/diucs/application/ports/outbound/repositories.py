@@ -49,6 +49,11 @@ class ServiceRepository(Protocol):
         the service is not there. The number the shift lead phones to check a service (W7B C)."""
         ...
 
+    async def work_phones(self, service_ids: Sequence[str]) -> dict[str, str]:
+        """The work phone of each of these services that has one; a service with none, or not
+        there, is left out (Q5, DEC-1100). The numbers the options list offers to phone."""
+        ...
+
     async def set_active(self, service_id: str) -> None:
         """Make a registered service active (U29): HealthcareService.active, its Location.status and
         its Organization.active, each as a new resource version. Only those flags change, so the

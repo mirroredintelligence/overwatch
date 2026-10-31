@@ -79,3 +79,9 @@ class ServicePositions(Protocol):
     with no position is left out of the result."""
 
     async def get_many(self, service_ids: Sequence[str]) -> dict[str, LatLon]: ...
+
+    async def coverage_districts(self, service_ids: Sequence[str]) -> dict[str, tuple[str, ...]]:
+        """The districts each visiting service covers, from the Locations of its coverage areas
+        (KI-626, DEC-1175), in name order. A service with no coverage area, a fixed site, is left
+        out."""
+        ...

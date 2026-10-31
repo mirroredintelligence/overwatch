@@ -341,6 +341,12 @@ def _option_part(option: Option) -> dict[str, Any]:
         parts.append(_decimal("coverageRadiusKm", float(option.coverage.radius_km)))
     if option.phone is not None:
         parts.append({"name": "phone", "valueString": option.phone})
+    if option.organisation is not None:
+        # A network option (KI-349): read only. The organisation is its name from the registry and
+        # never a tenant id; the screen shows a card with no booking or phoned action.
+        parts.append({"name": "organisation", "valueString": option.organisation})
+        if option.organisation_source is not None:
+            parts.append({"name": "organisationSource", "valueString": option.organisation_source})
     if option.travel is not None:
         parts.append({"name": "travelLow", "valueInteger": option.travel.low_minutes})
         parts.append({"name": "travelHigh", "valueInteger": option.travel.high_minutes})

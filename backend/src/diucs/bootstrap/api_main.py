@@ -485,6 +485,9 @@ def app_factory() -> FastAPI:
 
 
 def main() -> None:
+    # The application's own log lines (a refused token exchange names its reason; nothing logs a value) are INFO,
+    # and Python's root logger is WARNING until it is configured: without this they never reach the container log.
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     try:
         settings, parts = prepare_process(Settings())
         app = create_serving_app(settings, parts, provider=configure_telemetry(settings))

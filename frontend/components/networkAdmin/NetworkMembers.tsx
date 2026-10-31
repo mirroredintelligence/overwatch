@@ -72,7 +72,10 @@ function Members({ query }: { query: string }) {
             <tbody>
               {network.members.length === 0 ? (
                 <tr>
-                  <td colSpan={6}>Nothing here yet.</td>
+                  <td colSpan={6}>
+                    Nothing here yet.
+                    <span className={styles.muted}>{' Add an organisation with its organisation code, using the button below.'}</span>
+                  </td>
                 </tr>
               ) : (
                 network.members.map((member) => (

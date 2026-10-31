@@ -68,7 +68,10 @@ function History({ query }: { query: string }) {
             <tbody>
               {closedMembers.length === 0 ? (
                 <tr>
-                  <td colSpan={2}>Nothing here yet.</td>
+                  <td colSpan={2}>
+                    Nothing here yet.
+                    <span className={styles.muted}>{' A membership that ends stays here, with its date.'}</span>
+                  </td>
                 </tr>
               ) : (
                 closedMembers.map((member) => (
@@ -96,7 +99,10 @@ function History({ query }: { query: string }) {
             <tbody>
               {closedGrants.length === 0 ? (
                 <tr>
-                  <td colSpan={3}>Nothing here yet.</td>
+                  <td colSpan={3}>
+                    Nothing here yet.
+                    <span className={styles.muted}>{' A grant that ends stays here, with its date.'}</span>
+                  </td>
                 </tr>
               ) : (
                 closedGrants.map((grant) => (

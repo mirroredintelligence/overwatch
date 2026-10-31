@@ -3,6 +3,7 @@ real Neo4j (W9F). The run tenant is bound by the conftest; the second tenant is 
 see none of it. Synthetic values only: a session id is hex, an element id is an upper-case code.
 """
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -95,6 +96,35 @@ async def test_a_session_is_counted_once_however_many_events_and_batches(
 
     props = await usage(neo4j_driver)
     assert (props["interactions"], props["sessions"]) == (5, 2)
+
+
+async def test_batches_that_meet_are_all_counted_and_the_session_is_counted_once(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, run_identity: RunIdentity
+) -> None:
+    record = recorder(uow_factory)
+    caller = actor(Role.ADVISOR, run_identity.tenant_id)
+
+    await asyncio.gather(*(record.execute(caller, [click(), click()]) for _ in range(8)))
+
+    props = await usage(neo4j_driver)
+    assert (props["interactions"], props["sessions"]) == (16, 1)
+    assert await count_nodes(neo4j_driver, "ElementUsageDaily") == 1
+    release = await node_props(neo4j_driver, "ReleaseDaily", release="1.4.2")
+    assert (release["interactions"], release["sessions"]) == (16, 1)
+
+
+async def test_sessions_that_meet_each_add_one_to_the_group(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, run_identity: RunIdentity
+) -> None:
+    record = recorder(uow_factory)
+    caller = actor(Role.ADVISOR, run_identity.tenant_id)
+
+    await asyncio.gather(
+        *(record.execute(caller, [click(session=session_id(index))]) for index in range(1, 9))
+    )
+
+    props = await usage(neo4j_driver)
+    assert (props["interactions"], props["sessions"]) == (8, 8)
 
 
 async def test_the_result_says_how_many_events_were_counted_and_how_many_were_dropped(

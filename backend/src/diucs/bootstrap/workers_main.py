@@ -36,6 +36,10 @@ from diucs.adapters.inbound.workers.network_board_consumer import (
     NetworkBoardRebuilder,
     network_board_runners,
 )
+from diucs.adapters.inbound.workers.network_governance_consumer import (
+    GovernanceHandler,
+    network_governance_runners,
+)
 from diucs.adapters.inbound.workers.network_projector import (
     NetworkApplyConsumer,
     network_runners,
@@ -66,15 +70,24 @@ from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.use_cases.apply_projection import ApplyProjection
 from diucs.application.use_cases.board_projector import BoardProjector
 from diucs.application.use_cases.confirm_capacity import ConfirmCapacity
+from diucs.application.use_cases.grants import SupersedeDueGrants
 from diucs.application.use_cases.handle_inbound_text import HandleInboundText
+from diucs.application.use_cases.network_admin import GovernanceRecorder
 from diucs.application.use_cases.network_board_projector import NetworkBoardProjector
+from diucs.application.use_cases.network_governance import NetworkGovernance
+from diucs.application.use_cases.network_leave import EndProjections
 from diucs.application.use_cases.network_samples import RecordNetworkSample
 from diucs.application.use_cases.project_network import ProjectNetwork
+from diucs.application.use_cases.projection_boundaries import (
+    RunProjectionHeartbeat,
+    RunProjectionHeartbeatCommand,
+)
+from diucs.application.use_cases.projection_reconcile import ReconcileProjection
 from diucs.application.use_cases.query_board import QueryBoard
 from diucs.application.use_cases.query_network_board import QueryNetworkBoard
 from diucs.application.use_cases.report_capacity import ReportCapacity
 from diucs.application.use_cases.respond_to_booking import RespondToBooking, SetDeclineReason
-from diucs.application.work import WorkKind
+from diucs.application.work import ScheduledWork, WorkKind
 from diucs.bootstrap.container import build
 from diucs.bootstrap.settings import Settings
 from diucs.bootstrap.telemetry import start_telemetry
@@ -123,6 +136,7 @@ def build_runners(
     board_projector: BoardRebuilder | None = None,
     network_projector: NetworkProjectorWiring | None = None,
     network_board_projector: NetworkBoardRebuilder | None = None,
+    network_governance: GovernanceHandler | None = None,
 ) -> list[ServiceBusRunner]:
     """One runner for each inbound queue, each over a consumer that binds the message's tenant and
     handles the message under its trace span (O01): the replies, the receipts and, with the
@@ -166,7 +180,19 @@ def build_runners(
         )
     if network_board_projector is not None:
         runners += network_board_runners(client, network_board_projector, tenants, observe)
+    if network_governance is not None:
+        runners += network_governance_runners(client, network_governance, tenants, observe)
     return runners
+
+
+def projection_heartbeat_handler(job: RunProjectionHeartbeat) -> WorkHandler:
+    """The projection heartbeat of one tenant (TEN-056), run once for each scheduled work of its
+    kind. The scheduled-work consumer has bound the work's tenant."""
+
+    async def step(work: ScheduledWork) -> None:
+        await job.execute(RunProjectionHeartbeatCommand(work_id=work.id))
+
+    return step
 
 
 async def run_workers(
@@ -246,13 +272,59 @@ async def serve(settings: Settings, stop: asyncio.Event) -> None:
                 tenants,
             ),
         )
+        end_projections = EndProjections(
+            neo4j_network_uow_factory(container.neo4j, clock=container.clock),
+            registry,
+            container.clock,
+        )
+        reconcile = ReconcileProjection(
+            neo4j_network_uow_factory(container.neo4j, clock=container.clock, read_only=True),
+            end_projections,
+            registry,
+            container.clock,
+        )
+        governance = NetworkGovernance(
+            registry,
+            end_projections,
+            projection_producer,
+            container.uow_factory,
+            container.ids,
+            container.clock,
+            tenants,
+        )
+        supersede = SupersedeDueGrants(
+            registry,
+            GovernanceRecorder(
+                container.uow_factory,
+                neo4j_network_uow_factory(container.neo4j, clock=container.clock),
+                container.ids,
+                container.clock,
+            ),
+            container.clock,
+        )
+
+        async def supersede_due() -> int:
+            return await supersede.execute()
+
+        work_handlers = dict(container.scheduled_work.handlers)
+        work_handlers[WorkKind.PROJECTION_HEARTBEAT] = projection_heartbeat_handler(
+            RunProjectionHeartbeat(
+                container.uow_factory,
+                container.ids,
+                container.clock,
+                registry,
+                projection_producer,
+                reconcile,
+                supersede_due,
+            )
+        )
         push = configured_push_sender(container.secrets, settings.webpush_subject)
         runners = build_runners(
             client,
             use_case,
             container.uow_factory,
             tenants,
-            container.scheduled_work.handlers,
+            work_handlers,
             senders=senders,
             sealer=sealer,
             push=push,
@@ -263,6 +335,7 @@ async def serve(settings: Settings, stop: asyncio.Event) -> None:
             ),
             network_projector=network_projector,
             network_board_projector=network_board_projector,
+            network_governance=governance,
         )
         await run_workers([runner.serve for runner in runners], stop)
     finally:

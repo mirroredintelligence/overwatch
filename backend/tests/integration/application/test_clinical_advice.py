@@ -5,7 +5,8 @@ Friday 23 October 2026 (BST is UTC+1): 14:12 London is 13:12 UTC. Synthetic valu
 postcode DT4 8XX never reaches storage, and the advice note is text the protected store holds.
 """
 
-from datetime import UTC, datetime
+import dataclasses
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -17,6 +18,7 @@ from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.adapters.testing.memory_cache import InMemoryCache
 from diucs.application.actor import Actor
+from diucs.application.ports.outbound.audit import AuditEntry
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.use_cases.clinical_advice import (
     AvailableClinicians,
@@ -344,3 +346,99 @@ async def test_tenant_b_request_id_is_not_found_to_tenant_a(
         )
     async with factory_a() as uow:
         assert await uow.clinical_requests.open_requests() == []
+
+
+# W9G: the request keeps which display of the options the advisor had when they asked.
+
+
+async def _display(factory: UnitOfWorkFactory, who: Actor, at: datetime) -> str:
+    """One FilterOptions audit record, as FilterOptions writes it: the case first, then the
+    snapshot of every service. Returns the record's id."""
+    async with factory() as uow:
+        record = await uow.audit.append(
+            AuditEntry(
+                action="R",
+                use_case="FilterOptions",
+                actor=who,
+                entity_ids=(CASE_ID, "svc-ucr-west"),
+                snapshot={
+                    "reference": "4821",
+                    "services": [
+                        {
+                            "id": "svc-ucr-west",
+                            "status": "accepting",
+                            "number": 4,
+                            "data_age_seconds": 540,
+                            "criteria_version": 3,
+                            "shown_as": "option",
+                            "over_by": None,
+                        }
+                    ],
+                },
+                at=at,
+            )
+        )
+        await uow.commit()
+    return record.id
+
+
+async def _pinned(factory: UnitOfWorkFactory) -> str | None:
+    request_id = await _open_request_id(factory)
+    async with factory() as uow:
+        record = await uow.clinical_requests.get(request_id)
+    assert record is not None
+    return record.snapshot_ref
+
+
+async def test_a_request_keeps_the_last_display_the_asking_advisor_had_before_asking(
+    seeded: None, uow_factory: UnitOfWorkFactory
+) -> None:
+    cache = InMemoryCache(FixedClock(REQUESTED_AT))
+    other = dataclasses.replace(ADVISOR, practitioner_id="prac-advisor-2")
+    await _display(uow_factory, ADVISOR, REQUESTED_AT - timedelta(minutes=5))
+    mine = await _display(uow_factory, ADVISOR, REQUESTED_AT - timedelta(minutes=2))
+    await _display(uow_factory, other, REQUESTED_AT - timedelta(minutes=1))
+    await _display(uow_factory, ADVISOR, REQUESTED_AT + timedelta(minutes=1))
+
+    await _request(uow_factory, cache, REQUESTED_AT).execute(
+        RequestClinicalAdviceCommand(ADVISOR, CASE_ID, "now", "borderline-criteria")
+    )
+
+    assert await _pinned(uow_factory) == mine
+
+
+async def test_a_request_asked_before_any_display_keeps_none(
+    seeded: None, uow_factory: UnitOfWorkFactory
+) -> None:
+    cache = InMemoryCache(FixedClock(REQUESTED_AT))
+    other = dataclasses.replace(ADVISOR, practitioner_id="prac-advisor-2")
+    await _display(uow_factory, other, REQUESTED_AT - timedelta(minutes=1))
+
+    await _request(uow_factory, cache, REQUESTED_AT).execute(
+        RequestClinicalAdviceCommand(ADVISOR, CASE_ID, "now", "other")
+    )
+
+    assert await _pinned(uow_factory) is None
+
+
+async def test_the_advice_audit_names_the_display_that_was_pinned(
+    seeded: None, uow_factory: UnitOfWorkFactory
+) -> None:
+    cache = InMemoryCache(FixedClock(REQUESTED_AT))
+    await _set_available(cache, CLIN_1)
+    pinned = await _display(uow_factory, ADVISOR, REQUESTED_AT - timedelta(minutes=1))
+    await _request(uow_factory, cache, REQUESTED_AT).execute(
+        RequestClinicalAdviceCommand(ADVISOR, CASE_ID, "now", "other")
+    )
+    request_id = await _open_request_id(uow_factory)
+    await _take(uow_factory, request_id, TAKEN_AT)
+
+    await GiveClinicalAdvice(uow_factory, SequentialIds(), FixedClock(ADVISED_AT)).execute(
+        GiveClinicalAdviceCommand(CLINICIAN_1, request_id, "go-ahead")
+    )
+
+    async with uow_factory() as uow:
+        records = await uow.audit.records_for(request_id)
+    given = [r for r in records if r.entry.use_case == "GiveClinicalAdvice"]
+    assert given and given[-1].entry.snapshot is not None
+    assert given[-1].entry.snapshot["snapshot_ref"] == pinned

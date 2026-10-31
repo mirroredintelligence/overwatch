@@ -80,3 +80,28 @@ def next_opening(
         if now < start < horizon and not is_in_hours(times, start - ONE_TICK, zone)
     ]
     return min(openings, default=None)
+
+
+def next_hours_change(
+    times: Sequence[AvailableTime], now: datetime, zone: ZoneInfo = LONDON
+) -> datetime | None:
+    """The earliest UTC instant after now at which `is_in_hours` changes its answer, within 8 days,
+    or None (no window at all). An interval that ends where another begins is one stretch of hours:
+    nothing changes at the join. The windows are read in `zone`."""
+    zone = require_zone(zone)
+    local_today = to_local(now, zone).date()
+    horizon = now + timedelta(days=SEARCH_DAYS)
+    last_day = local_today + timedelta(days=SEARCH_DAYS)
+    edges = sorted(
+        {
+            edge
+            for interval in _intervals(times, local_today - ONE_DAY, last_day, zone)
+            for edge in interval
+            if now < edge < horizon
+        }
+    )
+    inside = is_in_hours(times, now, zone)
+    return next(
+        (edge for edge in edges if is_in_hours(times, edge, zone) != inside),
+        None,
+    )

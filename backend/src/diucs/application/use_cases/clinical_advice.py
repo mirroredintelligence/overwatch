@@ -29,6 +29,7 @@ from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWork
 from diucs.application.scheduling import cancel_work, schedule_work
 from diucs.application.sealed_send import queue_message
 from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound
+from diucs.application.use_cases.clinical_context import pinned_display
 from diucs.application.use_cases.filter_options import need_phrase
 from diucs.application.work import WorkKind
 from diucs.domain.codes import AdviceChoice, AgeBand, Channel, NeedCategory, Role, Urgency
@@ -202,6 +203,9 @@ class RequestClinicalAdvice:
                 raise Conflict(NOT_CLOSED_FOR_REQUEST)
             now = self._clock.now()
             request_id = self._ids.new_id()
+            # The display of the options this advisor had when they asked is kept with the request,
+            # so the clinician is shown what the advisor saw then, not a later display (W9G).
+            display = pinned_display(await uow.audit.records_for(case.id), requester, now)
             await uow.clinical_requests.add(
                 ClinicalRequestRecord(
                     request=ClinicalRequest(
@@ -212,7 +216,7 @@ class RequestClinicalAdvice:
                     ),
                     requester_id=requester,
                     why=command.why,
-                    snapshot_ref=None,
+                    snapshot_ref=None if display is None else display.id,
                 )
             )
             age = "not recorded" if case.age_band is None else case.age_band.value

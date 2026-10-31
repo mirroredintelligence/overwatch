@@ -71,6 +71,9 @@ test('a request that cannot be read offers no advice form (W44, DEC-855)', async
   await page.goto('/clinical/requests/req-does-not-exist');
   await expect(page.getByRole('alert')).toContainText('could not be read');
   await expect(page.getByRole('button', { name: 'Send advice' })).toHaveCount(0);
+  // W9G: nor a call to the advisor, and no number anywhere on the screen.
+  await expect(page.getByRole('button', { name: 'Call the advisor' })).toHaveCount(0);
+  await expect(page.getByText(/0[0-9]{4} ?[0-9]{6}/)).toHaveCount(0);
 });
 
 test('the share page makes no code by itself, and says whether sharing is on (W56)', async ({ page }) => {

@@ -16,9 +16,11 @@ from diucs.application.ports.outbound.cache import (
     CacheScopeMismatch,
     Lock,
     platform_names,
+    scope_segment,
     scoped_names,
 )
 from diucs.application.ports.outbound.clock import Clock
+from diucs.application.tenancy import ScopeId
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,6 +119,18 @@ class InMemoryCache:
     async def delete(self, key: str) -> None:
         names = scoped_names()
         self._values.pop(names.key(key), None)
+
+    async def purge_scope(self, scope: ScopeId) -> int:
+        """Remove every key of one scope (a purged tenant's): values, locks, fences and the fencing
+        counters; the number removed. A segment that only starts the same is not touched."""
+        prefix = f"{scope_segment(scope)}:"
+        doomed = [name for name in self._values if name.startswith(prefix)]
+        for name in doomed:
+            del self._values[name]
+        for table in (self._holders, self._last_token):
+            for name in [n for n in table if n.startswith(prefix)]:
+                del table[name]
+        return len(doomed)
 
     def platform_keys(self) -> frozenset[str]:
         """The unexpired platform markers, as scoped names. For tests."""

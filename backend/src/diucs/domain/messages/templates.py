@@ -170,6 +170,15 @@ _B7_TEXT: Final = (
 _B8_TEXT: Final = "No booking is waiting for a reply."
 _B9_TEXT: Final = "That booking has expired, so nothing was booked."
 _K2_TEXT: Final = "Due {review_by}. Confirm or update in 2 minutes."
+# [ASSUMED] (WB4, DEC-1100 Q2): the echoes of a booking reply or cancellation on email and push, for
+# a service whose reporter is not on text. They follow the text echoes and carry no link: an echo
+# asks for nothing. Information governance approves the wording in writing before a real send.
+_ECHO_EMAIL_FOOTER: Final = (
+    "This email has no patient information. Replies to this address are not read."
+)
+_B4_TEXT: Final = "Booked: {reference}, {service}, confirmed {confirmed_at}. Thank you."
+_B5_ACK_TEXT: Final = "Noted: {reference} declined."
+_B6_TEXT: Final = "Booking {reference} was cancelled at {cancelled_at}. No action needed."
 # [ASSUMED] (W7B): the test message. It carries no link and asks for nothing, so it can never be
 # answered with a number.
 _T1_TEXT: Final = "DIUCS test: {service}. This is a test message. There is nothing to reply to."
@@ -300,9 +309,17 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
         subject="Booking request {reference}: {service}",
     ),
     # IG-pending (DEC-037 item 3): rule-book example, awaiting IG approval.
-    (MessageId.B4, Channel.TEXT): _Template(
+    (MessageId.B4, Channel.TEXT): _Template(required=_FIELDS[MessageId.B4], text=_B4_TEXT),
+    (MessageId.B4, Channel.EMAIL): _Template(
         required=_FIELDS[MessageId.B4],
-        text="Booked: {reference}, {service}, confirmed {confirmed_at}. Thank you.",
+        text=f"{_B4_TEXT}\n\n{_ECHO_EMAIL_FOOTER}",
+        subject="Booked: {reference}, {service}",
+        html=f"<p>{_B4_TEXT}</p>\n<p>{_ECHO_EMAIL_FOOTER}</p>",
+    ),
+    (MessageId.B4, Channel.PUSH): _Template(
+        required=_FIELDS[MessageId.B4],
+        text="{service}, confirmed {confirmed_at}.",
+        subject="Booked: {reference}",
     ),
     # IG-pending (DEC-037 item 3): rule-book example, awaiting IG approval.
     (MessageId.B5, Channel.TEXT): _Template(
@@ -312,10 +329,25 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
             "Optional reason: reply 1 full, 2 outside criteria, 3 other."
         ),
     ),
+    (MessageId.B5, Channel.EMAIL): _Template(
+        required=_FIELDS[MessageId.B5],
+        text=f"{_B5_ACK_TEXT} The advisor has been told.\n\n{_ECHO_EMAIL_FOOTER}",
+        subject="Declined: {reference}",
+        html=f"<p>{_B5_ACK_TEXT} The advisor has been told.</p>\n<p>{_ECHO_EMAIL_FOOTER}</p>",
+    ),
+    (MessageId.B5, Channel.PUSH): _Template(
+        required=_FIELDS[MessageId.B5], text=_B5_ACK_TEXT, subject="Declined: {reference}"
+    ),
     # Screen text, ui-screens.md line 1276 (DEC-037 item 1). No rule-book sample exists.
-    (MessageId.B6, Channel.TEXT): _Template(
+    (MessageId.B6, Channel.TEXT): _Template(required=_FIELDS[MessageId.B6], text=_B6_TEXT),
+    (MessageId.B6, Channel.EMAIL): _Template(
         required=_FIELDS[MessageId.B6],
-        text="Booking {reference} was cancelled at {cancelled_at}. No action needed.",
+        text=f"{_B6_TEXT}\n\n{_ECHO_EMAIL_FOOTER}",
+        subject="Cancelled: {reference}",
+        html=f"<p>{_B6_TEXT}</p>\n<p>{_ECHO_EMAIL_FOOTER}</p>",
+    ),
+    (MessageId.B6, Channel.PUSH): _Template(
+        required=_FIELDS[MessageId.B6], text=_B6_TEXT, subject="Cancelled: {reference}"
     ),
     (MessageId.B7, Channel.TEXT): _Template(required=_FIELDS[MessageId.B7], text=_B7_TEXT),
     (MessageId.B8, Channel.TEXT): _Template(required=_FIELDS[MessageId.B8], text=_B8_TEXT),

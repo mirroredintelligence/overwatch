@@ -117,6 +117,8 @@ class _Unit:
         self.stores["idempotency"] = _Idempotency()
         role = SimpleNamespace(id=ROLE_ID, channel=self.channel, practitioner_id="prac-1")
         reporter = SimpleNamespace(phone_hash="p" * 64)
+        # No configuration version in force: the tenant's policy is the default (WB4).
+        self.tenant_config = SimpleNamespace(current_version=self._async(None))
         self.cases = SimpleNamespace(get=self._async(CASE))
         self.services = SimpleNamespace(
             get=self._async(SimpleNamespace(id=SERVICE_ID, name="UCR West", active=True))

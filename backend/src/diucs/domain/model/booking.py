@@ -30,6 +30,14 @@ class Booking:
     confirmed_at: datetime | None = None
     responded_at: datetime | None = None
     reason: str | None = None
+    phone_prompt_at: datetime | None = None
+    """When the advisor is told to phone the service: the tenant's own setting at the time of the
+    request, kept so that no page has to guess it (H-493)."""
+    request_message_id: str | None = None
+    """The id of the message that asked the service, so its delivery state can be read (H-494)."""
+    acknowledged_at: datetime | None = None
+    acknowledged_by: str | None = None
+    """When and by whom a withdrawal or a not-reached report was acknowledged (KI-451)."""
 
     def __post_init__(self) -> None:
         _aware("requested_at", self.requested_at)
@@ -38,6 +46,18 @@ class Booking:
             _aware("confirmed_at", self.confirmed_at)
         if self.responded_at is not None:
             _aware("responded_at", self.responded_at)
+        if self.phone_prompt_at is not None:
+            _aware("phone_prompt_at", self.phone_prompt_at)
+        if self.acknowledged_at is not None:
+            _aware("acknowledged_at", self.acknowledged_at)
+
+    def with_acknowledgement(self, by: str, at: datetime) -> Booking:
+        """The booking after an advisor has seen it withdrawn or not reached. The first
+        acknowledgement stands: a later one by another advisor changes nothing."""
+        _aware("at", at)
+        if self.acknowledged_at is not None:
+            return self
+        return replace(self, acknowledged_at=at, acknowledged_by=by)
 
     def with_status(
         self, target: BookingStatus, at: datetime, reason: str | None = None

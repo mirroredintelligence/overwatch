@@ -201,7 +201,12 @@ def _purposes(container: _Container, deps: LinkPagesDeps, tenant: Tenant) -> Lin
             container.clock,
             tokens,
             RespondToBooking(
-                container.uow_factory, idempotency, container.clock, container.ids, deps.sealer
+                container.uow_factory,
+                idempotency,
+                container.clock,
+                container.ids,
+                deps.sealer,
+                link_tokens=tokens,
             ),
             WithdrawBooking(container.uow_factory, idempotency, container.clock, container.ids),
             ReportNotReached(container.uow_factory, idempotency, container.clock),

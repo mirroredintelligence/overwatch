@@ -37,14 +37,28 @@ async def cancel_booking_timers(
 async def text_reporter_role(
     uow: UnitOfWork, service_id: str, now: datetime
 ) -> PractitionerRole | None:
-    """The reporter role a service's echoes go to: the one a request goes to (the lowest id), when
-    it is on text. The echo wording (B4 to B6, K4) is text only in D16, so an email or push
-    reporter gets no echo (hazard H-135, DEC-300 item 3)."""
+    """The reporter role a text-only message goes to (the K4 notice of a suspension): the one a
+    request goes to (the lowest id), when it is on text. The booking echoes B4 to B6 use `echo_role`
+    and reach an email or push reporter too."""
     roles = await uow.people.reporter_roles_for_service(service_id, now)
     if not roles:
         return None
     role = min(roles, key=lambda candidate: candidate.id)
     return role if (role.channel or Channel.TEXT) is Channel.TEXT else None
+
+
+async def echo_role(
+    uow: UnitOfWork, service_id: str, now: datetime
+) -> tuple[PractitionerRole, Channel] | None:
+    """The reporter role a booking echo (B4, B5, B6) goes to, and the channel it goes on: the role
+    a request goes to (the lowest id), on its own channel, text when it names none. An echo now goes
+    to an email or push reporter as well (H-135, KI-357, KI-361, WB4); the wording of those is
+    [ASSUMED] until information governance approves it."""
+    roles = await uow.people.reporter_roles_for_service(service_id, now)
+    if not roles:
+        return None
+    role = min(roles, key=lambda candidate: candidate.id)
+    return role, role.channel or Channel.TEXT
 
 
 def expired(booking: Booking, at: datetime) -> Booking:

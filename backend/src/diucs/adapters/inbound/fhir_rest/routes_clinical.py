@@ -386,9 +386,12 @@ async def read_tasks(
     request: Request,
     actor: Annotated[Actor, Depends(current_actor)],
 ) -> Response:
-    """`GET /fhir/Task`, dispatched by its code: the alert list or the clinical queue. Any
-    other code is a 400 that names the parameter."""
+    """`GET /fhir/Task`, dispatched by its code: the alert list or the clinical queue. A search with
+    no code is a search of booking Tasks (the bookings of a case, the open withdrawal alerts: WB4).
+    Any other code is a 400 that names the parameter."""
     code = request.query_params.get("code")
+    if code is None:
+        return await routes_bookings.search_bookings(request, actor)
     if code == ALERT_CODE:
         return await alert_list(request, actor)
     if code == CLINICAL_CODE:

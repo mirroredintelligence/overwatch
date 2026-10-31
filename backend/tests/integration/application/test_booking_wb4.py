@@ -19,6 +19,7 @@ Sample values only: UCR West, case 1001, the rig's reporter. No patient data.
 
 import re
 from collections.abc import Sequence
+from dataclasses import replace
 from datetime import datetime, timedelta
 
 import pytest
@@ -676,13 +677,22 @@ async def test_a_reply_that_names_an_old_expired_booking_is_told_it_expired(
         assert waiting is not None
         await uow.bookings.save(waiting.with_status(BookingStatus.EXPIRED, at(14, 27)))
         await uow.commit()
-    newer = await request(uow_factory, neo4j_driver, "wb4-new", now=at(14, 40))
-    async with uow_factory() as uow:
-        newest = await uow.bookings.get(newer.booking_id)
-        assert newest is not None
-        await uow.bookings.save(newest.with_status(BookingStatus.CANCELLED_BEFORE, at(14, 41)))
-        await uow.commit()
+    # A newer booking of the same service, already closed, with a reference of its own (the rig's
+    # random numbers repeat, and a reference may be reused once only closed bookings hold it).
     old_booking = await booking_of(uow_factory, old.booking_id)
+    async with uow_factory() as uow:
+        await uow.bookings.add(
+            replace(
+                old_booking,
+                id="bk-wb4-newer",
+                reference="9876",
+                status=BookingStatus.CANCELLED_BEFORE,
+                requested_at=at(14, 40),
+                reply_by=at(14, 50),
+                responded_at=at(14, 41),
+            )
+        )
+        await uow.commit()
 
     result = await say(
         uow_factory,

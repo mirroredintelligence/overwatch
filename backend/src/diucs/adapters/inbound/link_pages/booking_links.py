@@ -33,7 +33,11 @@ from diucs.application.use_cases.link_access import (
     iso_utc,
 )
 from diucs.application.use_cases.request_booking import need_text, urgency_wording
-from diucs.application.use_cases.respond_to_booking import RespondToBooking, RespondToBookingCommand
+from diucs.application.use_cases.respond_to_booking import (
+    ChangeLinkRequest,
+    RespondToBooking,
+    RespondToBookingCommand,
+)
 from diucs.application.use_cases.withdraw_booking import (
     ReportNotReached,
     ReportNotReachedCommand,
@@ -269,6 +273,12 @@ class BookingRequestLink:
         decision: Literal["confirm", "decline"] = (
             "confirm" if action.action == CONFIRM else "decline"
         )
+        # The change link is issued in the unit that records the confirmation (KI-483).
+        change_link = (
+            ChangeLinkRequest(CHANGE_PURPOSE, link.record.phone_hash, CHANGE_TOKEN_LIFETIME)
+            if decision == "confirm"
+            else None
+        )
         result = await self._respond.execute(
             RespondToBookingCommand(
                 idempotency_key=key,
@@ -277,6 +287,7 @@ class BookingRequestLink:
                 decision=decision,
                 reason=reason,
                 channel=ReportSource.LINK,
+                change_link=change_link,
             )
         )
         if result.already_final:
@@ -289,16 +300,8 @@ class BookingRequestLink:
             body["confirmedAt" if decision == "confirm" else "respondedAt"] = iso_utc(
                 result.responded_at
             )
-        if decision == "confirm":
-            async with self._uow_factory() as uow:
-                token = await self._tokens(uow.link_tokens).issue(
-                    CHANGE_PURPOSE,
-                    booking.id,
-                    link.record.phone_hash,
-                    self._clock.now() + CHANGE_TOKEN_LIFETIME,
-                )
-                await uow.commit()
-            body["changeToken"] = token
+        if result.change_token is not None:
+            body["changeToken"] = result.change_token
         await _burn(self._uow_factory, self._tokens, link, key)
         return body
 

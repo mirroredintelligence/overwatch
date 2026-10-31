@@ -13,7 +13,7 @@ QueryBoard opens its own unit and a unit may not be nested (DEC-146).
 import hashlib
 import random
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Final
 
@@ -28,6 +28,7 @@ from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWork
 from diucs.application.scheduling import schedule_work
 from diucs.application.sealed_send import queue_message
 from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
+from diucs.application.tenant_settings import read_policy
 from diucs.application.use_cases.query_board import QueryBoard, QueryBoardQuery
 from diucs.application.use_cases.send_prompts import LinkTokenServiceFactory
 from diucs.application.use_cases.suspend_service import WordingFor
@@ -262,6 +263,7 @@ class RequestBooking:
             if not can_request([b.status for b in await uow.bookings.open_for_service(profile.id)]):
                 raise Conflict("this service already has a booking request waiting for a reply")
 
+            policy = await read_policy(uow)
             reporters = await uow.people.reporter_roles_for_service(profile.id, now)
             if not reporters:
                 raise ValidationFailed("service", "has no reporter to send the request to")
@@ -274,7 +276,8 @@ class RequestBooking:
             referral_system_name = await self._referral_system_name(scope, channel)
 
             reference = await self._free_reference(uow)
-            reply_by = booking_reply_by(now)
+            reply_by = booking_reply_by(now, policy)
+            phone_at = phone_prompt_at(now, policy)
             booking = Booking(
                 id=self._ids.new_id(),
                 reference=reference,
@@ -284,8 +287,8 @@ class RequestBooking:
                 status=BookingStatus.REQUESTED,
                 requested_at=now,
                 reply_by=reply_by,
+                phone_prompt_at=phone_at,
             )
-            await uow.bookings.add(booking)
 
             link: str | None = None
             if channel is not Channel.PUSH:
@@ -306,7 +309,7 @@ class RequestBooking:
                 reply_by=reply_by,
                 referral_system_name=referral_system_name,
             )
-            await queue_message(
+            request_message_id = await queue_message(
                 uow,
                 self._ids,
                 self._sealer,
@@ -317,6 +320,9 @@ class RequestBooking:
                 now=now,
                 link=link,
             )
+            # The booking keeps the id of the message that asked the service, so a read can say what
+            # is known of its delivery (H-494).
+            await uow.bookings.add(replace(booking, request_message_id=request_message_id))
             await uow.outbox.add(
                 outbox_message_for(
                     BookingRequested(
@@ -329,7 +335,6 @@ class RequestBooking:
                     now=now,
                 )
             )
-            phone_at = phone_prompt_at(now)
             await schedule_work(
                 uow,
                 self._ids,

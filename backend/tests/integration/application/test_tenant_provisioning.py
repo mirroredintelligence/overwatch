@@ -547,3 +547,64 @@ async def test_the_registry_is_also_touched_only_for_the_tenant_acted_on(world: 
     assert [n.e164 for n in await world.registry.numbers(NEW)] == [NUMBER]
     assert await world.registry.numbers(OTHER) == ()
     assert await world.directory.by_entra_directory(DIRECTORY_ID) == await world.directory.get(NEW)
+
+
+# -- the NHS record an NHS tenant holds as its own Organization (DEC-1314) -------------------------
+#
+# Written where there is no Docker, so NOT run: the full integration run is the proof.
+# It checks the Organization in the new tenant's scope, and that the other tenant holds none.
+
+
+def _nhs_record() -> Any:
+    from overwatch.domain.model.ods_record import OdsLink, OdsOrganisationRecord, OdsRole
+
+    return OdsOrganisationRecord(
+        code="F81044",
+        name="THE ARDLEIGH SURGERY",
+        status="Active",
+        postcode="CO7 7LD",
+        primary_role="RO177",
+        roles=(OdsRole(id="RO177", name="PRESCRIBING COST CENTRE", primary=True),),
+        links=(OdsLink(code="06T", name="NHS ESSEX ICB - 06T", role="RO98"),),
+        last_changed_at="2025-01-01",
+    )
+
+
+async def _organisation(world: World, tenant: str, code: str) -> dict[str, Any] | None:
+    async def work(tx: AsyncManagedTransaction) -> dict[str, Any] | None:
+        row = await (
+            await tx.run(
+                "MATCH (o:Organization {tenantId: $t, id: $code}) "
+                "RETURN o.name AS name, o.active AS active, o.postalCode AS postcode",
+                t=tenant,
+                code=code,
+            )
+        ).single()
+        return None if row is None else dict(row)
+
+    return await read_tx(world.driver, work)
+
+
+async def test_an_nhs_tenant_holds_its_ods_organisation_in_its_own_scope_only(world: World) -> None:
+    await _create(
+        world,
+        NEW,
+        organisation_type=OrganisationType.GP_PRACTICE,
+        ods_code="F81044",
+        ods_record=_nhs_record(),
+    )
+
+    mine = await _organisation(world, NEW, "F81044")
+    assert mine is not None
+    assert mine["name"] == "THE ARDLEIGH SURGERY"
+    assert mine["active"] is True
+    assert mine["postcode"] == "CO7 7LD"
+    assert await _organisation(world, OTHER, "F81044") is None
+
+
+async def test_a_tenant_created_without_a_record_holds_no_organisation_from_ods(
+    world: World,
+) -> None:
+    await _create(world, NEW, organisation_type=OrganisationType.LOCAL_AUTHORITY)
+
+    assert await _count(world, NEW, "Organization") == 0

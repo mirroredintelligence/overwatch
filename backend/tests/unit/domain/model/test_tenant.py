@@ -154,6 +154,7 @@ def test_the_enums_hold_the_decided_members() -> None:
         "support-email",
         "shift-lead-escalation",
         "clinical-safety-officer",
+        "advisor-line",
     ]
     assert [m.value for m in ConfigStatus] == ["draft", "pending-approval", "current", "superseded"]
     assert [m.value for m in NumberStatus] == ["active", "retired", "quarantined"]
@@ -503,7 +504,11 @@ def test_a_name_that_is_not_exactly_text_is_refused() -> None:
 
 
 def test_a_phone_contact_is_a_telephone_number() -> None:
-    for kind in (ContactKind.COORDINATION_PHONE, ContactKind.SHIFT_LEAD_ESCALATION):
+    for kind in (
+        ContactKind.COORDINATION_PHONE,
+        ContactKind.SHIFT_LEAD_ESCALATION,
+        ContactKind.ADVISOR_LINE,
+    ):
         for good in ("01305 000000", "+44 1305 000000", "0300 123 4567", "0200000"):
             assert TenantContact(kind, "Switchboard", good).value == good
 
@@ -530,7 +535,11 @@ def test_an_email_contact_is_an_address() -> None:
     ],
 )
 def test_a_phone_contact_refuses(value: str) -> None:
-    for kind in (ContactKind.COORDINATION_PHONE, ContactKind.SHIFT_LEAD_ESCALATION):
+    for kind in (
+        ContactKind.COORDINATION_PHONE,
+        ContactKind.SHIFT_LEAD_ESCALATION,
+        ContactKind.ADVISOR_LINE,
+    ):
         with pytest.raises(ValidationFailed) as refused:
             TenantContact(kind, "Switchboard", value)
         assert refused.value.field == "value"

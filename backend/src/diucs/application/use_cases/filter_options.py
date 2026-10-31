@@ -61,6 +61,26 @@ COVERS_POSTCODE: Final = "Covers this postcode"
 SHOWN_AS_OPTION: Final = "option"
 SHOWN_AS_NOT_SUITABLE: Final = "not-suitable"
 
+_REASON_CODES: Final[tuple[tuple[str, str], ...]] = (
+    (NOT_ACCEPTING_REASON, "not-accepting"),
+    (OUT_OF_HOURS_REASON, "out-of-hours"),
+    (OUTSIDE_CRITERIA_REASON, "outside-criteria"),
+    (CRITERIA_NOT_CURRENT_REASON, "criteria-not-current"),
+    ("suspended", "suspended"),
+    ("not updated", "not-updated"),
+)
+"""The closed set of codes a snapshot keeps for why a service was not suitable (W9G). The reason
+text carries an age ("not updated for 2 hrs"); the code never does."""
+
+
+def reason_code(reason: str) -> str:
+    """The code of a reason text, for the snapshot. Any other text is refused."""
+    for start, code in _REASON_CODES:
+        if reason.startswith(start):
+            return code
+    raise ValueError("not a reason a service is not suitable")
+
+
 NEED_PHRASES: Final[Mapping[NeedCategory, str]] = MappingProxyType(
     {
         NeedCategory.FALL_NO_INJURY: "fall",
@@ -217,15 +237,23 @@ def _snapshot_row(
     data_age: timedelta | None,
     criteria: ServiceCriteria | None,
     shown_as: str,
+    reason: str | None = None,
 ) -> dict[str, Any]:
-    return {
+    """One service of a display. `over_by` is how far over capacity it was (the used count in
+    `number` is not that figure, DEC-391) and `reason` is the code of why it was not suitable: both
+    are read by a clinician who is shown what the advisor saw (W9G, H-190)."""
+    row: dict[str, Any] = {
         "id": entry.service_id,
         "status": entry.status.value,
         "number": number,
         "data_age_seconds": None if data_age is None else int(data_age.total_seconds()),
         "criteria_version": None if criteria is None else criteria.version,
         "shown_as": shown_as,
+        "over_by": entry.over_by,
     }
+    if reason is not None:
+        row["reason"] = reason_code(reason)
+    return row
 
 
 class FilterOptions:
@@ -289,7 +317,9 @@ class FilterOptions:
                     shown = reason if reason is not None else CRITERIA_NOT_CURRENT_REASON
                     not_suitable.append(NotSuitable(entry.service_id, entry.name, shown))
                     rows.append(
-                        _snapshot_row(entry, number, data_age, current, SHOWN_AS_NOT_SUITABLE)
+                        _snapshot_row(
+                            entry, number, data_age, current, SHOWN_AS_NOT_SUITABLE, shown
+                        )
                     )
                     continue
 

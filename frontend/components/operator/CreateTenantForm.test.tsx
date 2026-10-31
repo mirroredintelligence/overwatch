@@ -47,6 +47,71 @@ describe('CreateTenantForm', () => {
     expect(within(done).getByRole('link', { name: 'Open the tenant' })).toHaveAttribute('href', '/operator/tenants/trust-d');
   });
 
+  it('is in three parts: the organisation, the directory (saved as waiting) and who gets which role', () => {
+    render(<CreateTenantForm />);
+    expect(screen.getByRole('group', { name: '1 The organisation' })).toBeInTheDocument();
+    const directory = screen.getByRole('group', { name: '2 Entra directory' });
+    expect(within(directory).getByLabelText('Directory id')).toHaveValue('');
+    expect(within(directory).getByText('Waiting: verified after creation')).toBeInTheDocument();
+    const roles = screen.getByRole('group', { name: '3 Who gets which role' });
+    expect(within(roles).getByText(/No group is mapped yet/)).toBeInTheDocument();
+    expect(within(roles).getByText(/cannot be given the administrator’s role/)).toBeInTheDocument();
+  });
+
+  it('creates a tenant with a directory id and a group-to-role mapping, and says the directory is waiting', async () => {
+    const user = userEvent.setup();
+    render(<CreateTenantForm />);
+    await fill(user);
+    await user.type(screen.getByLabelText('Directory id'), '00000000-0000-4000-8000-000000000000');
+    await user.click(screen.getByRole('button', { name: 'Add a group' }));
+    await user.click(screen.getByRole('button', { name: 'Add another group' }));
+    const groups = screen.getAllByLabelText('Group object id');
+    await user.type(groups[0]!, '11111111-1111-4111-8111-111111111111');
+    await user.type(groups[1]!, '22222222-2222-4222-8222-222222222222');
+    await user.selectOptions(screen.getAllByRole('combobox', { name: 'Role' })[1]!, 'clinical');
+    await user.click(screen.getByRole('button', { name: 'Create tenant' }));
+    await waitFor(() => expect(seenOperatorWrites).toHaveLength(1));
+    expect(seenOperatorWrites[0]!.body).toEqual({
+      displayName: 'Sample Area D',
+      legalName: 'Sample Area D Organisation',
+      organisationType: 'nhs-trust',
+      countryCode: 'GB',
+      timeZone: 'Europe/London',
+      directoryId: '00000000-0000-4000-8000-000000000000',
+      roleMappings: [
+        { groupObjectId: '11111111-1111-4111-8111-111111111111', role: 'advisor' },
+        { groupObjectId: '22222222-2222-4222-8222-222222222222', role: 'clinical' },
+      ],
+    });
+    const done = await screen.findByRole('status');
+    expect(done).toHaveTextContent('The directory is waiting to be verified.');
+    expect(done).toHaveTextContent('2 groups are mapped to roles.');
+  });
+
+  it('offers no administrator role to a group, and a row can be removed', async () => {
+    const user = userEvent.setup();
+    render(<CreateTenantForm />);
+    await user.click(screen.getByRole('button', { name: 'Add a group' }));
+    const options = within(screen.getByRole('combobox', { name: 'Role' })).getAllByRole('option').map((o) => o.textContent);
+    expect(options).toEqual(['Advisor', 'Clinical lead', 'Shift lead', 'Criteria owner', 'Planning', 'Audit']);
+    await user.click(screen.getByRole('button', { name: 'Remove group 1' }));
+    expect(screen.queryByLabelText('Group object id')).not.toBeInTheDocument();
+  });
+
+  it('refuses a directory id or a group id that is not a directory id, in words, and sends nothing', async () => {
+    const user = userEvent.setup();
+    render(<CreateTenantForm />);
+    await fill(user);
+    await user.type(screen.getByLabelText('Directory id'), 'not-a-guid');
+    await user.click(screen.getByRole('button', { name: 'Add a group' }));
+    await user.type(screen.getByLabelText('Group object id'), 'also-not');
+    await user.click(screen.getByRole('button', { name: 'Create tenant' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('There are 2 problems');
+    expect(screen.getByRole('link', { name: /Directory id: enter it as a directory id/ })).toHaveAttribute('href', '#directory-id');
+    expect(screen.getByRole('link', { name: /Group 1: enter the group object id/ })).toBeInTheDocument();
+    expect(seenOperatorWrites).toEqual([]);
+  });
+
   it('says a creation that had stopped is finished, on a 200', async () => {
     server.use(http.put('/api/bff/platform/tenants/:id', () => HttpResponse.json({ created: false, recorded: true })));
     const user = userEvent.setup();

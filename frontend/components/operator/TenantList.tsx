@@ -19,17 +19,47 @@ export function TenantList({ role }: { role: OperatorRole }) {
   const operator = role === 'platform-operator';
   return (
     <main className={styles.page}>
-      <h1 className={styles.title}>Tenants</h1>
+      <div className={styles.headRow}>
+        <div>
+          <h1 className={styles.title}>Tenants</h1>
+          <p className={styles.muted}>One row per organisation. {operator ? 'Open a tenant to set it up or look after it.' : 'Ask to look into an active one.'}</p>
+        </div>
+        {operator && state.status === 'ok' && state.data.tenants.length > 0 ? (
+          <Button variant="primary" href="/operator/tenants/new" dataEl="OP-CREATE-TENANT-BTN">
+            Create a tenant
+          </Button>
+        ) : null}
+      </div>
       {state.status === 'loading' ? <p className={styles.muted}>Loading the tenants.</p> : null}
       {state.status === 'failed' ? (
         <p role="alert" className={styles.problem}>
           We could not load the tenants.
         </p>
       ) : null}
-      {state.status === 'ok' && state.data.tenants.length === 0 ? <p className={styles.text}>There are no tenants yet.</p> : null}
+      {state.status === 'ok' && state.data.tenants.length === 0 ? (
+        <section className={styles.empty} aria-labelledby="no-tenants">
+          <h2 id="no-tenants" className={styles.emptyTitle}>
+            There are no tenants yet.
+          </h2>
+          {operator ? (
+            <>
+              <p className={styles.text}>
+                A tenant is one organisation. Create the first one, then give it an address, bind its directory, map the groups that sign in and invite its first administrator. It does nothing until you activate it.
+              </p>
+              <div className={styles.actions}>
+                <Button variant="primary" href="/operator/tenants/new" dataEl="OP-CREATE-TENANT-BTN">
+                  Create the first tenant
+                </Button>
+              </div>
+            </>
+          ) : (
+            <p className={styles.text}>When a platform operator creates one and activates it, you can ask to look into it here.</p>
+          )}
+        </section>
+      ) : null}
       {state.status === 'ok' && state.data.tenants.length > 0 ? (
         <div className={styles.scroll}>
-          <table className={styles.table}>
+          <table className={`${styles.table} ${styles.stackTable}`}>
             <caption>Tenants</caption>
             <thead>
               <tr>
@@ -58,17 +88,17 @@ export function TenantList({ role }: { role: OperatorRole }) {
                       t.displayName
                     )}
                   </th>
-                  <td>
+                  <td data-label="Status">
                     <span className={t.status === 'active' ? styles.tag : `${styles.tag} ${styles.tagDashed}`}>{TENANT_STATUS_WORD[t.status] ?? t.status}</span>
                   </td>
                   {operator ? (
                     <>
-                      <td>{organisationTypeWord(t.organisationType)}</td>
-                      <td>{t.host ?? '-'}</td>
-                      <td>{whenText(t.activatedAt)}</td>
+                      <td data-label="Type">{organisationTypeWord(t.organisationType)}</td>
+                      <td data-label="Address">{t.host ?? '-'}</td>
+                      <td data-label="Activated">{whenText(t.activatedAt)}</td>
                     </>
                   ) : (
-                    <td>
+                    <td data-label="Ask to look in">
                       {t.status === 'active' ? (
                         <a className={styles.link} href={`/operator/support/new?for=${t.id}`}>
                           Ask for access<span className={styles.srOnly}>{` to ${t.displayName}`}</span>
@@ -82,13 +112,6 @@ export function TenantList({ role }: { role: OperatorRole }) {
               ))}
             </tbody>
           </table>
-        </div>
-      ) : null}
-      {operator ? (
-        <div className={styles.actions}>
-          <Button variant="primary" href="/operator/tenants/new" dataEl="OP-CREATE-TENANT-BTN">
-            Create a tenant
-          </Button>
         </div>
       ) : null}
     </main>

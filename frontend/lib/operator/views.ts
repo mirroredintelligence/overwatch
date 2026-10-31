@@ -52,6 +52,15 @@ export function parseTenantDetail(value: unknown) {
     },
     host: strOrNull(d.host, 253),
     directoryId: strOrNull(d.directoryId, 64),
+    // The directories the tenant bound (a waiting one is the operator's to verify) and its group-to-role mappings.
+    bindings: list(d.bindings ?? [], 50).map((row) => {
+      const b = obj(row);
+      return { directoryId: str(b.directoryId, 64), status: oneOf(b.status, ['pending', 'verified', 'revoked'] as const), verifiedAt: strOrNull(b.verifiedAt, 40) };
+    }),
+    roleMappings: list(d.roleMappings ?? [], 200).map((row) => {
+      const m = obj(row);
+      return { groupObjectId: str(m.groupObjectId, 64), role: str(m.role, 24), status: oneOf(m.status, ['active', 'retired'] as const) };
+    }),
     numbers: list(d.numbers, 50).map((row) => {
       const n = obj(row);
       // The reference of a number's auth token is not passed on: only whether there is one.

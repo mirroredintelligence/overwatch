@@ -43,7 +43,7 @@ test.describe('the operator console door', () => {
   test('the operator’s tenants page says it could not load, with the console’s navigation, and passes axe', async ({ page }) => {
     await signInOperator(page.context(), SITE_URL, 'platform-operator');
     await page.goto('/operator');
-    await expect(page.getByRole('alert')).toContainText('We could not load the tenants.');
+    await expect(page.getByRole('main').getByRole('alert')).toContainText('We could not load the tenants.');
     await expect(page.getByRole('navigation', { name: 'Platform console' })).toBeVisible();
     await expect(page.getByText('There are no tenants yet.')).toHaveCount(0);
     expect(await axe(page)).toEqual([]);
@@ -105,7 +105,7 @@ test.describe('the tenant administration', () => {
   test('the overview says it could not load, never a half page, and passes axe', async ({ page }) => {
     await signIn(page.context(), SITE_URL, 'tenant-admin', TOKEN_ORG_A);
     await page.goto('/admin');
-    await expect(page.getByRole('alert')).toContainText('We could not load your organisation.');
+    await expect(page.getByRole('main').getByRole('alert')).toContainText('We could not load your organisation.');
     await expect(page.getByRole('navigation', { name: 'Administration' })).toBeVisible();
     expect(await axe(page)).toEqual([]);
   });
@@ -123,7 +123,7 @@ test.describe('the tenant administration', () => {
     ];
     for (const [path, words] of pages) {
       await page.goto(path);
-      await expect(page.getByRole('alert')).toContainText(words);
+      await expect(page.getByRole('main').getByRole('alert')).toContainText(words);
     }
   });
 

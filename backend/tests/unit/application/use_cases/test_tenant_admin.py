@@ -37,6 +37,7 @@ from overwatch.domain.model.tenant import OrganisationType, TenantStatus
 from overwatch.domain.model.tenant_records import BindingStatus
 from tests.support.provisioning_fakes import (
     DIRECTORY_ID,
+    GROUP_ID,
     NOW,
     OPERATOR,
     OTHER,
@@ -52,6 +53,7 @@ from tests.support.tenancy import as_tenant
 
 SID = "AC" + "1" * 32
 NUMBER = "+447700900123"
+OTHER_GROUP_ID = "22222222-2222-4222-8222-222222222222"
 
 
 def _create(platform: FakePlatform, world: FakeWorld, heads: FakeHeads) -> CreateTenant:
@@ -125,6 +127,42 @@ async def test_a_tenant_is_created_in_provisioning_then_given_its_scope_then_aud
     assert world.audited() == ["CreateTenant"]
     assert world.audit[0].actor.role is Role.PLATFORM_OPERATOR
     assert world.audit[0].actor.practitioner_id == OPERATOR
+
+
+async def test_a_tenant_is_created_with_a_pending_directory_and_its_group_role_mappings() -> None:
+    platform, world, heads = FakePlatform(), FakeWorld(), FakeHeads()
+
+    with as_tenant(TENANT):
+        await _create(platform, world, heads).execute(
+            _command(
+                directory_id=DIRECTORY_ID.upper(),
+                role_mappings=((GROUP_ID, Role.LEAD), (OTHER_GROUP_ID, Role.ADVISOR)),
+            )
+        )
+
+    [binding] = world.config.binding_list
+    assert binding.directory_id == DIRECTORY_ID and binding.status is BindingStatus.PENDING
+    assert [(m.group_object_id, m.role) for m in world.config.mapping_list] == [
+        (GROUP_ID, Role.LEAD),
+        (OTHER_GROUP_ID, Role.ADVISOR),
+    ]
+    assert platform.directories == {}  # verifying is the operator's separate step
+
+
+async def test_a_group_may_not_be_given_the_administrator_role_and_nothing_is_created() -> None:
+    platform, world, heads = FakePlatform(), FakeWorld(), FakeHeads()
+    with as_tenant(TENANT), pytest.raises(ValidationFailed):
+        await _create(platform, world, heads).execute(
+            _command(directory_id=DIRECTORY_ID, role_mappings=((GROUP_ID, Role.TENANT_ADMIN),))
+        )
+    assert platform.calls == [] and world.config.binding_list == []
+
+
+async def test_a_directory_id_that_is_not_a_directory_id_is_refused_on_creation() -> None:
+    platform, world, heads = FakePlatform(), FakeWorld(), FakeHeads()
+    with as_tenant(TENANT), pytest.raises(ValidationFailed):
+        await _create(platform, world, heads).execute(_command(directory_id="not-a-guid"))
+    assert platform.calls == []
 
 
 async def test_the_id_to_create_must_be_the_scope_the_call_is_bound_to() -> None:

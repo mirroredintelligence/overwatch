@@ -82,7 +82,10 @@ function Listings({ query }: { query: string }) {
             <tbody>
               {state.data.listings.length === 0 ? (
                 <tr>
-                  <td colSpan={5}>Nothing here yet.</td>
+                  <td colSpan={5}>
+                    Nothing here yet.
+                    <span className={styles.muted}>{' Organisations list their own services. Each one appears here once it is listed.'}</span>
+                  </td>
                 </tr>
               ) : (
                 state.data.listings.map((listing) => {

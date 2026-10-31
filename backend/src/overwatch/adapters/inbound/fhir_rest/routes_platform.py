@@ -89,6 +89,7 @@ from overwatch.application.use_cases.tenant_offboarding import StartOffboardingC
 from overwatch.application.use_cases.tenant_suspend import ResumeTenantCommand, SuspendTenantCommand
 from overwatch.domain.codes import Role
 from overwatch.domain.model.tenant import OrganisationType, SuspendMode, SuspendReason, Tenant
+from overwatch.domain.model.tenant_records import BindingStatus
 from overwatch.domain.rules.bff_token import OperatorClaims
 from overwatch.domain.rules.support_ticket import ReasonCode
 
@@ -131,6 +132,11 @@ class _Body(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class RoleMappingBody(_Body):
+    groupObjectId: str = Field(min_length=1, max_length=64)
+    role: Role
+
+
 class CreateTenantBody(_Body):
     displayName: str = Field(min_length=1, max_length=120)
     legalName: str = Field(min_length=1, max_length=200)
@@ -138,6 +144,8 @@ class CreateTenantBody(_Body):
     countryCode: str = Field(default="GB", min_length=2, max_length=2)
     timeZone: str = Field(default="Europe/London", max_length=64)
     odsCode: str | None = Field(default=None, max_length=16)
+    directoryId: str | None = Field(default=None, max_length=64)
+    roleMappings: list[RoleMappingBody] = Field(default_factory=list, max_length=12)
 
 
 class HostBody(_Body):
@@ -262,6 +270,23 @@ def detail_to_dict(detail: PlatformTenantDetail) -> dict[str, Any]:
         "tenant": tenant_to_dict(detail.tenant.tenant),
         "host": detail.tenant.host,
         "directoryId": detail.tenant.directory_id,
+        "bindings": [
+            {
+                "directoryId": binding.directory_id,
+                "status": binding.status.value,
+                "verifiedAt": _iso(binding.verified_at),
+            }
+            for binding in detail.bindings
+            if binding.status is not BindingStatus.REVOKED
+        ],
+        "roleMappings": [
+            {
+                "groupObjectId": mapping.group_object_id,
+                "role": mapping.role.value,
+                "status": mapping.status.value,
+            }
+            for mapping in detail.role_mappings
+        ],
         "numbers": [
             {
                 "e164": number.e164,
@@ -378,6 +403,8 @@ async def create_tenant(
                 country_code=body.countryCode,
                 time_zone=body.timeZone,
                 ods_code=body.odsCode,
+                directory_id=body.directoryId,
+                role_mappings=tuple((m.groupObjectId, m.role) for m in body.roleMappings),
             )
         )
         return await _step(

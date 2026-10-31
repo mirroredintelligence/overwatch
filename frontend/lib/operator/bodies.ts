@@ -1,5 +1,5 @@
 import { invalidRequest } from '@/lib/lead/bffInput';
-import { directoryBody } from '@/lib/tenantAdmin/bodies';
+import { directoryBody, MAPPABLE_ROLES } from '@/lib/tenantAdmin/bodies';
 import { isUkMobile } from '@/lib/forms/ukMobile';
 import { REASON_CODES } from './views';
 
@@ -32,7 +32,7 @@ export const SUSPENSION_REASONS = ['security-incident', 'information-governance'
 
 export function createTenantBody(raw: unknown): Obj {
   const body = asObject(raw);
-  only(body, ['displayName', 'legalName', 'organisationType', 'countryCode', 'timeZone', 'odsCode']);
+  only(body, ['displayName', 'legalName', 'organisationType', 'countryCode', 'timeZone', 'odsCode', 'directoryId', 'roleMappings']);
   const out: Obj = {
     displayName: text(body.displayName, 1, 200),
     legalName: text(body.legalName, 1, 300),
@@ -41,6 +41,17 @@ export function createTenantBody(raw: unknown): Obj {
   if (body.countryCode !== undefined) out.countryCode = text(body.countryCode, 2, 2);
   if (body.timeZone !== undefined) out.timeZone = text(body.timeZone, 1, 64);
   if (body.odsCode !== undefined) out.odsCode = text(body.odsCode, 1, 16);
+  // The directory the tenant's staff will sign in through (bound as waiting; the operator verifies it later)
+  // and the groups of it that give a role. A group is never given the administrator's role: the list has none.
+  if (body.directoryId !== undefined) out.directoryId = directoryBody({ directoryId: body.directoryId }).directoryId;
+  if (body.roleMappings !== undefined) {
+    if (!Array.isArray(body.roleMappings) || body.roleMappings.length > 12) throw invalidRequest();
+    out.roleMappings = body.roleMappings.map((raw: unknown) => {
+      const mapping = asObject(raw);
+      only(mapping, ['groupObjectId', 'role']);
+      return { groupObjectId: text(mapping.groupObjectId, 1, 64), role: oneOf(mapping.role, MAPPABLE_ROLES) };
+    });
+  }
   return out;
 }
 

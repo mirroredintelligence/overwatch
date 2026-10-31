@@ -65,6 +65,7 @@ describe('the table', () => {
     render(<NetworkListings />);
     await screen.findByRole('table', { name: 'Listings' }, { timeout: 5000 });
     expect(screen.getByText('Nothing here yet.')).toBeInTheDocument();
+    expect(screen.getByText(/Organisations list their own services/)).toBeInTheDocument();
   });
 
   it('says it could not load, with no table', async () => {

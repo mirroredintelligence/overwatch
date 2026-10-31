@@ -47,6 +47,42 @@ describe('AdminOverview', () => {
     ]);
   });
 
+  it('says who can sign in: the groups in use, in role words, and nobody by name', async () => {
+    render(<AdminOverview />);
+    const people = await screen.findByRole('region', { name: 'People and groups' });
+    expect(within(people).getByText('1 group is in use:')).toBeInTheDocument();
+    expect(within(people).getByText('Shift lead')).toBeInTheDocument();
+  });
+
+  it('lists what is left to do, with the page that does it, and says so plainly when nothing is mapped', async () => {
+    const { VIEW_OVERVIEW } = await import('@/test/fixtures/tenantAdmin');
+    server.use(http.get('/api/bff/tenant/overview', () => HttpResponse.json({ ...VIEW_OVERVIEW, bindings: [], mappings: [], contacts: [] })));
+    render(<AdminOverview />);
+    const setup = await screen.findByRole('region', { name: 'Finish setting up' });
+    expect(within(setup).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      'To doBind the directory your people sign in with. Users and roles',
+      'To doMap a group to a role, so people can sign in. Users and roles',
+      'To doAdd the coordination phone. Contacts',
+    ]);
+    expect(within(setup).getAllByRole('link', { name: 'Users and roles' })[0]).toHaveAttribute('href', '/admin/users');
+    expect(screen.getByText('No group is mapped yet. Until one is, nobody can sign in except you.')).toBeInTheDocument();
+  });
+
+  it('shows a waiting directory as waiting for the platform operator, not as a task for the administrator', async () => {
+    const { VIEW_OVERVIEW, DIRECTORY } = await import('@/test/fixtures/tenantAdmin');
+    server.use(http.get('/api/bff/tenant/overview', () => HttpResponse.json({ ...VIEW_OVERVIEW, bindings: [{ directoryId: DIRECTORY, status: 'pending', verifiedAt: null }] })));
+    render(<AdminOverview />);
+    const setup = await screen.findByRole('region', { name: 'Finish setting up' });
+    expect(within(setup).getByText('Waiting')).toBeInTheDocument();
+    expect(within(setup).getByText('Your directory is waiting for the platform operator to verify it.')).toBeInTheDocument();
+  });
+
+  it('shows no setup list once everything is done', async () => {
+    render(<AdminOverview />);
+    await screen.findByRole('region', { name: 'Your organisation' });
+    expect(screen.queryByRole('region', { name: 'Finish setting up' })).not.toBeInTheDocument();
+  });
+
   it('shows no tenant id, no secret and no reference of a person', async () => {
     render(<AdminOverview />);
     await screen.findByText('Sample Area A');

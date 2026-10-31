@@ -52,6 +52,9 @@ type Case = {
 };
 
 const NEW_TENANT = { displayName: 'Sample Area D', legalName: 'Sample Area D Organisation', organisationType: 'gp-practice', countryCode: 'GB', timeZone: 'Europe/London', odsCode: 'RZZ03' };
+const DIRECTORY = '11111111-1111-4111-8111-111111111111';
+const GROUP = '22222222-2222-4222-8222-222222222222';
+const NEW_TENANT_WITH_DIRECTORY = { ...NEW_TENANT, directoryId: DIRECTORY, roleMappings: [{ groupObjectId: GROUP, role: 'lead' }, { groupObjectId: '33333333-3333-4333-8333-333333333333', role: 'advisor' }] };
 const T = '/api/bff/platform/tenants/trust-b';
 const P = { id: 'trust-b' };
 
@@ -67,6 +70,19 @@ const CASES: Case[] = [
     roles: OPERATOR,
     body: NEW_TENANT,
     backendBody: NEW_TENANT,
+    backend: { path: '/platform/tenants/trust-d', status: 201, reply: { tenantId: 'trust-d', created: true, recorded: true } },
+    status: 201,
+    view: { created: true, recorded: true },
+  },
+  {
+    name: 'create a tenant with its directory and group roles',
+    module: () => import('./tenants/[id]/route'),
+    verb: 'PUT',
+    url: '/api/bff/platform/tenants/trust-d',
+    params: { id: 'trust-d' },
+    roles: OPERATOR,
+    body: NEW_TENANT_WITH_DIRECTORY,
+    backendBody: NEW_TENANT_WITH_DIRECTORY,
     backend: { path: '/platform/tenants/trust-d', status: 201, reply: { tenantId: 'trust-d', created: true, recorded: true } },
     status: 201,
     view: { created: true, recorded: true },
@@ -365,7 +381,7 @@ describe('the bodies the BFF will not pass on', () => {
   it('refuses a tenant that is created with a body that names anything else, or with a type that is not one', async () => {
     const c = byName('create a tenant');
     handleBackend(c);
-    for (const body of [{ ...NEW_TENANT, extra: 1 }, { ...NEW_TENANT, organisationType: 'company' }, { ...NEW_TENANT, displayName: '' }, { displayName: 'x' }, {}, [] as unknown]) {
+    for (const body of [{ ...NEW_TENANT, extra: 1 }, { ...NEW_TENANT, organisationType: 'company' }, { ...NEW_TENANT, directoryId: '' }, { ...NEW_TENANT, roleMappings: [{ groupObjectId: GROUP, role: 'tenant-admin' }] }, { ...NEW_TENANT, roleMappings: [{ groupObjectId: GROUP, role: 'lead', status: 'active' }] }, { ...NEW_TENANT, roleMappings: 'lead' }, { ...NEW_TENANT, roleMappings: Array.from({ length: 13 }, () => ({ groupObjectId: GROUP, role: 'lead' })) }, { ...NEW_TENANT, displayName: '' }, { displayName: 'x' }, {}, [] as unknown]) {
       expect((await call(c, 'platform-operator', { body })).status, JSON.stringify(body)).toBe(400);
     }
     expect(seen).toEqual([]);

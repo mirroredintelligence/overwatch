@@ -20,6 +20,7 @@ from overwatch.domain.errors import NotAllowed, NotFound
 from overwatch.domain.model.tenant import TenantStatus
 from tests.support.provisioning_fakes import (
     DIRECTORY_ID,
+    GROUP_ID,
     NOW,
     OTHER,
     TENANT,
@@ -87,6 +88,19 @@ async def test_the_detail_of_a_provisioning_tenant_says_what_activation_waits_fo
     assert detail.activation is not None
     assert detail.activation.blockers
     assert all(isinstance(item, str) for item in detail.activation.blockers)
+
+
+async def test_the_detail_names_the_directories_the_tenant_bound_and_the_groups_it_mapped() -> None:
+    platform, world = FakePlatform(provisioning_tenant()), FakeWorld()
+    world.config.make_ready()
+
+    with as_tenant(TENANT):
+        detail = await _read(platform, world).execute(operator())
+
+    assert [(b.directory_id, b.status.value) for b in detail.bindings] == [
+        (DIRECTORY_ID, "pending")
+    ]
+    assert [(m.group_object_id, m.role.value) for m in detail.role_mappings] == [(GROUP_ID, "lead")]
 
 
 async def test_the_detail_of_an_active_tenant_has_no_activation_to_wait_for() -> None:

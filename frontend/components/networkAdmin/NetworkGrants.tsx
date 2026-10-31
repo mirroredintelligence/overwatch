@@ -81,7 +81,10 @@ function Grants({ query }: { query: string }) {
             <tbody>
               {state.data.grants.length === 0 ? (
                 <tr>
-                  <td colSpan={8}>Nothing here yet.</td>
+                  <td colSpan={8}>
+                    Nothing here yet.
+                    <span className={styles.muted}>{' When an organisation agrees to share, it appears here for you to approve.'}</span>
+                  </td>
                 </tr>
               ) : (
                 state.data.grants.map((grant) => (

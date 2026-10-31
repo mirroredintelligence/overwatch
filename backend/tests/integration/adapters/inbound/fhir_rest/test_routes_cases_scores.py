@@ -373,3 +373,24 @@ async def test_the_summary_of_a_closed_case_is_409_and_of_another_tenants_case_i
 
     assert closed.status_code == 409
     assert foreign.status_code == 404
+
+
+async def test_every_role_but_an_advisor_and_a_clinical_advisor_is_refused_the_summary_the_same_way(
+    api_client: AsyncClient, seeded: None
+) -> None:
+    case_id = await opened(api_client)
+    refused: dict[Role, bytes] = {}
+    for role in Role:
+        response = await api_client.get(
+            f"/fhir/ServiceRequest/{case_id}/$summary", headers=token_headers(role=role)
+        )
+        if role in (Role.ADVISOR, Role.CLINICAL):
+            assert response.status_code == 200, (role, response.text)
+        elif role is Role.PLATFORM_OPERATOR:
+            assert response.status_code == 401, role
+        else:
+            assert response.status_code == 404, (role, response.status_code)
+            refused[role] = response.content
+    # One body for every refused role: it never says whether the case exists.
+    assert len(set(refused.values())) == 1
+    assert len(refused) == len(Role) - 3

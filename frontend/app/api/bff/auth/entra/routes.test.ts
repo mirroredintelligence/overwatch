@@ -395,11 +395,7 @@ describe('GET /api/bff/auth/entra/callback: the checks that stop a forged or rep
     const response = await callback(requestWithCookies(location, { [TRANSACTION_COOKIE]: sealed }));
     expect(response.headers.get('location')).toBe('/sign-in?error=failed');
     expect(lastWrite(SESSION_COOKIE)).toBeUndefined();
-    // The fixed word is always logged first. A temporary fault-detail line (class and code only, no value) may follow.
-    expect(warn.mock.calls[0]).toEqual(['staff sign-in refused: fault']);
-    for (const call of warn.mock.calls.slice(1)) {
-      expect(String(call[0])).toMatch(/^staff sign-in fault detail \(TEMPORARY\): [A-Za-z]+$/);
-    }
+    expect(warn.mock.calls).toEqual([['staff sign-in refused: fault']]);
   });
 
   it('refuses a callback that comes without the transaction cookie (another browser)', async () => {

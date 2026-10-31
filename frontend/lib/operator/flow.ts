@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { exchangeCode, loadOperatorEntraConfig, newTransaction, authorizeUrl, SignInRefused, verifyIdToken } from '@/lib/auth/oidc';
-import { faultDetail, moveOn, nextFrom, see, sealTransaction, TRANSACTION_SECONDS, transactionCookie, unsealTransaction } from '@/lib/auth/flow';
+import { moveOn, nextFrom, see, sealTransaction, TRANSACTION_SECONDS, transactionCookie, unsealTransaction } from '@/lib/auth/flow';
 import { normaliseHost, requestHost } from '@/lib/auth/host';
 import { readRequestCookie } from '@/lib/auth/session';
 import { hostOf } from '@/lib/links/server';
@@ -92,7 +92,6 @@ export async function completeOperatorSignIn(request: Request): Promise<Response
       return see(FAILED);
     }
     note('fault');
-    console.warn(`operator sign-in fault detail (TEMPORARY): ${faultDetail(error)}`);
     return see(FAILED);
   }
 }

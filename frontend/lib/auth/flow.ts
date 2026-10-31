@@ -91,13 +91,6 @@ export function transactionCookie(maxAge: number, path: string = TRANSACTION_PAT
 
 // A fixed word per refusal, so an operator can tell a forged callback from a broken set-up without
 // a token, code or claim ever reaching the log.
-// TEMPORARY diagnostic: the kinds of an unexpected error (its class and any code, and its cause's), never a message,
-// which can hold a value.
-export function faultDetail(error: unknown): string {
-  const e = error as { name?: unknown; code?: unknown; cause?: { name?: unknown; code?: unknown } } | null;
-  return [e?.name, e?.code, e?.cause?.name, e?.cause?.code].filter((v) => typeof v === 'string').join(' ') || 'unknown';
-}
-
 function note(reason: string): void {
   console.warn(`staff sign-in refused: ${reason}`);
 }
@@ -190,7 +183,6 @@ export async function completeSignIn(request: Request): Promise<Response> {
       return see(FAILED);
     }
     note('fault');
-    console.warn(`staff sign-in fault detail (TEMPORARY): ${faultDetail(error)}`);
     return see(FAILED);
   }
 }

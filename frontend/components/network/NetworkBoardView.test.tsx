@@ -40,7 +40,7 @@ describe('NetworkBoardView', () => {
     const { container } = view();
     expect(await screen.findByRole('heading', { level: 1, name: 'Sample Network capacity' })).toBeInTheDocument();
     expect(container.querySelectorAll('[data-el="NET-BOARD-TILE"]')).toHaveLength(4);
-    expect(screen.getByRole('link', { name: 'Phone UCR West on 01632 960010' })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Phone UCR West on 01632 960010' })).toBeInTheDocument();
     expect(screen.getByText('Showing: Network, Sample Network')).toBeInTheDocument();
     expect(screen.getByText('Your organisation')).toBeInTheDocument();
   });

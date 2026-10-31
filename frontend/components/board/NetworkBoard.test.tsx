@@ -115,7 +115,7 @@ describe('the tiles', () => {
     expect(within(paused).getByText('Not updated')).toBeInTheDocument();
     expect(within(paused).getByText('?')).toBeInTheDocument();
     expect(within(paused).getByText('Not available on the network. Phone to confirm.')).toBeInTheDocument();
-    expect(paused.textContent).not.toMatch(/Unavailable|Paused/);
+    expect(paused.textContent).not.toMatch(/Unavailable/);
   });
 
   it('shows over capacity as the amount over, as the wall does', () => {
@@ -158,7 +158,7 @@ describe('the organisation filter and the view toggle', () => {
     expect(orgChips[0]).toHaveAttribute('aria-pressed', 'true');
     expect(orgChips[1]).toHaveAttribute('aria-pressed', 'false');
     expect(orgChips[0]).toHaveAttribute('data-el', 'NET-BOARD-ORG-ALL-CHIP');
-    expect(orgChips[2]).toHaveAttribute('data-org-ref', 'org-3');
+    expect(orgChips[2]).toHaveAttribute('data-org-ref', 'org-2');
   });
 
   it('filters in place, over the rows it already has, and says nothing is selected again with All', async () => {

@@ -39,13 +39,19 @@ export const NETWORK_LIST = { ownOrganisation: OWN_ORGANISATION, networks: parse
 export const networkBffHandlers = [
   http.get('/api/bff/network', answer('/api/bff/network', () => NETWORK_LIST)),
   http.get('/api/bff/network/board', answer('/api/bff/network/board', () => parseBoard(BOARD_BODY, 'backend'))),
-  http.get(
-    '/api/bff/network/directory',
-    answer('/api/bff/network/directory', () => parseDirectory(DIRECTORY_BODY, 'backend')),
+  http.get('/api/bff/network/directory', (info) =>
+    answer('/api/bff/network/directory', () =>
+      new URL(info.request.url).searchParams.get('history') === 'true'
+        ? parseDirectory(DIRECTORY_HISTORY_BODY, 'backend')
+        : parseDirectory(DIRECTORY_BODY, 'backend'),
+    )(info),
   ),
-  http.get(
-    '/api/bff/network/criteria',
-    answer('/api/bff/network/criteria', () => parseCriteria(CRITERIA_BODY, 'backend')),
+  http.get('/api/bff/network/criteria', (info) =>
+    answer('/api/bff/network/criteria', () =>
+      new URL(info.request.url).searchParams.get('history') === 'true'
+        ? { ...parseCriteria(CRITERIA_BODY, 'backend'), entries: [] }
+        : parseCriteria(CRITERIA_BODY, 'backend'),
+    )(info),
   ),
   http.get(
     '/api/bff/network/system-now',

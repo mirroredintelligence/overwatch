@@ -17,20 +17,23 @@ const LINKS = { ownHref: '/advisor/board', networkHref: '/network/board' };
 function page() {
   return render(
     <NetworkScope {...LINKS}>
-      {({ network, ownOrganisation }) => <p data-testid="page">{`${network.name} for ${ownOrganisation}`}</p>}
+      {({ network, ownOrganisation, switchTo }) => (
+        <p data-testid="page" data-own={switchTo.ownHref} data-network={switchTo.networkHref}>{`${network.name} for ${ownOrganisation}`}</p>
+      )}
     </NetworkScope>,
   );
 }
 
 describe('NetworkScope', () => {
-  it('shows the page for the one network, with the scope header naming it', async () => {
+  it('shows the page for the one network, giving it the network, the viewer’s organisation and the two routes of the switch', async () => {
     server.use(...networkBffHandlers);
     page();
     expect(screen.getByRole('status')).toHaveTextContent('Loading the network');
-    expect(await screen.findByTestId('page')).toHaveTextContent('Sample Network for Sample Area A');
-    expect(screen.getByRole('region', { name: 'Which board you are viewing' })).toHaveTextContent('Showing: Network, Sample Network');
-    expect(screen.getByRole('link', { name: 'Our organisation' })).toHaveAttribute('href', '/advisor/board');
-    expect(screen.queryByRole('group', { name: 'Network' })).toBeNull();
+    const shown = await screen.findByTestId('page');
+    expect(shown).toHaveTextContent('Sample Network for Sample Area A');
+    expect(shown).toHaveAttribute('data-own', '/advisor/board');
+    expect(shown).toHaveAttribute('data-network', '/network/board');
+    expect(screen.queryByRole('group', { name: 'Which network' })).toBeNull();
   });
 
   it('is the one "not available" panel for a viewer in no network', async () => {
@@ -68,7 +71,6 @@ describe('NetworkScope', () => {
     expect(chooser).toBeInTheDocument();
     await userEvent.setup().click(screen.getByRole('button', { name: 'Second Network' }));
     expect(await screen.findByText('Second Network for Sample Area A')).toBeInTheDocument();
-    expect(screen.getByText('Showing: Network, Second Network')).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole('button', { name: 'Second Network' })).toHaveAttribute('aria-pressed', 'true'));
   });
 

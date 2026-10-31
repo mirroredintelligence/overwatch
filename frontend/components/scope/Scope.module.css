@@ -86,3 +86,24 @@
   color: var(--c-ink);
   font-weight: 700;
 }
+
+/* The panel of a state in which the network is not shown. */
+.panel {
+  box-sizing: border-box;
+  padding: var(--space-5);
+  border: 3px dashed var(--c-unknown);
+  border-radius: var(--radius-card);
+  background: Canvas;
+  color: var(--c-ink);
+}
+
+.panelTitle {
+  margin: 0;
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: var(--type-title-weight);
+}
+
+.panelBody {
+  margin: var(--space-2) 0 0;
+}

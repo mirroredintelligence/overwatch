@@ -154,8 +154,10 @@ describe('useNetworkFeed: last known', () => {
   it('is last known when the board it holds is too old, even though nothing failed', async () => {
     const m = mount();
     await advance(0);
-    m.fetchBoard.mockResolvedValue({ board: boardAt(T0), serverTime: Date.now() });
+    // The back end keeps answering, with a board built long ago (its clock moves, the board does not).
+    m.fetchBoard.mockImplementation(async () => ({ board: boardAt(T0), serverTime: Date.now() }));
     await advance(STALE_AFTER_MS + 61_000);
+    expect(m.result.current.status).toBe('ready');
     if (m.result.current.status === 'ready') expect(m.result.current.assessment.mode).toBe('last-known');
   });
 

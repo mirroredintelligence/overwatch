@@ -32,7 +32,7 @@ describe('readNetworkList', () => {
     server.use(http.get('/api/bff/network', () => HttpResponse.json({ code: 'forbidden' }, { status: 403 })));
     expect(await readNetworkList()).toMatchObject({ ok: false, status: 403 });
     server.use(http.get('/api/bff/network', () => HttpResponse.json({ surprise: true })));
-    expect(await readNetworkList()).toMatchObject({ ok: false, code: 'unreadable' });
+    expect(await readNetworkList()).toMatchObject({ ok: false, code: 'invalid' });
   });
 });
 

@@ -1,5 +1,4 @@
 import { namesTenantInput } from '@/lib/tenant/inputNames';
-import { edgeSecret } from './hostCall';
 import { newTraceparent } from './traceparent';
 import { ambientVisitorAddress } from './visitorAddress';
 import type { OperationOutcome } from './types';
@@ -163,6 +162,9 @@ async function addVisitor(headers: Headers): Promise<void> {
   const visitor = await ambientVisitorAddress();
   if (visitor === undefined) return;
   try {
+    // Loaded when needed, not at start-up: hostCall reads the vault, and a module that imports it eagerly
+    // would load the real vault module before a test's mock of it.
+    const { edgeSecret } = await import('./hostCall');
     const secret = await edgeSecret();
     if (secret === null) return;
     headers.set('X-Edge-Auth', secret);

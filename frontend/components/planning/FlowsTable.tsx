@@ -1,6 +1,7 @@
 import { share } from '@/lib/planning/share';
 import type { Flow } from '@/lib/planning/types';
 import styles from '../console/Console.module.css';
+import layout from './Planning.module.css';
 
 // Where they went when the best fit was full (W51). A share is of the referrals whose best fit was
 // unavailable (total). A suppressed row shows "fewer than 10" and has no share and no bar.
@@ -9,9 +10,13 @@ const STATES: Record<string, string> = { full: 'Full', closed: 'Closed', 'not-up
 
 export function FlowsTable({ flows, total }: { flows: readonly Flow[]; total: number | null }) {
   return (
-    <section aria-labelledby="flows-heading">
-      <h2 id="flows-heading" className={styles.heading}>Where they went when the best fit was full</h2>
-      <table className={styles.table} aria-label="Where they went when the best fit was full table">
+    <section aria-labelledby="flows-heading" className={styles.section}>
+      <div>
+        <h2 id="flows-heading" className={styles.heading}>Where they went when the best fit was full</h2>
+        <p className={styles.help}>Counts under 10 are not shown, to protect small groups.</p>
+      </div>
+      <div className={layout.scroll}>
+      <table className={styles.table} aria-label="Where they went when the best fit was full table" style={{ minWidth: '32rem' }}>
         <thead>
           <tr>
             <th scope="col">Best fit and its state</th>
@@ -34,11 +39,9 @@ export function FlowsTable({ flows, total }: { flows: readonly Flow[]; total: nu
                   {pct === null ? null : (
                     <>
                       <span>{pct}%</span>
-                      <div
-                        data-bar
-                        aria-hidden="true"
-                        style={{ width: `${pct}%`, height: '0.75rem', background: 'var(--c-primary)', borderRadius: 'var(--radius-chip)' }}
-                      />
+                      <div className={layout.bar} aria-hidden="true">
+                        <div data-bar className={layout.barFill} style={{ width: `${pct}%` }} />
+                      </div>
                     </>
                   )}
                 </td>
@@ -47,7 +50,7 @@ export function FlowsTable({ flows, total }: { flows: readonly Flow[]; total: nu
           })}
         </tbody>
       </table>
-      <p className={styles.help}>Counts under 10 are not shown, to protect small groups.</p>
+      </div>
     </section>
   );
 }

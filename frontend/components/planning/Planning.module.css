@@ -1,0 +1,132 @@
+/* The planning view's layout (PlanningView artboard): headline figures as cards, then two columns that
+   wrap to one on a phone. Colour comes from the tokens only. */
+
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.stat {
+  flex: 1 1 240px;
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-card);
+  background: var(--c-bg);
+  border: 1px solid var(--c-line);
+}
+
+.statNumber {
+  font-size: var(--type-display-size);
+  line-height: 1;
+  font-weight: var(--type-display-weight);
+  color: var(--c-primary-dark);
+}
+
+.statLabel {
+  font-size: var(--type-title-size);
+  font-weight: var(--type-title-weight);
+}
+
+.columns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+  align-items: flex-start;
+}
+
+.wide {
+  flex: 999 1 560px;
+  min-width: 0;
+}
+
+.narrow {
+  flex: 1 1 360px;
+  min-width: 0;
+}
+
+.scroll {
+  overflow-x: auto;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-3);
+  border: 2px solid var(--c-muted);
+  border-radius: var(--radius);
+  font-weight: var(--type-label-weight);
+}
+
+.bar {
+  height: 0.875rem;
+  border-radius: var(--radius-chip);
+  background: var(--c-line);
+  overflow: hidden;
+}
+
+.barFill {
+  height: 100%;
+  background: var(--c-primary);
+}
+
+.heat {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 6px;
+  table-layout: fixed;
+}
+
+.heat th {
+  padding: 0;
+  font-size: var(--type-caption-size);
+  font-weight: var(--type-label-weight);
+  text-align: center;
+}
+
+.heat th[scope='row'] {
+  width: 5.5rem;
+  color: var(--c-muted);
+  font-weight: var(--type-body-weight);
+  text-align: left;
+}
+
+.heat td {
+  height: 48px;
+  padding: 0;
+  border-radius: 10px;
+  text-align: center;
+  vertical-align: middle;
+  font-size: var(--type-caption-size);
+  font-weight: var(--type-label-weight);
+  overflow-wrap: anywhere;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.listRow {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--c-line);
+}

@@ -1,6 +1,6 @@
 """The one table of plain words for the needs (DEC-062 item 2, WB4): fall-no-injury prints as
-"fall, no injury", never as its code. The advisor's clinical notice, the booking messages (B1 to B3),
-the booking pages and the case summary all take their words from this table (KI-650, H-489).
+"fall, no injury", never as its code. The clinical notice, the booking messages (B1 to B3), the
+booking pages and the case summary all take their words from this table (KI-650, H-489).
 """
 
 import pytest

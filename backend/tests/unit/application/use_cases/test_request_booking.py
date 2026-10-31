@@ -62,7 +62,7 @@ def test_two_needs_are_joined_with_and_in_their_order() -> None:
 
 
 def test_three_needs_are_all_named_with_and_before_the_last() -> None:
-    """DEC-1150: no need is left off (the U17 cap of two is lifted); DEC-062 joins the last with and."""
+    """DEC-1150: no need is left off (the U17 cap of two is lifted); the last joins with and."""
     needs = (NeedCategory.FALL_NO_INJURY, NeedCategory.FRAILTY, NeedCategory.DEMENTIA)
     assert need_text(case_with(needs)) == "fall, no injury, frailty and dementia"
 
@@ -103,9 +103,10 @@ def test_the_text_request_accepts_the_plain_words_of_two_needs_joined_with_and()
         "reply_by": "14:26",
         "referral_system_name": "the referral system",
     }
-    assert "Age 80+, fall, no injury and frailty, within 2 hrs" in render(
-        MessageId.B1, Channel.TEXT, **fields
-    ).text
+    assert (
+        "Age 80+, fall, no injury and frailty, within 2 hrs"
+        in render(MessageId.B1, Channel.TEXT, **fields).text
+    )
 
 
 def test_the_text_request_refuses_a_raw_need_code() -> None:

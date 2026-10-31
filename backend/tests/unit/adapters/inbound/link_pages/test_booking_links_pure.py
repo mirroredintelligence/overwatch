@@ -5,6 +5,7 @@ Sample values only: booking 4821, UCR West, case-1001. No patient data.
 """
 
 import json
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -16,10 +17,11 @@ from diucs.adapters.inbound.link_pages.booking_links import (
     change_view_body,
     check_change_action,
     check_request_action,
+    closed_detail,
     gone_state,
     view_body,
 )
-from diucs.application.use_cases.link_access import LinkAction
+from diucs.application.use_cases.link_access import ClosedDetail, LinkAction, closed_body
 from diucs.domain.codes import (
     AgeBand,
     BookingStatus,
@@ -151,7 +153,7 @@ def test_the_request_page_names_the_booking_and_no_postcode_name_or_case() -> No
     assert body["reference"] == "4821"
     assert body["serviceName"] == "UCR West"
     assert body["ageBand"] == "80+"
-    assert body["need"] == "fall-no-injury and frailty"
+    assert body["need"] == "fall, no injury and frailty"
     assert body["urgency"] == "within 2 hrs"
     assert "14:26" in body["replyBy"]
     assert body["bookingStatus"] == "requested"
@@ -161,7 +163,8 @@ def test_the_request_page_names_the_booking_and_no_postcode_name_or_case() -> No
 
 
 def test_the_change_page_names_the_booking_and_no_postcode_name_or_case() -> None:
-    body = change_view_body(_booking(BookingStatus.CONFIRMED), "UCR West", _case(), "0300 123 4567")
+    confirmed = replace(_booking(BookingStatus.CONFIRMED), confirmed_at=_at(14, 20))
+    body = change_view_body(confirmed, "UCR West", _case(), "0300 123 4567")
     assert set(body) == {
         "reference",
         "serviceName",
@@ -170,10 +173,97 @@ def test_the_change_page_names_the_booking_and_no_postcode_name_or_case() -> Non
         "urgency",
         "bookingStatus",
         "coordinationPhone",
+        "confirmedAt",
     }
+    assert body["confirmedAt"] == "2026-10-29T14:20:00Z"
     assert body["reference"] == "4821"
     assert body["bookingStatus"] == "confirmed"
     assert body["coordinationPhone"] == "0300 123 4567"
     text = json.dumps(body)
     assert "DT4" not in text
     assert "case-1001" not in text
+
+
+# -- what a closed link says (KI-169, KI-648, KI-649, KI-664, KI-665; H-486, H-488, H-499) ------------
+
+
+def _closed(status: BookingStatus, **times: datetime) -> Booking:
+    return replace(_booking(status), **times)
+
+
+def test_a_cancelled_booking_says_when_it_was_confirmed_and_when_it_was_cancelled() -> None:
+    booking = _closed(
+        BookingStatus.CANCELLED_AFTER, confirmed_at=_at(14, 20), responded_at=_at(14, 40)
+    )
+    detail = closed_detail(booking, "0300 123 4567")
+    assert detail == ClosedDetail(
+        closed_at=_at(14, 40),
+        confirmed_at=_at(14, 20),
+        cancelled_at=_at(14, 40),
+        coordination_phone="0300 123 4567",
+        booking=True,
+    )
+
+
+def test_a_request_cancelled_before_a_reply_has_a_cancelled_time_and_no_confirmed_time() -> None:
+    booking = _closed(BookingStatus.CANCELLED_BEFORE, responded_at=_at(14, 18))
+    detail = closed_detail(booking, None)
+    assert (detail.cancelled_at, detail.confirmed_at, detail.closed_at) == (
+        _at(14, 18),
+        None,
+        _at(14, 18),
+    )
+    assert detail.coordination_phone is None
+
+
+@pytest.mark.parametrize(
+    "status",
+    [
+        BookingStatus.EXPIRED,
+        BookingStatus.DECLINED,
+        BookingStatus.WITHDRAWN,
+        BookingStatus.NOT_REACHED,
+    ],
+)
+def test_any_other_closed_booking_says_when_it_closed_and_was_not_cancelled(
+    status: BookingStatus,
+) -> None:
+    detail = closed_detail(_closed(status, responded_at=_at(14, 27)), "0300 123 4567")
+    assert detail.closed_at == _at(14, 27)
+    assert detail.cancelled_at is None
+
+
+def test_a_booking_closed_with_no_response_time_closes_at_its_reply_by_time() -> None:
+    """The expiry timer has not run yet: the request is closed because its window has passed."""
+    detail = closed_detail(_booking(BookingStatus.REQUESTED), "0300 123 4567")
+    assert detail.closed_at == _at(14, 26)
+
+
+def test_the_closed_body_carries_the_state_the_times_and_the_number() -> None:
+    detail = ClosedDetail(
+        closed_at=_at(14, 40),
+        confirmed_at=_at(14, 20),
+        cancelled_at=_at(14, 40),
+        coordination_phone="0300 123 4567",
+        booking=True,
+    )
+    assert closed_body("cancelled", detail) == {
+        "state": "cancelled",
+        "kind": "booking",
+        "closedAt": "2026-10-29T14:40:00Z",
+        "confirmedAt": "2026-10-29T14:20:00Z",
+        "cancelledAt": "2026-10-29T14:40:00Z",
+        "coordinationPhone": "0300 123 4567",
+    }
+
+
+def test_the_closed_body_of_an_unknown_link_is_the_state_word_alone() -> None:
+    """An unknown, malformed or another tenant's link says nothing more than an expired one."""
+    assert closed_body("expired", None) == {"state": "expired"}
+    assert closed_body("expired", ClosedDetail()) == {"state": "expired"}
+
+
+def test_a_capacity_link_that_expired_says_when() -> None:
+    body = closed_body("expired", ClosedDetail(closed_at=_at(9, 30)))
+    assert body == {"state": "expired", "closedAt": "2026-10-29T09:30:00Z"}
+    assert "kind" not in body and "coordinationPhone" not in body

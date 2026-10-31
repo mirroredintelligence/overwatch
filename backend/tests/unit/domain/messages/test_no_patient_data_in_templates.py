@@ -415,7 +415,9 @@ def test_every_need_category_is_accepted_in_its_plain_words(need: str) -> None:
     assert render(MessageId.B1, TEXT, **fields).text
 
 
-@pytest.mark.parametrize("need", [member.value for member in NeedCategory if NEED_WORDS[member] != member.value])
+@pytest.mark.parametrize(
+    "need", [member.value for member in NeedCategory if NEED_WORDS[member] != member.value]
+)
 def test_a_raw_need_code_is_refused(need: str) -> None:
     """DEC-062 item 2: the need is printed in plain words, never as its code."""
     fields = {**SAMPLE_FIELDS[MessageId.B1], "need": need}

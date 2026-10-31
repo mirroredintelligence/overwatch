@@ -1,7 +1,7 @@
 """The body-type check judges the Content-Type, not the body (WB4). A POST with no body and no
-Content-Type is refused with 415; the same POST that names its type reaches the route. The front end
-relies on this: its bodiless POSTs (remind, resend, switch-to-text) must carry the type, and its test
-harness models this rule (frontend/test/backend-edge.ts, which reads this source)."""
+Content-Type is refused with 415; the same POST that names its type reaches the route. The front
+end relies on this: its bodiless POSTs (remind, resend, switch-to-text) must carry the type, and its
+test harness models this rule (frontend/test/backend-edge.ts, which reads this source)."""
 
 import pytest
 from httpx import ASGITransport, AsyncClient

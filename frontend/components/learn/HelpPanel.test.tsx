@@ -13,6 +13,12 @@ describe('HelpPanel', () => {
     expect(screen.getByRole('link', { name: 'Report a problem' })).toHaveAttribute('href', '/help/problem');
   });
 
+  it('makes a number that is set a phone link as well as selectable text', () => {
+    render(<HelpPanel spoaPhone="01305 000000" />);
+    expect(screen.getByRole('link', { name: '01305 000000' })).toHaveAttribute('href', 'tel:01305000000');
+    expect(screen.getByRole('link', { name: 'Read the one-page guide' })).toHaveAttribute('href', '/help');
+  });
+
   it('does not invent a number when the service has none set', () => {
     render(<HelpPanel spoaPhone={null} />);
 

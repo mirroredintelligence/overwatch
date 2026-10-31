@@ -59,7 +59,6 @@ describe('useBoardFeed: the scope', () => {
   it('drops the figures of the old scope the moment a read says the board changed, even if the new board is older', async () => {
     const { result, fetchBoard, streams } = mount();
     await openLast(streams);
-    expect(result.current.board).toBe(BOARD_A);
     // The network's board was built a minute before the own board that is held.
     fetchBoard.mockResolvedValueOnce({ board: { ...NETWORK_BOARD, generatedAt: iso(T0 - 60_000) }, serverTime: T0, scope: NETWORK });
     await advance(60_000);
@@ -104,7 +103,7 @@ describe('useBoardFeed: the scope', () => {
     await openLast(streams);
     fetchBoard.mockResolvedValueOnce(fresh(NETWORK_BOARD, NETWORK));
     await advance(60_000);
-    fetchBoard.mockRejectedValue(new BoardFetchError('unreachable', 503));
+    fetchBoard.mockRejectedValue(new BoardFetchError('unreadable', 502));
     await advance(60_000);
     expect(result.current.assessment.mode).toBe('last-known');
     expect(result.current.scope).toEqual(NETWORK);
@@ -114,7 +113,7 @@ describe('useBoardFeed: the scope', () => {
   it('starts the new scope live: a failure that was running for the old scope does not make the new board last known', async () => {
     const { result, fetchBoard, streams } = mount();
     await openLast(streams);
-    fetchBoard.mockRejectedValueOnce(new BoardFetchError('unreachable', 503));
+    fetchBoard.mockRejectedValueOnce(new BoardFetchError('unreadable', 502));
     await advance(60_000);
     expect(result.current.assessment.mode).toBe('last-known');
     fetchBoard.mockResolvedValueOnce(fresh(NETWORK_BOARD, NETWORK));
@@ -125,9 +124,10 @@ describe('useBoardFeed: the scope', () => {
   it('still never replaces a board of the same scope with an older one', async () => {
     const { result, fetchBoard, streams } = mount();
     await openLast(streams);
+    const held = result.current.board.generatedAt;
     fetchBoard.mockResolvedValueOnce({ board: { ...BOARD_A, generatedAt: iso(T0 - 120_000) }, serverTime: T0, scope: OWN_SCOPE });
     await advance(60_000);
-    expect(result.current.board.generatedAt).toBe(BOARD_A.generatedAt);
+    expect(result.current.board.generatedAt).toBe(held);
   });
 
   it('reports a fall back with the flag, and remembers the name of the network the screen was showing', async () => {

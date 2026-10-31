@@ -131,6 +131,7 @@ describe('what the organisation shares', () => {
     expect(network).toMatchObject({
       id: NETWORK_ID,
       name: 'Sample Network',
+      isOwner: false,
       membershipStatus: 'active',
       joinedAt: '2026-10-02T09:00:00Z',
       leftAt: null,
@@ -151,7 +152,7 @@ describe('what the organisation shares', () => {
 
   it('asks the back end for the organisation’s own sharing and own grants, with its own token, naming nothing', async () => {
     await call('overview');
-    expect(backend().sort()).toEqual(['GET /network-admin/grants', 'GET /network-admin/sharing']);
+    expect(backend().sort()).toEqual(['GET /network-admin/grants', 'GET /network-admin/networks', 'GET /network-admin/sharing']);
     expect(seenAdmin.every((c) => c.query === '' && c.tenant === MEMBER.id && c.role === 'tenant-admin')).toBe(true);
   });
 
@@ -170,6 +171,15 @@ describe('what the organisation shares', () => {
     const text = await (await call('overview')).text();
     expect(text).not.toMatch(new RegExp(`${OWNER.id}|trust-a`));
     expect(text).not.toMatch(/mem-a|membershipId|membership_id|network_id|network_name|organisation_name|is_owner|tenant_id/i);
+  });
+
+  it('says the owner of a network owns it, so the screen offers no way to leave it', async () => {
+    server.use(
+      http.get(`${ADMIN_ROOT}/network-admin/networks`, () => HttpResponse.json(OWNER_NETWORKS)),
+      http.get(`${ADMIN_ROOT}/network-admin/sharing`, () => HttpResponse.json(SHARING)),
+    );
+    const body = await (await call('overview')).json();
+    expect(body.networks[0].isOwner).toBe(true);
   });
 
   it('answers an organisation in no network with the allowlist and no network, and still its own code', async () => {

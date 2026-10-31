@@ -23,7 +23,7 @@ export type ReporterCallOptions = {
   body?: unknown;
   headers?: Record<string, string>;
   csrf?: boolean;
-  role?: 'reporter' | 'lead' | 'advisor';
+  role?: 'reporter' | 'lead' | 'advisor' | 'exec';
   session?: Partial<Session>;
   params?: Record<string, string>;
 };

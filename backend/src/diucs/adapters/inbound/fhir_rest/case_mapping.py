@@ -51,6 +51,9 @@ URGENCY_EXTENSION: Final = f"{STRUCTURE}urgency"
 SCORE_EXTENSION: Final = f"{STRUCTURE}score"
 CLOSED_AT_EXTENSION: Final = f"{STRUCTURE}closed-at"
 OUTCOME_EXTENSION: Final = f"{STRUCTURE}outcome"
+DISTRICT_EXTENSION: Final = f"{STRUCTURE}postcode-district"
+"""A postcode district chosen on its own, on the contained Patient (W50, W9H DEC-1045): the
+advisor's pick from the chips offered when the postcode was not found or is out of area."""
 REFERENCE_SYSTEM: Final = f"{BASE_URL}case-reference"
 REFUSED_PATIENT_ELEMENTS: Final = ("name", "identifier", "birthDate", "telecom")
 PATIENT_REFUSED: Final = "No patient names or identifiers are stored."
@@ -69,6 +72,7 @@ class CaseDetails:
     needs: tuple[NeedCategory, ...] | None
     urgency: Urgency | None
     scores: tuple[Score, ...] | None
+    district: str | None = None
 
     @property
     def is_empty(self) -> bool:
@@ -79,6 +83,7 @@ class CaseDetails:
             and self.needs is None
             and self.urgency is None
             and self.scores is None
+            and self.district is None
         )
 
 
@@ -220,6 +225,7 @@ def parse_case_details(service_request: dict[str, Any]) -> CaseDetails:
         needs=_needs(service_request),
         urgency=_urgency(service_request),
         scores=_scores(service_request),
+        district=_extension_code(_patient(service_request), DISTRICT_EXTENSION, "district"),
     )
 
 
@@ -316,7 +322,8 @@ def _option_part(option: Option) -> dict[str, Any]:
 
 def filter_result_to_fhir(result: FilterOptionsResult) -> dict[str, Any]:
     """The `$filter-options` answer as Parameters: the options, then the services that do not fit,
-    then the patient's area and the map flags (each flag only when true)."""
+    then the patient's area and the map flags (each flag only when true), then the districts to
+    choose from when a flag is true."""
     parameters: list[dict[str, Any]] = [_option_part(option) for option in result.options]
     parameters.extend(
         {
@@ -336,4 +343,7 @@ def filter_result_to_fhir(result: FilterOptionsResult) -> dict[str, Any]:
         parameters.append({"name": "notFound", "valueBoolean": True})
     if result.out_of_area:
         parameters.append({"name": "outOfArea", "valueBoolean": True})
+    # The districts to choose from, in the order to show them (W50): only with a flag, and the
+    # services' own configuration, never anything about the case.
+    parameters.extend({"name": "district", "valueString": item} for item in result.districts)
     return {"resourceType": "Parameters", "parameter": parameters}

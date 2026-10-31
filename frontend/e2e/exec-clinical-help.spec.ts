@@ -80,3 +80,33 @@ test('the share page makes no code by itself, and says whether sharing is on (W5
   await expect(page.locator('[data-el="HELP-SHARE-CODE"]')).toHaveCount(0);
   await accessible(page);
 });
+
+// The executive's phone alerts (W9H, DEC-1040). An executive holds no post, so the notification page is the
+// only part of the installed app they use: it opens for an executive, goes to the home screen for a lead,
+// and the installed app's front door (/app) takes a signed-in executive to their own home. The permission
+// prompt and the push subscription are the browser's and are checked on a real device (W32). Written, not run.
+test('the executive opens the alerts on this phone (W9H)', async ({ page }) => {
+  await signIn(page.context(), BASE_URL, 'exec', TOKEN_ORG_A);
+  await page.goto('/planning/phone');
+  await expect(page.getByRole('heading', { level: 1, name: 'Alerts on this phone' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Allow alerts on this phone' })).toBeVisible();
+  await expect(page.getByText('What we never send: Patient names or details.')).toBeVisible();
+  await accessible(page);
+});
+
+test('a lead on the phone alerts address goes to the home screen (W9H)', async ({ page }) => {
+  await signIn(page.context(), BASE_URL, 'lead', TOKEN_ORG_A);
+  await page.goto('/planning/phone');
+  await expect(page).toHaveURL(/\/planning$/);
+});
+
+test('the installed app opens a signed-in executive on their own home, not the PIN screen (W9H)', async ({ page }) => {
+  await signIn(page.context(), BASE_URL, 'exec', TOKEN_ORG_A);
+  await page.goto('/app');
+  await expect(page).toHaveURL(/\/planning$/);
+});
+
+test('the PIN screen offers an executive the organisation sign-in (W9H)', async ({ page }) => {
+  await page.goto('/app/pin');
+  await expect(page.getByRole('link', { name: 'Sign in with your organisation account' })).toHaveAttribute('href', '/sign-in?next=/planning');
+});

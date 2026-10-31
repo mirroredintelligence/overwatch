@@ -7,6 +7,7 @@ import { PinSetup } from '@/components/reporter/setup/PinSetup';
 import { Button } from '@/components/ui/Button';
 import { bffRequest } from '@/lib/reporter/browser';
 import { recordChannelForDevice } from '@/lib/reporter/channel';
+import { StatusMark } from '@/components/reporter/parts/StatusMark';
 import styles from '@/components/reporter/Reporter.module.css';
 
 // The locked PIN (W37): a text code, then a new PIN entered twice. "Forgot your PIN?" (the link
@@ -49,6 +50,7 @@ export function LockedScreen({ reason }: { reason: string | null }) {
 
   return (
     <main className={styles.page}>
+      {forgot ? null : <StatusMark tone="closed" dataEl="REP-LOCKED-MARK" />}
       <h1 className={styles.title}>{forgot ? 'Forgot your PIN?' : 'Your PIN is locked'}</h1>
       {forgot ? null : <p>That was 5 wrong tries. Get a code by text to set a new PIN.</p>}
       <p>Nothing was sent or changed.</p>

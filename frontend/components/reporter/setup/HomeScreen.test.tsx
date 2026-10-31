@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -31,6 +31,17 @@ describe('HomeScreen', () => {
     expect(screen.getByRole('tab', { name: 'iPhone', selected: true })).toBeInTheDocument();
     expect(screen.getByText('iPhone needs iOS 16.4 or later.')).toBeInTheDocument();
     expect(await runAxe(container)).toHaveNoViolations();
+  });
+
+  it('gives each iPhone step the line the artboard puts under it (OnboardReporter1, Add to home screen)', () => {
+    setAgent(IPHONE);
+    render(<HomeScreen />);
+    const items = within(screen.getByRole('list', { name: 'Add to home screen on iPhone' })).getAllByRole('listitem');
+    expect(items).toHaveLength(4);
+    expect(items[0]).toHaveTextContent('Tap ShareThe square with an arrow, at the bottom of the screen');
+    expect(items[1]).toHaveTextContent('Scroll down the list if you cannot see it');
+    expect(items[2]).toHaveTextContent('The Overwatch icon appears on your home screen');
+    expect(items[3]).toHaveTextContent('Carry on there. Notifications only work from the home screen.');
   });
 
   it('shows the Android guide for an Android phone', () => {

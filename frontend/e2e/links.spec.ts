@@ -54,6 +54,24 @@ test.describe('at phone width (390 CSS px)', () => {
     await noHorizontalScroll(page);
   });
 
+  test('the thank-you page opens with the tick, boxes the next update and passes axe with colour contrast', async ({ page }) => {
+    await page.goto(`/l/${LINK.recorded}`);
+    await page.getByRole('button', { name: 'Yes, still 3' }).click();
+
+    await expect(page.locator('[data-el="REP-LINK-THANKS-MARK"]')).toHaveAttribute('data-tone', 'done');
+    await expect(page.locator('[data-el="REP-LINK-NEXT-DUE"]')).toHaveText('Next update due 12:00');
+    const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+    expect(results.violations).toEqual([]);
+    await noHorizontalScroll(page);
+  });
+
+  test('an expired link opens with the closed mark and passes axe with colour contrast', async ({ page }) => {
+    await page.goto(`/l/${LINK.expired}`);
+    await expect(page.locator('[data-el="REP-LINK-EXPIRED-MARK"]')).toHaveAttribute('data-tone', 'closed');
+    const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+    expect(results.violations).toEqual([]);
+  });
+
   test('a hand-made thank-you address says thank you and nothing about a figure recorded (KI-179)', async ({ page }) => {
     await page.goto('/l/thanks?d=not-a-sealed-detail');
     await expect(page.getByRole('heading', { level: 1, name: 'Thank you' })).toBeVisible();

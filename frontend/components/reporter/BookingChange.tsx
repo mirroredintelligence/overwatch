@@ -9,6 +9,7 @@ import { type BookingAnswer, type BookingOutcome, readLinkView, sendBookingAnswe
 import { type BookingView, type ClosedLink, londonHm } from '@/lib/links/model';
 import { atTime, closedFacts, PhoneTo } from './closed';
 import { LinkUnavailable } from './LinkUnavailable';
+import { StatusMark } from './parts/StatusMark';
 import styles from './Reporter.module.css';
 
 // The service's page for a confirmed booking that changes (L02, W22): withdraw it, or report the
@@ -183,6 +184,7 @@ export function BookingChange({ token, initial, initialClosed }: Props) {
     const facts = closedFacts(closed);
     return (
       <main className={styles.page}>
+        <StatusMark tone="closed" dataEl="SVC-CHANGE-CLOSED-MARK" />
         <p className={styles.eyebrow}>Overwatch booking</p>
         <h1 className={styles.title}>This link has closed</h1>
         <p className={styles.question}>This link can no longer be used.</p>
@@ -195,6 +197,7 @@ export function BookingChange({ token, initial, initialClosed }: Props) {
   if (step === 'cancelled') {
     return (
       <main className={styles.page}>
+        <StatusMark tone="closed" dataEl="SVC-CHANGE-CANCELLED-MARK" />
         <p className={styles.eyebrow}>Cancelled</p>
         <h1 className={styles.title}>Cancelled by the coordination team</h1>
         <p className={styles.question}>
@@ -217,6 +220,7 @@ export function BookingChange({ token, initial, initialClosed }: Props) {
     const phone = knownPhone;
     return (
       <main className={styles.page}>
+        <StatusMark tone="closed" dataEl="SVC-CHANGE-WITHDRAWN-MARK" />
         <p className={styles.eyebrow}>Withdrawn</p>
         <h1 className={styles.title}>Withdrawn</h1>
         <p className={styles.question}>The coordination team has been told and is finding another service.</p>
@@ -237,6 +241,7 @@ export function BookingChange({ token, initial, initialClosed }: Props) {
   if (step === 'thanks') {
     return (
       <main className={styles.page}>
+        <StatusMark tone="done" dataEl="SVC-CHANGE-THANKS-MARK" />
         <p className={styles.eyebrow}>Not reached</p>
         <h1 className={styles.title}>Thank you</h1>
         <p className={styles.question}>The coordination team has been told.</p>

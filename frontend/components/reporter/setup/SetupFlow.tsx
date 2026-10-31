@@ -7,6 +7,8 @@ import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { bffRequest } from '@/lib/reporter/browser';
 import { type Invitation, parseInvitation } from '@/lib/reporter/model';
+import { StepCards } from '../parts/StepCards';
+import partStyles from '../parts/Parts.module.css';
 import styles from './Setup.module.css';
 
 // The first half of reporter set-up (W33): welcome, number check, the 6-digit text code and how
@@ -21,6 +23,15 @@ const CHANNELS: { value: Channel; label: string; hint: string }[] = [
   { value: 'text', label: 'Text message', hint: 'A text with a link. Works on any phone.' },
   { value: 'email', label: 'Email', hint: 'An email with a link.' },
 ];
+
+// The five set-up steps and what each takes (artboard OnboardReporter1, "Welcome").
+const WELCOME_STEPS = [
+  { key: 'number', title: 'Check your number', hint: '30 seconds' },
+  { key: 'channel', title: 'Choose how we contact you', hint: '1 minute' },
+  { key: 'home', title: 'Add to home screen', hint: '1 minute, app only' },
+  { key: 'notifications', title: 'Allow notifications', hint: 'App only' },
+  { key: 'pin', title: 'Create a PIN', hint: '30 seconds' },
+] as const;
 
 type Props = { step: SetupStep; invite: string };
 
@@ -80,6 +91,7 @@ export function SetupFlow({ step, invite }: Props) {
     return (
       <CodeStep
         invite={invite}
+        masked={invitation.maskedPhone}
         onVerified={() => (invitation.role === 'exec' ? toHomeScreen() : go('step=channel'))}
       />
     );
@@ -97,13 +109,10 @@ function Welcome({ service, onStart }: { service: string; onStart: () => void })
   return (
     <main className={styles.page}>
       <h1 className={styles.title}>{`Set up capacity reporting for ${service}`}</h1>
-      <ol className={styles.steps}>
-        <li>Check your number: 30 seconds</li>
-        <li>Choose how we contact you: 1 minute</li>
-        <li>Add to home screen: 1 minute, app only</li>
-        <li>Allow notifications: app only</li>
-        <li>Create a PIN: 30 seconds</li>
-      </ol>
+      <StepCards
+        label="Set-up steps"
+        steps={WELCOME_STEPS}
+      />
       <p>You can stop and come back to the link within 48 hours.</p>
       <Button variant="primary" dataEl="ONB-WELCOME-START-BTN" onClick={onStart}>
         Start
@@ -129,8 +138,9 @@ function NumberStep({ masked, invite, onSent }: { masked: string; invite: string
     <main className={styles.page}>
       <p className={styles.caption}>Step 1 of 5</p>
       <h1 className={styles.title}>Check your number</h1>
-      <p>
-        We will text a code to <strong>{masked}</strong>.
+      <p>We will send a 6-digit code to this number.</p>
+      <p className={partStyles.maskedNumber} data-el="ONB-MASKED-NUMBER">
+        {masked}
       </p>
       <p>Not your number? Ask the shift lead to send a new invitation.</p>
       {failed ? <Banner tone="warning" title="We could not send a code. Try again shortly." /> : null}
@@ -141,7 +151,7 @@ function NumberStep({ masked, invite, onSent }: { masked: string; invite: string
   );
 }
 
-function CodeStep({ invite, onVerified }: { invite: string; onVerified: () => void }) {
+function CodeStep({ invite, masked, onVerified }: { invite: string; masked: string; onVerified: () => void }) {
   const sendCode = async () => (await bffRequest('/api/bff/identity/invitation-code', { method: 'POST', body: { invite } })).status === 202;
 
   const checkCode = async (code: string): Promise<CheckResult> => {
@@ -154,7 +164,8 @@ function CodeStep({ invite, onVerified }: { invite: string; onVerified: () => vo
   return (
     <main className={styles.page}>
       <p className={styles.caption}>Step 1 of 5</p>
-      <h1 className={styles.title}>Enter the code</h1>
+      <h1 className={styles.title}>Enter your code</h1>
+      <p>{`We sent a code to ${masked}.`}</p>
       <CodeEntry sendCode={sendCode} checkCode={checkCode} onVerified={onVerified} />
     </main>
   );

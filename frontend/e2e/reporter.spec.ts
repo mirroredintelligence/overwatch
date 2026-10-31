@@ -52,11 +52,32 @@ test.describe('reporter set-up and sign-in against the back end’s shapes', () 
     await expect(page.getByRole('heading', { name: 'Set up capacity reporting for UCR West' })).toBeVisible();
   });
 
+  test('the welcome page lists the five steps as numbered cards with their times, and passes axe with colour contrast', async ({ page }) => {
+    await page.goto(`${SITE_URL}/setup?invite=${GOOD_INVITATION}`);
+    const steps = page.getByRole('list', { name: 'Set-up steps' }).getByRole('listitem');
+    await expect(steps).toHaveCount(5);
+    await expect(steps.first()).toContainText('Check your number');
+    await expect(steps.first()).toContainText('30 seconds');
+    await noHorizontalScroll(page);
+    const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+    expect(results.violations).toEqual([]);
+  });
+
+  test('the home-screen step gives each step a line under it, and passes axe with colour contrast', async ({ page }) => {
+    await page.goto(`${SITE_URL}/setup/home-screen`);
+    await page.getByRole('tab', { name: 'iPhone' }).click();
+    const steps = page.getByRole('list').filter({ hasText: 'Tap Share' }).getByRole('listitem');
+    await expect(steps.first()).toContainText('The square with an arrow, at the bottom of the screen');
+    await noHorizontalScroll(page);
+    const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+    expect(results.violations).toEqual([]);
+  });
+
   test('the number step shows the masked number and the code step takes the text code', async ({ page }) => {
     await page.goto(`${SITE_URL}/setup?step=number&invite=${GOOD_INVITATION}`);
     await expect(page.getByText('07xxx xxx456')).toBeVisible();
     await page.getByRole('button', { name: 'Send code' }).click();
-    await expect(page.getByRole('heading', { name: 'Enter the code' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Enter your code' })).toBeVisible();
     const boxes = page.getByRole('textbox');
     await boxes.first().click();
     await page.keyboard.type(GOOD_CODE);

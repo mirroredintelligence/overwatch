@@ -155,6 +155,9 @@ export function InviteForm({ serviceId }: { serviceId?: string }) {
           <Button variant="primary" type="submit" busy={busy} dataEl="LEAD-INVITE-SEND-BTN">
             Send invitation
           </Button>
+          <Button variant="neutral" href="/lead/reporters" dataEl="LEAD-INVITE-CANCEL-BTN">
+            Cancel
+          </Button>
         </div>
       </form>
 

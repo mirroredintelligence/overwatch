@@ -10,7 +10,8 @@ import { SITE_PORT } from './env';
 // from the same stand-in as the unit tests (test/fixtures/pairing.ts). The site is the one tenant
 // host of a run, `localhost:<port>`.
 
-const pairing = new PairingStandIn({ [`localhost:${SITE_PORT}`]: [DIRECTORY_A] });
+const SITE_HOST = `localhost:${SITE_PORT}`;
+const pairing = new PairingStandIn({ [SITE_HOST]: [DIRECTORY_A] });
 
 function readJson(request: IncomingMessage): Promise<unknown> {
   return new Promise((resolve) => {
@@ -75,11 +76,13 @@ export async function handlePairingRoute(request: IncomingMessage, response: Ser
   } else if (request.method === 'POST' && pathname === '/screens/preview') {
     reply = pairing.preview(host, header(request, 'authorization'), await readJson(request));
   } else if (request.method === 'PUT' && board !== null) {
-    reply = pairing.setBoard(host, header(request, 'authorization'), header(request, 'idempotency-key'), header(request, 'if-match'), decodeURIComponent(board[1] ?? ''), await readJson(request));
+    // The lead's own routes (list, change board, unpair) name the tenant by the lead's token at the back end; the BFF
+    // does not forward a host for them, so the stand-in answers for the run's one tenant host.
+    reply = pairing.setBoard(SITE_HOST, header(request, 'authorization'), header(request, 'idempotency-key'), header(request, 'if-match'), decodeURIComponent(board[1] ?? ''), await readJson(request));
   } else if (request.method === 'GET' && pathname === '/screens') {
-    reply = pairing.list(host, header(request, 'authorization'));
+    reply = pairing.list(SITE_HOST, header(request, 'authorization'));
   } else if (request.method === 'POST' && revoke !== null) {
-    reply = pairing.revoke(host, header(request, 'authorization'), header(request, 'idempotency-key'), decodeURIComponent(revoke[1] ?? ''));
+    reply = pairing.revoke(SITE_HOST, header(request, 'authorization'), header(request, 'idempotency-key'), decodeURIComponent(revoke[1] ?? ''));
   } else if (request.method === 'POST' && pathname === '/screens') {
     reply = pairing.connect(host, header(request, 'authorization'), header(request, 'idempotency-key'), await readJson(request));
   } else {

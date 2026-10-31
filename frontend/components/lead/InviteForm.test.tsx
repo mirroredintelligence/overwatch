@@ -23,6 +23,12 @@ describe('InviteForm', () => {
     expect(screen.getByText(/Valid for 48 hrs\./)).toBeInTheDocument();
   });
 
+  it('offers Cancel, which goes back to the reporters page and posts nothing (ShiftLeadInvite)', async () => {
+    render(<InviteForm serviceId={SERVICE_UCR_EAST} />);
+    expect(await screen.findByRole('link', { name: 'Cancel' })).toHaveAttribute('href', '/lead/reporters');
+    expect(seenLeadPosts).toHaveLength(0);
+  });
+
   it('refuses a mobile that is not a UK mobile, with the example for this form', async () => {
     const user = userEvent.setup();
     render(<InviteForm serviceId={SERVICE_UCR_EAST} />);

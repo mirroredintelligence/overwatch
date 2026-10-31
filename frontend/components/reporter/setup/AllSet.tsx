@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/Button';
 import { subscribeToPush } from '@/lib/push/subscribe';
 import { bffRequest } from '@/lib/reporter/browser';
 import { clock, inDays } from '@/lib/reporter/times';
+import { StatusMark } from '../parts/StatusMark';
+import { SummaryRows } from '../parts/SummaryRows';
 import styles from './Setup.module.css';
 
 // The end of app set-up (W34, W8E). The subscription is saved here, after the reporter has signed in
@@ -98,24 +100,24 @@ export function AllSet() {
 
   return (
     <main className={styles.page}>
+      <StatusMark tone="done" dataEl="ONB-DONE-MARK" />
       <h1 className={styles.title}>All set</h1>
+      <p>You are set up.</p>
       {saved === 'failed' ? (
         <Banner tone="warning" title="We could not save your notification choice. Try again." />
       ) : null}
       {summaryFailed ? <p>We could not load your summary. Your set-up is saved.</p> : null}
       {summary !== null ? (
-        <dl>
-          <dt>Service</dt>
-          <dd>{summary.service}</dd>
-          <dt>Contact by</dt>
-          <dd>{CONTACT_LABEL[summary.contactBy] ?? 'Text message'}</dd>
-          <dt>Phone</dt>
-          <dd>{summary.maskedPhone}</dd>
-          <dt>Next update due</dt>
-          <dd>{clock(summary.nextUpdateDue) || 'Not set'}</dd>
-          <dt>Text code needed again</dt>
-          <dd>{inDays(summary.textCodeInDays)}</dd>
-        </dl>
+        <SummaryRows
+          dataEl="ONB-DONE-SUMMARY"
+          rows={[
+            { label: 'Service', value: summary.service },
+            { label: 'Contact by', value: CONTACT_LABEL[summary.contactBy] ?? 'Text message' },
+            { label: 'Phone', value: summary.maskedPhone },
+            { label: 'Next update due', value: clock(summary.nextUpdateDue) || 'Not set' },
+            { label: 'Text code needed again', value: inDays(summary.textCodeInDays) },
+          ]}
+        />
       ) : null}
       {testNotice !== null ? <p role="status">{testNotice}</p> : null}
       <Button variant="neutral" dataEl="ONB-DONE-TEST-BTN" onClick={sendTest}>

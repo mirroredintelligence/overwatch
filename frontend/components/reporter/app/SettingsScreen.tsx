@@ -10,6 +10,7 @@ import { isUkMobile } from '@/lib/forms/ukMobile';
 import { bffRequest } from '@/lib/reporter/browser';
 import { type ChannelWord, recordChannelForSession } from '@/lib/reporter/channel';
 import { inDays } from '@/lib/reporter/times';
+import { SummaryRows } from '@/components/reporter/parts/SummaryRows';
 import styles from '@/components/reporter/Reporter.module.css';
 
 // Settings (W37). Every value is shown masked, from the back end. Signing out of this phone asks
@@ -97,18 +98,16 @@ export function SettingsScreen() {
   return (
     <main className={styles.page}>
       <h1 className={styles.title}>Settings</h1>
-      <dl>
-        <dt>Contact me by</dt>
-        <dd>{CHANNEL_LABEL[settings.channel] ?? 'Text message'}</dd>
-        <dt>Notifications</dt>
-        <dd>{notificationsState()}</dd>
-        <dt>Phone</dt>
-        <dd>{settings.maskedPhone}</dd>
-        <dt>Cover number</dt>
-        <dd>{settings.maskedCover ?? 'Not set'}</dd>
-        <dt>Text code needed again</dt>
-        <dd>{inDays(settings.reverifyInDays)}</dd>
-      </dl>
+      <SummaryRows
+        dataEl="REP-SET-SUMMARY"
+        rows={[
+          { label: 'Contact me by', value: CHANNEL_LABEL[settings.channel] ?? 'Text message' },
+          { label: 'Notifications', value: notificationsState() },
+          { label: 'Phone', value: settings.maskedPhone },
+          { label: 'Cover number', value: settings.maskedCover ?? 'Not set' },
+          { label: 'Text code needed again', value: inDays(settings.reverifyInDays) },
+        ]}
+      />
       {notice !== null ? <Banner tone="warning" title={notice} /> : null}
 
       {channelOpen ? (

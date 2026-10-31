@@ -29,6 +29,11 @@ from diucs.adapters.inbound.scheduler.scheduled_work_consumer import (
     WorkHandler,
     build_scheduled_work_consumer,
 )
+from diucs.adapters.inbound.workers.alert_consumers import (
+    EscalationNotifier,
+    StatusEvaluator,
+    alert_runners,
+)
 from diucs.adapters.inbound.workers.board_consumer import BoardRebuilder, board_runners
 from diucs.adapters.inbound.workers.delivery_tracker import receipt_consumer
 from diucs.adapters.inbound.workers.message_senders import push_runner, sender_runners
@@ -67,6 +72,8 @@ from diucs.application.ports.outbound.messaging import PushSender
 from diucs.application.ports.outbound.sealing import ContentSealer
 from diucs.application.ports.outbound.sender_resolver import SenderResolver
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.tenant_settings import DirectoryZones
+from diucs.application.use_cases.alerts import AlertEvaluator
 from diucs.application.use_cases.apply_projection import ApplyProjection
 from diucs.application.use_cases.board_projector import BoardProjector
 from diucs.application.use_cases.confirm_capacity import ConfirmCapacity
@@ -77,6 +84,7 @@ from diucs.application.use_cases.network_board_projector import NetworkBoardProj
 from diucs.application.use_cases.network_governance import NetworkGovernance
 from diucs.application.use_cases.network_leave import EndProjections
 from diucs.application.use_cases.network_samples import RecordNetworkSample
+from diucs.application.use_cases.notify_escalations import NotifyShiftLeads
 from diucs.application.use_cases.project_network import ProjectNetwork
 from diucs.application.use_cases.projection_boundaries import (
     RunProjectionHeartbeat,
@@ -114,6 +122,16 @@ class NetworkProjectorWiring:
     apply: NetworkApplyConsumer
 
 
+@dataclass(frozen=True, slots=True)
+class AlertWiring:
+    """What the alert runners need (B1 task 5): the evaluator of a status change, which raises the
+    alerts and schedules the not-updated checks, and the notifier of the escalations that are for
+    the shift lead."""
+
+    evaluator: StatusEvaluator
+    notifier: EscalationNotifier
+
+
 def service_bus_connection(settings: Settings) -> str:
     secret = settings.servicebus_connection
     if secret is None:
@@ -137,6 +155,7 @@ def build_runners(
     network_projector: NetworkProjectorWiring | None = None,
     network_board_projector: NetworkBoardRebuilder | None = None,
     network_governance: GovernanceHandler | None = None,
+    alerts: AlertWiring | None = None,
 ) -> list[ServiceBusRunner]:
     """One runner for each inbound queue, each over a consumer that binds the message's tenant and
     handles the message under its trace span (O01): the replies, the receipts and, with the
@@ -182,6 +201,8 @@ def build_runners(
         runners += network_board_runners(client, network_board_projector, tenants, observe)
     if network_governance is not None:
         runners += network_governance_runners(client, network_governance, tenants, observe)
+    if alerts is not None:
+        runners += alert_runners(client, alerts.evaluator, alerts.notifier, tenants, observe)
     return runners
 
 
@@ -336,6 +357,14 @@ async def serve(settings: Settings, stop: asyncio.Event) -> None:
             network_projector=network_projector,
             network_board_projector=network_board_projector,
             network_governance=governance,
+            alerts=AlertWiring(
+                evaluator=AlertEvaluator(
+                    container.uow_factory, container.ids, DirectoryZones(container.tenants)
+                ),
+                notifier=NotifyShiftLeads(
+                    container.uow_factory, container.ids, container.clock, sealer
+                ),
+            ),
         )
         await run_workers([runner.serve for runner in runners], stop)
     finally:

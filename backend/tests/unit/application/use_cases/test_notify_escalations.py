@@ -140,7 +140,7 @@ def _opened(unit: _Unit, index: int = 0) -> dict[str, Any]:
 
 
 def test_the_escalation_events_are_the_three_that_are_for_the_shift_lead() -> None:
-    assert ESCALATION_EVENTS == {"ReportEscalated", "WithdrawalEscalated", "AlertEscalatedToLead"}
+    assert {"ReportEscalated", "WithdrawalEscalated", "AlertEscalatedToLead"} == ESCALATION_EVENTS
 
 
 @pytest.mark.parametrize("event_type", sorted(PAYLOADS))
@@ -175,8 +175,8 @@ async def test_the_push_names_the_service_and_holds_no_patient_data_or_identifie
 
     content = _opened(unit)
     shown = json.dumps(content)
-    assert find_patient_data(content["subject"]) is None
-    assert find_patient_data(content["text"]) is None
+    assert find_patient_data(content["subject"]) == []
+    assert find_patient_data(content["text"]) == []
     for identifier in ("bk-1", "al-1", "prac-lead-1", TENANT):
         assert identifier not in shown
 

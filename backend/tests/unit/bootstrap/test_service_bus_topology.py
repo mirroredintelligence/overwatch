@@ -19,9 +19,25 @@ from diucs.bootstrap.workers_main import AlertWiring, NetworkProjectorWiring, bu
 
 TOPOLOGY = Path(__file__).resolve().parents[4] / "infra" / "servicebus-config.json"
 
-# Subscriptions that the pilot does not read, with the reason each was deleted instead of built
-# (decision DEC-1111). A subscription added to the topology must be read or be listed here.
-DELETED: dict[str, str] = {}
+# Subscriptions declared and read by nothing, deleted instead of built (DEC-1111):
+# the behaviour each stood for is done by another path (the board and the live stream by the board
+# projector, the lead's queue and the criteria flags by reads of the graph, the escalation by
+# scheduled work, analytics by the decision log). A subscription added back must have a reader.
+DELETED: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("capacity.events", "analytics-aggregator"),
+        ("booking.events", "notifier"),
+        ("booking.events", "advisor-stream"),
+        ("booking.events", "analytics"),
+        ("registration.events", "notifier"),
+        ("registration.events", "lead-queue-projector"),
+        ("registration.events", "analytics"),
+        ("criteria.events", "notifier"),
+        ("criteria.events", "flag-maintainer"),
+        ("alerts.events", "escalation-timer"),
+        ("alerts.events", "analytics"),
+    }
+)
 
 
 def _declared() -> set[tuple[str, str | None]]:
@@ -90,9 +106,7 @@ def test_the_pilot_reads_the_alert_evaluator_and_the_notifier() -> None:
 
 
 def test_the_subscriptions_that_were_deleted_are_gone_from_the_topology() -> None:
-    declared = {name for _, name in _declared() if name is not None}
-
-    assert not set(DELETED) & declared
+    assert not DELETED & _declared()
 
 
 def test_the_worker_module_wires_the_alerts() -> None:

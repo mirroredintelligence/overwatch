@@ -52,6 +52,7 @@ from diucs.application.use_cases.tenant_config import (
 )
 from diucs.application.use_cases.tenant_suspend import TenantChanged
 from diucs.bootstrap.container import Container
+from diucs.bootstrap.lifecycle_operations import build_offboard
 from diucs.bootstrap.provisioning import build_provisioning
 from diucs.domain.codes import Role
 
@@ -104,7 +105,7 @@ def build_platform_services(
         activate=provisioning.activate,
         suspend=provisioning.suspend,
         resume=provisioning.resume,
-        offboard=provisioning.offboard,
+        offboard=build_offboard(container, on_changed),
         recorder=PlatformRecorder(container.platform_audit, clock),
         audit_reader=container.platform_audit,
         tickets=tickets,

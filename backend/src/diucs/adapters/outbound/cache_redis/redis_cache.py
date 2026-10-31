@@ -20,8 +20,10 @@ from diucs.application.ports.outbound.cache import (
     CacheScopeMismatch,
     Lock,
     platform_names,
+    scope_segment,
     scoped_names,
 )
+from diucs.application.tenancy import ScopeId
 
 # Every name the cache holds sits under this root. Isolation between test runs is by a unique tenant
 # per run, not by a second root (TEN-019, audit C 4.4).
@@ -107,6 +109,11 @@ class RedisSubscription(AsyncIterator[str]):
         await self._pubsub.aclose()  # type: ignore[no-untyped-call]  # redis-py leaves it unannotated
 
 
+def _escape_pattern(text: str) -> str:
+    """The text as a literal in a Redis glob: `*`, `?`, `[`, `]` and `\\` are escaped."""
+    return "".join("\\" + character if character in "*?[]\\" else character for character in text)
+
+
 class RedisCache:
     """The Cache port on Redis. The client must decode responses (see from_url)."""
 
@@ -140,6 +147,25 @@ class RedisCache:
     async def delete(self, key: str) -> None:
         names = scoped_names()
         await self._client.delete(ROOT + names.key(key))
+
+    async def purge_scope(self, scope: ScopeId) -> int:
+        """Remove every key of one scope (a purged tenant's): the cache values, locks, fences and
+        channels, which all start `<root><segment>:`. Found by SCAN, so no command blocks the
+        server, and removed with UNLINK in batches. The pattern is the exact segment and a colon, so
+        a segment that merely starts the same (`acme` and `acme-two`) is not touched. The number of
+        keys removed."""
+        prefix = ROOT + scope_segment(scope) + ":"
+        pattern = _escape_pattern(prefix) + "*"
+        removed = 0
+        batch: list[str] = []
+        async for key in self._client.scan_iter(match=pattern, count=500):
+            batch.append(key)
+            if len(batch) >= 500:
+                removed += int(await self._client.unlink(*batch))
+                batch = []
+        if batch:
+            removed += int(await self._client.unlink(*batch))
+        return removed
 
     async def platform_take(self, name: str, ttl: timedelta) -> bool:
         if ttl <= timedelta(0):

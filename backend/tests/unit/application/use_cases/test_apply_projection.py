@@ -420,6 +420,21 @@ async def test_an_ended_source_is_not_reopened_by_a_grant_approved_before_it_end
     assert "open" not in rig.names() and "upsert" not in rig.names() and "commit" not in rig.names()
 
 
+async def test_a_grant_approved_before_the_end_but_starting_after_it_reopens_the_source() -> None:
+    """The end was a lapse between two grants: the next grant was already approved, and starts after
+    the end, so it is a new grant for the source and not an old one coming back (TEN-056)."""
+    rig = _Rig()
+    grant = rig.registry.active[0].grant
+    approved = grant.owner_approval.at  # type: ignore[union-attr]
+    ended = approved + timedelta(hours=1)
+    rig.registry.active[0] = replace(
+        rig.registry.active[0], grant=replace(grant, effective_from=ended + timedelta(minutes=1))
+    )
+    rig.world.state = _ended_state(ended)
+    assert (await rig.run(_request())).outcome is ApplyOutcome.APPLIED
+    assert "open" in rig.names()
+
+
 async def test_an_active_source_is_left_as_it_is() -> None:
     rig = _Rig()
     rig.world.state = replace(

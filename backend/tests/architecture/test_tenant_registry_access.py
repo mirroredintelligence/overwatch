@@ -160,6 +160,10 @@ OPERATOR_USE_CASES = frozenset(
         # use cases too, and the services of the operator's routes hold them.
         "application/use_cases/tenant_offboarding.py",
         "application/use_cases/platform_tenants.py",
+        # TEN-074: the rest of the offboarding (memberships, export, completion) and the purge are
+        # the platform operator's, for one tenant, by compare and set.
+        "application/use_cases/tenant_offboard.py",
+        "application/use_cases/tenant_purge.py",
         "application/ports/outbound/tenant_registry.py",
         "bootstrap/container.py",
         "bootstrap/provisioning.py",

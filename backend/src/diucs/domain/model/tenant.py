@@ -142,6 +142,9 @@ class ContactKind(StrEnum):
     SUPPORT_EMAIL = "support-email"
     SHIFT_LEAD_ESCALATION = "shift-lead-escalation"
     CLINICAL_SAFETY_OFFICER = "clinical-safety-officer"
+    ADVISOR_LINE = "advisor-line"
+    """The number a clinician phones when an advisor has no work phone of their own: a desk or
+    switchboard, never a person (W9G)."""
 
 
 class ConfigStatus(StrEnum):
@@ -328,7 +331,9 @@ PHONE_PATTERN: Final = re.compile(r"\+?[0-9][0-9 ]{5,18}[0-9]")
 EMAIL_PATTERN: Final = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 # Nothing that could be a placeholder, markup or a control character may enter a text message.
 CONTACT_FORBIDDEN_CHARACTERS: Final = frozenset("{}<>")
-_PHONE_KINDS: Final = frozenset({ContactKind.COORDINATION_PHONE, ContactKind.SHIFT_LEAD_ESCALATION})
+_PHONE_KINDS: Final = frozenset(
+    {ContactKind.COORDINATION_PHONE, ContactKind.SHIFT_LEAD_ESCALATION, ContactKind.ADVISOR_LINE}
+)
 
 
 def _contact_text(name: str, value: object, maximum: int) -> str:

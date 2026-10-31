@@ -1,5 +1,6 @@
 import type { Session } from '@/lib/auth/session';
 import { fhirFetch } from '@/lib/fhir/client';
+import { advisorContactFromJson, seenFromJson, type AdvisorContact, type Seen } from './seen';
 import { clinicalRequestFromTask, type ClinicalRequest } from './task';
 
 // Server-only: the clinical lists, one request, the clinician's presence and the count of advisors
@@ -26,6 +27,25 @@ export const readQueue = (session: Auth) => readList(session, 'waiting');
 export async function readRequest(session: Auth, id: string): Promise<ClinicalRequest> {
   const { data } = await fhirFetch<unknown>(`/Task/${encodeURIComponent(id)}`, { token: session.backendToken });
   return clinicalRequestFromTask(data);
+}
+
+/**
+ * What the advisor saw when they asked (W9G). Only the clinician who holds the request reads it: any other
+ * caller is the back end's one 404. A display that cannot be read whole throws, so it is never half shown.
+ */
+export async function readSeen(session: Auth, id: string): Promise<Seen> {
+  const { data } = await fhirFetch<unknown>(`/clinical/requests/${encodeURIComponent(id)}/seen`, { token: session.backendToken, root: true });
+  return seenFromJson(data);
+}
+
+/**
+ * The number to phone the advisor on (W9G): their work phone if the tenant holds one, else the tenant's
+ * advisor line, else none. Personal data: it is returned to the caller and goes nowhere else (not logged,
+ * not stored, not in a URL).
+ */
+export async function readAdvisorContact(session: Auth, id: string): Promise<AdvisorContact> {
+  const { data } = await fhirFetch<unknown>(`/clinical/requests/${encodeURIComponent(id)}/advisor-contact`, { token: session.backendToken, root: true });
+  return advisorContactFromJson(data);
 }
 
 export async function readAvailable(session: Auth): Promise<number> {

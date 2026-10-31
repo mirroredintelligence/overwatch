@@ -16,6 +16,7 @@ from diucs.adapters.outbound.graph_store.support_ticket_store import Neo4jSuppor
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.application.cross_tenant_guard import CrossTenantGuard
 from diucs.application.platform_services import PlatformServices, TenantAdminServices
+from diucs.application.use_cases.tenant_offboard import OffboardTenant
 from diucs.bootstrap.container import Container, build, build_for_tests
 from diucs.bootstrap.platform_services import (
     CONFIGURATION_ROLES,
@@ -142,7 +143,10 @@ async def test_a_status_change_tells_the_edge_of_this_process_at_once(
     install_platform_routes(app, container)
     platform: PlatformServices = app.state.platform_services
 
-    for use_case in (platform.suspend, platform.resume, platform.offboard):
+    # the route's offboarding is the one that ends the memberships first (TEN-074), and it moves
+    # the record through TEN-075's step, which is the one that tells the edge
+    assert isinstance(platform.offboard, OffboardTenant)
+    for use_case in (platform.suspend, platform.resume, platform.offboard._start):
         (changed,) = use_case._on_changed  # type: ignore[attr-defined]
         changed("tenant-a")
 

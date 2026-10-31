@@ -35,6 +35,7 @@ from diucs.domain.rules.projection import (
     build_criteria_projection,
     build_service_projection,
 )
+from diucs.domain.rules.projection_validity import next_status_change
 from tests.support.network_samples import (
     ACCOUNT_B,
     ACCOUNT_OWNER,
@@ -192,7 +193,7 @@ def _active(
 
 
 class _Rig:
-    def __init__(self) -> None:
+    def __init__(self, zones: Any = None) -> None:
         self.world = _World()
         self.registry = _Registry()
         self.publisher = _Publisher()
@@ -202,6 +203,7 @@ class _Rig:
             self.registry,  # type: ignore[arg-type]
             self.publisher,
             FixedClock(NOW),
+            zones,
         )
 
     def allow(self, *scopes: GrantScope, network_id: str = NETWORK_ID, listed: bool = True) -> None:
@@ -241,8 +243,9 @@ async def test_a_grant_and_an_admitted_listing_send_one_message_with_the_allowli
         confirmed_since=0,
         policy=DEFAULT_POLICY,
         source_version=int(NOW.timestamp() * 1000),
-        valid_until=None,
+        valid_until=next_status_change(sample_profile(), sample_report().effective_at, NOW),
     )
+    assert expected.valid_until is not None
     assert sent.network_id == NETWORK_ID
     assert sent.source_tenant_id == MEMBER_B
     assert (sent.grant_id, sent.grant_version) == ("grant-capacity", 1)
@@ -464,3 +467,42 @@ async def test_the_suspended_code_is_the_flag_the_board_uses(rig: _Rig) -> None:
     await rig.producer.project(GrantScope.CAPACITY, SERVICE_ID)
     assert rig.world.suspended == set()  # nothing was written to it
     assert SERVICE_FLAG_SUSPENDED  # the producer asks the unit for this code
+
+
+# The validity instant (TEN-056)
+
+
+async def test_a_capacity_message_carries_the_instant_its_status_can_next_change(
+    rig: _Rig,
+) -> None:
+    rig.allow(GrantScope.CAPACITY)
+    run = await rig.producer.project(GrantScope.CAPACITY, SERVICE_ID)
+    [sent] = rig.publisher.sent
+    valid_until = sent.body["valid_until"]
+    assert isinstance(valid_until, str) and valid_until > NOW.strftime("%Y-%m-%dT%H:%M:%SZ")
+    assert run.next_boundary is not None and run.next_boundary > NOW
+
+
+async def test_a_suspended_service_has_no_time_boundary(rig: _Rig) -> None:
+    rig.allow(GrantScope.CAPACITY)
+    rig.world.suspended = {SERVICE_ID}
+    run = await rig.producer.project(GrantScope.CAPACITY, SERVICE_ID)
+    [sent] = rig.publisher.sent
+    assert sent.body["valid_until"] is None
+    assert run.next_boundary is None
+
+
+async def test_the_boundary_is_read_in_the_tenants_own_zone() -> None:
+    asked: list[Any] = []
+
+    class _Zones:
+        async def zone_of(self, scope: Any) -> Any:
+            asked.append(scope)
+            from diucs.domain.rules.london_time import LONDON
+
+            return LONDON
+
+    rig = _Rig(zones=_Zones())
+    rig.allow(GrantScope.CAPACITY)
+    await rig.producer.project(GrantScope.CAPACITY, SERVICE_ID)
+    assert [str(scope) for scope in asked] == [MEMBER_B]

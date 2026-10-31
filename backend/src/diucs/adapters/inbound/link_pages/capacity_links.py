@@ -48,6 +48,7 @@ from diucs.application.ports.outbound.tokens import (
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.tenancy import bind_tenant
 from diucs.application.tenant_settings import DirectoryZones
+from diucs.application.uow_idempotency import UnitOfWorkIdempotency
 from diucs.application.use_cases.confirm_capacity import ConfirmCapacity
 from diucs.application.use_cases.link_access import (
     CAPACITY_PURPOSE,
@@ -64,7 +65,6 @@ from diucs.application.use_cases.link_access import (
     RespondViaLink,
     RespondViaLinkCommand,
     SendTheNumber,
-    UnitOfWorkIdempotency,
     ViewLink,
     ViewLinkQuery,
 )

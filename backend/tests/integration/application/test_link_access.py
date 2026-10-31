@@ -25,6 +25,7 @@ from diucs.application.ports.outbound.messaging import Communication
 from diucs.application.ports.outbound.tokens import LinkTokenService
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.tenancy import ScopeId, TenantNotBound, bind_scope
+from diucs.application.uow_idempotency import UnitOfWorkIdempotency
 from diucs.application.use_cases import link_access
 from diucs.application.use_cases.confirm_capacity import ConfirmCapacity
 from diucs.application.use_cases.link_access import (
@@ -36,7 +37,6 @@ from diucs.application.use_cases.link_access import (
     RespondViaLink,
     RespondViaLinkCommand,
     SendTheNumber,
-    UnitOfWorkIdempotency,
     ViewLinkQuery,
 )
 from diucs.application.use_cases.link_access import LinkAction as Action

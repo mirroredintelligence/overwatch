@@ -34,10 +34,10 @@ from diucs.adapters.inbound.fhir_rest.clinical_mapping import clinical_task
 from diucs.adapters.inbound.fhir_rest.concurrency import idempotency_key
 from diucs.adapters.inbound.fhir_rest.errors import operation_outcome
 from diucs.adapters.inbound.fhir_rest.mapping import validate_outbound
-from diucs.adapters.inbound.fhir_rest.routes_services import UnitOfWorkIdempotency
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.uow_idempotency import UnitOfWorkIdempotency
 from diucs.application.use_cases.cancel_booking import CancelBooking, CancelBookingCommand
 from diucs.application.use_cases.clinical_advice import ReadClinicalRequest
 from diucs.application.use_cases.query_board import QueryBoard

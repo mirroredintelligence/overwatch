@@ -34,7 +34,6 @@ from diucs.adapters.inbound.fhir_rest.auth import require_role
 from diucs.adapters.inbound.fhir_rest.capability import FhirJSONResponse
 from diucs.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
 from diucs.adapters.inbound.fhir_rest.routes_registration import NO_STORE
-from diucs.adapters.inbound.fhir_rest.routes_services import UnitOfWorkIdempotency
 from diucs.application.actor import Actor
 from diucs.application.idempotency import format_instant
 from diucs.application.ports.outbound.clock import Clock
@@ -45,6 +44,7 @@ from diucs.application.ports.outbound.tokens import LinkTokenService, SecretStor
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.tenancy import ScopeId
 from diucs.application.tenant_settings import DirectoryZones, resolve_link_base
+from diucs.application.uow_idempotency import UnitOfWorkIdempotency
 from diucs.application.use_cases.advisor_phoned import (
     PHONED_ANSWERS,
     PhonedAnswer,

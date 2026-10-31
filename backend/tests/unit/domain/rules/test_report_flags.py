@@ -502,3 +502,22 @@ def test_flags_are_unique_and_in_rule_order(new_draw: Draw, recent_draws: list[D
     result = flags(build(new_draw), [build(d) for d in recent_draws])
     assert len(result) == len(set(result))
     assert result == [f for f in (MANY, DIFFERS) if f in result]
+
+
+# --- One open flag for each service and reason (KI-101) ---------------------------------------
+
+
+def test_a_reason_with_an_open_flag_earns_no_new_one() -> None:
+    from diucs.domain.rules.report_flags import new_flag_reasons
+
+    assert new_flag_reasons([MANY, DIFFERS], {MANY}) == [DIFFERS]
+    assert new_flag_reasons([MANY, DIFFERS], {MANY, DIFFERS}) == []
+    assert new_flag_reasons([MANY, DIFFERS], set()) == [MANY, DIFFERS]
+
+
+def test_a_reason_is_given_once_and_the_order_is_kept() -> None:
+    from diucs.domain.rules.report_flags import new_flag_reasons
+
+    twice = ReportFlagReason.OUT_OF_RANGE_TWICE
+    assert new_flag_reasons([DIFFERS, twice, DIFFERS, MANY], frozenset()) == [DIFFERS, twice, MANY]
+    assert new_flag_reasons([], {MANY}) == []

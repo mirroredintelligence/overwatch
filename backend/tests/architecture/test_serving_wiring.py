@@ -35,7 +35,10 @@ def unzoned_constructions(source: str) -> list[int]:
 
 
 def test_the_scanner_sees_an_unzoned_construction() -> None:
-    assert unzoned_constructions("ReportCapacity(a, b, c, d)\nConfirmCapacity(a, b, c, d)") == [1, 2]
+    assert unzoned_constructions("ReportCapacity(a, b, c, d)\nConfirmCapacity(a, b, c, d)") == [
+        1,
+        2,
+    ]
 
 
 def test_the_scanner_accepts_a_zone_by_keyword_or_by_position() -> None:

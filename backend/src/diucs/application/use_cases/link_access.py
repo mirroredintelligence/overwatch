@@ -882,21 +882,3 @@ class CapacityLinkHandler:
             await uow.idempotency.put(key, _Renewed(communication_id))
             await uow.commit()
         return True
-
-
-class UnitOfWorkIdempotency:
-    """The idempotency store of a use case's early replay check, on the application's own unit of
-    work, so an inbound adapter needs no outbound adapter. The authoritative check and the write
-    of the key are inside the use case's unit of work."""
-
-    def __init__(self, uow_factory: UnitOfWorkFactory) -> None:
-        self._uow_factory = uow_factory
-
-    async def get(self, key: str) -> object | None:
-        async with self._uow_factory() as uow:
-            return await uow.idempotency.get(key)
-
-    async def put(self, key: str, result: object) -> None:
-        async with self._uow_factory() as uow:
-            await uow.idempotency.put(key, result)
-            await uow.commit()

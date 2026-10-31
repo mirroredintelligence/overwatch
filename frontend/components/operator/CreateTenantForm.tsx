@@ -6,7 +6,7 @@ import { TextField } from '@/components/forms/TextField';
 import { Button } from '@/components/ui/Button';
 import { operatorSend } from '@/lib/operator/browser';
 import type { OdsRecord, OdsSearchHit } from '@/lib/operator/ods';
-import { NHS_ORGANISATION_TYPE_CODES, ORGANISATION_TYPE_WORDS, TENANT_ID_PATTERN } from '@/lib/operator/words';
+import { NHS_ORGANISATION_TYPE_CODES, ORGANISATION_TYPE_WORDS, organisationTypeWord, TENANT_ID_PATTERN } from '@/lib/operator/words';
 import { useSubmitKey } from '@/lib/tenantAdmin/browser';
 import { MAPPABLE_ROLE_WORDS } from '@/lib/tenantAdmin/roles';
 import styles from '@/components/admin/admin.module.css';
@@ -45,6 +45,8 @@ export function CreateTenantForm() {
   const [odsRecord, setOdsRecord] = useState<OdsRecord | null>(null);
   const [odsNote, setOdsNote] = useState('');
   const [lookupNote, setLookupNote] = useState('');
+  /** The domain a directory id was found for (the card replaces the fields while it is set). */
+  const [directoryFrom, setDirectoryFrom] = useState<string | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
   const [nextKey, setNextKey] = useState(1);
   const [errors, setErrors] = useState<FieldError[]>([]);
@@ -107,6 +109,12 @@ export function CreateTenantForm() {
     if (id.trim() === '') setId(suggestedTenantId(record.name));
   }
 
+  function forgetDirectory() {
+    setDirectoryFrom(null);
+    setDirectory('');
+    setLookupNote('');
+  }
+
   function forgetNhs() {
     setOdsRecord(null);
     setOdsHits(null);
@@ -128,6 +136,7 @@ export function CreateTenantForm() {
       return;
     }
     setDirectory(found.directoryId);
+    setDirectoryFrom(found.domain);
     setLookupNote(`Found the directory for ${found.domain}. Check it is the organisation’s before you create the tenant.`);
   }
 
@@ -247,8 +256,12 @@ export function CreateTenantForm() {
               </Button>
             </div>
           )}
-          <p className={styles.text}>Not an NHS organisation? Enter it by hand below. An NHS trust, ICB or GP practice needs its ODS code.</p>
+          {odsRecord === null ? (
+            <p className={styles.text}>Not an NHS organisation? Enter it by hand below. An NHS trust, ICB or GP practice needs its ODS code.</p>
+          ) : null}
           <TextField id="tenant-id" label="Tenant id" value={id} onChange={edit(setId)} requirement="none" hint="Lower-case letters, digits and hyphens. It cannot be changed." error={problemOf('tenant-id')} autoComplete="off" />
+          {odsRecord === null ? (
+            <>
           <TextField id="display-name" label="Display name" value={displayName} onChange={edit(setDisplayName)} requirement="none" error={problemOf('display-name')} />
           <TextField id="legal-name" label="Legal name" value={legalName} onChange={edit(setLegalName)} requirement="none" error={problemOf('legal-name')} />
           <div className={styles.selectLabel}>
@@ -264,6 +277,10 @@ export function CreateTenantForm() {
           <TextField id="ods-code" label="ODS code" value={ods} onChange={edit(setOds)} requirement="optional" error={problemOf('ods-code')} />
           <TextField id="country" label="Country code" value={country} onChange={edit(setCountry)} requirement="none" error={problemOf('country')} />
           <TextField id="time-zone" label="Time zone" value={zone} onChange={edit(setZone)} requirement="none" />
+            </>
+          ) : (
+            <p className={styles.text}>Organisation type: {organisationTypeWord(type)} · Country: {country} · Time zone: {zone}</p>
+          )}
         </fieldset>
 
         <fieldset className={styles.fieldset}>
@@ -271,6 +288,8 @@ export function CreateTenantForm() {
           <p className={styles.text}>
             The directory the organisation’s staff sign in with. It is saved as <strong>waiting</strong>: nobody can use it until you have checked the domain and verified it, on the tenant’s page.
           </p>
+          {directoryFrom === null ? (
+            <>
           <TextField
             id="directory-domain"
             label="Organisation’s domain"
@@ -298,6 +317,18 @@ export function CreateTenantForm() {
             autoComplete="off"
             dataEl="OP-CREATE-DIRECTORY-INPUT"
           />
+            </>
+          ) : (
+            <div className={styles.panel} data-el="OP-CREATE-DIRECTORY-CARD">
+              <p className={styles.text}>
+                <strong>Entra directory</strong> · {directory}
+              </p>
+              <p className={styles.text}>Found from the domain {directoryFrom}. Check it is the organisation’s before you create the tenant.</p>
+              <Button variant="neutral" onClick={forgetDirectory} dataEl="OP-CREATE-DIRECTORY-FORGET-BTN">
+                Choose another directory
+              </Button>
+            </div>
+          )}
           <p className={styles.row}>
             <span className={styles.text}>Verification</span>
             <span className={`${styles.tag} ${styles.tagDashed}`}>Waiting: verified after creation</span>

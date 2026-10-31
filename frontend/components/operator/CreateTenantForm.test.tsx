@@ -71,12 +71,10 @@ describe('CreateTenantForm', () => {
     await user.click(await screen.findByRole('button', { name: /Use THE ARDLEIGH SURGERY \(F81044/ }));
     const record = await screen.findByText(/Active links:/);
     expect(record).toHaveTextContent('NHS ESSEX ICB - 06T (06T)');
-    expect(screen.getByLabelText('Display name')).toHaveValue('THE ARDLEIGH SURGERY');
-    expect(screen.getByLabelText('Legal name')).toHaveValue('THE ARDLEIGH SURGERY');
-    expect(screen.getByLabelText('ODS code')).toHaveValue('F81044');
-    expect(screen.getByLabelText('Organisation type')).toHaveValue('gp-practice');
-    expect(screen.getByLabelText('Country code')).toHaveValue('GB');
-    expect(screen.getByLabelText('Time zone')).toHaveValue('Europe/London');
+    // Once matched, the record's fields are not typed in again: the card says what it filled.
+    expect(screen.queryByLabelText('Display name')).toBeNull();
+    expect(screen.queryByLabelText('ODS code')).toBeNull();
+    expect(screen.getByText(/Organisation type: GP practice · Country: GB · Time zone: Europe\/London/)).toBeInTheDocument();
     expect(screen.getByLabelText('Tenant id')).toHaveValue('the-ardleigh-surgery');
   });
 
@@ -100,8 +98,11 @@ describe('CreateTenantForm', () => {
     render(<CreateTenantForm />);
     await user.type(screen.getByLabelText('Organisation’s domain'), 'example.nhs.uk');
     await user.click(screen.getByRole('button', { name: 'Look up directory id' }));
-    await waitFor(() => expect(screen.getByLabelText('Directory id')).toHaveValue('c5901e0b-8d43-4ae8-97c3-ca6c52573a33'));
-    expect(screen.getByRole('status')).toHaveTextContent('Found the directory for example.nhs.uk');
+    const card = await screen.findByText('Entra directory');
+    expect(card.closest('[data-el="OP-CREATE-DIRECTORY-CARD"]')).toHaveTextContent('c5901e0b-8d43-4ae8-97c3-ca6c52573a33');
+    expect(screen.queryByLabelText('Directory id')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Choose another directory' }));
+    expect(screen.getByLabelText('Directory id')).toHaveValue('');
   });
 
   it('says so when a domain has no directory, and fills nothing', async () => {

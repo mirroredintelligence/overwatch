@@ -6968,3 +6968,13 @@ Status: accepted (decided 2026-10-31 under DEC-133) · Affects: `application/use
 7. **Idempotent.** The PUT replaces `Organization/<odsCode>` at its current version. An interrupted creation that is run again writes one Organization node with a new version, not a duplicate. Versions are kept as the store keeps them.
 8. **Validation.** The record is checked by the domain record (ODS code `[A-Z0-9]{3,8}`, bounded strings, at most 20 roles and 50 links) and by the REST and BFF bodies (no unknown keys). The record's code must equal the tenant's `odsCode`. The form sends `odsRecord` only when the ODS code field still equals the record's code and the type is NHS-typed; the back end checks all of it again.
 9. **Idempotency of the record's roles and links.** Role and link names come from the front end's name lookups; a failed name lookup falls back to the id (existing behaviour, unchanged here).
+
+## DEC-1315 Each active ODS link keeps its ODS relationship id, and is not a FHIR `partOf`
+
+Status: accepted (decided 2026-10-31 under DEC-133) · Affects: `domain/model/ods_record.py` (`OdsLink.relationship`), `application/ods_organisation.py`, `adapters/inbound/fhir_rest/routes_platform.py`, `frontend/lib/operator/ods.ts`, `frontend/lib/operator/bodies.ts`. Amends DEC-1314 item 3 (the link shape).
+
+1. **The relationship id is kept.** Each active link records the ODS relationship id it came from (RE4 and so on). The id is what tells "commissioned by" from "member of".
+2. **Not `partOf`.** FHIR `Organization.partOf` would lose the relationship type, and the resource store would create a placeholder node in the tenant's graph for every linked organisation that the tenant does not hold.
+3. **The link stays a backbone child** (`Organization_Link`, a custom element that DEC-1314 records as not standard FHIR R4).
+4. **Checked:** the unit tests for the record, the mapping and the platform route pass (145). The Neo4j write is not run here (no Docker).
+

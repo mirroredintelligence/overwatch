@@ -23,7 +23,7 @@ def _record(**fields: object) -> OdsOrganisationRecord:
         "postcode": "CO7 7LD",
         "primary_role": "RO177",
         "roles": (PRIMARY, SECONDARY),
-        "links": (OdsLink("F81045", "A PARENT", "RO98"),),
+        "links": (OdsLink("RE4", "F81045", "A PARENT", "RO98"),),
         "last_changed_at": "2024-05-01",
     }
     return OdsOrganisationRecord(**{**base, **fields})  # type: ignore[arg-type]
@@ -61,7 +61,7 @@ def test_text_that_is_empty_or_too_long_is_refused(fields: dict[str, object]) ->
 
 def test_more_roles_or_links_than_the_bounds_are_refused() -> None:
     roles = tuple(OdsRole(f"RO{i}", f"ROLE {i}", False) for i in range(MAX_ROLES + 1))
-    links = tuple(OdsLink("F81045", "A PARENT", "RO98") for _ in range(MAX_LINKS + 1))
+    links = tuple(OdsLink("RE4", "F81045", "A PARENT", "RO98") for _ in range(MAX_LINKS + 1))
 
     with pytest.raises(ValidationFailed) as too_many_roles:
         _record(primary_role=None, roles=roles, links=())
@@ -94,9 +94,16 @@ def test_a_role_id_that_is_not_an_ods_role_is_refused() -> None:
 
 
 def test_a_link_with_an_empty_role_is_accepted_and_one_with_a_bad_role_is_not() -> None:
-    assert OdsLink("F81045", "A PARENT", "").role == ""
+    assert OdsLink("RE4", "F81045", "A PARENT", "").role == ""
     with pytest.raises(ValidationFailed):
-        OdsLink("F81045", "A PARENT", "ro98!")
+        OdsLink("RE4", "F81045", "A PARENT", "ro98!")
+
+
+def test_a_link_needs_an_ods_relationship_id() -> None:
+    with pytest.raises(ValidationFailed):
+        OdsLink("", "F81045", "A PARENT", "RO98")
+    with pytest.raises(ValidationFailed):
+        OdsLink("re4!", "F81045", "A PARENT", "RO98")
 
 
 def test_the_same_role_twice_is_refused() -> None:

@@ -13,6 +13,7 @@ from overwatch.domain.errors import ValidationFailed
 
 ODS_CODE: Final = re.compile(r"[A-Z0-9]{3,8}")
 ODS_ROLE: Final = re.compile(r"[A-Z0-9]{1,20}")
+ODS_RELATIONSHIP: Final = re.compile(r"[A-Z0-9]{1,10}")
 MAX_ROLES: Final = 20
 MAX_LINKS: Final = 50
 MAX_NAME: Final = 120
@@ -49,14 +50,21 @@ class OdsRole:
 
 @dataclass(frozen=True, slots=True)
 class OdsLink:
-    """An active relationship: the linked organisation's code, name and primary role id ('' when it
-    has none)."""
+    """An active relationship of the record: its ODS relationship id (for example RE4), the linked
+    organisation's code, its name, and its primary role id ('' when it has none). The relationship
+    id keeps the meaning (commissioned by, member of, and so on); a FHIR `partOf` would not."""
 
+    relationship: str
     code: str
     name: str
     role: str
 
     def __post_init__(self) -> None:
+        if (
+            not isinstance(self.relationship, str)
+            or ODS_RELATIONSHIP.fullmatch(self.relationship) is None
+        ):
+            raise ValidationFailed("link.relationship", "must be an ODS relationship id")
         if not isinstance(self.code, str) or ODS_CODE.fullmatch(self.code) is None:
             raise ValidationFailed("link.code", "must be an ODS code")
         _text("link.name", self.name, MAX_NAME)

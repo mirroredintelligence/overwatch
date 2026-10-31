@@ -46,7 +46,7 @@ function odsRecordBody(raw: unknown): Obj {
     }),
     links: record.links.map((l: unknown) => {
       const link = asObject(l);
-      return { code: text(link.code, 1, 8), name: text(link.name, 1, 120), role: typeof link.role === 'string' ? text(link.role, 0, 20) : '' };
+      return { relationship: text(link.relationship, 1, 10), code: text(link.code, 1, 8), name: text(link.name, 1, 120), role: typeof link.role === 'string' ? text(link.role, 0, 20) : '' };
     }),
     lastChangedAt: record.lastChangedAt === null || record.lastChangedAt === undefined ? null : text(record.lastChangedAt, 1, 40),
   };

@@ -145,6 +145,7 @@ class OdsRoleBody(_Body):
 
 
 class OdsLinkBody(_Body):
+    relationship: str = Field(min_length=1, max_length=10)
     code: str = Field(min_length=1, max_length=8)
     name: str = Field(min_length=1, max_length=120)
     role: str = Field(default="", max_length=20)
@@ -249,7 +250,7 @@ def _ods_record(body: OdsRecordBody | None) -> OdsOrganisationRecord | None:
         postcode=body.postcode,
         primary_role=body.primaryRole,
         roles=tuple(OdsRole(r.id, r.name, r.primary) for r in body.roles),
-        links=tuple(OdsLink(k.code, k.name, k.role) for k in body.links),
+        links=tuple(OdsLink(k.relationship, k.code, k.name, k.role) for k in body.links),
         last_changed_at=body.lastChangedAt,
     )
 

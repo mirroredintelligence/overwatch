@@ -18,7 +18,7 @@ const ORGANISATION_TYPE_BY_ROLE: Readonly<Record<string, string>> = {
 };
 
 export type OdsRole = { id: string; name: string; primary: boolean };
-export type OdsLink = { code: string; name: string; role: string };
+export type OdsLink = { relationship: string; code: string; name: string; role: string };
 export type OdsSearchHit = { code: string; name: string; postcode: string | null; primaryRole: string | null; status: string };
 export type OdsRecord = OdsSearchHit & {
   roles: OdsRole[];
@@ -121,11 +121,11 @@ export async function recordOds(code: string, fetcher: typeof fetch = fetch): Pr
     .filter((r) => r.Status === 'Active')
     .map((r) => {
       const target = (r.Target as Json | undefined) ?? {};
-      const id = ((target.OrgId as Json | undefined)?.extension as string | undefined) ?? '';
+      const code = ((target.OrgId as Json | undefined)?.extension as string | undefined) ?? '';
       const role = ((target.PrimaryRoleId as Json | undefined)?.id as string | undefined) ?? '';
-      return { code: id, name: '', role };
+      return { relationship: String(r.id ?? ''), code, name: '', role };
     })
-    .filter((l) => l.code !== '');
+    .filter((l) => l.code !== '' && l.relationship !== '');
 
   // The names of the roles and of the linked organisations, for the screen (one call each, in parallel).
   const roleNames = await Promise.all(roles.map((r) => roleName(r.id, fetcher)));

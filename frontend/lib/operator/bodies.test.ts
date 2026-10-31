@@ -8,7 +8,7 @@ const RECORD = {
   postcode: 'CO7 7LD',
   primaryRole: 'RO177',
   roles: [{ id: 'RO177', name: 'PRESCRIBING COST CENTRE', primary: true }],
-  links: [{ code: '06T', name: 'NHS ESSEX ICB - 06T', role: 'RO98' }],
+  links: [{ relationship: 'RE4', code: '06T', name: 'NHS ESSEX ICB - 06T', role: 'RO98' }],
   lastChangedAt: '2025-01-01',
 };
 

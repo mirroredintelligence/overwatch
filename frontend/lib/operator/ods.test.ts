@@ -89,7 +89,7 @@ describe('recordOds', () => {
       { id: 'RO177', name: 'PRESCRIBING COST CENTRE', primary: true },
       { id: 'RO76', name: 'GP PRACTICE', primary: false },
     ]);
-    expect(record?.links).toEqual([{ code: '06T', name: 'NHS ESSEX ICB - 06T', role: 'RO98' }]);
+    expect(record?.links).toEqual([{ relationship: 'RE4', code: '06T', name: 'NHS ESSEX ICB - 06T', role: 'RO98' }]);
   });
 
   it('gives nothing for a code that is not one, or an organisation that is not there', async () => {

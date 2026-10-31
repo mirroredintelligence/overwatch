@@ -62,7 +62,13 @@ def organisation_resource(
     resource["extension"] = extensions
     if record.links:
         resource["link"] = [
-            {"code": link.code, "display": link.name, "role": link.role} for link in record.links
+            {
+                "relationship": link.relationship,
+                "code": link.code,
+                "display": link.name,
+                "role": link.role,
+            }
+            for link in record.links
         ]
     return resource
 

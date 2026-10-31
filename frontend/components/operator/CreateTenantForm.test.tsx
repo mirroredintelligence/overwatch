@@ -59,7 +59,7 @@ describe('CreateTenantForm', () => {
           record: {
             code: 'F81044', name: 'THE ARDLEIGH SURGERY', status: 'Active', postcode: 'CO7 7LD', primaryRole: 'RO177',
             roles: [{ id: 'RO177', name: 'PRESCRIBING COST CENTRE', primary: true }, { id: 'RO76', name: 'GP PRACTICE', primary: false }],
-            links: [{ code: '06T', name: 'NHS ESSEX ICB - 06T', role: 'RO98' }],
+            links: [{ relationship: 'RE4', code: '06T', name: 'NHS ESSEX ICB - 06T', role: 'RO98' }],
             lastChangedAt: '2025-01-01', suggestedOrganisationType: 'gp-practice',
           },
         }),

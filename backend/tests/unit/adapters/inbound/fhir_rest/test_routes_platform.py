@@ -964,7 +964,9 @@ ODS_RECORD = {
     "postcode": "CO7 7LD",
     "primaryRole": "RO177",
     "roles": [{"id": "RO177", "name": "PRESCRIBING COST CENTRE", "primary": True}],
-    "links": [{"code": "F81045", "name": "A PARENT PRACTICE", "role": "RO98"}],
+    "links": [
+        {"relationship": "RE4", "code": "F81045", "name": "A PARENT PRACTICE", "role": "RO98"}
+    ],
     "lastChangedAt": "2024-05-01",
 }
 
@@ -986,7 +988,10 @@ async def test_a_creation_with_the_nhs_record_is_accepted_and_the_record_reaches
         {**ODS_RECORD, "unexpected": True},
         {**ODS_RECORD, "code": "f81044"},
         {**ODS_RECORD, "roles": [{"id": "RO177", "name": "X", "primary": True, "x": 1}]},
-        {**ODS_RECORD, "links": [{"code": "F81045", "name": "A", "role": "RO98!"}]},
+        {
+            **ODS_RECORD,
+            "links": [{"relationship": "RE4", "code": "F81045", "name": "A", "role": "RO98!"}],
+        },
         {**ODS_RECORD, "roles": [{"id": "RO1", "name": "N", "primary": True}] * 21},
     ],
 )

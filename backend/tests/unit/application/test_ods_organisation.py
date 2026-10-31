@@ -22,7 +22,7 @@ RECORD = OdsOrganisationRecord(
         OdsRole("RO177", "PRESCRIBING COST CENTRE", True),
         OdsRole("RO76", "GP PRACTICE", False),
     ),
-    links=(OdsLink("F81045", "A PARENT PRACTICE", "RO98"),),
+    links=(OdsLink("RE4", "F81045", "A PARENT PRACTICE", "RO98"),),
     last_changed_at="2024-05-01",
 )
 
@@ -65,7 +65,9 @@ def test_each_active_link_is_a_child_with_its_code_name_and_role() -> None:
         ods_code="F81044", legal_name="Ardleigh Ltd", record=RECORD, now=NOW
     )
 
-    assert resource["link"] == [{"code": "F81045", "display": "A PARENT PRACTICE", "role": "RO98"}]
+    assert resource["link"] == [
+        {"relationship": "RE4", "code": "F81045", "display": "A PARENT PRACTICE", "role": "RO98"}
+    ]
 
 
 def test_an_inactive_record_is_not_active() -> None:

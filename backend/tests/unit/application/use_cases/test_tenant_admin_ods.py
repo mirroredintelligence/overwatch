@@ -34,7 +34,7 @@ RECORD = OdsOrganisationRecord(
     postcode="CO7 7LD",
     primary_role="RO177",
     roles=(OdsRole("RO177", "PRESCRIBING COST CENTRE", True),),
-    links=(OdsLink("F81045", "A PARENT PRACTICE", "RO98"),),
+    links=(OdsLink("RE4", "F81045", "A PARENT PRACTICE", "RO98"),),
     last_changed_at="2024-05-01",
 )
 

@@ -565,7 +565,7 @@ def _nhs_record() -> Any:
         postcode="CO7 7LD",
         primary_role="RO177",
         roles=(OdsRole(id="RO177", name="PRESCRIBING COST CENTRE", primary=True),),
-        links=(OdsLink(code="06T", name="NHS ESSEX ICB - 06T", role="RO98"),),
+        links=(OdsLink(relationship="RE4", code="06T", name="NHS ESSEX ICB - 06T", role="RO98"),),
         last_changed_at="2025-01-01",
     )
 

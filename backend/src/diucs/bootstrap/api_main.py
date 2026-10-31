@@ -32,10 +32,17 @@ request comes from Cloudflare (`adapters/inbound/edge_proxy/cloudflare.py`, depl
 5); uvicorn's own forwarded-header handling is OFF, so nothing else decides who the client is. The
 access log hides link tokens (`RedactLinkTokens`).
 
-Not built here, because each needs a credential or a service that does not exist yet: the secret
-store of the process (Key Vault: `load_secret_store`) and the Entra identity verifier
-(`RefusingIdentityVerifier` stands in). Until the first exists the process exits at start-up with
-a message; until the second does, every sign-in is refused.
+The secrets come from the process's secret store (`bootstrap/secret_store.py`, DEC-1304): Azure Key
+Vault behind the app's managed identity when `DIUCS_KEY_VAULT_URL` is set (the Neo4j password, the
+Redis URL and the Service Bus connection are then read from it too, and the process refuses to start
+when one of them is also in the plain environment), or on a development machine the file store of
+`DIUCS_SECRETS_DIR` (refused in production). The address lookup key (`os-places-api-key`) is read
+from the store too, and is optional. With neither, the process exits at start-up with a
+message. `check_secrets` reads every required name at start-up, which also warms the cache, and an
+outage or a missing name stops the process naming the secret.
+
+Not built here, because it needs a credential that does not exist yet: the Entra identity verifier
+(`RefusingIdentityVerifier` stands in), so every sign-in is refused until it is.
 """
 
 import logging
@@ -59,12 +66,14 @@ from diucs.adapters.inbound.edge_proxy.cloudflare import (
 )
 from diucs.adapters.inbound.fhir_rest.app import create_app
 from diucs.adapters.inbound.fhir_rest.routes_auth import ExchangeDeps
+from diucs.adapters.inbound.fhir_rest.routes_reporter_setup import VAPID_PUBLIC_KEY_SECRET
 from diucs.adapters.inbound.link_pages.capacity_links import (
     LinkPagesDeps,
     install_log_redaction,
 )
 from diucs.adapters.inbound.sms_webhook.routes import SmsWebhookDeps
 from diucs.adapters.outbound.bus_servicebus.service_bus import ServiceBusEventBus
+from diucs.adapters.outbound.push_webpush.web_push import VAPID_PRIVATE_KEY_SECRET
 from diucs.adapters.outbound.telemetry.azure_monitor_query import LogsQueryClient
 from diucs.adapters.outbound.telemetry.otel import configure_telemetry
 from diucs.application.ports.outbound.event_bus import EventBus
@@ -76,7 +85,7 @@ from diucs.application.ports.outbound.identity_verifier import (
     VerifiedIdentity,
 )
 from diucs.application.ports.outbound.tenants import normalise_directory_id
-from diucs.application.ports.outbound.tokens import SecretStore
+from diucs.application.ports.outbound.tokens import SecretStore, SecretStoreUnavailable
 from diucs.application.tenant_resolution import DirectoryInboundLines
 from diucs.application.use_cases.exchange_token import ACCOUNT_REF_SECRET, SIGNING_SECRET
 from diucs.bootstrap.container import (
@@ -88,27 +97,56 @@ from diucs.bootstrap.container import (
 )
 from diucs.bootstrap.network_services import build_network_admin_services, build_network_services
 from diucs.bootstrap.platform_services import install_platform_routes
+from diucs.bootstrap.secret_store import (
+    OS_PLACES_API_KEY_SECRET,
+    SecretConfigError,
+    address_key_from_store,
+    close_store,
+    load_secret_store,
+    settings_from_vault,
+)
 from diucs.bootstrap.settings import Settings
 from diucs.bootstrap.telemetry import api_instrumentation
 from diucs.domain.errors import NotFound
+from diucs.domain.rules.browser_insight import MARKER_SECRET
 from diucs.domain.rules.tenant_keys import PER_TENANT_KEY_NAMES
 
 log = logging.getLogger(__name__)
 
-REQUIRED_SECRETS: Final[tuple[str, ...]] = tuple(
-    sorted({SIGNING_SECRET, ACCOUNT_REF_SECRET, PHONE_HASH_SECRET, *PER_TENANT_KEY_NAMES})
+REQUIRED_SECRETS: Final[tuple[str, ...]] = (
+    SIGNING_SECRET,
+    *sorted({ACCOUNT_REF_SECRET, PHONE_HASH_SECRET, MARKER_SECRET, *PER_TENANT_KEY_NAMES}),
 )
-"""Every secret the API reads: the token signing key and account reference of the platform, and the
-seven keys each tenant's own is derived from (`TenantKeyedSecrets`)."""
+"""Every platform secret the API must have to start: the token signing key and account reference,
+the key of the browser-insight markers, and the seven keys each tenant's own is derived from
+(`TenantKeyedSecrets`). The signing key is first, so an outage is reported against it. The
+per-tenant Twilio references are read when a tenant sends or receives, and cannot be listed here."""
 
 EDGE_ORIGIN_SECRET: Final = "edge-origin"
 """The optional secret Cloudflare adds to a request in `X-Edge-Auth` (the origin secret)."""
 
+API_OPTIONAL_SECRETS: Final[tuple[str, ...]] = (
+    EDGE_ORIGIN_SECRET,
+    VAPID_PRIVATE_KEY_SECRET,
+    VAPID_PUBLIC_KEY_SECRET,
+    OS_PLACES_API_KEY_SECRET,
+)
+"""The secrets the API reads and can start without (DEC-1304 item 5). Each is a start-up warning
+when the store lacks it (`optional_secret_warnings`; the address key is read with the settings and
+reported by `startup_warnings`), and each fails closed in use: no origin check by secret, no web
+push, no address lookup."""
+
+_OPTIONAL_EFFECT: Final = {
+    EDGE_ORIGIN_SECRET: "the origin secret is not checked (only the edge's address ranges are)",
+    VAPID_PRIVATE_KEY_SECRET: "web push messages are not sent",
+    VAPID_PUBLIC_KEY_SECRET: "the reporter's device set-up offers no web push",
+}
+
 MIN_SECRET_BYTES: Final = 32
 SERVICE_BUS_MISSING: Final = "DIUCS_SERVICEBUS_CONNECTION must be set for the API"
 SECRET_STORE_MISSING: Final = (
-    "no secret store is configured for the API: the Key Vault adapter is not built, and the "
-    "process will not start without the secrets it reads"
+    "no secret store is configured for the API: set DIUCS_KEY_VAULT_URL (Azure Key Vault), or "
+    "for development DIUCS_SECRETS_DIR; the process will not start without the secrets it reads"
 )
 
 
@@ -141,24 +179,54 @@ def _short(store: SecretStore, name: str) -> bool:
 
 
 def check_secrets(store: SecretStore) -> None:
-    """Refuse to start when a secret the API reads is missing or weak. Names only in the message."""
+    """Refuse to start when a secret the API reads is missing, weak or cannot be read. Names only in
+    the message. An outage stops the check at the first name it hits: every further read would wait
+    out the same failure."""
     missing: list[str] = []
     weak: list[str] = []
+    unreadable: list[str] = []
     for name in REQUIRED_SECRETS:
         try:
             if _short(store, name):
                 weak.append(name)
         except NotFound:
             missing.append(name)
-    if missing or weak:
+        except SecretStoreUnavailable:
+            unreadable.append(name)
+            break
+    if missing or weak or unreadable:
         parts = []
         if missing:
             parts.append("missing: " + ", ".join(missing))
         if weak:
             parts.append(f"shorter than {MIN_SECRET_BYTES} bytes: " + ", ".join(weak))
+        if unreadable:
+            parts.append("could not be read: " + ", ".join(unreadable))
         raise ApiConfigError(
             "the secret store does not hold what the API reads (" + "; ".join(parts) + ")"
         )
+
+
+def optional_secret_warnings(store: SecretStore) -> list[str]:
+    """One warning for each optional secret the store does not hold (or cannot read now). The
+    address lookup key is not here: it is read with the settings and `startup_warnings` says when
+    it is absent. Names only."""
+    warnings: list[str] = []
+    names = [name for name in API_OPTIONAL_SECRETS if name != OS_PLACES_API_KEY_SECRET]
+    for index, name in enumerate(names):
+        try:
+            store.get(name)
+        except NotFound:
+            warnings.append(
+                f"the secret {name} is not in the secret store: {_OPTIONAL_EFFECT[name]}"
+            )
+        except SecretStoreUnavailable:
+            warnings.extend(
+                f"the secret {rest} could not be read: {_OPTIONAL_EFFECT[rest]} until it can"
+                for rest in names[index:]
+            )
+            break
+    return warnings
 
 
 def check_settings(settings: Settings) -> None:
@@ -211,7 +279,7 @@ def edge_for(settings: Settings, secrets: SecretStore) -> CloudflareEdge:
         ) from None
     origin: bytes | None
     try:
-        origin = secrets.get(EDGE_ORIGIN_SECRET)
+        origin = secrets.get(EDGE_ORIGIN_SECRET)  # an outage is not "no secret": it passes through
     except NotFound:
         origin = None
     if origin is not None and len(origin) < MIN_SECRET_BYTES:
@@ -312,7 +380,12 @@ def build_api(
     app.state.network_admin = build_network_admin_services(container)
     install_platform_routes(app, container)
     app.router.lifespan_context = serving_lifespan(
-        container, parts.closers, lambda: startup_warnings(settings, container, parts)
+        container,
+        parts.closers,
+        lambda: [
+            *startup_warnings(settings, container, parts),
+            *optional_secret_warnings(parts.secrets),
+        ],
     )
     # Added last, so it is the outermost layer: nothing sees a request before the edge has decided
     # who its client is.
@@ -335,13 +408,6 @@ def create_serving_app(
     return build_api(settings, container, parts, provider=provider)
 
 
-def load_secret_store(settings: Settings) -> SecretStore | None:
-    """The process's secret store, or None when none is built. The production store is Azure Key
-    Vault behind a managed identity (deployment-plan item 3, B8); it needs a vault, so none is
-    built here, and the process stops at start-up rather than serving with every secret missing."""
-    return None
-
-
 def _service_bus_connection(settings: Settings) -> str:
     secret = settings.servicebus_connection
     if secret is None:
@@ -349,36 +415,49 @@ def _service_bus_connection(settings: Settings) -> str:
     return secret.get_secret_value()
 
 
-def _production_parts(settings: Settings) -> ApiParts:
-    connection = _service_bus_connection(settings)
+def prepare_process(settings: Settings) -> tuple[Settings, ApiParts]:
+    """The settings as the process runs them and the external adapters, before anything connects.
+
+    The secret store is chosen first (`load_secret_store`: a plain secret beside the vault, a
+    development directory in production and both together stop the process here). With a vault the
+    Neo4j password, the Redis URL and the Service Bus connection are read from it. The required
+    names are checked later, in `create_serving_app`."""
     store = load_secret_store(settings)
+    if store is not None:
+        settings = (
+            settings_from_vault(settings, store)
+            if settings.key_vault_url is not None
+            else address_key_from_store(settings, store)
+        )
+    connection = _service_bus_connection(settings)
     if store is None:
         raise ApiConfigError(SECRET_STORE_MISSING)
     client = ServiceBusClient.from_connection_string(connection)
     bus = ServiceBusEventBus(client)
-    return ApiParts(
+
+    async def close_secrets() -> None:
+        close_store(store)
+
+    return settings, ApiParts(
         secrets=store,
         verifier=RefusingIdentityVerifier(),
         event_bus=bus,
-        closers=(client.close, bus.close),
+        closers=(close_secrets, client.close, bus.close),  # run in reverse: the store last
     )
 
 
 def app_factory() -> FastAPI:
     """The app of this process, for `uvicorn --factory`. Raises ApiConfigError when the
     configuration is wrong, which stops uvicorn before it listens."""
-    settings = Settings()
-    provider = configure_telemetry(settings)
-    return create_serving_app(settings, _production_parts(settings), provider=provider)
+    settings, parts = prepare_process(Settings())
+    return create_serving_app(settings, parts, provider=configure_telemetry(settings))
 
 
 def main() -> None:
     try:
-        settings = Settings()
-        app = create_serving_app(
-            settings, _production_parts(settings), provider=configure_telemetry(settings)
-        )
-    except ApiConfigError as error:
+        settings, parts = prepare_process(Settings())
+        app = create_serving_app(settings, parts, provider=configure_telemetry(settings))
+    except (ApiConfigError, SecretConfigError) as error:
         raise SystemExit(str(error)) from None
     # Forwarded headers are Cloudflare's to give and the edge's to check: uvicorn trusts none.
     uvicorn.run(

@@ -78,7 +78,7 @@ def test_main_runs_the_workers_on_the_settings_alone(
     monkeypatch.setenv("DIUCS_SERVICEBUS_CONNECTION", CONNECTION)
     seen: list[object] = []
 
-    async def fake_run(settings: Settings) -> None:
+    async def fake_run(settings: Settings, store: object = None) -> None:
         seen.append(type(settings))
 
     monkeypatch.setattr(workers_main, "_run", fake_run)

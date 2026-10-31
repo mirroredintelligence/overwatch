@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Overwatch">
+  <circle cx="60" cy="60" r="50" fill="none" stroke="#14232B" stroke-width="10"/>
+  <circle cx="60" cy="60" r="20" fill="#0B5C8C"/>
+  <rect x="18" y="58.5" width="84" height="3" fill="#14232B"/>
+</svg>

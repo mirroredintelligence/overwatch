@@ -8,7 +8,7 @@ everything Neo4j stores.
 from pathlib import Path
 from typing import Literal
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -28,7 +28,8 @@ class Settings(BaseSettings):
     neo4j_liveness_check_timeout_s: float = 30.0
     neo4j_connection_acquisition_timeout_s: float = 30.0
     neo4j_max_connection_pool_size: int = 50
-    redis_url: str = "redis://localhost:6379/0"
+    # The URL of the pilot's Redis holds its access key, so it is kept out of the repr.
+    redis_url: str = Field(default="redis://localhost:6379/0", repr=False)
     # O01: the build id put on every span and event (`release`). The OTLP endpoint is the
     # collector (O04). Empty means no exporter: telemetry is off and nothing fails.
     release: str = "dev"
@@ -97,3 +98,17 @@ class Settings(BaseSettings):
     # TEN-043: the Entra directory of the platform operator's own staff (a GUID). Unset leaves the
     # operator sign-in unconfigured (it answers as a server with no exchange configuration).
     operator_directory_id: str | None = None
+    # B8 (DEC-1304): where the platform's secrets come from. With `key_vault_url` set (a URL, not a
+    # secret) the process reads them from Azure Key Vault through its managed identity
+    # (`AZURE_CLIENT_ID` picks the identity): the Neo4j password, the Redis URL and the Service Bus
+    # connection too, and the process refuses to start when one of those is also set in the plain
+    # environment. The cache keeps a value for `secret_cache_seconds` (a rotation reaches a running
+    # process by then) and serves it for `secret_stale_seconds` more when the vault cannot be
+    # reached (0 is strict: an outage fails closed at once).
+    key_vault_url: str | None = None
+    secret_cache_seconds: float = 600.0
+    secret_stale_seconds: float = 3600.0
+    # Development only: a directory with a file for each secret (`FileSecretStore`), for running the
+    # API and the workers on a laptop. Refused in the production profile, beside a vault URL and
+    # when the directory is open to group or others. `scripts/make_local_secrets.py` fills one.
+    secrets_dir: Path | None = None

@@ -1,0 +1,174 @@
+/* Splash timeline (ms, from mount): ring 200-900, scan 600-1000, core 900-1250, glint 1200-1600,
+   wordmark 1600-2100, hold to 2400, fade 300. Only transform, opacity and clip-path are animated, except the
+   bloom's blur, which is set once and not animated. */
+
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--c-ink);
+  color: var(--c-bg);
+  transition: opacity 300ms ease-out;
+}
+
+.leaving {
+  opacity: 0;
+}
+
+.lockup {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.mark {
+  width: clamp(88px, 16vw, 132px);
+  height: auto;
+  overflow: visible;
+}
+
+.ring {
+  fill: none;
+  stroke: var(--c-bg);
+  stroke-width: 10;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: ring-draw 700ms cubic-bezier(0.2, 0.7, 0.2, 1) 200ms forwards;
+}
+
+.scan {
+  fill: var(--c-bg);
+  transform: translateX(-70px);
+  animation: scan 400ms ease-in-out 600ms forwards;
+}
+
+.scan rect {
+  fill: var(--c-bg);
+}
+
+.glint {
+  opacity: 0;
+  transform: translateX(-80px);
+  animation: glint 400ms ease-in-out 1200ms forwards;
+}
+
+.core {
+  fill: var(--c-tint);
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scale(0);
+  animation: core-in 350ms cubic-bezier(0.3, 1.4, 0.5, 1) 900ms forwards;
+}
+
+.bloom {
+  fill: var(--c-primary);
+  opacity: 0;
+  filter: blur(14px);
+  animation: bloom 700ms ease-out 900ms forwards;
+}
+
+.word {
+  font-family: var(--font-atkinson), system-ui, sans-serif;
+  font-weight: 700;
+  font-size: clamp(2rem, 6vw, 4.5rem);
+  line-height: 1;
+  white-space: nowrap;
+  clip-path: inset(0 100% 0 0);
+  letter-spacing: 0.08em;
+  animation: word-reveal 500ms cubic-bezier(0.2, 0.7, 0.2, 1) 1600ms forwards;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@keyframes ring-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes scan {
+  to {
+    transform: translateX(70px);
+  }
+}
+
+@keyframes glint {
+  0% {
+    opacity: 0;
+    transform: translateX(-80px);
+  }
+  30% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(80px);
+  }
+}
+
+@keyframes core-in {
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes bloom {
+  0% {
+    opacity: 0;
+  }
+  40% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes word-reveal {
+  to {
+    clip-path: inset(0 0 0 0);
+    letter-spacing: -0.02em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ring,
+  .scan,
+  .glint,
+  .core,
+  .bloom,
+  .word {
+    animation: none;
+  }
+
+  .ring {
+    stroke-dashoffset: 0;
+  }
+
+  .scan {
+    transform: none;
+  }
+
+  .core {
+    transform: scale(1);
+  }
+
+  .word {
+    clip-path: inset(0 0 0 0);
+    letter-spacing: -0.02em;
+  }
+
+  .splash {
+    transition-duration: 150ms;
+  }
+}

@@ -72,6 +72,91 @@ done
 az role assignment create --assignee "$(az ad signed-in-user show --query id -o tsv)" --role "Key Vault Secrets Officer" --scope "$(az keyvault show -n "$KV" --query id -o tsv)"
 ```
 
+### 5a. What each app is given, and the secrets it reads (DEC-1304)
+
+No secret is ever an environment value of a container app. Each app reads its secrets from Key Vault at run
+time through its own managed identity. An app is given exactly these settings, and nothing secret:
+
+| Setting | Value (pilot) | Apps |
+|---|---|---|
+| `DIUCS_KEY_VAULT_URL` | `https://kv-diucs-pilot-7k2q.vault.azure.net/` | api, web, workers |
+| `AZURE_CLIENT_ID` | the client id of the app's own identity (below) | api, web, workers |
+| `DIUCS_NEO4J_URI` | `neo4j+s://8cb817d8.databases.neo4j.io` | api, workers |
+| `DIUCS_NEO4J_USER` | `8cb817d8` | api, workers |
+
+`AZURE_CLIENT_ID` for each identity: api `9d8902dc-4bcb-4703-8183-67dfcaaf55d6`, web
+`8e25e547-e457-4dce-b0b1-29dd0ed0a5e7`, workers `dfb0c9ba-6f9d-4f0e-bc68-5a98d6a49670`, collector
+`e4700742-daa0-4df1-ba9c-252fb7b4d91a` (the collector and Redis are given no vault setting and no vault role).
+The other non-secret settings (`DIUCS_PROFILE=production`, `DIUCS_BASE_URL`, `DIUCS_EDGE`, ...) are plain settings
+too. When creating or updating an app, give the settings like this, one to a line, so none can be mistaken for a
+secret (the pilot values are in the table above):
+
+```bash
+az containerapp create -g "$RG" -n "ca-$P-api-$E" --environment "cae-$P-$E" --user-assigned "$ID_API" \
+  --image "$ACR.azurecr.io/diucs-api:<tag>" --registry-server "$ACR.azurecr.io" --registry-identity "$ID_API" \
+  --env-vars \
+    "DIUCS_PROFILE=production" \
+    "DIUCS_KEY_VAULT_URL=https://kv-diucs-pilot-7k2q.vault.azure.net/" \
+    "AZURE_CLIENT_ID=9d8902dc-4bcb-4703-8183-67dfcaaf55d6" \
+    "DIUCS_NEO4J_URI=neo4j+s://8cb817d8.databases.neo4j.io" \
+    "DIUCS_NEO4J_USER=8cb817d8"
+```
+
+Never set `DIUCS_NEO4J_PASSWORD`, `DIUCS_REDIS_URL`, `DIUCS_SERVICEBUS_CONNECTION` or `DIUCS_OS_PLACES_API_KEY` on
+an app that has `DIUCS_KEY_VAULT_URL`: the process refuses to start (it names the variable and the vault secret that
+replaces it, never a value). Never set `AZURE_CLIENT_SECRET` (or `AZURE_TENANT_ID` with it) for these apps: the
+identity is the managed identity, and a client secret in the environment would be used before it and would be a
+secret in plain configuration.
+
+Each identity holds `Key Vault Secrets User` on this one vault (the three role assignments above are api, web and
+workers) and nothing wider; the collector and Redis hold no vault role. The names below are exactly what the
+start-up check reads. A missing required name stops the process and the message names the secret, never a value; an
+optional one is a warning and the feature it serves stays off. A value that is shorter than 32 bytes is refused.
+Each value is cached for 10 minutes (`DIUCS_SECRET_CACHE_SECONDS`), so a rotated secret reaches a running app within
+that time; if the vault cannot be reached a value already held is served for up to an hour more
+(`DIUCS_SECRET_STALE_SECONDS`, `0` for strict).
+
+#### The api: secrets it reads
+
+Required (the process stops without them): `bff-jwt`, `account-ref`, `phone-hash`, `link-token`, `link-csrf`,
+`code-hmac`, `pin-hmac`, `device-token`, `support-code`, `telemetry-markers`, and the three the settings come from:
+`neo4j-password`, `redis-url`, `servicebus-connection`.
+
+Optional (a warning at start-up): `edge-origin` (the origin secret behind Cloudflare), `webpush-vapid-private-key`
+and `webpush-vapid-public-key` (web push), `os-places-api-key` (address lookup; with none, registration offers no
+address). Read when a tenant sends or receives, never at start-up: `twilio/<tenant>/auth-token`, stored as the vault
+name `twilio--<tenant>--auth-token` (a tenant id with `--` or a trailing hyphen has no vault name, so its secret
+cannot be stored: choose another id).
+
+#### The workers: secrets they read
+
+Required: `link-token` (the key of the sealed message content), and the settings' `neo4j-password`, `redis-url`,
+`servicebus-connection`. Optional: `webpush-vapid-private-key` (without it no push is sent). Per tenant, at the
+moment of a send: `twilio--<tenant>--auth-token` and the SMTP login of the tenant's own reference. The workers
+read the vault themselves and never call the api, so an api outage does not stop them.
+
+#### The web app: secrets it reads
+
+`session-secret` and `edge-origin` only, nothing else. (How the web app reads them from the vault is the front end's
+change; this file only fixes what its identity may hold.)
+
+#### Names in the vault, and the two still to add
+
+The pilot script created: `bff-jwt`, `account-ref`, `phone-hash`, `link-token`, `link-csrf`, `code-hmac`, `pin-hmac`,
+`device-token`, `support-code`, `telemetry-markers`, `edge-origin`, `session-secret`, `webpush-vapid-private-key`,
+`webpush-vapid-public-key`, `servicebus-connection`, `redis-url`, `entra-staff-client-secret`,
+`entra-operator-client-secret`. Add by hand (see section 13): `neo4j-password` and `os-places-api-key`. The two
+global Twilio entries (`twilio-account-sid`, `twilio-auth-token`) are not read by any code: copy the auth token once
+to `twilio--<tenant>--auth-token` for the tenant it belongs to, then delete both (DEC-1304 item 9).
+
+`redis-password` is in the vault too, but no code reads it: the Redis container app (`redis-app.bicep`) takes it as a
+container-app secret that is a Key Vault reference, resolved with the api identity's `Key Vault Secrets User` role and
+handed to Redis as `REDIS_PASSWORD` by `secretRef`, never as a plain value. That is the one secret an environment value
+of a container app carries, and it is the Redis server's own, not an application's. `redis-url` is built from it.
+
+A vault name holds lower-case letters, digits and single hyphens only, up to 127 characters; the code writes
+`<kind>/<tenant>/<name>` as `<kind>--<tenant>--<name>`, and refuses anything else without calling the vault.
+
 ## 6. Service Bus
 
 Standard supports topics, sessions and duplicate detection and has no private endpoint. Premium (about a thousand pounds
@@ -102,6 +187,10 @@ done
 (Data Owner is wider than needed; Data Sender plus Data Receiver per entity is tighter and can follow.)
 
 ## 7. Redis (Azure Managed Redis)
+
+Pilot tier: `Balanced_B0`, the smallest Azure Managed Redis SKU. The Enterprise and Enterprise Flash tiers are not used,
+and no classic Azure Cache for Redis (Basic or Standard) is used: Microsoft has blocked creating new classic caches for
+existing customers from 1 October 2026 and retires them on 30 September 2028, so classic is not a choice here.
 
 ```bash
 az redisenterprise create -g "$RG" -n "$REDIS" --location "$LOC" --sku Balanced_B0 --clustering-policy EnterpriseCluster --public-network-access Disabled
@@ -225,4 +314,5 @@ or connection string into this chat.
   connection URI (not the password).
 - Cloudflare: zone, DNS, custom hostnames, WAF rules, authenticated origin pulls.
 - Twilio: account, a subaccount and number per tenant, a verified email sender domain per tenant.
-- OS Places API key from OS Data Hub, and the licensed Pathways Dx file.
+- OS Places API key from OS Data Hub (stored as the vault secret `os-places-api-key`, optional), and the licensed
+  Pathways Dx file. The Neo4j password is the vault secret `neo4j-password`.

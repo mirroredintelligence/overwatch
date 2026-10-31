@@ -486,7 +486,7 @@ def test_the_entry_point_stops_without_a_service_bus_connection(
     assert "DIUCS_SERVICEBUS_CONNECTION" in str(stopped.value)
 
 
-def test_no_secret_store_is_built_yet() -> None:
+def test_with_no_vault_and_no_directory_no_secret_store_is_built() -> None:
     assert api_main.load_secret_store(Settings()) is None
 
 

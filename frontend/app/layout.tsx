@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Atkinson_Hyperlegible } from 'next/font/google';
 import type { ReactNode } from 'react';
+import { LaunchSplash } from '@/components/brand/LaunchSplash';
 import { RegisterServiceWorker } from '@/components/pwa/RegisterServiceWorker';
 import { BfcacheGuard } from '@/components/session/BfcacheGuard';
 import { PRODUCT_NAME } from '@/lib/product';
@@ -45,6 +46,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <Telemetry />
         {children}
         <RegisterServiceWorker />
+        <LaunchSplash />
       </body>
     </html>
   );

@@ -1,5 +1,5 @@
 import { invalidRequest } from '@/lib/lead/bffInput';
-import { ORGANISATION_CODE } from './ids';
+import { AGREEMENT_REFERENCE, ORGANISATION_CODE } from './patterns';
 import { LISTING_REASONS, type ListingReason } from './views';
 
 // What the browser may send to the network administration routes, checked field by field before any
@@ -35,8 +35,6 @@ export function inviteBody(body: unknown): { tenant_id: string } {
   if (typeof code !== 'string' || !ORGANISATION_CODE.test(code)) throw invalidRequest();
   return { tenant_id: code };
 }
-
-const AGREEMENT_REFERENCE = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,63}$/;
 
 export function agreementBody(body: unknown): { reference: string; version: number } {
   const b = only(body, ['reference', 'version']);

@@ -3,11 +3,14 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import type { OptionView } from '@/lib/advisor/options';
 import { categoryLabel, durationText } from '@/lib/board/format';
 import { OptionBooking } from './OptionBooking';
+import { ServicePhone } from './ServicePhone';
 import styles from './ServiceCard.module.css';
 
 // One service in the options list (W13). Order and content come from the back end: a card has no rank,
 // no "best" label and no score. A network service is read only: it names its organisation and has no
-// booking, phoned or declined action (network-ui.md section 9). Another service of the viewer's own
+// booking, phoned, declined or criteria action (network-ui.md section 9; its criteria are another
+// organisation's, which the viewer's own criteria read would not find, KI-794): the one thing to do is phone it.
+// Another service of the viewer's own
 // organisation carries the booking panel of this case (W20): the request control, then the card it leaves.
 
 export type ServiceCardProps = {
@@ -85,12 +88,16 @@ export function ServiceCard({ caseId, option, onSeeOptions, onAskClinical, onCri
         </section>
       )}
 
+      <ServicePhone phone={option.phone} />
+
       {network === null ? <OptionBooking caseId={caseId} option={option} onSeeOptions={onSeeOptions} onAskClinical={onAskClinical} /> : null}
 
       <div className={styles.actions}>
-        <Button variant="secondary" dataEl="ADV-OPT-CRITERIA-BTN" onClick={() => onCriteria?.(option.serviceId)}>
-          Criteria
-        </Button>
+        {network === null ? (
+          <Button variant="secondary" dataEl="ADV-OPT-CRITERIA-BTN" onClick={() => onCriteria?.(option.serviceId)}>
+            Criteria
+          </Button>
+        ) : null}
         {network === null ? (
           <Button variant="secondary" dataEl="ADV-OPT-PHONED-BTN" onClick={() => onPhoned?.(option.serviceId)}>
             I phoned

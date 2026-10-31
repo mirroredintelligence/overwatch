@@ -31,6 +31,8 @@ export type OptionsListProps = {
 
 type Load = { kind: 'loading' } | { kind: 'ready'; parts: OptionsParts } | { kind: 'failed' };
 
+const NETWORK_UNAVAILABLE =
+  "The other organisations' services could not be read, so only your own are shown. Phone to check if you need them.";
 const READ_ONLY_BODY = 'You cannot book or change these services from here. Phone the service to check.';
 
 function headingFor(count: number): string {
@@ -98,6 +100,7 @@ export function OptionsList({ caseId, onCriteria, onPhoned, onAskClinical }: Opt
           </h2>
           <p className={styles.sub}>Sorted by travel time. Not ranked.</p>
           {hasNetwork ? <Banner tone="info" title="Read only">{READ_ONLY_BODY}</Banner> : null}
+          {load.parts.network === 'unavailable' ? <Banner tone="info" title="Other organisations">{NETWORK_UNAVAILABLE}</Banner> : null}
           <div className={styles.cards}>
             {options.map((option) => (
               <ServiceCard

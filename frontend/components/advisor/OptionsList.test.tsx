@@ -119,6 +119,23 @@ describe('OptionsList (W13)', () => {
     expect(within(card).queryByRole('button', { name: 'Request booking' })).toBeNull();
   });
 
+  it('says the other organisations\' services could not be read, when the BFF says so, and still shows the own ones', async () => {
+    server.use(
+      http.get('/api/bff/cases/:ref/options', () => HttpResponse.json({ ...OPTIONS_VIEW, network: 'unavailable' })),
+    );
+    render(<OptionsList caseId="4821" onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
+
+    expect(await screen.findByText("The other organisations' services could not be read, so only your own are shown. Phone to check if you need them.")).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: "3 services meet this patient's criteria" })).toBeInTheDocument();
+  });
+
+  it('says nothing about the network when there is none or it was read', async () => {
+    render(<OptionsList caseId="4821" onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
+    await screen.findByRole('heading', { name: "3 services meet this patient's criteria" });
+
+    expect(screen.queryByText(/other organisations/)).toBeNull();
+  });
+
   it('reads the options once per page load, not again on focus', async () => {
     render(<OptionsList caseId="4821" onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
     await screen.findByRole('heading', { name: "3 services meet this patient's criteria" });

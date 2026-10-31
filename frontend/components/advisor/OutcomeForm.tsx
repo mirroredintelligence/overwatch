@@ -48,10 +48,16 @@ export function OutcomeForm({ caseId, preselect, onClosed }: OutcomeFormProps) {
 
   const readServices = useCallback(async () => {
     setServices({ kind: 'loading' });
-    const reply = await bffFetch<OptionsParts>(`/api/bff/cases/${encodeURIComponent(caseId)}/options`);
+    // Only the viewer's own services: the back end refuses a destination that is another organisation's.
+    const reply = await bffFetch<OptionsParts>(`/api/bff/cases/${encodeURIComponent(caseId)}/options?only=own`);
     setServices(
       reply.ok
-        ? { kind: 'ready', list: reply.body.options.map((item) => ({ serviceId: item.serviceId, name: item.name })) }
+        ? {
+            kind: 'ready',
+            list: reply.body.options
+              .filter((item) => item.network === null)
+              .map((item) => ({ serviceId: item.serviceId, name: item.name })),
+          }
         : { kind: 'failed' },
     );
   }, [caseId]);

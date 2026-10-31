@@ -177,7 +177,7 @@ describe('GET /api/bff/cases/[ref]/options: the network services (B6)', () => {
     expect(reply.network).toBe('shown');
   });
 
-  it('a row of the own answer that names an organisation is not taken as the viewer\'s own, and a network row with none is dropped', async () => {
+  it('a network row that names no organisation is dropped, never shown as the viewer\'s own service', async () => {
     server.use(
       http.get(NETWORKS_URL, () => HttpResponse.json({ networks: [{ id: 'net-aa11' }] })),
       http.post(FILTER_URL, async ({ request }) => {

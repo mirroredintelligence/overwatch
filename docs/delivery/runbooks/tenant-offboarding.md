@@ -39,7 +39,7 @@ Purging is irreversible. Two operators, the tenant's id typed again, an offboard
 1. `purge <tenant-id> --second <other-operator> --type-id <tenant-id> --dry-run` prints the nodes by label set that would be deleted and changes nothing. Both operators read it against the export's manifest.
 2. Run the same command without `--dry-run`.
 
-The order is the safety: the tombstone (both operators' references, the tenant's id, the **head of its audit chain** (last hash and sequence), the export's manifest hash, the counts) is appended to the platform's file first, and if it cannot be written nothing is deleted; then the record becomes `purged`; then the tenant's data is deleted in batches by `tenantId` and nothing else; then its cache names; the audit chain **last**; then a check that nothing of the tenant is left; then the completion entry. The audit chain is kept until the purge (DEC-271) and its final hash outlives it in the tombstone.
+The order is the safety: the tombstone (both operators' references, the tenant's id, the **head of its audit chain** (last hash and sequence), the export's manifest hash, the counts) is appended to the platform's audit chain first, and if it cannot be written nothing is deleted; then the record becomes `purged`; then the tenant's data is deleted in batches by `tenantId` and nothing else; then its cache names; the audit chain **last**; then a check that nothing of the tenant is left; then the completion entry. The audit chain is kept until the purge (DEC-271) and its final hash outlives it in the tombstone.
 
 If it stopped, run the same command again (`purged` tenants are finished, not refused).
 
@@ -47,7 +47,7 @@ If it stopped, run the same command again (`purged` tenants are finished, not re
 
 - The registry's record of the tenant (status `purged`), its numbers (quarantined) and its past memberships and grants (`left`, `lapsed`): they carry no tenant data.
 - The network scope's projections of the tenant, marked with the date it left: organisational capacity records, kept by the network's retention (information governance decides it).
-- The platform's tombstone file. Keep it with the agreement.
+- The tombstone is in the platform's audit chain (`GET /platform/audit`). Note its entry with the agreement.
 - **Backups** are not touched: they expire by their schedule, and information governance has to accept that (H-T29). Do not restore a purged tenant without two operators.
 
 ## If something looks wrong

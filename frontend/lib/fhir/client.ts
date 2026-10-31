@@ -1,6 +1,7 @@
 import { namesTenantInput } from '@/lib/tenant/inputNames';
 import { newTraceparent } from './traceparent';
 import { ambientVisitorAddress } from './visitorAddress';
+import { FhirError } from './fhirError';
 import type { OperationOutcome } from './types';
 
 // Server-only client for the back end's FHIR R4B API. Route handlers and
@@ -35,27 +36,8 @@ export type FhirInit = {
 
 export type FhirResult<T> = { data: T; etag?: string };
 
-export class FhirError extends Error {
-  readonly status: number;
-  readonly outcome: OperationOutcome;
-  /**
-   * The JSON body of a refusal that is not an OperationOutcome (the reporter routes answer their own
-   * `{result}` and `{code}` bodies on a 409), so a route can read what the back end said. Never shown
-   * as it is: a route picks the fields it knows.
-   */
-  readonly payload?: unknown;
-  /** The back end's `Retry-After` of a 429 or 503, whole seconds as text, or undefined. */
-  readonly retryAfter?: string;
+export { FhirError };
 
-  constructor(status: number, outcome: OperationOutcome, extra: { payload?: unknown; retryAfter?: string } = {}) {
-    super(`FHIR request failed with status ${status}`);
-    this.name = 'FhirError';
-    this.status = status;
-    this.outcome = outcome;
-    if (extra.payload !== undefined) this.payload = extra.payload;
-    if (extra.retryAfter !== undefined) this.retryAfter = extra.retryAfter;
-  }
-}
 
 const FHIR_MEDIA_TYPE = 'application/fhir+json; fhirVersion=4.3';
 /** The methods whose body type the back end checks, whether or not they send a body. */

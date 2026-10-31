@@ -2,7 +2,7 @@
 // back end, and turns the checked body into the FHIR Parameters that $setup takes (DEC-652). An error
 // names the field, never its value: a phone number or an email must not reach a log or a response.
 
-import { FhirError } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
 import { invalidRequest } from './bffInput';
 import { parametersOf, type ParameterValue, type Parameters } from './parameters';
 

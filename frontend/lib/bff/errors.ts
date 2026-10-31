@@ -1,4 +1,4 @@
-import { FhirError } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
 
 // Turns any error thrown by a route handler into the response the browser
 // sees. The body holds a code and a fixed message only: never the back end's

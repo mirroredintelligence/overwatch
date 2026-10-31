@@ -1,4 +1,4 @@
-import { FhirError } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
 import type { OperationOutcome } from '@/lib/fhir/types';
 
 // What the lead's BFF routes need from a request before they call the back end: the Idempotency-Key the

@@ -1,0 +1,280 @@
+/* The tenant administration and the operator console pages (TEN-076, TEN-083). Tokens from app/tokens.css:
+   no colour, size or spacing is written here that is not one of them. */
+.page {
+  box-sizing: border-box;
+  max-width: 56rem;
+  margin: 0 auto;
+  padding: var(--space-4);
+  display: grid;
+  gap: var(--space-5);
+  font-family: var(--font-atkinson, system-ui), system-ui, sans-serif;
+  color: var(--c-ink);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--type-heading-size);
+  line-height: var(--type-heading-lh);
+  font-weight: var(--type-heading-weight);
+  letter-spacing: var(--type-heading-tracking);
+  text-wrap: balance;
+}
+
+.lede,
+.text {
+  margin: 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+}
+
+.muted {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-muted);
+}
+
+.stack {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--space-4);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+
+.facts dt {
+  font-weight: 700;
+}
+
+.facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.scroll {
+  overflow-x: auto;
+  overscroll-behavior: contain;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--type-body-size);
+}
+
+.table caption {
+  text-align: left;
+  font-weight: 700;
+  padding: var(--space-2) 0;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  vertical-align: top;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--c-line);
+  overflow-wrap: anywhere;
+}
+
+.table tabular,
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* A state or a class said in a word inside a border: never colour alone. */
+.tag {
+  display: inline-block;
+  padding: 0 var(--space-3);
+  min-height: 28px;
+  line-height: 26px;
+  border: 2px solid var(--c-closed);
+  border-radius: var(--radius-chip);
+  font-size: var(--type-caption-size);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.tagClinical {
+  border-color: var(--c-limited);
+  background: var(--c-amber-tint);
+}
+
+.tagDashed {
+  border-style: dashed;
+  border-color: var(--c-unknown);
+}
+
+.fieldset {
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius);
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.legend {
+  padding: 0 var(--space-2);
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 44px;
+}
+
+.check input {
+  width: 24px;
+  height: 24px;
+  flex: none;
+}
+
+.selectLabel {
+  display: grid;
+  gap: var(--space-2);
+  font-weight: 700;
+}
+
+.select {
+  box-sizing: border-box;
+  min-height: var(--btn-h);
+  padding: 0 var(--space-4);
+  border: 2px solid var(--c-closed);
+  border-radius: var(--radius);
+  background: Canvas;
+  color: CanvasText;
+  font: inherit;
+  font-size: var(--type-body-size);
+}
+
+.select:focus-visible,
+.link:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.link {
+  color: var(--c-primary);
+  font-weight: 700;
+}
+
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--c-line);
+  background: Canvas;
+}
+
+.navLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius);
+  color: var(--c-ink);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.navLink[aria-current='page'] {
+  box-shadow: inset 0 -4px 0 var(--c-primary);
+}
+
+.navLink:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.code {
+  margin: 0;
+  font-size: var(--type-display-size);
+  line-height: var(--type-display-lh);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+}
+
+.panel {
+  padding: var(--space-5);
+  border: 2px solid var(--c-primary);
+  border-radius: var(--radius-card);
+  background: var(--c-tint);
+  display: grid;
+  gap: var(--space-3);
+}
+
+.warn {
+  padding: var(--space-4);
+  border: 2px solid var(--c-limited);
+  border-radius: var(--radius);
+  background: var(--c-amber-tint);
+}
+
+.problem {
+  margin: 0;
+  font-weight: 700;
+  color: var(--c-limited);
+}
+
+.ok {
+  margin: 0;
+  font-weight: 700;
+}
+
+/* Text for assistive technology only, added to a visible label so a button names what it acts on. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.footer {
+  box-sizing: border-box;
+  max-width: 56rem;
+  margin: 0 auto;
+  padding: var(--space-4);
+}

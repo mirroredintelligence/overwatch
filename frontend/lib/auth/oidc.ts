@@ -18,6 +18,8 @@ export type EntraConfig = {
    * the back end decides it from the host and its own records (TEN-043, DEC-523).
    */
   directoryId: string | null;
+  /** The path this app's callback is served on. Omitted for the staff sign-in's own. */
+  callbackPath?: string;
 };
 
 export type Transaction = { state: string; nonce: string; verifier: string; next: string };
@@ -88,11 +90,15 @@ function origin(env: Env, name: string, value: string): string {
   return url.origin;
 }
 
-function directory(env: Env): string | null {
-  const value = env.ENTRA_DIRECTORY_ID;
+function directoryFrom(env: Env, name: string): string | null {
+  const value = env[name];
   if (!value) return null;
-  if (!isGuid(value)) throw new Error('ENTRA_DIRECTORY_ID must be a directory id (a GUID)');
+  if (!isGuid(value)) throw new Error(`${name} must be a directory id (a GUID)`);
   return value.toLowerCase();
+}
+
+function directory(env: Env): string | null {
+  return directoryFrom(env, 'ENTRA_DIRECTORY_ID');
 }
 
 /** Reads the settings at call time, so a missing value fails the request that needs it. */
@@ -103,6 +109,27 @@ export function loadEntraConfig(env: Env = process.env): EntraConfig {
     authorityHost: origin(env, 'ENTRA_AUTHORITY_HOST', env.ENTRA_AUTHORITY_HOST || DEFAULT_AUTHORITY_HOST),
     publicUrl: origin(env, 'DIUCS_PUBLIC_URL', setting(env, 'DIUCS_PUBLIC_URL')),
     directoryId: directory(env),
+  };
+}
+
+export const OPERATOR_CALLBACK_PATH = '/api/bff/platform/auth/callback';
+
+/**
+ * The operator console's app registration (TEN-083): another client, for the operator's directory ONLY (it
+ * must be set: there is no shared endpoint for the platform's own people), served on the console's own
+ * address. It shares nothing with the staff sign-in's settings but the identity provider's address, and
+ * falls back to none of them: a missing value fails the request that needs it.
+ */
+export function loadOperatorEntraConfig(env: Env = process.env): EntraConfig {
+  const directoryId = directoryFrom(env, 'OPERATOR_ENTRA_DIRECTORY_ID');
+  if (directoryId === null) throw new Error('OPERATOR_ENTRA_DIRECTORY_ID is not set');
+  return {
+    clientId: setting(env, 'OPERATOR_ENTRA_CLIENT_ID'),
+    clientSecret: setting(env, 'OPERATOR_ENTRA_CLIENT_SECRET'),
+    authorityHost: origin(env, 'ENTRA_AUTHORITY_HOST', env.ENTRA_AUTHORITY_HOST || DEFAULT_AUTHORITY_HOST),
+    publicUrl: origin(env, 'DIUCS_OPERATOR_PUBLIC_URL', setting(env, 'DIUCS_OPERATOR_PUBLIC_URL')),
+    directoryId,
+    callbackPath: OPERATOR_CALLBACK_PATH,
   };
 }
 
@@ -126,7 +153,7 @@ function authority(config: EntraConfig): string {
 }
 
 function redirectUri(config: EntraConfig): string {
-  return `${config.publicUrl}${CALLBACK_PATH}`;
+  return `${config.publicUrl}${config.callbackPath ?? CALLBACK_PATH}`;
 }
 
 function random(): string {

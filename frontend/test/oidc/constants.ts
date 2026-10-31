@@ -32,3 +32,22 @@ export const ENTRA_ENV: Record<string, string> = {
   DIUCS_PUBLIC_URL: PUBLIC_URL,
   DIUCS_FHIR_BASE_URL: `${BACKEND_ROOT}/fhir`,
 };
+
+// The operator console's own sign-in (TEN-083): another app registration for the operator's directory
+// only, served on its own host. The operator exchange (`POST /auth/operator-token`) takes no tenant.
+export const OPERATOR_CLIENT_ID = '6e2d8b1f-4a66-4b6c-8b52-3a4c7f1d0b22';
+export const OPERATOR_CLIENT_SECRET = 'fake-operator-client-secret-for-tests-only';
+export const OPERATOR_PUBLIC_URL = 'https://console.example.test';
+export const OPERATOR_HOST_NAME = new URL(OPERATOR_PUBLIC_URL).host;
+export const OPERATOR_REDIRECT_URI = `${OPERATOR_PUBLIC_URL}/api/bff/platform/auth/callback`;
+export const OID_OPERATOR = 'bbbbbbbb-0000-4000-8000-0000000000a1';
+export const OID_SUPPORT = 'bbbbbbbb-0000-4000-8000-0000000000a2';
+
+export const OPERATOR_ENV: Record<string, string> = {
+  OPERATOR_ENTRA_CLIENT_ID: OPERATOR_CLIENT_ID,
+  OPERATOR_ENTRA_CLIENT_SECRET: OPERATOR_CLIENT_SECRET,
+  OPERATOR_ENTRA_DIRECTORY_ID: DIRECTORY_PLATFORM,
+  DIUCS_OPERATOR_PUBLIC_URL: OPERATOR_PUBLIC_URL,
+  ENTRA_AUTHORITY_HOST: HOST,
+  DIUCS_FHIR_BASE_URL: `${BACKEND_ROOT}/fhir`,
+};

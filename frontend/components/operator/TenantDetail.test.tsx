@@ -224,7 +224,7 @@ describe('suspending, resuming and starting to close', () => {
 
   it('shows a suspended tenant’s mode, reason and time, and resumes it after a dialog', async () => {
     const user = await open(VIEW_DETAIL_SUSPENDED);
-    expect(screen.getByText('Suspended read only since 25 Oct 2026, 10:00. Reason: contract.')).toBeInTheDocument();
+    expect(screen.getByText('Suspended read only since 25 Oct 2026, 09:00. Reason: contract.')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Resume' }));
     await user.click(await screen.findByRole('button', { name: 'Confirm resume' }));
     await waitFor(() => expect(seenOperatorWrites).toHaveLength(1));

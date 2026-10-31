@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Logo } from '@/components/brand/Logo';
 import { Banner, Button } from '@/components/ui';
 import { TenantHeader } from '@/components/tenant/TenantHeader';
 import { isSamePathOnly } from '@/lib/auth/access';
@@ -39,7 +40,9 @@ export default async function SignInPage({ searchParams }: { searchParams: Searc
   return (
     <main className={styles.main}>
       <div className={styles.panel}>
-        <h1 className={styles.product}>{PRODUCT_NAME}</h1>
+        <h1 className={styles.product}>
+          <Logo />
+        </h1>
         <TenantHeader profile={profile} />
         {message !== undefined ? <Banner tone="warning" title={message} dataEl="SIGNIN-MESSAGE" /> : null}
         <section className={styles.card} aria-labelledby="signin-heading">

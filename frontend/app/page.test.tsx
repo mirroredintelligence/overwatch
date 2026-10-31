@@ -10,6 +10,18 @@ describe('root page', () => {
     expect(screen.getByRole('heading', { level: 1, name: PRODUCT_NAME })).toBeInTheDocument();
   });
 
+  it('shows the logo, named by the product name', () => {
+    render(<HomePage />);
+    const logo = screen.getByRole('img', { name: PRODUCT_NAME });
+    expect(logo.getAttribute('src')).toContain('overwatch-logo');
+  });
+
+  it('offers the staff sign-in and the platform console as links', () => {
+    render(<HomePage />);
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/sign-in');
+    expect(screen.getByRole('link', { name: 'Platform console' })).toHaveAttribute('href', '/operator');
+  });
+
   it('names no place, organisation, service, phone number or postcode', () => {
     const { container } = render(<HomePage />);
     const text = container.textContent ?? '';

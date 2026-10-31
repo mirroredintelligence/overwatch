@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Logo } from '@/components/brand/Logo';
 import { Banner, Button } from '@/components/ui';
 import { operatorAccessFor } from '@/lib/operator/access';
 import { isSamePathOnly } from '@/lib/auth/access';
@@ -31,6 +32,7 @@ export default async function OperatorSignInPage({ searchParams }: { searchParam
   return (
     <main className={styles.main}>
       <div className={styles.panel}>
+        <Logo />
         <h1 className={styles.product}>Platform console</h1>
         {message !== undefined ? <Banner tone="warning" title={message} dataEl="OP-SIGNIN-MESSAGE" /> : null}
         <section className={styles.card} aria-labelledby="op-signin-heading">

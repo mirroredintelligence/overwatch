@@ -149,6 +149,11 @@ The pilot script created: `bff-jwt`, `account-ref`, `phone-hash`, `link-token`, 
 global Twilio entries (`twilio-account-sid`, `twilio-auth-token`) are not read by any code: copy the auth token once
 to `twilio--<tenant>--auth-token` for the tenant it belongs to, then delete both (DEC-1304 item 9).
 
+`redis-password` is in the vault too, but no code reads it: the Redis container app (`redis-app.bicep`) takes it as a
+container-app secret that is a Key Vault reference, resolved with the api identity's `Key Vault Secrets User` role and
+handed to Redis as `REDIS_PASSWORD` by `secretRef`, never as a plain value. That is the one secret an environment value
+of a container app carries, and it is the Redis server's own, not an application's. `redis-url` is built from it.
+
 A vault name holds lower-case letters, digits and single hyphens only, up to 127 characters; the code writes
 `<kind>/<tenant>/<name>` as `<kind>--<tenant>--<name>`, and refuses anything else without calling the vault.
 

@@ -32,7 +32,7 @@ from diucs.application.use_cases.query_board import QueryBoard, QueryBoardQuery
 from diucs.application.use_cases.send_prompts import LinkTokenServiceFactory
 from diucs.application.use_cases.suspend_service import WordingFor
 from diucs.application.work import WorkKind
-from diucs.domain.codes import AgeBand, BookingStatus, Channel, NeedCategory, Role, Urgency
+from diucs.domain.codes import AgeBand, BookingStatus, Channel, Role, Urgency
 from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
 from diucs.domain.events import BookingRequested
 from diucs.domain.messages.catalogue import MessageId
@@ -48,6 +48,7 @@ from diucs.domain.rules.booking_rules import (
 )
 from diucs.domain.rules.booking_state import is_open
 from diucs.domain.rules.london_time import format_hhmm
+from diucs.domain.rules.need_words import need_words
 
 LinkBaseUrlFor = Callable[[ScopeId], str]
 """The link base URL of a tenant (`https://<host>`), given the bound scope. The composition root
@@ -64,8 +65,6 @@ URGENCY_WORDING: Final[dict[Urgency, str]] = {
     Urgency.TODAY: "today",
     Urgency.PLANNED: "planned",
 }
-MAX_NEEDS_SHOWN: Final = 2
-"""A request names at most the first two needs (U17, the prompt's "need" field)."""
 _MESSAGE_FOR_CHANNEL: Final[dict[Channel, MessageId]] = {
     Channel.TEXT: MessageId.B1,
     Channel.EMAIL: MessageId.B2,
@@ -104,11 +103,8 @@ def urgency_wording(urgency: Urgency) -> str:
 
 
 def need_text(case: Case) -> str:
-    """The needs the request names: the first one, or the first two joined with "and"."""
-    if not case.needs:
-        raise ValidationFailed("needs", "an open case has at least one need")
-    shown: tuple[NeedCategory, ...] = case.needs[:MAX_NEEDS_SHOWN]
-    return " and ".join(need.value for need in shown)
+    """The needs of the case in plain words (DEC-062 item 2): all of them, no code (DEC-1150)."""
+    return need_words(case.needs)
 
 
 def message_for_channel(channel: Channel) -> MessageId:

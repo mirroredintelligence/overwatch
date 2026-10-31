@@ -23,10 +23,11 @@ from dataclasses import dataclass
 from html import escape
 from typing import Final, cast
 
-from diucs.domain.codes import AgeBand, Channel, NeedCategory
+from diucs.domain.codes import AgeBand, Channel
 from diucs.domain.errors import ValidationFailed
 from diucs.domain.messages.catalogue import TENANT_TEXT_FIELD_NAMES, MessageId
 from diucs.domain.messages.privacy_guard import find_patient_data
+from diucs.domain.rules.need_words import is_need_words
 from diucs.domain.rules.tenant_settings import check_tenant_text
 
 FOOTER: Final = (
@@ -44,11 +45,11 @@ BOTH: Final = 2
 
 # Constrained fields (DEC-047 item 9). A reference is a 4-digit booking reference with no leading
 # zero (DEC-041). An age band is an AgeBand value. An urgency is one of the three wordings of the
-# Urgency members (within 2 hrs, today, planned). A need is a NeedCategory code.
+# Urgency members (within 2 hrs, today, planned). A need is the plain words of the need table
+# (DEC-062 item 2, domain/rules/need_words.py), never a code.
 REFERENCE_FORMAT: Final = re.compile(r"[1-9][0-9]{3}")
 AGE_BANDS: Final = frozenset(band.value for band in AgeBand)
 URGENCY_WORDING: Final = frozenset({"within 2 hrs", "today", "planned"})
-NEED_CODES: Final = frozenset(need.value for need in NeedCategory)
 # C12 tells the reporter how to answer: with a number, or, on a grouped prompt, with a letter and a
 # number (U05, DEC-148). Nothing else is accepted, so no free text reaches the sentence.
 REPLY_WITH_FORMAT: Final = re.compile(r"a number|[A-H] and a number")
@@ -480,15 +481,6 @@ def _output_has_patient_data(part: str | None) -> bool:
     return part is not None and bool(find_patient_data(part))
 
 
-def _is_need_text(value: object) -> bool:
-    """One need code, or two joined with " and" (U17: a booking names the first two needs). Any
-    other word, or free text, is refused."""
-    if not isinstance(value, str):
-        return False
-    parts = value.split(" and ")
-    return len(parts) in (1, 2) and all(part in NEED_CODES for part in parts)
-
-
 def _check_constrained_fields(fields: Mapping[str, object]) -> None:
     if "reference" in fields and not _is_reference(fields["reference"]):
         raise ValidationFailed("reference", "must be four digits, no leading zero")
@@ -500,8 +492,8 @@ def _check_constrained_fields(fields: Mapping[str, object]) -> None:
         isinstance(fields["reply_with"], str) and REPLY_WITH_FORMAT.fullmatch(fields["reply_with"])
     ):
         raise ValidationFailed("reply_with", "must be 'a number' or a letter and 'a number'")
-    if "need" in fields and not _is_need_text(fields["need"]):
-        raise ValidationFailed("need", "must be a need category code, or two joined with 'and'")
+    if "need" in fields and not is_need_words(fields["need"]):
+        raise ValidationFailed("need", "must be the plain words of the needs, not a code")
 
 
 # The confirm limit as words for C6 (TEN-022). Only the three limits the policy allows are words.

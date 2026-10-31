@@ -1,10 +1,11 @@
-"""The network variant of the options filter, the pure part (WB11, TEN-051, TEN-053, DEC-136 item 1).
+"""The network variant of the options filter, the pure part (WB11, TEN-051, TEN-053, DEC-136 item
+1).
 
-A case's age band, district and needs are compared, in memory, with the criteria another organisation
-has shared into a network. Nothing of the case is written to a network scope or sent to another
-organisation: the rows come from the network, the case from the advisor's own tenant, and this is the
-comparison. A network row is a fact about capacity; it is never booked, and it carries no comment, no
-pending count and no reporter.
+A case's age band, district and needs are compared, in memory, with the criteria another
+organisation has shared into a network. Nothing of the case is written to a network scope or
+sent to another organisation: the rows come from the network, the case from the advisor's own
+tenant, and this is the comparison. A network row is a fact about capacity; it is never booked,
+and it carries no comment, no pending count and no reporter.
 """
 
 from datetime import UTC, date, datetime, timedelta
@@ -214,9 +215,7 @@ def test_a_service_that_shared_no_criteria_cannot_be_checked_and_fails_closed() 
     assert row.reason == CRITERIA_NOT_SHARED_REASON
 
 
-def test_a_service_that_shared_no_directory_entry_is_still_an_option_with_no_position_or_number() -> (
-    None
-):
+def test_a_service_with_no_directory_entry_is_an_option_with_no_position_or_number() -> None:
     row = classify_network_row(board_entry(), criteria_entry(), None, CASE, NOW, TODAY)
     assert isinstance(row, NetworkOption)
     assert row.position is None and row.contact_phone is None and row.contact_label is None

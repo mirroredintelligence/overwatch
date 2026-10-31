@@ -245,8 +245,6 @@ function refusalFor(error: unknown): SignInRefused {
   if (error instanceof errors.JWTClaimValidationFailed) {
     if (error.claim === 'aud') return new SignInRefused('wrong-audience');
     if (error.claim === 'nbf') return new SignInRefused('not-yet-valid');
-    // TEMPORARY diagnostic: the claim NAME and the library's reason code only, never a value.
-    console.warn(`sign-in claim check failed: claim=${error.claim} reason=${error.reason}`);
     return new SignInRefused('bad-claims');
   }
   // The key set could not be had (a timeout, an answer that was not the keys, no network).
@@ -291,10 +289,6 @@ export async function verifyIdToken(
 
   const { tid, oid, iss } = claims;
   if (typeof tid !== 'string' || !isGuid(tid) || typeof oid !== 'string' || !isGuid(oid)) {
-    // TEMPORARY diagnostic: which of the two is absent or not a GUID, and the claim names present. No values.
-    console.warn(
-      `sign-in claims: tid=${typeof tid === 'string' && isGuid(tid) ? 'ok' : 'bad'} oid=${typeof oid === 'string' && isGuid(oid) ? 'ok' : 'bad'} present=${Object.keys(claims).sort().join(',')}`,
-    );
     throw new SignInRefused('bad-claims');
   }
   if (iss !== `${config.authorityHost}/${tid}/v2.0`) throw new SignInRefused('wrong-issuer');

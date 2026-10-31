@@ -58,6 +58,7 @@ REGISTERED_TYPES: dict[str, str] = {
     "closedAt": "dateTime",
     "outcome": "string",
     "bestFitNotUsed": "string",
+    "scoreCorrections": "integer",
     # P13: a registration's four approval checks (domain-rules 6.2). checkScope holds the scope
     # flag, and is left out until the scope is decided.
     "checkAutomatic": "boolean",

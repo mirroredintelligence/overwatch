@@ -70,7 +70,7 @@ def test_manchester_accepts_each_listed_level(level: str) -> None:
     assert ManchesterTriage(level).level == level
 
 
-@pytest.mark.parametrize("code", ["Dx0121", "dx0121", "DX-0121", "DX 0121", "D", "DX012345678"])
+@pytest.mark.parametrize("code", ["DX-0121", "DX 0121", "D", "DX0123456789A", "Dx.1", "Dx\u00e9"])
 def test_pathways_dx_rejects_bad_format(code: str) -> None:
     assert_rejected("pathways_dx", lambda: PathwaysDx(code))
 
@@ -79,15 +79,20 @@ def test_pathways_dx_rejects_a_trailing_newline() -> None:
     assert_rejected("pathways_dx", lambda: PathwaysDx("DX0121\n"))
 
 
-@pytest.mark.parametrize("code", ["DX0121", "DX", "DX01234567"])
-def test_pathways_dx_accepts_upper_case_and_digits_from_2_to_10_characters(code: str) -> None:
+@pytest.mark.parametrize(
+    "code", ["DX0121", "DX", "DX01234567", "Dx0121", "dx0121", "DxSAMPLE01", "Dx0123456789"]
+)
+def test_pathways_dx_accepts_letters_of_either_case_and_digits_from_2_to_12_characters(
+    code: str,
+) -> None:
+    # The codes of the list begin "Dx" (KI-816, DEC-1170): the upper-case-only shape refused them.
     assert PathwaysDx(code).code == code
 
 
 def test_pathways_dx_error_does_not_echo_the_code() -> None:
     with pytest.raises(ValidationFailed) as info:
-        PathwaysDx("Dx0121")
-    assert "Dx0121" not in str(info.value)
+        PathwaysDx("Dx-0121")
+    assert "Dx-0121" not in str(info.value)
 
 
 @pytest.mark.parametrize(

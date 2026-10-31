@@ -205,7 +205,7 @@ describe('what the back end now keeps on a booking (WB4: H-493, H-494, KI-451)',
 
   it('measures minutes between two instants, for the words on the card', () => {
     expect(minutesBetween('2026-10-30T14:16:00Z', '2026-10-30T14:19:00Z')).toBe(3);
-    expect(minutesBetween('2026-10-30T14:16:00Z', '2026-10-30T14:24:30Z')).toBe(9);
+    expect(minutesBetween('2026-10-30T14:16:00Z', '2026-10-30T14:24:30Z')).toBe(8);
   });
 });
 

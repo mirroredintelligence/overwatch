@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { readCsrfCookie } from './csrf';
-import { type BookingState, type CancelReason, parseBookingState } from './bookings';
+import { type BookingState, type CancelReason, parseBookingList, parseBookingState } from './bookings';
 
 // One booking for one service, as the advisor's card keeps it (W20). The card never patches its state
 // from an event: a `board` or `booking.updated` for this service means "read it again". A request is posted once
@@ -28,6 +28,11 @@ export type UseBookingOptions = {
 
 export type BookingController = {
   booking: BookingState | null;
+  /**
+   * The case's bookings have been read (or could not be). The request waits for it: pressing "Request
+   * booking" before then never posts a second request for a service that already has a booking (WB4).
+   */
+  loaded: boolean;
   busy: boolean;
   /** The back end says this service already has a request waiting (409). */
   conflict: boolean;
@@ -53,6 +58,12 @@ export const POLL_INTERVAL_MS = 30_000;
 const BOOKING_EVENTS = ['board', 'booking.updated'] as const;
 const REQUEST_PATH = '/api/bff/bookings';
 
+/** The newest booking of this service among a case's bookings, or null when it has none. */
+function latestFor(serviceId: string, bookings: readonly BookingState[]): BookingState | null {
+  const mine = bookings.filter((booking) => booking.serviceId === serviceId);
+  return mine.reduce<BookingState | null>((newest, booking) => (newest === null || Date.parse(booking.requestedAt) >= Date.parse(newest.requestedAt) ? booking : newest), null);
+}
+
 function keyForRequest(): string {
   return globalThis.crypto.randomUUID();
 }
@@ -61,16 +72,48 @@ export function useBooking(options: UseBookingOptions): BookingController {
   const { caseRef, serviceId, openStream, pollMs = POLL_INTERVAL_MS } = options;
   const fetcher = useMemo<BookingFetch>(() => options.fetcher ?? ((input, init) => fetch(input, init)), [options.fetcher]);
   const [booking, setBooking] = useState<BookingState | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [failed, setFailed] = useState(false);
   const [cancelBusy, setCancelBusy] = useState(false);
   const [cancelConflict, setCancelConflict] = useState(false);
   const inFlight = useRef(false);
+  const loading = useRef<Promise<void>>(Promise.resolve());
   const latest = useRef<BookingState | null>(null);
   useEffect(() => {
     latest.current = booking;
   }, [booking]);
+
+  // The card comes back after a reload: the case's bookings are read once, and this service's newest is shown.
+  // A read that fails leaves the card empty and the button on offer: the back end still refuses a second
+  // open request for the service (409), so nothing is doubled.
+  useEffect(() => {
+    let stale = false;
+    loading.current = (async () => {
+      try {
+        const response = await fetcher(`${REQUEST_PATH}?case=${encodeURIComponent(caseRef)}`, {
+          method: 'GET',
+          cache: 'no-store',
+          credentials: 'same-origin',
+        });
+        if (response.ok && !stale) {
+          const found = latestFor(serviceId, parseBookingList(await response.json()));
+          if (found !== null && latest.current === null) {
+            latest.current = found; // at once: a press of Request booking that was waiting reads it before the next render
+            setBooking(found);
+          }
+        }
+      } catch {
+        // Not read: the card starts empty.
+      } finally {
+        if (!stale) setLoaded(true);
+      }
+    })();
+    return () => {
+      stale = true;
+    };
+  }, [caseRef, serviceId, fetcher]);
 
   const read = useCallback(async () => {
     const current = latest.current;
@@ -94,6 +137,9 @@ export function useBooking(options: UseBookingOptions): BookingController {
     setConflict(false);
     setFailed(false);
     try {
+      // The case's bookings are read first: a service that already has a booking is shown, not asked again.
+      await loading.current;
+      if (latest.current !== null) return;
       const response = await fetcher(REQUEST_PATH, {
         method: 'POST',
         headers: {
@@ -196,5 +242,5 @@ export function useBooking(options: UseBookingOptions): BookingController {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookingId, serviceId, pollMs]);
 
-  return { booking, busy, conflict, failed, request, cancelBusy, cancelConflict, cancel, acknowledge };
+  return { booking, loaded, busy, conflict, failed, request, cancelBusy, cancelConflict, cancel, acknowledge };
 }

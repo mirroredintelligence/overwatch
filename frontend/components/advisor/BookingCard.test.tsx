@@ -234,6 +234,6 @@ describe('BookingCard: a withdrawal already answered (KI-451)', () => {
     renderCard(STATE_WITHDRAWN_ACKNOWLEDGED);
     expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(screen.queryByText(/This is not answered yet/)).toBeNull();
-    expect(screen.getByText('Withdrawn')).toBeInTheDocument();
+    expect(screen.getByText('Withdrawn. Alert answered at 14:43.')).toBeInTheDocument();
   });
 });

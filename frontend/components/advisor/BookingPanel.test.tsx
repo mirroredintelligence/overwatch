@@ -318,7 +318,7 @@ describe('BookingPanel: the card comes back after a reload (WB4)', () => {
   it('does not open a withdrawal alert that was answered before the reload', async () => {
     caseBookings.current = [STATE_WITHDRAWN_ACKNOWLEDGED];
     renderPanel();
-    expect(await screen.findByText('Withdrawn')).toBeInTheDocument();
+    expect(await screen.findByText('Withdrawn. Alert answered at 14:43.')).toBeInTheDocument();
     expect(screen.queryByRole('alertdialog')).toBeNull();
   });
 
@@ -334,7 +334,7 @@ describe('BookingPanel: the card comes back after a reload (WB4)', () => {
     expect(await screen.findByRole('button', { name: 'Request booking' })).toBeInTheDocument();
   });
 
-  it('does not offer Request booking while the read is out, so a reload cannot post a second request', async () => {
+  it('posts nothing when Request booking is pressed while the read is out and the read finds a booking', async () => {
     let release: () => void = () => undefined;
     const gate = new Promise<void>((resolve) => {
       release = resolve;
@@ -346,8 +346,9 @@ describe('BookingPanel: the card comes back after a reload (WB4)', () => {
       }),
     );
     renderPanel();
-    expect(screen.queryByRole('button', { name: 'Request booking' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Request booking' }));
     release();
     expect(await screen.findByText('Booked')).toBeInTheDocument();
+    expect(seenBookingPosts).toHaveLength(0);
   });
 });

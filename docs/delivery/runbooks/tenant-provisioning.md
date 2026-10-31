@@ -39,11 +39,20 @@ A network is created for an **active** owner organisation, by the operator, and 
 
 This makes the network's own audit chain first (so a network that exists has somewhere to write to), the registry record, the owner's own membership, and the records in the owner's chain and the network's. The agreement is its reference and version: never its content. Members are then invited by the owner's network administrator and accept the agreement version in force; they share nothing until each member's administrator and the owner's administrator have both approved a grant, and the owner has admitted a listing (see `grant-incidents.md`).
 
+### Naming the owner's network administrators
+
+Nobody can run the network until the owner's directory has a group mapped to the role `network-admin` (TEN-080, DEC-1260). The role is given only while the owner organisation owns an active network, from a group of the owner's own verified directory; a mapping on any other organisation is stored and gives nothing. The owner's tenant administrator cannot make the first mapping until the first administrator can sign in, so the operator names it, once, after the network exists:
+
+    tenant_lifecycle.py --operator <name> network-admin-group <owner-tenant> <directory-group-id>
+
+It maps one group (its object id in the owner's directory) to the role, writes one audit entry in the owner's chain (the role, never the group), and is safe to run again. A group that already gives another role is refused: pick another group. Later groups are the owner's tenant administrator's (`PUT /tenant/role-mappings`).
+
 ## What to verify afterwards
 
 - `status` says `active`; the sub-domain opens the tenant's sign-in page and no other tenant's.
 - A test text from the tenant's number arrives at the tenant's first reporter and the reply is read by the tenant's scope only (the synthetic check in a dedicated tenant outside every network, TEN-085).
 - The audit chain of the tenant holds your commands, by your name; for a network, the network's own chain holds `CreateNetwork`.
+- A person of the mapped group signs in on the owner's host and lands on `/network-admin`; a person of the same group on a member's host gets the access message and nothing else.
 
 ## Failure modes
 

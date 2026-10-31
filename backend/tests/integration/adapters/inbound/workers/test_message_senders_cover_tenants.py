@@ -17,33 +17,33 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.adapters.inbound.workers.consumer import IdempotentConsumer, Outcome
-from diucs.adapters.inbound.workers.message_senders import (
+from overwatch.adapters.inbound.workers.consumer import IdempotentConsumer, Outcome
+from overwatch.adapters.inbound.workers.message_senders import (
     CONSUMER_SMS,
     MESSAGES_TOPIC,
     NO_CONTACT,
     SEND_MESSAGE_EVENT,
     SmsMessageSender,
 )
-from diucs.adapters.inbound.workers.outbox_relay import StaticTenants
-from diucs.adapters.inbound.workers.tenant_binding import TenantBoundConsumer
-from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
-from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.recording_senders import FixedSenderResolver, RecordingSmsSender
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
-from diucs.application.ports.outbound.messaging import Communication
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.change_reporter_number import (
+from overwatch.adapters.inbound.workers.outbox_relay import StaticTenants
+from overwatch.adapters.inbound.workers.tenant_binding import TenantBoundConsumer
+from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from overwatch.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.recording_senders import FixedSenderResolver, RecordingSmsSender
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
+from overwatch.application.ports.outbound.messaging import Communication
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.change_reporter_number import (
     ChangeReporterNumber,
     ChangeReporterNumberCommand,
     CoverDuration,
 )
-from diucs.domain.codes import Channel, Role
+from overwatch.domain.codes import Channel, Role
 from tests.support.ladder_rig import reporter, seed_people, virtual_ward
 from tests.support.neo4j import node_props
 from tests.support.tenancy import as_tenant

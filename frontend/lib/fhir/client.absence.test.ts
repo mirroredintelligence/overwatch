@@ -10,7 +10,7 @@ const BASE = 'http://backend.test/fhir';
 const TEST_TOKEN = 'token-for-tests';
 
 beforeEach(() => {
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', BASE);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', BASE);
 });
 
 afterEach(() => {

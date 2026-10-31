@@ -83,7 +83,7 @@ def test_only_concept_valued_relationships_are_shared() -> None:
 
 
 def test_shape_replaces_the_ids_and_nothing_else() -> None:
-    from diucs.domain.errors import NotFound
+    from overwatch.domain.errors import NotFound
 
     error = NotFound("HealthcareService/svc-9 is not here")
 
@@ -92,7 +92,7 @@ def test_shape_replaces_the_ids_and_nothing_else() -> None:
 
 
 def test_shape_replaces_every_id_longest_first() -> None:
-    from diucs.domain.errors import NotFound
+    from overwatch.domain.errors import NotFound
 
     error = NotFound("svc-1 and svc-12")
 

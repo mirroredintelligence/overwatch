@@ -25,17 +25,17 @@ from collections.abc import Mapping
 from enum import StrEnum
 from typing import Any, Protocol
 
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.network import NetworkRegistry
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import bind_tenant
-from diucs.application.use_cases.network_leave import EndProjections
-from diucs.application.use_cases.project_network import ProjectNetwork
-from diucs.application.use_cases.projection_boundaries import ensure_projection_schedule
-from diucs.domain.errors import NotAllowed, NotFound
-from diucs.domain.events import GrantEffective, GrantEnded, MemberRemoved, from_payload
-from diucs.domain.model.network import Grant
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.network import NetworkRegistry
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import bind_tenant
+from overwatch.application.use_cases.network_leave import EndProjections
+from overwatch.application.use_cases.project_network import ProjectNetwork
+from overwatch.application.use_cases.projection_boundaries import ensure_projection_schedule
+from overwatch.domain.errors import NotAllowed, NotFound
+from overwatch.domain.events import GrantEffective, GrantEnded, MemberRemoved, from_payload
+from overwatch.domain.model.network import Grant
 
 GRANT_NOT_FOUND = "the grant was not found"
 NETWORK_NOT_FOUND = "the network was not found"

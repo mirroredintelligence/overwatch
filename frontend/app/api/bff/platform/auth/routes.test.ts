@@ -36,7 +36,7 @@ vi.mock('next/headers', async () => {
   return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
-const TRANSACTION_COOKIE = 'diucs_op_oidc';
+const TRANSACTION_COOKIE = 'overwatch_op_oidc';
 const START_URL = `${OPERATOR_PUBLIC_URL}/api/bff/platform/auth/start`;
 let fake: FakeEntra;
 
@@ -108,7 +108,7 @@ describe('POST /api/bff/platform/auth/start', () => {
     expect(cookie?.options).toMatchObject({ httpOnly: true, secure: true, sameSite: 'lax', path: '/api/bff/platform/auth' });
     expect(Number(cookie?.options.maxAge)).toBeGreaterThan(0);
     expect(Number(cookie?.options.maxAge)).toBeLessThanOrEqual(600);
-    expect(cookie?.name).not.toBe('diucs_oidc');
+    expect(cookie?.name).not.toBe('overwatch_oidc');
   });
 
   it('takes no tenant, directory, role or hint from the request', async () => {
@@ -127,7 +127,7 @@ describe('POST /api/bff/platform/auth/start', () => {
     expect(lastWrite(TRANSACTION_COOKIE)).toBeUndefined();
   });
 
-  it.each(['OPERATOR_ENTRA_CLIENT_ID', 'OPERATOR_ENTRA_CLIENT_SECRET', 'OPERATOR_ENTRA_DIRECTORY_ID', 'DIUCS_OPERATOR_PUBLIC_URL'])(
+  it.each(['OPERATOR_ENTRA_CLIENT_ID', 'OPERATOR_ENTRA_CLIENT_SECRET', 'OPERATOR_ENTRA_DIRECTORY_ID', 'OVERWATCH_OPERATOR_PUBLIC_URL'])(
     'is the failed sign-in page when %s is not set: the operator door fails closed',
     async (name) => {
       vi.stubEnv(name, '');
@@ -141,14 +141,14 @@ describe('POST /api/bff/platform/auth/start', () => {
     vi.stubEnv('OPERATOR_ENTRA_CLIENT_ID', '');
     vi.stubEnv('ENTRA_CLIENT_ID', OPERATOR_CLIENT_ID);
     vi.stubEnv('ENTRA_CLIENT_SECRET', OPERATOR_CLIENT_SECRET);
-    vi.stubEnv('DIUCS_PUBLIC_URL', OPERATOR_PUBLIC_URL);
+    vi.stubEnv('OVERWATCH_PUBLIC_URL', OPERATOR_PUBLIC_URL);
     expect((await start(startRequest())).headers.get('location')).toBe('/operator/sign-in?error=failed');
   });
 });
 
 describe('GET /api/bff/platform/auth/callback', () => {
   it('makes an operator session: the role the back end gave, no tenant, the host it was made on, and no tenant session', async () => {
-    const outcome = await signIn({ oid: OID_OPERATOR, roles: ['DIUCS.PlatformOperator'], tid: DIRECTORY_PLATFORM });
+    const outcome = await signIn({ oid: OID_OPERATOR, roles: ['Overwatch.PlatformOperator'], tid: DIRECTORY_PLATFORM });
     expect(outcome.session).toMatchObject({ role: 'platform-operator', host: OPERATOR_HOST_NAME });
     expect(outcome.session?.accountRef).toMatch(/^ops-[0-9a-f]{32}$/);
     expect(outcome.session).not.toHaveProperty('tenantId');
@@ -159,21 +159,21 @@ describe('GET /api/bff/platform/auth/callback', () => {
   });
 
   it('asks the back end once, with the ID token as the only thing sent and the operator host as the host', async () => {
-    await signIn({ oid: OID_OPERATOR, roles: ['DIUCS.PlatformOperator'], tid: DIRECTORY_PLATFORM });
+    await signIn({ oid: OID_OPERATOR, roles: ['Overwatch.PlatformOperator'], tid: DIRECTORY_PLATFORM });
     expect(seenExchanges).toHaveLength(1);
     expect(seenExchanges[0]).toMatchObject({ path: '/auth/operator-token', host: OPERATOR_HOST_NAME, authorization: null });
     expect(Object.keys(seenExchanges[0]!.body as object)).toEqual(['idToken']);
   });
 
   it('keeps the Entra object id, the name and the ID token out of the cookie and the answer', async () => {
-    const outcome = await signIn({ oid: OID_OPERATOR, roles: ['DIUCS.PlatformOperator'], tid: DIRECTORY_PLATFORM });
+    const outcome = await signIn({ oid: OID_OPERATOR, roles: ['Overwatch.PlatformOperator'], tid: DIRECTORY_PLATFORM });
     const everything = JSON.stringify([outcome.session, outcome.body, [...outcome.response.headers.entries()]]);
     expect(everything).not.toContain(OID_OPERATOR);
     expect(everything).not.toMatch(/Sample Staff|sample\.staff@example\.test/);
   });
 
   it('answers with a page that moves the browser on, to the operator home, and never a redirect', async () => {
-    const outcome = await signIn({ oid: OID_OPERATOR, roles: ['DIUCS.PlatformOperator'], tid: DIRECTORY_PLATFORM });
+    const outcome = await signIn({ oid: OID_OPERATOR, roles: ['Overwatch.PlatformOperator'], tid: DIRECTORY_PLATFORM });
     expect(outcome.response.status).toBe(200);
     expect(outcome.location).toBeNull();
     expect(outcome.body).toContain('url=/operator"');
@@ -181,24 +181,24 @@ describe('GET /api/bff/platform/auth/callback', () => {
   });
 
   it('signs a support person in and sends them to the support requests', async () => {
-    const outcome = await signIn({ oid: OID_SUPPORT, roles: ['DIUCS.Support'], tid: DIRECTORY_PLATFORM });
+    const outcome = await signIn({ oid: OID_SUPPORT, roles: ['Overwatch.Support'], tid: DIRECTORY_PLATFORM });
     expect(outcome.session?.role).toBe('support');
     expect(outcome.body).toContain('url=/operator/support"');
   });
 
   it('goes to next only when it is an operator page the role may open, and otherwise to the home', async () => {
-    const good = await signIn({ oid: OID_OPERATOR, roles: ['DIUCS.PlatformOperator'], tid: DIRECTORY_PLATFORM }, { fields: { next: '/operator/audit' } });
+    const good = await signIn({ oid: OID_OPERATOR, roles: ['Overwatch.PlatformOperator'], tid: DIRECTORY_PLATFORM }, { fields: { next: '/operator/audit' } });
     expect(good.body).toContain('url=/operator/audit"');
     for (const next of ['/lead', '/admin', 'https://evil.example/', '//evil.example', '/operator/support']) {
-      const outcome = await signIn({ oid: OID_OPERATOR, roles: ['DIUCS.PlatformOperator'], tid: DIRECTORY_PLATFORM }, { fields: { next } });
+      const outcome = await signIn({ oid: OID_OPERATOR, roles: ['Overwatch.PlatformOperator'], tid: DIRECTORY_PLATFORM }, { fields: { next } });
       expect(outcome.body, next).toContain('url=/operator"');
     }
   });
 
   it('gives no session and the one access message for a person the back end refuses (a customer’s directory, no operator role)', async () => {
     for (const user of [
-      { oid: OID_OPERATOR, roles: ['DIUCS.Lead'], tid: DIRECTORY_PLATFORM },
-      { oid: OID_OPERATOR, roles: ['DIUCS.TenantAdmin'], tid: DIRECTORY_PLATFORM },
+      { oid: OID_OPERATOR, roles: ['Overwatch.Lead'], tid: DIRECTORY_PLATFORM },
+      { oid: OID_OPERATOR, roles: ['Overwatch.TenantAdmin'], tid: DIRECTORY_PLATFORM },
       { oid: OID_OPERATOR, roles: undefined, tid: DIRECTORY_PLATFORM },
     ] as FakeUser[]) {
       const outcome = await signIn(user);
@@ -209,7 +209,7 @@ describe('GET /api/bff/platform/auth/callback', () => {
   });
 
   it('sends a person of a customer’s directory away as a failed sign-in: the app registration is for the operator directory only', async () => {
-    const outcome = await signIn({ oid: OID_OPERATOR, roles: ['DIUCS.PlatformOperator'], tid: DIRECTORY_A });
+    const outcome = await signIn({ oid: OID_OPERATOR, roles: ['Overwatch.PlatformOperator'], tid: DIRECTORY_A });
     expect(outcome.session).toBeNull();
     expect(outcome.location).toBe('/operator/sign-in?error=failed');
     expect(seenExchanges).toHaveLength(0);
@@ -217,16 +217,16 @@ describe('GET /api/bff/platform/auth/callback', () => {
 
   it('is a failed sign-in, not the access message, when the back end fails, answers a tenant role or a token that is no operator’s', async () => {
     server.use(http.post(`${BACKEND_ROOT}/auth/operator-token`, () => HttpResponse.json({}, { status: 503 })));
-    const failed = await signIn({ oid: OID_OPERATOR, roles: ['DIUCS.PlatformOperator'], tid: DIRECTORY_PLATFORM });
+    const failed = await signIn({ oid: OID_OPERATOR, roles: ['Overwatch.PlatformOperator'], tid: DIRECTORY_PLATFORM });
     expect(failed.location).toBe('/operator/sign-in?error=failed');
     server.use(http.post(`${BACKEND_ROOT}/auth/operator-token`, () => HttpResponse.json({ token: 'a.b.c', expiresAt: '2030-01-01T00:00:00Z', role: 'lead' })));
-    const wrong = await signIn({ oid: OID_OPERATOR, roles: ['DIUCS.PlatformOperator'], tid: DIRECTORY_PLATFORM });
+    const wrong = await signIn({ oid: OID_OPERATOR, roles: ['Overwatch.PlatformOperator'], tid: DIRECTORY_PLATFORM });
     expect(wrong.location).toBe('/operator/sign-in?error=failed');
     expect(wrong.write).toBeUndefined();
   });
 
   it('makes nothing on a tenant’s host, and does not ask the back end', async () => {
-    const outcome = await signIn({ oid: OID_OPERATOR, roles: ['DIUCS.PlatformOperator'], tid: DIRECTORY_PLATFORM }, { host: 'tenant-a.example.test' });
+    const outcome = await signIn({ oid: OID_OPERATOR, roles: ['Overwatch.PlatformOperator'], tid: DIRECTORY_PLATFORM }, { host: 'tenant-a.example.test' });
     expect(outcome.session).toBeNull();
     expect(outcome.location).toBe('/operator/sign-in?error=failed');
     expect(seenExchanges).toHaveLength(0);
@@ -234,20 +234,20 @@ describe('GET /api/bff/platform/auth/callback', () => {
 
   it('refuses a callback with no transaction cookie, and a transaction that is the staff sign-in’s', async () => {
     const begun = await start(startRequest());
-    const { location } = fake.authorize(begun.headers.get('location') ?? '', { oid: OID_OPERATOR, roles: ['DIUCS.PlatformOperator'], tid: DIRECTORY_PLATFORM });
+    const { location } = fake.authorize(begun.headers.get('location') ?? '', { oid: OID_OPERATOR, roles: ['Overwatch.PlatformOperator'], tid: DIRECTORY_PLATFORM });
     const url = new URL(location);
     const back = (cookies: Record<string, string>) =>
       callback(requestWithCookies(`${OPERATOR_PUBLIC_URL}${url.pathname}${url.search}`, cookies, { headers: { Host: OPERATOR_HOST_NAME } }));
     resetCookieWrites();
     expect((await back({})).headers.get('location')).toBe('/operator/sign-in?error=failed');
-    expect((await back({ diucs_oidc: lastWrite(TRANSACTION_COOKIE)?.value ?? 'x' })).headers.get('location')).toBe('/operator/sign-in?error=failed');
+    expect((await back({ overwatch_oidc: lastWrite(TRANSACTION_COOKIE)?.value ?? 'x' })).headers.get('location')).toBe('/operator/sign-in?error=failed');
     expect(seenExchanges).toHaveLength(0);
   });
 
   it('logs one fixed word and never a token, a code or a claim', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     server.use(http.post(`${BACKEND_ROOT}/auth/operator-token`, () => HttpResponse.json({}, { status: 500 })));
-    await signIn({ oid: OID_OPERATOR, roles: ['DIUCS.PlatformOperator'], tid: DIRECTORY_PLATFORM });
+    await signIn({ oid: OID_OPERATOR, roles: ['Overwatch.PlatformOperator'], tid: DIRECTORY_PLATFORM });
     expect(warn.mock.calls).toEqual([['operator sign-in refused: exchange-failed']]);
   });
 });

@@ -13,8 +13,8 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from diucs.domain.errors import DomainError, InvalidTransition, NotAllowed, ValidationFailed
-from diucs.domain.model.tenant import (
+from overwatch.domain.errors import DomainError, InvalidTransition, NotAllowed, ValidationFailed
+from overwatch.domain.model.tenant import (
     ConfigStatus,
     ContactKind,
     NumberStatus,
@@ -24,7 +24,7 @@ from diucs.domain.model.tenant import (
     Tenant,
     TenantStatus,
 )
-from diucs.domain.rules.tenant_lifecycle import (
+from overwatch.domain.rules.tenant_lifecycle import (
     NUMBER_QUARANTINE,
     OFFBOARDING_NOTICE,
     PURGE_OPERATORS_REQUIRED,

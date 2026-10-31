@@ -11,12 +11,12 @@ from typing import Annotated, Final
 
 from fastapi import APIRouter, Depends, Request
 
-from diucs.adapters.inbound.fhir_rest.app import get_container
-from diucs.adapters.inbound.fhir_rest.auth import require_role
-from diucs.application.actor import Actor
-from diucs.domain.codes import Role
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.code_search import MIN_SEARCH_LENGTH
+from overwatch.adapters.inbound.fhir_rest.app import get_container
+from overwatch.adapters.inbound.fhir_rest.auth import require_role
+from overwatch.application.actor import Actor
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.code_search import MIN_SEARCH_LENGTH
 
 router = APIRouter()
 

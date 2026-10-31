@@ -51,7 +51,7 @@ beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
   vi.stubEnv('NODE_ENV', 'production');
   vi.stubEnv('OTEL_HTTP_ENDPOINT', COLLECTOR);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
   forwarded = [];
   counted = [];
   server.use(

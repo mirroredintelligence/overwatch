@@ -13,14 +13,14 @@ Only the executive role: another role's person is not made here.
 
 from typing import Final
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import ScopeKind, TenantNotBound
-from diucs.domain.codes import Role
-from diucs.domain.errors import Conflict, NotAllowed
-from diucs.domain.model.people import Practitioner
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeKind, TenantNotBound
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import Conflict, NotAllowed
+from overwatch.domain.model.people import Practitioner
 
 STAFF_PERSON_ROLES: Final = frozenset({Role.EXEC})
 STAFF_DISPLAY_NAME: Final = "Executive"

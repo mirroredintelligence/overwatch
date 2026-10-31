@@ -5,7 +5,7 @@ Not FHIR (a tenant is not a FHIR resource): plain JSON under `/platform`, never 
 (`Cache-Control: no-store`), errors as the rest of the API's OperationOutcome. The mount is the app
 root, not `/fhir`.
 
-THE DOOR. Every route takes an OPERATOR token (audience `diucs-ops`, issued by
+THE DOOR. Every route takes an OPERATOR token (audience `overwatch-ops`, issued by
 `/auth/operator-token` from the operator's own directory, TEN-043): a tenant token is a 401 here and
 an operator token is a 401 on every tenant route. The role then decides, and a role that may not
 use a route reads it as the 404 of a route that is not there:
@@ -60,23 +60,23 @@ from fastapi import APIRouter, Depends, Path, Query, Request
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 
-from diucs.adapters.inbound.fhir_rest.auth import operator_in_tenant, require_operator
-from diucs.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
-from diucs.adapters.inbound.fhir_rest.errors import operation_outcome
-from diucs.application.actor import Actor
-from diucs.application.cross_tenant_guard import PlatformPrincipal
-from diucs.application.platform_services import PlatformServices
-from diucs.application.ports.outbound.platform_audit import PlatformAuditRecord
-from diucs.application.ports.outbound.tenant_registry import RegistryTenant
-from diucs.application.use_cases.cross_tenant_tickets import (
+from overwatch.adapters.inbound.fhir_rest.auth import operator_in_tenant, require_operator
+from overwatch.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
+from overwatch.adapters.inbound.fhir_rest.errors import operation_outcome
+from overwatch.application.actor import Actor
+from overwatch.application.cross_tenant_guard import PlatformPrincipal
+from overwatch.application.platform_services import PlatformServices
+from overwatch.application.ports.outbound.platform_audit import PlatformAuditRecord
+from overwatch.application.ports.outbound.tenant_registry import RegistryTenant
+from overwatch.application.use_cases.cross_tenant_tickets import (
     CancelTicketCommand,
     OpenTicketCommand,
     RequestTicketCommand,
     TicketView,
 )
-from diucs.application.use_cases.platform_tenants import PlatformTenantDetail
-from diucs.application.use_cases.tenant_access import InviteTenantAdminCommand
-from diucs.application.use_cases.tenant_admin import (
+from overwatch.application.use_cases.platform_tenants import PlatformTenantDetail
+from overwatch.application.use_cases.tenant_access import InviteTenantAdminCommand
+from overwatch.application.use_cases.tenant_admin import (
     ActivateTenantCommand,
     CreateTenantCommand,
     MarkNumberTestedCommand,
@@ -85,12 +85,12 @@ from diucs.application.use_cases.tenant_admin import (
     SetHostCommand,
     VerifyDirectoryCommand,
 )
-from diucs.application.use_cases.tenant_offboarding import StartOffboardingCommand
-from diucs.application.use_cases.tenant_suspend import ResumeTenantCommand, SuspendTenantCommand
-from diucs.domain.codes import Role
-from diucs.domain.model.tenant import OrganisationType, SuspendMode, SuspendReason, Tenant
-from diucs.domain.rules.bff_token import OperatorClaims
-from diucs.domain.rules.support_ticket import ReasonCode
+from overwatch.application.use_cases.tenant_offboarding import StartOffboardingCommand
+from overwatch.application.use_cases.tenant_suspend import ResumeTenantCommand, SuspendTenantCommand
+from overwatch.domain.codes import Role
+from overwatch.domain.model.tenant import OrganisationType, SuspendMode, SuspendReason, Tenant
+from overwatch.domain.rules.bff_token import OperatorClaims
+from overwatch.domain.rules.support_ticket import ReasonCode
 
 router = APIRouter(prefix="/platform")
 

@@ -6,7 +6,7 @@ another audience, is `IdentityRejected`. It records the audiences it was asked f
 never the credentials: a repr, a message and a record show none.
 """
 
-from diucs.application.ports.outbound.identity_verifier import (
+from overwatch.application.ports.outbound.identity_verifier import (
     Audience,
     IdentityRejected,
     VerifiedIdentity,

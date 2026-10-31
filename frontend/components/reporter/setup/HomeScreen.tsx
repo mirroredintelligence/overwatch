@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { recordChannelForDevice } from '@/lib/reporter/channel';
 import styles from './Setup.module.css';
 
-// Step 3 of 5 (W34): add DIUCS to the home screen. Notifications only work from the home screen, so
+// Step 3 of 5 (W34): add Overwatch to the home screen. Notifications only work from the home screen, so
 // a reporter who is already in the installed app is carried straight on.
 
 type Platform = 'iPhone' | 'Android';
@@ -16,12 +16,12 @@ const IPHONE_STEPS = [
   'Tap Share',
   'Tap Add to Home Screen',
   'Tap Add',
-  'Open DIUCS from the home screen',
+  'Open Overwatch from the home screen',
 ];
 const ANDROID_STEPS = [
   'Open the browser menu',
   'Tap Install app or Add to Home screen',
-  'Open DIUCS from the home screen',
+  'Open Overwatch from the home screen',
 ];
 
 const IPHONE = /iPhone|iPad|iPod/;
@@ -76,7 +76,7 @@ export function HomeScreen() {
   return (
     <main className={styles.page}>
       <p className={styles.caption}>Step 3 of 5</p>
-      <h1 className={styles.title}>Add DIUCS to your home screen</h1>
+      <h1 className={styles.title}>Add Overwatch to your home screen</h1>
       <div role="tablist" aria-label="Phone">
         {(['iPhone', 'Android'] as const).map((name) => (
           <button
@@ -101,7 +101,7 @@ export function HomeScreen() {
       {notInstalled ? (
         <Banner
           tone="warning"
-          title="Open DIUCS from your home screen to carry on. Notifications only work from there."
+          title="Open Overwatch from your home screen to carry on. Notifications only work from there."
         />
       ) : null}
       {textFailed ? <Banner tone="warning" title="We could not save that. Check your number again, then try once more." /> : null}

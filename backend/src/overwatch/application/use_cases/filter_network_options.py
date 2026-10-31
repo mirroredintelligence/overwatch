@@ -32,17 +32,22 @@ from dataclasses import dataclass, replace
 from datetime import date, datetime
 from typing import Any, Final
 
-from diucs.application.actor import Actor
-from diucs.application.network_access import NetworkAccess
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.geo import LatLon, PostcodeLocator, TravelRange, TravelTime
-from diucs.application.ports.outbound.unit_of_work import (
+from overwatch.application.actor import Actor
+from overwatch.application.network_access import NetworkAccess
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.geo import (
+    LatLon,
+    PostcodeLocator,
+    TravelRange,
+    TravelTime,
+)
+from overwatch.application.ports.outbound.unit_of_work import (
     NetworkUnitOfWorkFactory,
     UnitOfWorkFactory,
 )
-from diucs.application.tenancy import bind_network
-from diucs.application.use_cases.filter_options import (
+from overwatch.application.tenancy import bind_network
+from overwatch.application.use_cases.filter_options import (
     OUTSIDE_CRITERIA_REASON,
     SHOWN_AS_NOT_SUITABLE,
     SHOWN_AS_OPTION,
@@ -58,22 +63,22 @@ from diucs.application.use_cases.filter_options import (
     status_warnings,
     travel_legs,
 )
-from diucs.application.use_cases.open_case import check_role, missing_fields
-from diucs.application.use_cases.query_network_board import NetworkReadUnitNotReadOnly
-from diucs.domain.codes import AgeBand, CriteriaStatus, NeedCategory, Status
-from diucs.domain.errors import Conflict, NotFound, ValidationFailed
-from diucs.domain.model.criteria import ServiceCriteria
-from diucs.domain.model.network import DirectorySource, GrantScope
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY
-from diucs.domain.rules.criteria_filter import check_hard_criteria
-from diucs.domain.rules.listing import ListingPresentation
-from diucs.domain.rules.london_time import to_london
-from diucs.domain.rules.network_board import (
+from overwatch.application.use_cases.open_case import check_role, missing_fields
+from overwatch.application.use_cases.query_network_board import NetworkReadUnitNotReadOnly
+from overwatch.domain.codes import AgeBand, CriteriaStatus, NeedCategory, Status
+from overwatch.domain.errors import Conflict, NotFound, ValidationFailed
+from overwatch.domain.model.criteria import ServiceCriteria
+from overwatch.domain.model.network import DirectorySource, GrantScope
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY
+from overwatch.domain.rules.criteria_filter import check_hard_criteria
+from overwatch.domain.rules.listing import ListingPresentation
+from overwatch.domain.rules.london_time import to_london
+from overwatch.domain.rules.network_board import (
     NetworkBoardEntry,
     NetworkServiceInput,
     assemble_network_board,
 )
-from diucs.domain.rules.projection import CriteriaProjection, ServiceProjection
+from overwatch.domain.rules.projection import CriteriaProjection, ServiceProjection
 
 FILTER_NETWORK_OPTIONS: Final = "FilterNetworkOptions"
 READ_ACTION: Final = "R"

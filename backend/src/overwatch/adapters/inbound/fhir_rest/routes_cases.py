@@ -39,11 +39,11 @@ from typing import Annotated, Any, Final, cast
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response
 
-from diucs.adapters.inbound.fhir_rest import capability
-from diucs.adapters.inbound.fhir_rest.app import get_container
-from diucs.adapters.inbound.fhir_rest.auth import require_role
-from diucs.adapters.inbound.fhir_rest.capability import FhirJSONResponse
-from diucs.adapters.inbound.fhir_rest.case_mapping import (
+from overwatch.adapters.inbound.fhir_rest import capability
+from overwatch.adapters.inbound.fhir_rest.app import get_container
+from overwatch.adapters.inbound.fhir_rest.auth import require_role
+from overwatch.adapters.inbound.fhir_rest.capability import FhirJSONResponse
+from overwatch.adapters.inbound.fhir_rest.case_mapping import (
     CaseDetails,
     case_to_fhir,
     filter_result_to_fhir,
@@ -51,55 +51,55 @@ from diucs.adapters.inbound.fhir_rest.case_mapping import (
     refuse_patient_details,
     summary_to_fhir,
 )
-from diucs.adapters.inbound.fhir_rest.concurrency import (
+from overwatch.adapters.inbound.fhir_rest.concurrency import (
     etag_for,
     idempotency_key,
     parse_if_match,
     require_if_match,
 )
-from diucs.adapters.inbound.fhir_rest.mapping import validate_outbound
-from diucs.adapters.inbound.fhir_rest.routes_network import (
+from overwatch.adapters.inbound.fhir_rest.mapping import validate_outbound
+from overwatch.adapters.inbound.fhir_rest.routes_network import (
     NETWORK_ID_PATTERN,
     ensure_in_claim,
     network_services,
 )
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenant_settings import DirectoryZones
-from diucs.application.uow_idempotency import UnitOfWorkIdempotency
-from diucs.application.use_cases.advisor_phoned import (
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenant_settings import DirectoryZones
+from overwatch.application.uow_idempotency import UnitOfWorkIdempotency
+from overwatch.application.use_cases.advisor_phoned import (
     PHONED_ANSWERS,
     PhonedAnswer,
     RecordAdvisorPhoned,
     RecordAdvisorPhonedCommand,
 )
-from diucs.application.use_cases.case_summary import BuildCaseSummary, BuildCaseSummaryQuery
-from diucs.application.use_cases.filter_network_options import (
+from overwatch.application.use_cases.case_summary import BuildCaseSummary, BuildCaseSummaryQuery
+from overwatch.application.use_cases.filter_network_options import (
     FilterNetworkOptionsCommand,
 )
-from diucs.application.use_cases.filter_options import (
+from overwatch.application.use_cases.filter_options import (
     FilterOptions,
     FilterOptionsCommand,
 )
-from diucs.application.use_cases.open_case import (
+from overwatch.application.use_cases.open_case import (
     OpenCase,
     OpenCaseCommand,
     UpdateCase,
     UpdateCaseCommand,
 )
-from diucs.application.use_cases.query_board import QueryBoard
-from diucs.application.use_cases.record_decline import RecordDecline, RecordDeclineCommand
-from diucs.application.use_cases.record_outcome import RecordOutcome, RecordOutcomeCommand
-from diucs.application.use_cases.report_capacity import ReportCapacity
-from diucs.domain.codes import (
+from overwatch.application.use_cases.query_board import QueryBoard
+from overwatch.application.use_cases.record_decline import RecordDecline, RecordDeclineCommand
+from overwatch.application.use_cases.record_outcome import RecordOutcome, RecordOutcomeCommand
+from overwatch.application.use_cases.report_capacity import ReportCapacity
+from overwatch.domain.codes import (
     BASE_URL,
     BestFitNotUsedReason,
     DeclineReason,
     Outcome,
     Role,
 )
-from diucs.domain.errors import NotFound, ValidationFailed
-from diucs.domain.model.case import Case
+from overwatch.domain.errors import NotFound, ValidationFailed
+from overwatch.domain.model.case import Case
 
 CASE_ROLES: Final = (Role.ADVISOR, Role.CLINICAL)
 NO_SUCH_CASE: Final = "no case with this id"

@@ -4,7 +4,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from diucs.domain.rules.code_search import MIN_SEARCH_LENGTH, search_codes
+from overwatch.domain.rules.code_search import MIN_SEARCH_LENGTH, search_codes
 
 ENTRIES = [
     ("DxSAMPLE02", "Breathing check (not a real code)"),

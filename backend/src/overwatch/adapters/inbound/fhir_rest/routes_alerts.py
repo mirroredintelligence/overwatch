@@ -35,18 +35,18 @@ from typing import Annotated, Any, Final, Protocol, cast
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response
 
-from diucs.adapters.inbound.fhir_rest import routes_bookings
-from diucs.adapters.inbound.fhir_rest.app import get_container
-from diucs.adapters.inbound.fhir_rest.auth import current_actor, require_role
-from diucs.adapters.inbound.fhir_rest.capability import FhirJSONResponse
-from diucs.adapters.inbound.fhir_rest.concurrency import (
+from overwatch.adapters.inbound.fhir_rest import routes_bookings
+from overwatch.adapters.inbound.fhir_rest.app import get_container
+from overwatch.adapters.inbound.fhir_rest.auth import current_actor, require_role
+from overwatch.adapters.inbound.fhir_rest.capability import FhirJSONResponse
+from overwatch.adapters.inbound.fhir_rest.concurrency import (
     check_version,
     idempotency_key,
     replay_or_run,
     require_if_match,
     versioned_response,
 )
-from diucs.adapters.inbound.fhir_rest.subscription_mapping import (
+from overwatch.adapters.inbound.fhir_rest.subscription_mapping import (
     LISTED_STATUSES,
     alert_to_task,
     save_command,
@@ -54,26 +54,26 @@ from diucs.adapters.inbound.fhir_rest.subscription_mapping import (
     subscription_version,
     summary_parameters,
 )
-from diucs.application.actor import Actor
-from diucs.application.idempotency import format_instant
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.uow_idempotency import UnitOfWorkIdempotency
-from diucs.application.use_cases.alerts import (
+from overwatch.application.actor import Actor
+from overwatch.application.idempotency import format_instant
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.uow_idempotency import UnitOfWorkIdempotency
+from overwatch.application.use_cases.alerts import (
     AcknowledgeAlert,
     AcknowledgeAlertCommand,
     SnoozeAlert,
     SnoozeAlertCommand,
 )
-from diucs.application.use_cases.subscribe_alert import (
+from overwatch.application.use_cases.subscribe_alert import (
     GetAlertPreferences,
     ListLeaders,
     SaveAlertPreferences,
 )
-from diucs.application.use_cases.week_summary import GetWeekSummary, GetWeekSummaryCommand
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotAllowed, NotFound, ValidationFailed
+from overwatch.application.use_cases.week_summary import GetWeekSummary, GetWeekSummaryCommand
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotAllowed, NotFound, ValidationFailed
 
 router = APIRouter(prefix="/fhir")
 

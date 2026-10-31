@@ -5,7 +5,7 @@ practitioner holds, so it does the same work as a request for a real one (H-451)
 
 import re
 
-from diucs.application.use_cases.reporter_setup import (
+from overwatch.application.use_cases.reporter_setup import (
     STAND_IN_DEVICE,
     STAND_IN_TOKEN,
     KnownPhoneHash,

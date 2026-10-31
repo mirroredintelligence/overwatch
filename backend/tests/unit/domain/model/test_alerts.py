@@ -4,10 +4,10 @@ from datetime import UTC, datetime, time, timedelta
 
 import pytest
 
-from diucs.domain.codes import AlertKind
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.alerts import AlertRecord, AlertSubscription
-from diucs.domain.rules.alerts import AlertPreferences
+from overwatch.domain.codes import AlertKind
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.alerts import AlertRecord, AlertSubscription
+from overwatch.domain.rules.alerts import AlertPreferences
 
 RAISED = datetime(2026, 10, 25, 13, 12, tzinfo=UTC)
 DUE = datetime(2026, 10, 25, 13, 27, tzinfo=UTC)

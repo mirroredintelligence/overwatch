@@ -12,10 +12,10 @@ from typing import Any
 
 import pytest
 
-from diucs.application.actor import Actor
-from diucs.application.tenancy import ScopeId, TenantMismatch, TenantNotBound
-from diucs.application.use_cases import tenant_admin
-from diucs.application.use_cases.tenant_admin import (
+from overwatch.application.actor import Actor
+from overwatch.application.tenancy import ScopeId, TenantMismatch, TenantNotBound
+from overwatch.application.use_cases import tenant_admin
+from overwatch.application.use_cases.tenant_admin import (
     ActivateTenant,
     ActivateTenantCommand,
     CreateTenant,
@@ -31,10 +31,10 @@ from diucs.application.use_cases.tenant_admin import (
     VerifyDirectoryCommand,
     VerifyEntraBinding,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.model.tenant import OrganisationType, TenantStatus
-from diucs.domain.model.tenant_records import BindingStatus
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.model.tenant import OrganisationType, TenantStatus
+from overwatch.domain.model.tenant_records import BindingStatus
 from tests.support.provisioning_fakes import (
     DIRECTORY_ID,
     NOW,
@@ -201,7 +201,7 @@ async def test_a_number_is_recorded_on_the_registry_first_and_then_as_the_tenant
 
 
 async def test_a_number_another_tenant_holds_changes_nothing_of_this_tenants() -> None:
-    from diucs.application.ports.outbound.tenant_registry import TenantNumberRecord
+    from overwatch.application.ports.outbound.tenant_registry import TenantNumberRecord
 
     platform = FakePlatform(provisioning_tenant(), provisioning_tenant(OTHER))
     platform.numbers_by_tenant[OTHER] = {
@@ -418,8 +418,8 @@ def _activate(
 async def _ready(platform: FakePlatform, world: FakeWorld) -> None:
     """Everything an activation needs: configuration, a tested number, references, a host and an
     open invitation."""
-    from diucs.application.ports.outbound.tenant_registry import TenantNumberRecord
-    from diucs.application.provisioning import TENANT_ADMIN_INVITE
+    from overwatch.application.ports.outbound.tenant_registry import TenantNumberRecord
+    from overwatch.application.provisioning import TENANT_ADMIN_INVITE
 
     world.config.make_ready()
     world.config.binding_list = [
@@ -441,7 +441,7 @@ def seeded(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     ran: list[str] = []
 
     async def fake(factory: Any, ids: Any, clock: Any) -> tuple[bool, bool]:
-        from diucs.application.tenancy import current_tenant
+        from overwatch.application.tenancy import current_tenant
 
         ran.append(current_tenant())
         return True, True
@@ -553,7 +553,7 @@ async def test_only_a_provisioning_tenant_is_activated(
 ) -> None:
     extra: dict[str, Any] = {"activated_at": NOW}
     if status is TenantStatus.SUSPENDED:
-        from diucs.domain.model.tenant import SuspendMode, SuspendReason
+        from overwatch.domain.model.tenant import SuspendMode, SuspendReason
 
         extra |= {
             "suspended_at": NOW,

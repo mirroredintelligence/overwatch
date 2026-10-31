@@ -2,7 +2,7 @@
 read. The stored answers are in tests/integration/adapters/inbound/fhir_rest/.
 """
 
-from diucs.domain.codes import Role
+from overwatch.domain.codes import Role
 from tests.support.route_unit import KEY, assert_role_matrix, bearer, route_client
 
 CLINICAL = frozenset({Role.CLINICAL})

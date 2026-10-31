@@ -42,12 +42,12 @@ export default defineConfig({
     : {
         command: `pnpm dev --port ${PORT}`,
         url: `http://localhost:${PORT}`,
-        // A dev server is reused only on a port the person chose (DIUCS_E2E_PORT), never on the
+        // A dev server is reused only on a port the person chose (OVERWATCH_E2E_PORT), never on the
         // port derived for this run, where another run's server could be.
         reuseExistingServer: PORT_CHOSEN && !process.env.CI,
         // The page reads the board from a stand-in back end that global-setup starts.
         env: {
-          DIUCS_FHIR_BASE_URL: `http://127.0.0.1:${BACKEND_PORT}/fhir`,
+          OVERWATCH_FHIR_BASE_URL: `http://127.0.0.1:${BACKEND_PORT}/fhir`,
           // The staff sign-in talks to the fake Entra provider that global-setup starts (W09),
           // and the session secret the browser tests seal their cookies with.
           ...ENTRA_ENV,

@@ -17,13 +17,13 @@ import pytest_asyncio
 from httpx import AsyncClient
 from neo4j import AsyncDriver
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET
-from diucs.application.ports.outbound.identity import HmacPhoneHasher
-from diucs.application.ports.outbound.tokens import LinkTokenService
-from diucs.application.tenancy import bind_tenant
-from diucs.bootstrap.container import Container
-from diucs.domain.codes import Channel
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.tokens import TEST_BFF_SECRET
+from overwatch.application.ports.outbound.identity import HmacPhoneHasher
+from overwatch.application.ports.outbound.tokens import LinkTokenService
+from overwatch.application.tenancy import bind_tenant
+from overwatch.bootstrap.container import Container
+from overwatch.domain.codes import Channel
 from tests.integration.adapters.inbound.fhir_rest.reporter_rig import (
     CODE,
     DEVICE,

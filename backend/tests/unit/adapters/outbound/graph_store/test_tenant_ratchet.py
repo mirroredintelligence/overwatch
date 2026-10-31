@@ -10,8 +10,8 @@ import re
 
 import pytest
 
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.adapters.outbound.graph_store.scenario import (
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from overwatch.adapters.outbound.graph_store.scenario import (
     collision_blocked,
     constraints_used,
     validate_scenario,

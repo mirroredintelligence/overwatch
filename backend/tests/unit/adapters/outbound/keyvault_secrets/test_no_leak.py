@@ -8,9 +8,9 @@ import traceback
 import pytest
 from azure.core.exceptions import HttpResponseError
 
-from diucs.adapters.outbound.keyvault_secrets import KeyVaultSecretStore
-from diucs.application.ports.outbound.tokens import SecretStoreUnavailable
-from diucs.domain.errors import NotFound
+from overwatch.adapters.outbound.keyvault_secrets import KeyVaultSecretStore
+from overwatch.application.ports.outbound.tokens import SecretStoreUnavailable
+from overwatch.domain.errors import NotFound
 from tests.support.fake_key_vault import FakeKeyVaultClient, FakeMonotonic
 
 CANARY = "CANARY-secret-value-5b1c0f9e"

@@ -34,16 +34,16 @@ from neo4j import AsyncManagedTransaction
 from neo4j.exceptions import ConstraintError
 from neo4j.time import DateTime
 
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.driver import run_global_query
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.application.ports.outbound.network import (
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.driver import run_global_query
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from overwatch.application.ports.outbound.network import (
     ActiveGrant,
     NetworkRecordInvalid,
     RegisteredNetwork,
 )
-from diucs.domain.errors import Conflict, ValidationFailed
-from diucs.domain.model.network import (
+from overwatch.domain.errors import Conflict, ValidationFailed
+from overwatch.domain.model.network import (
     Agreement,
     Approval,
     Grant,
@@ -62,8 +62,8 @@ from diucs.domain.model.network import (
     check_network_id,
     check_tenant_field,
 )
-from diucs.domain.model.network_settings import NetworkSettings
-from diucs.domain.rules.grant import may_project
+from overwatch.domain.model.network_settings import NetworkSettings
+from overwatch.domain.rules.grant import may_project
 
 RECORD_MESSAGE: Final = "a network record in the registry is not valid"
 CONFLICT_MESSAGE: Final = "the registry row is not as expected, so nothing was written"

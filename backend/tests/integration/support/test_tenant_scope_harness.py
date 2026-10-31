@@ -13,7 +13,7 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.application.tenancy import ScopeId, TenantNotBound, bind_scope
+from overwatch.application.tenancy import ScopeId, TenantNotBound, bind_scope
 from tests.support.neo4j import (
     WipeRefused,
     count_nodes,
@@ -246,7 +246,7 @@ async def test_wipe_all_is_refused_on_a_database_the_run_did_not_start(
 @pytest.mark.schema
 async def test_wipe_all_on_a_private_container_removes_every_tenant_and_keeps_the_schema() -> None:
     async with throwaway_driver() as (_container, driver):
-        from diucs.adapters.outbound.graph_store.migrations import apply_migrations
+        from overwatch.adapters.outbound.graph_store.migrations import apply_migrations
 
         await apply_migrations(driver)
         await _probe_in(driver, "tt-one-owner")

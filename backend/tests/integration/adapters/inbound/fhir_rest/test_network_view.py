@@ -22,27 +22,27 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from neo4j import AsyncDriver
 
-from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
-from diucs.adapters.inbound.fhir_rest.routes_network import NetworkServices
-from diucs.adapters.outbound.cache_redis.redis_cache import RedisCache
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.unit_of_work import neo4j_network_uow_factory
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
-from diucs.application.network_access import NetworkAccess
-from diucs.application.tenancy import bind_network
-from diucs.application.use_cases.network_board_projector import (
+from overwatch.adapters.inbound.fhir_rest.app import create_app
+from overwatch.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from overwatch.adapters.inbound.fhir_rest.routes_network import NetworkServices
+from overwatch.adapters.outbound.cache_redis.redis_cache import RedisCache
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.unit_of_work import neo4j_network_uow_factory
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
+from overwatch.application.network_access import NetworkAccess
+from overwatch.application.tenancy import bind_network
+from overwatch.application.use_cases.network_board_projector import (
     NETWORK_BOARD_CACHE_KEY,
     NetworkBoardProjector,
 )
-from diucs.application.use_cases.query_network_board import QueryNetworkBoard
-from diucs.application.use_cases.query_network_directory import (
+from overwatch.application.use_cases.query_network_board import QueryNetworkBoard
+from overwatch.application.use_cases.query_network_directory import (
     QueryNetworkCriteria,
     QueryNetworkDirectory,
 )
-from diucs.domain.codes import Role
+from overwatch.domain.codes import Role
 from tests.support.edge import EdgeContainer, active_tenants
 from tests.support.network_world import NOW, NetworkWorld, world_ids
 from tests.support.tenancy import RunIdentity

@@ -10,20 +10,20 @@ from datetime import UTC, datetime
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.messaging import PushSubscription
-from diucs.application.tenancy import ScopeId
-from diucs.application.use_cases.reporter_push import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.messaging import PushSubscription
+from overwatch.application.tenancy import ScopeId
+from overwatch.application.use_cases.reporter_push import (
     EXEC_TEST_BODY,
     TEST_TITLE,
     NoPushSubscription,
     SendPushTest,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotAllowed
-from diucs.domain.model.people import Practitioner
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotAllowed
+from overwatch.domain.model.people import Practitioner
 from tests.support.actors import ACTOR_TENANT
 from tests.support.registration_rig import StubUnits
 

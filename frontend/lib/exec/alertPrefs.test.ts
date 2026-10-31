@@ -67,7 +67,7 @@ describe('the FHIR Subscription mapping (R12)', () => {
     expect(sub.channel).toEqual({ type: 'message' });
     expect(sub.status).toBe('active');
     const extensions = sub.extension as { url: string }[];
-    expect(extensions.every((e) => e.url.startsWith('https://diucs.example/CodeSystem/alert-preferences/'))).toBe(true);
+    expect(extensions.every((e) => e.url.startsWith('https://overwatch.mirroredintelligence.com/CodeSystem/alert-preferences/'))).toBe(true);
   });
 
   it('gives the deputy as a Practitioner reference, and leaves out quiet hours when none are set', () => {

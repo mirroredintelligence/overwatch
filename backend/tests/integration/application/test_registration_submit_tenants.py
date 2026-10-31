@@ -16,12 +16,12 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_geo import FixedGeocoder
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_terminology import FixedTerminology
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.registration_draft import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_geo import FixedGeocoder
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_terminology import FixedTerminology
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.registration_draft import (
     ApiStep,
     LocationStep,
     OrganisationStep,
@@ -29,15 +29,20 @@ from diucs.application.use_cases.registration_draft import (
     ServiceStep,
     encode_step,
 )
-from diucs.application.use_cases.registration_submit import (
+from overwatch.application.use_cases.registration_submit import (
     PersistRegistration,
     PersistRegistrationCommand,
     lookups_of,
 )
-from diucs.domain.codes import PractitionerRoleCode, RegistrationStatus, ScopeFlag, ServiceCategory
-from diucs.domain.errors import NotFound
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.model.registration import Registration, ScopeEntry
+from overwatch.domain.codes import (
+    PractitionerRoleCode,
+    RegistrationStatus,
+    ScopeFlag,
+    ServiceCategory,
+)
+from overwatch.domain.errors import NotFound
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.model.registration import Registration, ScopeEntry
 from tests.support.neo4j import count_nodes, count_nodes_run
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory
 

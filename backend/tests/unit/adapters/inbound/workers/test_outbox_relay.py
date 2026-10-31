@@ -13,8 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from diucs.adapters.inbound.workers import outbox_relay
-from diucs.adapters.inbound.workers.outbox_relay import (
+from overwatch.adapters.inbound.workers import outbox_relay
+from overwatch.adapters.inbound.workers.outbox_relay import (
     BACKOFF_CAP_SECONDS,
     BACKOFF_START_SECONDS,
     BATCH_SIZE,
@@ -25,10 +25,10 @@ from diucs.adapters.inbound.workers.outbox_relay import (
     RelayResult,
     StaticTenants,
 )
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.adapters.testing.memory_event_bus import ManualEventBus
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.adapters.testing.memory_event_bus import ManualEventBus
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork
 
 CLOCK = FixedClock(datetime(2026, 10, 23, 13, 16, tzinfo=UTC))
 
@@ -100,7 +100,7 @@ def test_the_worker_imports_no_outbound_adapter_and_no_driver() -> None:
         elif isinstance(node, ast.ImportFrom) and node.module is not None:
             imported.add(node.module)
 
-    forbidden = ("diucs.adapters.outbound", "diucs.adapters.testing", "diucs.bootstrap")
+    forbidden = ("overwatch.adapters.outbound", "overwatch.adapters.testing", "overwatch.bootstrap")
     assert not [name for name in imported if name.startswith(forbidden)]
     assert not [name for name in imported if name.split(".")[0] in {"neo4j", "redis", "azure"}]
 

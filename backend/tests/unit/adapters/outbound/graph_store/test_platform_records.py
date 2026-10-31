@@ -13,25 +13,25 @@ from typing import Any, cast
 import pytest
 from neo4j.exceptions import ConstraintError
 
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.platform_audit import (
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.platform_audit import (
     GENESIS_SCOPE,
     Neo4jPlatformAudit,
     entry_json,
     record_from_properties,
 )
-from diucs.adapters.outbound.graph_store.support_ticket_store import (
+from overwatch.adapters.outbound.graph_store.support_ticket_store import (
     Neo4jSupportTickets,
     ticket_from_properties,
     ticket_properties,
 )
-from diucs.adapters.outbound.graph_store.tenant_registry import Neo4jTenantRegistry
-from diucs.application.ports.outbound.audit import chain_hash_over, genesis_hash_for
-from diucs.application.ports.outbound.platform_audit import PlatformAuditEntry
-from diucs.application.ports.outbound.tenants import TenantRecordInvalid
-from diucs.domain.errors import Conflict, ValidationFailed
-from diucs.domain.model.tenant import TenantStatus
-from diucs.domain.rules.support_ticket import (
+from overwatch.adapters.outbound.graph_store.tenant_registry import Neo4jTenantRegistry
+from overwatch.application.ports.outbound.audit import chain_hash_over, genesis_hash_for
+from overwatch.application.ports.outbound.platform_audit import PlatformAuditEntry
+from overwatch.application.ports.outbound.tenants import TenantRecordInvalid
+from overwatch.domain.errors import Conflict, ValidationFailed
+from overwatch.domain.model.tenant import TenantStatus
+from overwatch.domain.rules.support_ticket import (
     ReasonCode,
     SupportTicket,
     TicketState,
@@ -508,7 +508,7 @@ def _registry(connection: RecordingWriteConnection) -> Neo4jTenantRegistry:
 
 
 def _node_of(tenant_id: str, **extra: Any) -> dict[str, Any]:
-    from diucs.adapters.outbound.graph_store.tenant_registry import tenant_write_properties
+    from overwatch.adapters.outbound.graph_store.tenant_registry import tenant_write_properties
 
     return {
         "id": tenant_id,

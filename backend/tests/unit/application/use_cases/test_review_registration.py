@@ -9,8 +9,8 @@ from datetime import UTC, date, datetime
 
 import pytest
 
-from diucs.application.actor import Actor
-from diucs.application.use_cases.registration_draft import (
+from overwatch.application.actor import Actor
+from overwatch.application.use_cases.registration_draft import (
     ApiStep,
     LocationStep,
     OrganisationStep,
@@ -18,8 +18,12 @@ from diucs.application.use_cases.registration_draft import (
     ServiceStep,
     encode_step,
 )
-from diucs.application.use_cases.registration_submit import LOOKUPS_STEP, Lookups, encode_lookups
-from diucs.application.use_cases.review_registration import (
+from overwatch.application.use_cases.registration_submit import (
+    LOOKUPS_STEP,
+    Lookups,
+    encode_lookups,
+)
+from overwatch.application.use_cases.review_registration import (
     CHECK_ADDRESS,
     CHECK_EMAIL,
     CHECK_NAME,
@@ -39,9 +43,9 @@ from diucs.application.use_cases.review_registration import (
     organisation_email_ok,
     run_automatic_checks,
 )
-from diucs.domain.codes import RegistrationStatus, Role
-from diucs.domain.errors import NotAllowed, ValidationFailed
-from diucs.domain.model.registration import Registration
+from overwatch.domain.codes import RegistrationStatus, Role
+from overwatch.domain.errors import NotAllowed, ValidationFailed
+from overwatch.domain.model.registration import Registration
 from tests.support.actors import ACTOR_TENANT
 
 NOW = datetime(2026, 10, 29, 10, 0, tzinfo=UTC)

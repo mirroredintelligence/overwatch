@@ -10,9 +10,9 @@ import re
 
 import pytest
 
-import diucs.adapters.outbound.graph_store.aggregate_repository  # noqa: F401  (registers the statements)
-from diucs.adapters.outbound.graph_store.queries import REGISTRY
-from diucs.adapters.outbound.graph_store.scenario import validate_scenario
+import overwatch.adapters.outbound.graph_store.aggregate_repository  # noqa: F401  (registers the statements)
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY
+from overwatch.adapters.outbound.graph_store.scenario import validate_scenario
 
 AGG_IDS = sorted(
     [

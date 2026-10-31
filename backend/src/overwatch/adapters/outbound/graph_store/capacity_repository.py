@@ -17,24 +17,24 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any, Final
 
-from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.adapters.outbound.graph_store.service_repository import (
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx, run_query
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.adapters.outbound.graph_store.service_repository import (
     codeable_from_fhir,
     codeable_to_fhir,
 )
-from diucs.adapters.outbound.graph_store.service_scenarios import SCENARIOS
-from diucs.adapters.outbound.graph_store.week_scenarios import WEEK_SCENARIOS
-from diucs.domain.codes import (
+from overwatch.adapters.outbound.graph_store.service_scenarios import SCENARIOS
+from overwatch.adapters.outbound.graph_store.week_scenarios import WEEK_SCENARIOS
+from overwatch.domain.codes import (
     BASE_URL,
     Measure,
     ReportSource,
     ReportType,
     parse_code,
 )
-from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.model.capacity import CapacityReport
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.model.capacity import CapacityReport
 
 _UCUM_SYSTEM: Final = "http://unitsofmeasure.org"
 _UCUM_UNITS: Final[dict[Measure, str]] = {

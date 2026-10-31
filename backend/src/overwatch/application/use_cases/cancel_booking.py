@@ -14,23 +14,23 @@ import hashlib
 from dataclasses import dataclass
 from typing import Final
 
-from diucs.application.actor import Actor
-from diucs.application.booking_effects import cancel_booking_timers, echo_role, queue_echo
-from diucs.application.idempotency import IdempotencyStore
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.outbox import outbox_message_for
-from diucs.application.ports.outbound.sealing import ContentSealer
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
-from diucs.domain.codes import BookingStatus, CancelReason
-from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.events import BookingCancelled
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.messages.templates import render
-from diucs.domain.rules.booking_response import advisor_may_cancel, cancel_target
-from diucs.domain.rules.london_time import format_hhmm
+from overwatch.application.actor import Actor
+from overwatch.application.booking_effects import cancel_booking_timers, echo_role, queue_echo
+from overwatch.application.idempotency import IdempotencyStore
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.outbox import outbox_message_for
+from overwatch.application.ports.outbound.sealing import ContentSealer
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
+from overwatch.domain.codes import BookingStatus, CancelReason
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.events import BookingCancelled
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.messages.templates import render
+from overwatch.domain.rules.booking_response import advisor_may_cancel, cancel_target
+from overwatch.domain.rules.london_time import format_hhmm
 
 USE_CASE: Final = "CancelBooking"
 AUDIT_ACTION: Final = "U"

@@ -5,7 +5,7 @@ synthetic test service, so a reporter loop can run end to end on a deployed envi
 real person or number. It is the one route in the product that issues a link on request, so it
 refuses everything unless all three hold:
 
-- the hook is configured and switched on (`synthetic_enabled`, DIUCS_SYNTHETIC_ENABLED), and
+- the hook is configured and switched on (`synthetic_enabled`, OVERWATCH_SYNTHETIC_ENABLED), and
 - the bearer equals the hook token, compared in constant time, and
 - the tenant is the one configured at the edge. A request never names a tenant: a tenant in the
   body or the query is ignored.
@@ -21,7 +21,7 @@ from typing import Protocol
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from diucs.application.tenancy import bind_tenant, is_valid_tenant_id
+from overwatch.application.tenancy import bind_tenant, is_valid_tenant_id
 
 router = APIRouter(prefix="/test/synthetic")
 _REFUSED_BODY = {"error": "not found"}

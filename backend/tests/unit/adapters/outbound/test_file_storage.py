@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from diucs.adapters.outbound.export_files.file_storage import FileExportStorage
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.tenant_export import MANIFEST_FILE
+from overwatch.adapters.outbound.export_files.file_storage import FileExportStorage
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.tenant_export import MANIFEST_FILE
 
 pytestmark = pytest.mark.asyncio
 

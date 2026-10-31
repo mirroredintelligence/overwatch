@@ -4,7 +4,7 @@ The credentials are network secrets on the cloud environment. The agent proxy at
 requests for the listed host, so this test sends NO credentials itself and the session never
 sees a secret value. A 200 response proves the stored credentials work.
 
-Runs only when DIUCS_LIVE_TWILIO=1 is set, so normal test runs never reach the network.
+Runs only when OVERWATCH_LIVE_TWILIO=1 is set, so normal test runs never reach the network.
 """
 
 import json
@@ -15,8 +15,8 @@ import urllib.request
 import pytest
 
 pytestmark = pytest.mark.skipif(
-    os.environ.get("DIUCS_LIVE_TWILIO") != "1",
-    reason="live Twilio check: set DIUCS_LIVE_TWILIO=1 to run it",
+    os.environ.get("OVERWATCH_LIVE_TWILIO") != "1",
+    reason="live Twilio check: set OVERWATCH_LIVE_TWILIO=1 to run it",
 )
 
 # Global Twilio endpoint (DEC-138). It must match the Allowed websites of the network secret

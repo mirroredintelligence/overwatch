@@ -12,10 +12,10 @@ from datetime import time, timedelta
 
 import pytest
 
-from diucs.domain.codes import Cadence, Channel, Measure, ServiceCategory
-from diucs.domain.model.service import AvailableTime, ServiceProfile
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY
-from diucs.domain.rules.confirmable_age import (
+from overwatch.domain.codes import Cadence, Channel, Measure, ServiceCategory
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY
+from overwatch.domain.rules.confirmable_age import (
     MAX_CONFIRMABLE_AGE,
     REPORTING_INTERVAL,
     confirmable_age,

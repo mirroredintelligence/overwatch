@@ -8,13 +8,13 @@ Clock change: Sunday 25 October 2026 (BST ends at 02:00 BST, so 03:30 London tha
 from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
-from diucs.application.use_cases.tenant_invariants import (
+from overwatch.application.use_cases.tenant_invariants import (
     INVARIANT_RUN_AT,
     first_run_due,
     invariant_work_id,
     next_run_due,
 )
-from diucs.application.work import WorkKind
+from overwatch.application.work import WorkKind
 
 LONDON = ZoneInfo("Europe/London")
 

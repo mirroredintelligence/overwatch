@@ -13,9 +13,9 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from diucs.domain.codes import CriteriaStatus
-from diucs.domain.errors import InvalidTransition, ValidationFailed
-from diucs.domain.rules.criteria_workflow import (
+from overwatch.domain.codes import CriteriaStatus
+from overwatch.domain.errors import InvalidTransition, ValidationFailed
+from overwatch.domain.rules.criteria_workflow import (
     REVIEW_REMINDER_BEFORE,
     approve,
     is_review_overdue,

@@ -12,15 +12,15 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.ports.outbound.projection import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.ports.outbound.projection import (
     ProjectionEndReason,
     SourceState,
     SourceStatus,
 )
-from diucs.application.tenancy import ScopeId, bind_tenant
-from diucs.application.use_cases.network_leave import EndProjections, EndResult
-from diucs.domain.model.network import GrantEndReason, GrantScope, MembershipStatus
+from overwatch.application.tenancy import ScopeId, bind_tenant
+from overwatch.application.use_cases.network_leave import EndProjections, EndResult
+from overwatch.domain.model.network import GrantEndReason, GrantScope, MembershipStatus
 from tests.support.network_admin_fakes import MemoryRegistry, UnitFactories, UnitWorld
 from tests.support.network_samples import (
     MEMBER_B,
@@ -78,7 +78,7 @@ def _tenant() -> Any:
 def _left(rig: _Rig, member: str) -> None:
     from dataclasses import replace
 
-    from diucs.domain.model.network import MembershipEndReason
+    from overwatch.domain.model.network import MembershipEndReason
 
     row = rig.registry.members[rid(f"mem-{member}")]
     rig.registry.members[row.id] = replace(
@@ -93,7 +93,7 @@ async def test_an_ended_grant_ends_its_own_source_and_marks_its_rows(rig: _Rig) 
     rig.member_shares(MEMBER_B)
     from dataclasses import replace
 
-    from diucs.domain.model.network import GrantStatus
+    from overwatch.domain.model.network import GrantStatus
 
     grant = rig.registry.grant_rows[rid(f"grant-{MEMBER_B}-capacity")]
     rig.registry.grant_rows[grant.id] = replace(
@@ -115,7 +115,7 @@ async def test_the_end_is_dated_by_the_event_and_not_by_the_time_it_is_handled(r
     rig.member_shares(MEMBER_B, GrantScope.CAPACITY)
     from dataclasses import replace
 
-    from diucs.domain.model.network import GrantStatus
+    from overwatch.domain.model.network import GrantStatus
 
     grant = next(iter(rig.registry.grant_rows.values()))
     rig.registry.grant_rows[grant.id] = replace(
@@ -240,7 +240,7 @@ async def test_a_second_run_changes_and_audits_nothing(rig: _Rig) -> None:
 
 
 async def test_an_unknown_network_is_refused_before_a_unit_opens(rig: _Rig) -> None:
-    from diucs.domain.errors import ValidationFailed
+    from overwatch.domain.errors import ValidationFailed
 
     with pytest.raises(ValidationFailed):
         await rig.ends.end_member("not-a-network", MEMBER_B, at=AT)

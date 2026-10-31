@@ -32,7 +32,7 @@ const call = async (role: 'reporter' | 'lead' = 'reporter', options: Parameters<
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND}/fhir`);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', `${BACKEND}/fhir`);
   vi.stubEnv('NODE_ENV', 'production');
   resetCookieWrites();
   cookiesMock.mockClear();

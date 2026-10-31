@@ -12,7 +12,7 @@ from typing import Final
 
 import yaml
 
-from diucs.adapters.outbound.telemetry.attributes import (
+from overwatch.adapters.outbound.telemetry.attributes import (
     ALLOWED_KEYS,
     ALLOWED_PREFIXES,
     DENIED_FRAGMENTS,

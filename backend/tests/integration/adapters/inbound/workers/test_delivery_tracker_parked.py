@@ -8,10 +8,10 @@ records the send. A receipt for a record that is there, and one that cannot move
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.inbound.workers.consumer import Outcome
-from diucs.adapters.inbound.workers.delivery_tracker import receipt_consumer
-from diucs.adapters.inbound.workers.outbox_relay import StaticTenants
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.adapters.inbound.workers.consumer import Outcome
+from overwatch.adapters.inbound.workers.delivery_tracker import receipt_consumer
+from overwatch.adapters.inbound.workers.outbox_relay import StaticTenants
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from tests.integration.graph_store.test_communication_receipts import _get, _queued
 from tests.support.inbound_rig import receipt_message
 from tests.support.neo4j import count_nodes

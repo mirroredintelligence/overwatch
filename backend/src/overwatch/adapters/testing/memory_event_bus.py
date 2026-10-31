@@ -15,8 +15,8 @@ tenant.
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.event_bus import (
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.event_bus import (
     QUEUES,
     TOPICS,
     BusMessage,
@@ -24,7 +24,7 @@ from diucs.application.ports.outbound.event_bus import (
     check_publishable,
     to_wire,
 )
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.errors import ValidationFailed
 
 _SESSIONED_TOPICS = frozenset({"capacity.events"})
 

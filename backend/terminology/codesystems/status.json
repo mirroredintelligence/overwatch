@@ -1,7 +1,7 @@
 {
   "resourceType": "CodeSystem",
   "id": "status",
-  "url": "https://diucs.example/CodeSystem/status",
+  "url": "https://overwatch.mirroredintelligence.com/CodeSystem/status",
   "name": "status",
   "status": "active",
   "content": "complete",

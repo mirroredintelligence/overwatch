@@ -2,7 +2,8 @@
 text-code store, as the tenant-prefixed keys they write. The shared code-store cases run in
 test_code_store_contract.py.
 
-They need the Redis of infra/docker-compose.yml (DIUCS_REDIS_URL). Every key lives under a per-run
+They need the Redis of infra/docker-compose.yml (OVERWATCH_REDIS_URL). Every key lives under a
+per-run
 prefix, and the tenants are bound explicitly, because the integration hook binds none in this
 folder. Nothing here starts Neo4j.
 """
@@ -18,18 +19,18 @@ from uuid import uuid4
 import pytest
 from redis.asyncio import Redis
 
-from diucs.adapters.outbound.cache_redis.code_store import RedisCodeStore
-from diucs.adapters.outbound.cache_redis.sessions import (
+from overwatch.adapters.outbound.cache_redis.code_store import RedisCodeStore
+from overwatch.adapters.outbound.cache_redis.sessions import (
     SESSION_TTL,
     RedisRateLimiter,
     RedisSessionStore,
 )
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.ports.outbound.identity import ReporterSession, SessionEpochChanged
-from diucs.application.tenancy import bind_tenant
-from diucs.bootstrap.settings import Settings
-from diucs.domain.codes import Role
-from diucs.domain.rules.identity_policy import CodeState
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.ports.outbound.identity import ReporterSession, SessionEpochChanged
+from overwatch.application.tenancy import bind_tenant
+from overwatch.bootstrap.settings import Settings
+from overwatch.domain.codes import Role
+from overwatch.domain.rules.identity_policy import CodeState
 from tests.support.redis import flush_prefix
 
 pytestmark = pytest.mark.integration
@@ -43,7 +44,7 @@ KEY = b"sample-phone-hash-key"
 
 @pytest.fixture
 async def redis() -> AsyncIterator[tuple[Redis, str]]:
-    prefix = f"diucs-identity-{uuid4().hex}:"
+    prefix = f"overwatch-identity-{uuid4().hex}:"
     client = Redis.from_url(Settings().redis_url, decode_responses=True)
     try:
         yield client, prefix

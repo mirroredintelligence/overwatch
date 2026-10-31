@@ -9,7 +9,7 @@ obviously fake (`b"test-only-..."`); no real credential belongs in a test.
 
 from collections.abc import Mapping
 
-from diucs.domain.errors import NotFound
+from overwatch.domain.errors import NotFound
 
 
 class _Values:

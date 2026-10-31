@@ -16,8 +16,8 @@ from collections.abc import Iterable
 from enum import StrEnum
 from typing import Final
 
-from diucs.domain.codes import Status
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
+from overwatch.domain.codes import Status
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
 
 
 class Pressure(StrEnum):

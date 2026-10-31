@@ -1,7 +1,7 @@
 {
   "resourceType": "CodeSystem",
   "id": "cancel-reason",
-  "url": "https://diucs.example/CodeSystem/cancel-reason",
+  "url": "https://overwatch.mirroredintelligence.com/CodeSystem/cancel-reason",
   "name": "cancel-reason",
   "status": "active",
   "content": "complete",

@@ -1,6 +1,6 @@
 """Clinical advice records (P18): a request for advice, and the advice given on it (U40).
 
-The queue rules (take, return_if_idle, give_advice, queue_order) are in diucs.domain.rules.
+The queue rules (take, return_if_idle, give_advice, queue_order) are in overwatch.domain.rules.
 clinical_queue (D23). Free-text notes never enter this record: only a handle to the protected text
 store (P20) is kept, and the handle is a string the caller got from that store.
 """
@@ -8,8 +8,8 @@ store (P20) is kept, and the handle is a string the caller got from that store.
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.clinical_queue import ClinicalRequest
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.clinical_queue import ClinicalRequest
 
 
 def _text(field: str, value: object) -> None:

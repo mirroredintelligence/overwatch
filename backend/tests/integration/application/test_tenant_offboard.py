@@ -19,32 +19,32 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.tenant_directory import Neo4jTenantDirectory
-from diucs.adapters.outbound.graph_store.tenant_purge import Neo4jTenantData
-from diucs.adapters.outbound.graph_store.tenant_registry import Neo4jTenantRegistry
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.adapters.testing.memory_export_storage import MemoryExportStorage
-from diucs.adapters.testing.recording_platform_audit import RecordingPlatformAudit
-from diucs.application.ports.outbound.tenant_registry import TenantNumberRecord
-from diucs.application.tenancy import ScopeId, bind_scope, bind_tenant
-from diucs.application.use_cases.membership import LeaveAllNetworks
-from diucs.application.use_cases.tenant_offboard import (
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.tenant_directory import Neo4jTenantDirectory
+from overwatch.adapters.outbound.graph_store.tenant_purge import Neo4jTenantData
+from overwatch.adapters.outbound.graph_store.tenant_registry import Neo4jTenantRegistry
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.adapters.testing.memory_export_storage import MemoryExportStorage
+from overwatch.adapters.testing.recording_platform_audit import RecordingPlatformAudit
+from overwatch.application.ports.outbound.tenant_registry import TenantNumberRecord
+from overwatch.application.tenancy import ScopeId, bind_scope, bind_tenant
+from overwatch.application.use_cases.membership import LeaveAllNetworks
+from overwatch.application.use_cases.tenant_offboard import (
     CompleteOffboarding,
     CompleteOffboardingCommand,
     ExportTenant,
     ExportTenantCommand,
     OffboardTenant,
 )
-from diucs.application.use_cases.tenant_offboarding import (
+from overwatch.application.use_cases.tenant_offboarding import (
     StartOffboardingCommand,
     StartTenantOffboarding,
 )
-from diucs.application.use_cases.tenant_purge import PurgeTenant, PurgeTenantCommand
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotAllowed
-from diucs.domain.model.network import GrantScope, MembershipStatus
-from diucs.domain.model.tenant import NumberStatus, OrganisationType, Tenant, TenantStatus
+from overwatch.application.use_cases.tenant_purge import PurgeTenant, PurgeTenantCommand
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotAllowed
+from overwatch.domain.model.network import GrantScope, MembershipStatus
+from overwatch.domain.model.tenant import NumberStatus, OrganisationType, Tenant, TenantStatus
 from tests.support.neo4j import read_tx, tx_run
 from tests.support.network_admin_fakes import person
 from tests.support.network_admin_rig import START, AdminRig

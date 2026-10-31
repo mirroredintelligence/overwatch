@@ -13,8 +13,8 @@ from typing import Any
 
 from fastapi import Request
 
-from diucs.application.ports.outbound.terminology import ValidationIssue
-from diucs.domain.errors import ValidationFailed
+from overwatch.application.ports.outbound.terminology import ValidationIssue
+from overwatch.domain.errors import ValidationFailed
 
 
 class ProfileRejected(Exception):

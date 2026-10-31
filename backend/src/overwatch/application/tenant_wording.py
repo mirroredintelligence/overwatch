@@ -13,14 +13,14 @@ unit opens (a unit cannot open inside another, `UnitOfWorkAlreadyOpen`).
 
 from typing import Protocol
 
-from diucs.application.tenancy import (
+from overwatch.application.tenancy import (
     ScopeId,
     ScopeKind,
     TenantMismatch,
     TenantNotBound,
     current_scope,
 )
-from diucs.domain.model.tenant import TenantWording
+from overwatch.domain.model.tenant import TenantWording
 
 
 class WordingReader(Protocol):

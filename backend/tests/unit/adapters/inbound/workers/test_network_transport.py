@@ -10,7 +10,7 @@ from typing import ClassVar
 
 import pytest
 
-from diucs.adapters.inbound.workers.network_projector import (
+from overwatch.adapters.inbound.workers.network_projector import (
     APPLY_QUEUE,
     NETWORK_SUBSCRIPTION,
     PRODUCER_CONSUMER_NAME,
@@ -18,14 +18,14 @@ from diucs.adapters.inbound.workers.network_projector import (
     NetworkApplyConsumer,
     network_runners,
 )
-from diucs.adapters.inbound.workers.servicebus_runner import (
+from overwatch.adapters.inbound.workers.servicebus_runner import (
     ConsumerNotTenantBound,
     ServiceBusRunner,
 )
-from diucs.adapters.inbound.workers.tenant_binding import TenantBoundConsumer
-from diucs.application.ports.outbound.event_bus import QUEUES, TOPICS
-from diucs.domain import events
-from diucs.domain.events import PROJECTION_WORK
+from overwatch.adapters.inbound.workers.tenant_binding import TenantBoundConsumer
+from overwatch.application.ports.outbound.event_bus import QUEUES, TOPICS
+from overwatch.domain import events
+from overwatch.domain.events import PROJECTION_WORK
 from tests.support.network_samples import MEMBER_B
 from tests.unit.adapters.inbound.workers.test_network_projector import (
     _Apply,

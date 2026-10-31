@@ -10,9 +10,9 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from diucs.domain.codes import CriteriaStatus, RegistrationStatus, ScopeFlag
-from diucs.domain.errors import InvalidTransition, NotAllowed, ValidationFailed
-from diucs.domain.rules.registration import (
+from overwatch.domain.codes import CriteriaStatus, RegistrationStatus, ScopeFlag
+from overwatch.domain.errors import InvalidTransition, NotAllowed, ValidationFailed
+from overwatch.domain.rules.registration import (
     INVITATION_VALID_FOR,
     ApprovalChecks,
     approve_registration,

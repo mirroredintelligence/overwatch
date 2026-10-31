@@ -10,14 +10,14 @@ from typing import Any
 
 import pytest
 
-from diucs.application.actor import Actor
-from diucs.application.use_cases.subscribe_alert import (
+from overwatch.application.actor import Actor
+from overwatch.application.use_cases.subscribe_alert import (
     GetAlertPreferences,
     SaveAlertPreferences,
     SaveAlertPreferencesCommand,
 )
-from diucs.domain.codes import AlertKind, Role
-from diucs.domain.errors import NotAllowed, ValidationFailed
+from overwatch.domain.codes import AlertKind, Role
+from overwatch.domain.errors import NotAllowed, ValidationFailed
 from tests.support.actors import ACTOR_TENANT
 
 

@@ -9,17 +9,17 @@ from typing import Any, cast
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.tenancy import ScopeId, bind_scope, bind_tenant
-from diucs.application.tenant_settings import DirectoryLinkBase, resolve_link_base
-from diucs.application.tenant_wording import ConfiguredWording
-from diucs.application.use_cases.send_prompts import SendPromptCommand, prompt_key
-from diucs.application.work import SCHEDULED, ScheduledWork, WorkKind
-from diucs.bootstrap import container as container_module
-from diucs.bootstrap.container import SCHEDULER_CHANNEL, build, prompt_due_handler
-from diucs.bootstrap.settings import Settings
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.tenancy import ScopeId, bind_scope, bind_tenant
+from overwatch.application.tenant_settings import DirectoryLinkBase, resolve_link_base
+from overwatch.application.tenant_wording import ConfiguredWording
+from overwatch.application.use_cases.send_prompts import SendPromptCommand, prompt_key
+from overwatch.application.work import SCHEDULED, ScheduledWork, WorkKind
+from overwatch.bootstrap import container as container_module
+from overwatch.bootstrap.container import SCHEDULER_CHANNEL, build, prompt_due_handler
+from overwatch.bootstrap.settings import Settings
 
 DUE = datetime(2026, 10, 31, 9, 0, tzinfo=UTC)
 TENANT = "tenant-serve-a"
@@ -140,7 +140,7 @@ async def test_the_production_container_takes_the_link_base_from_the_tenant_dire
 async def test_the_production_container_has_no_link_base_for_a_tenant_with_no_host(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from diucs.application.ports.outbound.tenants import TenantRecordInvalid
+    from overwatch.application.ports.outbound.tenants import TenantRecordInvalid
 
     monkeypatch.setattr(container_module, "Neo4jTenantDirectory", _Directory)
     container = build(Settings())

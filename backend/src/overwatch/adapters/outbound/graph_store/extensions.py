@@ -10,7 +10,7 @@ import re
 from dataclasses import dataclass
 from typing import Final, Literal
 
-from diucs.domain.codes import BASE_URL
+from overwatch.domain.codes import BASE_URL
 
 ValueType = Literal["string", "integer", "boolean", "dateTime", "decimal"]
 

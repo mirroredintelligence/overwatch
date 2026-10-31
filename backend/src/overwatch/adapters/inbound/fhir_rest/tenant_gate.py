@@ -17,11 +17,11 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Final
 
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.tenants import TenantDirectory
-from diucs.domain.model.tenant import Tenant
-from diucs.domain.rules.bff_token import BffClaims
-from diucs.domain.rules.edge_access import EdgeVerdict, edge_verdict
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.tenants import TenantDirectory
+from overwatch.domain.model.tenant import Tenant
+from overwatch.domain.rules.bff_token import BffClaims
+from overwatch.domain.rules.edge_access import EdgeVerdict, edge_verdict
 
 # "At most 60 seconds" (audit F section 3.1, tenancy plan): a record is read again when it is this
 # old or older.

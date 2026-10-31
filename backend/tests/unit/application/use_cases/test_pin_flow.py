@@ -13,11 +13,11 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.tenancy import ScopeId
-from diucs.application.use_cases import pin as pin_module
-from diucs.application.use_cases.pin import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.tenancy import ScopeId
+from overwatch.application.use_cases import pin as pin_module
+from overwatch.application.use_cases.pin import (
     PIN_HMAC_SECRET,
     PinRateLimited,
     PinSignIn,
@@ -30,10 +30,10 @@ from diucs.application.use_cases.pin import (
     limiter_key,
     pin_hash,
 )
-from diucs.domain.codes import PractitionerRoleCode, Role
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.rules.identity_policy import PIN_MAX_TRIES, PinOutcome, PinState
+from overwatch.domain.codes import PractitionerRoleCode, Role
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.rules.identity_policy import PIN_MAX_TRIES, PinOutcome, PinState
 from tests.support.registration_rig import StubUnits
 
 NOW = datetime(2026, 10, 29, 14, 0, tzinfo=UTC)
@@ -543,7 +543,7 @@ async def test_the_throttle_keys_hold_no_practitioner_or_device_id() -> None:
 
 
 async def test_a_unit_with_no_tenant_bound_refuses_to_sign_in_or_set_a_pin() -> None:
-    from diucs.application.tenancy import TenantNotBound
+    from overwatch.application.tenancy import TenantNotBound
 
     world = World()
     world.device(verified_ago=timedelta(minutes=1))

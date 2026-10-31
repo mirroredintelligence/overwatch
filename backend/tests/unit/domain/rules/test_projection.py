@@ -16,7 +16,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     CriteriaStatus,
@@ -27,13 +27,13 @@ from diucs.domain.codes import (
     ServiceCategory,
     Status,
 )
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.network import DirectorySource, GrantScope, ListingStatus
-from diucs.domain.model.service import AvailableTime
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY
-from diucs.domain.rules.network_board import compute_network_state, status_inputs
-from diucs.domain.rules.projection import (
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.network import DirectorySource, GrantScope, ListingStatus
+from overwatch.domain.model.service import AvailableTime
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY
+from overwatch.domain.rules.network_board import compute_network_state, status_inputs
+from overwatch.domain.rules.projection import (
     CapacityProjection,
     CriteriaProjection,
     LocationInputs,
@@ -46,7 +46,7 @@ from diucs.domain.rules.projection import (
     build_service_projection,
     supersedes,
 )
-from diucs.domain.rules.status import compute_status
+from overwatch.domain.rules.status import compute_status
 from tests.support.projection_samples import (
     NOW,
     REPORTED_AT,

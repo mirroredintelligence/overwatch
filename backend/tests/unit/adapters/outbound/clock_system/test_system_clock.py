@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
-from diucs.adapters.outbound.clock_system.system_clock import SystemClock
+from overwatch.adapters.outbound.clock_system.system_clock import SystemClock
 
 
 def test_system_clock_returns_utc_now() -> None:

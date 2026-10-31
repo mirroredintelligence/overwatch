@@ -22,7 +22,7 @@ from collections.abc import Iterable, Sequence
 from datetime import date
 from typing import Any, Final
 
-from diucs.adapters.outbound.graph_store.criteria_scenarios import (
+from overwatch.adapters.outbound.graph_store.criteria_scenarios import (
     CLEAR_CURRENT_SCENARIO,
     CURRENT_FOR_SCENARIO,
     CURRENT_SCENARIO,
@@ -34,17 +34,17 @@ from diucs.adapters.outbound.graph_store.criteria_scenarios import (
     SUBJECT_SCENARIO,
     VERSIONS_SCENARIO,
 )
-from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.adapters.outbound.graph_store.service_repository import (
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx, run_query
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.adapters.outbound.graph_store.service_repository import (
     codeable_from_fhir,
     codeable_to_fhir,
 )
-from diucs.domain.codes import AgeBand, CriteriaStatus, NeedCategory, parse_code
-from diucs.domain.errors import Conflict, NotFound, ValidationFailed
-from diucs.domain.model.criteria import ServiceCriteria
-from diucs.domain.rules.criteria_filter import AGE_BAND_BOUNDS
+from overwatch.domain.codes import AgeBand, CriteriaStatus, NeedCategory, parse_code
+from overwatch.domain.errors import Conflict, NotFound, ValidationFailed
+from overwatch.domain.model.criteria import ServiceCriteria
+from overwatch.domain.rules.criteria_filter import AGE_BAND_BOUNDS
 
 _BASIC: Final = "Basic"
 _SERVICE: Final = "HealthcareService"

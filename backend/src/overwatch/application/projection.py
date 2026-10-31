@@ -22,12 +22,12 @@ from datetime import UTC, date, datetime, time
 from enum import StrEnum
 from typing import Any, Final
 
-from diucs.domain.codes import Cadence, Measure, NeedCategory, ServiceCategory
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.events import ProjectionValue
-from diucs.domain.model.network import DirectorySource, GrantScope
-from diucs.domain.rules import projection as allowlist
-from diucs.domain.rules.projection import (
+from overwatch.domain.codes import Cadence, Measure, NeedCategory, ServiceCategory
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.events import ProjectionValue
+from overwatch.domain.model.network import DirectorySource, GrantScope
+from overwatch.domain.rules import projection as allowlist
+from overwatch.domain.rules.projection import (
     CapacityProjection,
     CriteriaProjection,
     LocationProjection,

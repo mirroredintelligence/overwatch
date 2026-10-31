@@ -15,7 +15,7 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
 from tests.support.neo4j import ThrowawayNeo4j
 from tests.support.network_world import NetworkWorld, world_ids
 from tests.support.tenancy import RunIdentity

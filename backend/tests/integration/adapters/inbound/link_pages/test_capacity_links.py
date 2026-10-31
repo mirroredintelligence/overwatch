@@ -17,19 +17,19 @@ import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient, Response
 
-from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.inbound.link_pages.capacity_links import (
+from overwatch.adapters.inbound.fhir_rest.app import create_app
+from overwatch.adapters.inbound.link_pages.capacity_links import (
     LINK_PAGE_PATH,
     SEND_THE_NUMBER_TEXT,
     LinkPagesDeps,
 )
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET
-from diucs.application.use_cases import link_access
-from diucs.bootstrap.container import Container, build_for_tests
-from diucs.domain.codes import ReportSource, ReportType
-from diucs.domain.model.tenant import TenantStatus
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET
+from overwatch.application.use_cases import link_access
+from overwatch.bootstrap.container import Container, build_for_tests
+from overwatch.domain.codes import ReportSource, ReportType
+from overwatch.domain.model.tenant import TenantStatus
 from tests.integration.adapters.inbound.link_pages.conftest import (
     change_tenant_record,
     client_for,
@@ -465,7 +465,7 @@ async def test_no_token_hash_figure_or_address_reaches_a_log(
     link_clock: FixedClock,
 ) -> None:
     token = await _prompted(links)
-    caplog.set_level(logging.DEBUG, logger="diucs")
+    caplog.set_level(logging.DEBUG, logger="overwatch")
 
     await link_client.get(f"/links/{token}")
     await link_client.get(f"/links/{'A' * 23}")

@@ -18,15 +18,15 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.tenant_directory import tenant_properties
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.tokens import issue_test_token
-from diucs.application.ports.outbound.identity import PHONE_HASH_SECRET
-from diucs.bootstrap.container import Container, build_for_tests
-from diucs.domain.codes import Role
+from overwatch.adapters.inbound.fhir_rest.app import create_app
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.tenant_directory import tenant_properties
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.tokens import issue_test_token
+from overwatch.application.ports.outbound.identity import PHONE_HASH_SECRET
+from overwatch.bootstrap.container import Container, build_for_tests
+from overwatch.domain.codes import Role
 from tests.support.neo4j import ThrowawayNeo4j, write_tx
 from tests.support.tenancy import as_tenant
 from tests.support.tenant_samples import make_tenant

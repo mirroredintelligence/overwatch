@@ -12,11 +12,11 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.criteria import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.criteria import (
     ApproveCriteria,
     ApproveCriteriaCommand,
     ChangeCriteria,
@@ -27,7 +27,7 @@ from diucs.application.use_cases.criteria import (
     CriteriaHistoryQuery,
     CriteriaValues,
 )
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     CriteriaStatus,
@@ -37,11 +37,11 @@ from diucs.domain.codes import (
     Role,
     ServiceCategory,
 )
-from diucs.domain.errors import Conflict, NotAllowed
-from diucs.domain.model.criteria import ServiceCriteria
-from diucs.domain.model.flags import SERVICE_FLAG_CRITERIA_OVERDUE, ServiceFlag
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.errors import Conflict, NotAllowed
+from overwatch.domain.model.criteria import ServiceCriteria
+from overwatch.domain.model.flags import SERVICE_FLAG_CRITERIA_OVERDUE, ServiceFlag
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
 
 Seed = Callable[..., Awaitable[None]]

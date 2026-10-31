@@ -15,12 +15,12 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from diucs.adapters.inbound.fhir_rest.tenant_gate import RECORD_TTL, TenantGate
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.idempotency import encode_result
-from diucs.application.tenancy import ScopeId, TenantMismatch, TenantNotBound
-from diucs.application.use_cases.tenant_suspend import (
+from overwatch.adapters.inbound.fhir_rest.tenant_gate import RECORD_TTL, TenantGate
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.idempotency import encode_result
+from overwatch.application.tenancy import ScopeId, TenantMismatch, TenantNotBound
+from overwatch.application.use_cases.tenant_suspend import (
     ResumeTenant,
     ResumeTenantCommand,
     SuspendTenant,
@@ -28,8 +28,8 @@ from diucs.application.use_cases.tenant_suspend import (
     resume_event_id,
     resume_marker,
 )
-from diucs.application.work import CANCELLED, SCHEDULED, ScheduledWork, WorkKind
-from diucs.domain.codes import (
+from overwatch.application.work import CANCELLED, SCHEDULED, ScheduledWork, WorkKind
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     Measure,
@@ -39,14 +39,14 @@ from diucs.domain.codes import (
     ServiceCategory,
     Status,
 )
-from diucs.domain.errors import Conflict, InvalidTransition, NotFound, ValidationFailed
-from diucs.domain.events import StatusChanged
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
-from diucs.domain.model.service import AvailableTime, ServiceProfile
-from diucs.domain.model.tenant import SuspendMode, SuspendReason, TenantStatus
-from diucs.domain.rules.bff_token import BffClaims
-from diucs.domain.rules.edge_access import EdgeVerdict
+from overwatch.domain.errors import Conflict, InvalidTransition, NotFound, ValidationFailed
+from overwatch.domain.events import StatusChanged
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.model.tenant import SuspendMode, SuspendReason, TenantStatus
+from overwatch.domain.rules.bff_token import BffClaims
+from overwatch.domain.rules.edge_access import EdgeVerdict
 from tests.support.provisioning_fakes import (
     NOW,
     OTHER,
@@ -99,7 +99,7 @@ def _command(**fields: Any) -> SuspendTenantCommand:
     "role", [r for r in Role if r is not Role.PLATFORM_OPERATOR], ids=lambda r: r.value
 )
 async def test_only_the_platform_operator_suspends(role: Role) -> None:
-    from diucs.domain.errors import NotAllowed
+    from overwatch.domain.errors import NotAllowed
 
     platform, world = FakePlatform(_active()), FakeWorld()
     with as_tenant(TENANT), pytest.raises(NotAllowed):
@@ -108,7 +108,7 @@ async def test_only_the_platform_operator_suspends(role: Role) -> None:
 
 
 async def test_an_unnamed_operator_and_one_of_another_tenant_are_refused_first() -> None:
-    from diucs.domain.errors import NotAllowed
+    from overwatch.domain.errors import NotAllowed
 
     platform, world = FakePlatform(_active()), FakeWorld()
     with as_tenant(TENANT):
@@ -404,7 +404,7 @@ class _Scene:
 
     def factory(self) -> Any:
         def make() -> FakeUnit:
-            from diucs.application.tenancy import current_scope_or_none
+            from overwatch.application.tenancy import current_scope_or_none
 
             unit = FakeUnit(self.world, current_scope_or_none())
             unit.services = self.services  # type: ignore[attr-defined]
@@ -466,7 +466,7 @@ async def test_a_suspended_tenant_is_resumed_with_its_services_prompted_and_anno
 
 
 async def test_the_next_prompt_is_the_services_own_next_due_time_in_the_tenants_zone() -> None:
-    from diucs.domain.rules.schedule import next_due
+    from overwatch.domain.rules.schedule import next_due
 
     class _Zones:
         async def zone_of(self, scope: ScopeId) -> ZoneInfo:
@@ -482,7 +482,7 @@ async def test_the_next_prompt_is_the_services_own_next_due_time_in_the_tenants_
     await _run_resume(scene, zones=_Zones())
 
     [prompt] = [w for w in scene.works.stored.values() if w.kind is WorkKind.PROMPT_DUE]
-    from diucs.domain.model.tenant_policy import DEFAULT_POLICY
+    from overwatch.domain.model.tenant_policy import DEFAULT_POLICY
 
     assert prompt.due_at == next_due(noon, NOW, DEFAULT_POLICY, NEW_YORK)
     assert prompt.due_at != next_due(noon, NOW)  # not London's: the zone reached the rule

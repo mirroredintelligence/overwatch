@@ -1,11 +1,11 @@
 """Unit tests for the recording senders (P07). They stand in for external providers only."""
 
-from diucs.adapters.testing.recording_senders import (
+from overwatch.adapters.testing.recording_senders import (
     RecordingEmailSender,
     RecordingPushSender,
     RecordingSmsSender,
 )
-from diucs.application.ports.outbound.messaging import SendReceipt
+from overwatch.application.ports.outbound.messaging import SendReceipt
 
 SAMPLE_MOBILE = "07700900123"
 SAMPLE_SUBSCRIPTION = {
@@ -60,13 +60,16 @@ async def test_a_refused_email_is_not_recorded_as_sent() -> None:
 async def test_a_push_is_recorded_with_its_title_body_and_url() -> None:
     sender = RecordingPushSender()
     receipt = await sender.send(
-        SAMPLE_SUBSCRIPTION, "Capacity", "Reply by 12:30", "https://diucs.example/r"
+        SAMPLE_SUBSCRIPTION,
+        "Capacity",
+        "Reply by 12:30",
+        "https://overwatch.mirroredintelligence.com/r",
     )
     assert receipt.accepted is True
     recorded = sender.sent[0]
     assert recorded.title == "Capacity"
     assert recorded.body == "Reply by 12:30"
-    assert recorded.url == "https://diucs.example/r"
+    assert recorded.url == "https://overwatch.mirroredintelligence.com/r"
     assert recorded.subscription == SAMPLE_SUBSCRIPTION
 
 
@@ -79,8 +82,8 @@ async def test_fail_next_on_push_refuses_the_next_push_only() -> None:
 
 # Which tenant and which identity sent (TEN-042)
 
-from diucs.adapters.testing.recording_senders import FixedSenderResolver  # noqa: E402
-from diucs.application.tenancy import bind_tenant  # noqa: E402
+from overwatch.adapters.testing.recording_senders import FixedSenderResolver  # noqa: E402
+from overwatch.application.tenancy import bind_tenant  # noqa: E402
 
 
 async def test_a_text_records_the_tenant_bound_when_it_was_sent_and_the_identity_it_left_from() -> (

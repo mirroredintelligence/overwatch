@@ -14,8 +14,8 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Final, Protocol, runtime_checkable
 
-from diucs.application.tenancy import ScopeId, ScopeKind, current_scope
-from diucs.domain.errors import DomainError, ValidationFailed
+from overwatch.application.tenancy import ScopeId, ScopeKind, current_scope
+from overwatch.domain.errors import DomainError, ValidationFailed
 
 BOARD_UPDATES_CHANNEL = "board.updates"
 # The channel of a network board (TEN-058). Its name is qualified by the network scope, so it is

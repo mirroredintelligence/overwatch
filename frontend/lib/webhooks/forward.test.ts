@@ -64,7 +64,7 @@ let logged: string[] = [];
 beforeEach(() => {
   seen = [];
   logged = [];
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND}/fhir`);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', `${BACKEND}/fhir`);
   for (const level of logs) {
     vi.spyOn(console, level).mockImplementation((...args: unknown[]) => {
       logged.push(args.map(String).join(' '));
@@ -122,7 +122,7 @@ describe.each(ROUTES)('$name', ({ route, path, url }) => {
       await route.POST(
         twilioRequest(path, {
           headers: {
-            Cookie: 'diucs_session=abc; link_csrf=def',
+            Cookie: 'overwatch_session=abc; link_csrf=def',
             Authorization: 'Bearer sample-token',
             'X-Forwarded-For': '203.0.113.9',
             'X-Forwarded-Host': 'overwatch.mirroredintelligence.com',
@@ -335,7 +335,7 @@ describe.each(ROUTES)('$name', ({ route, path, url }) => {
 
     it('answers 500 with an empty body, and calls nothing, when the back end address is not set', async () => {
       stub(url);
-      vi.stubEnv('DIUCS_FHIR_BASE_URL', '');
+      vi.stubEnv('OVERWATCH_FHIR_BASE_URL', '');
       const response = await route.POST(twilioRequest(path));
       expect(response.status).toBe(500);
       expect(await response.text()).toBe('');
@@ -364,7 +364,7 @@ describe.each(ROUTES)('$name', ({ route, path, url }) => {
       await route.POST(twilioRequest(path));
       server.use(http.post(url, () => HttpResponse.error()));
       await route.POST(twilioRequest(path));
-      vi.stubEnv('DIUCS_FHIR_BASE_URL', '');
+      vi.stubEnv('OVERWATCH_FHIR_BASE_URL', '');
       await route.POST(twilioRequest(path));
       expect(logged.length).toBeGreaterThan(0);
       const all = logged.join('\n');

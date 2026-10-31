@@ -29,7 +29,7 @@ const issued = new Map<string, string>();
 function tokenFor(role: string) {
   const held = issued.get(role);
   if (held !== undefined) return held;
-  const token = standInToken({ sub: `stf-${role}`, role, aud: 'diucs-api', exp: Math.floor(Date.now() / 1000) + 3600 });
+  const token = standInToken({ sub: `stf-${role}`, role, aud: 'overwatch-api', exp: Math.floor(Date.now() / 1000) + 3600 });
   issued.set(role, token);
   return token;
 }
@@ -59,7 +59,7 @@ async function startPairing() {
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
   vi.stubEnv('NODE_ENV', 'production');
   pairingBackend.reset();
   server.use(...screenHandlers);

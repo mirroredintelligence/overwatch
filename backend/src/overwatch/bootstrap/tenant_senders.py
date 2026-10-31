@@ -27,24 +27,24 @@ from typing import Final
 import httpx
 from pydantic import SecretStr
 
-from diucs.adapters.inbound.sms_webhook.routes import STATUS_PATH
-from diucs.adapters.outbound.email_smtp.smtp_email import SmtpEmail, SmtpIdentity, SmtpRelay
-from diucs.adapters.outbound.email_twilio.twilio_email import TwilioEmail
-from diucs.adapters.outbound.sms_twilio.twilio_sms import TwilioSms
-from diucs.application.ports.outbound.messaging import EmailSender, SmsSender
-from diucs.application.ports.outbound.sender_resolver import ChannelUnavailable
-from diucs.application.ports.outbound.tenants import (
+from overwatch.adapters.inbound.sms_webhook.routes import STATUS_PATH
+from overwatch.adapters.outbound.email_smtp.smtp_email import SmtpEmail, SmtpIdentity, SmtpRelay
+from overwatch.adapters.outbound.email_twilio.twilio_email import TwilioEmail
+from overwatch.adapters.outbound.sms_twilio.twilio_sms import TwilioSms
+from overwatch.application.ports.outbound.messaging import EmailSender, SmsSender
+from overwatch.application.ports.outbound.sender_resolver import ChannelUnavailable
+from overwatch.application.ports.outbound.tenants import (
     TenantDirectory,
     TenantLine,
     TenantRecordInvalid,
     check_secret_ref,
 )
-from diucs.application.ports.outbound.tokens import SecretStore
-from diucs.application.tenancy import current_tenant
-from diucs.bootstrap.settings import Settings
-from diucs.domain.errors import NotFound, ValidationFailed
-from diucs.domain.model.tenant import NumberStatus
-from diucs.domain.model.tenant_records import ChannelKind, ChannelProvider, TenantChannel
+from overwatch.application.ports.outbound.tokens import SecretStore
+from overwatch.application.tenancy import current_tenant
+from overwatch.bootstrap.settings import Settings
+from overwatch.domain.errors import NotFound, ValidationFailed
+from overwatch.domain.model.tenant import NumberStatus
+from overwatch.domain.model.tenant_records import ChannelKind, ChannelProvider, TenantChannel
 
 TEXT_CHANNEL: Final = "text"
 EMAIL_CHANNEL: Final = "email"

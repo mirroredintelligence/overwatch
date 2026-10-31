@@ -18,15 +18,15 @@ from typing import Any
 
 from neo4j import AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.driver import run_global_query
-from diucs.adapters.outbound.graph_store.migrations_tenant import (
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.driver import run_global_query
+from overwatch.adapters.outbound.graph_store.migrations_tenant import (
     CROSS_SCOPE_RELATIONSHIPS_QUERY,
     REGISTRY_LABELS,
     UNSTAMPED_NODES_QUERY,
 )
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.application.ports.outbound.invariants import (
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from overwatch.application.ports.outbound.invariants import (
     CrossScope,
     InvariantReport,
     UnstampedNodes,

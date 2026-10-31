@@ -11,19 +11,19 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.withdraw_booking import (
+from overwatch.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.withdraw_booking import (
     EscalateWithdrawal,
     EscalateWithdrawalCommand,
     WithdrawBooking,
     WithdrawBookingCommand,
 )
-from diucs.application.work import WorkKind
-from diucs.domain.codes import BookingStatus, WithdrawReason
-from diucs.domain.errors import NotFound
+from overwatch.application.work import WorkKind
+from overwatch.domain.codes import BookingStatus, WithdrawReason
+from overwatch.domain.errors import NotFound
 from tests.support.booking_rig import REPORTER, at, request, seed_world
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory
 
@@ -73,7 +73,7 @@ async def test_tenant_b_cannot_withdraw_or_time_out_a_booking_and_a_is_unchanged
 
 
 async def _confirm(factory: UnitOfWorkFactory, driver: AsyncDriver, booking_id: str) -> None:
-    from diucs.application.use_cases.respond_to_booking import (
+    from overwatch.application.use_cases.respond_to_booking import (
         RespondToBooking,
         RespondToBookingCommand,
     )

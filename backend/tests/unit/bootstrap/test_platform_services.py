@@ -9,24 +9,24 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.platform_audit import Neo4jPlatformAudit
-from diucs.adapters.outbound.graph_store.support_ticket_store import Neo4jSupportTickets
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.cross_tenant_guard import CrossTenantGuard
-from diucs.application.platform_services import PlatformServices, TenantAdminServices
-from diucs.application.use_cases.tenant_offboard import OffboardTenant
-from diucs.bootstrap.container import Container, build, build_for_tests
-from diucs.bootstrap.platform_services import (
+from overwatch.adapters.inbound.fhir_rest.app import create_app
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.platform_audit import Neo4jPlatformAudit
+from overwatch.adapters.outbound.graph_store.support_ticket_store import Neo4jSupportTickets
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.cross_tenant_guard import CrossTenantGuard
+from overwatch.application.platform_services import PlatformServices, TenantAdminServices
+from overwatch.application.use_cases.tenant_offboard import OffboardTenant
+from overwatch.bootstrap.container import Container, build, build_for_tests
+from overwatch.bootstrap.platform_services import (
     CONFIGURATION_ROLES,
     build_platform_services,
     build_ticket_services,
     install_platform_routes,
 )
-from diucs.bootstrap.settings import Settings
-from diucs.domain.codes import Role
-from diucs.domain.rules.support import SUPPORT_CODE_SECRET
+from overwatch.bootstrap.settings import Settings
+from overwatch.domain.codes import Role
+from overwatch.domain.rules.support import SUPPORT_CODE_SECRET
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 

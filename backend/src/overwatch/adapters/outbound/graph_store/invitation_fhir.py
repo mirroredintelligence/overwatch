@@ -13,9 +13,9 @@ decomposed properties and relationships and no JSON (DEC-001).
 from datetime import UTC, datetime
 from typing import Any, Final
 
-from diucs.domain.codes import code_system_url
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.registration import Invitation
+from overwatch.domain.codes import code_system_url
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.registration import Invitation
 
 TASK: Final = "Task"
 INVITE_REPORTER: Final = "invite-reporter"

@@ -6,15 +6,15 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from diucs.application.actor import Actor, timer_actor
-from diucs.application.use_cases.booking_timers import (
+from overwatch.application.actor import Actor, timer_actor
+from overwatch.application.use_cases.booking_timers import (
     BookingPhonePromptCommand,
     ExpireBookingCommand,
     TimerResult,
     booking_timer_handlers,
 )
-from diucs.application.work import ScheduledWork, WorkKind
-from diucs.domain.codes import Role
+from overwatch.application.work import ScheduledWork, WorkKind
+from overwatch.domain.codes import Role
 
 DUE = datetime(2026, 10, 29, 14, 26, tzinfo=UTC)
 

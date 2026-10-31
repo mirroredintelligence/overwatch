@@ -13,11 +13,11 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.actor import Actor
-from diucs.application.tenancy import ScopeId, TenantMismatch, TenantNotBound
-from diucs.application.use_cases.send_prompts import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.actor import Actor
+from overwatch.application.tenancy import ScopeId, TenantMismatch, TenantNotBound
+from overwatch.application.use_cases.send_prompts import (
     SKIP_OUT_OF_HOURS,
     SKIP_REPLY_WINDOW,
     SendPromptCommand,
@@ -26,7 +26,7 @@ from diucs.application.use_cases.send_prompts import (
     _skip_reason,
     _too_old_to_confirm,
 )
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     Measure,
@@ -35,11 +35,11 @@ from diucs.domain.codes import (
     Role,
     ServiceCategory,
 )
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.service import AvailableTime, ServiceProfile
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY
-from diucs.domain.rules.london_time import LONDON
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY
+from overwatch.domain.rules.london_time import LONDON
 from tests.support.tenancy import as_tenant
 
 NEW_YORK = ZoneInfo("America/New_York")
@@ -84,15 +84,15 @@ def test_a_due_time_is_in_hours_in_the_tenants_zone_only() -> None:
 
 def test_the_words_of_the_prompt_are_the_tenants_local_times() -> None:
     reply = DUE + timedelta(minutes=30)
-    _, in_london = _render(PROFILE, LATEST, WINDOW, "diucs.example/x", reply, LONDON)
-    _, in_new_york = _render(PROFILE, LATEST, WINDOW, "diucs.example/x", reply, NEW_YORK)
+    _, in_london = _render(PROFILE, LATEST, WINDOW, "overwatch.example/x", reply, LONDON)
+    _, in_new_york = _render(PROFILE, LATEST, WINDOW, "overwatch.example/x", reply, NEW_YORK)
     assert "1 Jul 10:00" in in_london.text and "11:30" in in_london.text
     assert "1 Jul 05:00" in in_new_york.text and "06:30" in in_new_york.text
 
 
 def test_the_first_prompt_words_the_reply_by_in_the_tenants_zone() -> None:
     reply = DUE + timedelta(minutes=30)
-    message_id, rendered = _render(PROFILE, None, WINDOW, "diucs.example/x", reply, NEW_YORK)
+    message_id, rendered = _render(PROFILE, None, WINDOW, "overwatch.example/x", reply, NEW_YORK)
     assert message_id is MessageId.C2
     assert "06:30" in rendered.text
 
@@ -159,7 +159,7 @@ def _use_case(scope: ScopeId | None, **extra: Any) -> SendPrompts:
         SequentialIds(),
         _NoStore(),  # type: ignore[arg-type]
         lambda repo: None,  # type: ignore[arg-type, return-value]
-        "diucs.example",
+        "overwatch.example",
         None,  # type: ignore[arg-type]
         **extra,
     )

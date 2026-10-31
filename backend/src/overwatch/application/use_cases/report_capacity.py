@@ -14,19 +14,19 @@ from datetime import UTC, datetime
 from typing import Any, Final
 from zoneinfo import ZoneInfo
 
-from diucs.application.actor import Actor, require_actor_in_bound_tenant
-from diucs.application.idempotency import IdempotencyStore
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.messaging import Communication
-from diucs.application.ports.outbound.outbox import OutboxMessage, outbox_message_for
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.tenancy import ScopeKind, TenantMismatch, TenantNotBound
-from diucs.application.tenant_settings import TenantZones, as_zones, read_settings
-from diucs.application.use_cases.missed_report_ladder import stop_answered_ladders
-from diucs.application.use_cases.report_flags import raise_report_flags
-from diucs.domain.codes import (
+from overwatch.application.actor import Actor, require_actor_in_bound_tenant
+from overwatch.application.idempotency import IdempotencyStore
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.messaging import Communication
+from overwatch.application.ports.outbound.outbox import OutboxMessage, outbox_message_for
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeKind, TenantMismatch, TenantNotBound
+from overwatch.application.tenant_settings import TenantZones, as_zones, read_settings
+from overwatch.application.use_cases.missed_report_ladder import stop_answered_ladders
+from overwatch.application.use_cases.report_flags import raise_report_flags
+from overwatch.domain.codes import (
     Channel,
     ReportFlagReason,
     ReportSource,
@@ -34,7 +34,7 @@ from diucs.domain.codes import (
     Role,
     Status,
 )
-from diucs.domain.errors import (
+from overwatch.domain.errors import (
     Conflict,
     DomainError,
     EffectiveBeforeConfirmation,
@@ -43,18 +43,18 @@ from diucs.domain.errors import (
     NotFound,
     ValidationFailed,
 )
-from diucs.domain.events import CapacityReported, StatusChanged
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.messages.templates import render
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
-from diucs.domain.model.people import REPORTER_ROLE_CODES, PractitionerRole
-from diucs.domain.model.service import ServiceProfile
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
-from diucs.domain.rules.effective_time import default_effective_at, is_later_than_latest
-from diucs.domain.rules.london_time import LONDON, format_hhmm, format_stamp
-from diucs.domain.rules.schedule import next_due
-from diucs.domain.rules.status import compute_status
+from overwatch.domain.events import CapacityReported, StatusChanged
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.messages.templates import render
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
+from overwatch.domain.model.people import REPORTER_ROLE_CODES, PractitionerRole
+from overwatch.domain.model.service import ServiceProfile
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
+from overwatch.domain.rules.effective_time import default_effective_at, is_later_than_latest
+from overwatch.domain.rules.london_time import LONDON, format_hhmm, format_stamp
+from overwatch.domain.rules.schedule import next_due
+from overwatch.domain.rules.status import compute_status
 
 MIN_VALUE: Final = 0
 MAX_VALUE: Final = 999

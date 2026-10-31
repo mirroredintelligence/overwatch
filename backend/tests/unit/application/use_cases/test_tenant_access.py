@@ -13,18 +13,18 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.provisioning import TENANT_ADMIN_INVITE
-from diucs.application.tenancy import ScopeId, TenantMismatch, TenantNotBound
-from diucs.application.use_cases.tenant_access import (
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.provisioning import TENANT_ADMIN_INVITE
+from overwatch.application.tenancy import ScopeId, TenantMismatch, TenantNotBound
+from overwatch.application.use_cases.tenant_access import (
     InviteTenantAdmin,
     InviteTenantAdminCommand,
     invitation_key,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.model.tenant import TenantStatus
-from diucs.domain.rules.registration import INVITATION_VALID_FOR
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.model.tenant import TenantStatus
+from overwatch.domain.rules.registration import INVITATION_VALID_FOR
 from tests.support.provisioning_fakes import (
     NOW,
     OTHER,
@@ -76,7 +76,7 @@ class _Host:
 
     async def host_url(self, scope: ScopeId) -> str:
         if self.url is None:
-            from diucs.application.ports.outbound.tenants import TenantRecordInvalid
+            from overwatch.application.ports.outbound.tenants import TenantRecordInvalid
 
             raise TenantRecordInvalid("no host")
         return self.url
@@ -106,7 +106,7 @@ class _Rig:
 
     @staticmethod
     def _scope() -> ScopeId | None:
-        from diucs.application.tenancy import current_scope_or_none
+        from overwatch.application.tenancy import current_scope_or_none
 
         return current_scope_or_none()
 
@@ -264,7 +264,7 @@ async def test_a_tenant_with_no_wording_is_not_invited_and_nothing_is_written() 
 
 
 async def test_a_tenant_with_no_host_cannot_be_sent_a_link_and_nothing_is_written() -> None:
-    from diucs.application.ports.outbound.tenants import TenantRecordInvalid
+    from overwatch.application.ports.outbound.tenants import TenantRecordInvalid
 
     rig = _ready(_Rig(provisioning_tenant()))
     rig.host = _Host(None)

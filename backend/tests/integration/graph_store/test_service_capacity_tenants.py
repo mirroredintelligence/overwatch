@@ -15,14 +15,14 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.booking_repository import Neo4jBookingRepository
-from diucs.adapters.outbound.graph_store.capacity_repository import Neo4jCapacityRepository
-from diucs.adapters.outbound.graph_store.case_repository import Neo4jCaseRepository
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.adapters.outbound.graph_store.service_repository import Neo4jServiceRepository
-from diucs.domain.codes import Measure, ReportSource, ReportType
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.service import ServiceProfile
+from overwatch.adapters.outbound.graph_store.booking_repository import Neo4jBookingRepository
+from overwatch.adapters.outbound.graph_store.capacity_repository import Neo4jCapacityRepository
+from overwatch.adapters.outbound.graph_store.case_repository import Neo4jCaseRepository
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.adapters.outbound.graph_store.service_repository import Neo4jServiceRepository
+from overwatch.domain.codes import Measure, ReportSource, ReportType
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.service import ServiceProfile
 from tests.integration.graph_store.test_booking_repository import BOOKING_4821
 from tests.integration.graph_store.test_case_repository import OPEN_CASE
 from tests.support.neo4j import read_tx, write_tx

@@ -13,11 +13,11 @@ from typing import Any
 from fhir.resources.R4B.observation import Observation
 from fhir.resources.R4B.parameters import Parameters
 
-from diucs.adapters.inbound.fhir_rest.mapping import board_to_parameters, report_to_fhir
-from diucs.application.use_cases.query_board import Board, BoardEntry
-from diucs.domain.codes import Measure, ReportSource, ReportType, ServiceCategory, Status
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.rules.pressure import Pressure
+from overwatch.adapters.inbound.fhir_rest.mapping import board_to_parameters, report_to_fhir
+from overwatch.application.use_cases.query_board import Board, BoardEntry
+from overwatch.domain.codes import Measure, ReportSource, ReportType, ServiceCategory, Status
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.rules.pressure import Pressure
 
 GENERATED_AT = datetime(2026, 10, 23, 13, 12, tzinfo=UTC)
 WEST_REPORTED_AT = datetime(2026, 10, 23, 13, 3, tzinfo=UTC)

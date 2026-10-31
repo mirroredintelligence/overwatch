@@ -18,8 +18,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from types import MappingProxyType
 
-from diucs.domain.codes import RegistrationStatus, ScopeFlag
-from diucs.domain.errors import InvalidTransition, NotAllowed, ValidationFailed
+from overwatch.domain.codes import RegistrationStatus, ScopeFlag
+from overwatch.domain.errors import InvalidTransition, NotAllowed, ValidationFailed
 
 INVITATION_VALID_FOR = timedelta(hours=48)
 

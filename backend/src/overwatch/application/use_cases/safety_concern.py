@@ -17,21 +17,21 @@ import hashlib
 from dataclasses import dataclass
 from typing import Final
 
-from diucs.application.actor import Actor
-from diucs.application.idempotency import IdempotencyStore
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.sealing import ContentSealer
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.sealed_send import queue_message
-from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
-from diucs.domain.codes import Channel, Role
-from diucs.domain.errors import Conflict, NotAllowed, ValidationFailed
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.messages.templates import render
-from diucs.domain.model.safety import SafetyReport
-from diucs.domain.rules.safety_report import (
+from overwatch.application.actor import Actor
+from overwatch.application.idempotency import IdempotencyStore
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.sealing import ContentSealer
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.sealed_send import queue_message
+from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
+from overwatch.domain.codes import Channel, Role
+from overwatch.domain.errors import Conflict, NotAllowed, ValidationFailed
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.messages.templates import render
+from overwatch.domain.model.safety import SafetyReport
+from overwatch.domain.rules.safety_report import (
     PROBLEM_REPORT_CODE,
     SAFETY_CONCERN_CODE,
     ProblemCategory,

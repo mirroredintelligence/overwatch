@@ -8,7 +8,7 @@ import { signIn } from './support/session';
 // exchange, R15 and TEN-043); it is not the back end.
 
 const tokenFor = (role: string) =>
-  standInToken({ sub: `stf-e2e-${role}`, role, aud: 'diucs-api', exp: Math.floor(Date.now() / 1000) + 3600 });
+  standInToken({ sub: `stf-e2e-${role}`, role, aud: 'overwatch-api', exp: Math.floor(Date.now() / 1000) + 3600 });
 
 test('shows a code on a display with no session, in groups of three, and nothing a person could type on it', async ({ page }) => {
   await page.goto('/screen/pair');
@@ -52,9 +52,9 @@ test('connects a display from a lead’s page, and the display goes on to the bo
   const everything = await wall.evaluate(() => JSON.stringify([document.documentElement.outerHTML, localStorage, sessionStorage, document.cookie]));
   expect(everything).not.toMatch(/device-token|screen-secret|eyJ[A-Za-z0-9_-]{10,}\./);
   const cookies = await display.cookies();
-  expect(cookies.find((c) => c.name === 'diucs_session')).toMatchObject({ httpOnly: true, sameSite: 'Strict' });
-  expect(cookies.find((c) => c.name === 'diucs_device')).toMatchObject({ httpOnly: true, sameSite: 'Strict' });
-  expect(cookies.find((c) => c.name === 'diucs_pairing')).toBeUndefined();
+  expect(cookies.find((c) => c.name === 'overwatch_session')).toMatchObject({ httpOnly: true, sameSite: 'Strict' });
+  expect(cookies.find((c) => c.name === 'overwatch_device')).toMatchObject({ httpOnly: true, sameSite: 'Strict' });
+  expect(cookies.find((c) => c.name === 'overwatch_pairing')).toBeUndefined();
   await display.close();
   await lead.close();
 });

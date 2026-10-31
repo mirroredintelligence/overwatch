@@ -16,19 +16,19 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, TENANT_KINDS
-from diucs.application.ports.outbound.projection import ProjectionEndReason
-from diucs.application.tenancy import (
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx, run_query
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY, TENANT_KINDS
+from overwatch.application.ports.outbound.projection import ProjectionEndReason
+from overwatch.application.tenancy import (
     ScopeId,
     ScopeKindMismatch,
     bind_network,
     bind_tenant,
 )
-from diucs.application.use_cases.apply_projection import ApplyOutcome
-from diucs.domain.events import ProjectionRejectReason
-from diucs.domain.model.network import GrantScope
+from overwatch.application.use_cases.apply_projection import ApplyOutcome
+from overwatch.domain.events import ProjectionRejectReason
+from overwatch.domain.model.network import GrantScope
 from tests.support.neo4j import read_tx, write_tx
 from tests.support.network_world import NETWORK_INVARIANTS, NetworkWorld, world_ids
 from tests.support.query_probes import production_statements

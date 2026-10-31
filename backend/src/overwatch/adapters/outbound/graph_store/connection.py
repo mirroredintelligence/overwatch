@@ -17,8 +17,8 @@ from urllib.parse import urlsplit
 
 from neo4j import AsyncDriver, AsyncManagedTransaction, AsyncSession
 
-from diucs.adapters.outbound.graph_store.driver import ScopedTx, create_driver
-from diucs.application.tenancy import scope_for_new_unit
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx, create_driver
+from overwatch.application.tenancy import scope_for_new_unit
 
 log = logging.getLogger(__name__)
 
@@ -110,7 +110,7 @@ class Neo4jConnection:
             log.error("Neo4j connection to %s failed at startup: %s", self._endpoint, kind)
             raise Neo4jConnectionError(
                 f"cannot connect to Neo4j at {self._endpoint} ({kind}); check the address "
-                "and the DIUCS_NEO4J_* credentials"
+                "and the OVERWATCH_NEO4J_* credentials"
             ) from None
         self._driver = driver
         self._state = _State.OPEN

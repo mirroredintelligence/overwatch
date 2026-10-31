@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fhir.resources.R4B.capabilitystatement import CapabilityStatement
 from httpx import AsyncClient
 
-from diucs.adapters.inbound.fhir_rest import capability
+from overwatch.adapters.inbound.fhir_rest import capability
 
 FHIR_JSON = "application/fhir+json; fhirVersion=4.3"
 

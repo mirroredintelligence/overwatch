@@ -9,13 +9,13 @@ from datetime import time
 
 import pytest
 
-from diucs.adapters.outbound.graph_store.service_repository import (
+from overwatch.adapters.outbound.graph_store.service_repository import (
     profile_from_fhir,
     profile_to_fhir,
 )
-from diucs.domain.codes import BASE_URL, Cadence, Channel, Measure, ServiceCategory
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.codes import BASE_URL, Cadence, Channel, Measure, ServiceCategory
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
 
 UCR_WEST = ServiceProfile(
     id="svc-ucr-west",

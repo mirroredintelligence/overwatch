@@ -20,21 +20,21 @@ from typing import Any, Self
 
 import pytest
 
-from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET
-from diucs.application.tenancy import ScopeId, bind_scope
-from diucs.application.use_cases.request_booking import (
+from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET
+from overwatch.application.tenancy import ScopeId, bind_scope
+from overwatch.application.use_cases.request_booking import (
     RequestBooking,
     RequestBookingCommand,
 )
-from diucs.domain.codes import AgeBand, Channel, NeedCategory, ReferrerType, Role, Urgency
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.case import Case
-from diucs.domain.model.tenant import TenantWording
+from overwatch.domain.codes import AgeBand, Channel, NeedCategory, ReferrerType, Role, Urgency
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.case import Case
+from overwatch.domain.model.tenant import TenantWording
 from tests.support.actors import ACTOR_TENANT
 
 NOW = datetime(2026, 10, 29, 14, 16, tzinfo=UTC)
@@ -42,7 +42,7 @@ TENANT = "tenant-unit-a"
 SERVICE_ID = "ucr-west"
 ROLE_ID = "role-1"
 TOKEN = "Tq7-LinkTokenAbCdEfGhIjKlMnOpQrSt_u"
-LINK_HOST = "https://unit.diucs.example"
+LINK_HOST = "https://unit.overwatch.example"
 FULL_LINK = f"{LINK_HOST}/l/{TOKEN}"
 DISTRICT = "DT4"
 

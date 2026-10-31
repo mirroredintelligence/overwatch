@@ -2,7 +2,7 @@
 
 from typing import Self
 
-from diucs.application.tenancy import ScopeId
+from overwatch.application.tenancy import ScopeId
 
 
 class SequentialIds:

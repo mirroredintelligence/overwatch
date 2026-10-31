@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from diucs.domain.rules.tenant_export import (
+from overwatch.domain.rules.tenant_export import (
     CLASS_OF_LABEL,
     EXCLUDED_LABELS,
     PROTECTED_LABELS,
@@ -30,9 +30,9 @@ from diucs.domain.rules.tenant_export import (
 
 
 def _labels_of_every_tenant_statement() -> set[str]:
-    import diucs.adapters.outbound.audit_neo4j as audit_package
-    import diucs.adapters.outbound.graph_store as graph_store_package
-    from diucs.adapters.outbound.graph_store.queries import REGISTRY, statement_labels
+    import overwatch.adapters.outbound.audit_neo4j as audit_package
+    import overwatch.adapters.outbound.graph_store as graph_store_package
+    from overwatch.adapters.outbound.graph_store.queries import REGISTRY, statement_labels
 
     for package in (graph_store_package, audit_package):
         for module in pkgutil.walk_packages(package.__path__, f"{package.__name__}."):

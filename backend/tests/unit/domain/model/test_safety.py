@@ -6,8 +6,8 @@ from datetime import UTC, datetime
 
 import pytest
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.safety import SafetyReport
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.safety import SafetyReport
 
 AT = datetime(2026, 10, 29, 14, 20, tzinfo=UTC)
 

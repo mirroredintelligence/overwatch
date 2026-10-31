@@ -15,7 +15,7 @@ const FORM_TIMEOUT_MS = 20_000;
 
 beforeEach(() => {
   resetLeadPosts();
-  document.cookie = 'diucs_csrf=test-csrf-token';
+  document.cookie = 'overwatch_csrf=test-csrf-token';
 });
 
 async function fillValid(user = userEvent.setup()) {

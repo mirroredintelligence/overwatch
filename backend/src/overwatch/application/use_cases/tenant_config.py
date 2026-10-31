@@ -33,22 +33,22 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Final
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.tenants import check_secret_ref
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.tenancy import ScopeKind, TenantNotBound
-from diucs.domain.codes import Role
-from diucs.domain.errors import (
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.tenants import check_secret_ref
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeKind, TenantNotBound
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import (
     Conflict,
     InvalidTransition,
     NotAllowed,
     NotFound,
     ValidationFailed,
 )
-from diucs.domain.model.tenant import (
+from overwatch.domain.model.tenant import (
     ConfigStatus,
     ContactKind,
     NumberStatus,
@@ -57,8 +57,8 @@ from diucs.domain.model.tenant import (
     TenantContact,
     TenantWording,
 )
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, SettingValue, TenantPolicy
-from diucs.domain.model.tenant_records import (
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, SettingValue, TenantPolicy
+from overwatch.domain.model.tenant_records import (
     CHANNEL_PROVIDER,
     BindingStatus,
     ChannelKind,
@@ -69,8 +69,8 @@ from diucs.domain.model.tenant_records import (
     TenantRetention,
     default_retention,
 )
-from diucs.domain.rules.tenant_lifecycle import transition_config
-from diucs.domain.rules.tenant_settings import (
+from overwatch.domain.rules.tenant_lifecycle import transition_config
+from overwatch.domain.rules.tenant_settings import (
     CLINICAL_APPROVALS_REQUIRED,
     approvals_required,
     changed_keys,

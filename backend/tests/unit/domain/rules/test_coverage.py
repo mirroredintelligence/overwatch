@@ -10,8 +10,8 @@ import math
 
 import pytest
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.coverage import CoverageCircle, coverage_circle
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.coverage import CoverageCircle, coverage_circle
 
 DEGREE_KM = 111.195  # one degree of latitude on the earth sphere the rule uses
 

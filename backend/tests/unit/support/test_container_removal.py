@@ -37,9 +37,9 @@ def test_stop_throwaway_neo4j_removes_the_container_and_its_anonymous_volumes(
 
     monkeypatch.setattr(harness, "_docker", fake)
 
-    stop_throwaway_neo4j(ThrowawayNeo4j("diucs-test-neo4j-abc", "bolt://x", "u", "p"))
+    stop_throwaway_neo4j(ThrowawayNeo4j("overwatch-test-neo4j-abc", "bolt://x", "u", "p"))
 
-    _assert_removes_with_volumes(calls, "diucs-test-neo4j-abc")
+    _assert_removes_with_volumes(calls, "overwatch-test-neo4j-abc")
 
 
 def _reaper_docker(
@@ -59,17 +59,17 @@ def _reaper_docker(
 
 def test_reaper_removes_a_stale_container_and_its_anonymous_volumes() -> None:
     calls: list[tuple[str, ...]] = []
-    docker = _reaper_docker([("diucs-test-neo4j-old", OLD)], calls)
+    docker = _reaper_docker([("overwatch-test-neo4j-old", OLD)], calls)
 
     removed = reap_stale_test_containers(timedelta(minutes=90), run=docker, now=lambda: NOW)
 
-    assert removed == ["diucs-test-neo4j-old"]
-    _assert_removes_with_volumes(calls, "diucs-test-neo4j-old")
+    assert removed == ["overwatch-test-neo4j-old"]
+    _assert_removes_with_volumes(calls, "overwatch-test-neo4j-old")
 
 
 def test_reaper_sweep_never_removes_a_container_outside_the_throwaway_prefix() -> None:
     calls: list[tuple[str, ...]] = []
-    docker = _reaper_docker([("diucs-local-neo4j", OLD), ("other-app", OLD)], calls)
+    docker = _reaper_docker([("overwatch-local-neo4j", OLD), ("other-app", OLD)], calls)
 
     removed = reap_stale_test_containers(timedelta(minutes=90), run=docker, now=lambda: NOW)
 
@@ -91,6 +91,6 @@ def test_a_session_that_ends_never_removes_the_shared_container(
     monkeypatch.setattr(harness, "_docker", fake)
 
     with pytest.raises(ValueError, match="private"):
-        stop_throwaway_neo4j(ThrowawayNeo4j("diucs-test-shared-neo4j", "bolt://x", "u", "p"))
+        stop_throwaway_neo4j(ThrowawayNeo4j("overwatch-test-shared-neo4j", "bolt://x", "u", "p"))
 
     assert calls == []

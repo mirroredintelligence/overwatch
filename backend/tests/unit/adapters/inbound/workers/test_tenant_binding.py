@@ -9,16 +9,16 @@ from collections.abc import Iterator, Sequence
 
 import pytest
 
-from diucs.adapters.inbound.workers.consumer import Outcome
-from diucs.adapters.inbound.workers.outbox_relay import StaticTenants
-from diucs.adapters.inbound.workers.tenant_binding import (
+from overwatch.adapters.inbound.workers.consumer import Outcome
+from overwatch.adapters.inbound.workers.outbox_relay import StaticTenants
+from overwatch.adapters.inbound.workers.tenant_binding import (
     BAD_TENANT,
     NO_TENANT,
     UNKNOWN_TENANT,
     TenantBoundConsumer,
 )
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.tenancy import current_scope_or_none
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.tenancy import current_scope_or_none
 from tests.support.bus import message_with_tenant
 
 TENANT_A = "tenant-a"

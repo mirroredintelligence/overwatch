@@ -7,7 +7,7 @@ parameters, and whether it ran in a read or a write transaction.
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from diucs.adapters.outbound.graph_store.queries import REGISTRY
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY
 
 
 class _Result:

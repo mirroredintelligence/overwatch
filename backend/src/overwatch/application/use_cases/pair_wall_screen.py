@@ -33,25 +33,25 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from typing import Final, Literal
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.cache import Cache
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.identity import DEVICE_TOKEN_SECRET
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET, SecretStore
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound
-from diucs.domain.codes import Role
-from diucs.domain.errors import Conflict, DomainError, NotAllowed, ValidationFailed
-from diucs.domain.model.device import (
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.cache import Cache
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.identity import DEVICE_TOKEN_SECRET
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET, SecretStore
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import Conflict, DomainError, NotAllowed, ValidationFailed
+from overwatch.domain.model.device import (
     BoardScope,
     Device,
     DeviceStatus,
     DeviceType,
     check_screen_label,
 )
-from diucs.domain.rules.tokens import (
+from overwatch.domain.rules.tokens import (
     LINK_TOKEN_ALPHABET,
     LINK_TOKEN_LENGTH,
     PAIRING_CODE_VALID_FOR,

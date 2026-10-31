@@ -7,7 +7,7 @@ from dataclasses import replace
 from datetime import UTC, date, datetime, time
 from typing import Any
 
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     CriteriaStatus,
@@ -17,12 +17,12 @@ from diucs.domain.codes import (
     ReportType,
     ServiceCategory,
 )
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.criteria import ServiceCriteria
-from diucs.domain.model.network import DirectorySource
-from diucs.domain.model.service import AvailableTime, ServiceProfile
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
-from diucs.domain.rules.projection import (
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.criteria import ServiceCriteria
+from overwatch.domain.model.network import DirectorySource
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
+from overwatch.domain.rules.projection import (
     CapacityProjection,
     CriteriaProjection,
     LocationInputs,

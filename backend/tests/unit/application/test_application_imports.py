@@ -3,7 +3,7 @@
 import ast
 from pathlib import Path
 
-APPLICATION = Path(__file__).resolve().parents[3] / "src" / "diucs" / "application"
+APPLICATION = Path(__file__).resolve().parents[3] / "src" / "overwatch" / "application"
 
 
 def _imported_modules(path: Path) -> set[str]:

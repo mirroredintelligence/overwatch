@@ -9,7 +9,7 @@ const PING = `${BACKEND_ROOT}/public/ping`;
 
 beforeEach(() => {
   vi.unstubAllEnvs();
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
 });
 
 describe('backendRoot', () => {
@@ -18,8 +18,8 @@ describe('backendRoot', () => {
   });
 
   it('names the variable and never the value', () => {
-    expect(() => backendRoot('https://api.example.test/other')).toThrow(/DIUCS_FHIR_BASE_URL/);
-    expect(() => backendRoot(undefined)).toThrow(/DIUCS_FHIR_BASE_URL/);
+    expect(() => backendRoot('https://api.example.test/other')).toThrow(/OVERWATCH_FHIR_BASE_URL/);
+    expect(() => backendRoot(undefined)).toThrow(/OVERWATCH_FHIR_BASE_URL/);
   });
 });
 
@@ -35,10 +35,10 @@ describe('callBackend', () => {
     expect(seen).toBe('tenant-a.example.test');
   });
 
-  describe('behind the platform ingress (DIUCS_EDGE_ORIGIN_SECRET set)', () => {
+  describe('behind the platform ingress (OVERWATCH_EDGE_ORIGIN_SECRET set)', () => {
     const SECRET = 'edge-secret-value-of-sufficient-length-0123456789';
     beforeEach(() => {
-      vi.stubEnv('DIUCS_EDGE_ORIGIN_SECRET', SECRET);
+      vi.stubEnv('OVERWATCH_EDGE_ORIGIN_SECRET', SECRET);
     });
 
     it('names the tenant in X-Forwarded-Host with the origin secret, and leaves Host alone', async () => {

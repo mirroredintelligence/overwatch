@@ -7,7 +7,7 @@ import { baseCookieOptions, readRequestCookie, sessionSecretKey } from '@/lib/au
 // the page script can read and repeated in a header on every write. It has a cookie, a key and a material
 // of its own, so a token issued to a tenant's person is never an operator's, even for the same subject and host.
 
-export const OPERATOR_CSRF_COOKIE = 'diucs_op_csrf';
+export const OPERATOR_CSRF_COOKIE = 'overwatch_op_csrf';
 export const OPERATOR_CSRF_HEADER = 'X-CSRF-Token';
 
 const NONCE_BYTES = 32;
@@ -18,7 +18,7 @@ const TOKEN = /^([A-Za-z0-9_-]{43})\.([A-Za-z0-9_-]{43})$/;
 export type OperatorCsrfSubject = { host: string; sub: string };
 
 async function macKey(): Promise<Uint8Array> {
-  return new Uint8Array(hkdfSync('sha256', await sessionSecretKey(), 'diucs-operator-csrf', 'operator-csrf-token-v1', 32));
+  return new Uint8Array(hkdfSync('sha256', await sessionSecretKey(), 'overwatch-operator-csrf', 'operator-csrf-token-v1', 32));
 }
 
 async function macOf(subject: OperatorCsrfSubject, nonce: string): Promise<string> {

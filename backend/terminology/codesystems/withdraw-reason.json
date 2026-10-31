@@ -1,7 +1,7 @@
 {
   "resourceType": "CodeSystem",
   "id": "withdraw-reason",
-  "url": "https://diucs.example/CodeSystem/withdraw-reason",
+  "url": "https://overwatch.mirroredintelligence.com/CodeSystem/withdraw-reason",
   "name": "withdraw-reason",
   "status": "active",
   "content": "complete",

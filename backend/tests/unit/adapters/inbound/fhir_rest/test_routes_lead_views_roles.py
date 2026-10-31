@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from diucs.domain.codes import Role
+from overwatch.domain.codes import Role
 from tests.support.w7b_roles import EDGE_REFUSED, headers_for, roles_client
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")

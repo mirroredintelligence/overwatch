@@ -79,15 +79,15 @@ time through its own managed identity. An app is given exactly these settings, a
 
 | Setting | Value (pilot) | Apps |
 |---|---|---|
-| `DIUCS_KEY_VAULT_URL` | `https://kv-diucs-pilot-7k2q.vault.azure.net/` | api, web, workers |
+| `OVERWATCH_KEY_VAULT_URL` | `https://kv-diucs-pilot-7k2q.vault.azure.net/` | api, web, workers |
 | `AZURE_CLIENT_ID` | the client id of the app's own identity (below) | api, web, workers |
-| `DIUCS_NEO4J_URI` | `neo4j+s://8cb817d8.databases.neo4j.io` | api, workers |
-| `DIUCS_NEO4J_USER` | `8cb817d8` | api, workers |
+| `OVERWATCH_NEO4J_URI` | `neo4j+s://8cb817d8.databases.neo4j.io` | api, workers |
+| `OVERWATCH_NEO4J_USER` | `8cb817d8` | api, workers |
 
 `AZURE_CLIENT_ID` for each identity: api `9d8902dc-4bcb-4703-8183-67dfcaaf55d6`, web
 `8e25e547-e457-4dce-b0b1-29dd0ed0a5e7`, workers `dfb0c9ba-6f9d-4f0e-bc68-5a98d6a49670`, collector
 `e4700742-daa0-4df1-ba9c-252fb7b4d91a` (the collector and Redis are given no vault setting and no vault role).
-The other non-secret settings (`DIUCS_PROFILE=production`, `DIUCS_BASE_URL`, `DIUCS_EDGE`, ...) are plain settings
+The other non-secret settings (`OVERWATCH_PROFILE=production`, `OVERWATCH_BASE_URL`, `OVERWATCH_EDGE`, ...) are plain settings
 too. When creating or updating an app, give the settings like this, one to a line, so none can be mistaken for a
 secret (the pilot values are in the table above):
 
@@ -95,15 +95,15 @@ secret (the pilot values are in the table above):
 az containerapp create -g "$RG" -n "ca-$P-api-$E" --environment "cae-$P-$E" --user-assigned "$ID_API" \
   --image "$ACR.azurecr.io/diucs-api:<tag>" --registry-server "$ACR.azurecr.io" --registry-identity "$ID_API" \
   --env-vars \
-    "DIUCS_PROFILE=production" \
-    "DIUCS_KEY_VAULT_URL=https://kv-diucs-pilot-7k2q.vault.azure.net/" \
+    "OVERWATCH_PROFILE=production" \
+    "OVERWATCH_KEY_VAULT_URL=https://kv-diucs-pilot-7k2q.vault.azure.net/" \
     "AZURE_CLIENT_ID=9d8902dc-4bcb-4703-8183-67dfcaaf55d6" \
-    "DIUCS_NEO4J_URI=neo4j+s://8cb817d8.databases.neo4j.io" \
-    "DIUCS_NEO4J_USER=8cb817d8"
+    "OVERWATCH_NEO4J_URI=neo4j+s://8cb817d8.databases.neo4j.io" \
+    "OVERWATCH_NEO4J_USER=8cb817d8"
 ```
 
-Never set `DIUCS_NEO4J_PASSWORD`, `DIUCS_REDIS_URL`, `DIUCS_SERVICEBUS_CONNECTION` or `DIUCS_OS_PLACES_API_KEY` on
-an app that has `DIUCS_KEY_VAULT_URL`: the process refuses to start (it names the variable and the vault secret that
+Never set `OVERWATCH_NEO4J_PASSWORD`, `OVERWATCH_REDIS_URL`, `OVERWATCH_SERVICEBUS_CONNECTION` or `OVERWATCH_OS_PLACES_API_KEY` on
+an app that has `OVERWATCH_KEY_VAULT_URL`: the process refuses to start (it names the variable and the vault secret that
 replaces it, never a value). Never set `AZURE_CLIENT_SECRET` (or `AZURE_TENANT_ID` with it) for these apps: the
 identity is the managed identity, and a client secret in the environment would be used before it and would be a
 secret in plain configuration.
@@ -112,9 +112,9 @@ Each identity holds `Key Vault Secrets User` on this one vault (the three role a
 workers) and nothing wider; the collector and Redis hold no vault role. The names below are exactly what the
 start-up check reads. A missing required name stops the process and the message names the secret, never a value; an
 optional one is a warning and the feature it serves stays off. A value that is shorter than 32 bytes is refused.
-Each value is cached for 10 minutes (`DIUCS_SECRET_CACHE_SECONDS`), so a rotated secret reaches a running app within
+Each value is cached for 10 minutes (`OVERWATCH_SECRET_CACHE_SECONDS`), so a rotated secret reaches a running app within
 that time; if the vault cannot be reached a value already held is served for up to an hour more
-(`DIUCS_SECRET_STALE_SECONDS`, `0` for strict).
+(`OVERWATCH_SECRET_STALE_SECONDS`, `0` for strict).
 
 #### The api: secrets it reads
 
@@ -241,7 +241,7 @@ export OPS_HOST="<the operator console host, a separate host>"
 ```
 
 ```bash
-az ad app create --display-name "DIUCS Staff" --sign-in-audience AzureADMultipleOrgs --web-redirect-uris "https://$STAFF_HOST/api/bff/auth/entra/callback" --enable-id-token-issuance true --query appId -o tsv
+az ad app create --display-name "Overwatch Staff" --sign-in-audience AzureADMultipleOrgs --web-redirect-uris "https://$STAFF_HOST/api/bff/auth/entra/callback" --enable-id-token-issuance true --query appId -o tsv
 ```
 
 Save that application (client) id as `STAFF_APP_ID`, then:
@@ -253,7 +253,7 @@ az ad app credential reset --id "$STAFF_APP_ID" --display-name diucs-bff --years
 ```
 
 ```bash
-az ad app create --display-name "DIUCS Operator Console" --sign-in-audience AzureADMyOrg --web-redirect-uris "https://$OPS_HOST/api/bff/platform/auth/callback" --enable-id-token-issuance true --query appId -o tsv
+az ad app create --display-name "Overwatch Operator Console" --sign-in-audience AzureADMyOrg --web-redirect-uris "https://$OPS_HOST/api/bff/platform/auth/callback" --enable-id-token-issuance true --query appId -o tsv
 ```
 
 Save it as `OPS_APP_ID`, then:
@@ -268,7 +268,7 @@ az account show --query tenantId -o tsv
 The last line prints the operator directory id (`OPERATOR_ENTRA_DIRECTORY_ID`).
 
 Things about the staff app you should know:
-- The sign-in code reads one `DIUCS_PUBLIC_URL`, so today one deployment serves one tenant host. Each further tenant
+- The sign-in code reads one `OVERWATCH_PUBLIC_URL`, so today one deployment serves one tenant host. Each further tenant
   host needs its own redirect URI added to this app; that is a known gap I will close (per-tenant redirect), not
   something to work around by hand now.
 - Every customer organisation's Entra administrator must consent to the app in their own directory, and you need

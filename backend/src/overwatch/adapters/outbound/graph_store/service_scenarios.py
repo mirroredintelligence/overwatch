@@ -16,7 +16,7 @@ ServiceRequest and its Patient stub. This module is pure data: no Neo4j, no tena
 from datetime import UTC, datetime
 from typing import Final
 
-from diucs.adapters.outbound.graph_store.scenario import (
+from overwatch.adapters.outbound.graph_store.scenario import (
     Expect,
     Marked,
     NodeSpec,
@@ -25,7 +25,7 @@ from diucs.adapters.outbound.graph_store.scenario import (
     SeedRel,
     TenantSeed,
 )
-from diucs.domain.codes import code_system_url
+from overwatch.domain.codes import code_system_url
 
 _BOOKING_OUTPUT_SYSTEM: Final = code_system_url("booking-output-type")
 _CONFIRMED_AT: Final = "confirmed-at"

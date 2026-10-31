@@ -8,8 +8,8 @@ registry would refuse (a leaky twin, or a statement with its predicate taken out
 test refuses `registry=` and this module in `src`.
 """
 
-from diucs.adapters.outbound.graph_store.queries import QueryRegistry
-from diucs.adapters.outbound.graph_store.scenario import Scenario
+from overwatch.adapters.outbound.graph_store.queries import QueryRegistry
+from overwatch.adapters.outbound.graph_store.scenario import Scenario
 
 
 class LeakyRegistry(QueryRegistry):

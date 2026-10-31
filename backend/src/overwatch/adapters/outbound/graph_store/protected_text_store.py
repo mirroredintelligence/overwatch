@@ -14,16 +14,16 @@ be denied the Protected label, and IG to decide whether the text is also encrypt
 import secrets
 from typing import Final
 
-from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.adapters.outbound.graph_store.scenario import (
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx, run_query
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from overwatch.adapters.outbound.graph_store.scenario import (
     Expect,
     Marked,
     Scenario,
     SeedNode,
     TenantSeed,
 )
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.errors import ValidationFailed
 
 KINDS: Final = frozenset({"safety-concern", "problem-report", "clinical-note"})
 MAX_LENGTH: Final = 280

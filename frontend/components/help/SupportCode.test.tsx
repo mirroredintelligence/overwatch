@@ -129,7 +129,7 @@ describe('SupportCode with a code made in this visit', () => {
   });
 
   it('asks before it stops sharing, sends the delete with the CSRF header only when confirmed, and then offers a new code', async () => {
-    document.cookie = 'diucs_csrf=csrf-test-token';
+    document.cookie = 'overwatch_csrf=csrf-test-token';
     render(<SupportCode />);
     await makeCode();
     await userEvent.click(screen.getByRole('button', { name: 'Stop sharing now' }));
@@ -142,7 +142,7 @@ describe('SupportCode with a code made in this visit', () => {
     expect(sent.find((s) => s.method === 'DELETE')?.csrf).toBe('csrf-test-token');
     expect(screen.queryByText(CODE)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Make a support code' })).toBeInTheDocument();
-    document.cookie = 'diucs_csrf=; max-age=0';
+    document.cookie = 'overwatch_csrf=; max-age=0';
   });
 
   it('keeps the code out of local storage and session storage', async () => {

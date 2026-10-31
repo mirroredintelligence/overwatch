@@ -9,7 +9,7 @@ the readers honest too.
 import re
 from pathlib import Path
 
-PACKAGE_ROOT = Path(__file__).resolve().parents[2] / "src" / "diucs"
+PACKAGE_ROOT = Path(__file__).resolve().parents[2] / "src" / "overwatch"
 _READS_A_TENANT = re.compile(
     r"""(?:payload|message\.payload)\s*(?:\.get\(\s*|\[\s*)["'](?:tenant|tenantId|tenant_id)["']"""
 )

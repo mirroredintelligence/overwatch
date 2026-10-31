@@ -5,17 +5,17 @@ import { CLIENT_ID, CLIENT_SECRET } from '../../test/oidc/constants';
 //
 // The three ports of a run (the site, the stand-in back end and the fake Entra provider) follow from
 // one base port, so that two e2e runs on one machine (two builders, a builder and a verifier) never
-// share a dev server or a stand-in. DIUCS_E2E_PORT names the base; when it is not set the first
+// share a dev server or a stand-in. OVERWATCH_E2E_PORT names the base; when it is not set the first
 // module that loads this file derives one from its process id and writes it to the environment,
 // where the browser-test workers inherit it. Three ports are taken from the base: the site, the
 // stand-in back end and the fake Entra provider.
 const FIRST_PORT = 20000;
 const RUN_SLOTS = 3300;
-const PORT_NAMED = Boolean(process.env.DIUCS_E2E_PORT);
+const PORT_NAMED = Boolean(process.env.OVERWATCH_E2E_PORT);
 if (!PORT_NAMED) {
-  process.env.DIUCS_E2E_PORT = String(FIRST_PORT + (process.pid % RUN_SLOTS) * 3);
+  process.env.OVERWATCH_E2E_PORT = String(FIRST_PORT + (process.pid % RUN_SLOTS) * 3);
 }
-export const SITE_PORT = Number(process.env.DIUCS_E2E_PORT);
+export const SITE_PORT = Number(process.env.OVERWATCH_E2E_PORT);
 export const BACKEND_PORT = SITE_PORT + 1;
 // True when the person who runs the tests named the port, so a dev server already on it may be
 // reused. A port derived here is this run's alone and nothing may be on it.
@@ -39,7 +39,7 @@ export const ENTRA_ENV = {
   ENTRA_CLIENT_ID: CLIENT_ID,
   ENTRA_CLIENT_SECRET: CLIENT_SECRET,
   ENTRA_AUTHORITY_HOST: ENTRA_HOST,
-  DIUCS_PUBLIC_URL: SITE_URL,
+  OVERWATCH_PUBLIC_URL: SITE_URL,
   SESSION_SECRET: E2E_SESSION_SECRET,
 };
 

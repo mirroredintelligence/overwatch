@@ -18,16 +18,16 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.application.ports.outbound.projection import ProjectionEndReason
-from diucs.application.tenancy import bind_tenant
-from diucs.application.use_cases.apply_projection import ApplyOutcome
-from diucs.application.use_cases.grants import EndGrantCommand
-from diucs.application.work import WorkKind
-from diucs.domain.codes import Status
-from diucs.domain.errors import NotFound
-from diucs.domain.events import ProjectionRejectReason
-from diucs.domain.model.network import GrantScope
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.application.ports.outbound.projection import ProjectionEndReason
+from overwatch.application.tenancy import bind_tenant
+from overwatch.application.use_cases.apply_projection import ApplyOutcome
+from overwatch.application.use_cases.grants import EndGrantCommand
+from overwatch.application.work import WorkKind
+from overwatch.domain.codes import Status
+from overwatch.domain.errors import NotFound
+from overwatch.domain.events import ProjectionRejectReason
+from overwatch.domain.model.network import GrantScope
 from tests.support.neo4j import read_tx
 from tests.support.network_admin_rig import START, AdminRig
 from tests.support.network_world import NETWORK_INVARIANTS, world_ids
@@ -274,7 +274,7 @@ async def test_an_end_and_a_projection_that_race_leave_no_live_row_whatever_the_
 
     async def apply(member: str) -> Any:
         rig._message += 1
-        from diucs.application.tenancy import bind_network
+        from overwatch.application.tenancy import bind_network
 
         with bind_network(rig.ids.network):
             return await rig.apply.execute(

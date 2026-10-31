@@ -6,12 +6,12 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from diucs.domain.codes import Cadence, Channel, Measure, ServiceCategory
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.service import AvailableTime, ServiceProfile
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY
-from diucs.domain.rules.london_time import LONDON
-from diucs.domain.rules.reporter_app import (
+from overwatch.domain.codes import Cadence, Channel, Measure, ServiceCategory
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY
+from overwatch.domain.rules.london_time import LONDON
+from overwatch.domain.rules.reporter_app import (
     MAX_COVER_DAYS,
     RowState,
     assess_row,

@@ -19,22 +19,22 @@ import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 from neo4j.exceptions import ConstraintError
 
-from diucs.adapters.outbound.graph_store.communication_repository import (
+from overwatch.adapters.outbound.graph_store.communication_repository import (
     Neo4jCommunicationRepository,
 )
-from diucs.adapters.outbound.graph_store.migration_types import Migration, MigrationFailed
-from diucs.adapters.outbound.graph_store.migrations import MIGRATIONS, apply_migrations
-from diucs.adapters.outbound.graph_store.migrations_contract import CONTRACT_MIGRATION_ID
-from diucs.adapters.outbound.graph_store.migrations_tenant import (
+from overwatch.adapters.outbound.graph_store.migration_types import Migration, MigrationFailed
+from overwatch.adapters.outbound.graph_store.migrations import MIGRATIONS, apply_migrations
+from overwatch.adapters.outbound.graph_store.migrations_contract import CONTRACT_MIGRATION_ID
+from overwatch.adapters.outbound.graph_store.migrations_tenant import (
     COMPOSITE_CONSTRAINTS,
     COMPOSITE_INDEXES,
     REGISTRY_LABELS,
     SUPERSEDED_CONSTRAINTS,
     SUPERSEDED_INDEXES,
 )
-from diucs.application.ports.outbound.messaging import Communication
-from diucs.application.tenancy import bind_tenant
-from diucs.domain.codes import Channel
+from overwatch.application.ports.outbound.messaging import Communication
+from overwatch.application.tenancy import bind_tenant
+from overwatch.domain.codes import Channel
 from tests.support.neo4j import read_tx, run_scope_ids, throwaway_driver, write_tx
 from tests.support.tenant_seed import schema_names
 from tests.support.uow import ensure_audit_heads

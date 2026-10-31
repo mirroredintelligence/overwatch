@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { mapScopeList } from './backend';
 
-const SCHEME = 'https://diucs.example/fhir/CodeSystem';
+const SCHEME = 'https://overwatch.mirroredintelligence.com/fhir/CodeSystem';
 
 // The back end's scope list (R10, U23): a FHIR List whose entries carry the flag as a coding and
 // the name, category, reason and registration state as extensions.

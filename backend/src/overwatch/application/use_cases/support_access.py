@@ -24,16 +24,16 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Final
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.support import SupportAccessRecord, SupportCodeRecord
-from diucs.application.ports.outbound.tokens import SecretStore
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotAllowed
-from diucs.domain.rules.support import (
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.support import SupportAccessRecord, SupportCodeRecord
+from overwatch.application.ports.outbound.tokens import SecretStore
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotAllowed
+from overwatch.domain.rules.support import (
     SUPPORT_CODE_SECRET,
     access_window,
     code_window,
@@ -43,7 +43,7 @@ from diucs.domain.rules.support import (
     normalise_support_code,
     support_code_usable,
 )
-from diucs.domain.rules.tokens import new_support_code
+from overwatch.domain.rules.tokens import new_support_code
 
 USE_CASE_OPEN: Final = "OpenSessionForSupport"
 USE_CASE_CREATE: Final = "CreateSupportCode"

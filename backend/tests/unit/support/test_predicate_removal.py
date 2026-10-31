@@ -7,12 +7,12 @@ shows that the generated test fails for the copy. Only the helper is tested here
 
 import pytest
 
-from diucs.adapters.outbound.graph_store.queries import (
+from overwatch.adapters.outbound.graph_store.queries import (
     NamedQuery,
     QueryRegistry,
     TenantPredicateMissing,
 )
-from diucs.adapters.outbound.graph_store.scenario import Scenario
+from overwatch.adapters.outbound.graph_store.scenario import Scenario
 from tests.support.leaky_registry import LeakyRegistry
 from tests.support.predicate_removal import mutant_of, predicate_count, without_predicate
 

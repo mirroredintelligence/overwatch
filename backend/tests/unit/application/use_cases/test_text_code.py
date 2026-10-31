@@ -7,14 +7,14 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from diucs.application.use_cases.text_code import (
+from overwatch.application.use_cases.text_code import (
     check_purpose,
     code_hash,
     code_key,
     cooldown_seconds,
     new_code,
 )
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.errors import ValidationFailed
 
 ISSUED = datetime(2026, 10, 29, 9, 0, tzinfo=UTC)
 PHONE_HASH = "ab" * 32

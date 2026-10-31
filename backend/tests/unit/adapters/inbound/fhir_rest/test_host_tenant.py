@@ -14,17 +14,17 @@ import pytest
 from fastapi import Depends, FastAPI
 from starlette.requests import Request
 
-from diucs.adapters.inbound.fhir_rest.errors import NOT_FOUND_TEXT, install_exception_handlers
-from diucs.adapters.inbound.fhir_rest.host_tenant import (
+from overwatch.adapters.inbound.fhir_rest.errors import NOT_FOUND_TEXT, install_exception_handlers
+from overwatch.adapters.inbound.fhir_rest.host_tenant import (
     HostNotResolved,
     bind_host_tenant,
     request_host,
     resolve_request_tenant,
 )
-from diucs.application.ports.outbound.tenants import TenantRecordInvalid
-from diucs.application.tenancy import current_scope_or_none, current_tenant
-from diucs.domain.errors import NotFound
-from diucs.domain.model.tenant import Tenant, TenantStatus
+from overwatch.application.ports.outbound.tenants import TenantRecordInvalid
+from overwatch.application.tenancy import current_scope_or_none, current_tenant
+from overwatch.domain.errors import NotFound
+from overwatch.domain.model.tenant import Tenant, TenantStatus
 from tests.support.tenant_samples import make_tenant
 
 HOST_A = "a.example.test"

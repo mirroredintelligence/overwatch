@@ -9,9 +9,9 @@ import pytest
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
-from diucs.application.tenancy import DEFAULT_TENANT_ID
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.tenant_keys import (
+from overwatch.application.tenancy import DEFAULT_TENANT_ID
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.tenant_keys import (
     HASH_KEY_VERSION_DERIVED,
     HASH_KEY_VERSION_LEGACY,
     KEY_BYTES,
@@ -104,7 +104,7 @@ def test_the_key_is_the_hkdf_of_the_platform_secret_with_the_tenant_as_context()
     expected = HKDF(
         algorithm=hashes.SHA256(),
         length=32,
-        salt=b"diucs/tenant-key/v1",
+        salt=b"overwatch/tenant-key/v1",
         info=b"phone-hash\x00tenant-a",
     ).derive(PLATFORM)
     assert derive_tenant_key(PLATFORM, "tenant-a", "phone-hash") == expected

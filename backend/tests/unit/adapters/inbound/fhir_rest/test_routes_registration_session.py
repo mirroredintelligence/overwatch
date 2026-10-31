@@ -15,11 +15,11 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET
-from diucs.application.ports.outbound.identity import SessionStore
-from diucs.domain.codes import PractitionerRoleCode, RegistrationStatus, Role
-from diucs.domain.model.people import PractitionerRole
-from diucs.domain.rules.bff_token import TokenRejected, decode_bff_token
+from overwatch.adapters.testing.tokens import TEST_BFF_SECRET
+from overwatch.application.ports.outbound.identity import SessionStore
+from overwatch.domain.codes import PractitionerRoleCode, RegistrationStatus, Role
+from overwatch.domain.model.people import PractitionerRole
+from overwatch.domain.rules.bff_token import TokenRejected, decode_bff_token
 from tests.support.w7b_rig import (
     CODE,
     DEVICE,

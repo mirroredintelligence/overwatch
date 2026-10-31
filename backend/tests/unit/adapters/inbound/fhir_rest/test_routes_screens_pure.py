@@ -19,28 +19,28 @@ from pydantic import ValidationError
 from starlette.requests import Request
 from starlette.responses import Response
 
-from diucs.adapters.inbound.fhir_rest import routes_screens
-from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
-from diucs.adapters.inbound.fhir_rest.errors import NOT_FOUND_TEXT
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
-from diucs.application.ports.outbound.identity import DEVICE_TOKEN_SECRET
-from diucs.application.ports.outbound.tenants import TenantRecordInvalid
-from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET
-from diucs.application.tenancy import ScopeId, bind_tenant, current_scope_or_none
-from diucs.application.use_cases.pair_wall_screen import (
+from overwatch.adapters.inbound.fhir_rest import routes_screens
+from overwatch.adapters.inbound.fhir_rest.app import create_app
+from overwatch.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from overwatch.adapters.inbound.fhir_rest.errors import NOT_FOUND_TEXT
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
+from overwatch.application.ports.outbound.identity import DEVICE_TOKEN_SECRET
+from overwatch.application.ports.outbound.tenants import TenantRecordInvalid
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET
+from overwatch.application.tenancy import ScopeId, bind_tenant, current_scope_or_none
+from overwatch.application.use_cases.pair_wall_screen import (
     LIMIT_WINDOW,
     RATE_LIMITED_MESSAGE,
     AttemptLimiter,
     PairingRateLimited,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotAllowed
-from diucs.domain.model.tenant import TenantStatus
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotAllowed
+from overwatch.domain.model.tenant import TenantStatus
 from tests.support.tenant_samples import make_tenant
 
 CLOCK = datetime(2026, 10, 23, 13, 2, tzinfo=UTC)

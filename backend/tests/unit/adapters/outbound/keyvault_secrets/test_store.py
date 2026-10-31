@@ -9,14 +9,14 @@ import threading
 import pytest
 from azure.core.exceptions import ClientAuthenticationError, HttpResponseError, ServiceRequestError
 
-from diucs.adapters.outbound.keyvault_secrets import (
+from overwatch.adapters.outbound.keyvault_secrets import (
     DEFAULT_CACHE_SECONDS,
     DEFAULT_STALE_SECONDS,
     STALE_RETRY_SECONDS,
     KeyVaultSecretStore,
 )
-from diucs.application.ports.outbound.tokens import SecretStore, SecretStoreUnavailable
-from diucs.domain.errors import NotFound
+from overwatch.application.ports.outbound.tokens import SecretStore, SecretStoreUnavailable
+from overwatch.domain.errors import NotFound
 from tests.support.fake_key_vault import FakeKeyVaultClient, FakeMonotonic
 
 TTL = 600

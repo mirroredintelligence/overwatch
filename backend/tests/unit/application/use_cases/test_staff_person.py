@@ -12,16 +12,16 @@ from datetime import UTC, datetime
 
 import pytest
 
-from diucs.application.actor import Actor
-from diucs.application.tenancy import ScopeId
-from diucs.application.use_cases.staff_person import (
+from overwatch.application.actor import Actor
+from overwatch.application.tenancy import ScopeId
+from overwatch.application.use_cases.staff_person import (
     STAFF_DISPLAY_NAME,
     STAFF_PERSON_ROLES,
     EnsureStaffPerson,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotAllowed
-from diucs.domain.model.people import Practitioner
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotAllowed
+from overwatch.domain.model.people import Practitioner
 from tests.support.actors import ACTOR_TENANT
 from tests.support.registration_rig import StubUnits
 

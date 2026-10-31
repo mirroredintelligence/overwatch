@@ -15,8 +15,8 @@ from opentelemetry import context as otel_context
 from opentelemetry import trace as otel_trace
 from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
 
-from diucs.adapters.outbound.telemetry import attributes as names
-from diucs.application.ports.outbound.event_bus import BusMessage
+from overwatch.adapters.outbound.telemetry import attributes as names
+from overwatch.application.ports.outbound.event_bus import BusMessage
 
 Observe = Callable[[BusMessage], AbstractContextManager[object]]
 

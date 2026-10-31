@@ -2,7 +2,7 @@
 are fixed text in the two adapter query packages, one place that creates the tenant context, named
 binding sites, and no `tenant` argument anywhere in the graph store.
 
-Every rule scans the real source under backend/src/diucs with `ast` (the style of
+Every rule scans the real source under backend/src/overwatch with `ast` (the style of
 test_import_rules.py). Each scanner is also run on small source strings, and the whole check is run
 on the real tree plus a probe module that breaks every rule, so a scanner that stops seeing what it
 should fails here instead of passing vacuously.
@@ -22,7 +22,7 @@ import pytest
 
 BACKEND = Path(__file__).resolve().parents[2]
 SRC_ROOT = BACKEND / "src"
-PACKAGE_ROOT = SRC_ROOT / "diucs"
+PACKAGE_ROOT = SRC_ROOT / "overwatch"
 GRAPH_STORE = "adapters/outbound/graph_store"
 
 # Modules that may execute Cypher. The migration runner is not application Cypher: it runs raw
@@ -56,54 +56,54 @@ TENANCY_KERNEL = "application/tenancy.py"
 # which binds the tenant a message carries once the directory lists it as active (DEC-165).
 BINDING_MODULES: frozenset[str] = frozenset(
     {
-        "diucs.adapters.inbound.link_pages.capacity_links",
-        "diucs.adapters.inbound.sms_webhook.routes",
-        "diucs.adapters.inbound.workers.outbox_relay",
-        "diucs.adapters.inbound.workers.tenant_binding",
+        "overwatch.adapters.inbound.link_pages.capacity_links",
+        "overwatch.adapters.inbound.sms_webhook.routes",
+        "overwatch.adapters.inbound.workers.outbox_relay",
+        "overwatch.adapters.inbound.workers.tenant_binding",
         # TEN-054: the network apply consumer binds the network scope its message names, for the
         # handling of that one message, and only after the directory has listed the source tenant
         # and the registry has said the network exists and is active.
-        "diucs.adapters.inbound.workers.network_projector",
+        "overwatch.adapters.inbound.workers.network_projector",
         # O09: the synthetic test hook binds the one tenant its configuration names, never one the
         # request sends, and is mounted only when the hook is configured.
-        "diucs.adapters.inbound.fhir_rest.routes_synthetic",
+        "overwatch.adapters.inbound.fhir_rest.routes_synthetic",
         # R15: the wall screen pairing routes have no session; like the link pages (DEC-167) they
         # bind the tenant the request host names in the tenant directory, never one it sends.
-        "diucs.adapters.inbound.fhir_rest.routes_screens",
+        "overwatch.adapters.inbound.fhir_rest.routes_screens",
         # R11: the reporter identity routes (text code, PIN, the 30-day check) have no session yet;
         # like the pairing routes they bind the tenant the request host names in the tenant
         # directory, never one the request sends. The push routes take theirs from the token.
-        "diucs.adapters.inbound.fhir_rest.routes_identity",
+        "overwatch.adapters.inbound.fhir_rest.routes_identity",
         # W7C: the reporter set-up routes (an invitation, a device's code, a channel) have no
         # session either; they bind the tenant the request host names, as routes_identity does.
-        "diucs.adapters.inbound.fhir_rest.routes_reporter_setup",
+        "overwatch.adapters.inbound.fhir_rest.routes_reporter_setup",
         # TEN-018: the REST edge. `current_actor` binds the tenant of a verified token for the
         # request, and nothing a request sends (header, query, body, host) is read for it.
-        "diucs.adapters.inbound.fhir_rest.auth",
+        "overwatch.adapters.inbound.fhir_rest.auth",
         # TEN-040: the host-bound binder of every route that carries no token. It binds the tenant
         # the request host names in the tenant directory (an active tenant only), and nothing else.
-        "diucs.adapters.inbound.fhir_rest.host_tenant",
+        "overwatch.adapters.inbound.fhir_rest.host_tenant",
         # TEN-084: the cross-tenant support guard binds the ONE tenant a support person names, only
         # after the principal (an operator token's claims) is checked and the tenant is active, to
         # write that tenant's audit chain and read its cache. It reads no tenant data.
-        "diucs.application.cross_tenant_guard",
+        "overwatch.application.cross_tenant_guard",
         # TEN-017: the start-up is an edge of its own: it binds each active tenant in turn to make
         # that tenant's audit head. No request or message is in it.
-        "diucs.bootstrap.container",
+        "overwatch.bootstrap.container",
         # TEN-028: the platform operator's provisioning script binds the one tenant its command
         # names, for that command only. It is run by a person with the platform's own access, never
         # by a request, and the operator it acts as has no standing in any other scope.
-        "diucs.bootstrap.provisioning",
+        "overwatch.bootstrap.provisioning",
         # TEN-074 and TEN-077: the operator's second script (network creation, offboarding, export,
         # purge) binds the one tenant its command names, for that command only, as provisioning
         # does: run by a person with the platform's own access, never by a request.
-        "diucs.bootstrap.lifecycle_operations",
+        "overwatch.bootstrap.lifecycle_operations",
         # TEN-056: the projector's handler of `GrantEffective` binds the GRANTOR tenant (the sender
         # of the message may be the network owner), to start that tenant's heartbeat and backfill
         # its projection. It acts only after the registry has named the grant and the sender as a
         # party and the directory has listed the grantor as active; the producer's own gate is the
         # registry again.
-        "diucs.application.use_cases.network_governance",
+        "overwatch.application.use_cases.network_governance",
     }
 )
 
@@ -116,16 +116,16 @@ BINDING_MODULES: frozenset[str] = frozenset(
 # tenant to a statement.
 TENANT_PARAMETER_MODULES: frozenset[str] = frozenset(
     {
-        "diucs.adapters.outbound.graph_store.tenant_directory",
-        "diucs.adapters.outbound.graph_store.network_registry",
+        "overwatch.adapters.outbound.graph_store.tenant_directory",
+        "overwatch.adapters.outbound.graph_store.network_registry",
         # TEN-028: the registry's writes take the id of the tenant they work on (a platform
         # statement has no `$tenant`), exactly as the directory does.
-        "diucs.adapters.outbound.graph_store.tenant_registry",
+        "overwatch.adapters.outbound.graph_store.tenant_registry",
         # TEN-075: the support-access tickets are the platform's own records. A ticket is read and
         # moved by the id of the tenant it names (the administrator's side is given the bound
         # tenant by the use case) and never sends a tenant to a statement: a platform statement has
         # no `$tenant`.
-        "diucs.adapters.outbound.graph_store.support_ticket_store",
+        "overwatch.adapters.outbound.graph_store.support_ticket_store",
     }
 )
 
@@ -135,14 +135,16 @@ PRIVATE_SCOPE_NAME = "_SCOPE"
 # context, and the two functions that take and give it back.
 PRIVATE_UNIT_NAME = "_UNIT"
 CLAIM_NAMES = frozenset({"claim_unit", "release_unit"})
-CLAIM_MODULES: frozenset[str] = frozenset({"diucs.adapters.outbound.graph_store.unit_of_work"})
+CLAIM_MODULES: frozenset[str] = frozenset({"overwatch.adapters.outbound.graph_store.unit_of_work"})
 KERNEL_CONTEXT_VARIABLES = 2
 TENANT_PARAMETER_NAMES = frozenset({"tenant", "tenant_id"})
 
 
 def _source_files() -> list[Path]:
     files = sorted(PACKAGE_ROOT.rglob("*.py"))
-    assert len(files) > 50, "the scan found too few files: it is not looking at backend/src/diucs"
+    assert len(files) > 50, (
+        "the scan found too few files: it is not looking at backend/src/overwatch"
+    )
     return files
 
 
@@ -151,7 +153,7 @@ def _relative(path: Path) -> str:
 
 
 def _module_name(relative: str) -> str:
-    parts = ["diucs", *relative.removesuffix(".py").split("/")]
+    parts = ["overwatch", *relative.removesuffix(".py").split("/")]
     if parts[-1] == "__init__":
         parts.pop()
     return ".".join(parts)
@@ -423,10 +425,10 @@ def test_the_claim_functions_are_referenced_only_in_the_kernel_and_the_unit_of_w
 @pytest.mark.parametrize(
     ("source", "names"),
     [
-        ("from diucs.application.tenancy import claim_unit\n", CLAIM_NAMES),
-        ("from diucs.application import tenancy\ntenancy.release_unit(o)\n", CLAIM_NAMES),
-        ("from diucs.application.tenancy import _UNIT\n", {PRIVATE_UNIT_NAME}),
-        ("from diucs.application import tenancy\nv = tenancy._UNIT\n", {PRIVATE_UNIT_NAME}),
+        ("from overwatch.application.tenancy import claim_unit\n", CLAIM_NAMES),
+        ("from overwatch.application import tenancy\ntenancy.release_unit(o)\n", CLAIM_NAMES),
+        ("from overwatch.application.tenancy import _UNIT\n", {PRIVATE_UNIT_NAME}),
+        ("from overwatch.application import tenancy\nv = tenancy._UNIT\n", {PRIVATE_UNIT_NAME}),
     ],
 )
 def test_the_claim_scanner_finds_the_claim_names(source: str, names: Iterable[str]) -> None:
@@ -436,16 +438,16 @@ def test_the_claim_scanner_finds_the_claim_names(source: str, names: Iterable[st
 @pytest.mark.parametrize(
     ("source", "names"),
     [
-        ("from diucs.application.tenancy import bind_tenant\n", BINDING_NAMES),
-        ("from diucs.application.tenancy import bind_scope as bs\n", BINDING_NAMES),
+        ("from overwatch.application.tenancy import bind_tenant\n", BINDING_NAMES),
+        ("from overwatch.application.tenancy import bind_scope as bs\n", BINDING_NAMES),
         (
-            "from diucs.application import tenancy\nwith tenancy.bind_tenant('a1'):\n    pass\n",
+            "from overwatch.application import tenancy\nwith tenancy.bind_tenant('a1'):\n    pass\n",  # noqa: E501
             BINDING_NAMES,
         ),
         ("import bind_scope\n", BINDING_NAMES),
         ("x = bind_scope\n", BINDING_NAMES),
-        ("from diucs.application.tenancy import _SCOPE\n", {PRIVATE_SCOPE_NAME}),
-        ("from diucs.application import tenancy\nv = tenancy._SCOPE\n", {PRIVATE_SCOPE_NAME}),
+        ("from overwatch.application.tenancy import _SCOPE\n", {PRIVATE_SCOPE_NAME}),
+        ("from overwatch.application import tenancy\nv = tenancy._SCOPE\n", {PRIVATE_SCOPE_NAME}),
     ],
 )
 def test_the_reference_scanner_finds_imports_names_and_attributes(
@@ -455,7 +457,7 @@ def test_the_reference_scanner_finds_imports_names_and_attributes(
 
 
 def test_the_reference_scanner_ignores_other_names() -> None:
-    source = "from diucs.application.tenancy import current_tenant\nx = current_tenant()\n"
+    source = "from overwatch.application.tenancy import current_tenant\nx = current_tenant()\n"
     assert reference_lines(source, BINDING_NAMES | {PRIVATE_SCOPE_NAME}) == []
 
 
@@ -565,9 +567,9 @@ def statement_construction_lines(source: str) -> list[int]:
 @pytest.mark.parametrize(
     "source",
     [
-        "from diucs.adapters.outbound.graph_store.driver import run_query\n",
+        "from overwatch.adapters.outbound.graph_store.driver import run_query\n",
         "from x import run_global_query as g\n",
-        "from diucs.adapters.outbound.graph_store import driver\nrows = driver.run_query(tx, q)\n",
+        "from overwatch.adapters.outbound.graph_store import driver\nrows = driver.run_query(tx, q)\n",  # noqa: E501
         "async def f(tx, q):\n    return await run_query(tx, q)\n",
     ],
 )
@@ -787,7 +789,7 @@ def transitional_lines(source: str) -> list[int]:
 @pytest.mark.parametrize(
     "source",
     [
-        "from diucs.adapters.outbound.graph_store.unconverted import UNCONVERTED\n",
+        "from overwatch.adapters.outbound.graph_store.unconverted import UNCONVERTED\n",
         "registry = QueryRegistry(unconverted=frozenset())\n",
         "if registry.is_tenant_pending(query):\n    pass\n",
         "ids = registry.ratchet_ids()\n",
@@ -805,7 +807,7 @@ def test_the_transitional_scanner_flags_a_ratchet_name_and_an_import_of_the_test
 @pytest.mark.parametrize(
     "source",
     [
-        "from diucs.adapters.outbound.graph_store.queries import REGISTRY\n",
+        "from overwatch.adapters.outbound.graph_store.queries import REGISTRY\n",
         "registry = QueryRegistry()\n",
         "from testing_tools import x\n",
     ],
@@ -858,13 +860,15 @@ def load_tree(root: Path) -> dict[str, str]:
         path.relative_to(root).as_posix(): path.read_text(encoding="utf-8")
         for path in sorted(root.rglob("*.py"))
     }
-    assert len(files) > 50, "the scan found too few files: it is not looking at backend/src/diucs"
+    assert len(files) > 50, (
+        "the scan found too few files: it is not looking at backend/src/overwatch"
+    )
     return files
 
 
 def violations(files: Mapping[str, str]) -> list[str]:
     """Every breach of the rules of this file, as 'rule: path:line', for a tree given as
-    {path relative to src/diucs: source}."""
+    {path relative to src/overwatch: source}."""
     found: list[str] = []
     built: dict[str, int] = {}
     for relative, source in sorted(files.items()):
@@ -919,8 +923,8 @@ def test_the_real_tree_has_the_things_the_scan_looks_for() -> None:
 # 9. The probe: a module that breaks the rules makes the check fail
 
 PROBE_OUTSIDE = '''"""A probe that does everything the rules forbid."""
-from diucs.adapters.outbound.graph_store.driver import run_query
-from diucs.adapters.outbound.graph_store.queries import NamedQuery
+from overwatch.adapters.outbound.graph_store.driver import run_query
+from overwatch.adapters.outbound.graph_store.queries import NamedQuery
 
 LABEL = "Organization"
 Q = NamedQuery(id="Q-PROBE", cypher="MATCH (n) RETURN n", mode="read")

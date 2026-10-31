@@ -19,22 +19,22 @@ import pytest_asyncio
 from httpx import AsyncClient
 from neo4j import AsyncDriver
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.ports.outbound.identity import HmacPhoneHasher
-from diucs.application.tenancy import bind_tenant
-from diucs.application.use_cases.request_booking import need_text, urgency_wording
-from diucs.bootstrap.container import Container
-from diucs.domain.codes import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.ports.outbound.identity import HmacPhoneHasher
+from overwatch.application.tenancy import bind_tenant
+from overwatch.application.use_cases.request_booking import need_text, urgency_wording
+from overwatch.bootstrap.container import Container
+from overwatch.domain.codes import (
     BookingStatus,
     Channel,
     PractitionerRoleCode,
     ReportType,
     Role,
 )
-from diucs.domain.model.booking import Booking
-from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.model.tenant import ContactKind, TenantContact
+from overwatch.domain.model.booking import Booking
+from overwatch.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.model.tenant import ContactKind, TenantContact
 from tests.integration.adapters.inbound.fhir_rest.reporter_rig import (
     COVER_MOBILE,
     DEVICE,

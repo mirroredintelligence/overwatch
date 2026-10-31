@@ -17,30 +17,30 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Final
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.support_tickets import SupportTicketRecord
-from diucs.application.ports.outbound.telemetry_query import (
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.support_tickets import SupportTicketRecord
+from overwatch.application.ports.outbound.telemetry_query import (
     SessionFilters,
     SessionSummary,
     SpanRecord,
     TelemetryQuery,
     check_trace_id,
 )
-from diucs.application.ports.outbound.tokens import SecretStore
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.support_access import (
+from overwatch.application.ports.outbound.tokens import SecretStore
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.support_access import (
     OPEN_REFUSED,
     OpenSessionCommand,
     OpenSessionForSupport,
     OpenSessionResult,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotAllowed, NotFound, ValidationFailed
-from diucs.domain.rules.support import is_lead
-from diucs.domain.rules.support_console import (
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.rules.support import is_lead
+from overwatch.domain.rules.support_console import (
     EVENT_FILTERS,
     public_event,
     standout_events,

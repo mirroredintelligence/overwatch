@@ -181,7 +181,7 @@ describe('OptionsMap (W50)', () => {
 
 describe('the booking control on a pin card (W20, W50)', () => {
   it('is the booking panel of this case and the selected service', async () => {
-    document.cookie = 'diucs_csrf=csrf-value-for-the-map; path=/';
+    document.cookie = 'overwatch_csrf=csrf-value-for-the-map; path=/';
     const user = userEvent.setup();
     render(
       <OptionsMap

@@ -12,8 +12,8 @@ from typing import Any
 
 import pytest
 
-from diucs.application.actor import Actor
-from diucs.application.use_cases.open_case import (
+from overwatch.application.actor import Actor
+from overwatch.application.use_cases.open_case import (
     OpenCaseCommand,
     UpdateCaseCommand,
     apply_update,
@@ -23,9 +23,9 @@ from diucs.application.use_cases.open_case import (
     snapshot_of,
     update_fingerprint,
 )
-from diucs.domain.codes import AgeBand, NeedCategory, Outcome, ReferrerType, Role, Urgency
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.case import Case, audit_summary
+from overwatch.domain.codes import AgeBand, NeedCategory, Outcome, ReferrerType, Role, Urgency
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.case import Case, audit_summary
 from tests.support.actors import ACTOR_TENANT
 
 OPENED = datetime(2026, 10, 29, 9, 30, tzinfo=UTC)

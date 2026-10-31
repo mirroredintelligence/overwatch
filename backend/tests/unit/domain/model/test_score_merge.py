@@ -7,8 +7,8 @@ Nothing here calculates or judges a score.
 
 import pytest
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.scores import (
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.scores import (
     AmbulanceCategory,
     ClinicalFrailty,
     ManchesterTriage,

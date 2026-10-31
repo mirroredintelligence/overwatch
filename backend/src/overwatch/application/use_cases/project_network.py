@@ -28,21 +28,21 @@ from datetime import datetime
 from typing import Final
 from zoneinfo import ZoneInfo
 
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.network import ActiveGrant, NetworkRegistry
-from diucs.application.ports.outbound.projection import ProjectionPublisher
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.projection import Projection, to_body
-from diucs.application.tenancy import ScopeId, current_tenant
-from diucs.application.tenant_settings import TenantZones, as_zones
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.events import ProjectionRequested
-from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED
-from diucs.domain.model.network import GrantScope
-from diucs.domain.model.service import ServiceProfile
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
-from diucs.domain.rules.listing import may_project_listing
-from diucs.domain.rules.projection import (
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.network import ActiveGrant, NetworkRegistry
+from overwatch.application.ports.outbound.projection import ProjectionPublisher
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.projection import Projection, to_body
+from overwatch.application.tenancy import ScopeId, current_tenant
+from overwatch.application.tenant_settings import TenantZones, as_zones
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.events import ProjectionRequested
+from overwatch.domain.model.flags import SERVICE_FLAG_SUSPENDED
+from overwatch.domain.model.network import GrantScope
+from overwatch.domain.model.service import ServiceProfile
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
+from overwatch.domain.rules.listing import may_project_listing
+from overwatch.domain.rules.projection import (
     PROJECTION_ALLOWLIST_VERSION,
     CapacityProjection,
     CriteriaProjection,
@@ -50,7 +50,7 @@ from diucs.domain.rules.projection import (
     build_criteria_projection,
     build_service_projection,
 )
-from diucs.domain.rules.projection_validity import next_status_change
+from overwatch.domain.rules.projection_validity import next_status_change
 
 _ALL_KINDS: Final = tuple(GrantScope)
 

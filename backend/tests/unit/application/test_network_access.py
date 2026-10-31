@@ -13,16 +13,16 @@ from datetime import datetime
 
 import pytest
 
-from diucs.application.actor import Actor
-from diucs.application.network_access import (
+from overwatch.application.actor import Actor
+from overwatch.application.network_access import (
     NETWORK_NOT_FOUND,
     NETWORK_VIEW_ROLES,
     NetworkAccess,
 )
-from diucs.application.ports.outbound.network import RegisteredNetwork
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotAllowed, NotFound
-from diucs.domain.model.network import (
+from overwatch.application.ports.outbound.network import RegisteredNetwork
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotAllowed, NotFound
+from overwatch.domain.model.network import (
     Grant,
     GrantScope,
     Listing,

@@ -7,15 +7,15 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from diucs.application.use_cases.change_reporter_number import (
+from overwatch.application.use_cases.change_reporter_number import (
     CoverDuration,
     check_new_mobile,
     cover_until,
     effective_reporter_practitioner_id,
 )
-from diucs.domain.codes import Channel, PractitionerRoleCode
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.people import PractitionerRole
+from overwatch.domain.codes import Channel, PractitionerRoleCode
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.people import PractitionerRole
 
 LONDON = ZoneInfo("Europe/London")
 

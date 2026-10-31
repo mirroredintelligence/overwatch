@@ -11,8 +11,8 @@ import pickle
 
 import pytest
 
-from diucs.application import tenancy
-from diucs.application.tenancy import (
+from overwatch.application import tenancy
+from overwatch.application.tenancy import (
     READ_ONLY_MESSAGE,
     SCOPE_KIND_MESSAGE,
     SOURCE_TENANT_MESSAGE,

@@ -28,17 +28,20 @@ from typing import Any, Final
 from neo4j import AsyncManagedTransaction
 from neo4j.time import DateTime
 
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.driver import run_platform_query
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.application.ports.outbound.audit import (
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.driver import run_platform_query
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from overwatch.application.ports.outbound.audit import (
     TIME_FORMAT,
     canonical_json,
     chain_hash_over,
     genesis_hash_for,
 )
-from diucs.application.ports.outbound.platform_audit import PlatformAuditEntry, PlatformAuditRecord
-from diucs.domain.errors import ValidationFailed
+from overwatch.application.ports.outbound.platform_audit import (
+    PlatformAuditEntry,
+    PlatformAuditRecord,
+)
+from overwatch.domain.errors import ValidationFailed
 
 HEAD_ID: Final = "platform"
 GENESIS_SCOPE: Final = "platform"

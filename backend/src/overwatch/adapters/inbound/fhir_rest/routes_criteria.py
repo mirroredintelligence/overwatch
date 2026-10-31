@@ -32,11 +32,11 @@ from typing import Annotated, Any, Final, Protocol, cast
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response
 
-from diucs.adapters.inbound.fhir_rest.app import get_container
-from diucs.adapters.inbound.fhir_rest.auth import require_role
-from diucs.adapters.inbound.fhir_rest.capability import FhirJSONResponse
-from diucs.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
-from diucs.adapters.inbound.fhir_rest.parameters import (
+from overwatch.adapters.inbound.fhir_rest.app import get_container
+from overwatch.adapters.inbound.fhir_rest.auth import require_role
+from overwatch.adapters.inbound.fhir_rest.capability import FhirJSONResponse
+from overwatch.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
+from overwatch.adapters.inbound.fhir_rest.parameters import (
     PARAMETERS,
     enum_value,
     index_parameters,
@@ -48,11 +48,11 @@ from diucs.adapters.inbound.fhir_rest.parameters import (
     text,
     whole,
 )
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.criteria import (
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.criteria import (
     ApproveCriteria,
     ApproveCriteriaCommand,
     ChangeCriteria,
@@ -64,9 +64,9 @@ from diucs.application.use_cases.criteria import (
     CriteriaValues,
     CriteriaVersionView,
 )
-from diucs.domain.codes import CriteriaStatus, NeedCategory, Role
-from diucs.domain.errors import InvalidTransition, NotFound, ValidationFailed
-from diucs.domain.model.criteria import ServiceCriteria
+from overwatch.domain.codes import CriteriaStatus, NeedCategory, Role
+from overwatch.domain.errors import InvalidTransition, NotFound, ValidationFailed
+from overwatch.domain.model.criteria import ServiceCriteria
 
 router = APIRouter(prefix="/fhir")
 

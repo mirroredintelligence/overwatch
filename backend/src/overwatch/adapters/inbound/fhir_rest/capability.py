@@ -12,7 +12,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from fhir.resources.R4B.capabilitystatement import CapabilityStatement
 
-from diucs.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.clock import Clock
 
 FHIR_MEDIA_TYPE = "application/fhir+json; fhirVersion=4.3"
 FHIR_VERSION = "4.3.0"

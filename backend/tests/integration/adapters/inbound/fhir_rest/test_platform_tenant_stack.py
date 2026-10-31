@@ -33,22 +33,22 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from neo4j import AsyncDriver
 
-from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
-from diucs.application.cross_tenant_guard import CrossTenantDenied, PlatformPrincipal
-from diucs.application.platform_services import PlatformServices
-from diucs.application.use_cases.cross_tenant_tickets import UseTicketCommand
-from diucs.bootstrap.container import Container, build_for_tests
-from diucs.bootstrap.platform_services import install_platform_routes
-from diucs.bootstrap.provisioning import AuditHeads
-from diucs.domain.codes import Role
-from diucs.domain.model.tenant import OrganisationType, Tenant, TenantStatus
-from diucs.domain.rules.bff_token import OperatorClaims, encode_operator_token
-from diucs.domain.rules.support import SUPPORT_ACCESS_VALID_FOR, SUPPORT_CODE_SECRET
+from overwatch.adapters.inbound.fhir_rest.app import create_app
+from overwatch.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
+from overwatch.application.cross_tenant_guard import CrossTenantDenied, PlatformPrincipal
+from overwatch.application.platform_services import PlatformServices
+from overwatch.application.use_cases.cross_tenant_tickets import UseTicketCommand
+from overwatch.bootstrap.container import Container, build_for_tests
+from overwatch.bootstrap.platform_services import install_platform_routes
+from overwatch.bootstrap.provisioning import AuditHeads
+from overwatch.domain.codes import Role
+from overwatch.domain.model.tenant import OrganisationType, Tenant, TenantStatus
+from overwatch.domain.rules.bff_token import OperatorClaims, encode_operator_token
+from overwatch.domain.rules.support import SUPPORT_ACCESS_VALID_FOR, SUPPORT_CODE_SECRET
 from tests.support.neo4j import ThrowawayNeo4j, wipe_all
 from tests.support.tenancy import as_tenant
 

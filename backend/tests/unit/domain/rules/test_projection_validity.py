@@ -13,9 +13,9 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY
-from diucs.domain.rules.projection_validity import next_status_change
-from diucs.domain.rules.status import compute_status
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY
+from overwatch.domain.rules.projection_validity import next_status_change
+from overwatch.domain.rules.status import compute_status
 from tests.support.projection_samples import (
     REPORTED_AT,
     sample_policy,
@@ -127,8 +127,8 @@ def test_the_status_can_change_at_the_boundary() -> None:
 def test_two_windows_that_join_are_one_stretch_of_hours() -> None:
     from datetime import time
 
-    from diucs.domain.model.service import AvailableTime
-    from diucs.domain.rules.opening_hours import next_hours_change
+    from overwatch.domain.model.service import AvailableTime
+    from overwatch.domain.rules.opening_hours import next_hours_change
 
     joined = (
         AvailableTime.weekdays(time(8, 0), time(12, 0)),

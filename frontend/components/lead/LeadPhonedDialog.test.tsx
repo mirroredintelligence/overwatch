@@ -13,7 +13,7 @@ import { LeadPhonedDialog } from './LeadPhonedDialog';
 
 beforeEach(() => {
   resetLeadPosts();
-  document.cookie = 'diucs_csrf=test-csrf-token';
+  document.cookie = 'overwatch_csrf=test-csrf-token';
 });
 
 function renderOpen(onClose = vi.fn(), onRecorded = vi.fn()) {

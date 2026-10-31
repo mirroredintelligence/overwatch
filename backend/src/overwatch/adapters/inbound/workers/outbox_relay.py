@@ -38,15 +38,15 @@ from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Final, Protocol
 
-from diucs.application.idempotency import parse_instant
-from diucs.application.ports.outbound.cache import Cache
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.event_bus import BusMessage, EventBus
-from diucs.application.ports.outbound.outbox import MAX_ATTEMPTS, OutboxMessage
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.scheduling import CANCEL_WORK, SCHEDULE_WORK, SCHEDULED_WORK_TOPIC
-from diucs.application.tenancy import ScopeId, ScopeInvalid, bind_scope
-from diucs.application.work import CANCELLED
+from overwatch.application.idempotency import parse_instant
+from overwatch.application.ports.outbound.cache import Cache
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.event_bus import BusMessage, EventBus
+from overwatch.application.ports.outbound.outbox import MAX_ATTEMPTS, OutboxMessage
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.scheduling import CANCEL_WORK, SCHEDULE_WORK, SCHEDULED_WORK_TOPIC
+from overwatch.application.tenancy import ScopeId, ScopeInvalid, bind_scope
+from overwatch.application.work import CANCELLED
 
 logger = logging.getLogger(__name__)
 

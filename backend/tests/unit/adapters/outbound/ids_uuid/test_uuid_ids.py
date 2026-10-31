@@ -1,6 +1,6 @@
 import uuid
 
-from diucs.adapters.outbound.ids_uuid.uuid_ids import UuidGenerator
+from overwatch.adapters.outbound.ids_uuid.uuid_ids import UuidGenerator
 
 
 def test_new_id_is_a_uuid4_string() -> None:

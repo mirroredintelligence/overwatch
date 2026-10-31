@@ -13,9 +13,9 @@ import pytest
 import pytest_asyncio
 from httpx import AsyncClient
 
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.domain.codes import PractitionerRoleCode, Role
-from diucs.domain.model.people import Practitioner, PractitionerRole
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.domain.codes import PractitionerRoleCode, Role
+from overwatch.domain.model.people import Practitioner, PractitionerRole
 from tests.integration.adapters.inbound.fhir_rest.test_routes_alerts import (
     DEPUTY,
     LEAD,

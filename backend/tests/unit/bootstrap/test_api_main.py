@@ -15,14 +15,14 @@ from fastapi import FastAPI, Request
 from httpx import ASGITransport, AsyncClient
 from pydantic import SecretStr
 
-from diucs.adapters.inbound.edge_proxy.cloudflare import CloudflareEdgeMiddleware
-from diucs.adapters.testing.fake_identity_verifier import FakeIdentityVerifier
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.memory_event_bus import ManualEventBus
-from diucs.application.ports.outbound.identity_verifier import Audience, IdentityRejected
-from diucs.application.tenancy import bind_tenant
-from diucs.bootstrap import api_main
-from diucs.bootstrap.api_main import (
+from overwatch.adapters.inbound.edge_proxy.cloudflare import CloudflareEdgeMiddleware
+from overwatch.adapters.testing.fake_identity_verifier import FakeIdentityVerifier
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.memory_event_bus import ManualEventBus
+from overwatch.application.ports.outbound.identity_verifier import Audience, IdentityRejected
+from overwatch.application.tenancy import bind_tenant
+from overwatch.bootstrap import api_main
+from overwatch.bootstrap.api_main import (
     EDGE_ORIGIN_SECRET,
     REQUIRED_SECRETS,
     ApiConfigError,
@@ -36,8 +36,8 @@ from diucs.bootstrap.api_main import (
     serving_lifespan,
     startup_warnings,
 )
-from diucs.bootstrap.container import build
-from diucs.bootstrap.settings import Settings
+from overwatch.bootstrap.container import build
+from overwatch.bootstrap.settings import Settings
 
 GOOD = b"synthetic-secret-for-the-api-tests-0123456789ab"
 CLOUDFLARE_PEER = "173.245.48.10"
@@ -60,7 +60,7 @@ def _parts(secrets: FixedSecretStore | None = None) -> ApiParts:
 def _clock() -> Any:
     from datetime import UTC, datetime
 
-    from diucs.adapters.testing.fixed_clock import FixedClock
+    from overwatch.adapters.testing.fixed_clock import FixedClock
 
     return FixedClock(datetime(2026, 10, 31, 9, 0, tzinfo=UTC))
 
@@ -116,12 +116,12 @@ def test_preparing_the_process_with_a_missing_secret_stops_before_anything_is_bu
 
 
 def test_the_production_profile_refuses_the_placeholder_public_url() -> None:
-    with pytest.raises(ApiConfigError, match="DIUCS_BASE_URL"):
+    with pytest.raises(ApiConfigError, match="OVERWATCH_BASE_URL"):
         check_settings(Settings(profile="production"))
 
 
 def test_the_production_profile_refuses_a_public_url_that_is_not_https() -> None:
-    with pytest.raises(ApiConfigError, match="DIUCS_BASE_URL"):
+    with pytest.raises(ApiConfigError, match="OVERWATCH_BASE_URL"):
         check_settings(Settings(profile="production", base_url="http://capacity.example.org"))
 
 
@@ -143,7 +143,7 @@ def test_an_enabled_synthetic_hook_is_refused_until_an_issuer_is_built() -> None
 
 
 def test_an_operator_directory_that_is_not_a_guid_is_refused() -> None:
-    with pytest.raises(ApiConfigError, match="DIUCS_OPERATOR_DIRECTORY_ID"):
+    with pytest.raises(ApiConfigError, match="OVERWATCH_OPERATOR_DIRECTORY_ID"):
         check_settings(Settings(operator_directory_id="not-a-guid"))
 
 
@@ -203,7 +203,7 @@ async def test_the_exchange_is_given_the_verifier_directory_and_platform_chain()
 
 
 async def test_the_sms_webhook_reads_its_lines_from_the_tenant_directory() -> None:
-    from diucs.application.tenant_resolution import DirectoryInboundLines
+    from overwatch.application.tenant_resolution import DirectoryInboundLines
 
     app = await _app(Settings(base_url="https://capacity.example.org/"))
 
@@ -311,7 +311,7 @@ def test_trusted_peers_are_parsed_and_a_bad_one_stops_start_up() -> None:
     edge = edge_for(Settings(edge_trusted_peers=["10.0.0.0/8"]), FixedSecretStore({}))
 
     assert edge.peer_is_trusted("10.2.3.4")
-    with pytest.raises(ApiConfigError, match="DIUCS_EDGE_TRUSTED_PEERS"):
+    with pytest.raises(ApiConfigError, match="OVERWATCH_EDGE_TRUSTED_PEERS"):
         edge_for(Settings(edge_trusted_peers=["nonsense"]), FixedSecretStore({}))
 
 
@@ -330,9 +330,9 @@ def test_an_unreadable_or_bad_ranges_file_stops_start_up(tmp_path: Path) -> None
     bad = tmp_path / "bad.txt"
     bad.write_text("not a range\n")
 
-    with pytest.raises(ApiConfigError, match="DIUCS_EDGE_CLOUDFLARE_RANGES_FILE"):
+    with pytest.raises(ApiConfigError, match="OVERWATCH_EDGE_CLOUDFLARE_RANGES_FILE"):
         edge_for(Settings(edge_cloudflare_ranges_file=bad), FixedSecretStore({}))
-    with pytest.raises(ApiConfigError, match="DIUCS_EDGE_CLOUDFLARE_RANGES_FILE"):
+    with pytest.raises(ApiConfigError, match="OVERWATCH_EDGE_CLOUDFLARE_RANGES_FILE"):
         edge_for(
             Settings(edge_cloudflare_ranges_file=tmp_path / "missing.txt"), FixedSecretStore({})
         )
@@ -386,7 +386,7 @@ def test_a_fully_configured_process_has_no_warnings(tmp_path: Path) -> None:
     class _Client:
         pass
 
-    from diucs.adapters.outbound.telemetry.azure_monitor_query import AzureMonitorTelemetryQuery
+    from overwatch.adapters.outbound.telemetry.azure_monitor_query import AzureMonitorTelemetryQuery
 
     container = dataclasses.replace(
         container,
@@ -466,7 +466,7 @@ async def test_the_lifespan_logs_each_warning_once(caplog: pytest.LogCaptureFixt
 def test_the_entry_point_stops_when_the_process_has_no_secret_store(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("DIUCS_SERVICEBUS_CONNECTION", "Endpoint=sb://x/;SharedAccessKey=y")
+    monkeypatch.setenv("OVERWATCH_SERVICEBUS_CONNECTION", "Endpoint=sb://x/;SharedAccessKey=y")
     monkeypatch.setattr(api_main, "load_secret_store", lambda settings: None)
 
     with pytest.raises(SystemExit) as stopped:
@@ -478,12 +478,12 @@ def test_the_entry_point_stops_when_the_process_has_no_secret_store(
 def test_the_entry_point_stops_without_a_service_bus_connection(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.delenv("DIUCS_SERVICEBUS_CONNECTION", raising=False)
+    monkeypatch.delenv("OVERWATCH_SERVICEBUS_CONNECTION", raising=False)
 
     with pytest.raises(SystemExit) as stopped:
         api_main.main()
 
-    assert "DIUCS_SERVICEBUS_CONNECTION" in str(stopped.value)
+    assert "OVERWATCH_SERVICEBUS_CONNECTION" in str(stopped.value)
 
 
 def test_with_no_vault_and_no_directory_no_secret_store_is_built() -> None:

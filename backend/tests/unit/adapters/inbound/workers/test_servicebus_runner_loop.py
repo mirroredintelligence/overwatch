@@ -16,9 +16,9 @@ from azure.servicebus.exceptions import (
     ServiceBusError,
 )
 
-from diucs.adapters.inbound.workers.consumer import Outcome
-from diucs.adapters.inbound.workers.servicebus_runner import ServiceBusRunner
-from diucs.application.ports.outbound.event_bus import BusMessage
+from overwatch.adapters.inbound.workers.consumer import Outcome
+from overwatch.adapters.inbound.workers.servicebus_runner import ServiceBusRunner
+from overwatch.application.ports.outbound.event_bus import BusMessage
 
 BLOCK = "block"  # a script item: receive_messages waits until the task is cancelled
 

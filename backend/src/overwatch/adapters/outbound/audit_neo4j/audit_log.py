@@ -44,9 +44,9 @@ from typing import Any, Final
 
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.driver import ScopedTx, Tx, run_query
-from diucs.adapters.outbound.graph_store.queries import BOTH_KINDS, REGISTRY, NamedQuery
-from diucs.adapters.outbound.graph_store.scenario import (
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx, Tx, run_query
+from overwatch.adapters.outbound.graph_store.queries import BOTH_KINDS, REGISTRY, NamedQuery
+from overwatch.adapters.outbound.graph_store.scenario import (
     Expect,
     Marked,
     NodeSpec,
@@ -55,8 +55,8 @@ from diucs.adapters.outbound.graph_store.scenario import (
     SeedRel,
     TenantSeed,
 )
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import (
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import (
     TIME_FORMAT,
     AuditEntry,
     AuditRecord,
@@ -65,17 +65,17 @@ from diucs.application.ports.outbound.audit import (
     chain_hash_over,
     genesis_hash_for,
 )
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.tenancy import (
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.tenancy import (
     RawTransactionRefused,
     ScopeId,
     ScopeKind,
     TenantNotBound,
     scope_for_new_unit,
 )
-from diucs.domain.codes import Role, code_system_url
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.codes import Role, code_system_url
+from overwatch.domain.errors import ValidationFailed
 
 HEAD_ID = "audit"
 OUTCOME_RECORDED = "recorded"
@@ -345,8 +345,8 @@ _PROV_LINK_SCENARIO: Final = Scenario(
         "agentId": "pr-1",
         "agentRole": "reporter",
         "activity": "create",
-        "activitySystem": "https://diucs.example/codes/provenance-activity",
-        "activityKey": "Concept|https://diucs.example/codes/provenance-activity|create",
+        "activitySystem": "https://overwatch.mirroredintelligence.com/codes/provenance-activity",
+        "activityKey": "Concept|https://overwatch.mirroredintelligence.com/codes/provenance-activity|create",
     },
     lookup=("id",),
     new=(

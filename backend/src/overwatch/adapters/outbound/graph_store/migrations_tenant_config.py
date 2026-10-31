@@ -14,7 +14,7 @@ is written: the labels are new, so no old single-property constraint is supersed
 
 from typing import Final
 
-from diucs.adapters.outbound.graph_store.migration_types import Migration
+from overwatch.adapters.outbound.graph_store.migration_types import Migration
 
 TENANT_CONFIG_MIGRATIONS: Final[tuple[Migration, ...]] = (
     Migration(

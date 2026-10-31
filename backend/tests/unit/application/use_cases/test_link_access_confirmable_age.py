@@ -5,8 +5,8 @@ from datetime import UTC, datetime, time, timedelta
 
 import pytest
 
-from diucs.application.use_cases.link_access import SendTheNumber, judge
-from diucs.domain.codes import (
+from overwatch.application.use_cases.link_access import SendTheNumber, judge
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     Measure,
@@ -14,9 +14,9 @@ from diucs.domain.codes import (
     ReportType,
     ServiceCategory,
 )
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.service import AvailableTime, ServiceProfile
-from diucs.domain.rules.reply_policy import RecordConfirm
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.rules.reply_policy import RecordConfirm
 
 PROMPT = datetime(2026, 10, 23, 9, 0, tzinfo=UTC)
 PROFILE = ServiceProfile(

@@ -9,9 +9,9 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from diucs.application.actor import Actor
-from diucs.application.tenancy import ScopeId
-from diucs.application.use_cases.invite_reporter import (
+from overwatch.application.actor import Actor
+from overwatch.application.tenancy import ScopeId
+from overwatch.application.use_cases.invite_reporter import (
     MOBILE_MESSAGE,
     NOT_IN_PILOT_MESSAGE,
     check_in_pilot,
@@ -23,9 +23,9 @@ from diucs.application.use_cases.invite_reporter import (
     lead_post,
     redacted_invitation_link,
 )
-from diucs.domain.codes import PractitionerRoleCode, Role, ScopeFlag
-from diucs.domain.errors import NotAllowed, ValidationFailed
-from diucs.domain.model.people import PractitionerRole
+from overwatch.domain.codes import PractitionerRoleCode, Role, ScopeFlag
+from overwatch.domain.errors import NotAllowed, ValidationFailed
+from overwatch.domain.model.people import PractitionerRole
 from tests.support.actors import ACTOR_TENANT
 
 NOW = datetime(2026, 10, 29, 9, 0, tzinfo=UTC)
@@ -137,15 +137,24 @@ def test_a_naive_send_time_is_refused() -> None:
 
 
 def test_the_link_is_the_tenant_host_the_invitation_path_and_the_token() -> None:
-    assert invitation_link("https://diucs.example", "abc123") == "https://diucs.example/i/abc123"
+    assert (
+        invitation_link("https://overwatch.example", "abc123")
+        == "https://overwatch.mirroredintelligence.com/i/abc123"
+    )
 
 
 def test_a_trailing_slash_on_the_host_makes_no_difference() -> None:
-    assert invitation_link("https://diucs.example/", "abc123") == "https://diucs.example/i/abc123"
+    assert (
+        invitation_link("https://overwatch.mirroredintelligence.com/", "abc123")
+        == "https://overwatch.mirroredintelligence.com/i/abc123"
+    )
 
 
 def test_the_stored_copy_of_the_link_holds_no_token() -> None:
-    assert redacted_invitation_link("https://diucs.example") == "https://diucs.example/i/[link]"
+    assert (
+        redacted_invitation_link("https://overwatch.example")
+        == "https://overwatch.mirroredintelligence.com/i/[link]"
+    )
 
 
 def test_the_replay_key_names_the_operation_and_the_tenant() -> None:

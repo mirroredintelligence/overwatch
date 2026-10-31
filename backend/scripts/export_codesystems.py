@@ -1,4 +1,4 @@
-"""Export the local FHIR CodeSystem resources from diucs.domain.codes (I12).
+"""Export the local FHIR CodeSystem resources from overwatch.domain.codes (I12).
 
 Run from backend/: `uv run python scripts/export_codesystems.py`. It writes one file per local
 code system to terminology/codesystems/. The files are committed; a test fails when they differ
@@ -9,8 +9,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from diucs.domain.codes import CODE_SYSTEM_NAMES, code_system_url
-from diucs.domain.codes import display as member_display
+from overwatch.domain.codes import CODE_SYSTEM_NAMES, code_system_url
+from overwatch.domain.codes import display as member_display
 
 TERMINOLOGY_DIR = Path(__file__).resolve().parents[1] / "terminology" / "codesystems"
 

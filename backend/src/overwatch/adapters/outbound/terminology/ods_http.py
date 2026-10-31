@@ -1,6 +1,6 @@
 """The live ODS directory lookup, not yet built (I12): it will use the NHS ODS API."""
 
-from diucs.application.ports.outbound.terminology import OdsRecord
+from overwatch.application.ports.outbound.terminology import OdsRecord
 
 
 class HttpOdsLookup:

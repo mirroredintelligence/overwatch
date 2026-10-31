@@ -22,14 +22,14 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Final
 
-from diucs.application.actor import system_actor
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.network import NetworkRegistry
-from diucs.application.ports.outbound.projection import ProjectionEndReason
-from diucs.application.ports.outbound.unit_of_work import NetworkUnitOfWorkFactory
-from diucs.application.tenancy import bind_network
-from diucs.domain.model.network import (
+from overwatch.application.actor import system_actor
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.network import NetworkRegistry
+from overwatch.application.ports.outbound.projection import ProjectionEndReason
+from overwatch.application.ports.outbound.unit_of_work import NetworkUnitOfWorkFactory
+from overwatch.application.tenancy import bind_network
+from overwatch.domain.model.network import (
     GrantEndReason,
     GrantScope,
     check_network_id,

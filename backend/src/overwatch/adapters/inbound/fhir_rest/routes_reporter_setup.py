@@ -37,9 +37,9 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, Response
 from pydantic import Field
 
-from diucs.adapters.inbound.fhir_rest.errors import operation_outcome
-from diucs.adapters.inbound.fhir_rest.host_tenant import bind_host_tenant
-from diucs.adapters.inbound.fhir_rest.routes_identity import (
+from overwatch.adapters.inbound.fhir_rest.errors import operation_outcome
+from overwatch.adapters.inbound.fhir_rest.host_tenant import bind_host_tenant
+from overwatch.adapters.inbound.fhir_rest.routes_identity import (
     ACCEPTED_BODY,
     ADDRESS_CODE_CHECKS,
     ADDRESS_CODE_REQUESTS,
@@ -60,25 +60,25 @@ from diucs.adapters.inbound.fhir_rest.routes_identity import (
     _outcome,
     _tenant_of,
 )
-from diucs.adapters.inbound.fhir_rest.routes_public import _HEADERS, public_rate_limit
-from diucs.application.ports.outbound.identity import (
+from overwatch.adapters.inbound.fhir_rest.routes_public import _HEADERS, public_rate_limit
+from overwatch.application.ports.outbound.identity import (
     PHONE_HASH_SECRET,
     CodeResendRefused,
 )
-from diucs.application.ports.outbound.tokens import (
+from overwatch.application.ports.outbound.tokens import (
     LINK_TOKEN_SECRET,
     LinkTokenRepository,
     LinkTokenService,
 )
-from diucs.application.tenancy import bind_tenant
-from diucs.application.use_cases.pin import PIN_HMAC_SECRET, RecordTextCodeVerified
-from diucs.application.use_cases.remove_person import StartNewPhone
-from diucs.application.use_cases.reporter_identity import (
+from overwatch.application.tenancy import bind_tenant
+from overwatch.application.use_cases.pin import PIN_HMAC_SECRET, RecordTextCodeVerified
+from overwatch.application.use_cases.remove_person import StartNewPhone
+from overwatch.application.use_cases.reporter_identity import (
     ConfirmDeviceByTextCode,
     ConfirmDeviceCommand,
     ConfirmDeviceResult,
 )
-from diucs.application.use_cases.reporter_setup import (
+from overwatch.application.use_cases.reporter_setup import (
     DeviceReader,
     InvitationReader,
     InvitationUnusable,
@@ -86,15 +86,15 @@ from diucs.application.use_cases.reporter_setup import (
     SetDeviceChannel,
     SetDeviceChannelCommand,
 )
-from diucs.application.use_cases.text_code import (
+from overwatch.application.use_cases.text_code import (
     CODE_HMAC_SECRET,
     RequestTextCode,
     RequestTextCodeCommand,
     VerifyTextCode,
 )
-from diucs.domain.errors import NotFound
-from diucs.domain.model.tenant import Tenant
-from diucs.domain.rules.reporter_app import channel_for, channel_word
+from overwatch.domain.errors import NotFound
+from overwatch.domain.model.tenant import Tenant
+from overwatch.domain.rules.reporter_app import channel_for, channel_word
 
 log = logging.getLogger(__name__)
 

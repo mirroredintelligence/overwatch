@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Creates the DIUCS pilot resources in Azure (no VNet, no Log Analytics: see docs/delivery/deployment-plan.md and
+# Creates the Overwatch pilot resources in Azure (no VNet, no Log Analytics: see docs/delivery/deployment-plan.md and
 # infra/azure/SETUP.md). Written by the agent; NOT RUN by the agent, which has no Azure access. The `az` flags
 # are from memory: a step that fails prints what failed and the script goes on where it safely can; send the text.
 #
@@ -226,7 +226,7 @@ ensure_app() {
   fi
   printf '%s' "$id"
 }
-STAFF_APP_ID="$(ensure_app "DIUCS Staff (pilot)" --sign-in-audience AzureADMultipleOrgs --web-redirect-uris "https://${STAFF_HOST}/api/bff/auth/entra/callback" --enable-id-token-issuance true)"
+STAFF_APP_ID="$(ensure_app "Overwatch Staff (pilot)" --sign-in-audience AzureADMultipleOrgs --web-redirect-uris "https://${STAFF_HOST}/api/bff/auth/entra/callback" --enable-id-token-issuance true)"
 if [[ -n "$STAFF_APP_ID" ]]; then
   az ad sp create --id "$STAFF_APP_ID" --only-show-errors >/dev/null 2>&1 || true
   az ad app update --id "$STAFF_APP_ID" --set groupMembershipClaims=SecurityGroup >/dev/null 2>&1 || FAILED+=("staff app group claims")
@@ -240,7 +240,7 @@ if [[ -n "$STAFF_APP_ID" ]]; then
 else
   FAILED+=("staff app registration")
 fi
-OPS_APP_ID="$(ensure_app "DIUCS Operator Console (pilot)" --sign-in-audience AzureADMyOrg --web-redirect-uris "https://${OPS_HOST}/api/bff/platform/auth/callback" --enable-id-token-issuance true)"
+OPS_APP_ID="$(ensure_app "Overwatch Operator Console (pilot)" --sign-in-audience AzureADMyOrg --web-redirect-uris "https://${OPS_HOST}/api/bff/platform/auth/callback" --enable-id-token-issuance true)"
 if [[ -n "$OPS_APP_ID" ]]; then
   az ad sp create --id "$OPS_APP_ID" --only-show-errors >/dev/null 2>&1 || true
   az ad app update --id "$OPS_APP_ID" --set groupMembershipClaims=SecurityGroup >/dev/null 2>&1 || FAILED+=("operator app group claims")

@@ -15,23 +15,23 @@ for the one tenant the edge bound from the operator's path, as every operator us
 
 from dataclasses import dataclass
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.tenant_registry import (
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.tenant_registry import (
     RegistryTenant,
     TenantNumberRecord,
     TenantRegistry,
 )
-from diucs.application.ports.outbound.tenants import TenantDirectory
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.tenant_admin import (
+from overwatch.application.ports.outbound.tenants import TenantDirectory
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.tenant_admin import (
     NO_TENANT,
     ActivateTenant,
     ActivationAssessment,
     OperatorUseCase,
 )
-from diucs.domain.errors import NotFound
-from diucs.domain.model.tenant import TenantStatus
+from overwatch.domain.errors import NotFound
+from overwatch.domain.model.tenant import TenantStatus
 
 
 class ListPlatformTenants:

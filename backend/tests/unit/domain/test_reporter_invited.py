@@ -7,8 +7,8 @@ from datetime import UTC, datetime
 
 import pytest
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.events import ReporterInvited, from_payload, session_id_for, topic_for
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.events import ReporterInvited, from_payload, session_id_for, topic_for
 
 AT = datetime(2026, 10, 29, 9, 0, tzinfo=UTC)
 

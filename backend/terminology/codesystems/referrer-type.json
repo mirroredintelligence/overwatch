@@ -1,7 +1,7 @@
 {
   "resourceType": "CodeSystem",
   "id": "referrer-type",
-  "url": "https://diucs.example/CodeSystem/referrer-type",
+  "url": "https://overwatch.mirroredintelligence.com/CodeSystem/referrer-type",
   "name": "referrer-type",
   "status": "active",
   "content": "complete",

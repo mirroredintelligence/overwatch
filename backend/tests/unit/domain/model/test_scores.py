@@ -1,4 +1,4 @@
-"""Tests for diucs.domain.model.scores: referrer score value objects (D18).
+"""Tests for overwatch.domain.model.scores: referrer score value objects (D18).
 
 Rules from docs/spec/domain-rules.md section 4. Scores are recorded as given; the tool never
 calculates or checks them beyond the allowed range or list. Errors never echo the value.
@@ -8,9 +8,9 @@ from collections.abc import Callable
 
 import pytest
 
-from diucs.domain.codes import AcuityMethod
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.scores import (
+from overwatch.domain.codes import AcuityMethod
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.scores import (
     AmbulanceCategory,
     ClinicalFrailty,
     ManchesterTriage,

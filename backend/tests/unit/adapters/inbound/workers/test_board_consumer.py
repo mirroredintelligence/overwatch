@@ -7,23 +7,23 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.inbound.workers.board_consumer import (
+from overwatch.adapters.inbound.workers.board_consumer import (
     BOARD_SUBSCRIPTION,
     NOT_BOUND_REASON,
     BoardUpdateConsumer,
     board_consumer,
     board_runners,
 )
-from diucs.adapters.inbound.workers.consumer import Outcome
-from diucs.adapters.inbound.workers.outbox_relay import StaticTenants
-from diucs.adapters.inbound.workers.tenant_binding import (
+from overwatch.adapters.inbound.workers.consumer import Outcome
+from overwatch.adapters.inbound.workers.outbox_relay import StaticTenants
+from overwatch.adapters.inbound.workers.tenant_binding import (
     BAD_TENANT,
     UNKNOWN_TENANT,
     TenantBoundConsumer,
 )
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.tenancy import bind_tenant, current_scope_or_none
-from diucs.application.use_cases.board_projector import REBUILD_EVENTS
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.tenancy import bind_tenant, current_scope_or_none
+from overwatch.application.use_cases.board_projector import REBUILD_EVENTS
 from tests.support.bus import message_with_tenant
 
 

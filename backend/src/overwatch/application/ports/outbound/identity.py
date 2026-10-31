@@ -16,13 +16,17 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Final, Protocol
 
-from diucs.application.ports.outbound.tokens import SecretStore
-from diucs.application.tenancy import current_tenant
-from diucs.domain.codes import Role
-from diucs.domain.errors import DomainError, NotFound, ValidationFailed
-from diucs.domain.model.device import Device
-from diucs.domain.rules.identity_policy import CodeState, PinState
-from diucs.domain.rules.tenant_keys import PER_TENANT_KEY_NAMES, derive_tenant_key, uses_legacy_key
+from overwatch.application.ports.outbound.tokens import SecretStore
+from overwatch.application.tenancy import current_tenant
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import DomainError, NotFound, ValidationFailed
+from overwatch.domain.model.device import Device
+from overwatch.domain.rules.identity_policy import CodeState, PinState
+from overwatch.domain.rules.tenant_keys import (
+    PER_TENANT_KEY_NAMES,
+    derive_tenant_key,
+    uses_legacy_key,
+)
 
 PHONE_HASH_SECRET: Final = "phone-hash"
 DEVICE_TOKEN_SECRET: Final = "device-token"

@@ -26,89 +26,91 @@ from typing import Self
 
 from neo4j import AsyncDriver, AsyncSession, AsyncTransaction
 
-from diucs.adapters.outbound.audit_neo4j.audit_log import Neo4jAuditLog
-from diucs.adapters.outbound.audit_neo4j.outbox import Neo4jOutbox
-from diucs.adapters.outbound.graph_store.aggregate_repository import Neo4jAggregateRepository
-from diucs.adapters.outbound.graph_store.alert_repository import (
+from overwatch.adapters.outbound.audit_neo4j.audit_log import Neo4jAuditLog
+from overwatch.adapters.outbound.audit_neo4j.outbox import Neo4jOutbox
+from overwatch.adapters.outbound.graph_store.aggregate_repository import Neo4jAggregateRepository
+from overwatch.adapters.outbound.graph_store.alert_repository import (
     Neo4jAlertRepository,
     Neo4jAlertSubscriptionRepository,
 )
-from diucs.adapters.outbound.graph_store.booking_repository import Neo4jBookingRepository
-from diucs.adapters.outbound.graph_store.capacity_repository import Neo4jCapacityRepository
-from diucs.adapters.outbound.graph_store.case_repository import Neo4jCaseRepository
-from diucs.adapters.outbound.graph_store.clinical_request_repository import (
+from overwatch.adapters.outbound.graph_store.booking_repository import Neo4jBookingRepository
+from overwatch.adapters.outbound.graph_store.capacity_repository import Neo4jCapacityRepository
+from overwatch.adapters.outbound.graph_store.case_repository import Neo4jCaseRepository
+from overwatch.adapters.outbound.graph_store.clinical_request_repository import (
     Neo4jClinicalRequestRepository,
 )
-from diucs.adapters.outbound.graph_store.communication_repository import (
+from overwatch.adapters.outbound.graph_store.communication_repository import (
     Neo4jCommunicationRepository,
 )
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.contact_store import Neo4jContactStore
-from diucs.adapters.outbound.graph_store.credential_store import (
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.contact_store import Neo4jContactStore
+from overwatch.adapters.outbound.graph_store.credential_store import (
     Neo4jDeviceRegistry,
     Neo4jPinStore,
 )
-from diucs.adapters.outbound.graph_store.criteria_repository import Neo4jCriteriaRepository
-from diucs.adapters.outbound.graph_store.driver import ScopedTx
-from diucs.adapters.outbound.graph_store.flag_repository import Neo4jFlagRepository
-from diucs.adapters.outbound.graph_store.idempotency_store import (
+from overwatch.adapters.outbound.graph_store.criteria_repository import Neo4jCriteriaRepository
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx
+from overwatch.adapters.outbound.graph_store.flag_repository import Neo4jFlagRepository
+from overwatch.adapters.outbound.graph_store.idempotency_store import (
     Neo4jIdempotencyStore,
     Neo4jProcessedMessages,
 )
-from diucs.adapters.outbound.graph_store.insight_repository import Neo4jInsightRepository
-from diucs.adapters.outbound.graph_store.link_token_repository import Neo4jLinkTokenRepository
-from diucs.adapters.outbound.graph_store.network_sample_repository import (
+from overwatch.adapters.outbound.graph_store.insight_repository import Neo4jInsightRepository
+from overwatch.adapters.outbound.graph_store.link_token_repository import Neo4jLinkTokenRepository
+from overwatch.adapters.outbound.graph_store.network_sample_repository import (
     Neo4jNetworkSampleRepository,
 )
-from diucs.adapters.outbound.graph_store.notification_consent_store import (
+from overwatch.adapters.outbound.graph_store.notification_consent_store import (
     Neo4jNotificationConsentStore,
 )
-from diucs.adapters.outbound.graph_store.person_repository import Neo4jPersonRepository
-from diucs.adapters.outbound.graph_store.projection_repository import Neo4jProjectionRepository
-from diucs.adapters.outbound.graph_store.protected_text_store import Neo4jProtectedTextStore
-from diucs.adapters.outbound.graph_store.push_subscription_repository import (
+from overwatch.adapters.outbound.graph_store.person_repository import Neo4jPersonRepository
+from overwatch.adapters.outbound.graph_store.projection_repository import Neo4jProjectionRepository
+from overwatch.adapters.outbound.graph_store.protected_text_store import Neo4jProtectedTextStore
+from overwatch.adapters.outbound.graph_store.push_subscription_repository import (
     Neo4jPushSubscriptionRepository,
 )
-from diucs.adapters.outbound.graph_store.registration_repository import (
+from overwatch.adapters.outbound.graph_store.registration_repository import (
     Neo4jRegistrationRepository,
 )
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.adapters.outbound.graph_store.safety_report_repository import (
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.adapters.outbound.graph_store.safety_report_repository import (
     Neo4jSafetyReportRepository,
 )
-from diucs.adapters.outbound.graph_store.scheduled_work_repository import (
+from overwatch.adapters.outbound.graph_store.scheduled_work_repository import (
     Neo4jScheduledWorkRepository,
 )
-from diucs.adapters.outbound.graph_store.scope_list_repository import Neo4jScopeListRepository
-from diucs.adapters.outbound.graph_store.service_move_repository import Neo4jServiceMoveRepository
-from diucs.adapters.outbound.graph_store.service_positions import Neo4jServicePositions
-from diucs.adapters.outbound.graph_store.service_repository import Neo4jServiceRepository
-from diucs.adapters.outbound.graph_store.support_repository import Neo4jSupportRepository
-from diucs.adapters.outbound.graph_store.support_ticket_repository import (
+from overwatch.adapters.outbound.graph_store.scope_list_repository import Neo4jScopeListRepository
+from overwatch.adapters.outbound.graph_store.service_move_repository import (
+    Neo4jServiceMoveRepository,
+)
+from overwatch.adapters.outbound.graph_store.service_positions import Neo4jServicePositions
+from overwatch.adapters.outbound.graph_store.service_repository import Neo4jServiceRepository
+from overwatch.adapters.outbound.graph_store.support_repository import Neo4jSupportRepository
+from overwatch.adapters.outbound.graph_store.support_ticket_repository import (
     Neo4jSupportTicketRepository,
 )
-from diucs.adapters.outbound.graph_store.tenant_config_repository import (
+from overwatch.adapters.outbound.graph_store.tenant_config_repository import (
     Neo4jTenantConfigRepository,
 )
-from diucs.application.idempotency import IdempotencyStore
-from diucs.application.ports.outbound.aggregates import AggregateRepository
-from diucs.application.ports.outbound.audit import AuditLog
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.consent import NotificationConsentStore
-from diucs.application.ports.outbound.event_bus import ScheduledWorkRepository
-from diucs.application.ports.outbound.geo import ServicePositions
-from diucs.application.ports.outbound.idempotency import ProcessedMessages
-from diucs.application.ports.outbound.identity import ContactStore, DeviceRegistry, PinStore
-from diucs.application.ports.outbound.insight import InsightRepository
-from diucs.application.ports.outbound.messaging import (
+from overwatch.application.idempotency import IdempotencyStore
+from overwatch.application.ports.outbound.aggregates import AggregateRepository
+from overwatch.application.ports.outbound.audit import AuditLog
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.consent import NotificationConsentStore
+from overwatch.application.ports.outbound.event_bus import ScheduledWorkRepository
+from overwatch.application.ports.outbound.geo import ServicePositions
+from overwatch.application.ports.outbound.idempotency import ProcessedMessages
+from overwatch.application.ports.outbound.identity import ContactStore, DeviceRegistry, PinStore
+from overwatch.application.ports.outbound.insight import InsightRepository
+from overwatch.application.ports.outbound.messaging import (
     CommunicationRepository,
     PushSubscriptionRepository,
 )
-from diucs.application.ports.outbound.network_samples import NetworkSamples
-from diucs.application.ports.outbound.outbox import Outbox
-from diucs.application.ports.outbound.projection import NetworkView, ProjectionWriter
-from diucs.application.ports.outbound.protected_text import ProtectedTextStore
-from diucs.application.ports.outbound.repositories import (
+from overwatch.application.ports.outbound.network_samples import NetworkSamples
+from overwatch.application.ports.outbound.outbox import Outbox
+from overwatch.application.ports.outbound.projection import NetworkView, ProjectionWriter
+from overwatch.application.ports.outbound.protected_text import ProtectedTextStore
+from overwatch.application.ports.outbound.repositories import (
     AlertRepository,
     AlertSubscriptionRepository,
     BookingRepository,
@@ -123,17 +125,17 @@ from diucs.application.ports.outbound.repositories import (
     ServiceMoveRepository,
     ServiceRepository,
 )
-from diucs.application.ports.outbound.safety import SafetyReportRepository
-from diucs.application.ports.outbound.support import SupportRepository
-from diucs.application.ports.outbound.support_tickets import SupportTicketRepository
-from diucs.application.ports.outbound.tenant_config import TenantConfigRepository
-from diucs.application.ports.outbound.tokens import LinkTokenRepository
-from diucs.application.ports.outbound.unit_of_work import (
+from overwatch.application.ports.outbound.safety import SafetyReportRepository
+from overwatch.application.ports.outbound.support import SupportRepository
+from overwatch.application.ports.outbound.support_tickets import SupportTicketRepository
+from overwatch.application.ports.outbound.tenant_config import TenantConfigRepository
+from overwatch.application.ports.outbound.tokens import LinkTokenRepository
+from overwatch.application.ports.outbound.unit_of_work import (
     NetworkUnitOfWorkFactory,
     UnitOfWorkFactory,
 )
-from diucs.application.tenancy import ScopeId, claim_unit, release_unit, scope_for_new_unit
-from diucs.domain.errors import Conflict
+from overwatch.application.tenancy import ScopeId, claim_unit, release_unit, scope_for_new_unit
+from overwatch.domain.errors import Conflict
 
 RepositoryFactory = Callable[[ScopedTx, ResourceStore], object]
 

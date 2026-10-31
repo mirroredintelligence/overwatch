@@ -1,6 +1,7 @@
 """Key Vault in the three serving processes (B8, DEC-1304 items 1, 5, 6 and 8).
 
-With `DIUCS_KEY_VAULT_URL` set the API, the workers and the outbox relay read the Neo4j password,
+With `OVERWATCH_KEY_VAULT_URL` set the API, the workers and the outbox relay read the Neo4j
+password,
 the Redis URL and the Service Bus connection from the vault at start-up, and refuse to start when
 the same secret is also in the plain environment. The workers read the vault themselves. A fake
 `SecretClient` stands in for the service: no network.
@@ -13,30 +14,30 @@ from typing import Any
 import pytest
 from pydantic import SecretStr
 
-from diucs.adapters.outbound.keyvault_secrets import KeyVaultSecretStore
-from diucs.application.ports.outbound.tokens import SecretStore
-from diucs.bootstrap import api_main, outbox_relay_main, workers_main
-from diucs.bootstrap.api_main import (
+from overwatch.adapters.outbound.keyvault_secrets import KeyVaultSecretStore
+from overwatch.application.ports.outbound.tokens import SecretStore
+from overwatch.bootstrap import api_main, outbox_relay_main, workers_main
+from overwatch.bootstrap.api_main import (
     API_OPTIONAL_SECRETS,
     REQUIRED_SECRETS,
     ApiConfigError,
     check_secrets,
     optional_secret_warnings,
 )
-from diucs.bootstrap.secret_store import (
+from overwatch.bootstrap.secret_store import (
     SecretConfigError,
     load_secret_store,
     settings_from_vault,
 )
-from diucs.bootstrap.settings import Settings
-from diucs.bootstrap.workers_main import (
+from overwatch.bootstrap.settings import Settings
+from overwatch.bootstrap.workers_main import (
     WORKER_REQUIRED_SECRETS,
     WorkersConfigError,
     check_worker_secrets,
 )
 from tests.support.fake_key_vault import FakeKeyVaultClient, FakeMonotonic
 
-VAULT_URL = "https://kv-diucs-pilot-test.vault.azure.net/"
+VAULT_URL = "https://kv-overwatch-pilot-test.vault.azure.net/"
 NEO4J_PASSWORD = "VAULT-neo4j-password-canary"
 REDIS_URL = "rediss://:VAULT-redis-key-canary@redis.example:10000/0"
 SERVICE_BUS = (
@@ -52,10 +53,10 @@ SETTING_SECRETS = {
     "servicebus-connection": SERVICE_BUS,
 }
 PLAIN_VARIABLES = {
-    "DIUCS_NEO4J_PASSWORD": "neo4j-password",
-    "DIUCS_REDIS_URL": "redis-url",
-    "DIUCS_SERVICEBUS_CONNECTION": "servicebus-connection",
-    "DIUCS_OS_PLACES_API_KEY": "os-places-api-key",
+    "OVERWATCH_NEO4J_PASSWORD": "neo4j-password",
+    "OVERWATCH_REDIS_URL": "redis-url",
+    "OVERWATCH_SERVICEBUS_CONNECTION": "servicebus-connection",
+    "OVERWATCH_OS_PLACES_API_KEY": "os-places-api-key",
 }
 
 
@@ -81,9 +82,9 @@ def _store(client: FakeKeyVaultClient) -> KeyVaultSecretStore:
 def _clean_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     for name in (
         *PLAIN_VARIABLES,
-        "DIUCS_KEY_VAULT_URL",
-        "DIUCS_SECRET_CACHE_SECONDS",
-        "DIUCS_SECRET_STALE_SECONDS",
+        "OVERWATCH_KEY_VAULT_URL",
+        "OVERWATCH_SECRET_CACHE_SECONDS",
+        "OVERWATCH_SECRET_STALE_SECONDS",
     ):
         monkeypatch.delenv(name, raising=False)
         monkeypatch.delenv(name.lower(), raising=False)
@@ -100,9 +101,9 @@ def test_the_vault_settings_default_to_no_vault_ten_minutes_and_an_hour() -> Non
 
 
 def test_the_vault_settings_come_from_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("DIUCS_KEY_VAULT_URL", VAULT_URL)
-    monkeypatch.setenv("DIUCS_SECRET_CACHE_SECONDS", "120")
-    monkeypatch.setenv("DIUCS_SECRET_STALE_SECONDS", "900")
+    monkeypatch.setenv("OVERWATCH_KEY_VAULT_URL", VAULT_URL)
+    monkeypatch.setenv("OVERWATCH_SECRET_CACHE_SECONDS", "120")
+    monkeypatch.setenv("OVERWATCH_SECRET_STALE_SECONDS", "900")
 
     settings = Settings()
 
@@ -123,7 +124,7 @@ def test_without_a_vault_url_no_store_is_built() -> None:
 
 @pytest.mark.parametrize("url", ["", "kv-name", "http://kv.vault.azure.net/", "ftp://x/"])
 def test_a_vault_url_that_is_not_https_stops_start_up(url: str) -> None:
-    with pytest.raises(SecretConfigError, match="DIUCS_KEY_VAULT_URL"):
+    with pytest.raises(SecretConfigError, match="OVERWATCH_KEY_VAULT_URL"):
         load_secret_store(Settings(key_vault_url=url))
 
 
@@ -162,7 +163,7 @@ def test_the_cache_windows_of_the_settings_reach_the_store() -> None:
 def test_a_secret_in_the_plain_environment_stops_start_up_when_the_vault_is_set(
     monkeypatch: pytest.MonkeyPatch, variable: str
 ) -> None:
-    monkeypatch.setenv("DIUCS_KEY_VAULT_URL", VAULT_URL)
+    monkeypatch.setenv("OVERWATCH_KEY_VAULT_URL", VAULT_URL)
     monkeypatch.setenv(variable, PLAIN)
     client = _vault()
 
@@ -177,36 +178,36 @@ def test_a_secret_in_the_plain_environment_stops_start_up_when_the_vault_is_set(
 
 def test_a_plain_secret_in_lower_case_is_found_too(monkeypatch: pytest.MonkeyPatch) -> None:
     # pydantic-settings matches environment names without regard to case.
-    monkeypatch.setenv("DIUCS_KEY_VAULT_URL", VAULT_URL)
-    monkeypatch.setenv("diucs_redis_url", PLAIN)
+    monkeypatch.setenv("OVERWATCH_KEY_VAULT_URL", VAULT_URL)
+    monkeypatch.setenv("overwatch_redis_url", PLAIN)
 
-    with pytest.raises(SecretConfigError, match="DIUCS_REDIS_URL"):
+    with pytest.raises(SecretConfigError, match="OVERWATCH_REDIS_URL"):
         load_secret_store(Settings(), client=_vault())
 
 
 def test_a_plain_secret_given_to_the_settings_directly_is_found_too() -> None:
-    with pytest.raises(SecretConfigError, match="DIUCS_NEO4J_PASSWORD"):
+    with pytest.raises(SecretConfigError, match="OVERWATCH_NEO4J_PASSWORD"):
         settings_from_vault(_settings(neo4j_password=SecretStr(PLAIN)), _store(_vault()))
 
 
 def test_every_plain_secret_is_named_at_once(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("DIUCS_KEY_VAULT_URL", VAULT_URL)
-    monkeypatch.setenv("DIUCS_NEO4J_PASSWORD", PLAIN)
-    monkeypatch.setenv("DIUCS_REDIS_URL", PLAIN)
+    monkeypatch.setenv("OVERWATCH_KEY_VAULT_URL", VAULT_URL)
+    monkeypatch.setenv("OVERWATCH_NEO4J_PASSWORD", PLAIN)
+    monkeypatch.setenv("OVERWATCH_REDIS_URL", PLAIN)
 
     with pytest.raises(SecretConfigError) as refused:
         load_secret_store(Settings(), client=_vault())
 
-    assert "DIUCS_NEO4J_PASSWORD" in str(refused.value)
-    assert "DIUCS_REDIS_URL" in str(refused.value)
+    assert "OVERWATCH_NEO4J_PASSWORD" in str(refused.value)
+    assert "OVERWATCH_REDIS_URL" in str(refused.value)
 
 
 def test_without_a_vault_the_plain_environment_works_as_before(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("DIUCS_NEO4J_PASSWORD", PLAIN)
-    monkeypatch.setenv("DIUCS_REDIS_URL", "redis://localhost:6379/1")
-    monkeypatch.setenv("DIUCS_SERVICEBUS_CONNECTION", SERVICE_BUS)
+    monkeypatch.setenv("OVERWATCH_NEO4J_PASSWORD", PLAIN)
+    monkeypatch.setenv("OVERWATCH_REDIS_URL", "redis://localhost:6379/1")
+    monkeypatch.setenv("OVERWATCH_SERVICEBUS_CONNECTION", SERVICE_BUS)
 
     settings = Settings()
 
@@ -322,13 +323,13 @@ def test_the_api_reads_its_settings_from_the_vault_and_serves_the_vault_store(
 def test_the_api_stops_when_a_plain_secret_is_set_beside_the_vault(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("DIUCS_KEY_VAULT_URL", VAULT_URL)
-    monkeypatch.setenv("DIUCS_NEO4J_PASSWORD", PLAIN)
+    monkeypatch.setenv("OVERWATCH_KEY_VAULT_URL", VAULT_URL)
+    monkeypatch.setenv("OVERWATCH_NEO4J_PASSWORD", PLAIN)
 
     with pytest.raises(SystemExit) as stopped:
         api_main.main()
 
-    assert "DIUCS_NEO4J_PASSWORD" in str(stopped.value)
+    assert "OVERWATCH_NEO4J_PASSWORD" in str(stopped.value)
     assert PLAIN not in str(stopped.value)
 
 
@@ -470,20 +471,20 @@ def test_the_workers_stop_when_the_vault_lacks_a_secret_they_read(
 def test_the_workers_stop_when_a_plain_secret_is_set_beside_the_vault(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("DIUCS_KEY_VAULT_URL", VAULT_URL)
-    monkeypatch.setenv("DIUCS_REDIS_URL", PLAIN)
+    monkeypatch.setenv("OVERWATCH_KEY_VAULT_URL", VAULT_URL)
+    monkeypatch.setenv("OVERWATCH_REDIS_URL", PLAIN)
 
     with pytest.raises(SystemExit) as stopped:
         workers_main.main()
 
-    assert "DIUCS_REDIS_URL" in str(stopped.value)
+    assert "OVERWATCH_REDIS_URL" in str(stopped.value)
     assert PLAIN not in str(stopped.value)
 
 
 def test_without_a_vault_the_workers_need_the_plain_connection_as_before(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    with pytest.raises(WorkersConfigError, match="DIUCS_SERVICEBUS_CONNECTION"):
+    with pytest.raises(WorkersConfigError, match="OVERWATCH_SERVICEBUS_CONNECTION"):
         workers_main.prepare_process(Settings())
 
 
@@ -553,13 +554,13 @@ def test_the_relay_reads_its_settings_from_the_vault(monkeypatch: pytest.MonkeyP
 def test_the_relay_stops_when_a_plain_secret_is_set_beside_the_vault(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("DIUCS_KEY_VAULT_URL", VAULT_URL)
-    monkeypatch.setenv("DIUCS_SERVICEBUS_CONNECTION", SERVICE_BUS)
+    monkeypatch.setenv("OVERWATCH_KEY_VAULT_URL", VAULT_URL)
+    monkeypatch.setenv("OVERWATCH_SERVICEBUS_CONNECTION", SERVICE_BUS)
 
     with pytest.raises(SystemExit) as stopped:
         outbox_relay_main.main()
 
-    assert "DIUCS_SERVICEBUS_CONNECTION" in str(stopped.value)
+    assert "OVERWATCH_SERVICEBUS_CONNECTION" in str(stopped.value)
     assert SERVICE_BUS not in str(stopped.value)
 
 

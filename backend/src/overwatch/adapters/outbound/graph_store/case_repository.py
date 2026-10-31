@@ -31,17 +31,17 @@ from typing import Any, Final
 
 from neo4j.exceptions import ClientError
 
-from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
-from diucs.adapters.outbound.graph_store.extensions import EXTENSIONS, by_short_name
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.adapters.outbound.graph_store.service_repository import (
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx, run_query
+from overwatch.adapters.outbound.graph_store.extensions import EXTENSIONS, by_short_name
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.adapters.outbound.graph_store.service_repository import (
     codeable_from_fhir,
     codeable_to_fhir,
 )
-from diucs.adapters.outbound.graph_store.service_scenarios import SCENARIOS
-from diucs.adapters.outbound.graph_store.week_scenarios import WEEK_SCENARIOS
-from diucs.domain.codes import (
+from overwatch.adapters.outbound.graph_store.service_scenarios import SCENARIOS
+from overwatch.adapters.outbound.graph_store.week_scenarios import WEEK_SCENARIOS
+from overwatch.domain.codes import (
     AcuityMethod,
     AgeBand,
     BestFitNotUsedReason,
@@ -51,15 +51,15 @@ from diucs.domain.codes import (
     Urgency,
     parse_code,
 )
-from diucs.domain.errors import (
+from overwatch.domain.errors import (
     Conflict,
     InvalidTransition,
     NotFound,
     StaleVersion,
     ValidationFailed,
 )
-from diucs.domain.model.case import Case, priority_for
-from diucs.domain.model.scores import (
+from overwatch.domain.model.case import Case, priority_for
+from overwatch.domain.model.scores import (
     AmbulanceCategory,
     ClinicalFrailty,
     ManchesterTriage,
@@ -68,20 +68,20 @@ from diucs.domain.model.scores import (
     Score,
     method_of,
 )
-from diucs.domain.rules.postcode import normalise_district
+from overwatch.domain.rules.postcode import normalise_district
 
 _PATIENT: Final = "Patient"
 _REQUEST: Final = "ServiceRequest"
 _OBSERVATION: Final = "Observation"
 _SERVICE: Final = "HealthcareService"
 
-REFERENCE_SYSTEM: Final = "https://diucs.example/case-reference"
-TAG_SYSTEM: Final = "https://diucs.example/CodeSystem/meta-tag"
+REFERENCE_SYSTEM: Final = "https://overwatch.mirroredintelligence.com/case-reference"
+TAG_SYSTEM: Final = "https://overwatch.mirroredintelligence.com/CodeSystem/meta-tag"
 TAG_CODE: Final = "pseudonymised-case-stub"
 SECURITY_SYSTEM: Final = "http://terminology.hl7.org/CodeSystem/v3-Confidentiality"
 SECURITY_CODE: Final = "R"
-MANCHESTER_SYSTEM: Final = "https://diucs.example/CodeSystem/manchester-triage"
-PATHWAYS_SYSTEM: Final = "https://diucs.example/CodeSystem/pathways-dx"
+MANCHESTER_SYSTEM: Final = "https://overwatch.mirroredintelligence.com/CodeSystem/manchester-triage"
+PATHWAYS_SYSTEM: Final = "https://overwatch.mirroredintelligence.com/CodeSystem/pathways-dx"
 # A case reference is four digits with no leading zero (DEC-041, the format events.py uses).
 CASE_REFERENCE: Final = re.compile(r"[1-9][0-9]{3}")
 _PATIENT_KEYS: Final = frozenset({"resourceType", "id", "active", "meta", "address", "extension"})

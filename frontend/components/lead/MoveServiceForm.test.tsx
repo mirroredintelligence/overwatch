@@ -10,7 +10,7 @@ import { MoveServiceForm } from './MoveServiceForm';
 
 beforeEach(() => {
   resetLeadPosts();
-  document.cookie = 'diucs_csrf=test-csrf-token';
+  document.cookie = 'overwatch_csrf=test-csrf-token';
 });
 
 describe('MoveServiceForm', () => {

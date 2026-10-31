@@ -9,15 +9,15 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from diucs.application.ports.outbound.messaging import (
+from overwatch.application.ports.outbound.messaging import (
     PUSH_GONE,
     EmailSender,
     SendReceipt,
     SmsSender,
 )
-from diucs.application.ports.outbound.sender_resolver import ChannelUnavailable
-from diucs.application.tenancy import current_scope_or_none, current_tenant
-from diucs.domain.model.tenant_records import TenantChannel
+from overwatch.application.ports.outbound.sender_resolver import ChannelUnavailable
+from overwatch.application.tenancy import current_scope_or_none, current_tenant
+from overwatch.domain.model.tenant_records import TenantChannel
 
 
 @dataclass(frozen=True, slots=True)

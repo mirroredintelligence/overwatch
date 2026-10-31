@@ -10,8 +10,8 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.outbound.terminology.pathways_dx_file import PathwaysDxFile
-from diucs.domain.errors import ValidationFailed
+from overwatch.adapters.outbound.terminology.pathways_dx_file import PathwaysDxFile
+from overwatch.domain.errors import ValidationFailed
 
 SAMPLE = Path(__file__).resolve().parents[5] / "data" / "pathways_dx_sample.json"
 NOTICE = "Sample codes only. These are not real NHS Pathways codes."

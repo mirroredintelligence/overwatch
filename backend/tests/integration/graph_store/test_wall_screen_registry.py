@@ -10,9 +10,9 @@ from typing import Any, cast
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.credential_store import Neo4jDeviceRegistry
-from diucs.domain.errors import Conflict
-from diucs.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
+from overwatch.adapters.outbound.graph_store.credential_store import Neo4jDeviceRegistry
+from overwatch.domain.errors import Conflict
+from overwatch.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
 from tests.support.scoped import scoped
 from tests.support.tenancy import as_tenant

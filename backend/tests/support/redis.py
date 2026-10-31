@@ -11,7 +11,7 @@ from uuid import uuid4
 
 from redis.asyncio import Redis
 
-from diucs.application.tenancy import is_valid_tenant_id
+from overwatch.application.tenancy import is_valid_tenant_id
 
 RUN_ID: str = uuid4().hex[:8]
 RUN_PREFIX: str = f"ct{RUN_ID}-"
@@ -30,15 +30,16 @@ def run_tenant(label: str) -> str:
 
 async def flush_tenant(client: Redis, tenant: str) -> None:
     """Delete every key of one run tenant. The trailing colon makes the match exact: tenant `a`
-    never matches `diucs:ab:`. A tenant that is not this run's is refused before any key is read."""
+    never matches `overwatch:ab:`. A tenant that is not this run's is refused before any key is
+    read."""
     if not tenant.startswith(RUN_PREFIX):
         raise ValueError("flush_tenant refuses a tenant that is not this run's")
-    await _delete_matching(client, f"diucs:{tenant}:*")
+    await _delete_matching(client, f"overwatch:{tenant}:*")
 
 
 async def flush_run(client: Redis) -> None:
     """Delete every key of every tenant of this run, and nothing else."""
-    await _delete_matching(client, f"diucs:{RUN_PREFIX}*")
+    await _delete_matching(client, f"overwatch:{RUN_PREFIX}*")
 
 
 async def flush_prefix(client: Redis, prefix: str) -> None:

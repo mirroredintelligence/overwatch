@@ -13,9 +13,9 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model import tenant as tenant_module
-from diucs.domain.model.tenant import (
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model import tenant as tenant_module
+from overwatch.domain.model.tenant import (
     ALLOWED_TIME_ZONES,
     DEFAULT_TIME_ZONE,
     REQUIRED_RETENTION_CLASSES,
@@ -37,8 +37,8 @@ from diucs.domain.model.tenant import (
     check_tenant_id,
     check_time_zone,
 )
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY
-from diucs.domain.rules.tenant_settings import policy_from_settings
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY
+from overwatch.domain.rules.tenant_settings import policy_from_settings
 from tests.support.tenant_samples import SAMPLE_WORDING, T0, make_tenant
 
 CANARY = "canary-tenant-ref"
@@ -825,7 +825,7 @@ def test_two_configs_with_equal_content_are_equal() -> None:
 
 
 def test_no_tenant_source_file_names_the_original_deployment() -> None:
-    root = Path(__file__).resolve().parents[4] / "src" / "diucs" / "domain"
+    root = Path(__file__).resolve().parents[4] / "src" / "overwatch" / "domain"
     files = sorted([*root.glob("model/tenant*.py"), *root.glob("rules/tenant_*.py")])
     # A glob that matched nothing would make the search below vacuous.
     assert {f.name for f in files} == {

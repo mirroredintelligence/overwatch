@@ -18,12 +18,12 @@ from collections.abc import AsyncIterator
 
 from fastapi import Request
 
-from diucs.adapters.inbound.fhir_rest.app import get_container
-from diucs.application.edge_tenant import resolve_active_tenant
-from diucs.application.ports.outbound.tenants import normalise_host
-from diucs.application.tenancy import bind_tenant
-from diucs.domain.errors import NotFound
-from diucs.domain.model.tenant import Tenant
+from overwatch.adapters.inbound.fhir_rest.app import get_container
+from overwatch.application.edge_tenant import resolve_active_tenant
+from overwatch.application.ports.outbound.tenants import normalise_host
+from overwatch.application.tenancy import bind_tenant
+from overwatch.domain.errors import NotFound
+from overwatch.domain.model.tenant import Tenant
 
 
 class HostNotResolved(NotFound):

@@ -18,9 +18,9 @@ import math
 from pathlib import Path
 from typing import Final
 
-from diucs.application.ports.outbound.geo import LatLon, Located
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.postcode import (
+from overwatch.application.ports.outbound.geo import LatLon, Located
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.postcode import (
     normalise_district,
     normalise_postcode,
     partial_district,

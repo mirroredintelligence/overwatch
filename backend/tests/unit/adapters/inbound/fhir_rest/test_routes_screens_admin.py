@@ -16,11 +16,11 @@ from typing import Annotated, Any
 import pytest
 from fastapi import APIRouter, Depends
 
-from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.inbound.fhir_rest.auth import SCREEN_SEEN_EVERY, require_role
-from diucs.application.actor import Actor
-from diucs.domain.codes import Role
-from diucs.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
+from overwatch.adapters.inbound.fhir_rest.app import create_app
+from overwatch.adapters.inbound.fhir_rest.auth import SCREEN_SEEN_EVERY, require_role
+from overwatch.application.actor import Actor
+from overwatch.domain.codes import Role
+from overwatch.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
 from tests.support.route_unit import KEY, assert_role_matrix, route_client
 from tests.support.screen_stubs import ScreenDevices
 from tests.support.w7b_rig import HOST, LEAD, NOW, Rig, bearer

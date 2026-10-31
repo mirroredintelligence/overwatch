@@ -5,7 +5,8 @@ ticket flow.
 Not FHIR: plain JSON under `/tenant`, never cached (`Cache-Control: no-store`), errors as the rest
 of the API's OperationOutcome. The mount is the app root, not `/fhir`.
 
-THE DOOR. Every route takes a tenant token (audience `diucs-api`) whose role is `tenant-admin`; any
+THE DOOR. Every route takes a tenant token (audience `overwatch-api`) whose role is `tenant-admin`;
+any
 other role, a wall screen and an operator token are refused (the role first: the non-revealing 404;
 an operator token or a token the edge refuses: the 401). The tenant is the signed claim and nothing
 else (`current_actor`): no path, query or body names one, so another tenant's record is not
@@ -47,22 +48,22 @@ from fastapi import APIRouter, Depends, Path, Query, Request
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 
-from diucs.adapters.inbound.fhir_rest.app import get_container
-from diucs.adapters.inbound.fhir_rest.auth import require_role
-from diucs.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
-from diucs.application.actor import Actor
-from diucs.application.platform_services import TenantAdminServices
-from diucs.application.use_cases.advisor_work_phone import (
+from overwatch.adapters.inbound.fhir_rest.app import get_container
+from overwatch.adapters.inbound.fhir_rest.auth import require_role
+from overwatch.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
+from overwatch.application.actor import Actor
+from overwatch.application.platform_services import TenantAdminServices
+from overwatch.application.use_cases.advisor_work_phone import (
     RecordAdvisorWorkPhone,
     RecordAdvisorWorkPhoneCommand,
 )
-from diucs.application.use_cases.cross_tenant_tickets import DecideTicketCommand, TicketView
-from diucs.application.use_cases.tenant_admin_views import (
+from overwatch.application.use_cases.cross_tenant_tickets import DecideTicketCommand, TicketView
+from overwatch.application.use_cases.tenant_admin_views import (
     AccessLogEntry,
     ConfigVersionView,
     TenantOverview,
 )
-from diucs.application.use_cases.tenant_config import (
+from overwatch.application.use_cases.tenant_config import (
     ApproveConfigCommand,
     BindDirectoryCommand,
     DraftConfigCommand,
@@ -71,24 +72,24 @@ from diucs.application.use_cases.tenant_config import (
     RecordContactCommand,
     SetRetentionCommand,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.tenant import (
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.tenant import (
     ContactKind,
     NumberStatus,
     RetentionClass,
     TenantConfig,
 )
-from diucs.domain.model.tenant_policy import SettingValue
-from diucs.domain.model.tenant_records import (
+from overwatch.domain.model.tenant_policy import SettingValue
+from overwatch.domain.model.tenant_records import (
     ChannelKind,
     MappingStatus,
     RetentionAction,
     TenantChannel,
     TenantRetention,
 )
-from diucs.domain.rules.support_ticket import SupportTicket
-from diucs.domain.rules.tenant_settings import (
+from overwatch.domain.rules.support_ticket import SupportTicket
+from overwatch.domain.rules.tenant_settings import (
     SETTING_SPECS,
     SettingKind,
     SettingSpec,

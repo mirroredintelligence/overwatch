@@ -11,10 +11,10 @@ from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Final
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.messages.privacy_guard import find_patient_data
-from diucs.domain.model.network import check_network_id
-from diucs.domain.rules.tokens import PAIRING_CODE_VALID_FOR
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.messages.privacy_guard import find_patient_data
+from overwatch.domain.model.network import check_network_id
+from overwatch.domain.rules.tokens import PAIRING_CODE_VALID_FOR
 
 SCREEN_LABEL_MAX: Final = 60
 ONLINE_WITHIN: Final = timedelta(minutes=3)

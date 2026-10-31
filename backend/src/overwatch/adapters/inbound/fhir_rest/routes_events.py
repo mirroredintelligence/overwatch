@@ -32,12 +32,12 @@ from typing import Annotated, Any, Final
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
-from diucs.adapters.inbound.fhir_rest.app import get_container
-from diucs.adapters.inbound.fhir_rest.auth import require_role
-from diucs.application.actor import Actor, require_actor_in_bound_tenant
-from diucs.application.ports.outbound.cache import BOARD_UPDATES_CHANNEL, Cache
-from diucs.application.use_cases.board_projector import BOARD_CHANGED
-from diucs.domain.codes import Role
+from overwatch.adapters.inbound.fhir_rest.app import get_container
+from overwatch.adapters.inbound.fhir_rest.auth import require_role
+from overwatch.application.actor import Actor, require_actor_in_bound_tenant
+from overwatch.application.ports.outbound.cache import BOARD_UPDATES_CHANNEL, Cache
+from overwatch.application.use_cases.board_projector import BOARD_CHANGED
+from overwatch.domain.codes import Role
 
 KEEPALIVE_INTERVAL_SECONDS: Final[float] = 15.0
 KEEPALIVE_LINE: Final = ": keep-alive\n\n"

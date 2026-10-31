@@ -10,7 +10,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from diucs.adapters.inbound.link_pages.booking_links import (
+from overwatch.adapters.inbound.link_pages.booking_links import (
     CHANGE_PURPOSE,
     CHANGE_TOKEN_LIFETIME,
     REQUEST_PURPOSE,
@@ -21,8 +21,8 @@ from diucs.adapters.inbound.link_pages.booking_links import (
     gone_state,
     view_body,
 )
-from diucs.application.use_cases.link_access import ClosedDetail, LinkAction, closed_body
-from diucs.domain.codes import (
+from overwatch.application.use_cases.link_access import ClosedDetail, LinkAction, closed_body
+from overwatch.domain.codes import (
     AgeBand,
     BookingStatus,
     DeclineReason,
@@ -32,9 +32,9 @@ from diucs.domain.codes import (
     Urgency,
     WithdrawReason,
 )
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.booking import Booking
-from diucs.domain.model.case import Case
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.booking import Booking
+from overwatch.domain.model.case import Case
 
 
 def _at(hour: int, minute: int) -> datetime:

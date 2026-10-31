@@ -16,14 +16,14 @@ from typing import Any, Final
 
 from pywebpush import WebPushException, webpush
 
-from diucs.application.ports.outbound.messaging import (
+from overwatch.application.ports.outbound.messaging import (
     PUSH_GONE,
     SendFailedError,
     SendReceipt,
     TransientSendError,
 )
-from diucs.application.ports.outbound.tokens import SecretStore
-from diucs.domain.errors import NotFound
+from overwatch.application.ports.outbound.tokens import SecretStore
+from overwatch.domain.errors import NotFound
 
 VAPID_PRIVATE_KEY_SECRET: Final = "webpush-vapid-private-key"
 """The secret reference of the platform's VAPID private key (platform-wide, not per tenant)."""

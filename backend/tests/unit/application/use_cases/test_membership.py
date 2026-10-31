@@ -15,9 +15,9 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.tenancy import bind_tenant
-from diucs.application.use_cases.membership import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.tenancy import bind_tenant
+from overwatch.application.use_cases.membership import (
     AcceptMembership,
     AcceptMembershipCommand,
     InviteMember,
@@ -27,11 +27,11 @@ from diucs.application.use_cases.membership import (
     RemoveMember,
     RemoveMemberCommand,
 )
-from diucs.application.use_cases.network_admin import GovernanceRecorder
-from diucs.application.use_cases.network_leave import EndResult
-from diucs.domain.codes import Role
-from diucs.domain.errors import Conflict, NotAllowed, NotFound
-from diucs.domain.model.network import (
+from overwatch.application.use_cases.network_admin import GovernanceRecorder
+from overwatch.application.use_cases.network_leave import EndResult
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound
+from overwatch.domain.model.network import (
     Agreement,
     GrantScope,
     GrantStatus,
@@ -191,7 +191,7 @@ async def test_a_network_administrator_of_a_member_is_told_the_network_does_not_
 async def test_an_organisation_that_is_unknown_or_not_active_is_the_same_not_found(
     rig: _Rig,
 ) -> None:
-    from diucs.domain.model.tenant import SuspendMode, SuspendReason, TenantStatus
+    from overwatch.domain.model.tenant import SuspendMode, SuspendReason, TenantStatus
 
     rig.directory.tenants["tt-suspended-org"] = replace(
         active_tenant("tt-suspended-org"),

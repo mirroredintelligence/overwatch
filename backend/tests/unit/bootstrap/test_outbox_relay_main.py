@@ -9,9 +9,9 @@ from typing import Any
 import pytest
 from pydantic import SecretStr
 
-from diucs.bootstrap import outbox_relay_main
-from diucs.bootstrap.outbox_relay_main import RelayConfigError, service_bus_connection
-from diucs.bootstrap.settings import Settings
+from overwatch.bootstrap import outbox_relay_main
+from overwatch.bootstrap.outbox_relay_main import RelayConfigError, service_bus_connection
+from overwatch.bootstrap.settings import Settings
 
 CONNECTION = "Endpoint=sb://example;SharedAccessKeyName=k;SharedAccessKey=SECRET-KEY-TEXT"
 
@@ -23,14 +23,14 @@ def test_the_service_bus_connection_is_the_setting() -> None:
 
 
 def test_no_service_bus_connection_is_refused() -> None:
-    with pytest.raises(RelayConfigError, match="DIUCS_SERVICEBUS_CONNECTION"):
+    with pytest.raises(RelayConfigError, match="OVERWATCH_SERVICEBUS_CONNECTION"):
         service_bus_connection(Settings(servicebus_connection=None))
 
 
 def test_the_list_of_tenants_in_the_environment_is_gone() -> None:
     source = Path(outbox_relay_main.__file__).read_text(encoding="utf-8")
 
-    assert "DIUCS_RELAY_TENANTS" not in source
+    assert "OVERWATCH_RELAY_TENANTS" not in source
     assert not hasattr(outbox_relay_main, "configured_tenants")
     assert not hasattr(outbox_relay_main, "TENANTS_VARIABLE")
     assert "StaticTenants" not in source
@@ -39,17 +39,17 @@ def test_the_list_of_tenants_in_the_environment_is_gone() -> None:
 def test_main_stops_with_the_fixed_message_when_there_is_no_service_bus(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.delenv("DIUCS_SERVICEBUS_CONNECTION", raising=False)
+    monkeypatch.delenv("OVERWATCH_SERVICEBUS_CONNECTION", raising=False)
 
     with pytest.raises(SystemExit) as raised:
         outbox_relay_main.main()
 
-    assert "DIUCS_SERVICEBUS_CONNECTION" in str(raised.value)
+    assert "OVERWATCH_SERVICEBUS_CONNECTION" in str(raised.value)
 
 
 def test_main_does_not_ask_for_a_list_of_tenants(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("DIUCS_SERVICEBUS_CONNECTION", CONNECTION)
-    monkeypatch.delenv("DIUCS_RELAY_TENANTS", raising=False)
+    monkeypatch.setenv("OVERWATCH_SERVICEBUS_CONNECTION", CONNECTION)
+    monkeypatch.delenv("OVERWATCH_RELAY_TENANTS", raising=False)
     started: list[Settings] = []
 
     def fake_run(coroutine: Any) -> None:

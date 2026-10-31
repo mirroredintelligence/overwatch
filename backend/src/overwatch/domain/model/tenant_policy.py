@@ -14,7 +14,7 @@ The unit of a setting (minutes, hours, days, a count, a time of day, a set of co
 an administrator sees and the registry stores (`tenant_settings.py`). The policy holds native
 types; `POLICY_FIELDS` is the one table that says which unit and which setting key each field has.
 
-Standard library and `diucs.domain` only.
+Standard library and `overwatch.domain` only.
 """
 
 from dataclasses import dataclass
@@ -23,8 +23,8 @@ from enum import StrEnum
 from types import MappingProxyType
 from typing import Any, Final, cast
 
-from diucs.domain.codes import AlertKind
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.codes import AlertKind
+from overwatch.domain.errors import ValidationFailed
 
 type SettingValue = int | str | bool | time | frozenset[str]
 

@@ -24,10 +24,10 @@ from datetime import UTC, datetime, timedelta
 from typing import Final
 from zoneinfo import ZoneInfo
 
-from diucs.domain.model.service import ServiceProfile
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
-from diucs.domain.rules.london_time import LONDON, require_zone
-from diucs.domain.rules.schedule import current_due
+from overwatch.domain.model.service import ServiceProfile
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
+from overwatch.domain.rules.london_time import LONDON, require_zone
+from overwatch.domain.rules.schedule import current_due
 
 # Alias of the default policy (TEN-021): the number is defined once, in tenant_policy.py.
 STALE_WARNING_AFTER: Final = DEFAULT_POLICY.stale_warning_after

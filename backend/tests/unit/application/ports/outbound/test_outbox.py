@@ -4,10 +4,14 @@ from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 
-from diucs.application.ports.outbound.outbox import MAX_ATTEMPTS, OutboxMessage, outbox_message_for
-from diucs.domain.codes import ReportSource
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.events import BookingRequested, CapacityReported
+from overwatch.application.ports.outbound.outbox import (
+    MAX_ATTEMPTS,
+    OutboxMessage,
+    outbox_message_for,
+)
+from overwatch.domain.codes import ReportSource
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.events import BookingRequested, CapacityReported
 
 NOW = datetime(2026, 10, 23, 13, 0, tzinfo=UTC)
 

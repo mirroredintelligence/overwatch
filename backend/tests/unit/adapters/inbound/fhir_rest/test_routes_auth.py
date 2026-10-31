@@ -22,10 +22,10 @@ import httpx
 import pytest
 from fastapi import Depends, FastAPI
 
-from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME, current_actor
-from diucs.adapters.inbound.fhir_rest.errors import NOT_FOUND_TEXT
-from diucs.adapters.inbound.fhir_rest.routes_auth import (
+from overwatch.adapters.inbound.fhir_rest.app import create_app
+from overwatch.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME, current_actor
+from overwatch.adapters.inbound.fhir_rest.errors import NOT_FOUND_TEXT
+from overwatch.adapters.inbound.fhir_rest.routes_auth import (
     DEVICE_PATH,
     EXCHANGE_REQUESTS_PER_ADDRESS,
     EXCHANGE_WINDOW,
@@ -34,28 +34,28 @@ from diucs.adapters.inbound.fhir_rest.routes_auth import (
     STAFF_PATH,
     ExchangeDeps,
 )
-from diucs.adapters.testing.fake_identity_verifier import FakeIdentityVerifier
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.identity import DEVICE_TOKEN_SECRET
-from diucs.application.ports.outbound.identity_verifier import Audience, VerifiedIdentity
-from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET
-from diucs.application.tenancy import current_scope, current_scope_or_none
-from diucs.application.use_cases.exchange_token import ACCOUNT_REF_SECRET, SIGNING_SECRET
-from diucs.domain.codes import Role
-from diucs.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
-from diucs.domain.model.tenant import Tenant, TenantStatus
-from diucs.domain.model.tenant_records import (
+from overwatch.adapters.testing.fake_identity_verifier import FakeIdentityVerifier
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.identity import DEVICE_TOKEN_SECRET
+from overwatch.application.ports.outbound.identity_verifier import Audience, VerifiedIdentity
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET
+from overwatch.application.tenancy import current_scope, current_scope_or_none
+from overwatch.application.use_cases.exchange_token import ACCOUNT_REF_SECRET, SIGNING_SECRET
+from overwatch.domain.codes import Role
+from overwatch.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
+from overwatch.domain.model.tenant import Tenant, TenantStatus
+from overwatch.domain.model.tenant_records import (
     BindingStatus,
     EntraBinding,
     MappingStatus,
     RoleMapping,
 )
-from diucs.domain.rules.bff_token import decode_bff_token, decode_operator_token
-from diucs.domain.rules.tokens import hash_token
+from overwatch.domain.rules.bff_token import decode_bff_token, decode_operator_token
+from overwatch.domain.rules.tokens import hash_token
 from tests.support.tenant_samples import make_tenant
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -586,7 +586,7 @@ async def test_a_screen_exchange_takes_no_body_fields() -> None:
 
 
 async def test_an_operator_gets_a_token_for_the_operator_door_only() -> None:
-    verifier = accepting(_identity(D_OPERATOR, (), ("DIUCS.Support",)), Audience.OPERATOR)
+    verifier = accepting(_identity(D_OPERATOR, (), ("Overwatch.Support",)), Audience.OPERATOR)
     app, _ = build(verifier=verifier)
 
     async with client(app, "ops.example.test") as c:
@@ -601,7 +601,7 @@ async def test_an_operator_gets_a_token_for_the_operator_door_only() -> None:
 
 
 async def test_the_operator_route_needs_no_host_and_binds_no_tenant() -> None:
-    verifier = accepting(_identity(D_OPERATOR, (), ("DIUCS.Support",)), Audience.OPERATOR)
+    verifier = accepting(_identity(D_OPERATOR, (), ("Overwatch.Support",)), Audience.OPERATOR)
     app, container = build(verifier=verifier)
 
     async with client(app, "unknown.example.test") as c:
@@ -613,7 +613,7 @@ async def test_the_operator_route_needs_no_host_and_binds_no_tenant() -> None:
 
 
 async def test_an_operator_role_from_a_customers_directory_is_the_same_403() -> None:
-    verifier = accepting(_identity(D_A, (), ("DIUCS.Support",)), Audience.OPERATOR)
+    verifier = accepting(_identity(D_A, (), ("Overwatch.Support",)), Audience.OPERATOR)
     app, _ = build(verifier=verifier)
 
     async with client(app) as c:
@@ -659,7 +659,7 @@ class _Platform:
         self.entries.append(entry)
 
 
-def _operator_app(platform: _Platform | None, role: str = "DIUCS.Support") -> FastAPI:
+def _operator_app(platform: _Platform | None, role: str = "Overwatch.Support") -> FastAPI:
     verifier = accepting(_identity(D_OPERATOR, (), (role,)), Audience.OPERATOR)
     app, _ = build(verifier=verifier)
     app.state.token_exchange = ExchangeDeps(
@@ -702,7 +702,7 @@ async def test_a_sign_in_the_platform_chain_cannot_record_gets_no_token() -> Non
 
 async def test_a_refused_operator_exchange_writes_nothing_to_the_platform_chain() -> None:
     platform = _Platform()
-    verifier = accepting(_identity(D_A, (), ("DIUCS.Support",)), Audience.OPERATOR)
+    verifier = accepting(_identity(D_A, (), ("Overwatch.Support",)), Audience.OPERATOR)
     app, _ = build(verifier=verifier)
     app.state.token_exchange = ExchangeDeps(
         verifier=verifier, operator_directory_id=D_OPERATOR, platform_audit=platform

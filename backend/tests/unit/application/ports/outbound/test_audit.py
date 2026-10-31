@@ -6,8 +6,8 @@ from datetime import UTC, datetime
 
 import pytest
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import (
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import (
     GENESIS_HASH,
     AuditEntry,
     canonical_entry_json,
@@ -16,9 +16,9 @@ from diucs.application.ports.outbound.audit import (
     chain_hash_over,
     genesis_hash_for,
 )
-from diucs.application.tenancy import DEFAULT_TENANT_ID
-from diucs.domain.codes import Role
-from diucs.domain.errors import ValidationFailed
+from overwatch.application.tenancy import DEFAULT_TENANT_ID
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import ValidationFailed
 from tests.support.actors import ACTOR_TENANT
 
 ENTRY = AuditEntry(
@@ -90,7 +90,7 @@ def test_the_default_tenant_keeps_the_genesis_of_the_chain_the_development_data_
 
 
 def test_another_tenant_starts_from_a_hash_of_its_own_id() -> None:
-    expected = hashlib.sha256(b"diucs-genesis|acme-icb").hexdigest()
+    expected = hashlib.sha256(b"overwatch-genesis|acme-icb").hexdigest()
     assert genesis_hash_for("acme-icb") == expected
     assert genesis_hash_for("acme-icb") != GENESIS_HASH
 

@@ -17,7 +17,7 @@ const SESSION = 'a1b2c3d4e5f60718';
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', EXEC_BACKEND);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', EXEC_BACKEND);
   vi.stubEnv('NODE_ENV', 'production');
   resetSupportBackend();
   server.use(...supportBackendHandlers);

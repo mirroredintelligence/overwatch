@@ -9,10 +9,10 @@ Pure: no I/O and no clock. Silence is never acceptance: only a requested booking
 from collections.abc import Iterable
 from typing import Final
 
-from diucs.domain.codes import BookingStatus, Role
-from diucs.domain.errors import Conflict, InvalidTransition, ValidationFailed
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.rules.booking_state import transition
+from overwatch.domain.codes import BookingStatus, Role
+from overwatch.domain.errors import Conflict, InvalidTransition, ValidationFailed
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.rules.booking_state import transition
 
 CONFIRM: Final = "confirm"
 DECLINE: Final = "decline"

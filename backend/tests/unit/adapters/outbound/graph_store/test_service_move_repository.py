@@ -5,9 +5,9 @@ tests/integration/graph_store/test_service_move_repository.py.
 
 import re
 
-from diucs.adapters.outbound.graph_store import service_move_repository  # noqa: F401
-from diucs.adapters.outbound.graph_store.queries import REGISTRY
-from diucs.adapters.outbound.graph_store.scenario import validate_scenario
+from overwatch.adapters.outbound.graph_store import service_move_repository  # noqa: F401
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY
+from overwatch.adapters.outbound.graph_store.scenario import validate_scenario
 
 
 def _move_ids() -> list[str]:

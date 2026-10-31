@@ -8,8 +8,8 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.credential_store import Neo4jDeviceRegistry
-from diucs.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
+from overwatch.adapters.outbound.graph_store.credential_store import Neo4jDeviceRegistry
+from overwatch.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
 from tests.support.neo4j import node_props, read_tx, write_tx
 from tests.support.tenancy import as_tenant
 

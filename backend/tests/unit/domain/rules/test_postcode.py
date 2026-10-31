@@ -10,8 +10,8 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.postcode import (
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.postcode import (
     normalise_district,
     normalise_postcode,
     partial_district,

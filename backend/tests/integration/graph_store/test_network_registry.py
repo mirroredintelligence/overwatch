@@ -22,20 +22,20 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.driver import run_global_query
-from diucs.adapters.outbound.graph_store.network_registry import Neo4jNetworkRegistry
-from diucs.adapters.outbound.graph_store.queries import GLOBAL_WRITE_IDS, REGISTRY
-from diucs.application.tenancy import bind_network, bind_tenant
-from diucs.domain.errors import Conflict
-from diucs.domain.model.network import (
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.driver import run_global_query
+from overwatch.adapters.outbound.graph_store.network_registry import Neo4jNetworkRegistry
+from overwatch.adapters.outbound.graph_store.queries import GLOBAL_WRITE_IDS, REGISTRY
+from overwatch.application.tenancy import bind_network, bind_tenant
+from overwatch.domain.errors import Conflict
+from overwatch.domain.model.network import (
     GrantScope,
     GrantStatus,
     ListingStatus,
     MembershipStatus,
     NetworkStatus,
 )
-from diucs.domain.rules.grant import end_grant
+from overwatch.domain.rules.grant import end_grant
 from tests.support.neo4j import read_tx, wipe_tenant, write_tx
 from tests.support.network_samples import (
     ACCOUNT_B,
@@ -401,7 +401,7 @@ async def test_a_write_statement_changes_no_node_that_is_not_a_registry_node(
 async def test_no_registry_node_is_counted_unstamped_by_the_invariant_check(
     registry: Neo4jNetworkRegistry, connection: Neo4jConnection
 ) -> None:
-    from diucs.adapters.outbound.graph_store.invariants import Neo4jTenantInvariants
+    from overwatch.adapters.outbound.graph_store.invariants import Neo4jTenantInvariants
 
     await _world(registry)
     await registry.create_grant(make_grant())

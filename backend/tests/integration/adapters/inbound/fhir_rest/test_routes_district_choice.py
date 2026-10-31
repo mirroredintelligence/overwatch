@@ -18,12 +18,12 @@ import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient
 
-from diucs.adapters.testing.fixed_geo import FixedPostcodeLocator
-from diucs.application.ports.outbound.geo import LatLon
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.bootstrap.container import Container
-from diucs.domain.codes import AgeBand, NeedCategory, ReferrerType, Role, Urgency
-from diucs.domain.model.case import Case
+from overwatch.adapters.testing.fixed_geo import FixedPostcodeLocator
+from overwatch.application.ports.outbound.geo import LatLon
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.bootstrap.container import Container
+from overwatch.domain.codes import AgeBand, NeedCategory, ReferrerType, Role, Urgency
+from overwatch.domain.model.case import Case
 from tests.integration.adapters.inbound.fhir_rest.test_routes_cases import (
     CASE_BODY,
     fresh_cases,
@@ -36,7 +36,9 @@ __all__ = ["fresh_cases", "route_state", "seeded"]
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
-DISTRICT_EXTENSION = "https://diucs.example/StructureDefinition/postcode-district"
+DISTRICT_EXTENSION = (
+    "https://overwatch.mirroredintelligence.com/StructureDefinition/postcode-district"
+)
 EDGE_REFUSED = {Role.PLATFORM_OPERATOR}
 B_CASE_ID = "case-of-tenant-b-district"
 PLACES = {

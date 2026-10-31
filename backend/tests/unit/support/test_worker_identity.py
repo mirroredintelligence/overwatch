@@ -9,7 +9,7 @@ ever derived from the worker number alone, which would collide across runs.
 
 import pytest
 
-from diucs.application.tenancy import is_valid_tenant_id
+from overwatch.application.tenancy import is_valid_tenant_id
 from tests.support.sweeper import orphan_identities
 from tests.support.tenancy import (
     RunIdentity,
@@ -94,7 +94,7 @@ def test_a_worker_number_that_is_not_a_whole_number_is_refused() -> None:
 def test_the_controllers_identity_travels_to_a_worker_in_plain_values() -> None:
     sent = workerinput_for(CONTROLLER)
 
-    assert sent == {"diucs_run": [4242, 1_800_000_000, "ab12"]}
+    assert sent == {"overwatch_run": [4242, 1_800_000_000, "ab12"]}
 
 
 def test_a_worker_derives_its_identity_from_the_input_and_its_id() -> None:
@@ -117,13 +117,13 @@ def test_each_worker_id_gives_its_own_identity() -> None:
     [
         {},
         {"workerid": "gw0"},
-        {"diucs_run": [1, 2, "0000"]},
-        {"diucs_run": "4242", "workerid": "gw0"},
-        {"diucs_run": [4242, 1_800_000_000], "workerid": "gw0"},
-        {"diucs_run": [4242, 1_800_000_000, "zzzz"], "workerid": "gw0"},
-        {"diucs_run": [4242, 1_800_000_000, "ab12"], "workerid": "master"},
-        {"diucs_run": [4242, 1_800_000_000, "ab12"], "workerid": "gw-1"},
-        {"diucs_run": [True, 1_800_000_000, "ab12"], "workerid": "gw0"},
+        {"overwatch_run": [1, 2, "0000"]},
+        {"overwatch_run": "4242", "workerid": "gw0"},
+        {"overwatch_run": [4242, 1_800_000_000], "workerid": "gw0"},
+        {"overwatch_run": [4242, 1_800_000_000, "zzzz"], "workerid": "gw0"},
+        {"overwatch_run": [4242, 1_800_000_000, "ab12"], "workerid": "master"},
+        {"overwatch_run": [4242, 1_800_000_000, "ab12"], "workerid": "gw-1"},
+        {"overwatch_run": [True, 1_800_000_000, "ab12"], "workerid": "gw0"},
     ],
 )
 def test_a_workerinput_that_does_not_name_a_run_and_a_worker_is_refused(
@@ -143,7 +143,7 @@ def test_a_run_host_carries_the_run_token_and_differs_between_workers(
 
     hosts = set()
     for index in range(3):
-        monkeypatch.setenv("DIUCS_TEST_TENANT", CONTROLLER.for_worker(index).tenant_id)
+        monkeypatch.setenv("OVERWATCH_TEST_TENANT", CONTROLLER.for_worker(index).tenant_id)
         host = run_host("alpha")
         hosts.add(host)
         assert host == f"alpha-{CONTROLLER.for_worker(index).token}.example.org"
@@ -157,7 +157,7 @@ def test_a_run_host_label_must_be_short_and_lower_case(
 ) -> None:
     from tests.support.tenancy import run_host
 
-    monkeypatch.setenv("DIUCS_TEST_TENANT", CONTROLLER.tenant_id)
+    monkeypatch.setenv("OVERWATCH_TEST_TENANT", CONTROLLER.tenant_id)
     with pytest.raises(ValueError, match="run_host"):
         run_host(label)
 
@@ -176,8 +176,8 @@ def _controller_env() -> dict[str, str]:
 def test_a_controller_exports_its_run_so_the_workers_it_starts_can_find_it() -> None:
     environment = _controller_env()
 
-    assert environment["DIUCS_TEST_RUN"] == "4242.1800000000.ab12"
-    assert environment["DIUCS_TEST_TENANT"] == CONTROLLER.tenant_id
+    assert environment["OVERWATCH_TEST_RUN"] == "4242.1800000000.ab12"
+    assert environment["OVERWATCH_TEST_TENANT"] == CONTROLLER.tenant_id
 
 
 def test_a_worker_derives_its_identity_from_its_environment_at_import_time() -> None:
@@ -194,8 +194,8 @@ def test_a_worker_exports_its_own_ids_and_never_replaces_the_controllers_run() -
     environment = _controller_env()
     export_identity(CONTROLLER.for_worker(1), environment)
 
-    assert environment["DIUCS_TEST_TENANT"] == CONTROLLER.for_worker(1).tenant_id
-    assert environment["DIUCS_TEST_RUN"] == "4242.1800000000.ab12"
+    assert environment["OVERWATCH_TEST_TENANT"] == CONTROLLER.for_worker(1).tenant_id
+    assert environment["OVERWATCH_TEST_RUN"] == "4242.1800000000.ab12"
 
 
 @pytest.mark.parametrize("run", ["", "x", "1.2", "a.b.c", "4242.1800000000.zzzz", "1.2.3.4"])
@@ -203,7 +203,7 @@ def test_a_worker_with_no_usable_run_from_its_controller_refuses_to_guess(run: s
     from tests.support.tenancy import derive_process_identity
 
     with pytest.raises(ValueError, match="workerinput"):
-        derive_process_identity({"PYTEST_XDIST_WORKER": "gw0", "DIUCS_TEST_RUN": run})
+        derive_process_identity({"PYTEST_XDIST_WORKER": "gw0", "OVERWATCH_TEST_RUN": run})
 
 
 def test_a_process_that_is_not_a_worker_makes_an_identity_of_its_own() -> None:
@@ -219,4 +219,4 @@ def test_the_identity_this_process_exported_is_the_one_its_tests_see() -> None:
 
     from tests.support.tenancy import process_identity
 
-    assert os.environ["DIUCS_TEST_TENANT"] == process_identity().tenant_id
+    assert os.environ["OVERWATCH_TEST_TENANT"] == process_identity().tenant_id

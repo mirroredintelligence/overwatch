@@ -25,31 +25,31 @@ from datetime import datetime, timedelta
 from typing import Final
 from zoneinfo import ZoneInfo
 
-from diucs.application.actor import Actor, timer_actor
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.outbox import OutboxMessage, outbox_message_for
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.scheduling import cancel_work, schedule_work
-from diucs.application.tenancy import current_tenant
-from diucs.application.tenant_settings import TenantZones, as_zones, read_policy, read_settings
-from diucs.application.work import DONE, SCHEDULED, ScheduledWork, WorkKind
-from diucs.domain.codes import AlertKind, Channel, Status
-from diucs.domain.errors import NotFound, ValidationFailed
-from diucs.domain.events import AlertAcknowledged, AlertEscalatedToLead, AlertRaised
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.messages.templates import render
-from diucs.domain.model.alerts import AlertRecord
-from diucs.domain.model.service import ServiceProfile
-from diucs.domain.model.tenant_policy import TenantPolicy
-from diucs.domain.rules.alert_workflow import (
+from overwatch.application.actor import Actor, timer_actor
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.outbox import OutboxMessage, outbox_message_for
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.scheduling import cancel_work, schedule_work
+from overwatch.application.tenancy import current_tenant
+from overwatch.application.tenant_settings import TenantZones, as_zones, read_policy, read_settings
+from overwatch.application.work import DONE, SCHEDULED, ScheduledWork, WorkKind
+from overwatch.domain.codes import AlertKind, Channel, Status
+from overwatch.domain.errors import NotFound, ValidationFailed
+from overwatch.domain.events import AlertAcknowledged, AlertEscalatedToLead, AlertRaised
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.messages.templates import render
+from overwatch.domain.model.alerts import AlertRecord
+from overwatch.domain.model.service import ServiceProfile
+from overwatch.domain.model.tenant_policy import TenantPolicy
+from overwatch.domain.rules.alert_workflow import (
     may_acknowledge,
     may_snooze,
     not_updated_check_times,
     snoozed_due,
 )
-from diucs.domain.rules.alerts import (
+from overwatch.domain.rules.alerts import (
     Alert,
     AlertPreferences,
     alerts_for_change,
@@ -57,7 +57,7 @@ from diucs.domain.rules.alerts import (
     escalation_at,
     should_notify,
 )
-from diucs.domain.rules.opening_hours import is_in_hours
+from overwatch.domain.rules.opening_hours import is_in_hours
 
 CONSUMER: Final = "alert-evaluator"
 AUDIT_ACTION: Final = "U"

@@ -26,14 +26,14 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
-from diucs.adapters.outbound.graph_store.extensions import (
+from overwatch.adapters.outbound.graph_store.extensions import (
     EXTENSIONS,
     PROPERTY_PREFIX,
     TENANT_OWNED_NAMES,
     by_short_name,
 )
-from diucs.domain.codes import BASE_URL
-from diucs.domain.errors import DomainError, NotFound, ValidationFailed
+from overwatch.domain.codes import BASE_URL
+from overwatch.domain.errors import DomainError, NotFound, ValidationFailed
 
 _PRIMITIVE_TYPES = (str, bool, int, float)
 _REFERENCE_KEYS = frozenset({"reference", "display"})

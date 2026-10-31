@@ -9,7 +9,7 @@ const TEST_TOKEN = 'token-for-tests';
 const FHIR_JSON = 'application/fhir+json; fhirVersion=4.3';
 
 beforeEach(() => {
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', BASE);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', BASE);
 });
 
 afterEach(() => {
@@ -160,21 +160,21 @@ describe('fhirFetch', () => {
     expect(result.data).toBeUndefined();
   });
 
-  it('throws an error that names DIUCS_FHIR_BASE_URL when the variable is missing', async () => {
+  it('throws an error that names OVERWATCH_FHIR_BASE_URL when the variable is missing', async () => {
     vi.unstubAllEnvs();
-    delete process.env.DIUCS_FHIR_BASE_URL;
+    delete process.env.OVERWATCH_FHIR_BASE_URL;
 
     const error = await failureOf(fhirFetch('/HealthcareService', { token: TEST_TOKEN }));
 
     expect(error).toBeInstanceOf(Error);
-    expect((error as Error).message).toContain('DIUCS_FHIR_BASE_URL');
+    expect((error as Error).message).toContain('OVERWATCH_FHIR_BASE_URL');
   });
 
-  it('treats an empty DIUCS_FHIR_BASE_URL as missing', async () => {
-    vi.stubEnv('DIUCS_FHIR_BASE_URL', '');
+  it('treats an empty OVERWATCH_FHIR_BASE_URL as missing', async () => {
+    vi.stubEnv('OVERWATCH_FHIR_BASE_URL', '');
 
     const error = await failureOf(fhirFetch('/HealthcareService', { token: TEST_TOKEN }));
 
-    expect((error as Error).message).toContain('DIUCS_FHIR_BASE_URL');
+    expect((error as Error).message).toContain('OVERWATCH_FHIR_BASE_URL');
   });
 });

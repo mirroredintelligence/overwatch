@@ -1,7 +1,7 @@
 {
   "resourceType": "CodeSystem",
   "id": "case-outcome",
-  "url": "https://diucs.example/CodeSystem/case-outcome",
+  "url": "https://overwatch.mirroredintelligence.com/CodeSystem/case-outcome",
   "name": "case-outcome",
   "status": "active",
   "content": "complete",

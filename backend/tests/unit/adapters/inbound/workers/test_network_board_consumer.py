@@ -11,18 +11,18 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.inbound.workers.consumer import Outcome
-from diucs.adapters.inbound.workers.network_board_consumer import (
+from overwatch.adapters.inbound.workers.consumer import Outcome
+from overwatch.adapters.inbound.workers.network_board_consumer import (
     NETWORK_BOARD_SUBSCRIPTION,
     NETWORK_EVENTS_TOPIC,
     NetworkBoardConsumer,
     network_board_consumer,
     network_board_runners,
 )
-from diucs.adapters.inbound.workers.tenant_binding import TenantBoundConsumer
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.tenancy import current_scope_or_none
-from diucs.domain.errors import NotFound, ValidationFailed
+from overwatch.adapters.inbound.workers.tenant_binding import TenantBoundConsumer
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.tenancy import current_scope_or_none
+from overwatch.domain.errors import NotFound, ValidationFailed
 from tests.support.network_samples import MEMBER_B, NETWORK_ID
 from tests.unit.adapters.inbound.workers.test_network_projector import _Tenants
 

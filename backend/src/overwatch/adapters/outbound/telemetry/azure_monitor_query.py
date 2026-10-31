@@ -15,10 +15,10 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Final, Protocol
 
-from diucs.adapters.outbound.telemetry.kql import SESSIONS_QUERY, SPANS_QUERY, TIMELINE_QUERY
-from diucs.adapters.outbound.telemetry.result_attributes import result_attributes
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.telemetry_query import (
+from overwatch.adapters.outbound.telemetry.kql import SESSIONS_QUERY, SPANS_QUERY, TIMELINE_QUERY
+from overwatch.adapters.outbound.telemetry.result_attributes import result_attributes
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.telemetry_query import (
     SessionFilters,
     SessionSummary,
     SpanRecord,
@@ -30,8 +30,8 @@ from diucs.application.ports.outbound.telemetry_query import (
     check_session_id,
     check_trace_id,
 )
-from diucs.application.tenancy import current_tenant
-from diucs.domain.model.telemetry_aggregates import DayAggregates
+from overwatch.application.tenancy import current_tenant
+from overwatch.domain.model.telemetry_aggregates import DayAggregates
 
 # Raw retention is 30 to 90 days (observability.md, "Privacy and governance"). [ASSUMED] 90: a
 # trace or a search older than this is not looked up. Set with IG.

@@ -26,12 +26,12 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Final
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.tenant_registry import TenantRegistry
-from diucs.application.ports.outbound.tenants import TenantDirectory
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.tenant_admin import (
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.tenant_registry import TenantRegistry
+from overwatch.application.ports.outbound.tenants import TenantDirectory
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.tenant_admin import (
     AUDIT_UPDATE,
     MOVED,
     NO_TENANT,
@@ -39,9 +39,9 @@ from diucs.application.use_cases.tenant_admin import (
     _audit,
     _unit_scope,
 )
-from diucs.application.use_cases.tenant_suspend import TenantChanged
-from diucs.domain.errors import Conflict, NotFound, ValidationFailed
-from diucs.domain.rules.tenant_lifecycle import offboarding_may_complete_at, start_offboarding
+from overwatch.application.use_cases.tenant_suspend import TenantChanged
+from overwatch.domain.errors import Conflict, NotFound, ValidationFailed
+from overwatch.domain.rules.tenant_lifecycle import offboarding_may_complete_at, start_offboarding
 
 CONFIRM_MESSAGE: Final = "must be the id of the tenant to offboard"
 

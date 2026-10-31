@@ -14,31 +14,31 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from typing import Final, Literal
 
-from diucs.application.actor import Actor
-from diucs.application.booking_effects import cancel_booking_timers, echo_role, queue_echo
-from diucs.application.idempotency import IdempotencyStore
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.outbox import outbox_message_for
-from diucs.application.ports.outbound.sealing import ContentSealer
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
-from diucs.application.use_cases.send_prompts import LinkTokenServiceFactory
-from diucs.domain.codes import BookingStatus, Channel, DeclineReason, ReportSource, Role
-from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.events import BookingResponded
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.messages.templates import RenderedMessage, render
-from diucs.domain.model.booking import Booking
-from diucs.domain.rules.booking_response import (
+from overwatch.application.actor import Actor
+from overwatch.application.booking_effects import cancel_booking_timers, echo_role, queue_echo
+from overwatch.application.idempotency import IdempotencyStore
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.outbox import outbox_message_for
+from overwatch.application.ports.outbound.sealing import ContentSealer
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
+from overwatch.application.use_cases.send_prompts import LinkTokenServiceFactory
+from overwatch.domain.codes import BookingStatus, Channel, DeclineReason, ReportSource, Role
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.events import BookingResponded
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.messages.templates import RenderedMessage, render
+from overwatch.domain.model.booking import Booking
+from overwatch.domain.rules.booking_response import (
     DECLINE,
     echo_message,
     may_set_decline_reason,
     plan_response,
     responder_may_act,
 )
-from diucs.domain.rules.london_time import format_hhmm
+from overwatch.domain.rules.london_time import format_hhmm
 
 USE_CASE: Final = "RespondToBooking"
 SET_REASON_USE_CASE: Final = "SetDeclineReason"

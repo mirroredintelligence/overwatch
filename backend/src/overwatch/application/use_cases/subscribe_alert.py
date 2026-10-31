@@ -3,7 +3,7 @@
 A COO, ICB lead or shift lead chooses the alert kinds they get, the not-updated threshold (2 or 4
 hours), quiet hours (none, or 22:00 to 06:00), what they get during quiet hours, how fast they must
 acknowledge (10, 15 or 30 minutes), their deputy, and the daily and weekly summaries. The rules are
-the D24 rules (diucs.domain.rules.alerts); the record is P17's AlertSubscription, one per
+the D24 rules (overwatch.domain.rules.alerts); the record is P17's AlertSubscription, one per
 practitioner, stored by the alert subscription repository.
 
 A user changes only their own preferences: the command names no target, so the subscription saved
@@ -18,16 +18,16 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, time
 from typing import Final
 
-from diucs.application.actor import Actor
-from diucs.application.idempotency import IdempotencyStore
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
-from diucs.domain.codes import AlertKind, PractitionerRoleCode, Role
-from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.model.alerts import AlertSubscription
-from diucs.domain.rules.alerts import AlertPreferences, default_preferences
+from overwatch.application.actor import Actor
+from overwatch.application.idempotency import IdempotencyStore
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
+from overwatch.domain.codes import AlertKind, PractitionerRoleCode, Role
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.model.alerts import AlertSubscription
+from overwatch.domain.rules.alerts import AlertPreferences, default_preferences
 
 AUDIT_ACTION: Final = "U"
 USE_CASE: Final = "SaveAlertPreferences"

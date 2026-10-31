@@ -25,8 +25,8 @@ from datetime import UTC, date, datetime
 from enum import StrEnum
 from typing import Any, Final, Protocol
 
-from diucs.domain.errors import DomainError, ValidationFailed
-from diucs.domain.model.telemetry_aggregates import DayAggregates
+from overwatch.domain.errors import DomainError, ValidationFailed
+from overwatch.domain.model.telemetry_aggregates import DayAggregates
 
 # An attribute value after the allow-list: the types the telemetry schema carries.
 AttributeValue = str | int | float | bool

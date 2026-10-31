@@ -11,9 +11,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Final, Protocol
 
-from diucs.application.tenancy import ScopeKind, current_scope_or_none, is_valid_tenant_id
-from diucs.application.work import ScheduledWork, WorkKind
-from diucs.domain.errors import DomainError, ValidationFailed
+from overwatch.application.tenancy import ScopeKind, current_scope_or_none, is_valid_tenant_id
+from overwatch.application.work import ScheduledWork, WorkKind
+from overwatch.domain.errors import DomainError, ValidationFailed
 
 # `projection.work` carries `ProjectionRequested` from a tenant's producer to the network's apply
 # step (TEN-055). The name is `domain.events.PROJECTION_WORK`; a test pins that they are equal.

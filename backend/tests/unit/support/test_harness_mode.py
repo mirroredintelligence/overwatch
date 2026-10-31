@@ -4,7 +4,7 @@ DEC-130 item 9, amends DEC-008 and DEC-013 item 3).
 Three modes. `owned`: a container this session starts and removes, as before (the lifecycle and
 schema tests always use one). `shared`: one long-lived container for the machine that every run
 uses, each in its own tenants. `attached`: an instance named by the environment
-(`DIUCS_TEST_NEO4J_URI`, `_USER`, `_PASSWORD`), for example a CI service. No Docker here: the
+(`OVERWATCH_TEST_NEO4J_URI`, `_USER`, `_PASSWORD`), for example a CI service. No Docker here: the
 runner, the probe, the clock and the lock path are injected.
 """
 
@@ -63,9 +63,9 @@ def test_a_mode_that_is_not_owned_or_shared_is_refused_in_the_config_phase(value
 def test_a_uri_attaches_the_harness_to_that_instance() -> None:
     selection = select_mode(
         {
-            "DIUCS_TEST_NEO4J_URI": "bolt://ci-neo4j:7690",
-            "DIUCS_TEST_NEO4J_USER": "tester",
-            "DIUCS_TEST_NEO4J_PASSWORD": "s3cret-for-the-test",
+            "OVERWATCH_TEST_NEO4J_URI": "bolt://ci-neo4j:7690",
+            "OVERWATCH_TEST_NEO4J_USER": "tester",
+            "OVERWATCH_TEST_NEO4J_PASSWORD": "s3cret-for-the-test",
         }
     )
 
@@ -79,7 +79,7 @@ def test_a_uri_attaches_the_harness_to_that_instance() -> None:
 
 def test_the_attached_user_defaults_to_neo4j() -> None:
     selection = select_mode(
-        {"DIUCS_TEST_NEO4J_URI": "bolt://localhost:7690", "DIUCS_TEST_NEO4J_PASSWORD": "pw"}
+        {"OVERWATCH_TEST_NEO4J_URI": "bolt://localhost:7690", "OVERWATCH_TEST_NEO4J_PASSWORD": "pw"}
     )
 
     assert selection.user == "neo4j"
@@ -87,22 +87,25 @@ def test_the_attached_user_defaults_to_neo4j() -> None:
 
 def test_an_attached_uri_with_no_password_is_refused() -> None:
     with pytest.raises(HarnessStartError) as failure:
-        select_mode({"DIUCS_TEST_NEO4J_URI": "bolt://localhost:7690"})
+        select_mode({"OVERWATCH_TEST_NEO4J_URI": "bolt://localhost:7690"})
 
     assert failure.value.phase == "config"
-    assert "DIUCS_TEST_NEO4J_PASSWORD" in str(failure.value)
+    assert "OVERWATCH_TEST_NEO4J_PASSWORD" in str(failure.value)
 
 
 @pytest.mark.parametrize("uri", ["http://localhost:7474", "localhost:7690", "ftp://x", "bolt://"])
 def test_an_attached_uri_that_is_not_a_bolt_uri_is_refused(uri: str) -> None:
     with pytest.raises(HarnessStartError):
-        select_mode({"DIUCS_TEST_NEO4J_URI": uri, "DIUCS_TEST_NEO4J_PASSWORD": "pw"})
+        select_mode({"OVERWATCH_TEST_NEO4J_URI": uri, "OVERWATCH_TEST_NEO4J_PASSWORD": "pw"})
 
 
 @pytest.mark.parametrize("scheme", ["bolt", "neo4j", "bolt+s", "neo4j+s", "bolt+ssc"])
 def test_every_bolt_scheme_is_accepted(scheme: str) -> None:
     selection = select_mode(
-        {"DIUCS_TEST_NEO4J_URI": f"{scheme}://db.example:7690", "DIUCS_TEST_NEO4J_PASSWORD": "pw"}
+        {
+            "OVERWATCH_TEST_NEO4J_URI": f"{scheme}://db.example:7690",
+            "OVERWATCH_TEST_NEO4J_PASSWORD": "pw",
+        }
     )
 
     assert selection.mode is Mode.ATTACHED
@@ -113,8 +116,8 @@ def test_a_uri_and_an_owned_mode_together_are_refused() -> None:
         select_mode(
             {
                 MODE_ENV: "owned",
-                "DIUCS_TEST_NEO4J_URI": "bolt://localhost:7690",
-                "DIUCS_TEST_NEO4J_PASSWORD": "pw",
+                "OVERWATCH_TEST_NEO4J_URI": "bolt://localhost:7690",
+                "OVERWATCH_TEST_NEO4J_PASSWORD": "pw",
             }
         )
 
@@ -134,14 +137,14 @@ def test_the_shell_neo4j_uri_is_never_read() -> None:
 )
 def test_the_compose_stack_of_the_owner_cannot_be_attached_by_accident(uri: str) -> None:
     with pytest.raises(HarnessStartError, match="compose"):
-        select_mode({"DIUCS_TEST_NEO4J_URI": uri, "DIUCS_TEST_NEO4J_PASSWORD": "pw"})
+        select_mode({"OVERWATCH_TEST_NEO4J_URI": uri, "OVERWATCH_TEST_NEO4J_PASSWORD": "pw"})
 
 
 def test_the_compose_port_is_allowed_when_the_caller_says_so() -> None:
     selection = select_mode(
         {
-            "DIUCS_TEST_NEO4J_URI": "bolt://localhost:7687",
-            "DIUCS_TEST_NEO4J_PASSWORD": "pw",
+            "OVERWATCH_TEST_NEO4J_URI": "bolt://localhost:7687",
+            "OVERWATCH_TEST_NEO4J_PASSWORD": "pw",
             ALLOW_LOCAL_ENV: "1",
         }
     )
@@ -151,7 +154,10 @@ def test_the_compose_port_is_allowed_when_the_caller_says_so() -> None:
 
 def test_port_7687_on_another_host_is_an_ordinary_instance() -> None:
     selection = select_mode(
-        {"DIUCS_TEST_NEO4J_URI": "bolt://neo4j.internal:7687", "DIUCS_TEST_NEO4J_PASSWORD": "pw"}
+        {
+            "OVERWATCH_TEST_NEO4J_URI": "bolt://neo4j.internal:7687",
+            "OVERWATCH_TEST_NEO4J_PASSWORD": "pw",
+        }
     )
 
     assert selection.mode is Mode.ATTACHED
@@ -159,7 +165,10 @@ def test_port_7687_on_another_host_is_an_ordinary_instance() -> None:
 
 def test_a_selection_never_shows_its_password_in_its_text() -> None:
     selection = select_mode(
-        {"DIUCS_TEST_NEO4J_URI": "bolt://db.example:7690", "DIUCS_TEST_NEO4J_PASSWORD": "pw-42-x"}
+        {
+            "OVERWATCH_TEST_NEO4J_URI": "bolt://db.example:7690",
+            "OVERWATCH_TEST_NEO4J_PASSWORD": "pw-42-x",
+        }
     )
 
     assert "pw-42-x" not in repr(selection)
@@ -170,7 +179,7 @@ def test_a_selection_never_shows_its_password_in_its_text() -> None:
 
 
 def test_the_shared_container_is_not_one_the_reaper_can_reach() -> None:
-    """The reaper removes `diucs-test=true` containers named `diucs-test-neo4j-*` (DEC-108)."""
+    """The reaper removes `overwatch-test=true` containers named `overwatch-test-neo4j-*` (DEC-108)."""  # noqa: E501
     assert not SHARED_NAME.startswith(harness.NAME_PREFIX)
     assert SHARED_LABEL != harness.TEST_LABEL
 
@@ -201,8 +210,8 @@ def test_the_shared_container_has_more_memory_than_a_private_one() -> None:
 def test_the_shared_container_takes_its_limits_from_the_environment(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("DIUCS_NEO4J_MEMORY", "3g")
-    monkeypatch.setenv("DIUCS_NEO4J_HEAP", "1g")
+    monkeypatch.setenv("OVERWATCH_NEO4J_MEMORY", "3g")
+    monkeypatch.setenv("OVERWATCH_NEO4J_HEAP", "1g")
 
     arguments = shared_run_arguments("pw-1")
 

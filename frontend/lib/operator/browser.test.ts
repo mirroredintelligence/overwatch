@@ -51,6 +51,6 @@ describe('signOutOperator', () => {
   });
 
   it('uses a cookie and a session route of its own, not the tenant’s', () => {
-    expect(OPERATOR_CSRF).toEqual({ cookie: 'diucs_op_csrf', sessionUrl: '/api/bff/platform/session' });
+    expect(OPERATOR_CSRF).toEqual({ cookie: 'overwatch_op_csrf', sessionUrl: '/api/bff/platform/session' });
   });
 });

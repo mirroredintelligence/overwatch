@@ -31,10 +31,10 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Final
 
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.identity import DEVICE_TOKEN_SECRET
-from diucs.application.ports.outbound.tenant_lines import InboundLine
-from diucs.application.ports.outbound.tenants import (
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.identity import DEVICE_TOKEN_SECRET
+from overwatch.application.ports.outbound.tenant_lines import InboundLine
+from overwatch.application.ports.outbound.tenants import (
     TenantDirectory,
     TenantLine,
     TenantRecordInvalid,
@@ -42,14 +42,14 @@ from diucs.application.ports.outbound.tenants import (
     normalise_account_sid,
     normalise_e164,
 )
-from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET, SecretStore
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.tenancy import ScopeKind, TenantNotBound
-from diucs.application.use_cases.text_code import INVITATION_PURPOSE
-from diucs.domain.errors import Conflict, NotFound, ValidationFailed
-from diucs.domain.model.device import Device, DeviceStatus
-from diucs.domain.model.tenant import Tenant, TenantStatus
-from diucs.domain.rules.tokens import LinkCheck, LinkTokenRecord, check_link, hash_token
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET, SecretStore
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeKind, TenantNotBound
+from overwatch.application.use_cases.text_code import INVITATION_PURPOSE
+from overwatch.domain.errors import Conflict, NotFound, ValidationFailed
+from overwatch.domain.model.device import Device, DeviceStatus
+from overwatch.domain.model.tenant import Tenant, TenantStatus
+from overwatch.domain.rules.tokens import LinkCheck, LinkTokenRecord, check_link, hash_token
 
 log = logging.getLogger(__name__)
 

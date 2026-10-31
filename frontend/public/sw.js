@@ -1,8 +1,8 @@
-// The DIUCS service worker (W32). Logic is in sw-logic.js, which is tested as shipped.
+// The Overwatch service worker (W32). Logic is in sw-logic.js, which is tested as shipped.
 importScripts('/sw-logic.js');
 
-var CACHE = 'diucs-shell-v1';
-var logic = self.DiucsSw;
+var CACHE = 'overwatch-shell-v1';
+var logic = self.OverwatchSw;
 
 self.addEventListener('install', function (event) {
   // Precache the offline page only. Nothing else is stored up front.

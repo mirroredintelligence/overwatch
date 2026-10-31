@@ -14,33 +14,33 @@ from typing import Any
 
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
-from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.outbox import OutboxMessage
-from diucs.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.missed_report_ladder import (
+from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from overwatch.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.outbox import OutboxMessage
+from overwatch.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.missed_report_ladder import (
     LadderStepCommand,
     LadderStepResult,
     MissedReportLadder,
 )
-from diucs.application.use_cases.report_capacity import (
+from overwatch.application.use_cases.report_capacity import (
     ReportCapacity,
     ReportCapacityCommand,
     ReportCapacityResult,
 )
-from diucs.application.use_cases.send_prompts import (
+from overwatch.application.use_cases.send_prompts import (
     SendPromptCommand,
     SendPromptResult,
     SendPrompts,
     prompt_key,
 )
-from diucs.application.work import ScheduledWork, WorkKind
-from diucs.domain.codes import (
+from overwatch.application.work import ScheduledWork, WorkKind
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     Measure,
@@ -50,14 +50,14 @@ from diucs.domain.codes import (
     Role,
     ServiceCategory,
 )
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
 from tests.support.tenancy import as_tenant
 
 SECRET = b"link-token-test-secret-0123456789abcdef"
-LINK_BASE = "diucs.example"
+LINK_BASE = "overwatch.example"
 PHONE_HASH_1 = "ab" * 32
 PHONE_HASH_2 = "cd" * 32
 

@@ -15,11 +15,11 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.messaging import PushSubscription
-from diucs.application.use_cases.remove_person import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.messaging import PushSubscription
+from overwatch.application.use_cases.remove_person import (
     ConfirmNewPhone,
     ConfirmNewPhoneCommand,
     RemovalReason,
@@ -30,11 +30,11 @@ from diucs.application.use_cases.remove_person import (
     StartNewPhone,
     StartNewPhoneCommand,
 )
-from diucs.domain.codes import PractitionerRoleCode, Role
-from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.model.flags import SERVICE_FLAG_NO_REPORTER
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.rules.identity_policy import PinState
+from overwatch.domain.codes import PractitionerRoleCode, Role
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.model.flags import SERVICE_FLAG_NO_REPORTER
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.rules.identity_policy import PinState
 from tests.support.actors import ACTOR_TENANT
 from tests.support.registration_rig import StubUnits
 from tests.support.session_rig import StubSessions
@@ -588,7 +588,7 @@ async def test_a_lead_cannot_confirm_their_own_new_phone() -> None:
 
 
 async def test_nothing_is_texted_to_a_person_whose_new_phone_waits_for_the_callback() -> None:
-    from diucs.application.use_cases.send_prompts import _phone_hash
+    from overwatch.application.use_cases.send_prompts import _phone_hash
 
     world = World()
     role = world.units.people.roles["role-west"]
@@ -600,7 +600,7 @@ async def test_nothing_is_texted_to_a_person_whose_new_phone_waits_for_the_callb
 
 
 async def test_a_cover_is_still_texted_while_the_person_waits_for_the_callback() -> None:
-    from diucs.application.use_cases.send_prompts import _phone_hash
+    from overwatch.application.use_cases.send_prompts import _phone_hash
 
     world = World()
     world.units.people.practitioners[COVER] = replace(

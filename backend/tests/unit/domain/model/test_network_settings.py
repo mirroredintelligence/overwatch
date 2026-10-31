@@ -7,8 +7,8 @@ import dataclasses
 
 import pytest
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.network_settings import (
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.network_settings import (
     NAME_MAX_LENGTH,
     NetworkSettings,
 )

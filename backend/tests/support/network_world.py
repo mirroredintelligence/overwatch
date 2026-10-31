@@ -21,24 +21,24 @@ from typing import Any, Final
 
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.invariants import Neo4jTenantInvariants
-from diucs.adapters.outbound.graph_store.network_registry import Neo4jNetworkRegistry
-from diucs.adapters.outbound.graph_store.scope_labels import (
+from overwatch.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.invariants import Neo4jTenantInvariants
+from overwatch.adapters.outbound.graph_store.network_registry import Neo4jNetworkRegistry
+from overwatch.adapters.outbound.graph_store.scope_labels import (
     NETWORK_ONLY_LABELS,
     SCOPE_GENERIC_LABELS,
 )
-from diucs.adapters.outbound.graph_store.unit_of_work import Neo4jUnitOfWork, neo4j_uow_factory
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.ports.outbound.invariants import InvariantReport
-from diucs.application.ports.outbound.projection import ProjectionEndReason
-from diucs.application.projection import to_body
-from diucs.application.tenancy import bind_network, bind_tenant
-from diucs.application.use_cases.apply_projection import ApplyProjection, ApplyResult
-from diucs.application.use_cases.project_network import ProjectNetwork
-from diucs.domain.events import ProjectionRequested
-from diucs.domain.model.network import (
+from overwatch.adapters.outbound.graph_store.unit_of_work import Neo4jUnitOfWork, neo4j_uow_factory
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.ports.outbound.invariants import InvariantReport
+from overwatch.application.ports.outbound.projection import ProjectionEndReason
+from overwatch.application.projection import to_body
+from overwatch.application.tenancy import bind_network, bind_tenant
+from overwatch.application.use_cases.apply_projection import ApplyProjection, ApplyResult
+from overwatch.application.use_cases.project_network import ProjectNetwork
+from overwatch.domain.events import ProjectionRequested
+from overwatch.domain.model.network import (
     Grant,
     GrantApprover,
     GrantPurpose,
@@ -55,14 +55,14 @@ from diucs.domain.model.network import (
     invite_member,
     owner_membership,
 )
-from diucs.domain.rules.grant import (
+from overwatch.domain.rules.grant import (
     approve_grant,
     end_grant,
     lapse_grants_for_member,
     propose_grant,
 )
-from diucs.domain.rules.listing import admit_listing, request_listing
-from diucs.domain.rules.projection import PROJECTION_ALLOWLIST_VERSION
+from overwatch.domain.rules.listing import admit_listing, request_listing
+from overwatch.domain.rules.projection import PROJECTION_ALLOWLIST_VERSION
 from tests.support.neo4j import wipe_tenant
 from tests.support.network_samples import (
     ACCOUNT_B,

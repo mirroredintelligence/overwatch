@@ -6,13 +6,13 @@ const task = {
   resourceType: 'Task',
   id: 'al-1',
   status: 'requested',
-  code: { coding: [{ system: 'https://diucs.example/CodeSystem/task-code', code: 'acknowledge-alert' }] },
-  businessStatus: { coding: [{ system: 'https://diucs.example/CodeSystem/alert-status', code: 'escalated' }] },
+  code: { coding: [{ system: 'https://overwatch.mirroredintelligence.com/CodeSystem/task-code', code: 'acknowledge-alert' }] },
+  businessStatus: { coding: [{ system: 'https://overwatch.mirroredintelligence.com/CodeSystem/alert-status', code: 'escalated' }] },
   owner: { reference: 'Practitioner/pr-0042' },
   authoredOn: '2026-10-23T13:04:00+00:00',
   focus: { reference: 'HealthcareService/svc-hah' },
   executionPeriod: { end: '2026-10-23T13:19:00+00:00' },
-  extension: [{ url: 'https://diucs.example/CodeSystem/alert-kind', valueCode: 'over-capacity' }],
+  extension: [{ url: 'https://overwatch.mirroredintelligence.com/CodeSystem/alert-kind', valueCode: 'over-capacity' }],
 };
 
 const entry = { serviceId: 'svc-hah', name: 'Hospital at home', overBy: 4 } as BoardEntry;
@@ -42,7 +42,7 @@ describe('alertItemFromTask', () => {
       executionPeriod: undefined,
       extension: [
         ...task.extension,
-        { url: 'https://diucs.example/CodeSystem/alert-acknowledged-at', valueDateTime: '2026-10-23T13:40:00+00:00' },
+        { url: 'https://overwatch.mirroredintelligence.com/CodeSystem/alert-acknowledged-at', valueDateTime: '2026-10-23T13:40:00+00:00' },
       ],
     };
     const item = alertItemFromTask(acknowledged, () => undefined);

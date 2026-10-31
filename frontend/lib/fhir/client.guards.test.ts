@@ -11,7 +11,7 @@ const TEST_TOKEN = 'token-for-tests';
 const FHIR_JSON = 'application/fhir+json; fhirVersion=4.3';
 
 beforeEach(() => {
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', BASE);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', BASE);
 });
 
 afterEach(() => {

@@ -17,7 +17,7 @@ from typing import Final
 import aiosmtplib
 from pydantic import SecretStr
 
-from diucs.application.ports.outbound.messaging import (
+from overwatch.application.ports.outbound.messaging import (
     SendFailedError,
     SendReceipt,
     TransientSendError,

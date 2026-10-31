@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 
 from fhir.resources.R4B.consent import Consent
 
-from diucs.adapters.outbound.graph_store.notification_consent_store import (
+from overwatch.adapters.outbound.graph_store.notification_consent_store import (
     CONSENT_CATEGORY_CODE,
     CONSENT_WORDING_SYSTEM,
     consent_id,

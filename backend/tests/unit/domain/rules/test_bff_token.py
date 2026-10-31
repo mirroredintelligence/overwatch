@@ -16,9 +16,9 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from diucs.domain.codes import Role
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.bff_token import (
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.bff_token import (
     BFF_SECRET_MIN_BYTES,
     BFF_TOKEN_MAX_LENGTH,
     BffClaims,
@@ -61,7 +61,7 @@ def payload(**changes: Any) -> dict[str, Any]:
         "services": ["svc-1"],
         "tenant": TENANT,
         "epoch": 1,
-        "aud": "diucs-api",
+        "aud": "overwatch-api",
         "exp": int(EXPIRES.timestamp()),
     }
     for key, value in changes.items():

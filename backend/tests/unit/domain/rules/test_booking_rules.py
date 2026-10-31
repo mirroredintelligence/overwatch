@@ -15,9 +15,9 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from diucs.domain.codes import BookingStatus
-from diucs.domain.errors import Conflict
-from diucs.domain.rules.booking_rules import (
+from overwatch.domain.codes import BookingStatus
+from overwatch.domain.errors import Conflict
+from overwatch.domain.rules.booking_rules import (
     BOOKING_REPLY_WINDOW,
     PHONE_PROMPT_AFTER,
     REFERENCE_ATTEMPTS,
@@ -234,8 +234,8 @@ POLICY_POSITION_064: Final = {
     "clinical_queue": {"take": 3, "return_if_idle": 2, "give_advice": 3},
     "identity_policy": {"needs_reverification": 3},
 }
-_SOURCE_ROOT_064: Final = Path(__file__).resolve().parents[4] / "src" / "diucs"
-_RULES_PACKAGE: Final = "diucs.domain.rules"
+_SOURCE_ROOT_064: Final = Path(__file__).resolve().parents[4] / "src" / "overwatch"
+_RULES_PACKAGE: Final = "overwatch.domain.rules"
 
 # Callers that do not yet pass the tenant's policy. Each entry must still offend: a converted
 # caller is removed, so the list can only shrink. The owners are the builder's reading of the
@@ -326,10 +326,10 @@ def test_every_policy_ratchet_entry_still_offends_and_names_its_task() -> None:
 def test_the_ratchet_sees_every_way_a_function_is_called(tmp_path: Path) -> None:
     sample = tmp_path / "caller.py"
     sample.write_text(
-        "from diucs.domain.rules.booking_rules import booking_reply_by, phone_prompt_at as later\n"
-        "from diucs.domain.rules import clinical_queue as queue\n"
-        "from diucs.domain.rules.multi_service import group_due\n"
-        "import diucs.domain.rules.alerts as alert_rules\n"
+        "from overwatch.domain.rules.booking_rules import booking_reply_by, phone_prompt_at as later\n"
+        "from overwatch.domain.rules import clinical_queue as queue\n"
+        "from overwatch.domain.rules.multi_service import group_due\n"
+        "import overwatch.domain.rules.alerts as alert_rules\n"
         "booking_reply_by(t)\n"  # missing
         "booking_reply_by(t, p)\n"  # positional
         "later(t, policy=p)\n"  # keyword

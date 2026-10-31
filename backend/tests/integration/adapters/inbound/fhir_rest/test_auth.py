@@ -18,7 +18,7 @@ from fastapi.responses import JSONResponse
 from fhir.resources.R4B.task import Task
 from httpx import AsyncClient, Response
 
-from diucs.adapters.inbound.fhir_rest.auth import (
+from overwatch.adapters.inbound.fhir_rest.auth import (
     BFF_SECRET_NAME,
     PROJECTIONS,
     current_actor,
@@ -26,11 +26,15 @@ from diucs.adapters.inbound.fhir_rest.auth import (
     ensure_patient_access,
     require_role,
 )
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET, default_token_tenant, issue_test_token
-from diucs.application.actor import Actor
-from diucs.domain.codes import Role
-from diucs.domain.rules.bff_token import BffClaims, encode_bff_token
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.tokens import (
+    TEST_BFF_SECRET,
+    default_token_tenant,
+    issue_test_token,
+)
+from overwatch.application.actor import Actor
+from overwatch.domain.codes import Role
+from overwatch.domain.rules.bff_token import BffClaims, encode_bff_token
 from tests.support.api import R01_TEST_NOW
 
 FHIR_JSON = "application/fhir+json; fhirVersion=4.3"
@@ -182,7 +186,7 @@ async def test_a_reporter_token_gives_its_practitioner_and_its_service(
         "device_id": None,
         "channel": "api",
         "service_ids": ["svc-1"],
-        "tenant_id": os.environ["DIUCS_TEST_TENANT"],
+        "tenant_id": os.environ["OVERWATCH_TEST_TENANT"],
     }
 
 

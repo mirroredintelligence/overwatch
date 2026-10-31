@@ -8,9 +8,9 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Final
 
-from diucs.domain.codes import AgeBand, CriteriaStatus, NeedCategory
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.criteria import ServiceCriteria
+from overwatch.domain.codes import AgeBand, CriteriaStatus, NeedCategory
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.criteria import ServiceCriteria
 
 AGE_BAND_BOUNDS: dict[AgeBand, tuple[int, int | None]] = {
     AgeBand.A0_15: (0, 15),

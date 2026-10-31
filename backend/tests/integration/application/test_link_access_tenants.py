@@ -19,13 +19,13 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import bind_tenant
-from diucs.application.use_cases import link_access
-from diucs.application.use_cases.link_access import LinkGone, LinkRateLimited
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import bind_tenant
+from overwatch.application.use_cases import link_access
+from overwatch.application.use_cases.link_access import LinkGone, LinkRateLimited
 from tests.support.ladder_rig import PHONE_HASH_2
 from tests.support.link_rig import ANSWER_AT, LinkRig, build_link_rig, new_secrets
 

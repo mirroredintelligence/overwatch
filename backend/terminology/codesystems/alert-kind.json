@@ -1,7 +1,7 @@
 {
   "resourceType": "CodeSystem",
   "id": "alert-kind",
-  "url": "https://diucs.example/CodeSystem/alert-kind",
+  "url": "https://overwatch.mirroredintelligence.com/CodeSystem/alert-kind",
   "name": "alert-kind",
   "status": "active",
   "content": "complete",

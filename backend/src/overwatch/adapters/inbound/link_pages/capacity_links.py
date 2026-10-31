@@ -33,24 +33,24 @@ from typing import Any, Final, Protocol
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response
 
-from diucs.adapters.inbound.link_pages.booking_links import booking_purposes
-from diucs.application.edge_tenant import resolve_active_tenant
-from diucs.application.ports.outbound.cache import Cache
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.sealing import ContentSealer
-from diucs.application.ports.outbound.tenants import TenantDirectory
-from diucs.application.ports.outbound.tokens import (
+from overwatch.adapters.inbound.link_pages.booking_links import booking_purposes
+from overwatch.application.edge_tenant import resolve_active_tenant
+from overwatch.application.ports.outbound.cache import Cache
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.sealing import ContentSealer
+from overwatch.application.ports.outbound.tenants import TenantDirectory
+from overwatch.application.ports.outbound.tokens import (
     LinkTokenRepository,
     LinkTokenService,
     SecretStore,
 )
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import bind_tenant
-from diucs.application.tenant_settings import DirectoryZones
-from diucs.application.uow_idempotency import UnitOfWorkIdempotency
-from diucs.application.use_cases.confirm_capacity import ConfirmCapacity
-from diucs.application.use_cases.link_access import (
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import bind_tenant
+from overwatch.application.tenant_settings import DirectoryZones
+from overwatch.application.uow_idempotency import UnitOfWorkIdempotency
+from overwatch.application.use_cases.confirm_capacity import ConfirmCapacity
+from overwatch.application.use_cases.link_access import (
     CAPACITY_PURPOSE,
     CapacityLinkHandler,
     ClosedDetail,
@@ -70,12 +70,12 @@ from diucs.application.use_cases.link_access import (
     ViewLinkQuery,
     closed_body,
 )
-from diucs.application.use_cases.report_capacity import ReportCapacity
-from diucs.application.use_cases.respond_to_booking import RespondToBooking
-from diucs.application.use_cases.withdraw_booking import ReportNotReached, WithdrawBooking
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.tenant import Tenant
-from diucs.domain.rules.london_time import zone_named
+from overwatch.application.use_cases.report_capacity import ReportCapacity
+from overwatch.application.use_cases.respond_to_booking import RespondToBooking
+from overwatch.application.use_cases.withdraw_booking import ReportNotReached, WithdrawBooking
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.tenant import Tenant
+from overwatch.domain.rules.london_time import zone_named
 
 log = logging.getLogger(__name__)
 

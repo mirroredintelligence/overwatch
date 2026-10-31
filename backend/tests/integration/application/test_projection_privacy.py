@@ -26,16 +26,16 @@ from typing import Any
 import pytest
 from neo4j import AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.scope_labels import (
+from overwatch.adapters.outbound.graph_store.scope_labels import (
     NETWORK_ONLY_LABELS,
     SCOPE_GENERIC_LABELS,
 )
-from diucs.adapters.outbound.graph_store.unit_of_work import neo4j_uow_factory
-from diucs.application.tenancy import bind_tenant
-from diucs.domain.codes import Role
-from diucs.domain.messages.privacy_guard import find_patient_data, scan_value
-from diucs.domain.rules import projection as allowlist
-from diucs.domain.rules.projection import NETWORK_RELATIONSHIPS, NEVER_SHARED
+from overwatch.adapters.outbound.graph_store.unit_of_work import neo4j_uow_factory
+from overwatch.application.tenancy import bind_tenant
+from overwatch.domain.codes import Role
+from overwatch.domain.messages.privacy_guard import find_patient_data, scan_value
+from overwatch.domain.rules import projection as allowlist
+from overwatch.domain.rules.projection import NETWORK_RELATIONSHIPS, NEVER_SHARED
 from tests.support import network_fixtures
 from tests.support.neo4j import read_tx, write_tx
 from tests.support.network_fixtures import NetApp, bearer, client_of, wall_bearer
@@ -262,7 +262,7 @@ async def test_no_network_route_answers_with_a_sentinel_a_patient_value_or_a_mem
     member = world.ids.members[0]
     network = world.ids.network
     # a screen set to the network, so the wall's own route has something to say
-    from diucs.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
+    from overwatch.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
 
     with bind_tenant(member):
         async with neo4j_uow_factory(world.driver)() as uow:

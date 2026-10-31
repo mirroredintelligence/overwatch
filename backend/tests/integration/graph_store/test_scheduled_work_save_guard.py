@@ -11,9 +11,9 @@ from datetime import UTC, datetime
 
 import pytest
 
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.scheduling import schedule_work
-from diucs.application.work import CANCELLED, DONE, SCHEDULED, ScheduledWork, WorkKind
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.scheduling import schedule_work
+from overwatch.application.work import CANCELLED, DONE, SCHEDULED, ScheduledWork, WorkKind
 from tests.support.relay_rig import ListIds
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")

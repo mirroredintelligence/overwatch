@@ -18,18 +18,18 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.application.tenancy import bind_tenant
-from diucs.application.use_cases.grants import (
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.application.tenancy import bind_tenant
+from overwatch.application.use_cases.grants import (
     ApproveGrantCommand,
     DeclineGrantCommand,
     EndGrantCommand,
     ProposeGrantCommand,
     ReviseGrantCommand,
 )
-from diucs.domain.errors import Conflict, InvalidTransition, NotFound
-from diucs.domain.model.network import GrantScope, GrantStatus
-from diucs.domain.rules.grant import is_effective
+from overwatch.domain.errors import Conflict, InvalidTransition, NotFound
+from overwatch.domain.model.network import GrantScope, GrantStatus
+from overwatch.domain.rules.grant import is_effective
 from tests.support.network_admin_rig import AdminRig
 from tests.support.network_world import world_ids
 from tests.support.tenancy import RunIdentity
@@ -107,7 +107,7 @@ async def test_the_two_approvals_make_the_grant_effective_and_each_step_is_recor
 
 async def test_one_person_gives_only_one_of_the_two_approvals(rig: AdminRig) -> None:
     """The member is its own network's owner for this one test: a grant of the owner's own."""
-    from diucs.domain.codes import Role
+    from overwatch.domain.codes import Role
     from tests.support.network_admin_fakes import person
 
     owner = rig.ids.owner
@@ -148,7 +148,7 @@ async def test_approving_twice_and_ending_twice_change_and_record_nothing_the_se
 async def test_the_grantor_alone_ends_a_grant_and_the_owner_and_others_cannot(
     rig: AdminRig,
 ) -> None:
-    from diucs.domain.errors import NotAllowed
+    from overwatch.domain.errors import NotAllowed
 
     gid = await _propose(rig)
     await _approve(rig, gid, owner=False)

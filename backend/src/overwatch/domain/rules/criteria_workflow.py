@@ -17,10 +17,10 @@ from datetime import date, datetime
 from types import MappingProxyType
 from typing import Final
 
-from diucs.domain.codes import CriteriaStatus
-from diucs.domain.errors import InvalidTransition, ValidationFailed
-from diucs.domain.model.criteria import ServiceCriteria
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
+from overwatch.domain.codes import CriteriaStatus
+from overwatch.domain.errors import InvalidTransition, ValidationFailed
+from overwatch.domain.model.criteria import ServiceCriteria
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
 
 # Alias of the default policy (TEN-064): the number is defined once, in tenant_policy.py.
 REVIEW_REMINDER_BEFORE: Final = DEFAULT_POLICY.criteria_reminder_before

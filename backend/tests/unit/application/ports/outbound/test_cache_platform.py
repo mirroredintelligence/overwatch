@@ -4,14 +4,14 @@ name needs no bound scope."""
 
 import pytest
 
-from diucs.application.ports.outbound.cache import (
+from overwatch.application.ports.outbound.cache import (
     PLATFORM_SEGMENT,
     names_for,
     platform_names,
     scope_segment,
 )
-from diucs.application.tenancy import ScopeId, bind_tenant, current_scope_or_none
-from diucs.domain.errors import ValidationFailed
+from overwatch.application.tenancy import ScopeId, bind_tenant, current_scope_or_none
+from overwatch.domain.errors import ValidationFailed
 
 
 def test_the_platform_segment_is_one_underscore() -> None:

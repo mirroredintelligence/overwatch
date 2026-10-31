@@ -8,7 +8,7 @@ from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from diucs.domain.model.tenant import (
+from overwatch.domain.model.tenant import (
     ContactKind,
     OrganisationType,
     RetentionClass,
@@ -17,7 +17,7 @@ from diucs.domain.model.tenant import (
     Tenant,
     TenantStatus,
 )
-from diucs.domain.rules.tenant_lifecycle import ActivationFacts
+from overwatch.domain.rules.tenant_lifecycle import ActivationFacts
 
 T0 = datetime(2026, 1, 5, 9, 0, tzinfo=UTC)
 SAMPLE_WORDING = {

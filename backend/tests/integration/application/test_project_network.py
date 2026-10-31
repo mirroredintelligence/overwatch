@@ -22,23 +22,23 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.network_registry import Neo4jNetworkRegistry
-from diucs.adapters.outbound.graph_store.unit_of_work import neo4j_uow_factory
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.tenancy import bind_network, bind_tenant
-from diucs.application.use_cases.apply_projection import ApplyOutcome, ApplyProjection
-from diucs.application.use_cases.project_network import ProjectNetwork
-from diucs.domain.events import ProjectionRejectReason, ProjectionRequested
-from diucs.domain.model.network import (
+from overwatch.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.network_registry import Neo4jNetworkRegistry
+from overwatch.adapters.outbound.graph_store.unit_of_work import neo4j_uow_factory
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.tenancy import bind_network, bind_tenant
+from overwatch.application.use_cases.apply_projection import ApplyOutcome, ApplyProjection
+from overwatch.application.use_cases.project_network import ProjectNetwork
+from overwatch.domain.events import ProjectionRejectReason, ProjectionRequested
+from overwatch.domain.model.network import (
     GrantScope,
     GrantStatus,
     ListingStatus,
     MembershipStatus,
 )
-from diucs.domain.rules import projection as allowlist
-from diucs.domain.rules.grant import end_grant
+from overwatch.domain.rules import projection as allowlist
+from overwatch.domain.rules.grant import end_grant
 from tests.support.neo4j import read_tx, wipe_tenant
 from tests.support.network_samples import (
     ACCOUNT_B,
@@ -244,8 +244,8 @@ async def test_a_suspended_listing_stops_new_projections(world: World) -> None:
     await world.admit()
     assert await world.project()
     listing = (await world.registry.listings_of(world.network, world.tenant))[0]
-    from diucs.domain.model.network import ListingReason
-    from diucs.domain.rules.listing import suspend_listing
+    from overwatch.domain.model.network import ListingReason
+    from overwatch.domain.rules.listing import suspend_listing
 
     suspended = suspend_listing(
         listing,

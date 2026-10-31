@@ -12,12 +12,12 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.actor import Actor
-from diucs.application.tenancy import ScopeId, TenantNotBound
-from diucs.application.use_cases import missed_report_ladder as ladder
-from diucs.application.use_cases.missed_report_ladder import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.actor import Actor
+from overwatch.application.tenancy import ScopeId, TenantNotBound
+from overwatch.application.use_cases import missed_report_ladder as ladder
+from overwatch.application.use_cases.missed_report_ladder import (
     LADDER_KINDS,
     REMINDER_REPLY_WINDOW,
     LadderStepCommand,
@@ -26,10 +26,10 @@ from diucs.application.use_cases.missed_report_ladder import (
     ladder_due,
     prompt_answered,
 )
-from diucs.application.work import SCHEDULED, ScheduledWork, WorkKind
-from diucs.domain.codes import Role
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.schedule import (
+from overwatch.application.work import SCHEDULED, ScheduledWork, WorkKind
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.schedule import (
     ESCALATE_AFTER,
     PHONE_TASK_AFTER,
     REMINDER_AFTER,
@@ -191,7 +191,7 @@ def _use_case(scope: ScopeId | None) -> MissedReportLadder:
         FixedClock(DUE),
         SequentialIds(),
         lambda repo: None,  # type: ignore[arg-type, return-value]
-        "diucs.example",
+        "overwatch.example",
         None,  # type: ignore[arg-type]
     )
 

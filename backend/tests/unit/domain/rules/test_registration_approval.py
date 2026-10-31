@@ -8,9 +8,9 @@ answer counts only from the registered phone hash or the registered app device. 
 
 import pytest
 
-from diucs.domain.codes import RegistrationStatus
-from diucs.domain.errors import InvalidTransition, NotAllowed, ValidationFailed
-from diucs.domain.rules.registration_approval import (
+from overwatch.domain.codes import RegistrationStatus
+from overwatch.domain.errors import InvalidTransition, NotAllowed, ValidationFailed
+from overwatch.domain.rules.registration_approval import (
     answers_the_test,
     check_note,
     may_set_live,

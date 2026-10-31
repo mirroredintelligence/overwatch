@@ -13,7 +13,7 @@ import { ScreenList } from './ScreenList';
 
 beforeEach(() => {
   resetLeadPosts();
-  document.cookie = 'diucs_csrf=csrf-token-1; path=/';
+  document.cookie = 'overwatch_csrf=csrf-token-1; path=/';
 });
 
 const rowOf = async (name: string) => (await screen.findByRole('row', { name: new RegExp(name) })) as HTMLElement;

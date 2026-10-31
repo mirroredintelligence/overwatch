@@ -11,26 +11,26 @@ from datetime import UTC, datetime, time
 
 import pytest
 
-from diucs.adapters.inbound.workers.alert_consumers import alert_runners
-from diucs.adapters.inbound.workers.outbox_relay import StaticTenants
-from diucs.adapters.outbound.bus_servicebus.service_bus import to_service_bus_message
-from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.alerts import AlertEvaluator
-from diucs.application.use_cases.notify_escalations import NotifyShiftLeads
-from diucs.domain.codes import (
+from overwatch.adapters.inbound.workers.alert_consumers import alert_runners
+from overwatch.adapters.inbound.workers.outbox_relay import StaticTenants
+from overwatch.adapters.outbound.bus_servicebus.service_bus import to_service_bus_message
+from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.alerts import AlertEvaluator
+from overwatch.application.use_cases.notify_escalations import NotifyShiftLeads
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     Measure,
     PractitionerRoleCode,
     ServiceCategory,
 )
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.servicebus import client, take_emulator_lock
 
 pytestmark = [

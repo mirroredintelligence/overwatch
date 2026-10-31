@@ -7,8 +7,8 @@ from typing import Any
 
 import pytest
 
-from diucs.application import projection as projection_module
-from diucs.application.projection import (
+from overwatch.application import projection as projection_module
+from overwatch.application.projection import (
     check_network_write_statement,
     format_window,
     from_body,
@@ -16,9 +16,9 @@ from diucs.application.projection import (
     to_body,
     to_rows,
 )
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.network import GrantScope
-from diucs.domain.rules import projection as domain_projection
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.network import GrantScope
+from overwatch.domain.rules import projection as domain_projection
 from tests.support.projection_samples import (
     sample_capacity_projection,
     sample_criteria_projection,

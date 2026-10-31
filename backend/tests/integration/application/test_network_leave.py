@@ -18,23 +18,23 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.unit_of_work import neo4j_uow_factory
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.ports.outbound.projection import ProjectionEndReason
-from diucs.application.tenancy import bind_tenant
-from diucs.application.use_cases.apply_projection import ApplyOutcome
-from diucs.application.use_cases.network_leave import EndProjections
-from diucs.application.use_cases.project_network import ProjectNetwork
-from diucs.application.use_cases.projection_boundaries import (
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.unit_of_work import neo4j_uow_factory
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.ports.outbound.projection import ProjectionEndReason
+from overwatch.application.tenancy import bind_tenant
+from overwatch.application.use_cases.apply_projection import ApplyOutcome
+from overwatch.application.use_cases.network_leave import EndProjections
+from overwatch.application.use_cases.project_network import ProjectNetwork
+from overwatch.application.use_cases.projection_boundaries import (
     RunProjectionHeartbeat,
     RunProjectionHeartbeatCommand,
     ensure_projection_schedule,
 )
-from diucs.application.use_cases.projection_reconcile import ReconcileProjection
-from diucs.application.work import WorkKind
-from diucs.domain.events import ProjectionRejectReason
-from diucs.domain.model.network import (
+from overwatch.application.use_cases.projection_reconcile import ReconcileProjection
+from overwatch.application.work import WorkKind
+from overwatch.domain.events import ProjectionRejectReason
+from overwatch.domain.model.network import (
     GrantEndReason,
     GrantScope,
     GrantStatus,
@@ -42,7 +42,7 @@ from diucs.domain.model.network import (
     MembershipStatus,
     end_membership,
 )
-from diucs.domain.rules.grant import end_grant, lapse_grants_for_member
+from overwatch.domain.rules.grant import end_grant, lapse_grants_for_member
 from tests.support.network_samples import ACCOUNT_B, NOW
 from tests.support.network_world import NetworkWorld, world_ids
 from tests.support.tenancy import RunIdentity
@@ -113,7 +113,7 @@ class _Rig:
 
 
 def _network_unit(world: NetworkWorld, *, read_only: bool = False) -> Any:
-    from diucs.adapters.outbound.graph_store.unit_of_work import Neo4jUnitOfWork
+    from overwatch.adapters.outbound.graph_store.unit_of_work import Neo4jUnitOfWork
 
     return Neo4jUnitOfWork(world.driver, read_only=read_only)
 

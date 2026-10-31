@@ -11,19 +11,19 @@ import pytest
 from azure.servicebus.aio import ServiceBusClient
 from azure.servicebus.exceptions import ServiceBusError
 
-from diucs.adapters.outbound.bus_servicebus.service_bus import (
+from overwatch.adapters.outbound.bus_servicebus.service_bus import (
     ServiceBusEventBus,
     is_unscheduled_cancel,
     to_service_bus_message,
 )
-from diucs.application.ports.outbound.event_bus import (
+from overwatch.application.ports.outbound.event_bus import (
     REASON_TENANT_MISSING,
     BusMessage,
     MessageTenantError,
     from_wire,
 )
-from diucs.application.tenancy import ScopeId, bind_scope, bind_tenant
-from diucs.domain.errors import ValidationFailed
+from overwatch.application.tenancy import ScopeId, bind_scope, bind_tenant
+from overwatch.domain.errors import ValidationFailed
 from tests.support.servicebus import EMULATOR_CONNECTION
 
 

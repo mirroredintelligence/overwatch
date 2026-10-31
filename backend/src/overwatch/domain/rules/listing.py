@@ -14,8 +14,8 @@ from enum import StrEnum
 from types import MappingProxyType
 from typing import Final
 
-from diucs.domain.errors import Conflict, InvalidTransition, NotAllowed, ValidationFailed
-from diucs.domain.model.network import (
+from overwatch.domain.errors import Conflict, InvalidTransition, NotAllowed, ValidationFailed
+from overwatch.domain.model.network import (
     ACCOUNT_REF_PATTERN,
     RECORD_ID_PATTERN,
     Grant,
@@ -28,7 +28,7 @@ from diucs.domain.model.network import (
     check_network_id,
     check_tenant_field,
 )
-from diucs.domain.rules.grant import is_effective, may_project
+from overwatch.domain.rules.grant import is_effective, may_project
 
 _L = ListingStatus
 

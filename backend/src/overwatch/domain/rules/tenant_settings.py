@@ -11,7 +11,8 @@ or an unlisted choice, and a contradictory set of thresholds are all `Validation
 setting changes only with two approvers who are not its author (the DEC-032 pattern); the
 approver check lives here as a pure function and the use case supplies the people.
 
-No error carries a value, a tenant, a name or a reference. Standard library and `diucs.domain` only.
+No error carries a value, a tenant, a name or a reference. Standard library and `overwatch.domain`
+only.
 """
 
 import dataclasses
@@ -23,9 +24,9 @@ from enum import StrEnum
 from types import MappingProxyType
 from typing import Any, Final, cast
 
-from diucs.domain.errors import NotAllowed, ValidationFailed
-from diucs.domain.messages.privacy_guard import find_patient_data
-from diucs.domain.model.tenant_policy import (
+from overwatch.domain.errors import NotAllowed, ValidationFailed
+from overwatch.domain.messages.privacy_guard import find_patient_data
+from overwatch.domain.model.tenant_policy import (
     ALERT_KIND_VALUES,
     ALERT_NOT_UPDATED_CHOICES,
     DEFAULT_POLICY,

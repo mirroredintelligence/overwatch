@@ -7,7 +7,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from diucs.domain.rules.reply_parser import (
+from overwatch.domain.rules.reply_parser import (
     SERVICE_LETTERS,
     BookingConfirm,
     BookingDecline,

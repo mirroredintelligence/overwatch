@@ -8,7 +8,7 @@ import { type LinkAnswered, parseLinkAnswered } from './model';
 // recorded. Sealed with the BFF's own secret as a short-lived token of its own kind (`typ`), so a session
 // cookie is not read as one and one is not read as a session. Nothing here is stored.
 
-const TYPE = 'diucs-link-thanks';
+const TYPE = 'overwatch-link-thanks';
 const ENCRYPTION = { alg: 'dir', enc: 'A256GCM', typ: TYPE } as const;
 const LIFETIME_SECONDS = 10 * 60;
 

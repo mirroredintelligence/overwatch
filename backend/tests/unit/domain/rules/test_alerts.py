@@ -1,4 +1,4 @@
-"""Tests for diucs.domain.rules.alerts: triggers, subscriptions, quiet hours, escalation (D24).
+"""Tests for overwatch.domain.rules.alerts: triggers, subscriptions, quiet hours, escalation (D24).
 
 Rule: docs/spec/domain-rules.md section 8, and the D24 prompt. Instants are written as London
 wall-clock times through london_to_utc, so each test reads as a London time in both seasons.
@@ -15,9 +15,9 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from diucs.domain.codes import AlertKind, Status
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.alerts import (
+from overwatch.domain.codes import AlertKind, Status
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.alerts import (
     ESCALATION_LADDER,
     Alert,
     AlertPreferences,
@@ -29,8 +29,8 @@ from diucs.domain.rules.alerts import (
     not_updated_alert_due,
     should_notify,
 )
-from diucs.domain.rules.london_time import london_to_utc, to_london
-from diucs.domain.rules.pressure import Pressure
+from overwatch.domain.rules.london_time import london_to_utc, to_london
+from overwatch.domain.rules.pressure import Pressure
 
 SERVICE: Final = "svc-0001"
 SUMMER: Final = date(2026, 7, 10)  # British Summer Time

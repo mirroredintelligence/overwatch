@@ -1,4 +1,4 @@
-"""Tests for diucs.domain.rules.freshness: overdue, data age and the stale warning (D05).
+"""Tests for overwatch.domain.rules.freshness: overdue, data age and the stale warning (D05).
 
 Rules: docs/spec/domain-rules.md 1.5 and the D05 prompt. The sample service is UCR West, Monday to
 Friday 08:00 to 20:00 London local, due every 2 hours. 2026-10-23 is a Friday in British summer
@@ -16,19 +16,19 @@ import pytest
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
-from diucs.domain.codes import Cadence, Channel, Measure, ServiceCategory
-from diucs.domain.model import tenant_policy
-from diucs.domain.model.service import AvailableTime, ServiceProfile
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
-from diucs.domain.rules import freshness as freshness_rules
-from diucs.domain.rules.freshness import (
+from overwatch.domain.codes import Cadence, Channel, Measure, ServiceCategory
+from overwatch.domain.model import tenant_policy
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
+from overwatch.domain.rules import freshness as freshness_rules
+from overwatch.domain.rules.freshness import (
     STALE_WARNING_AFTER,
     Freshness,
     assess_freshness,
     data_age_text,
 )
-from diucs.domain.rules.london_time import london_to_utc, to_london
-from diucs.domain.rules.schedule import due_times_on
+from overwatch.domain.rules.london_time import london_to_utc, to_london
+from overwatch.domain.rules.schedule import due_times_on
 from tests.support.policy_samples import policies, policy
 
 BST: Final = timezone(timedelta(hours=1))

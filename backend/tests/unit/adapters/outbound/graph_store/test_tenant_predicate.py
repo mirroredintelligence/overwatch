@@ -16,7 +16,7 @@ import re
 
 import pytest
 
-from diucs.adapters.outbound.graph_store.queries import (
+from overwatch.adapters.outbound.graph_store.queries import (
     REGISTRY,
     NamedQuery,
     QueryRegistry,
@@ -24,7 +24,7 @@ from diucs.adapters.outbound.graph_store.queries import (
     ScenarioMissing,
     TenantPredicateMissing,
 )
-from diucs.adapters.outbound.graph_store.scenario import Scenario
+from overwatch.adapters.outbound.graph_store.scenario import Scenario
 from tests.support.query_probes import production_statements
 
 SCENARIO = Scenario("placeholder: the registration check does not look inside it")
@@ -42,7 +42,7 @@ def test_the_registry_has_no_ratchet_and_no_way_to_list_an_excused_id() -> None:
 
 def test_the_unconverted_module_is_gone() -> None:
     with pytest.raises(ModuleNotFoundError):
-        importlib.import_module("diucs.adapters.outbound.graph_store.unconverted")
+        importlib.import_module("overwatch.adapters.outbound.graph_store.unconverted")
 
 
 def test_a_registry_refuses_a_keyword_that_would_excuse_an_id() -> None:

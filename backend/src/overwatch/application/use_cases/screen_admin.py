@@ -22,15 +22,15 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Final
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import ScopeKind, TenantNotBound
-from diucs.application.use_cases.lead_views import check_lead
-from diucs.application.use_cases.wall_board_scope import ADMIN_ROLES
-from diucs.domain.errors import NotAllowed, NotFound
-from diucs.domain.model.device import (
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeKind, TenantNotBound
+from overwatch.application.use_cases.lead_views import check_lead
+from overwatch.application.use_cases.wall_board_scope import ADMIN_ROLES
+from overwatch.domain.errors import NotAllowed, NotFound
+from overwatch.domain.model.device import (
     REVOKED_LISTED_FOR,
     BoardScope,
     Device,

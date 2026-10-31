@@ -9,11 +9,11 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.memory_event_bus import ManualEventBus
-from diucs.application.ports.outbound.event_bus import BusMessage, WireView
-from diucs.application.tenancy import bind_tenant
-from diucs.domain.errors import ValidationFailed
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.memory_event_bus import ManualEventBus
+from overwatch.application.ports.outbound.event_bus import BusMessage, WireView
+from overwatch.application.tenancy import bind_tenant
+from overwatch.domain.errors import ValidationFailed
 
 LONDON = ZoneInfo("Europe/London")
 NOW = datetime(2026, 10, 24, 14, 0, tzinfo=UTC)

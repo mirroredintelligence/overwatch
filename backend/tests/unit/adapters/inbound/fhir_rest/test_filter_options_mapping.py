@@ -10,16 +10,16 @@ a service phone (only a hash is stored), a coverage radius, travel legs and a ne
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from diucs.adapters.inbound.fhir_rest.case_mapping import filter_result_to_fhir
-from diucs.application.ports.outbound.geo import LatLon, TravelRange
-from diucs.application.use_cases.filter_options import (
+from overwatch.adapters.inbound.fhir_rest.case_mapping import filter_result_to_fhir
+from overwatch.application.ports.outbound.geo import LatLon, TravelRange
+from overwatch.application.use_cases.filter_options import (
     Coverage,
     FilterOptionsResult,
     NotSuitable,
     Option,
     TravelLeg,
 )
-from diucs.domain.codes import ServiceCategory, Status
+from overwatch.domain.codes import ServiceCategory, Status
 
 NOW = datetime(2026, 10, 23, 13, 13, tzinfo=UTC)
 SITE = LatLon(lat=50.73, lon=-2.45)

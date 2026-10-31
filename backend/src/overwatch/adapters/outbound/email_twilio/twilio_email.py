@@ -29,7 +29,7 @@ from typing import Any, Final
 
 import httpx
 
-from diucs.application.ports.outbound.messaging import (
+from overwatch.application.ports.outbound.messaging import (
     DeliveryUpdate,
     SendFailedError,
     SendReceipt,

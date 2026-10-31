@@ -18,18 +18,18 @@ from typing import Annotated, Any, Protocol, cast
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, Response
 
-from diucs.adapters.inbound.fhir_rest.errors import RateLimited, TemporarilyUnavailable
-from diucs.adapters.inbound.fhir_rest.host_tenant import bind_host_tenant
-from diucs.application.ports.outbound.cache import PlatformSlots
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.rate_limits import (
+from overwatch.adapters.inbound.fhir_rest.errors import RateLimited, TemporarilyUnavailable
+from overwatch.adapters.inbound.fhir_rest.host_tenant import bind_host_tenant
+from overwatch.application.ports.outbound.cache import PlatformSlots
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.rate_limits import (
     PUBLIC_KIND,
     PUBLIC_REQUESTS_PER_ADDRESS,
     PUBLIC_WINDOW,
     PlatformRateLimiter,
 )
-from diucs.application.use_cases.public_profile import ReadPublicProfile
-from diucs.domain.model.tenant import Tenant
+from overwatch.application.use_cases.public_profile import ReadPublicProfile
+from overwatch.domain.model.tenant import Tenant
 
 log = logging.getLogger(__name__)
 

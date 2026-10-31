@@ -17,25 +17,25 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.inbound.workers.message_senders import (
+from overwatch.adapters.inbound.workers.message_senders import (
     MESSAGES_TOPIC,
     SEND_MESSAGE_EVENT,
     SERVICE_SUSPENDED,
     EmailMessageSender,
     SmsMessageSender,
 )
-from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.recording_senders import RecordingEmailSender, RecordingSmsSender
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.ports.outbound.messaging import Communication, EmailSender, SmsSender
-from diucs.application.tenancy import ScopeId
-from diucs.domain.codes import Cadence, Channel, Measure, PractitionerRoleCode, ServiceCategory
-from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
-from diucs.domain.model.people import PractitionerRole
-from diucs.domain.model.service import AvailableTime, ServiceProfile
-from diucs.domain.model.tenant_records import TenantChannel
+from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.recording_senders import RecordingEmailSender, RecordingSmsSender
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.ports.outbound.messaging import Communication, EmailSender, SmsSender
+from overwatch.application.tenancy import ScopeId
+from overwatch.domain.codes import Cadence, Channel, Measure, PractitionerRoleCode, ServiceCategory
+from overwatch.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
+from overwatch.domain.model.people import PractitionerRole
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.model.tenant_records import TenantChannel
 from tests.support.tenancy import as_tenant
 
 SEALER = AesGcmContentSealer(

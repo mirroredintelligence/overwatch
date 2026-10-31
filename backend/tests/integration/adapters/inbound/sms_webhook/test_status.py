@@ -7,7 +7,7 @@ import json
 import pytest
 from httpx import AsyncClient
 
-from diucs.adapters.testing.memory_event_bus import ManualEventBus
+from overwatch.adapters.testing.memory_event_bus import ManualEventBus
 from tests.support.sms import (
     INTERNAL_STATUS_URL,
     SENDER_E164,
@@ -88,7 +88,9 @@ async def test_a_receipt_that_does_not_verify_is_refused_and_nothing_is_queued(
     signature = {
         "wrong-token": sign(STATUS_URL, params, TENANT_B.token),
         "no-header": None,
-        "reply-url": sign("https://diucs.example/webhooks/sms/twilio", params, TENANT_A.token),
+        "reply-url": sign(
+            "https://overwatch.mirroredintelligence.com/webhooks/sms/twilio", params, TENANT_A.token
+        ),
         "body-changed": sign(STATUS_URL, {**params, "MessageStatus": "failed"}, TENANT_A.token),
     }[case]
     headers = {} if signature is None else {"X-Twilio-Signature": signature}

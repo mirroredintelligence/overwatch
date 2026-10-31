@@ -11,20 +11,20 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.outbound.graph_store import driver as driver_module
-from diucs.adapters.outbound.graph_store.driver import (
+from overwatch.adapters.outbound.graph_store import driver as driver_module
+from overwatch.adapters.outbound.graph_store.driver import (
     ScopedTx,
     run_global_query,
     run_query,
     set_query_observer,
 )
-from diucs.adapters.outbound.graph_store.queries import (
+from overwatch.adapters.outbound.graph_store.queries import (
     BOTH_KINDS,
     NamedQuery,
     QueryRegistry,
     Scenario,
 )
-from diucs.application.tenancy import (
+from overwatch.application.tenancy import (
     GlobalStatementMisuse,
     RawTransactionRefused,
     ScopeId,

@@ -6,9 +6,9 @@ from typing import Any
 
 import pytest
 
-from diucs.application.tenancy import ScopeId, TenantNotBound, bind_scope, bind_tenant
-from diucs.application.use_cases.public_profile import DEFAULT_LOCALE, ReadPublicProfile
-from diucs.domain.model.tenant import (
+from overwatch.application.tenancy import ScopeId, TenantNotBound, bind_scope, bind_tenant
+from overwatch.application.use_cases.public_profile import DEFAULT_LOCALE, ReadPublicProfile
+from overwatch.domain.model.tenant import (
     ConfigStatus,
     ContactKind,
     TenantConfig,

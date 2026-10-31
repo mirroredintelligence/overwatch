@@ -15,16 +15,16 @@ from typing import Any
 
 import pytest
 
-from diucs.application.use_cases.registration_session import number_ending
-from diucs.application.work import SCHEDULED, ScheduledWork, WorkKind
-from diucs.domain.codes import (
+from overwatch.application.use_cases.registration_session import number_ending
+from overwatch.application.work import SCHEDULED, ScheduledWork, WorkKind
+from overwatch.domain.codes import (
     PractitionerRoleCode,
     RegistrationStatus,
     Role,
     ScopeFlag,
     ServiceCategory,
 )
-from diucs.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.model.people import Practitioner, PractitionerRole
 from tests.support.w7b_rig import (
     APPLICANT_ROLE,
     INVITEE,
@@ -248,7 +248,7 @@ async def test_the_status_of_another_persons_registration_is_a_404() -> None:
 
 
 def _second_registration(rig: Rig, status: RegistrationStatus, name: str, minutes: int) -> None:
-    from diucs.domain.model.registration import Registration, ScopeEntry
+    from overwatch.domain.model.registration import Registration, ScopeEntry
 
     held = rig.units.registrations.held[REGISTRATION]
     rig.units.registrations.held[f"reg-{name}"] = dataclasses.replace(
@@ -410,7 +410,7 @@ async def test_the_decision_names_what_is_missing_the_approvals_the_test_and_the
 
 
 async def test_a_decision_with_every_check_done_can_be_approved() -> None:
-    from diucs.domain.rules.registration import ApprovalChecks
+    from overwatch.domain.rules.registration import ApprovalChecks
 
     rig = _filled(RegistrationStatus.IN_REVIEW)
     held = rig.units.registrations.held[REGISTRATION]
@@ -594,8 +594,8 @@ async def test_a_failed_check_is_explained_and_a_check_that_passed_is_not() -> N
 
 
 async def test_an_address_lookup_gives_at_most_twenty_labels_and_never_the_postcode_back() -> None:
-    from diucs.adapters.testing.fixed_geo import FixedGeocoder
-    from diucs.application.ports.outbound.geo import AddressCandidate, LatLon
+    from overwatch.adapters.testing.fixed_geo import FixedGeocoder
+    from overwatch.application.ports.outbound.geo import AddressCandidate, LatLon
 
     rig = _filled(RegistrationStatus.DRAFT)
     candidates = [
@@ -628,7 +628,7 @@ async def test_a_postcode_that_is_not_one_is_a_400_and_an_unknown_one_is_an_empt
 
 
 async def test_a_lookup_that_cannot_answer_is_a_503_and_not_an_empty_list() -> None:
-    from diucs.application.ports.outbound.lookups import TransientLookupError
+    from overwatch.application.ports.outbound.lookups import TransientLookupError
 
     class _Down:
         async def find_addresses(self, postcode: str) -> list[Any]:

@@ -21,7 +21,7 @@ counts Cloudflare as one address (a shared bucket, never a bypass).
 
 `CLOUDFLARE_RANGES` is a snapshot of https://www.cloudflare.com/ips-v4 and /ips-v6 (taken
 2026-10-31). Cloudflare changes them rarely; the operator refreshes the list with the
-`DIUCS_EDGE_CLOUDFLARE_RANGES_FILE` setting (one range for each line), without a code change.
+`OVERWATCH_EDGE_CLOUDFLARE_RANGES_FILE` setting (one range for each line), without a code change.
 
 Pure ASGI: no framework, no store, no tenant. The secret is compared in constant time and never
 shown, logged or put in a message.
@@ -34,7 +34,7 @@ from collections.abc import Iterable, MutableMapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Final
 
-from diucs.application.ports.outbound.tenants import normalise_host
+from overwatch.application.ports.outbound.tenants import normalise_host
 
 log = logging.getLogger(__name__)
 

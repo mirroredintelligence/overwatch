@@ -10,9 +10,9 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from diucs.domain.codes import BestFitNotUsedReason, BookingStatus, ReportType
-from diucs.domain.errors import InvalidTransition, ValidationFailed
-from diucs.domain.rules.booking_state import (
+from overwatch.domain.codes import BestFitNotUsedReason, BookingStatus, ReportType
+from overwatch.domain.errors import InvalidTransition, ValidationFailed
+from overwatch.domain.rules.booking_state import (
     ALLOWED,
     FhirTaskStatus,
     allowed_targets,

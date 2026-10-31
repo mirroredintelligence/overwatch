@@ -15,9 +15,9 @@ from fastapi.responses import Response
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from diucs.adapters.inbound.fhir_rest.capability import FhirJSONResponse
-from diucs.adapters.inbound.fhir_rest.validation import ProfileRejected, issue_outcome
-from diucs.domain.errors import (
+from overwatch.adapters.inbound.fhir_rest.capability import FhirJSONResponse
+from overwatch.adapters.inbound.fhir_rest.validation import ProfileRejected, issue_outcome
+from overwatch.domain.errors import (
     Conflict,
     InvalidTransition,
     NotAllowed,

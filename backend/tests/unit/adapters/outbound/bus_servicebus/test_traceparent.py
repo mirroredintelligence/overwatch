@@ -6,11 +6,11 @@ from typing import Any
 
 from opentelemetry.sdk.trace import TracerProvider
 
-from diucs.adapters.outbound.bus_servicebus.service_bus import (
+from overwatch.adapters.outbound.bus_servicebus.service_bus import (
     ServiceBusEventBus,
     to_service_bus_message,
 )
-from diucs.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.ports.outbound.event_bus import BusMessage
 
 TRACEPARENT = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
 
@@ -58,7 +58,7 @@ def test_a_message_without_a_traceparent_has_no_such_property() -> None:
 
 async def test_publish_stamps_the_span_that_sends_the_message() -> None:
     provider = TracerProvider()
-    tracer = provider.get_tracer("diucs-test")
+    tracer = provider.get_tracer("overwatch-test")
     bus = _RecordingBus()
 
     with tracer.start_as_current_span("usecase.ReportCapacity") as span:
@@ -74,7 +74,7 @@ async def test_publish_keeps_a_traceparent_the_message_already_has() -> None:
     provider = TracerProvider()
     bus = _RecordingBus()
 
-    with provider.get_tracer("diucs-test").start_as_current_span("usecase.Relay"):
+    with provider.get_tracer("overwatch-test").start_as_current_span("usecase.Relay"):
         await bus.publish(_message(traceparent=TRACEPARENT))
 
     [sent] = bus.sender.sent

@@ -24,18 +24,18 @@ from typing import ClassVar, Final
 
 from azure.servicebus.aio import ServiceBusClient
 
-from diucs.adapters.inbound.workers.consumer import Outcome
-from diucs.adapters.inbound.workers.outbox_relay import ActiveTenants
-from diucs.adapters.inbound.workers.servicebus_runner import ServiceBusRunner
-from diucs.adapters.inbound.workers.tenant_binding import Observe, TenantBoundConsumer, untraced
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.ports.outbound.network import NetworkRegistry
-from diucs.application.tenancy import ScopeId, bind_scope, current_scope_or_none
-from diucs.application.use_cases.apply_projection import ApplyProjection, ProjectionMismatch
-from diucs.application.use_cases.project_network import ProjectNetwork
-from diucs.domain.errors import DomainError
-from diucs.domain.events import PROJECTION_WORK, ProjectionRequested
-from diucs.domain.model.network import GrantScope, NetworkStatus
+from overwatch.adapters.inbound.workers.consumer import Outcome
+from overwatch.adapters.inbound.workers.outbox_relay import ActiveTenants
+from overwatch.adapters.inbound.workers.servicebus_runner import ServiceBusRunner
+from overwatch.adapters.inbound.workers.tenant_binding import Observe, TenantBoundConsumer, untraced
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.ports.outbound.network import NetworkRegistry
+from overwatch.application.tenancy import ScopeId, bind_scope, current_scope_or_none
+from overwatch.application.use_cases.apply_projection import ApplyProjection, ProjectionMismatch
+from overwatch.application.use_cases.project_network import ProjectNetwork
+from overwatch.domain.errors import DomainError
+from overwatch.domain.events import PROJECTION_WORK, ProjectionRequested
+from overwatch.domain.model.network import GrantScope, NetworkStatus
 
 logger = logging.getLogger(__name__)
 

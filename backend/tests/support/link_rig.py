@@ -20,22 +20,22 @@ from zoneinfo import ZoneInfo
 
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.outbox import OutboxMessage
-from diucs.application.ports.outbound.tokens import (
+from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.outbox import OutboxMessage
+from overwatch.application.ports.outbound.tokens import (
     LINK_TOKEN_SECRET,
     LinkTokenRepository,
     LinkTokenService,
 )
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.uow_idempotency import UnitOfWorkIdempotency
-from diucs.application.use_cases.confirm_capacity import ConfirmCapacity, ConfirmCapacityCommand
-from diucs.application.use_cases.link_access import (
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.uow_idempotency import UnitOfWorkIdempotency
+from overwatch.application.use_cases.confirm_capacity import ConfirmCapacity, ConfirmCapacityCommand
+from overwatch.application.use_cases.link_access import (
     CAPACITY_PURPOSE,
     LINK_CSRF_SECRET,
     LINK_PROMPT_MESSAGES,
@@ -48,13 +48,13 @@ from diucs.application.use_cases.link_access import (
     ViewLink,
     ViewLinkQuery,
 )
-from diucs.application.use_cases.link_access import LinkAction as LinkAction
-from diucs.application.use_cases.report_capacity import ReportCapacity
-from diucs.domain.codes import ReportSource, Role
-from diucs.domain.model.service import ServiceProfile
-from diucs.domain.rules.london_time import LONDON
-from diucs.domain.rules.schedule import reply_by
-from diucs.domain.rules.tokens import hash_token
+from overwatch.application.use_cases.link_access import LinkAction as LinkAction
+from overwatch.application.use_cases.report_capacity import ReportCapacity
+from overwatch.domain.codes import ReportSource, Role
+from overwatch.domain.model.service import ServiceProfile
+from overwatch.domain.rules.london_time import LONDON
+from overwatch.domain.rules.schedule import reply_by
+from overwatch.domain.rules.tokens import hash_token
 from tests.support.actors import ACTOR_TENANT
 from tests.support.ladder_rig import (
     LINK_BASE,

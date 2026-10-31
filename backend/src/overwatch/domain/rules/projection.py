@@ -32,20 +32,20 @@ from enum import StrEnum
 from types import MappingProxyType
 from typing import Any, ClassVar, Final
 
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     Cadence,
     CriteriaStatus,
     Measure,
     NeedCategory,
     ServiceCategory,
 )
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.messages.privacy_guard import find_patient_data
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.criteria import ServiceCriteria
-from diucs.domain.model.network import DirectorySource
-from diucs.domain.model.service import ServiceProfile
-from diucs.domain.model.tenant_policy import (
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.messages.privacy_guard import find_patient_data
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.criteria import ServiceCriteria
+from overwatch.domain.model.network import DirectorySource
+from overwatch.domain.model.service import ServiceProfile
+from overwatch.domain.model.tenant_policy import (
     REPLY_WINDOW_MAX,
     REPLY_WINDOW_MIN,
     STALE_WARNING_MAX,
@@ -53,7 +53,11 @@ from diucs.domain.model.tenant_policy import (
     TenantPolicy,
     require_policy,
 )
-from diucs.domain.rules.postcode import normalise_district, normalise_postcode, postcode_district
+from overwatch.domain.rules.postcode import (
+    normalise_district,
+    normalise_postcode,
+    postcode_district,
+)
 
 PROJECTION_ALLOWLIST_VERSION: Final = 1
 

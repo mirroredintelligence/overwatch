@@ -19,16 +19,16 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.unit_of_work import Neo4jUnitOfWork
-from diucs.application.tenancy import (
+from overwatch.adapters.outbound.graph_store.unit_of_work import Neo4jUnitOfWork
+from overwatch.application.tenancy import (
     ReadOnlyUnitWrite,
     ScopeKindMismatch,
     bind_network,
     bind_tenant,
 )
-from diucs.domain.codes import Status
-from diucs.domain.rules.network_sample import READINGS, NetworkSample
-from diucs.domain.rules.pressure import Pressure
+from overwatch.domain.codes import Status
+from overwatch.domain.rules.network_sample import READINGS, NetworkSample
+from overwatch.domain.rules.pressure import Pressure
 from tests.support.neo4j import read_tx, write_tx
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")

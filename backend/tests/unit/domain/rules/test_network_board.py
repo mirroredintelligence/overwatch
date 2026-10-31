@@ -15,19 +15,19 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from diucs.domain.codes import Cadence, Measure, ServiceCategory, Status
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.network import DirectorySource, GrantScope, ListingStatus
-from diucs.domain.model.service import AvailableTime
-from diucs.domain.rules.listing import ListingPresentation
-from diucs.domain.rules.network_board import (
+from overwatch.domain.codes import Cadence, Measure, ServiceCategory, Status
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.network import DirectorySource, GrantScope, ListingStatus
+from overwatch.domain.model.service import AvailableTime
+from overwatch.domain.rules.listing import ListingPresentation
+from overwatch.domain.rules.network_board import (
     NetworkBoard,
     NetworkBoardEntry,
     NetworkServiceInput,
     assemble_network_board,
     network_pressure,
 )
-from diucs.domain.rules.pressure import Pressure
+from overwatch.domain.rules.pressure import Pressure
 from tests.support.projection_samples import (
     NOW,
     REPORTED_AT,

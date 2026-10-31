@@ -30,7 +30,7 @@ function post(body: unknown, headers: Record<string, string> = { Host: TENANT_HO
 }
 
 beforeEach(() => {
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
   resetCookieWrites();
   resetSeen();
 });

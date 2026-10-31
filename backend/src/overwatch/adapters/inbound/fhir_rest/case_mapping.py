@@ -21,10 +21,10 @@ A refusal names the part and never echoes its value: a score and an age band are
 from dataclasses import dataclass
 from typing import Any, Final
 
-from diucs.application.idempotency import format_instant
-from diucs.application.use_cases.case_summary import CaseSummary
-from diucs.application.use_cases.filter_options import FilterOptionsResult, Option
-from diucs.domain.codes import (
+from overwatch.application.idempotency import format_instant
+from overwatch.application.use_cases.case_summary import CaseSummary
+from overwatch.application.use_cases.filter_options import FilterOptionsResult, Option
+from overwatch.domain.codes import (
     BASE_URL,
     AcuityMethod,
     AgeBand,
@@ -33,9 +33,9 @@ from diucs.domain.codes import (
     Urgency,
     code_system_url,
 )
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.case import Case, priority_for
-from diucs.domain.model.scores import (
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.case import Case, priority_for
+from overwatch.domain.model.scores import (
     AmbulanceCategory,
     ClinicalFrailty,
     ManchesterTriage,

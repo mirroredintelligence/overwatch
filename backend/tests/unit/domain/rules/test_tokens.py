@@ -1,4 +1,4 @@
-"""Tests for diucs.domain.rules.tokens: link tokens, pairing codes and support codes (D26).
+"""Tests for overwatch.domain.rules.tokens: link tokens, pairing codes and support codes (D26).
 
 Rule: docs/spec/domain-rules.md section 7, and the D26 prompt. Pure: randomness is injected and
 time is an argument, so every test is deterministic. Errors must never echo a token or a code;
@@ -17,8 +17,8 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.tokens import (
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.tokens import (
     PAIRING_CODE_VALID_FOR,
     SUPPORT_CODE_ALPHABET,
     LinkCheck,

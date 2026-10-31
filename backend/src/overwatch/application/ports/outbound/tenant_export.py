@@ -22,7 +22,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from diucs.application.tenancy import ScopeId
+from overwatch.application.tenancy import ScopeId
 
 
 @dataclass(frozen=True, slots=True)

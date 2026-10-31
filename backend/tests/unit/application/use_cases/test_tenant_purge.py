@@ -12,14 +12,14 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.recording_platform_audit import RecordingPlatformAudit
-from diucs.application.ports.outbound.tenant_export import AuditHeadState, LabelCount
-from diucs.application.tenancy import ScopeId, TenantMismatch, bind_tenant
-from diucs.application.use_cases.tenant_purge import PurgeTenant, PurgeTenantCommand
-from diucs.domain.codes import Role
-from diucs.domain.errors import Conflict, NotAllowed, NotFound
-from diucs.domain.model.tenant import TenantStatus
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.recording_platform_audit import RecordingPlatformAudit
+from overwatch.application.ports.outbound.tenant_export import AuditHeadState, LabelCount
+from overwatch.application.tenancy import ScopeId, TenantMismatch, bind_tenant
+from overwatch.application.use_cases.tenant_purge import PurgeTenant, PurgeTenantCommand
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound
+from overwatch.domain.model.tenant import TenantStatus
 from tests.support.network_admin_fakes import person
 from tests.support.provisioning_fakes import FakePlatform, provisioning_tenant
 
@@ -97,7 +97,7 @@ class _Rig:
         if status is TenantStatus.PURGED:
             base["purged_at"] = NOW - timedelta(days=1)
         if status is TenantStatus.SUSPENDED:
-            from diucs.domain.model.tenant import SuspendMode, SuspendReason
+            from overwatch.domain.model.tenant import SuspendMode, SuspendReason
 
             base.update(
                 suspended_at=NOW - timedelta(days=1),

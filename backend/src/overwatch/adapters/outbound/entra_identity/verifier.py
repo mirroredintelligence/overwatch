@@ -34,12 +34,12 @@ import jwt
 from jwt import PyJWK, PyJWKSet
 from jwt.exceptions import InvalidTokenError
 
-from diucs.application.ports.outbound.identity_verifier import (
+from overwatch.application.ports.outbound.identity_verifier import (
     Audience,
     IdentityRejected,
     VerifiedIdentity,
 )
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.errors import ValidationFailed
 
 AUTHORITY: Final = "https://login.microsoftonline.com"
 COMMON_KEYS_URL: Final = f"{AUTHORITY}/common/discovery/v2.0/keys"

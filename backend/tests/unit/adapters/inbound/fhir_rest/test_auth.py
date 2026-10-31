@@ -10,7 +10,7 @@ import pytest
 from fhir.resources.R4B.patient import Patient
 from fhir.resources.R4B.task import Task
 
-from diucs.adapters.inbound.fhir_rest.auth import (
+from overwatch.adapters.inbound.fhir_rest.auth import (
     PATIENT_ROLES,
     PROJECTIONS,
     ProjectionRegistry,
@@ -18,10 +18,10 @@ from diucs.adapters.inbound.fhir_rest.auth import (
     ensure_can_act_for,
     ensure_patient_access,
 )
-from diucs.application.actor import Actor
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotAllowed
-from diucs.domain.rules.bff_token import BffClaims
+from overwatch.application.actor import Actor
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotAllowed
+from overwatch.domain.rules.bff_token import BffClaims
 
 EXPIRES = datetime(2026, 10, 24, 13, 12, tzinfo=UTC)
 REDACTED_SYSTEM = "http://terminology.hl7.org/CodeSystem/v3-ObservationValue"
@@ -189,7 +189,10 @@ def test_a_reporter_does_not_see_the_message_id_or_the_acknowledgement_of_a_book
         return {
             "type": {
                 "coding": [
-                    {"system": "https://diucs.example/CodeSystem/booking-output-type", "code": code}
+                    {
+                        "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
+                        "code": code,
+                    }
                 ]
             },
             "valueString": value,

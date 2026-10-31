@@ -10,7 +10,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from diucs.application.use_cases.pin import (
+from overwatch.application.use_cases.pin import (
     PIN_HMAC_SECRET,
     PIN_SET_WINDOW,
     RATE_WINDOW,
@@ -27,10 +27,10 @@ from diucs.application.use_cases.pin import (
     session_role,
     verification_is_fresh,
 )
-from diucs.domain.codes import PractitionerRoleCode, Role
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.people import PractitionerRole
-from diucs.domain.rules.identity_policy import PIN_MAX_TRIES, REVERIFY_EVERY
+from overwatch.domain.codes import PractitionerRoleCode, Role
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.people import PractitionerRole
+from overwatch.domain.rules.identity_policy import PIN_MAX_TRIES, REVERIFY_EVERY
 
 NOW = datetime(2026, 10, 29, 14, 0, tzinfo=UTC)
 SECRET = b"pin-hmac-test-secret-0123456789abcdef"

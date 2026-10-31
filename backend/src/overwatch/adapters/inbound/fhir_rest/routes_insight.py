@@ -20,23 +20,23 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
-from diucs.adapters.inbound.fhir_rest.app import get_container
-from diucs.adapters.inbound.fhir_rest.auth import current_actor, require_role
-from diucs.adapters.inbound.fhir_rest.errors import operation_outcome
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.identity import secret_is_configured
-from diucs.application.ports.outbound.tokens import SecretStore
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.browser_insight import (
+from overwatch.adapters.inbound.fhir_rest.app import get_container
+from overwatch.adapters.inbound.fhir_rest.auth import current_actor, require_role
+from overwatch.adapters.inbound.fhir_rest.errors import operation_outcome
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.identity import secret_is_configured
+from overwatch.application.ports.outbound.tokens import SecretStore
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.browser_insight import (
     ReadInsightTab,
     RecordBrowserEvents,
     ReleasesView,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.browser_insight import MARKER_SECRET, MAX_BATCH_EVENTS
-from diucs.domain.rules.insight_views import (
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.browser_insight import MARKER_SECRET, MAX_BATCH_EVENTS
+from overwatch.domain.rules.insight_views import (
     FrictionTable,
     FunnelView,
     PathsView,

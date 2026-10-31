@@ -17,20 +17,20 @@ from typing import Annotated, Any, Final, Protocol, cast
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response
 
-from diucs.adapters.inbound.fhir_rest.app import get_container
-from diucs.adapters.inbound.fhir_rest.auth import require_role
-from diucs.adapters.inbound.fhir_rest.capability import FhirJSONResponse
-from diucs.adapters.inbound.fhir_rest.routes_registration import NO_STORE
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.criteria_views import (
+from overwatch.adapters.inbound.fhir_rest.app import get_container
+from overwatch.adapters.inbound.fhir_rest.auth import require_role
+from overwatch.adapters.inbound.fhir_rest.capability import FhirJSONResponse
+from overwatch.adapters.inbound.fhir_rest.routes_registration import NO_STORE
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.criteria_views import (
     GetCriteriaOverview,
     GetPendingChange,
     VersionView,
 )
-from diucs.domain.codes import NeedCategory, Role, display
-from diucs.domain.model.criteria import ServiceCriteria
+from overwatch.domain.codes import NeedCategory, Role, display
+from overwatch.domain.model.criteria import ServiceCriteria
 
 router = APIRouter()
 

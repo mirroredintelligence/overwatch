@@ -14,7 +14,7 @@ vi.mock('next/headers', async () => {
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', 'http://backend.test/fhir');
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', 'http://backend.test/fhir');
   resetCookieWrites();
   cookiesMock.mockClear();
 });

@@ -15,9 +15,9 @@ from typing import Any, Final
 from fastapi import FastAPI
 from fastapi.routing import APIRoute, _IncludedRouter
 
-from diucs.application.network_access import NETWORK_VIEW_ROLES
-from diucs.application.use_cases.network_week_summary import READERS
-from diucs.domain.codes import Role
+from overwatch.application.network_access import NETWORK_VIEW_ROLES
+from overwatch.application.use_cases.network_week_summary import READERS
+from overwatch.domain.codes import Role
 
 
 @dataclass(frozen=True, slots=True)

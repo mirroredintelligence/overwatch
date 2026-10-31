@@ -10,16 +10,16 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.outbox import PENDING, OutboxMessage
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import bind_tenant
-from diucs.application.use_cases.browser_insight import ReadInsightTab, RecordBrowserEvents
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotAllowed, NotFound, ValidationFailed
-from diucs.domain.rules.browser_insight import MARKER_SECRET
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.outbox import PENDING, OutboxMessage
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import bind_tenant
+from overwatch.application.use_cases.browser_insight import ReadInsightTab, RecordBrowserEvents
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.rules.browser_insight import MARKER_SECRET
 from tests.support.neo4j import count_nodes, node_props, read_tx
 from tests.support.tenancy import RunIdentity
 from tests.support.uow import tenant_uow_factory

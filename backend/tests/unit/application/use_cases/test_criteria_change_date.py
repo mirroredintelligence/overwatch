@@ -6,14 +6,18 @@ from datetime import UTC, date, datetime
 
 import pytest
 
-from diucs.adapters.outbound.graph_store.criteria_repository import (
+from overwatch.adapters.outbound.graph_store.criteria_repository import (
     criteria_from_fhir,
     criteria_to_fhir,
 )
-from diucs.application.use_cases.criteria import CriteriaValues, approved_versions, pending_version
-from diucs.domain.codes import CriteriaStatus, NeedCategory
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.criteria import ServiceCriteria
+from overwatch.application.use_cases.criteria import (
+    CriteriaValues,
+    approved_versions,
+    pending_version,
+)
+from overwatch.domain.codes import CriteriaStatus, NeedCategory
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.criteria import ServiceCriteria
 
 CURRENT = ServiceCriteria(
     id="crit-2",

@@ -18,7 +18,7 @@ from statistics import median
 from types import MappingProxyType
 from typing import Final
 
-from diucs.domain.model.telemetry_aggregates import (
+from overwatch.domain.model.telemetry_aggregates import (
     ElementUsageDailyRow,
     FrictionDailyRow,
     FunnelDailyRow,

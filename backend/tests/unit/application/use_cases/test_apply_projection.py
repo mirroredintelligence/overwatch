@@ -15,30 +15,30 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.ports.outbound.network import ActiveGrant, RegisteredNetwork
-from diucs.application.ports.outbound.projection import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.ports.outbound.network import ActiveGrant, RegisteredNetwork
+from overwatch.application.ports.outbound.projection import (
     ProjectionEndReason,
     SourceState,
     SourceStatus,
 )
-from diucs.application.projection import to_body
-from diucs.application.tenancy import ScopeId, bind_network, bind_tenant
-from diucs.application.use_cases.apply_projection import (
+from overwatch.application.projection import to_body
+from overwatch.application.tenancy import ScopeId, bind_network, bind_tenant
+from overwatch.application.use_cases.apply_projection import (
     ApplyOutcome,
     ApplyProjection,
     ApplyResult,
     ApplyUnitReadOnly,
     ProjectionMismatch,
 )
-from diucs.domain.events import (
+from overwatch.domain.events import (
     ProjectionApplied,
     ProjectionRejected,
     ProjectionRejectReason,
     ProjectionRequested,
 )
-from diucs.domain.model.network import GrantScope, ListingStatus, MembershipStatus
-from diucs.domain.rules.projection import PROJECTION_ALLOWLIST_VERSION
+from overwatch.domain.model.network import GrantScope, ListingStatus, MembershipStatus
+from overwatch.domain.rules.projection import PROJECTION_ALLOWLIST_VERSION
 from tests.support.network_samples import (
     MEMBER_B,
     NETWORK_ID,

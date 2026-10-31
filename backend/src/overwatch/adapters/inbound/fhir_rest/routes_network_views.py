@@ -23,27 +23,27 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 
-from diucs.adapters.inbound.fhir_rest.auth import require_role
-from diucs.adapters.inbound.fhir_rest.routes_network import (
+from overwatch.adapters.inbound.fhir_rest.auth import require_role
+from overwatch.adapters.inbound.fhir_rest.routes_network import (
     NO_STORE,
     NetworkId,
     NetworkViewer,
     ensure_in_claim,
     network_services,
 )
-from diucs.application.actor import Actor
-from diucs.application.use_cases.network_lead_views import (
+from overwatch.application.actor import Actor
+from overwatch.application.use_cases.network_lead_views import (
     NetworkPhones,
     NetworkSystemNow,
     QueryPhones,
     QuerySystemNow,
 )
-from diucs.application.use_cases.network_week_summary import (
+from overwatch.application.use_cases.network_week_summary import (
     READERS,
     NetworkWeekSummary,
 )
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.network_sample import WeekMeasure
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.network_sample import WeekMeasure
 
 router = APIRouter()
 WeekReader = Annotated[Actor, Depends(require_role(*sorted(READERS)))]

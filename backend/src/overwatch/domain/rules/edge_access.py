@@ -18,9 +18,9 @@ is refused. TEN-073 owns the suspend use case and may widen what a read-only sus
 from enum import StrEnum
 from typing import Final
 
-from diucs.domain.codes import Role
-from diucs.domain.model.tenant import SuspendMode, Tenant, TenantStatus
-from diucs.domain.rules.bff_token import EPOCH_MAX
+from overwatch.domain.codes import Role
+from overwatch.domain.model.tenant import SuspendMode, Tenant, TenantStatus
+from overwatch.domain.rules.bff_token import EPOCH_MAX
 
 
 class EdgeVerdict(StrEnum):

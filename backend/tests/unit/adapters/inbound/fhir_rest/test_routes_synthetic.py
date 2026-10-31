@@ -11,13 +11,13 @@ import pytest
 from fastapi.testclient import TestClient
 from httpx import Response
 
-from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.inbound.fhir_rest.routes_synthetic import SyntheticHook
-from diucs.application.tenancy import current_tenant
+from overwatch.adapters.inbound.fhir_rest.app import create_app
+from overwatch.adapters.inbound.fhir_rest.routes_synthetic import SyntheticHook
+from overwatch.application.tenancy import current_tenant
 
 TOKEN = "test-only-hook-token-0123456789"
 TENANT = "synthetic"
-LINK = "https://diucs.example/l/SyntheticLinkTokenAbcdefghijk"
+LINK = "https://overwatch.mirroredintelligence.com/l/SyntheticLinkTokenAbcdefghijk"
 PATH = "/test/synthetic/prompt"
 
 

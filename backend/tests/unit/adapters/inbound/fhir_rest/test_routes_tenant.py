@@ -19,21 +19,21 @@ from typing import Any
 import pytest
 from httpx import AsyncClient
 
-from diucs.adapters.inbound.fhir_rest.routes_tenant import setting_from_json, setting_to_json
-from diucs.application.use_cases.cross_tenant_tickets import RequestTicketCommand
-from diucs.application.use_cases.tenant_admin_views import (
+from overwatch.adapters.inbound.fhir_rest.routes_tenant import setting_from_json, setting_to_json
+from overwatch.application.use_cases.cross_tenant_tickets import RequestTicketCommand
+from overwatch.application.use_cases.tenant_admin_views import (
     AccessLogEntry,
     ConfigVersionView,
     TenantOverview,
 )
-from diucs.application.use_cases.tenant_config import (
+from overwatch.application.use_cases.tenant_config import (
     ApproveConfigResult,
     ConfigDiff,
     DraftConfigResult,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import Conflict, NotAllowed, ValidationFailed
-from diucs.domain.model.tenant import (
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import Conflict, NotAllowed, ValidationFailed
+from overwatch.domain.model.tenant import (
     ConfigStatus,
     ContactKind,
     NumberStatus,
@@ -43,7 +43,7 @@ from diucs.domain.model.tenant import (
     TenantContact,
     TenantStatus,
 )
-from diucs.domain.model.tenant_records import (
+from overwatch.domain.model.tenant_records import (
     BindingStatus,
     ChannelKind,
     ChannelProvider,
@@ -53,8 +53,8 @@ from diucs.domain.model.tenant_records import (
     TenantChannel,
     default_retention,
 )
-from diucs.domain.rules.support_ticket import ReasonCode, TicketState
-from diucs.domain.rules.tenant_settings import SETTING_SPECS, spec_for
+from overwatch.domain.rules.support_ticket import ReasonCode, TicketState
+from overwatch.domain.rules.tenant_settings import SETTING_SPECS, spec_for
 from tests.support.platform_routes_rig import (
     JSON,
     NOW,

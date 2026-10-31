@@ -5,7 +5,8 @@ role becomes the record's org_type). A code not in it is None. An inactive recor
 stored: the caller checks `active`. The live ODS service is an open decision (ods_http.py).
 
 Display names come from the FHIR CodeSystem files in `terminology/codesystems/`, generated from
-diucs.domain.codes by backend/scripts/export_codesystems.py and committed. A system or code not in
+overwatch.domain.codes by backend/scripts/export_codesystems.py and committed. A system or code not
+in
 them has no display. Errors name the field or the file and never a value (DEC-047).
 """
 
@@ -13,9 +14,9 @@ import json
 from pathlib import Path
 from typing import Any, Final
 
-from diucs.adapters.outbound.terminology.pathways_dx_file import PathwaysDxFile
-from diucs.application.ports.outbound.terminology import OdsRecord
-from diucs.domain.errors import ValidationFailed
+from overwatch.adapters.outbound.terminology.pathways_dx_file import PathwaysDxFile
+from overwatch.application.ports.outbound.terminology import OdsRecord
+from overwatch.domain.errors import ValidationFailed
 
 ODS_FILE: Final = "ods_sample.json"
 CODESYSTEMS_DIR: Final = "codesystems"

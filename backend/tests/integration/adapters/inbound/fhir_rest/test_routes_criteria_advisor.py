@@ -9,7 +9,7 @@ The second tenant's advisor sees no history for the same service id. Sample valu
 import pytest
 from httpx import AsyncClient
 
-from diucs.domain.codes import Role
+from overwatch.domain.codes import Role
 from tests.integration.adapters.inbound.fhir_rest.test_routes_criteria import (
     OWNER,
     SERVICE,

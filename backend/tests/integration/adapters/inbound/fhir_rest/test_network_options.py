@@ -23,38 +23,38 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from neo4j import AsyncDriver
 
-from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
-from diucs.adapters.inbound.fhir_rest.routes_network import NetworkServices
-from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
-from diucs.adapters.outbound.cache_redis.redis_cache import RedisCache
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.unit_of_work import (
+from overwatch.adapters.inbound.fhir_rest.app import create_app
+from overwatch.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from overwatch.adapters.inbound.fhir_rest.routes_network import NetworkServices
+from overwatch.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
+from overwatch.adapters.outbound.cache_redis.redis_cache import RedisCache
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.unit_of_work import (
     neo4j_network_uow_factory,
     neo4j_uow_factory,
 )
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_geo import FixedPostcodeLocator, FixedTravelTime
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
-from diucs.application.network_access import NetworkAccess
-from diucs.application.ports.outbound.geo import LatLon, TravelRange
-from diucs.application.projection import to_body
-from diucs.application.tenancy import bind_network, bind_tenant
-from diucs.application.use_cases.filter_network_options import FilterNetworkOptions
-from diucs.application.use_cases.network_board_projector import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_geo import FixedPostcodeLocator, FixedTravelTime
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
+from overwatch.application.network_access import NetworkAccess
+from overwatch.application.ports.outbound.geo import LatLon, TravelRange
+from overwatch.application.projection import to_body
+from overwatch.application.tenancy import bind_network, bind_tenant
+from overwatch.application.use_cases.filter_network_options import FilterNetworkOptions
+from overwatch.application.use_cases.network_board_projector import (
     NETWORK_BOARD_CACHE_KEY,
     NetworkBoardProjector,
 )
-from diucs.application.use_cases.query_network_board import QueryNetworkBoard
-from diucs.application.use_cases.query_network_directory import (
+from overwatch.application.use_cases.query_network_board import QueryNetworkBoard
+from overwatch.application.use_cases.query_network_directory import (
     QueryNetworkCriteria,
     QueryNetworkDirectory,
 )
-from diucs.domain.codes import AgeBand, NeedCategory, Role
-from diucs.domain.events import ProjectionRequested
-from diucs.domain.model.network import GrantScope
-from diucs.domain.rules.projection import PROJECTION_ALLOWLIST_VERSION
+from overwatch.domain.codes import AgeBand, NeedCategory, Role
+from overwatch.domain.events import ProjectionRequested
+from overwatch.domain.model.network import GrantScope
+from overwatch.domain.rules.projection import PROJECTION_ALLOWLIST_VERSION
 from tests.support.booking_rig import open_case
 from tests.support.edge import EdgeContainer, active_tenants
 from tests.support.network_world import NetworkWorld, world_ids
@@ -461,6 +461,6 @@ async def test_a_process_with_no_options_service_fails_closed(
 
 
 def _outcome() -> Any:
-    from diucs.domain.codes import Outcome
+    from overwatch.domain.codes import Outcome
 
     return Outcome.NO_SERVICE_FITS

@@ -17,25 +17,25 @@ from typing import Any, Self
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.actor import Actor
-from diucs.application.tenancy import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.actor import Actor
+from overwatch.application.tenancy import (
     ScopeId,
     TenantMismatch,
     TenantNotBound,
     bind_scope,
     bind_tenant,
 )
-from diucs.application.use_cases.report_capacity import (
+from overwatch.application.use_cases.report_capacity import (
     PERFORMER_NOT_FOUND,
     ReportCapacity,
     ReportCapacityCommand,
     _fingerprint,
     check_performer,
 )
-from diucs.application.use_cases.report_flags import LOOKBACK, report_lookback
-from diucs.domain.codes import (
+from overwatch.application.use_cases.report_flags import LOOKBACK, report_lookback
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     Measure,
@@ -44,11 +44,11 @@ from diucs.domain.codes import (
     Role,
     ServiceCategory,
 )
-from diucs.domain.errors import NotAllowed, NotFound
-from diucs.domain.model.people import PractitionerRole
-from diucs.domain.model.service import AvailableTime, ServiceProfile
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY
-from diucs.domain.rules.report_flags import MANY_CHANGES_WINDOW, PHONED_WINDOW
+from overwatch.domain.errors import NotAllowed, NotFound
+from overwatch.domain.model.people import PractitionerRole
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY
+from overwatch.domain.rules.report_flags import MANY_CHANGES_WINDOW, PHONED_WINDOW
 
 NOW = datetime(2026, 10, 23, 13, 12, tzinfo=UTC)
 TENANT_A = "tenant-a"

@@ -8,15 +8,15 @@ from datetime import UTC, datetime
 
 import pytest
 
-from diucs.adapters.testing.tokens import (
+from overwatch.adapters.testing.tokens import (
     SAMPLE_TENANT,
     TEST_BFF_SECRET,
     TEST_TENANT_ENV,
     default_token_tenant,
     issue_test_token,
 )
-from diucs.domain.codes import Role
-from diucs.domain.rules.bff_token import decode_bff_token
+from overwatch.domain.codes import Role
+from overwatch.domain.rules.bff_token import decode_bff_token
 
 NOW = datetime(2026, 10, 23, 13, 12, tzinfo=UTC)
 
@@ -70,9 +70,9 @@ def test_a_device_still_rides_along() -> None:
 
 
 def test_a_test_token_can_carry_the_networks_claim() -> None:
-    from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
-    from diucs.domain.codes import Role
-    from diucs.domain.rules.bff_token import decode_bff_token
+    from overwatch.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
+    from overwatch.domain.codes import Role
+    from overwatch.domain.rules.bff_token import decode_bff_token
 
     token = issue_test_token(Role.ADVISOR, [], "prac-1", tenant="tenant-a", networks=("net-pilot",))
     claims = decode_bff_token(token, TEST_BFF_SECRET, datetime(2026, 10, 23, 13, 12, tzinfo=UTC))

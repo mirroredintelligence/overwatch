@@ -43,17 +43,17 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
-from diucs.adapters.inbound.fhir_rest import routes_bookings
-from diucs.adapters.inbound.fhir_rest.app import get_container
-from diucs.adapters.inbound.fhir_rest.auth import current_actor, require_role
-from diucs.adapters.inbound.fhir_rest.capability import FhirJSONResponse
-from diucs.adapters.inbound.fhir_rest.clinical_mapping import (
+from overwatch.adapters.inbound.fhir_rest import routes_bookings
+from overwatch.adapters.inbound.fhir_rest.app import get_container
+from overwatch.adapters.inbound.fhir_rest.auth import current_actor, require_role
+from overwatch.adapters.inbound.fhir_rest.capability import FhirJSONResponse
+from overwatch.adapters.inbound.fhir_rest.clinical_mapping import (
     clinical_task,
     contact_json,
     seen_json,
 )
-from diucs.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
-from diucs.adapters.inbound.fhir_rest.parameters import (
+from overwatch.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
+from overwatch.adapters.inbound.fhir_rest.parameters import (
     PARAMETERS,
     enum_value,
     index_parameters,
@@ -62,16 +62,16 @@ from diucs.adapters.inbound.fhir_rest.parameters import (
     single,
     text,
 )
-from diucs.adapters.inbound.fhir_rest.routes_alerts import alert_list
-from diucs.adapters.inbound.fhir_rest.subscription_mapping import ALERT_CODE
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.cache import Cache
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.sealing import ContentSealer
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.uow_idempotency import UnitOfWorkIdempotency
-from diucs.application.use_cases.clinical_advice import (
+from overwatch.adapters.inbound.fhir_rest.routes_alerts import alert_list
+from overwatch.adapters.inbound.fhir_rest.subscription_mapping import ALERT_CODE
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.cache import Cache
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.sealing import ContentSealer
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.uow_idempotency import UnitOfWorkIdempotency
+from overwatch.application.use_cases.clinical_advice import (
     ADVICE_CHOICES,
     ADVICE_REASONS,
     LIST_DONE,
@@ -91,17 +91,17 @@ from diucs.application.use_cases.clinical_advice import (
     TakeClinicalRequest,
     TakeClinicalRequestCommand,
 )
-from diucs.application.use_cases.clinical_context import ReadAdvisorContact, ReadWhatAdvisorSaw
-from diucs.application.use_cases.safety_concern import (
+from overwatch.application.use_cases.clinical_context import ReadAdvisorContact, ReadWhatAdvisorSaw
+from overwatch.application.use_cases.safety_concern import (
     ReportProblem,
     ReportProblemCommand,
     ReportSafetyConcern,
     ReportSafetyConcernCommand,
 )
-from diucs.domain.codes import Role, code_system_url
-from diucs.domain.errors import NotAllowed, ValidationFailed
-from diucs.domain.rules.clinical_queue import Presence
-from diucs.domain.rules.safety_report import (
+from overwatch.domain.codes import Role, code_system_url
+from overwatch.domain.errors import NotAllowed, ValidationFailed
+from overwatch.domain.rules.clinical_queue import Presence
+from overwatch.domain.rules.safety_report import (
     MAX_TEXT_LENGTH,
     ProblemCategory,
     SafetyConcernCategory,

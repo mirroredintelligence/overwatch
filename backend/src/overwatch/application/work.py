@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.errors import ValidationFailed
 
 
 class WorkKind(StrEnum):

@@ -7,8 +7,8 @@ answered, declined or otherwise final does nothing, and so silence is never acce
 
 from enum import StrEnum
 
-from diucs.domain.codes import BookingStatus
-from diucs.domain.rules.booking_state import is_open
+from overwatch.domain.codes import BookingStatus
+from overwatch.domain.rules.booking_state import is_open
 
 
 class TimerEffect(StrEnum):

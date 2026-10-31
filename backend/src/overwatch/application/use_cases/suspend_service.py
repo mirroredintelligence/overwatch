@@ -23,30 +23,30 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Final
 
-from diucs.application.actor import Actor
-from diucs.application.booking_effects import cancel_booking_timers, expired, text_reporter_role
-from diucs.application.idempotency import IdempotencyStore, format_instant
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.outbox import outbox_message_for
-from diucs.application.ports.outbound.sealing import ContentSealer
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.scheduling import cancel_work, schedule_work
-from diucs.application.sealed_send import queue_message
-from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
-from diucs.application.work import SCHEDULED, WorkKind
-from diucs.domain.codes import Channel, Role, Status
-from diucs.domain.errors import Conflict, DomainError, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.events import BookingExpired, StatusChanged
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.messages.templates import render
-from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
-from diucs.domain.model.service import ServiceProfile
-from diucs.domain.model.tenant import TenantWording
-from diucs.domain.model.tenant_policy import TenantPolicy
-from diucs.domain.rules.schedule import next_due
-from diucs.domain.rules.status import compute_status
+from overwatch.application.actor import Actor
+from overwatch.application.booking_effects import cancel_booking_timers, expired, text_reporter_role
+from overwatch.application.idempotency import IdempotencyStore, format_instant
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.outbox import outbox_message_for
+from overwatch.application.ports.outbound.sealing import ContentSealer
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.scheduling import cancel_work, schedule_work
+from overwatch.application.sealed_send import queue_message
+from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
+from overwatch.application.work import SCHEDULED, WorkKind
+from overwatch.domain.codes import Channel, Role, Status
+from overwatch.domain.errors import Conflict, DomainError, NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.events import BookingExpired, StatusChanged
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.messages.templates import render
+from overwatch.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
+from overwatch.domain.model.service import ServiceProfile
+from overwatch.domain.model.tenant import TenantWording
+from overwatch.domain.model.tenant_policy import TenantPolicy
+from overwatch.domain.rules.schedule import next_due
+from overwatch.domain.rules.status import compute_status
 
 USE_CASE_SUSPEND: Final = "SuspendService"
 USE_CASE_RESUME: Final = "ResumeService"

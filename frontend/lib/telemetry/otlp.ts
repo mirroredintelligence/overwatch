@@ -25,10 +25,10 @@ export function otlpLogs(events: TelemetryEvent[]): unknown {
   return {
     resourceLogs: [
       {
-        resource: { attributes: [{ key: 'service.name', value: { stringValue: 'diucs-browser' } }] },
+        resource: { attributes: [{ key: 'service.name', value: { stringValue: 'overwatch-browser' } }] },
         scopeLogs: [
           {
-            scope: { name: 'diucs.ui' },
+            scope: { name: 'overwatch.ui' },
             logRecords: events.map((event) => {
               const time = (BigInt(Math.round(event.at)) * NANOSECONDS_PER_MILLISECOND).toString();
               return {

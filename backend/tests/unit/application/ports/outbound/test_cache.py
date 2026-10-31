@@ -10,7 +10,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from diucs.application.ports.outbound.cache import (
+from overwatch.application.ports.outbound.cache import (
     BOARD_UPDATES_CHANNEL,
     CacheScopeMismatch,
     Lock,
@@ -18,7 +18,7 @@ from diucs.application.ports.outbound.cache import (
     scope_segment,
     scoped_names,
 )
-from diucs.application.tenancy import (
+from overwatch.application.tenancy import (
     NETWORK_ID_PATTERN,
     TENANT_ID_PATTERN,
     ScopeId,
@@ -27,9 +27,9 @@ from diucs.application.tenancy import (
     bind_tenant,
     is_valid_tenant_id,
 )
-from diucs.domain.errors import DomainError, ValidationFailed
+from overwatch.domain.errors import DomainError, ValidationFailed
 
-SRC = Path(__file__).resolve().parents[5] / "src" / "diucs"
+SRC = Path(__file__).resolve().parents[5] / "src" / "overwatch"
 PORT_MODULE = SRC / "application" / "ports" / "outbound" / "cache.py"
 ADAPTER_MODULES = (
     SRC / "adapters" / "testing" / "memory_cache.py",

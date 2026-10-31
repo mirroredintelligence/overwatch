@@ -17,9 +17,9 @@ from typing import Any, Final
 
 import httpx
 
-from diucs.application.ports.outbound.geo import AddressCandidate, LatLon
-from diucs.application.ports.outbound.lookups import LookupRejected, TransientLookupError
-from diucs.domain.rules.postcode import normalise_postcode
+from overwatch.application.ports.outbound.geo import AddressCandidate, LatLon
+from overwatch.application.ports.outbound.lookups import LookupRejected, TransientLookupError
+from overwatch.domain.rules.postcode import normalise_postcode
 
 OS_PLACES_URL: Final = "https://api.os.uk/search/places/v1/postcode"
 OUTPUT_SRS: Final = "WGS84"

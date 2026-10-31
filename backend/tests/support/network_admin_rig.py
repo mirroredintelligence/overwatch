@@ -19,22 +19,22 @@ from typing import Any
 
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.network_registry import Neo4jNetworkRegistry
-from diucs.adapters.outbound.graph_store.unit_of_work import Neo4jUnitOfWork, neo4j_uow_factory
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.actor import Actor
-from diucs.application.network_access import NetworkAccess
-from diucs.application.tenancy import (
+from overwatch.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.network_registry import Neo4jNetworkRegistry
+from overwatch.adapters.outbound.graph_store.unit_of_work import Neo4jUnitOfWork, neo4j_uow_factory
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.actor import Actor
+from overwatch.application.network_access import NetworkAccess
+from overwatch.application.tenancy import (
     ScopeId,
     bind_network,
     bind_scope,
     bind_tenant,
     current_scope_or_none,
 )
-from diucs.application.use_cases.apply_projection import ApplyProjection, ApplyResult
-from diucs.application.use_cases.grants import (
+from overwatch.application.use_cases.apply_projection import ApplyProjection, ApplyResult
+from overwatch.application.use_cases.grants import (
     ApproveGrant,
     DeclineGrant,
     EndGrant,
@@ -43,33 +43,33 @@ from diucs.application.use_cases.grants import (
     ReviseGrant,
     SupersedeDueGrants,
 )
-from diucs.application.use_cases.listing_admission import (
+from overwatch.application.use_cases.listing_admission import (
     DecideListing,
     QueryListings,
     RequestListing,
 )
-from diucs.application.use_cases.member_sharing import QueryMemberSharing
-from diucs.application.use_cases.membership import (
+from overwatch.application.use_cases.member_sharing import QueryMemberSharing
+from overwatch.application.use_cases.membership import (
     AcceptMembership,
     InviteMember,
     LeaveNetwork,
     RemoveMember,
 )
-from diucs.application.use_cases.network_admin import (
+from overwatch.application.use_cases.network_admin import (
     CreateNetwork,
     GovernanceRecorder,
     QueryNetworkAdmin,
     RecordAgreement,
 )
-from diucs.application.use_cases.network_governance import GovernanceOutcome, NetworkGovernance
-from diucs.application.use_cases.network_leave import EndProjections
-from diucs.application.use_cases.project_network import ProjectNetwork
-from diucs.application.use_cases.projection_boundaries import RunProjectionHeartbeat
-from diucs.application.use_cases.projection_reconcile import ReconcileProjection
-from diucs.application.use_cases.query_network_board import QueryNetworkBoard
-from diucs.domain.codes import Role
-from diucs.domain.events import ProjectionRequested
-from diucs.domain.model.network import GrantScope
+from overwatch.application.use_cases.network_governance import GovernanceOutcome, NetworkGovernance
+from overwatch.application.use_cases.network_leave import EndProjections
+from overwatch.application.use_cases.project_network import ProjectNetwork
+from overwatch.application.use_cases.projection_boundaries import RunProjectionHeartbeat
+from overwatch.application.use_cases.projection_reconcile import ReconcileProjection
+from overwatch.application.use_cases.query_network_board import QueryNetworkBoard
+from overwatch.domain.codes import Role
+from overwatch.domain.events import ProjectionRequested
+from overwatch.domain.model.network import GrantScope
 from tests.support.network_admin_fakes import MemoryDirectory, active_tenant, person
 from tests.support.network_world import NetworkWorld, WorldIds
 from tests.support.uow import ensure_audit_heads
@@ -223,7 +223,7 @@ class AdminRig:
 
     async def make_network(self, *, agreement_version: int = 1) -> str:
         with bind_tenant(self.ids.owner):
-            from diucs.application.use_cases.network_admin import CreateNetworkCommand
+            from overwatch.application.use_cases.network_admin import CreateNetworkCommand
 
             await self.create_network.execute(
                 CreateNetworkCommand(
@@ -240,7 +240,7 @@ class AdminRig:
 
     async def join(self, member: str, admin: Actor) -> str:
         """Invite and accept: the member is active in the network. Returns the membership id."""
-        from diucs.application.use_cases.membership import (
+        from overwatch.application.use_cases.membership import (
             AcceptMembershipCommand,
             InviteMemberCommand,
         )
@@ -263,7 +263,7 @@ class AdminRig:
     ) -> list[str]:
         """Propose, approve on both sides and (when a service is listed) leave it ready to project:
         the grants of these scopes are effective."""
-        from diucs.application.use_cases.grants import ApproveGrantCommand, ProposeGrantCommand
+        from overwatch.application.use_cases.grants import ApproveGrantCommand, ProposeGrantCommand
 
         ids = []
         for scope in scopes:
@@ -280,7 +280,7 @@ class AdminRig:
         return ids
 
     async def list_service(self, member: str, admin: Actor, service_id: str = "svc-1") -> str:
-        from diucs.application.use_cases.listing_admission import (
+        from overwatch.application.use_cases.listing_admission import (
             DecideListingCommand,
             ListingDecision,
             RequestListingCommand,
@@ -360,7 +360,9 @@ class AdminRig:
 
     async def beat(self, member: str, work_id: str) -> Any:
         """One run of the member's projection heartbeat, and the messages it published applied."""
-        from diucs.application.use_cases.projection_boundaries import RunProjectionHeartbeatCommand
+        from overwatch.application.use_cases.projection_boundaries import (
+            RunProjectionHeartbeatCommand,
+        )
 
         self.published.sent.clear()
         with bind_tenant(member):
@@ -373,7 +375,10 @@ class AdminRig:
         hashed over the one before it (the scope's own genesis first), and the head at the last
         link. Read here, link by link, because the audit port verifies a tenant's chain only and a
         network chain has no tenant to parse its entries under (a known issue)."""
-        from diucs.adapters.outbound.audit_neo4j.audit_log import chain_hash_over, genesis_hash_for
+        from overwatch.adapters.outbound.audit_neo4j.audit_log import (
+            chain_hash_over,
+            genesis_hash_for,
+        )
         from tests.support.neo4j import read_tx, tx_run
 
         async def links(tx: AsyncManagedTransaction) -> tuple[list[dict[str, Any]], list[Any]]:

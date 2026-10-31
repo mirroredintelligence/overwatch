@@ -10,14 +10,14 @@ from typing import Any, cast
 
 import pytest
 
-from diucs.application import booking_effects
-from diucs.application.booking_effects import queue_echo
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork
-from diucs.application.tenancy import ScopeId, ScopeKind
-from diucs.domain.codes import BookingStatus, Channel
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.messages.templates import render
-from diucs.domain.model.booking import Booking
+from overwatch.application import booking_effects
+from overwatch.application.booking_effects import queue_echo
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork
+from overwatch.application.tenancy import ScopeId, ScopeKind
+from overwatch.domain.codes import BookingStatus, Channel
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.messages.templates import render
+from overwatch.domain.model.booking import Booking
 
 AT = datetime(2026, 10, 29, 14, 19, tzinfo=UTC)
 SCOPE = ScopeId("tenant-a", ScopeKind.TENANT)

@@ -16,13 +16,13 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.communication_repository import (
+from overwatch.adapters.outbound.graph_store.communication_repository import (
     Neo4jCommunicationRepository,
 )
-from diucs.application.ports.outbound.messaging import Communication
-from diucs.application.tenancy import bind_tenant
-from diucs.domain.codes import Channel
-from diucs.domain.errors import Conflict, NotFound, ValidationFailed
+from overwatch.application.ports.outbound.messaging import Communication
+from overwatch.application.tenancy import bind_tenant
+from overwatch.domain.codes import Channel
+from overwatch.domain.errors import Conflict, NotFound, ValidationFailed
 from tests.support.neo4j import count_nodes, node_props, read_tx, run_scope_ids, write_tx
 from tests.support.round_trip import assert_round_trip
 from tests.support.scoped import scoped
@@ -30,8 +30,8 @@ from tests.support.scoped import scoped
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 SENT = datetime(2026, 10, 25, 9, 0, 0, tzinfo=UTC)
-MESSAGE_SYSTEM = "https://diucs.example/CodeSystem/message-id"
-CHANNEL_SYSTEM = "https://diucs.example/CodeSystem/channel"
+MESSAGE_SYSTEM = "https://overwatch.mirroredintelligence.com/CodeSystem/message-id"
+CHANNEL_SYSTEM = "https://overwatch.mirroredintelligence.com/CodeSystem/channel"
 
 
 def _comm(**overrides: Any) -> Communication:
@@ -107,7 +107,7 @@ async def test_a_grouped_communication_round_trips_and_is_a_prompt_for_its_phone
         message_id="C9",
         delivery_status="grouped",
         provider_message_id=None,
-        payload_text="DIUCS: 2 services need an update by 10:30. A) UCR East 1. B) UCR West 3.",
+        payload_text="Overwatch: 2 services need an update by 10:30. A) UCR East 1. B) UCR West 3.",
     )
 
     async def save(tx: AsyncManagedTransaction) -> None:

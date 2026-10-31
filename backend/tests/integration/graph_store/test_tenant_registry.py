@@ -30,20 +30,20 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.queries import (
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.queries import (
     PLATFORM_QUERY_IDS,
     PLATFORM_STATEMENTS,
     REGISTRY,
     NamedQuery,
     QueryRegistry,
 )
-from diucs.adapters.outbound.graph_store.tenant_directory import Neo4jTenantDirectory
-from diucs.adapters.outbound.graph_store.tenant_registry import Neo4jTenantRegistry
-from diucs.application.ports.outbound.tenant_registry import TenantNumberRecord
-from diucs.application.ports.outbound.tenants import twilio_token_ref
-from diucs.domain.errors import Conflict, NotFound
-from diucs.domain.model.tenant import (
+from overwatch.adapters.outbound.graph_store.tenant_directory import Neo4jTenantDirectory
+from overwatch.adapters.outbound.graph_store.tenant_registry import Neo4jTenantRegistry
+from overwatch.application.ports.outbound.tenant_registry import TenantNumberRecord
+from overwatch.application.ports.outbound.tenants import twilio_token_ref
+from overwatch.domain.errors import Conflict, NotFound
+from overwatch.domain.model.tenant import (
     NumberStatus,
     OrganisationType,
     SuspendMode,
@@ -51,7 +51,7 @@ from diucs.domain.model.tenant import (
     Tenant,
     TenantStatus,
 )
-from diucs.domain.rules.tenant_lifecycle import resume_tenant, suspend_tenant
+from overwatch.domain.rules.tenant_lifecycle import resume_tenant, suspend_tenant
 from tests.support.neo4j import ThrowawayNeo4j, read_tx, write_tx
 from tests.support.tenant_seed import invariant_breaks
 

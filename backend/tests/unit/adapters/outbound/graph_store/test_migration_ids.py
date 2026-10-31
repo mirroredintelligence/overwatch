@@ -9,21 +9,23 @@ import json
 
 import pytest
 
-from diucs.adapters.outbound.graph_store.migration_types import Migration
-from diucs.adapters.outbound.graph_store.migrations import (
+from overwatch.adapters.outbound.graph_store.migration_types import Migration
+from overwatch.adapters.outbound.graph_store.migrations import (
     CORE_MIGRATIONS,
     MIGRATIONS,
     assemble_migrations,
 )
-from diucs.adapters.outbound.graph_store.migrations_contract import CONTRACT_MIGRATIONS
-from diucs.adapters.outbound.graph_store.migrations_insight import INSIGHT_MIGRATIONS
-from diucs.adapters.outbound.graph_store.migrations_network import NETWORK_MIGRATIONS
-from diucs.adapters.outbound.graph_store.migrations_platform import PLATFORM_MIGRATIONS
-from diucs.adapters.outbound.graph_store.migrations_protected import PROTECTED_MIGRATIONS
-from diucs.adapters.outbound.graph_store.migrations_safety import SAFETY_MIGRATIONS
-from diucs.adapters.outbound.graph_store.migrations_support import SUPPORT_MIGRATIONS
-from diucs.adapters.outbound.graph_store.migrations_tenant import TENANT_MIGRATIONS
-from diucs.adapters.outbound.graph_store.migrations_tenant_config import TENANT_CONFIG_MIGRATIONS
+from overwatch.adapters.outbound.graph_store.migrations_contract import CONTRACT_MIGRATIONS
+from overwatch.adapters.outbound.graph_store.migrations_insight import INSIGHT_MIGRATIONS
+from overwatch.adapters.outbound.graph_store.migrations_network import NETWORK_MIGRATIONS
+from overwatch.adapters.outbound.graph_store.migrations_platform import PLATFORM_MIGRATIONS
+from overwatch.adapters.outbound.graph_store.migrations_protected import PROTECTED_MIGRATIONS
+from overwatch.adapters.outbound.graph_store.migrations_safety import SAFETY_MIGRATIONS
+from overwatch.adapters.outbound.graph_store.migrations_support import SUPPORT_MIGRATIONS
+from overwatch.adapters.outbound.graph_store.migrations_tenant import TENANT_MIGRATIONS
+from overwatch.adapters.outbound.graph_store.migrations_tenant_config import (
+    TENANT_CONFIG_MIGRATIONS,
+)
 
 CORE_IDS = [
     "0001_resource_id",

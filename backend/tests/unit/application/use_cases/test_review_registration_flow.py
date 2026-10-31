@@ -9,12 +9,12 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
-from diucs.application.use_cases.registration_draft import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
+from overwatch.application.use_cases.registration_draft import (
     ApiStep,
     LocationStep,
     OrganisationStep,
@@ -22,8 +22,12 @@ from diucs.application.use_cases.registration_draft import (
     ServiceStep,
     encode_step,
 )
-from diucs.application.use_cases.registration_submit import LOOKUPS_STEP, Lookups, encode_lookups
-from diucs.application.use_cases.review_registration import (
+from overwatch.application.use_cases.registration_submit import (
+    LOOKUPS_STEP,
+    Lookups,
+    encode_lookups,
+)
+from overwatch.application.use_cases.review_registration import (
     CHECK_EMAIL,
     NOTES_STEP,
     ExplainCheck,
@@ -39,17 +43,23 @@ from diucs.application.use_cases.review_registration import (
     StartReviewCommand,
     districts_in_ranges,
 )
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     CriteriaStatus,
     PractitionerRoleCode,
     RegistrationStatus,
     Role,
     ScopeFlag,
 )
-from diucs.domain.errors import Conflict, InvalidTransition, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.model.criteria import ServiceCriteria
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.model.registration import Answer, CallBackResult, Registration
+from overwatch.domain.errors import (
+    Conflict,
+    InvalidTransition,
+    NotAllowed,
+    NotFound,
+    ValidationFailed,
+)
+from overwatch.domain.model.criteria import ServiceCriteria
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.model.registration import Answer, CallBackResult, Registration
 from tests.support.actors import ACTOR_TENANT
 from tests.support.registration_rig import StubUnits
 

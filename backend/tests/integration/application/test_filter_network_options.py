@@ -19,18 +19,18 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.unit_of_work import neo4j_network_uow_factory
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_geo import FixedPostcodeLocator, FixedTravelTime
-from diucs.application.actor import Actor
-from diucs.application.network_access import NetworkAccess
-from diucs.application.ports.outbound.geo import LatLon, TravelRange
-from diucs.application.use_cases.filter_network_options import (
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.unit_of_work import neo4j_network_uow_factory
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_geo import FixedPostcodeLocator, FixedTravelTime
+from overwatch.application.actor import Actor
+from overwatch.application.network_access import NetworkAccess
+from overwatch.application.ports.outbound.geo import LatLon, TravelRange
+from overwatch.application.use_cases.filter_network_options import (
     FilterNetworkOptions,
     FilterNetworkOptionsCommand,
 )
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     AgeBand,
     NeedCategory,
     Outcome,
@@ -39,9 +39,9 @@ from diucs.domain.codes import (
     Status,
     Urgency,
 )
-from diucs.domain.errors import Conflict, NotAllowed, NotFound
-from diucs.domain.model.case import Case
-from diucs.domain.model.network import GrantScope
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound
+from overwatch.domain.model.case import Case
+from overwatch.domain.model.network import GrantScope
 from tests.support.network_world import NetworkWorld, world_ids
 from tests.support.tenancy import RunIdentity
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory
@@ -363,8 +363,8 @@ async def test_the_page_view_names_a_service_whose_criteria_were_not_shared_and_
 async def test_the_page_view_names_a_paused_listing_with_nothing_else_of_it(
     world: NetworkWorld,
 ) -> None:
-    from diucs.domain.model.network import ListingReason, ListingStatus
-    from diucs.domain.rules.listing import suspend_listing
+    from overwatch.domain.model.network import ListingReason, ListingStatus
+    from overwatch.domain.rules.listing import suspend_listing
 
     m1, m2, m3 = world.ids.members
     await _own_case(world, m1)

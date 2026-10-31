@@ -11,17 +11,17 @@ from typing import Any
 
 import pytest
 
-from diucs.application.tenancy import current_scope_or_none
-from diucs.bootstrap import provisioning as module
-from diucs.bootstrap.provisioning import (
+from overwatch.application.tenancy import current_scope_or_none
+from overwatch.bootstrap import provisioning as module
+from overwatch.bootstrap.provisioning import (
     COMMANDS,
     AuditHeads,
     operator_actor,
     parse_args,
     run_command,
 )
-from diucs.domain.codes import Role
-from diucs.domain.model.tenant import OrganisationType, SuspendMode, SuspendReason
+from overwatch.domain.codes import Role
+from overwatch.domain.model.tenant import OrganisationType, SuspendMode, SuspendReason
 from tests.support.provisioning_fakes import TENANT, provisioning_tenant
 
 MOBILE = "07700 900123"

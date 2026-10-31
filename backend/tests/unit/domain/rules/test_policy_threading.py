@@ -22,10 +22,10 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from diucs.domain.codes import AlertKind, ReportFlagReason, Status
-from diucs.domain.errors import Conflict, NotAllowed, ValidationFailed
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, FIELD_BOUNDS, TenantPolicy
-from diucs.domain.rules import (
+from overwatch.domain.codes import AlertKind, ReportFlagReason, Status
+from overwatch.domain.errors import Conflict, NotAllowed, ValidationFailed
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, FIELD_BOUNDS, TenantPolicy
+from overwatch.domain.rules import (
     alerts,
     booking_rules,
     clinical_queue,
@@ -34,7 +34,7 @@ from diucs.domain.rules import (
     multi_service,
     report_flags,
 )
-from diucs.domain.rules.alerts import (
+from overwatch.domain.rules.alerts import (
     CRITICAL_KINDS,
     Alert,
     AlertPreferences,
@@ -43,23 +43,23 @@ from diucs.domain.rules.alerts import (
     default_preferences,
     not_updated_alert_due,
 )
-from diucs.domain.rules.booking_rules import (
+from overwatch.domain.rules.booking_rules import (
     BOOKING_REPLY_WINDOW,
     PHONE_PROMPT_AFTER,
     booking_reply_by,
     phone_prompt_at,
 )
-from diucs.domain.rules.clinical_queue import TAKE_TIMEOUT, give_advice, return_if_idle, take
-from diucs.domain.rules.criteria_workflow import REVIEW_REMINDER_BEFORE, review_reminder_due
-from diucs.domain.rules.identity_policy import REVERIFY_EVERY, needs_reverification
-from diucs.domain.rules.multi_service import (
+from overwatch.domain.rules.clinical_queue import TAKE_TIMEOUT, give_advice, return_if_idle, take
+from overwatch.domain.rules.criteria_workflow import REVIEW_REMINDER_BEFORE, review_reminder_due
+from overwatch.domain.rules.identity_policy import REVERIFY_EVERY, needs_reverification
+from overwatch.domain.rules.multi_service import (
     GROUP_WINDOW,
     MAX_SERVICES_PER_PHONE,
     group_due,
     phone_overloaded,
 )
-from diucs.domain.rules.pressure import Pressure
-from diucs.domain.rules.report_flags import (
+from overwatch.domain.rules.pressure import Pressure
+from overwatch.domain.rules.report_flags import (
     MANY_CHANGES_COUNT,
     MANY_CHANGES_WINDOW,
     PHONED_WINDOW,
@@ -916,5 +916,5 @@ def test_a_rule_module_imports_nothing_from_the_application_layer(module: Any) -
         for alias in node.names
     ]
 
-    assert [name for name in imported if name.startswith("diucs.application")] == []
+    assert [name for name in imported if name.startswith("overwatch.application")] == []
     assert [name for name in imported if "tenancy" in name or name == "os"] == []

@@ -18,8 +18,8 @@ describe('lesson progress', () => {
     markDone('correct-a-figure');
 
     expect(window.localStorage.length).toBe(1);
-    expect(window.localStorage.key(0)).toBe(`diucs:v1:${window.location.host}:learn.done`);
-    expect(window.localStorage.getItem('diucs-learn-done')).toBeNull();
+    expect(window.localStorage.key(0)).toBe(`overwatch:v1:${window.location.host}:learn.done`);
+    expect(window.localStorage.getItem('overwatch-learn-done')).toBeNull();
   });
 
   it('forgets the lessons when the device is wiped at sign-out (TEN-050)', async () => {

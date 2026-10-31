@@ -13,8 +13,8 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from diucs.domain.errors import Conflict, InvalidTransition, NotAllowed, ValidationFailed
-from diucs.domain.model.network import (
+from overwatch.domain.errors import Conflict, InvalidTransition, NotAllowed, ValidationFailed
+from overwatch.domain.model.network import (
     Agreement,
     Approval,
     Grant,
@@ -29,7 +29,7 @@ from diucs.domain.model.network import (
     MembershipStatus,
     NetworkMembership,
 )
-from diucs.domain.rules.listing import (
+from overwatch.domain.rules.listing import (
     ListingPresentation,
     admit_listing,
     decline_listing,
@@ -563,7 +563,7 @@ def test_visible_scopes_is_a_subset_of_the_effective_scopes(
             continue
     membership_row = row(membership_status)
     scopes = visible_scopes(listing(status), membership_row, grants, _at(minute))
-    from diucs.domain.rules.grant import is_effective
+    from overwatch.domain.rules.grant import is_effective
 
     effective = {
         g.scope for g in grants if g.grantor_tenant_id == MEMBER and is_effective(g, _at(minute))

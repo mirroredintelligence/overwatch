@@ -15,7 +15,7 @@ from datetime import UTC, date, datetime, timedelta
 
 import pytest
 
-from diucs.application.use_cases.filter_network_options import (
+from overwatch.application.use_cases.filter_network_options import (
     CRITERIA_NOT_SHARED_REASON,
     PAUSED_REASON,
     NetworkCaseInputs,
@@ -26,18 +26,18 @@ from diucs.application.use_cases.filter_network_options import (
     criteria_of,
     network_reason_code,
 )
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     AgeBand,
     CriteriaStatus,
     NeedCategory,
     ServiceCategory,
     Status,
 )
-from diucs.domain.model.network import DirectorySource, GrantScope, ListingStatus
-from diucs.domain.rules.criteria_filter import check_hard_criteria
-from diucs.domain.rules.listing import ListingPresentation
-from diucs.domain.rules.network_board import NetworkBoardEntry, NetworkServiceInput
-from diucs.domain.rules.projection import CriteriaProjection, LocationProjection
+from overwatch.domain.model.network import DirectorySource, GrantScope, ListingStatus
+from overwatch.domain.rules.criteria_filter import check_hard_criteria
+from overwatch.domain.rules.listing import ListingPresentation
+from overwatch.domain.rules.network_board import NetworkBoardEntry, NetworkServiceInput
+from overwatch.domain.rules.projection import CriteriaProjection, LocationProjection
 from tests.support.projection_samples import sample_service_projection
 
 PROJECTION = CriteriaProjection(

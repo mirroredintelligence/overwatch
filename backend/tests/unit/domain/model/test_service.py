@@ -1,4 +1,4 @@
-"""Tests for diucs.domain.model.service: the service reporting profile (D01).
+"""Tests for overwatch.domain.model.service: the service reporting profile (D01).
 
 Rules from docs/spec/domain-rules.md section 1.1 and the D01 prompt. Days are 0 = Monday to
 6 = Sunday. An end earlier than the start is an overnight window. The end is exclusive.
@@ -13,9 +13,9 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from diucs.domain.codes import Cadence, Channel, Measure, ServiceCategory
-from diucs.domain.errors import DomainError, ValidationFailed
-from diucs.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.codes import Cadence, Channel, Measure, ServiceCategory
+from overwatch.domain.errors import DomainError, ValidationFailed
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
 
 ALL_DAYS = frozenset(range(7))
 WEEKDAYS = frozenset({0, 1, 2, 3, 4})

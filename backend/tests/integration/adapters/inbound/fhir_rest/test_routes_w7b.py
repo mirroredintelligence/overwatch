@@ -19,17 +19,17 @@ from fastapi import FastAPI
 from httpx import AsyncClient
 from neo4j import AsyncDriver
 
-from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET
-from diucs.application.ports.outbound.identity import PHONE_HASH_SECRET
-from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.bootstrap.container import Container, build_for_tests
-from diucs.domain.codes import (
+from overwatch.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.adapters.testing.tokens import TEST_BFF_SECRET
+from overwatch.application.ports.outbound.identity import PHONE_HASH_SECRET
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.bootstrap.container import Container, build_for_tests
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     CriteriaStatus,
@@ -39,10 +39,10 @@ from diucs.domain.codes import (
     Role,
     ServiceCategory,
 )
-from diucs.domain.model.criteria import ServiceCriteria
-from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.model.criteria import ServiceCriteria
+from overwatch.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.api import R01_TEST_NOW, token_headers
 from tests.support.neo4j import ThrowawayNeo4j
 from tests.support.uow import ensure_audit_heads

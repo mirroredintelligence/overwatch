@@ -10,16 +10,16 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_geo import FixedGeocoder
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_terminology import FixedTerminology
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.geo import AddressCandidate, LatLon
-from diucs.application.ports.outbound.lookups import TransientLookupError
-from diucs.application.ports.outbound.terminology import OdsRecord
-from diucs.application.tenancy import bind_tenant
-from diucs.application.use_cases.registration_draft import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_geo import FixedGeocoder
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_terminology import FixedTerminology
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.geo import AddressCandidate, LatLon
+from overwatch.application.ports.outbound.lookups import TransientLookupError
+from overwatch.application.ports.outbound.terminology import OdsRecord
+from overwatch.application.tenancy import bind_tenant
+from overwatch.application.use_cases.registration_draft import (
     ApiStep,
     LocationStep,
     OrganisationStep,
@@ -29,17 +29,17 @@ from diucs.application.use_cases.registration_draft import (
     SubmitRegistrationCommand,
     encode_step,
 )
-from diucs.application.use_cases.registration_submit import (
+from overwatch.application.use_cases.registration_submit import (
     LOOKUPS_STEP,
     PersistRegistration,
     PersistRegistrationCommand,
     lookups_of,
 )
-from diucs.domain.codes import PractitionerRoleCode, RegistrationStatus, Role
-from diucs.domain.errors import InvalidTransition, NotFound
-from diucs.domain.events import RegistrationPersisted
-from diucs.domain.model.people import PractitionerRole
-from diucs.domain.model.registration import Registration
+from overwatch.domain.codes import PractitionerRoleCode, RegistrationStatus, Role
+from overwatch.domain.errors import InvalidTransition, NotFound
+from overwatch.domain.events import RegistrationPersisted
+from overwatch.domain.model.people import PractitionerRole
+from overwatch.domain.model.registration import Registration
 from tests.support.actors import ACTOR_TENANT
 from tests.support.registration_rig import StubUnits
 

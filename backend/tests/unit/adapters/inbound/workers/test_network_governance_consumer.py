@@ -6,18 +6,18 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.inbound.workers.consumer import Outcome
-from diucs.adapters.inbound.workers.network_governance_consumer import (
+from overwatch.adapters.inbound.workers.consumer import Outcome
+from overwatch.adapters.inbound.workers.network_governance_consumer import (
     NETWORK_GOVERNANCE_SUBSCRIPTION,
     NetworkGovernanceConsumer,
     network_governance_consumer,
     network_governance_runners,
 )
-from diucs.adapters.inbound.workers.tenant_binding import TenantBoundConsumer
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.tenancy import current_scope_or_none
-from diucs.application.use_cases.network_governance import GovernanceOutcome
-from diucs.domain.errors import NotAllowed, NotFound, ValidationFailed
+from overwatch.adapters.inbound.workers.tenant_binding import TenantBoundConsumer
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.tenancy import current_scope_or_none
+from overwatch.application.use_cases.network_governance import GovernanceOutcome
+from overwatch.domain.errors import NotAllowed, NotFound, ValidationFailed
 from tests.support.network_samples import MEMBER_B, NETWORK_ID
 from tests.unit.adapters.inbound.workers.test_network_projector import _Tenants
 

@@ -10,15 +10,15 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.alert_repository import (
+from overwatch.adapters.outbound.graph_store.alert_repository import (
     Neo4jAlertRepository,
     Neo4jAlertSubscriptionRepository,
 )
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.domain.codes import AlertKind
-from diucs.domain.errors import NotFound
-from diucs.domain.model.alerts import AlertRecord, AlertSubscription
-from diucs.domain.rules.alerts import AlertPreferences
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.domain.codes import AlertKind
+from overwatch.domain.errors import NotFound
+from overwatch.domain.model.alerts import AlertRecord, AlertSubscription
+from overwatch.domain.rules.alerts import AlertPreferences
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
 from tests.support.round_trip import assert_round_trip
 

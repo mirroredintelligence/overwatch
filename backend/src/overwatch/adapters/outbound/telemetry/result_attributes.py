@@ -9,8 +9,8 @@ already has them), and only scalar values are kept.
 from collections.abc import Mapping
 from typing import Any, Final
 
-from diucs.adapters.outbound.telemetry.redaction import clean_attributes
-from diucs.application.ports.outbound.telemetry_query import AttributeValue
+from overwatch.adapters.outbound.telemetry.redaction import clean_attributes
+from overwatch.application.ports.outbound.telemetry_query import AttributeValue
 
 # The ids a row carries for its own filter. Not shown in a result.
 _NOT_RESULT_KEYS: Final[frozenset[str]] = frozenset({"tenant.id", "session.id"})

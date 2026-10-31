@@ -17,40 +17,40 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Final
 
-from diucs.application.actor import Actor
-from diucs.application.idempotency import IdempotencyStore
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.outbox import outbox_message_for
-from diucs.application.ports.outbound.sealing import ContentSealer
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.scheduling import schedule_work
-from diucs.application.sealed_send import queue_message
-from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
-from diucs.application.tenant_settings import read_policy, resolve_link_base
-from diucs.application.use_cases.query_board import QueryBoard, QueryBoardQuery
-from diucs.application.use_cases.send_prompts import LinkTokenServiceFactory
-from diucs.application.use_cases.suspend_service import WordingFor
-from diucs.application.work import WorkKind
-from diucs.domain.codes import AgeBand, BookingStatus, Channel, Role, Urgency
-from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.events import BookingRequested
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.messages.templates import RenderedMessage, render
-from diucs.domain.model.booking import Booking
-from diucs.domain.model.case import Case
-from diucs.domain.model.tenant import TenantWording
-from diucs.domain.rules.booking_rules import (
+from overwatch.application.actor import Actor
+from overwatch.application.idempotency import IdempotencyStore
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.outbox import outbox_message_for
+from overwatch.application.ports.outbound.sealing import ContentSealer
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.scheduling import schedule_work
+from overwatch.application.sealed_send import queue_message
+from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
+from overwatch.application.tenant_settings import read_policy, resolve_link_base
+from overwatch.application.use_cases.query_board import QueryBoard, QueryBoardQuery
+from overwatch.application.use_cases.send_prompts import LinkTokenServiceFactory
+from overwatch.application.use_cases.suspend_service import WordingFor
+from overwatch.application.work import WorkKind
+from overwatch.domain.codes import AgeBand, BookingStatus, Channel, Role, Urgency
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.events import BookingRequested
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.messages.templates import RenderedMessage, render
+from overwatch.domain.model.booking import Booking
+from overwatch.domain.model.case import Case
+from overwatch.domain.model.tenant import TenantWording
+from overwatch.domain.rules.booking_rules import (
     REFERENCE_ATTEMPTS,
     booking_reply_by,
     can_request,
     new_reference,
     phone_prompt_at,
 )
-from diucs.domain.rules.booking_state import is_open
-from diucs.domain.rules.london_time import format_hhmm
-from diucs.domain.rules.need_words import need_words
+from overwatch.domain.rules.booking_state import is_open
+from overwatch.domain.rules.london_time import format_hhmm
+from overwatch.domain.rules.need_words import need_words
 
 LinkBaseUrlFor = Callable[[ScopeId], str | Awaitable[str]]
 """Text or an awaitable of text (`resolve_link_base`): the serving process's source is async."""

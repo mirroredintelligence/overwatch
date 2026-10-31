@@ -16,7 +16,7 @@ import { BookingPanel } from './BookingPanel';
 const CSRF = 'csrf-value-for-the-panel';
 
 function setCsrfCookie() {
-  document.cookie = `diucs_csrf=${CSRF}; path=/`;
+  document.cookie = `overwatch_csrf=${CSRF}; path=/`;
 }
 
 let stream: FakeStream;

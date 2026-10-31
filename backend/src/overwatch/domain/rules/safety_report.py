@@ -11,7 +11,7 @@ shared. Pure: no I/O.
 from enum import StrEnum
 from typing import Final
 
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.errors import ValidationFailed
 
 SAFETY_CONCERN_CODE: Final = "safety-concern"
 PROBLEM_REPORT_CODE: Final = "problem-report"
@@ -65,4 +65,7 @@ def safety_reference(sequence: int) -> str:
 
 def concern_notice(reference: str) -> tuple[str, str]:
     """The officer's notice (K3): the reference only, never the concern's text."""
-    return (f"New safety concern {reference}", "Open DIUCS to read it. No details are sent here.")
+    return (
+        f"New safety concern {reference}",
+        "Open Overwatch to read it. No details are sent here.",
+    )

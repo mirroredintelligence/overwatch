@@ -17,7 +17,7 @@ vi.mock('next/headers', async () => {
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', 'http://backend.test/fhir');
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', 'http://backend.test/fhir');
 });
 
 afterEach(() => {
@@ -43,7 +43,7 @@ describe('POST /api/bff/registrations/[id]/callback', () => {
     const cookie = await lead();
     const request = requestWithCookies(
       `https://${TENANTS.A.host}/api/bff/registrations/r1/callback`,
-      { diucs_session: cookie },
+      { overwatch_session: cookie },
       { method: 'POST', body: body({ result: 'no-answer', numberCalled: '01202 000 111' }), headers: { 'Content-Type': 'application/json' } },
     );
     const response = await POST(request, { params: Promise.resolve({ id: 'r1' }) });
@@ -58,7 +58,7 @@ describe('POST /api/bff/registrations/[id]/callback', () => {
     const cookie = await lead();
     const request = requestWithCookies(
       `https://${TENANTS.A.host}/api/bff/registrations/r1/callback`,
-      { diucs_session: cookie, diucs_csrf: CSRF },
+      { overwatch_session: cookie, overwatch_csrf: CSRF },
       {
         method: 'POST',
         body: body({ result: 'maybe', numberCalled: '01202 000 111' }),

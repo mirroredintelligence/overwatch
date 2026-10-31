@@ -10,9 +10,9 @@ refused when the fake is built, with the field name only: the value is never ech
 
 from collections.abc import Mapping, Sequence
 
-from diucs.application.ports.outbound.geo import AddressCandidate, LatLon, Located, TravelRange
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.postcode import (
+from overwatch.application.ports.outbound.geo import AddressCandidate, LatLon, Located, TravelRange
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.postcode import (
     normalise_district,
     normalise_postcode,
     partial_district,

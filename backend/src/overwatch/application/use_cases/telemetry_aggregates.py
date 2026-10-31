@@ -17,11 +17,11 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Final
 
-from diucs.application.ports.outbound.aggregates import check_one_day
-from diucs.application.ports.outbound.telemetry_query import TelemetryQuery
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.telemetry_insights import (
+from overwatch.application.ports.outbound.aggregates import check_one_day
+from overwatch.application.ports.outbound.telemetry_query import TelemetryQuery
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.telemetry_insights import (
     FUNNELS,
     FrictionFigure,
     FunnelFigure,

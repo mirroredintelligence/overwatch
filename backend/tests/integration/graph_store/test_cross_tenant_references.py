@@ -20,19 +20,21 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.capacity_repository import Neo4jCapacityRepository
-from diucs.adapters.outbound.graph_store.flag_repository import Neo4jFlagRepository
-from diucs.adapters.outbound.graph_store.person_repository import Neo4jPersonRepository
-from diucs.adapters.outbound.graph_store.push_subscription_repository import (
+from overwatch.adapters.outbound.graph_store.capacity_repository import Neo4jCapacityRepository
+from overwatch.adapters.outbound.graph_store.flag_repository import Neo4jFlagRepository
+from overwatch.adapters.outbound.graph_store.person_repository import Neo4jPersonRepository
+from overwatch.adapters.outbound.graph_store.push_subscription_repository import (
     Neo4jPushSubscriptionRepository,
 )
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.adapters.outbound.graph_store.scope_list_repository import Neo4jScopeListRepository
-from diucs.adapters.outbound.graph_store.service_move_repository import Neo4jServiceMoveRepository
-from diucs.adapters.outbound.graph_store.service_repository import codeable_to_fhir
-from diucs.application.ports.outbound.messaging import PushSubscription
-from diucs.application.tenancy import bind_tenant
-from diucs.domain.codes import (
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.adapters.outbound.graph_store.scope_list_repository import Neo4jScopeListRepository
+from overwatch.adapters.outbound.graph_store.service_move_repository import (
+    Neo4jServiceMoveRepository,
+)
+from overwatch.adapters.outbound.graph_store.service_repository import codeable_to_fhir
+from overwatch.application.ports.outbound.messaging import PushSubscription
+from overwatch.application.tenancy import bind_tenant
+from overwatch.domain.codes import (
     Measure,
     PractitionerRoleCode,
     ReportFlagReason,
@@ -41,17 +43,17 @@ from diucs.domain.codes import (
     ScopeFlag,
     ServiceCategory,
 )
-from diucs.domain.errors import DomainError, NotFound
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.flags import (
+from overwatch.domain.errors import DomainError, NotFound
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.flags import (
     REPORT_FLAG_OPEN,
     SERVICE_FLAG_SUSPENDED,
     ReportFlag,
     ServiceFlag,
 )
-from diucs.domain.model.people import PractitionerRole
-from diucs.domain.model.registration import ScopeEntry
-from diucs.domain.model.service_move import ServiceMove
+from overwatch.domain.model.people import PractitionerRole
+from overwatch.domain.model.registration import ScopeEntry
+from overwatch.domain.model.service_move import ServiceMove
 from tests.support.neo4j import read_tx, run_scope_ids, write_tx
 from tests.support.relationship_matrix import checked_cases, shape
 from tests.support.tenant_seed import (

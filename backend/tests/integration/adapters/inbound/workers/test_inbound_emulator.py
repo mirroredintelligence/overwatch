@@ -16,14 +16,14 @@ import pytest
 import pytest_asyncio
 from azure.servicebus import ServiceBusMessage
 
-from diucs.adapters.inbound.workers.delivery_tracker import receipt_consumer
-from diucs.adapters.inbound.workers.outbox_relay import StaticTenants
-from diucs.adapters.inbound.workers.reply_processor import reply_consumer
-from diucs.adapters.inbound.workers.servicebus_runner import ServiceBusRunner
-from diucs.adapters.outbound.bus_servicebus.service_bus import ServiceBusEventBus
-from diucs.application.ports.outbound.messaging import Communication
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.domain.codes import Channel
+from overwatch.adapters.inbound.workers.delivery_tracker import receipt_consumer
+from overwatch.adapters.inbound.workers.outbox_relay import StaticTenants
+from overwatch.adapters.inbound.workers.reply_processor import reply_consumer
+from overwatch.adapters.inbound.workers.servicebus_runner import ServiceBusRunner
+from overwatch.adapters.outbound.bus_servicebus.service_bus import ServiceBusEventBus
+from overwatch.application.ports.outbound.messaging import Communication
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.domain.codes import Channel
 from tests.support.inbound_rig import RecordingUseCase, receipt_message, reply_message
 from tests.support.servicebus import client
 
@@ -109,7 +109,7 @@ async def test_a_receipt_sent_through_the_bus_moves_the_status_in_the_tenant(
                 channel=Channel.TEXT,
                 recipient_role_id=None,
                 about_id=None,
-                payload_text="DIUCS: UCR West. We have 3 referrals in the next 2 hrs.",
+                payload_text="Overwatch: UCR West. We have 3 referrals in the next 2 hrs.",
                 sent_at=datetime(2026, 10, 23, 9, 0, tzinfo=UTC),
                 delivery_status="sent",
                 provider_message_id=provider_id,

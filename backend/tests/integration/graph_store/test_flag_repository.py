@@ -17,18 +17,18 @@ import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 from neo4j.exceptions import ConstraintError
 
-from diucs.adapters.outbound.graph_store.capacity_repository import Neo4jCapacityRepository
-from diucs.adapters.outbound.graph_store.flag_repository import (
+from overwatch.adapters.outbound.graph_store.capacity_repository import Neo4jCapacityRepository
+from overwatch.adapters.outbound.graph_store.flag_repository import (
     Neo4jFlagRepository,
     service_flag_id,
     service_flag_to_fhir,
 )
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.adapters.outbound.graph_store.service_repository import Neo4jServiceRepository
-from diucs.application.tenancy import current_tenant
-from diucs.domain.codes import ReportFlagReason
-from diucs.domain.errors import Conflict, InvalidTransition, NotFound, ValidationFailed
-from diucs.domain.model.flags import (
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.adapters.outbound.graph_store.service_repository import Neo4jServiceRepository
+from overwatch.application.tenancy import current_tenant
+from overwatch.domain.codes import ReportFlagReason
+from overwatch.domain.errors import Conflict, InvalidTransition, NotFound, ValidationFailed
+from overwatch.domain.model.flags import (
     REPORT_FLAG_ACCEPTED,
     REPORT_FLAG_CHECKED,
     REPORT_FLAG_OPEN,

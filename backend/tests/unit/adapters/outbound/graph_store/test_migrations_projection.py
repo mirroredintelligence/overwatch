@@ -4,11 +4,11 @@ with the scope, ids in the block 0110 to 0129 given to build wave 5 bundle W5E.
 
 import re
 
-from diucs.adapters.outbound.graph_store.migrations_network import (
+from overwatch.adapters.outbound.graph_store.migrations_network import (
     NETWORK_MIGRATIONS,
     PROJECTION_CONSTRAINTS,
 )
-from diucs.domain.rules import projection as allowlist
+from overwatch.domain.rules import projection as allowlist
 
 EXPECTED = {
     "projection_source": ("ProjectionSource", ("tenantId", "sourceTenantId", "kind")),

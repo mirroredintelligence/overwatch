@@ -27,15 +27,15 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, time, timedelta
 from typing import Final
 
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.invariants import InvariantReport, TenantInvariants
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.scheduling import schedule_work
-from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
-from diucs.application.work import SCHEDULED, WorkKind
-from diucs.domain.errors import Conflict
-from diucs.domain.rules.london_time import london_to_utc, to_london
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.invariants import InvariantReport, TenantInvariants
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.scheduling import schedule_work
+from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
+from overwatch.application.work import SCHEDULED, WorkKind
+from overwatch.domain.errors import Conflict
+from overwatch.domain.rules.london_time import london_to_utc, to_london
 
 logger = logging.getLogger(__name__)
 

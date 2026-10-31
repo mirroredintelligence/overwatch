@@ -19,16 +19,16 @@ import { ENTRA_HOST, ENTRA_PORT, SITE_URL } from './env';
 export const ENTRA_COOKIE = 'fake_user';
 
 export const PERSONAS: Record<string, { user: FakeUser; tamper?: Tamper }> = {
-  advisor: { user: { oid: OID_ADVISOR, roles: ['DIUCS.Advisor'], tid: DIRECTORY_A } },
-  lead: { user: { oid: OID_LEAD, roles: ['DIUCS.Advisor', 'DIUCS.Lead'], tid: DIRECTORY_A } },
-  clinical: { user: { oid: OID_LEAD, roles: ['DIUCS.Clinical'], tid: DIRECTORY_A } },
+  advisor: { user: { oid: OID_ADVISOR, roles: ['Overwatch.Advisor'], tid: DIRECTORY_A } },
+  lead: { user: { oid: OID_LEAD, roles: ['Overwatch.Advisor', 'Overwatch.Lead'], tid: DIRECTORY_A } },
+  clinical: { user: { oid: OID_LEAD, roles: ['Overwatch.Clinical'], tid: DIRECTORY_A } },
   // A person of another tenant's directory, signing in on this tenant's host: refused, like no role.
-  'other-organisation': { user: { oid: OID_B, roles: ['DIUCS.Advisor'], tid: DIRECTORY_B } },
+  'other-organisation': { user: { oid: OID_B, roles: ['Overwatch.Advisor'], tid: DIRECTORY_B } },
   'no-role': { user: { oid: OID_ADVISOR, roles: ['Some.Other.Role'], tid: DIRECTORY_A } },
-  'support-from-a-customer': { user: { oid: OID_ADVISOR, roles: ['DIUCS.Support'], tid: DIRECTORY_A } },
-  'unbound-directory': { user: { oid: OID_ADVISOR, roles: ['DIUCS.Lead'], tid: DIRECTORY_UNBOUND } },
+  'support-from-a-customer': { user: { oid: OID_ADVISOR, roles: ['Overwatch.Support'], tid: DIRECTORY_A } },
+  'unbound-directory': { user: { oid: OID_ADVISOR, roles: ['Overwatch.Lead'], tid: DIRECTORY_UNBOUND } },
   'forged-nonce': {
-    user: { oid: OID_ADVISOR, roles: ['DIUCS.Lead'], tid: DIRECTORY_A },
+    user: { oid: OID_ADVISOR, roles: ['Overwatch.Lead'], tid: DIRECTORY_A },
     tamper: { nonce: 'not-the-nonce-that-was-sent' },
   },
 };

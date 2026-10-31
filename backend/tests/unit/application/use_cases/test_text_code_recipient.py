@@ -12,19 +12,19 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.memory_code_store import InMemoryCodeStore
-from diucs.application.use_cases.text_code import (
+from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.memory_code_store import InMemoryCodeStore
+from overwatch.application.use_cases.text_code import (
     DISCARD_CODE,
     SEND_CODE,
     RequestTextCode,
     RequestTextCodeCommand,
     code_key,
 )
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.errors import ValidationFailed
 from tests.unit.application.use_cases.test_text_code_timing import (
     CLOCK_AT,
     HASHER,

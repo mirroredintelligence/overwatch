@@ -33,9 +33,9 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict, Field
 
-from diucs.adapters.inbound.fhir_rest.errors import operation_outcome
-from diucs.adapters.inbound.fhir_rest.host_tenant import bind_host_tenant
-from diucs.adapters.inbound.fhir_rest.routes_identity import (
+from overwatch.adapters.inbound.fhir_rest.errors import operation_outcome
+from overwatch.adapters.inbound.fhir_rest.host_tenant import bind_host_tenant
+from overwatch.adapters.inbound.fhir_rest.routes_identity import (
     ACCEPTED_BODY,
     ADDRESS_CODE_CHECKS,
     ADDRESS_CODE_REQUESTS,
@@ -51,15 +51,15 @@ from diucs.adapters.inbound.fhir_rest.routes_identity import (
     _json,
     _not_found,
 )
-from diucs.application.ports.outbound.identity import (
+from overwatch.application.ports.outbound.identity import (
     PHONE_HASH_SECRET,
     CodeResendRefused,
     HmacPhoneHasher,
 )
-from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET
-from diucs.application.tenant_resolution import EntryRefused, PreSessionResolver
-from diucs.application.use_cases.pin import RecordTextCodeVerified
-from diucs.application.use_cases.registration_session import (
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET
+from overwatch.application.tenant_resolution import EntryRefused, PreSessionResolver
+from overwatch.application.use_cases.pin import RecordTextCodeVerified
+from overwatch.application.use_cases.registration_session import (
     ExchangeReporterSession,
     ReadInvitation,
     RegistrationSignIn,
@@ -67,15 +67,15 @@ from diucs.application.use_cases.registration_session import (
     RequestRegistrationCode,
     SignInKind,
 )
-from diucs.application.use_cases.remove_person import StartNewPhone
-from diucs.application.use_cases.reporter_identity import ConfirmDeviceByTextCode
-from diucs.application.use_cases.text_code import (
+from overwatch.application.use_cases.remove_person import StartNewPhone
+from overwatch.application.use_cases.reporter_identity import ConfirmDeviceByTextCode
+from overwatch.application.use_cases.text_code import (
     CODE_HMAC_SECRET,
     RequestTextCode,
     VerifyTextCode,
 )
-from diucs.domain.model.tenant import Tenant
-from diucs.domain.rules.tokens import LinkCheck
+from overwatch.domain.model.tenant import Tenant
+from overwatch.domain.rules.tokens import LinkCheck
 
 router = APIRouter(prefix="/identity")
 

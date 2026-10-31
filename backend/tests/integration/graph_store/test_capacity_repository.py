@@ -12,16 +12,16 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.capacity_repository import Neo4jCapacityRepository
-from diucs.adapters.outbound.graph_store.driver import run_query
-from diucs.adapters.outbound.graph_store.queries import REGISTRY
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.adapters.outbound.graph_store.service_repository import Neo4jServiceRepository
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.domain.codes import Measure, ReportSource, ReportType
-from diucs.domain.errors import Conflict, NotFound
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.service import ServiceProfile
+from overwatch.adapters.outbound.graph_store.capacity_repository import Neo4jCapacityRepository
+from overwatch.adapters.outbound.graph_store.driver import run_query
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.adapters.outbound.graph_store.service_repository import Neo4jServiceRepository
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.domain.codes import Measure, ReportSource, ReportType
+from overwatch.domain.errors import Conflict, NotFound
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.service import ServiceProfile
 from tests.integration.graph_store.test_service_repository import (
     REABLEMENT,
     UCR_EAST,

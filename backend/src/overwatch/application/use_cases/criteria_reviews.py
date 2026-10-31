@@ -24,24 +24,24 @@ from datetime import UTC, date, datetime, time, timedelta
 from typing import Final
 from zoneinfo import ZoneInfo
 
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.messaging import Communication
-from diucs.application.ports.outbound.outbox import OutboxMessage
-from diucs.application.ports.outbound.sealing import ContentSealer
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.scheduling import schedule_work
-from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
-from diucs.application.use_cases.send_prompts import MESSAGES_TOPIC, SEND_MESSAGE, _send_payload
-from diucs.application.work import SCHEDULED, WorkKind
-from diucs.domain.codes import Channel
-from diucs.domain.errors import Conflict
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.messages.templates import render
-from diucs.domain.model.criteria import ServiceCriteria
-from diucs.domain.model.flags import SERVICE_FLAG_CRITERIA_OVERDUE, ServiceFlag
-from diucs.domain.rules.criteria_workflow import is_review_overdue, review_reminder_due
-from diucs.domain.rules.london_time import london_to_utc, to_london
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.messaging import Communication
+from overwatch.application.ports.outbound.outbox import OutboxMessage
+from overwatch.application.ports.outbound.sealing import ContentSealer
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.scheduling import schedule_work
+from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
+from overwatch.application.use_cases.send_prompts import MESSAGES_TOPIC, SEND_MESSAGE, _send_payload
+from overwatch.application.work import SCHEDULED, WorkKind
+from overwatch.domain.codes import Channel
+from overwatch.domain.errors import Conflict
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.messages.templates import render
+from overwatch.domain.model.criteria import ServiceCriteria
+from overwatch.domain.model.flags import SERVICE_FLAG_CRITERIA_OVERDUE, ServiceFlag
+from overwatch.domain.rules.criteria_workflow import is_review_overdue, review_reminder_due
+from overwatch.domain.rules.london_time import london_to_utc, to_london
 
 LONDON: Final = ZoneInfo("Europe/London")
 REVIEW_RUN_AT: Final = time(7, 0)

@@ -4,8 +4,8 @@ each is one schema statement with IF NOT EXISTS, so a re-run changes nothing. A 
 runs in its own transaction (lesson L8). The verification stage runs them against Neo4j.
 """
 
-from diucs.adapters.outbound.graph_store.migrations import MIGRATIONS
-from diucs.adapters.outbound.graph_store.migrations_protected import PROTECTED_MIGRATIONS
+from overwatch.adapters.outbound.graph_store.migrations import MIGRATIONS
+from overwatch.adapters.outbound.graph_store.migrations_protected import PROTECTED_MIGRATIONS
 
 HANDLE_ID = "0040_protected_text_handle"
 MOVE_ID = "0041_service_move_id"

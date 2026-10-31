@@ -5,8 +5,8 @@ from datetime import UTC, datetime
 
 import pytest
 
-from diucs.application.ports.outbound.telemetry_query import TimelineKind
-from diucs.domain.rules.support_console import (
+from overwatch.application.ports.outbound.telemetry_query import TimelineKind
+from overwatch.domain.rules.support_console import (
     ALLOWED_EVENT_KEYS,
     EVENT_FILTERS,
     public_event,

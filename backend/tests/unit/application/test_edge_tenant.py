@@ -6,9 +6,9 @@ from typing import Any
 
 import pytest
 
-from diucs.application.edge_tenant import resolve_active_tenant
-from diucs.application.ports.outbound.tenants import TenantRecordInvalid
-from diucs.domain.model.tenant import TenantStatus
+from overwatch.application.edge_tenant import resolve_active_tenant
+from overwatch.application.ports.outbound.tenants import TenantRecordInvalid
+from overwatch.domain.model.tenant import TenantStatus
 from tests.support.tenant_samples import make_tenant
 
 

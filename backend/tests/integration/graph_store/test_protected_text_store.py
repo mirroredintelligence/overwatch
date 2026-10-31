@@ -8,8 +8,8 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.protected_text_store import Neo4jProtectedTextStore
-from diucs.domain.errors import ValidationFailed
+from overwatch.adapters.outbound.graph_store.protected_text_store import Neo4jProtectedTextStore
+from overwatch.domain.errors import ValidationFailed
 from tests.support.neo4j import read_tx, write_tx
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")

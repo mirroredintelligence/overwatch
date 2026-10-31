@@ -22,20 +22,20 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient, Response
 from neo4j import AsyncDriver
 
-from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
-from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
-from diucs.application.ports.outbound.identity import DEVICE_TOKEN_SECRET
-from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET
-from diucs.bootstrap.container import Container, build_for_tests
-from diucs.domain.codes import Role
-from diucs.domain.model.tenant import TenantStatus
+from overwatch.adapters.inbound.fhir_rest.app import create_app
+from overwatch.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from overwatch.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
+from overwatch.application.ports.outbound.identity import DEVICE_TOKEN_SECRET
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET
+from overwatch.bootstrap.container import Container, build_for_tests
+from overwatch.domain.codes import Role
+from overwatch.domain.model.tenant import TenantStatus
 from tests.integration.adapters.inbound.link_pages.conftest import (
     change_tenant_record,
     seed_tenant_host,
@@ -521,7 +521,7 @@ async def test_nothing_the_pairing_routes_handle_is_logged_by_the_application(
     token = (await claim(screens, started["pairingId"], secret)).json()["deviceToken"]
     await connect(screens, "111111")
     await claim(screens, started["pairingId"], "C" * 23)
-    logged = "\n".join(r.getMessage() for r in caplog.records if r.name.startswith("diucs"))
+    logged = "\n".join(r.getMessage() for r in caplog.records if r.name.startswith("overwatch"))
     for value in (code, spaced(code), secret, token):
         assert value not in logged
 

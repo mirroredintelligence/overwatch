@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from diucs.adapters.testing.fixture_telemetry import FixtureTelemetryQuery
-from diucs.application.tenancy import ScopeId, TenantNotBound, bind_scope
+from overwatch.adapters.testing.fixture_telemetry import FixtureTelemetryQuery
+from overwatch.application.tenancy import ScopeId, TenantNotBound, bind_scope
 
 FIXTURE = Path(__file__).resolve().parents[3] / "fixtures" / "telemetry" / "s-7f3a.json"
 DAY = date(2026, 10, 28)

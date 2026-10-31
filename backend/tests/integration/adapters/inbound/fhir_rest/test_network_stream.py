@@ -16,20 +16,20 @@ from collections.abc import AsyncIterator
 import pytest
 import pytest_asyncio
 
-from diucs.adapters.inbound.fhir_rest import routes_network_events as module
-from diucs.adapters.inbound.fhir_rest.routes_network_events import (
+from overwatch.adapters.inbound.fhir_rest import routes_network_events as module
+from overwatch.adapters.inbound.fhir_rest.routes_network_events import (
     SCOPE_ENDED_EVENT,
     network_events,
 )
-from diucs.adapters.outbound.cache_redis.redis_cache import RedisCache
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.cache import (
+from overwatch.adapters.outbound.cache_redis.redis_cache import RedisCache
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.cache import (
     BOARD_UPDATES_CHANNEL,
     NETWORK_BOARD_UPDATES_CHANNEL,
 )
-from diucs.application.tenancy import bind_network, bind_tenant
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotFound
+from overwatch.application.tenancy import bind_network, bind_tenant
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotFound
 from tests.support.tenancy import RunIdentity
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")

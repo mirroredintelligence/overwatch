@@ -11,21 +11,21 @@ from datetime import UTC, datetime, time
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.notify_escalations import NotifyLeadsCommand, NotifyShiftLeads
-from diucs.domain.codes import (
+from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.notify_escalations import NotifyLeadsCommand, NotifyShiftLeads
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     Measure,
     PractitionerRoleCode,
     ServiceCategory,
 )
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.tenancy import as_tenant
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory
 

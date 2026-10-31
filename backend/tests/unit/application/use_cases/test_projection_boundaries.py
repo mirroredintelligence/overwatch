@@ -16,10 +16,10 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.tenancy import bind_tenant
-from diucs.application.use_cases.project_network import ProjectionRun
-from diucs.application.use_cases.projection_boundaries import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.tenancy import bind_tenant
+from overwatch.application.use_cases.project_network import ProjectionRun
+from overwatch.application.use_cases.projection_boundaries import (
     AFTER_LEAVE,
     HEARTBEAT_INTERVAL,
     MIN_GAP,
@@ -27,9 +27,9 @@ from diucs.application.use_cases.projection_boundaries import (
     RunProjectionHeartbeatCommand,
     ensure_projection_schedule,
 )
-from diucs.application.use_cases.projection_reconcile import ReconcileResult
-from diucs.application.work import SCHEDULED, ScheduledWork, WorkKind
-from diucs.domain.model.network import (
+from overwatch.application.use_cases.projection_reconcile import ReconcileResult
+from overwatch.application.work import SCHEDULED, ScheduledWork, WorkKind
+from overwatch.domain.model.network import (
     GrantScope,
     GrantStatus,
     MembershipEndReason,

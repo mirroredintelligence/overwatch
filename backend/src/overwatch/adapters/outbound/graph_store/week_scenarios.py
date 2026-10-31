@@ -10,7 +10,7 @@ time is not a key, so it is declared new. The module is pure data: no Neo4j, no 
 from datetime import UTC, datetime
 from typing import Final
 
-from diucs.adapters.outbound.graph_store.scenario import (
+from overwatch.adapters.outbound.graph_store.scenario import (
     Expect,
     Marked,
     Scenario,
@@ -18,7 +18,7 @@ from diucs.adapters.outbound.graph_store.scenario import (
     SeedRel,
     TenantSeed,
 )
-from diucs.domain.codes import BASE_URL, code_system_url
+from overwatch.domain.codes import BASE_URL, code_system_url
 
 _START: Final = datetime(2026, 10, 19, 9, 0, tzinfo=UTC)
 _END: Final = datetime(2026, 10, 19, 17, 0, tzinfo=UTC)

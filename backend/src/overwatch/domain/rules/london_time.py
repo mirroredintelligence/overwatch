@@ -19,7 +19,7 @@ Clock changes (the same rule in every zone, shown for Europe/London):
 from datetime import UTC, date, datetime, time
 from zoneinfo import ZoneInfo
 
-from diucs.domain.model.tenant import check_time_zone
+from overwatch.domain.model.tenant import check_time_zone
 
 LONDON = ZoneInfo("Europe/London")
 

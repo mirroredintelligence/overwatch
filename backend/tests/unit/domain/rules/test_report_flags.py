@@ -15,7 +15,7 @@ from typing import Any
 from hypothesis import given
 from hypothesis import strategies as st
 
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     Measure,
@@ -24,10 +24,10 @@ from diucs.domain.codes import (
     ReportType,
     ServiceCategory,
 )
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.service import AvailableTime, ServiceProfile
-from diucs.domain.rules.london_time import LONDON
-from diucs.domain.rules.report_flags import (
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.rules.london_time import LONDON
+from overwatch.domain.rules.report_flags import (
     MANY_CHANGES_COUNT,
     MANY_CHANGES_WINDOW,
     PHONED_WINDOW,
@@ -508,7 +508,7 @@ def test_flags_are_unique_and_in_rule_order(new_draw: Draw, recent_draws: list[D
 
 
 def test_a_reason_with_an_open_flag_earns_no_new_one() -> None:
-    from diucs.domain.rules.report_flags import new_flag_reasons
+    from overwatch.domain.rules.report_flags import new_flag_reasons
 
     assert new_flag_reasons([MANY, DIFFERS], {MANY}) == [DIFFERS]
     assert new_flag_reasons([MANY, DIFFERS], {MANY, DIFFERS}) == []
@@ -516,7 +516,7 @@ def test_a_reason_with_an_open_flag_earns_no_new_one() -> None:
 
 
 def test_a_reason_is_given_once_and_the_order_is_kept() -> None:
-    from diucs.domain.rules.report_flags import new_flag_reasons
+    from overwatch.domain.rules.report_flags import new_flag_reasons
 
     twice = ReportFlagReason.OUT_OF_RANGE_TWICE
     assert new_flag_reasons([DIFFERS, twice, DIFFERS, MANY], frozenset()) == [DIFFERS, twice, MANY]

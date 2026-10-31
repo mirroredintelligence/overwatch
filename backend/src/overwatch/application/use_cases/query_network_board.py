@@ -17,13 +17,13 @@ travel with the result; no row names the member's tenant, a grant or the member'
 
 from dataclasses import dataclass
 
-from diucs.application.actor import Actor
-from diucs.application.network_access import NetworkAccess, NetworkContext
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.unit_of_work import NetworkUnitOfWorkFactory
-from diucs.application.tenancy import bind_network
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY
-from diucs.domain.rules.network_board import (
+from overwatch.application.actor import Actor
+from overwatch.application.network_access import NetworkAccess, NetworkContext
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.unit_of_work import NetworkUnitOfWorkFactory
+from overwatch.application.tenancy import bind_network
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY
+from overwatch.domain.rules.network_board import (
     NetworkBoard,
     NetworkServiceInput,
     assemble_network_board,

@@ -22,14 +22,14 @@ async function take(id: string) {
   const s: Session = { role: 'clinical', tenantId: 'trust-a', host: 'app.test', services: [], sub: 'user-1', backendToken: TOKEN_ORG_A, expiresAt: new Date(Date.now() + 3_600_000).toISOString() };
   const request = requestWithCookies(`https://app.test/api/bff/clinical/requests/${id}/take`, {
     [SESSION_COOKIE]: await sealSession(s),
-    diucs_csrf: CSRF,
+    overwatch_csrf: CSRF,
   }, { method: 'POST', headers: { 'X-CSRF-Token': CSRF } });
   return POST(request, { params: Promise.resolve({ id }) });
 }
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', EXEC_BACKEND);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', EXEC_BACKEND);
   vi.stubEnv('NODE_ENV', 'production');
   resetClinicalBackend();
   server.use(...clinicalBackendHandlers);

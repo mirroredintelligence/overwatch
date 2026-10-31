@@ -11,7 +11,7 @@ from tests import conftest as root_conftest
 from tests.support.tenancy import RunIdentity, workerinput_for
 
 CONTROLLER = RunIdentity(pid=4242, started=1_800_000_000, nonce="ab12")
-ENV = ("DIUCS_TEST_TENANT", "DIUCS_TEST_OTHER_TENANT", "DIUCS_TEST_NETWORK")
+ENV = ("OVERWATCH_TEST_TENANT", "OVERWATCH_TEST_OTHER_TENANT", "OVERWATCH_TEST_NETWORK")
 
 
 @pytest.fixture(autouse=True)
@@ -36,7 +36,7 @@ def test_a_session_with_no_workers_makes_one_identity_of_its_own() -> None:
     identity = _identity(config)
     assert identity.worker is None
     assert (identity.pid, identity.started) == (os.getpid(), identity.started)
-    assert os.environ["DIUCS_TEST_TENANT"] == identity.tenant_id
+    assert os.environ["OVERWATCH_TEST_TENANT"] == identity.tenant_id
 
 
 def test_a_worker_takes_the_identity_its_controller_sent_for_its_own_number() -> None:
@@ -45,9 +45,9 @@ def test_a_worker_takes_the_identity_its_controller_sent_for_its_own_number() ->
     root_conftest.pytest_configure(config)
 
     assert _identity(config) == CONTROLLER.for_worker(3)
-    assert os.environ["DIUCS_TEST_TENANT"] == CONTROLLER.for_worker(3).tenant_id
-    assert os.environ["DIUCS_TEST_OTHER_TENANT"] == CONTROLLER.for_worker(3).other_tenant_id
-    assert os.environ["DIUCS_TEST_NETWORK"] == CONTROLLER.for_worker(3).network_id
+    assert os.environ["OVERWATCH_TEST_TENANT"] == CONTROLLER.for_worker(3).tenant_id
+    assert os.environ["OVERWATCH_TEST_OTHER_TENANT"] == CONTROLLER.for_worker(3).other_tenant_id
+    assert os.environ["OVERWATCH_TEST_NETWORK"] == CONTROLLER.for_worker(3).network_id
 
 
 def test_two_workers_of_one_run_have_different_tenants() -> None:

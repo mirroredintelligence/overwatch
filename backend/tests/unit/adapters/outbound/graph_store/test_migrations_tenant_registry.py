@@ -7,9 +7,9 @@ Migration ids 0034 and 0035 were checked against every local and remote ref and 
 
 import re
 
-from diucs.adapters.outbound.graph_store import migrations_tenant as tenant
-from diucs.adapters.outbound.graph_store.migrations import CORE_MIGRATIONS, MIGRATIONS
-from diucs.application.tenancy import DEFAULT_TENANT_ID
+from overwatch.adapters.outbound.graph_store import migrations_tenant as tenant
+from overwatch.adapters.outbound.graph_store.migrations import CORE_MIGRATIONS, MIGRATIONS
+from overwatch.application.tenancy import DEFAULT_TENANT_ID
 
 EXPECTED_0034 = (
     "CREATE CONSTRAINT tenant_id IF NOT EXISTS FOR (n:Tenant) REQUIRE n.id IS UNIQUE",

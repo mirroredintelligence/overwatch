@@ -47,7 +47,7 @@ async function post(role: Role | null, body: unknown): Promise<Response> {
 beforeEach(() => {
   seen.length = 0;
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', BACKEND_BASE);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', BACKEND_BASE);
   vi.stubEnv('NODE_ENV', 'production');
   server.use(
     http.post(DECLINED_URL, async ({ request }) => {

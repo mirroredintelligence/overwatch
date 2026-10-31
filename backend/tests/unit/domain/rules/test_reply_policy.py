@@ -14,13 +14,13 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from diucs.domain.codes import ReportFlagReason
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
-from diucs.domain.rules import reply_policy as reply_policy_rules
-from diucs.domain.rules.london_time import LONDON
-from diucs.domain.rules.reply_parser import Confirm, Number
-from diucs.domain.rules.reply_policy import (
+from overwatch.domain.codes import ReportFlagReason
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
+from overwatch.domain.rules import reply_policy as reply_policy_rules
+from overwatch.domain.rules.london_time import LONDON
+from overwatch.domain.rules.reply_parser import Confirm, Number
+from overwatch.domain.rules.reply_policy import (
     CORRECTION_WINDOW,
     MAX_CONSECUTIVE_CONFIRMS,
     AskRecheck,

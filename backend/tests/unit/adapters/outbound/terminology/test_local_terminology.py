@@ -1,15 +1,15 @@
 """Local terminology (I12): the ODS pilot sample, the CodeSystem display and the export sync.
 
 No Docker and no network. The committed CodeSystem files are checked against a fresh export, so a
-change to diucs.domain.codes that is not exported fails here.
+change to overwatch.domain.codes that is not exported fails here.
 """
 
 from pathlib import Path
 
 import pytest
 
-from diucs.adapters.outbound.terminology.local_terminology import LocalTerminology
-from diucs.domain.codes import code_system_url
+from overwatch.adapters.outbound.terminology.local_terminology import LocalTerminology
+from overwatch.domain.codes import code_system_url
 from scripts.export_codesystems import export
 
 BACKEND = Path(__file__).resolve().parents[5]

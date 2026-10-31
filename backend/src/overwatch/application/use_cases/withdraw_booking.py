@@ -21,34 +21,34 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Final
 
-from diucs.application.actor import Actor, timer_actor
-from diucs.application.idempotency import IdempotencyStore
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.outbox import outbox_message_for
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.scheduling import cancel_work, schedule_work
-from diucs.application.tenancy import (
+from overwatch.application.actor import Actor, timer_actor
+from overwatch.application.idempotency import IdempotencyStore
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.outbox import outbox_message_for
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.scheduling import cancel_work, schedule_work
+from overwatch.application.tenancy import (
     ScopeId,
     ScopeKind,
     TenantNotBound,
     current_scope,
     current_tenant,
 )
-from diucs.application.tenant_settings import read_policy
-from diucs.application.work import DONE, SCHEDULED, ScheduledWork, WorkKind
-from diucs.domain.codes import BookingStatus, NotReachedReason, Role, WithdrawReason
-from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.events import BookingNotReached, BookingWithdrawn, WithdrawalEscalated
-from diucs.domain.model.booking import Booking
-from diucs.domain.rules.booking_exceptions import (
+from overwatch.application.tenant_settings import read_policy
+from overwatch.application.work import DONE, SCHEDULED, ScheduledWork, WorkKind
+from overwatch.domain.codes import BookingStatus, NotReachedReason, Role, WithdrawReason
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.events import BookingNotReached, BookingWithdrawn, WithdrawalEscalated
+from overwatch.domain.model.booking import Booking
+from overwatch.domain.rules.booking_exceptions import (
     checked_not_reached_reason,
     checked_withdraw_reason,
     not_reached_target,
     withdraw_target,
 )
-from diucs.domain.rules.booking_response import advisor_may_cancel, responder_may_act
+from overwatch.domain.rules.booking_response import advisor_may_cancel, responder_may_act
 
 AUDIT_ACTION: Final = "U"
 WITHDRAW_USE_CASE: Final = "WithdrawBooking"

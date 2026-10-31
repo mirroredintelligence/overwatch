@@ -10,13 +10,13 @@ The wall screen reader is the container's own unit of work (`UowScreens`), so a 
 is judged against the bound tenant's screens (TEN-072).
 """
 
-from diucs.adapters.inbound.fhir_rest.routes_network import NetworkServices
-from diucs.adapters.inbound.fhir_rest.routes_network_admin import NetworkAdminServices
-from diucs.adapters.outbound.graph_store.network_registry import Neo4jNetworkRegistry
-from diucs.adapters.outbound.graph_store.unit_of_work import neo4j_network_uow_factory
-from diucs.application.network_access import NetworkAccess
-from diucs.application.use_cases.filter_network_options import FilterNetworkOptions
-from diucs.application.use_cases.grants import (
+from overwatch.adapters.inbound.fhir_rest.routes_network import NetworkServices
+from overwatch.adapters.inbound.fhir_rest.routes_network_admin import NetworkAdminServices
+from overwatch.adapters.outbound.graph_store.network_registry import Neo4jNetworkRegistry
+from overwatch.adapters.outbound.graph_store.unit_of_work import neo4j_network_uow_factory
+from overwatch.application.network_access import NetworkAccess
+from overwatch.application.use_cases.filter_network_options import FilterNetworkOptions
+from overwatch.application.use_cases.grants import (
     ApproveGrant,
     DeclineGrant,
     EndGrant,
@@ -24,35 +24,35 @@ from diucs.application.use_cases.grants import (
     QueryGrants,
     ReviseGrant,
 )
-from diucs.application.use_cases.listing_admission import (
+from overwatch.application.use_cases.listing_admission import (
     DecideListing,
     QueryListings,
     RequestListing,
 )
-from diucs.application.use_cases.member_sharing import QueryMemberSharing
-from diucs.application.use_cases.membership import (
+from overwatch.application.use_cases.member_sharing import QueryMemberSharing
+from overwatch.application.use_cases.membership import (
     AcceptMembership,
     InviteMember,
     LeaveNetwork,
     RemoveMember,
 )
-from diucs.application.use_cases.network_admin import (
+from overwatch.application.use_cases.network_admin import (
     GovernanceRecorder,
     QueryNetworkAdmin,
     RecordAgreement,
     RegistryNetworkOwnership,
 )
-from diucs.application.use_cases.network_board_projector import NetworkBoardProjector
-from diucs.application.use_cases.network_leave import EndProjections
-from diucs.application.use_cases.network_samples import RecordNetworkSample
-from diucs.application.use_cases.network_week_summary import GetNetworkWeekSummary
-from diucs.application.use_cases.query_network_board import QueryNetworkBoard
-from diucs.application.use_cases.query_network_directory import (
+from overwatch.application.use_cases.network_board_projector import NetworkBoardProjector
+from overwatch.application.use_cases.network_leave import EndProjections
+from overwatch.application.use_cases.network_samples import RecordNetworkSample
+from overwatch.application.use_cases.network_week_summary import GetNetworkWeekSummary
+from overwatch.application.use_cases.query_network_board import QueryNetworkBoard
+from overwatch.application.use_cases.query_network_directory import (
     QueryNetworkCriteria,
     QueryNetworkDirectory,
 )
-from diucs.application.use_cases.wall_board_scope import UowScreens
-from diucs.bootstrap.container import Container
+from overwatch.application.use_cases.wall_board_scope import UowScreens
+from overwatch.bootstrap.container import Container
 
 
 def build_network_services(container: Container) -> NetworkServices:

@@ -17,10 +17,10 @@ from typing import Any, get_args, get_type_hints
 
 import pytest
 
-from diucs.application.ports.outbound.event_bus import QUEUES, TOPICS
-from diucs.domain import events
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.events import (
+from overwatch.application.ports.outbound.event_bus import QUEUES, TOPICS
+from overwatch.domain import events
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.events import (
     NETWORK_EVENTS,
     PAYLOAD_EXCEPTIONS,
     PROJECTION_WORK,
@@ -42,7 +42,7 @@ from diucs.domain.events import (
     session_id_for,
     topic_for,
 )
-from diucs.domain.model.network import (
+from overwatch.domain.model.network import (
     DirectorySource,
     GrantApprover,
     GrantEndReason,

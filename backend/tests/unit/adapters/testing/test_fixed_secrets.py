@@ -3,8 +3,8 @@ as the recording fake of TEN-007, notes every name asked for and never a value."
 
 import pytest
 
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.domain.errors import NotFound
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.domain.errors import NotFound
 
 TOKEN = b"test-only-auth-token-0001"
 

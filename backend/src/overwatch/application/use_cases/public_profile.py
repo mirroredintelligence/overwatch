@@ -12,9 +12,9 @@ words; a tenant with no coordination phone has none. Never a default invented he
 from dataclasses import dataclass
 from typing import Final
 
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import ScopeKind, TenantNotBound
-from diucs.domain.model.tenant import ContactKind, Tenant, TenantWording
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeKind, TenantNotBound
+from overwatch.domain.model.tenant import ContactKind, Tenant, TenantWording
 
 # [ASSUMED] (audit D 8): NHS tenants share one locale; the time zone is the tenant's own.
 DEFAULT_LOCALE: Final = "en-GB"

@@ -68,10 +68,10 @@ export function PhoneAlerts() {
         <p>What we never send: Patient names or details.</p>
         <p>You choose: Change which alerts you get in settings, or turn them off in your phone’s settings.</p>
         <p>When you allow, we record the date and this phone.</p>
-        <p>On an iPhone, alerts work only from the home screen. Tap Share, then Add to Home Screen, then open DIUCS from the home screen.</p>
+        <p>On an iPhone, alerts work only from the home screen. Tap Share, then Add to Home Screen, then open Overwatch from the home screen.</p>
       </section>
 
-      {!supported ? <Banner tone="warning" title="This browser cannot show notifications. Open DIUCS in your phone’s browser, or install it to your home screen." /> : null}
+      {!supported ? <Banner tone="warning" title="This browser cannot show notifications. Open Overwatch in your phone’s browser, or install it to your home screen." /> : null}
       {state === 'blocked' ? <Banner tone="warning" title="Alerts are blocked for this phone. Turn them on in your phone’s settings, then try again." /> : null}
       {state === 'failed' ? <Banner tone="warning" title="We could not turn on alerts on this phone. Try again." /> : null}
       {state === 'on' ? <p role="status">Alerts are on for this phone.</p> : null}

@@ -27,9 +27,9 @@ from collections.abc import Sequence
 from datetime import UTC, date, datetime
 from typing import Any, Final
 
-from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.adapters.outbound.graph_store.scenario import (
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx, run_query
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from overwatch.adapters.outbound.graph_store.scenario import (
     Expect,
     Marked,
     NodeSpec,
@@ -37,7 +37,7 @@ from diucs.adapters.outbound.graph_store.scenario import (
     SeedNode,
     TenantSeed,
 )
-from diucs.domain.model.insight import (
+from overwatch.domain.model.insight import (
     FrictionAdd,
     FunnelAdd,
     FunnelMark,

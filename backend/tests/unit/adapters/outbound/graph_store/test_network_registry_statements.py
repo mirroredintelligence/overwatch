@@ -18,10 +18,10 @@ import pytest
 from neo4j.exceptions import ConstraintError
 from neo4j.time import DateTime
 
-from diucs.adapters.outbound.graph_store import network_registry as module
-from diucs.adapters.outbound.graph_store import queries as queries_module
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.network_registry import (
+from overwatch.adapters.outbound.graph_store import network_registry as module
+from overwatch.adapters.outbound.graph_store import queries as queries_module
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.network_registry import (
     Neo4jNetworkRegistry,
     grant_from_properties,
     grant_properties,
@@ -32,7 +32,7 @@ from diucs.adapters.outbound.graph_store.network_registry import (
     network_from_properties,
     network_properties,
 )
-from diucs.adapters.outbound.graph_store.queries import (
+from overwatch.adapters.outbound.graph_store.queries import (
     GLOBAL_QUERY_IDS,
     GLOBAL_STATEMENTS,
     GLOBAL_WRITE_IDS,
@@ -42,12 +42,12 @@ from diucs.adapters.outbound.graph_store.queries import (
     statement_digest,
     statement_labels,
 )
-from diucs.application.ports.outbound.network import (
+from overwatch.application.ports.outbound.network import (
     NetworkRecordInvalid,
     RegisteredNetwork,
 )
-from diucs.domain.errors import Conflict
-from diucs.domain.model.network import (
+from overwatch.domain.errors import Conflict
+from overwatch.domain.model.network import (
     GrantScope,
     GrantStatus,
     ListingStatus,
@@ -268,7 +268,7 @@ def test_a_membership_in_every_status_comes_back_equal() -> None:
 def test_a_grant_in_every_state_comes_back_equal() -> None:
     proposed = make_grant(approved=False)
     approved = make_grant()
-    from diucs.domain.rules.grant import end_grant
+    from overwatch.domain.rules.grant import end_grant
 
     ended = end_grant(approved, by_tenant_id=MEMBER_B, account_ref="acct-member-b-01", now=NOW)
     for grant in (proposed, approved, ended, replace(approved, effective_to=NOW + (NOW - T0))):

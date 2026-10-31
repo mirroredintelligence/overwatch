@@ -17,16 +17,16 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.audit_replay import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.audit_replay import (
     ExportAuditReplay,
     GetAuditReplay,
     GetAuditReplayCommand,
 )
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     AgeBand,
     BookingStatus,
     Cadence,
@@ -40,11 +40,11 @@ from diucs.domain.codes import (
     Status,
     Urgency,
 )
-from diucs.domain.errors import NotAllowed, NotFound
-from diucs.domain.model.booking import Booking
-from diucs.domain.model.case import Case
-from diucs.domain.model.criteria import ServiceCriteria
-from diucs.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.errors import NotAllowed, NotFound
+from overwatch.domain.model.booking import Booking
+from overwatch.domain.model.case import Case
+from overwatch.domain.model.criteria import ServiceCriteria
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, read_tx, write_tx
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory

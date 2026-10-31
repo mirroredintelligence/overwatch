@@ -10,20 +10,24 @@ from typing import Any
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
-from diucs.adapters.outbound.fhir_validator.validator import ProfileValidator, profile_url
-from diucs.adapters.outbound.graph_store.capacity_repository import report_to_fhir
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET, default_token_tenant, issue_test_token
-from diucs.bootstrap.container import TEST_NOW
-from diucs.domain.codes import Role
+from overwatch.adapters.inbound.fhir_rest.app import create_app
+from overwatch.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from overwatch.adapters.outbound.fhir_validator.validator import ProfileValidator, profile_url
+from overwatch.adapters.outbound.graph_store.capacity_repository import report_to_fhir
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.tokens import (
+    TEST_BFF_SECRET,
+    default_token_tenant,
+    issue_test_token,
+)
+from overwatch.bootstrap.container import TEST_NOW
+from overwatch.domain.codes import Role
 from tests.support.edge import active_tenants
 from tests.unit.adapters.outbound.graph_store.test_capacity_repository import NUMBER_REPORT
 
-CAPACITY = profile_url("DiucsCapacityReport")
+CAPACITY = profile_url("OverwatchCapacityReport")
 REPORTER = {"authorization": "Bearer " + issue_test_token(Role.REPORTER, [], "sample-reporter")}
 
 
@@ -96,13 +100,18 @@ async def test_a_patient_stub_with_a_name_is_refused_by_validate(app: Any) -> No
         "resourceType": "Patient",
         "id": "stub-sample-1",
         "meta": {"tag": [{"code": "pseudonymised-case-stub"}]},
-        "extension": [{"url": "https://diucs.example/Extension/age-band", "valueCode": "65-79"}],
+        "extension": [
+            {
+                "url": "https://overwatch.mirroredintelligence.com/Extension/age-band",
+                "valueCode": "65-79",
+            }
+        ],
         "name": [{"family": "Sample"}],
     }
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post(
             "/fhir/Patient/$validate",
-            params={"profile": profile_url("DiucsPatientCaseStub")},
+            params={"profile": profile_url("OverwatchPatientCaseStub")},
             json=stub,
             headers=REPORTER,
         )

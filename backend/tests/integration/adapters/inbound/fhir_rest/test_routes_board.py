@@ -22,15 +22,15 @@ from fhir.resources.R4B.parameters import Parameters
 from httpx import AsyncClient, Response
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
-from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.bootstrap.container import Container
-from diucs.domain.codes import (
+from overwatch.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from overwatch.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.bootstrap.container import Container
+from overwatch.domain.codes import (
     BookingStatus,
     Cadence,
     Channel,
@@ -40,9 +40,9 @@ from diucs.domain.codes import (
     Role,
     ServiceCategory,
 )
-from diucs.domain.model.booking import Booking
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.model.booking import Booking
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.integration.application.test_query_board import WEST, WEST_REPORT
 from tests.support.neo4j import count_nodes, read_tx, run_nodes
 

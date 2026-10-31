@@ -22,15 +22,15 @@ from azure.servicebus.aio import ServiceBusClient, ServiceBusSender
 from azure.servicebus.exceptions import ServiceBusError
 from opentelemetry import trace as otel_trace
 
-from diucs.application.ports.outbound.event_bus import (
+from overwatch.application.ports.outbound.event_bus import (
     QUEUES,
     TOPICS,
     BusMessage,
     check_publishable,
     to_wire,
 )
-from diucs.application.tracing import format_traceparent
-from diucs.domain.errors import ValidationFailed
+from overwatch.application.tracing import format_traceparent
+from overwatch.domain.errors import ValidationFailed
 
 # DEC-102 item 2: the emulator refuses a cancel of a number that is unknown, already delivered or
 # held by another queue, with this text. The number it names must be the one asked for.

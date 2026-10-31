@@ -4,8 +4,8 @@ token, a PIN or a hash."""
 
 import re
 
-from diucs.adapters.outbound.graph_store import credential_store  # registers the queries
-from diucs.adapters.outbound.graph_store.queries import REGISTRY
+from overwatch.adapters.outbound.graph_store import credential_store  # registers the queries
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY
 
 MARK = "Q-DEVICE-MARK-VERIFIED"
 READ = "Q-DEVICE-VERIFIED"

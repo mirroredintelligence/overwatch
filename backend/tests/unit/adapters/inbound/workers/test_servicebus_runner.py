@@ -10,15 +10,15 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.inbound.workers import consumer as consumer_module
-from diucs.adapters.inbound.workers.consumer import IdempotentConsumer, Outcome
-from diucs.adapters.inbound.workers.outbox_relay import StaticTenants
-from diucs.adapters.inbound.workers.servicebus_runner import (
+from overwatch.adapters.inbound.workers import consumer as consumer_module
+from overwatch.adapters.inbound.workers.consumer import IdempotentConsumer, Outcome
+from overwatch.adapters.inbound.workers.outbox_relay import StaticTenants
+from overwatch.adapters.inbound.workers.servicebus_runner import (
     ConsumerNotTenantBound,
     ServiceBusRunner,
 )
-from diucs.adapters.inbound.workers.tenant_binding import TenantBoundConsumer
-from diucs.application.ports.outbound.event_bus import BusMessage
+from overwatch.adapters.inbound.workers.tenant_binding import TenantBoundConsumer
+from overwatch.application.ports.outbound.event_bus import BusMessage
 
 
 class _Receiver:

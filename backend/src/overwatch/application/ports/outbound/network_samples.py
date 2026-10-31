@@ -11,7 +11,7 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Protocol
 
-from diucs.domain.rules.network_sample import NetworkSample
+from overwatch.domain.rules.network_sample import NetworkSample
 
 
 class NetworkSamples(Protocol):

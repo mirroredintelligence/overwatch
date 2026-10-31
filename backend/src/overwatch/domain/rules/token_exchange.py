@@ -27,17 +27,17 @@ from collections.abc import Collection, Iterable
 from datetime import UTC, datetime, timedelta
 from typing import Final
 
-from diucs.domain.codes import Role
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.tenant import Tenant, check_tenant_id
-from diucs.domain.model.tenant_records import (
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.tenant import Tenant, check_tenant_id
+from overwatch.domain.model.tenant_records import (
     BindingStatus,
     EntraBinding,
     MappingStatus,
     RoleMapping,
 )
-from diucs.domain.rules.bff_token import EPOCH_MAX
-from diucs.domain.rules.edge_access import EdgeVerdict, edge_verdict
+from overwatch.domain.rules.bff_token import EPOCH_MAX
+from overwatch.domain.rules.edge_access import EdgeVerdict, edge_verdict
 
 # [ASSUMED] lifetimes. A staff session is a working shift (the BFF's own session lasted eight
 # hours); an operator or a screen asks again within the hour. A suspend or a role change takes
@@ -62,8 +62,8 @@ STAFF_ROLE_PRIORITY: Final = (
 # The app roles of the operator's directory and the platform role each gives. A person who holds
 # both is the platform operator, who has no data access (DEC-134 item 4).
 OPERATOR_ROLE_CLAIMS: Final = {
-    "DIUCS.PlatformOperator": Role.PLATFORM_OPERATOR,
-    "DIUCS.Support": Role.SUPPORT,
+    "Overwatch.PlatformOperator": Role.PLATFORM_OPERATOR,
+    "Overwatch.Support": Role.SUPPORT,
 }
 _OPERATOR_PRIORITY: Final = (Role.PLATFORM_OPERATOR, Role.SUPPORT)
 

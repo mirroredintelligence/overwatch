@@ -18,20 +18,20 @@ from zoneinfo import ZoneInfo
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import ScopeId
-from diucs.application.use_cases.confirm_capacity import ConfirmCapacity, ConfirmCapacityCommand
-from diucs.application.use_cases.report_capacity import ReportCapacity, ReportCapacityCommand
-from diucs.domain.codes import ReportSource, ReportType
-from diucs.domain.errors import (
+from overwatch.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeId
+from overwatch.application.use_cases.confirm_capacity import ConfirmCapacity, ConfirmCapacityCommand
+from overwatch.application.use_cases.report_capacity import ReportCapacity, ReportCapacityCommand
+from overwatch.domain.codes import ReportSource, ReportType
+from overwatch.domain.errors import (
     Conflict,
     EffectiveBeforeConfirmation,
     EffectiveNotAfterLatest,
     ValidationFailed,
 )
-from diucs.domain.model.capacity import CapacityReport
+from overwatch.domain.model.capacity import CapacityReport
 from tests.integration.application.test_confirm_capacity import (
     AT_1005,
     AT_1205,

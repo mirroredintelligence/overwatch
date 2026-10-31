@@ -19,14 +19,19 @@ from typing import Any, Self
 
 import pytest
 
-from diucs.adapters.testing.fake_identity_verifier import FakeIdentityVerifier
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.identity_verifier import Audience, VerifiedIdentity
-from diucs.application.tenancy import ScopeId, TenantMismatch, bind_tenant, current_scope_or_none
-from diucs.application.tenant_resolution import EntryRefused
-from diucs.application.use_cases.exchange_token import (
+from overwatch.adapters.testing.fake_identity_verifier import FakeIdentityVerifier
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.identity_verifier import Audience, VerifiedIdentity
+from overwatch.application.tenancy import (
+    ScopeId,
+    TenantMismatch,
+    bind_tenant,
+    current_scope_or_none,
+)
+from overwatch.application.tenant_resolution import EntryRefused
+from overwatch.application.use_cases.exchange_token import (
     ACCOUNT_REF_SECRET,
     EXCHANGE_REFUSED_MESSAGE,
     SIGNING_SECRET,
@@ -39,24 +44,24 @@ from diucs.application.use_cases.exchange_token import (
     ExchangeStaffToken,
     IssuedToken,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import DomainError
-from diucs.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
-from diucs.domain.model.tenant import SuspendMode, Tenant, TenantStatus
-from diucs.domain.model.tenant_records import (
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import DomainError
+from overwatch.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
+from overwatch.domain.model.tenant import SuspendMode, Tenant, TenantStatus
+from overwatch.domain.model.tenant_records import (
     BindingStatus,
     EntraBinding,
     MappingStatus,
     RoleMapping,
 )
-from diucs.domain.rules.bff_token import (
+from overwatch.domain.rules.bff_token import (
     OPERATOR_AUDIENCE,
     STAFF_AUDIENCE,
     TokenRejected,
     decode_bff_token,
     decode_operator_token,
 )
-from diucs.domain.rules.token_exchange import account_ref, staff_subject
+from overwatch.domain.rules.token_exchange import account_ref, staff_subject
 from tests.support.tenant_samples import make_tenant
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -426,7 +431,9 @@ async def test_a_retired_network_administrator_mapping_gives_nothing() -> None:
         )
 
 
-@pytest.mark.parametrize("claimed", ["network-admin", "DIUCS.NetworkAdmin", "DIUCS.TenantAdmin"])
+@pytest.mark.parametrize(
+    "claimed", ["network-admin", "Overwatch.NetworkAdmin", "Overwatch.TenantAdmin"]
+)
 async def test_a_role_the_identity_claims_is_never_a_network_administrator(claimed: str) -> None:
     # The owner has a network, but the person's GROUPS map to no administrator: an app role the
     # directory's token carries is never read for a staff role.
@@ -516,9 +523,9 @@ async def test_every_way_of_not_qualifying_is_the_one_refusal(name: str) -> None
 
 
 async def test_a_role_the_token_says_is_not_a_role_the_tenant_gave() -> None:
-    # The identity claims an app role "DIUCS.Lead"; the tenant's mapping has no group for it.
+    # The identity claims an app role "Overwatch.Lead"; the tenant's mapping has no group for it.
     built = world(mappings=[])
-    who = identity(groups=(), app_roles=("DIUCS.Lead", "DIUCS.Support"))
+    who = identity(groups=(), app_roles=("Overwatch.Lead", "Overwatch.Support"))
 
     with pytest.raises(ExchangeRefused):
         await exchange(staff_use_case(built, accepting(who)))
@@ -672,7 +679,7 @@ def operator_use_case(
     return ExchangeOperatorToken(FixedClock(NOW), verifier, store or secrets(), directory)
 
 
-def operator_identity(roles: tuple[str, ...] = ("DIUCS.Support",), directory: str = D_OPERATOR):
+def operator_identity(roles: tuple[str, ...] = ("Overwatch.Support",), directory: str = D_OPERATOR):
     return identity(directory, groups=(), app_roles=roles)
 
 
@@ -692,20 +699,22 @@ async def test_a_support_person_of_the_operators_own_directory_gets_an_operator_
 
 
 async def test_an_operator_token_is_for_the_operator_audience_and_the_api_refuses_it() -> None:
-    verifier = accepting(operator_identity(("DIUCS.PlatformOperator",)), Audience.OPERATOR)
+    verifier = accepting(operator_identity(("Overwatch.PlatformOperator",)), Audience.OPERATOR)
 
     issued = await operator_use_case(verifier).execute(
         ExchangeOperatorCommand(credential=CREDENTIAL)
     )
 
-    assert OPERATOR_AUDIENCE == "diucs-ops"
+    assert OPERATOR_AUDIENCE == "overwatch-ops"
     with pytest.raises(TokenRejected):
         decode_bff_token(issued.token, SIGNING, NOW)
 
 
 async def test_an_operator_role_from_a_customers_directory_is_refused() -> None:
     # A customer's directory administrator can give anyone any app role in it (DEC-134 item 5).
-    verifier = accepting(operator_identity(("DIUCS.Support",), directory=D_A), Audience.OPERATOR)
+    verifier = accepting(
+        operator_identity(("Overwatch.Support",), directory=D_A), Audience.OPERATOR
+    )
 
     with pytest.raises(ExchangeRefused) as refused:
         await operator_use_case(verifier).execute(ExchangeOperatorCommand(credential=CREDENTIAL))
@@ -713,7 +722,7 @@ async def test_an_operator_role_from_a_customers_directory_is_refused() -> None:
     assert str(refused.value) == EXCHANGE_REFUSED_MESSAGE
 
 
-@pytest.mark.parametrize("roles", [(), ("DIUCS.Advisor",), ("DIUCS.Lead", "support")])
+@pytest.mark.parametrize("roles", [(), ("Overwatch.Advisor",), ("Overwatch.Lead", "support")])
 async def test_an_identity_of_the_operators_directory_with_no_operator_role_is_refused(
     roles: tuple[str, ...],
 ) -> None:

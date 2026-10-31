@@ -7,14 +7,14 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.application.rate_limits import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.application.rate_limits import (
     PUBLIC_REQUESTS_PER_ADDRESS,
     PUBLIC_WINDOW,
     PlatformRateLimiter,
 )
-from diucs.application.tenancy import bind_tenant, current_scope_or_none
+from overwatch.application.tenancy import bind_tenant, current_scope_or_none
 
 START = datetime(2026, 10, 23, 13, 0, tzinfo=UTC)
 WINDOW = timedelta(minutes=1)

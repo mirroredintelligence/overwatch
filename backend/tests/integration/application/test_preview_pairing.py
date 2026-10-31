@@ -13,17 +13,17 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.pair_wall_screen import (
+from overwatch.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.pair_wall_screen import (
     REFUSED_MESSAGE,
     PairingPreview,
     PairingRateLimited,
     PreviewPairing,
 )
-from diucs.domain.errors import NotAllowed
+from overwatch.domain.errors import NotAllowed
 from tests.integration.application.test_pair_wall_screen import (
     ADVISOR,
     LEAD,

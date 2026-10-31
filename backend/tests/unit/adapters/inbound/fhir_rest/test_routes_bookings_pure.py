@@ -10,9 +10,9 @@ from typing import Any
 import pytest
 from fhir.resources.R4B.task import Task
 
-from diucs.adapters.fhir_shared.booking_task import booking_to_fhir
-from diucs.adapters.inbound.fhir_rest.auth import PROJECTIONS
-from diucs.adapters.inbound.fhir_rest.routes_bookings import (
+from overwatch.adapters.fhir_shared.booking_task import booking_to_fhir
+from overwatch.adapters.inbound.fhir_rest.auth import PROJECTIONS
+from overwatch.adapters.inbound.fhir_rest.routes_bookings import (
     BookingRequestBody,
     acknowledgement_path,
     cancel_reason_of,
@@ -24,8 +24,8 @@ from diucs.adapters.inbound.fhir_rest.routes_bookings import (
     parse_booking_request,
     withdraw_reason_of,
 )
-from diucs.application.actor import Actor
-from diucs.domain.codes import (
+from overwatch.application.actor import Actor
+from overwatch.domain.codes import (
     BookingStatus,
     CancelReason,
     DeclineReason,
@@ -33,12 +33,17 @@ from diucs.domain.codes import (
     Role,
     WithdrawReason,
 )
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.booking import Booking
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.booking import Booking
 from tests.support.actors import ACTOR_TENANT
 
 BOOKING_TASK_CODE: dict[str, Any] = {
-    "coding": [{"system": "https://diucs.example/CodeSystem/task-code", "code": "booking-request"}]
+    "coding": [
+        {
+            "system": "https://overwatch.mirroredintelligence.com/CodeSystem/task-code",
+            "code": "booking-request",
+        }
+    ]
 }
 
 

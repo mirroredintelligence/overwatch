@@ -8,19 +8,19 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.outbound.graph_store import alert_repository  # noqa: F401 (registers Q-ALERT-*)
-from diucs.adapters.outbound.graph_store.alert_repository import (
+from overwatch.adapters.outbound.graph_store import alert_repository  # noqa: F401 (registers Q-ALERT-*)
+from overwatch.adapters.outbound.graph_store.alert_repository import (
     alert_from_fhir,
     alert_to_fhir,
     subscription_from_props,
     subscription_to_props,
 )
-from diucs.adapters.outbound.graph_store.queries import REGISTRY
-from diucs.adapters.outbound.graph_store.scenario import validate_scenario
-from diucs.domain.codes import AlertKind, code_system_url
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.alerts import AlertRecord, AlertSubscription
-from diucs.domain.rules.alerts import AlertPreferences
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY
+from overwatch.adapters.outbound.graph_store.scenario import validate_scenario
+from overwatch.domain.codes import AlertKind, code_system_url
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.alerts import AlertRecord, AlertSubscription
+from overwatch.domain.rules.alerts import AlertPreferences
 
 RAISED = datetime(2026, 10, 25, 13, 12, tzinfo=UTC)
 DUE = datetime(2026, 10, 25, 13, 27, tzinfo=UTC)

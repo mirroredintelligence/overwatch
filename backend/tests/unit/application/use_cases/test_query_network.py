@@ -14,23 +14,27 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.network_access import NetworkAccess
-from diucs.application.ports.outbound.projection import ProjectedRow
-from diucs.application.tenancy import ScopeKind, current_scope_or_none
-from diucs.application.use_cases.query_network_board import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.network_access import NetworkAccess
+from overwatch.application.ports.outbound.projection import ProjectedRow
+from overwatch.application.tenancy import ScopeKind, current_scope_or_none
+from overwatch.application.use_cases.query_network_board import (
     NetworkReadUnitNotReadOnly,
     QueryNetworkBoard,
 )
-from diucs.application.use_cases.query_network_directory import (
+from overwatch.application.use_cases.query_network_directory import (
     QueryNetworkCriteria,
     QueryNetworkDirectory,
 )
-from diucs.domain.codes import Role, Status
-from diucs.domain.errors import NotFound
-from diucs.domain.model.network import GrantScope, MembershipStatus
-from diucs.domain.rules.listing import ListingPresentation
-from diucs.domain.rules.projection import CapacityProjection, CriteriaProjection, ServiceProjection
+from overwatch.domain.codes import Role, Status
+from overwatch.domain.errors import NotFound
+from overwatch.domain.model.network import GrantScope, MembershipStatus
+from overwatch.domain.rules.listing import ListingPresentation
+from overwatch.domain.rules.projection import (
+    CapacityProjection,
+    CriteriaProjection,
+    ServiceProjection,
+)
 from tests.support.network_samples import (
     MEMBER_B,
     MEMBER_C,
@@ -222,7 +226,7 @@ async def test_a_non_member_is_not_found_and_no_unit_is_opened() -> None:
 
 
 async def test_a_role_that_never_sees_a_network_opens_nothing() -> None:
-    from diucs.domain.errors import NotAllowed
+    from overwatch.domain.errors import NotAllowed
 
     use_case, factory = board_use_case(both())
     with pytest.raises(NotAllowed):
@@ -352,7 +356,7 @@ async def test_a_departed_member_is_only_in_the_history_with_the_date_and_the_re
 
 
 def _left() -> Any:
-    from diucs.application.ports.outbound.projection import ProjectionEndReason
+    from overwatch.application.ports.outbound.projection import ProjectionEndReason
 
     return ProjectionEndReason.LEFT
 

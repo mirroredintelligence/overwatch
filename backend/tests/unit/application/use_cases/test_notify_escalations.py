@@ -16,21 +16,21 @@ from typing import Any, Self
 
 import pytest
 
-from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET
-from diucs.application.tenancy import ScopeId, bind_scope
-from diucs.application.use_cases.notify_escalations import (
+from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET
+from overwatch.application.tenancy import ScopeId, bind_scope
+from overwatch.application.use_cases.notify_escalations import (
     ESCALATION_EVENTS,
     NotifyLeadsCommand,
     NotifyShiftLeads,
 )
-from diucs.domain.codes import Channel, PractitionerRoleCode
-from diucs.domain.errors import NotFound, ValidationFailed
-from diucs.domain.messages.privacy_guard import find_patient_data
-from diucs.domain.model.people import PractitionerRole
+from overwatch.domain.codes import Channel, PractitionerRoleCode
+from overwatch.domain.errors import NotFound, ValidationFailed
+from overwatch.domain.messages.privacy_guard import find_patient_data
+from overwatch.domain.model.people import PractitionerRole
 
 NOW = datetime(2026, 10, 31, 9, 0, tzinfo=UTC)
 TENANT = "tenant-notify-a"

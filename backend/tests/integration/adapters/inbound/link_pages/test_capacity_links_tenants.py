@@ -20,11 +20,11 @@ import pytest_asyncio
 from httpx import AsyncClient
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.use_cases import link_access
-from diucs.bootstrap.container import Container, build_for_tests
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.use_cases import link_access
+from overwatch.bootstrap.container import Container, build_for_tests
 from tests.support.link_rig import (
     ANSWER_AT,
     REPLY_BY,

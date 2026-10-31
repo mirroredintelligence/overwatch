@@ -40,7 +40,7 @@ function signedIn(role: Role): Session {
 
 beforeEach(() => {
   resetProfileCache();
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', BACKEND_BASE);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', BACKEND_BASE);
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date(GENERATED_AT));
   vi.mocked(getSession).mockResolvedValue(signedIn('wall'));

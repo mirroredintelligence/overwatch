@@ -12,15 +12,15 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.adapters.outbound.graph_store.service_repository import (
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.adapters.outbound.graph_store.service_repository import (
     Neo4jServiceRepository,
     codeable_to_fhir,
     profile_to_fhir,
 )
-from diucs.domain.codes import Cadence, Channel, Measure, ServiceCategory
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.codes import Cadence, Channel, Measure, ServiceCategory
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
 from tests.support.round_trip import assert_round_trip
 from tests.unit.adapters.outbound.graph_store.test_service_repository import UCR_WEST

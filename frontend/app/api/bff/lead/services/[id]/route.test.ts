@@ -15,7 +15,7 @@ const ctx = { params: Promise.resolve({ id: 's-ucr-east' }) };
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', BACKEND_BASE);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', BACKEND_BASE);
   vi.stubEnv('NODE_ENV', 'production');
   server.use(
     http.get(`${BACKEND_BASE}/HealthcareService/s-ucr-east`, () => HttpResponse.json({ resourceType: 'HealthcareService', id: 's-ucr-east', name: 'UCR East' })),

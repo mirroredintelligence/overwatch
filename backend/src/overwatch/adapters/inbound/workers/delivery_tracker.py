@@ -28,11 +28,11 @@ receipt completes (DEC-165 item 9).
 import logging
 from typing import Final
 
-from diucs.adapters.inbound.workers.consumer import IdempotentConsumer, PermanentError
-from diucs.adapters.inbound.workers.outbox_relay import ActiveTenants
-from diucs.adapters.inbound.workers.tenant_binding import Observe, TenantBoundConsumer, untraced
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.adapters.inbound.workers.consumer import IdempotentConsumer, PermanentError
+from overwatch.adapters.inbound.workers.outbox_relay import ActiveTenants
+from overwatch.adapters.inbound.workers.tenant_binding import Observe, TenantBoundConsumer, untraced
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
 
 logger = logging.getLogger(__name__)
 

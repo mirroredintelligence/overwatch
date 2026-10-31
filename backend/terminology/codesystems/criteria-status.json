@@ -1,7 +1,7 @@
 {
   "resourceType": "CodeSystem",
   "id": "criteria-status",
-  "url": "https://diucs.example/CodeSystem/criteria-status",
+  "url": "https://overwatch.mirroredintelligence.com/CodeSystem/criteria-status",
   "name": "criteria-status",
   "status": "active",
   "content": "complete",

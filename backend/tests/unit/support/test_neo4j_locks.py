@@ -107,15 +107,15 @@ def test_the_lock_file_is_per_instance_and_names_no_secret() -> None:
     migrate = lock_path("migrate", "bolt://localhost:7690", {})
 
     assert len({one, two, migrate}) == 3
-    assert one.startswith("/tmp/diucs-neo4j-use-")
+    assert one.startswith("/tmp/overwatch-neo4j-use-")
     assert lock_path("use", "bolt://localhost:7690", {}) == one
     assert "localhost" not in one
 
 
 def test_the_lock_directory_can_be_set_for_a_machine_without_tmp() -> None:
-    elsewhere = lock_path("use", "k", {"DIUCS_TEST_NEO4J_LOCK_DIR": "/var/tmp/x"})
+    elsewhere = lock_path("use", "k", {"OVERWATCH_TEST_NEO4J_LOCK_DIR": "/var/tmp/x"})
 
-    assert elsewhere.startswith("/var/tmp/x/diucs-neo4j-use-")
+    assert elsewhere.startswith("/var/tmp/x/overwatch-neo4j-use-")
 
 
 def test_the_operating_system_frees_the_hold_of_a_process_that_died(path: str) -> None:

@@ -3,7 +3,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_clock import FixedClock
 
 START = datetime(2026, 10, 24, 9, 0, tzinfo=UTC)
 

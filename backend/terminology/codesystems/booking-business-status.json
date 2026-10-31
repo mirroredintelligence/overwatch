@@ -1,7 +1,7 @@
 {
   "resourceType": "CodeSystem",
   "id": "booking-business-status",
-  "url": "https://diucs.example/CodeSystem/booking-business-status",
+  "url": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-business-status",
   "name": "booking-business-status",
   "status": "active",
   "content": "complete",

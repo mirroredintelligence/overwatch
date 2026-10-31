@@ -18,13 +18,13 @@ import pytest_asyncio
 from httpx import AsyncClient
 from neo4j import AsyncDriver
 
-from diucs.adapters.inbound.link_pages.booking_links import REQUEST_PURPOSE
-from diucs.application.ports.outbound.tokens import LinkTokenService
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.request_booking import RequestBookingCommand
-from diucs.bootstrap.container import Container
-from diucs.domain.codes import BookingStatus
-from diucs.domain.model.tenant import ContactKind, TenantContact
+from overwatch.adapters.inbound.link_pages.booking_links import REQUEST_PURPOSE
+from overwatch.application.ports.outbound.tokens import LinkTokenService
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.request_booking import RequestBookingCommand
+from overwatch.bootstrap.container import Container
+from overwatch.domain.codes import BookingStatus
+from overwatch.domain.model.tenant import ContactKind, TenantContact
 from tests.support.booking_rig import (
     ADVISOR,
     CASE_ID,

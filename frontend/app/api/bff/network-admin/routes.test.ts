@@ -28,7 +28,7 @@ vi.mock('next/headers', async () => ({ cookies: (await import('@/test/cookies'))
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${ADMIN_ROOT}/fhir`);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', `${ADMIN_ROOT}/fhir`);
   vi.stubEnv('NODE_ENV', 'production');
   resetAdminBackend();
   server.use(...adminBackendHandlers);

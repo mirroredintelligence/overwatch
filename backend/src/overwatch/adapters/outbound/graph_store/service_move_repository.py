@@ -15,9 +15,9 @@ with Conflict.
 from datetime import UTC, datetime
 from typing import Any, Final
 
-from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.adapters.outbound.graph_store.scenario import (
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx, run_query
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from overwatch.adapters.outbound.graph_store.scenario import (
     Expect,
     Marked,
     NodeSpec,
@@ -26,8 +26,8 @@ from diucs.adapters.outbound.graph_store.scenario import (
     SeedRel,
     TenantSeed,
 )
-from diucs.domain.errors import Conflict, NotFound, ValidationFailed
-from diucs.domain.model.service_move import ServiceMove
+from overwatch.domain.errors import Conflict, NotFound, ValidationFailed
+from overwatch.domain.model.service_move import ServiceMove
 
 _UNTIL: Final = datetime(2026, 10, 25, 19, 0, tzinfo=UTC)
 _DONE: Final = datetime(2026, 10, 25, 18, 30, tzinfo=UTC)

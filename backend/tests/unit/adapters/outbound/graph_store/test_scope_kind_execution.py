@@ -13,23 +13,23 @@ from typing import Any, cast
 
 import pytest
 
-from diucs.adapters.outbound.graph_store import driver as driver_module
-from diucs.adapters.outbound.graph_store.driver import (
+from overwatch.adapters.outbound.graph_store import driver as driver_module
+from overwatch.adapters.outbound.graph_store.driver import (
     ScopedTx,
     run_global_query,
     run_query,
     set_query_observer,
 )
-from diucs.adapters.outbound.graph_store.queries import (
+from overwatch.adapters.outbound.graph_store.queries import (
     BOTH_KINDS,
     NETWORK_KINDS,
     NamedQuery,
     QueryRegistry,
     Scenario,
 )
-from diucs.adapters.outbound.graph_store.unit_of_work import Neo4jUnitOfWork, RepositoryFactory
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork
-from diucs.application.tenancy import (
+from overwatch.adapters.outbound.graph_store.unit_of_work import Neo4jUnitOfWork, RepositoryFactory
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork
+from overwatch.application.tenancy import (
     ReadOnlyUnitWrite,
     ScopeId,
     ScopeKindMismatch,
@@ -156,7 +156,7 @@ async def test_the_kind_check_comes_before_any_cypher_whatever_the_bound_context
 async def test_the_tenant_parameter_and_a_global_statement_are_still_refused_first(
     registry: QueryRegistry,
 ) -> None:
-    from diucs.application.tenancy import TenantParameterRefused
+    from overwatch.application.tenancy import TenantParameterRefused
 
     tx, stub = _tx(NET)
     with pytest.raises(TenantParameterRefused):
@@ -188,7 +188,7 @@ async def test_a_source_tenant_is_refused_for_a_statement_that_is_not_network_on
 
 
 async def test_a_global_statement_is_never_given_a_source_tenant(registry: QueryRegistry) -> None:
-    from diucs.adapters.outbound.graph_store.queries import GLOBAL_STATEMENTS  # noqa: F401
+    from overwatch.adapters.outbound.graph_store.queries import GLOBAL_STATEMENTS  # noqa: F401
 
     ping = NamedQuery(id="Q-NEO4J-PING", cypher="RETURN 1 AS ok", mode="read", scope="global")
     own = QueryRegistry()

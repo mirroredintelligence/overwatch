@@ -16,14 +16,14 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.outbound.graph_store.tenant_config_repository import (
+from overwatch.adapters.inbound.fhir_rest.app import create_app
+from overwatch.adapters.outbound.graph_store.tenant_config_repository import (
     Neo4jTenantConfigRepository,
 )
-from diucs.adapters.outbound.graph_store.tenant_directory import tenant_properties
-from diucs.application.rate_limits import PUBLIC_REQUESTS_PER_ADDRESS
-from diucs.bootstrap.container import Container
-from diucs.domain.model.tenant import (
+from overwatch.adapters.outbound.graph_store.tenant_directory import tenant_properties
+from overwatch.application.rate_limits import PUBLIC_REQUESTS_PER_ADDRESS
+from overwatch.bootstrap.container import Container
+from overwatch.domain.model.tenant import (
     ConfigStatus,
     ContactKind,
     TenantConfig,

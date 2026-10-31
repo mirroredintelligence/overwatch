@@ -21,10 +21,10 @@ here; the policy does not rely on the caller to check letters.
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from diucs.domain.codes import ReportFlagReason
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
-from diucs.domain.rules.reply_parser import Confirm, Number
+from overwatch.domain.codes import ReportFlagReason
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
+from overwatch.domain.rules.reply_parser import Confirm, Number
 
 # Aliases of the default policy (TEN-021): the numbers are defined once, in tenant_policy.py.
 CORRECTION_WINDOW = DEFAULT_POLICY.correction_window

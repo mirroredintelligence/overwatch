@@ -11,27 +11,27 @@ from datetime import datetime
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
-from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.scheduling import schedule_work
-from diucs.application.use_cases.query_board import QueryBoard, QueryBoardQuery
-from diucs.application.use_cases.suspend_service import (
+from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from overwatch.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.scheduling import schedule_work
+from overwatch.application.use_cases.query_board import QueryBoard, QueryBoardQuery
+from overwatch.application.use_cases.suspend_service import (
     ResumeService,
     ResumeServiceCommand,
     SuspendService,
     SuspendServiceCommand,
     SuspendServiceResult,
 )
-from diucs.application.work import WorkKind
-from diucs.domain.codes import BookingStatus, Status
-from diucs.domain.errors import Conflict, NotAllowed, ValidationFailed
-from diucs.domain.model.booking import Booking
-from diucs.domain.model.tenant import TenantWording
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY
+from overwatch.application.work import WorkKind
+from overwatch.domain.codes import BookingStatus, Status
+from overwatch.domain.errors import Conflict, NotAllowed, ValidationFailed
+from overwatch.domain.model.booking import Booking
+from overwatch.domain.model.tenant import TenantWording
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY
 from tests.support.booking_rig import ADVISOR, LEAD, SECRETS, at, open_case, seed_world
 from tests.support.ladder_rig import PHONE_HASH_1, reporter, seed_people, seed_report
 from tests.support.link_rig import ucr_west

@@ -11,8 +11,8 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.inbound.workers.consumer import PermanentError
-from diucs.adapters.inbound.workers.message_senders import (
+from overwatch.adapters.inbound.workers.consumer import PermanentError
+from overwatch.adapters.inbound.workers.message_senders import (
     BAD_CHANNEL,
     BAD_CONTENT,
     MESSAGES_TOPIC,
@@ -21,11 +21,11 @@ from diucs.adapters.inbound.workers.message_senders import (
     PushMessageSender,
     push_urgency,
 )
-from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.recording_senders import RecordingPushSender
-from diucs.application.ports.outbound.event_bus import BusMessage
+from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.recording_senders import RecordingPushSender
+from overwatch.application.ports.outbound.event_bus import BusMessage
 from tests.support.bus import message_with_tenant
 
 SECRET = b"link-token-test-secret-0123456789abcdef"
@@ -68,7 +68,7 @@ def _sender() -> PushMessageSender:
     return PushMessageSender(
         RecordingPushSender(),
         SEALER,
-        "https://diucs.example/reporter",
+        "https://overwatch.mirroredintelligence.com/reporter",
         FixedClock(datetime(2026, 10, 25, 13, 12, tzinfo=UTC)),
     )
 
@@ -166,7 +166,7 @@ class _PersonUnit:
 
 
 def _held(person: str = PERSON, device: str = "app-1") -> Any:
-    from diucs.application.ports.outbound.messaging import PushSubscription
+    from overwatch.application.ports.outbound.messaging import PushSubscription
 
     return PushSubscription(
         device_id=device,
@@ -181,7 +181,7 @@ async def test_a_person_push_goes_to_every_app_of_the_person_at_high_urgency() -
     runner = PushMessageSender(
         sender,
         SEALER,
-        "https://diucs.example/reporter",
+        "https://overwatch.mirroredintelligence.com/reporter",
         FixedClock(datetime(2026, 10, 30, 9, 0, tzinfo=UTC)),
     )
     unit = _PersonUnit(
@@ -195,7 +195,7 @@ async def test_a_person_push_goes_to_every_app_of_the_person_at_high_urgency() -
         ("UCR West is over capacity", "Tap to acknowledge.", "high"),
         ("UCR West is over capacity", "Tap to acknowledge.", "high"),
     ]
-    assert {p.url for p in sender.sent} == {"https://diucs.example/reporter"}
+    assert {p.url for p in sender.sent} == {"https://overwatch.mirroredintelligence.com/reporter"}
 
 
 async def test_a_person_with_no_subscription_is_not_an_error_and_sends_nothing() -> None:
@@ -203,7 +203,7 @@ async def test_a_person_with_no_subscription_is_not_an_error_and_sends_nothing()
     runner = PushMessageSender(
         sender,
         SEALER,
-        "https://diucs.example/reporter",
+        "https://overwatch.mirroredintelligence.com/reporter",
         FixedClock(datetime(2026, 10, 30, tzinfo=UTC)),
     )
 
@@ -218,7 +218,7 @@ async def test_a_subscription_the_provider_reports_gone_is_deleted() -> None:
     runner = PushMessageSender(
         sender,
         SEALER,
-        "https://diucs.example/reporter",
+        "https://overwatch.mirroredintelligence.com/reporter",
         FixedClock(datetime(2026, 10, 30, tzinfo=UTC)),
     )
     unit = _PersonUnit([_held(device="app-1")])

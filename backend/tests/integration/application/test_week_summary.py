@@ -12,12 +12,12 @@ from datetime import UTC, date, datetime, time, timedelta
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.messaging import Communication
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.week_summary import GetWeekSummary, GetWeekSummaryCommand
-from diucs.domain.codes import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.messaging import Communication
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.week_summary import GetWeekSummary, GetWeekSummaryCommand
+from overwatch.domain.codes import (
     BestFitNotUsedReason,
     Cadence,
     Channel,
@@ -27,11 +27,11 @@ from diucs.domain.codes import (
     Role,
     ServiceCategory,
 )
-from diucs.domain.errors import NotAllowed
-from diucs.domain.model.booking import Booking
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.case import Case
-from diucs.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.errors import NotAllowed
+from overwatch.domain.model.booking import Booking
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.case import Case
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support import seed
 from tests.support.actors import ACTOR_TENANT
 

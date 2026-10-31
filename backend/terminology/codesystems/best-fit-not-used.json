@@ -1,7 +1,7 @@
 {
   "resourceType": "CodeSystem",
   "id": "best-fit-not-used",
-  "url": "https://diucs.example/CodeSystem/best-fit-not-used",
+  "url": "https://overwatch.mirroredintelligence.com/CodeSystem/best-fit-not-used",
   "name": "best-fit-not-used",
   "status": "active",
   "content": "complete",

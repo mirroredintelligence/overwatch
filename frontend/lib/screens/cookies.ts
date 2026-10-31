@@ -8,13 +8,13 @@ import { baseCookieOptions, readRequestCookie, sessionSecretKey } from '@/lib/au
 // Strict and limited to the screen routes: the page's script cannot read them and no other route
 // receives them.
 //
-//   diucs_pairing  while the code is on screen: the pairing id and the secret that proves this
+//   overwatch_pairing  while the code is on screen: the pairing id and the secret that proves this
 //                  display is the one that asked (it is in no body, address or log)
-//   diucs_device   once a lead has connected it: the opaque device token. The back end gives it once
+//   overwatch_device   once a lead has connected it: the opaque device token. The back end gives it once
 //                  and it is traded for a one-hour wall token whenever the session ends (TEN-043)
 
-export const PAIRING_COOKIE = 'diucs_pairing';
-export const DEVICE_COOKIE = 'diucs_device';
+export const PAIRING_COOKIE = 'overwatch_pairing';
+export const DEVICE_COOKIE = 'overwatch_device';
 
 const COOKIE_PATH = '/api/bff/screens';
 const PAIRING_SECONDS = 600; // the back end's own ten minutes (U10)
@@ -30,7 +30,7 @@ const DEVICE_TOKEN_MAX = 1024;
 const PURPOSE = { pairing: 'pairing-cookie-v1', device: 'device-cookie-v1' } as const;
 
 async function keyFor(purpose: keyof typeof PURPOSE): Promise<Uint8Array> {
-  return new Uint8Array(hkdfSync('sha256', await sessionSecretKey(), 'diucs-wall-screen', PURPOSE[purpose], 32));
+  return new Uint8Array(hkdfSync('sha256', await sessionSecretKey(), 'overwatch-wall-screen', PURPOSE[purpose], 32));
 }
 
 function options(maxAge: number) {

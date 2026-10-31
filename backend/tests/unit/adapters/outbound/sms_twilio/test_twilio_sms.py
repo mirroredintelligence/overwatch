@@ -9,12 +9,12 @@ from urllib.parse import parse_qs
 import httpx
 import pytest
 
-from diucs.adapters.outbound.sms_twilio.twilio_sms import (
+from overwatch.adapters.outbound.sms_twilio.twilio_sms import (
     TwilioSms,
     parse_status_callback,
     to_e164_uk,
 )
-from diucs.application.ports.outbound.messaging import (
+from overwatch.application.ports.outbound.messaging import (
     DeliveryUpdate,
     SendFailedError,
     SendReceipt,
@@ -23,12 +23,12 @@ from diucs.application.ports.outbound.messaging import (
 
 ACCOUNT = "AC" + "0" * 32  # placeholder, not a real account SID
 TOKEN = "placeholder-auth-token"
-SENDER = "DIUCS-TEST"
-CALLBACK = "https://diucs.example/webhooks/sms/twilio/status"
+SENDER = "Overwatch-TEST"
+CALLBACK = "https://overwatch.mirroredintelligence.com/webhooks/sms/twilio/status"
 MESSAGES_URL = f"https://api.twilio.com/2010-04-01/Accounts/{ACCOUNT}/Messages.json"
 NUMBER = "07700 900123"
 E164 = "+447700900123"
-BODY = "DIUCS: test message for the adapter"
+BODY = "Overwatch: test message for the adapter"
 SID = "SM" + "1" * 32
 
 

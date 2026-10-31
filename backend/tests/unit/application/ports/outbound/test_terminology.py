@@ -4,8 +4,8 @@ from typing import cast
 
 import pytest
 
-from diucs.application.ports.outbound.terminology import OdsRecord, Severity, ValidationIssue
-from diucs.domain.errors import ValidationFailed
+from overwatch.application.ports.outbound.terminology import OdsRecord, Severity, ValidationIssue
+from overwatch.domain.errors import ValidationFailed
 
 
 def _issue(severity: str) -> ValidationIssue:

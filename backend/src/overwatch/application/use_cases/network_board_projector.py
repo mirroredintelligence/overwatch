@@ -32,19 +32,19 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any, Protocol
 
-from diucs.application.actor import Actor
-from diucs.application.network_access import NetworkAccess
-from diucs.application.ports.outbound.cache import NETWORK_BOARD_UPDATES_CHANNEL, Cache
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.tenancy import bind_network
-from diucs.application.use_cases.query_network_board import NetworkBoardView, QueryNetworkBoard
-from diucs.domain.codes import ServiceCategory, Status
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.events import ProjectionApplied, ProjectionRejected
-from diucs.domain.model.network import DirectorySource, check_network_id
-from diucs.domain.rules.listing import ListingPresentation
-from diucs.domain.rules.network_board import NetworkBoard, NetworkBoardEntry
-from diucs.domain.rules.pressure import Pressure
+from overwatch.application.actor import Actor
+from overwatch.application.network_access import NetworkAccess
+from overwatch.application.ports.outbound.cache import NETWORK_BOARD_UPDATES_CHANNEL, Cache
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.tenancy import bind_network
+from overwatch.application.use_cases.query_network_board import NetworkBoardView, QueryNetworkBoard
+from overwatch.domain.codes import ServiceCategory, Status
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.events import ProjectionApplied, ProjectionRejected
+from overwatch.domain.model.network import DirectorySource, check_network_id
+from overwatch.domain.rules.listing import ListingPresentation
+from overwatch.domain.rules.network_board import NetworkBoard, NetworkBoardEntry
+from overwatch.domain.rules.pressure import Pressure
 
 
 class NetworkBoardAudience(StrEnum):

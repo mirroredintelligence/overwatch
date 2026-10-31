@@ -16,10 +16,10 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.outbound.graph_store import health, network_registry, tenant_directory  # noqa: F401
-from diucs.adapters.outbound.graph_store import queries as queries_module
-from diucs.adapters.outbound.graph_store.driver import run_global_query, run_query
-from diucs.adapters.outbound.graph_store.queries import (
+from overwatch.adapters.outbound.graph_store import health, network_registry, tenant_directory  # noqa: F401
+from overwatch.adapters.outbound.graph_store import queries as queries_module
+from overwatch.adapters.outbound.graph_store.driver import run_global_query, run_query
+from overwatch.adapters.outbound.graph_store.queries import (
     GLOBAL_QUERY_IDS,
     GLOBAL_STATEMENT_LABELS,
     GLOBAL_WRITE_IDS,
@@ -29,7 +29,7 @@ from diucs.adapters.outbound.graph_store.queries import (
     QueryRegistry,
     QueryTemplate,
 )
-from diucs.application.tenancy import (
+from overwatch.application.tenancy import (
     GlobalStatementMisuse,
     TenantParameterRefused,
     bind_tenant,

@@ -16,8 +16,8 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from diucs.adapters.outbound.graph_store.extensions import EXTENSIONS
-from diucs.adapters.outbound.graph_store.mapper import (
+from overwatch.adapters.outbound.graph_store.extensions import EXTENSIONS
+from overwatch.adapters.outbound.graph_store.mapper import (
     GraphFragment,
     InvalidReference,
     NodeSpec,
@@ -26,8 +26,8 @@ from diucs.adapters.outbound.graph_store.mapper import (
     from_graph,
     to_graph,
 )
-from diucs.domain.codes import BASE_URL
-from diucs.domain.errors import DomainError, NotFound, ValidationFailed
+from overwatch.domain.codes import BASE_URL
+from overwatch.domain.errors import DomainError, NotFound, ValidationFailed
 
 ORG_ID = "6b1f0c2e-3a4d-4e5f-8a9b-0c1d2e3f4a5b"
 LOC_ID = "7c2a1d3f-4b5e-4f60-9b0c-1d2e3f4a5b6c"
@@ -38,10 +38,10 @@ SVC_KEY = f"HealthcareService/{SVC_ID}"
 ORG_KEY = f"Organization/{ORG_ID}"
 LOC_KEY = f"Location/{LOC_ID}"
 
-SERVICE_CATEGORY = "https://diucs.example/CodeSystem/service-category"
-NEED = "https://diucs.example/CodeSystem/need-category"
-REFERRAL_METHOD = "https://diucs.example/CodeSystem/referral-method"
-CONTACT_PURPOSE = "https://diucs.example/CodeSystem/contact-purpose"
+SERVICE_CATEGORY = "https://overwatch.mirroredintelligence.com/CodeSystem/service-category"
+NEED = "https://overwatch.mirroredintelligence.com/CodeSystem/need-category"
+REFERRAL_METHOD = "https://overwatch.mirroredintelligence.com/CodeSystem/referral-method"
+CONTACT_PURPOSE = "https://overwatch.mirroredintelligence.com/CodeSystem/contact-purpose"
 
 
 def _ext(short_name: str, value_key: str, value: Any) -> dict[str, Any]:

@@ -145,7 +145,7 @@ export function BookingDecision({ token, initial, initialClosed }: Props) {
   if (phase === 'booked') {
     return (
       <main className={styles.page}>
-        <p className={styles.eyebrow}>DIUCS booking request</p>
+        <p className={styles.eyebrow}>Overwatch booking request</p>
         <h1 className={styles.title}>Booked</h1>
         <p className={styles.question}>{`Reference ${view.reference}, ${view.serviceName}. The advisor has been told.`}</p>
         {atTime('Confirmed', when) !== null ? <p className={styles.or}>{atTime('Confirmed', when)}</p> : null}
@@ -167,7 +167,7 @@ export function BookingDecision({ token, initial, initialClosed }: Props) {
   if (phase === 'declined') {
     return (
       <main className={styles.page}>
-        <p className={styles.eyebrow}>DIUCS booking request</p>
+        <p className={styles.eyebrow}>Overwatch booking request</p>
         <h1 className={styles.title}>Declined</h1>
         <p className={styles.question}>{`Reference ${view.reference} declined. The advisor has been told.`}</p>
         {atTime('Declined', when) !== null ? <p className={styles.or}>{atTime('Declined', when)}</p> : null}
@@ -185,7 +185,7 @@ export function BookingDecision({ token, initial, initialClosed }: Props) {
 
   return (
     <main className={styles.page}>
-      <p className={styles.eyebrow}>{`DIUCS booking request · Reference ${view.reference}`}</p>
+      <p className={styles.eyebrow}>{`Overwatch booking request · Reference ${view.reference}`}</p>
       <h1 className={styles.title}>{view.serviceName}</h1>
       {rows.map((row) => (
         <p key={row} className={styles.question}>
@@ -233,7 +233,7 @@ function Closed({ closed, phone }: { closed: ClosedLink | null; phone: string | 
   const facts = closedFacts(closed);
   return (
     <main className={styles.page}>
-      <p className={styles.eyebrow}>DIUCS booking request</p>
+      <p className={styles.eyebrow}>Overwatch booking request</p>
       <h1 className={styles.title}>This request has closed</h1>
       {facts !== null ? <p className={styles.or}>{facts}</p> : null}
       <p className={styles.question}>

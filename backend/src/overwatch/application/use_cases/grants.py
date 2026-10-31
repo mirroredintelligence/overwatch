@@ -36,13 +36,13 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Final
 
-from diucs.application.actor import Actor, require_actor_in_bound_tenant, system_actor
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.network import NetworkRegistry
-from diucs.application.ports.outbound.tenants import TenantDirectory
-from diucs.application.tenancy import current_tenant
-from diucs.application.use_cases.network_admin import (
+from overwatch.application.actor import Actor, require_actor_in_bound_tenant, system_actor
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.network import NetworkRegistry
+from overwatch.application.ports.outbound.tenants import TenantDirectory
+from overwatch.application.tenancy import current_tenant
+from overwatch.application.use_cases.network_admin import (
     AUDIT_CREATE,
     GovernanceRecorder,
     Record,
@@ -51,11 +51,11 @@ from diucs.application.use_cases.network_admin import (
     require_owner_of,
     require_role,
 )
-from diucs.application.use_cases.network_leave import EndProjections
-from diucs.domain.codes import Role
-from diucs.domain.errors import Conflict, InvalidTransition, NotFound, ValidationFailed
-from diucs.domain.events import GrantApproved, GrantEffective, GrantEnded, GrantProposed
-from diucs.domain.model.network import (
+from overwatch.application.use_cases.network_leave import EndProjections
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import Conflict, InvalidTransition, NotFound, ValidationFailed
+from overwatch.domain.events import GrantApproved, GrantEffective, GrantEnded, GrantProposed
+from overwatch.domain.model.network import (
     Agreement,
     Grant,
     GrantApprover,
@@ -66,7 +66,7 @@ from diucs.domain.model.network import (
     Network,
     check_network_id,
 )
-from diucs.domain.rules.grant import (
+from overwatch.domain.rules.grant import (
     approve_grant,
     decline_grant,
     end_grant,
@@ -76,7 +76,7 @@ from diucs.domain.rules.grant import (
     revise_grant,
     supersede_grant,
 )
-from diucs.domain.rules.projection import PROJECTION_ALLOWLIST_VERSION
+from overwatch.domain.rules.projection import PROJECTION_ALLOWLIST_VERSION
 
 logger = logging.getLogger(__name__)
 

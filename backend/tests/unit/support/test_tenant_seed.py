@@ -9,7 +9,7 @@ from datetime import UTC, date, datetime, time, timedelta, timezone
 import pytest
 from neo4j.time import Date, DateTime, Duration, Time
 
-from diucs.adapters.outbound.graph_store.scenario import (
+from overwatch.adapters.outbound.graph_store.scenario import (
     Marked,
     SeedNode,
     SeedRel,

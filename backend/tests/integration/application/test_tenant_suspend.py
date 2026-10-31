@@ -30,37 +30,37 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.inbound.fhir_rest.tenant_gate import RECORD_TTL, TenantGate
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.tenant_directory import Neo4jTenantDirectory
-from diucs.adapters.outbound.graph_store.tenant_registry import Neo4jTenantRegistry
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import TenantMismatch, bind_tenant
-from diucs.application.tenant_settings import DirectoryZones
-from diucs.application.use_cases.tenant_suspend import (
+from overwatch.adapters.inbound.fhir_rest.tenant_gate import RECORD_TTL, TenantGate
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.tenant_directory import Neo4jTenantDirectory
+from overwatch.adapters.outbound.graph_store.tenant_registry import Neo4jTenantRegistry
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import TenantMismatch, bind_tenant
+from overwatch.application.tenant_settings import DirectoryZones
+from overwatch.application.use_cases.tenant_suspend import (
     ResumeTenant,
     ResumeTenantCommand,
     SuspendTenant,
     SuspendTenantCommand,
 )
-from diucs.application.work import CANCELLED, SCHEDULED, ScheduledWork, WorkKind
-from diucs.bootstrap.provisioning import AuditHeads
-from diucs.domain.codes import Cadence, Channel, Measure, Role, ServiceCategory
-from diucs.domain.errors import InvalidTransition, NotAllowed
-from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
-from diucs.domain.model.service import AvailableTime, ServiceProfile
-from diucs.domain.model.tenant import (
+from overwatch.application.work import CANCELLED, SCHEDULED, ScheduledWork, WorkKind
+from overwatch.bootstrap.provisioning import AuditHeads
+from overwatch.domain.codes import Cadence, Channel, Measure, Role, ServiceCategory
+from overwatch.domain.errors import InvalidTransition, NotAllowed
+from overwatch.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.model.tenant import (
     OrganisationType,
     SuspendMode,
     SuspendReason,
     Tenant,
     TenantStatus,
 )
-from diucs.domain.rules.bff_token import BffClaims
-from diucs.domain.rules.edge_access import EdgeVerdict
+from overwatch.domain.rules.bff_token import BffClaims
+from overwatch.domain.rules.edge_access import EdgeVerdict
 from tests.support.neo4j import ThrowawayNeo4j, read_tx, wipe_all
 from tests.support.tenancy import as_tenant
 from tests.support.uow import tenant_uow_factory

@@ -5,9 +5,9 @@ an empty text. Synthetic values only."""
 
 from datetime import UTC, datetime
 
-from diucs.adapters.outbound.graph_store.flag_repository import _report_flag, _report_props
-from diucs.domain.codes import ReportFlagReason
-from diucs.domain.model.flags import REPORT_FLAG_CHECKED, REPORT_FLAG_OPEN, ReportFlag
+from overwatch.adapters.outbound.graph_store.flag_repository import _report_flag, _report_props
+from overwatch.domain.codes import ReportFlagReason
+from overwatch.domain.model.flags import REPORT_FLAG_CHECKED, REPORT_FLAG_OPEN, ReportFlag
 
 CREATED = datetime(2026, 10, 23, 13, 12, tzinfo=UTC)
 RESOLVED = datetime(2026, 10, 23, 13, 30, tzinfo=UTC)
@@ -65,7 +65,7 @@ def test_a_flag_resolved_by_nobody_reads_back_with_no_resolver() -> None:
 def test_a_resolver_given_as_empty_text_is_refused_by_the_model() -> None:
     import pytest
 
-    from diucs.domain.errors import ValidationFailed
+    from overwatch.domain.errors import ValidationFailed
 
     with pytest.raises(ValidationFailed):
         _flag(status=REPORT_FLAG_CHECKED, resolved_at=RESOLVED, outcome="checked", resolved_by=" ")

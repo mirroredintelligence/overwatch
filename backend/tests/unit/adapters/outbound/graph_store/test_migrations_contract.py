@@ -13,16 +13,16 @@ checks the rule the whole task exists for: no unique key on a tenant label is si
 import re
 from collections.abc import Mapping
 
-from diucs.adapters.outbound.graph_store.migration_types import Migration
-from diucs.adapters.outbound.graph_store.migrations import MIGRATIONS
-from diucs.adapters.outbound.graph_store.migrations_contract import (
+from overwatch.adapters.outbound.graph_store.migration_types import Migration
+from overwatch.adapters.outbound.graph_store.migrations import MIGRATIONS
+from overwatch.adapters.outbound.graph_store.migrations_contract import (
     CONTRACT_MIGRATION_ID,
     CONTRACT_MIGRATIONS,
 )
-from diucs.adapters.outbound.graph_store.migrations_insight import INSIGHT_MIGRATIONS
-from diucs.adapters.outbound.graph_store.migrations_network import NETWORK_MIGRATIONS
-from diucs.adapters.outbound.graph_store.migrations_platform import PLATFORM_MIGRATIONS
-from diucs.adapters.outbound.graph_store.migrations_tenant import (
+from overwatch.adapters.outbound.graph_store.migrations_insight import INSIGHT_MIGRATIONS
+from overwatch.adapters.outbound.graph_store.migrations_network import NETWORK_MIGRATIONS
+from overwatch.adapters.outbound.graph_store.migrations_platform import PLATFORM_MIGRATIONS
+from overwatch.adapters.outbound.graph_store.migrations_tenant import (
     COMPOSITE_CONSTRAINTS,
     REGISTRY_LABELS,
     SUPERSEDED_CONSTRAINTS,

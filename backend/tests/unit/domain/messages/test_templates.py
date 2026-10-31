@@ -1,4 +1,4 @@
-"""Tests for diucs.domain.messages.templates: the capacity messages C1 to C12 (D15; C12 by U05).
+"""Tests for overwatch.domain.messages.templates: the capacity messages C1 to C12 (D15; C12 by U05).
 
 Wording: docs/spec/domain-rules.md section 9 (samples) and the D15 prompt (templates). Where the
 prompt is silent (email body, push wording for C8), DEC-034 records the choice.
@@ -9,18 +9,18 @@ import re
 
 import pytest
 
-from diucs.domain.codes import Channel
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.messages.sms_length import sms_segments
-from diucs.domain.messages.templates import RenderedMessage, render
+from overwatch.domain.codes import Channel
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.messages.sms_length import sms_segments
+from overwatch.domain.messages.templates import RenderedMessage, render
 
 C1_FIELDS: dict[str, object] = {
     "service": "UCR West",
     "value": 3,
     "unit": "referrals in the next 2 hrs",
     "as_of": "08:15",
-    "link": "diucs.example/k3F9a",
+    "link": "overwatch.example/k3F9a",
     "reply_by": "10:30",
 }
 
@@ -31,7 +31,7 @@ SAMPLE_FIELDS: dict[MessageId, dict[str, object]] = {
         "unit": "referrals",
         "window": "in the next 2 hrs",
         "reply_by": "08:30",
-        "link": "diucs.example/k3F9a",
+        "link": "overwatch.example/k3F9a",
     },
     MessageId.C3: {
         "service": "UCR West",
@@ -60,7 +60,7 @@ SAMPLE_FIELDS: dict[MessageId, dict[str, object]] = {
     MessageId.C8: {
         "service": "UCR West",
         "reply_by": "10:30",
-        "link": "diucs.example/k3F9a",
+        "link": "overwatch.example/k3F9a",
     },
     MessageId.C9: {
         "reply_by": "10:30",
@@ -87,8 +87,8 @@ UK_POSTCODE = re.compile(r"\b[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}\b")
 def test_c1_matches_the_rule_book_sample_exactly() -> None:
     rendered = render(MessageId.C1, Channel.TEXT, **C1_FIELDS)
     assert rendered.text == (
-        "DIUCS: UCR West. We have 3 referrals in the next 2 hrs (as of 08:15). "
-        "Confirm or update: diucs.example/k3F9a Or reply Y, or a new number. By 10:30."
+        "Overwatch: UCR West. We have 3 referrals in the next 2 hrs (as of 08:15). "
+        "Confirm or update: overwatch.example/k3F9a Or reply Y, or a new number. By 10:30."
     )
 
 
@@ -100,7 +100,7 @@ def test_c1_text_is_one_sms_segment() -> None:
 def test_c2_matches_the_rule_book_first_prompt() -> None:
     rendered = render(MessageId.C2, Channel.TEXT, **SAMPLE_FIELDS[MessageId.C2])
     assert rendered.text == (
-        "DIUCS: UCR West. How many referrals can you take in the next 2 hrs? "
+        "Overwatch: UCR West. How many referrals can you take in the next 2 hrs? "
         "Send a number (0 = closed). By 08:30."
     )
 
@@ -139,14 +139,14 @@ def test_c7_out_of_range_wording() -> None:
 def test_c8_reminder_wording() -> None:
     rendered = render(MessageId.C8, Channel.TEXT, **SAMPLE_FIELDS[MessageId.C8])
     assert rendered.text == (
-        "DIUCS reminder: UCR West has not updated. Confirm or update: diucs.example/k3F9a By 10:30."
+        "Overwatch reminder: UCR West has not updated. Confirm or update: overwatch.example/k3F9a By 10:30."  # noqa: E501
     )
 
 
 def test_c9_two_items_use_both_and_the_first_two_items() -> None:
     rendered = render(MessageId.C9, Channel.TEXT, **SAMPLE_FIELDS[MessageId.C9])
     assert rendered.text == (
-        "DIUCS: 2 services need an update by 10:30. A) UCR West 3. B) UCR East 1. "
+        "Overwatch: 2 services need an update by 10:30. A) UCR West 3. B) UCR East 1. "
         "Reply Y if both right, or A 4, or B 2."
     )
 
@@ -159,7 +159,7 @@ def test_c9_three_items_use_all() -> None:
         items=[("A", "UCR West", 3), ("B", "UCR East", 1), ("C", "UCR North", 2)],
     )
     assert rendered.text == (
-        "DIUCS: 3 services need an update by 10:30. A) UCR West 3. B) UCR East 1. "
+        "Overwatch: 3 services need an update by 10:30. A) UCR West 3. B) UCR East 1. "
         "C) UCR North 2. Reply Y if all right, or A 4, or B 2."
     )
 
@@ -184,7 +184,7 @@ def test_c10_with_nothing_to_say_is_refused() -> None:
 def test_c11_unrecognised_reply_help() -> None:
     rendered = render(MessageId.C11, Channel.TEXT)
     assert rendered.text == (
-        "DIUCS: reply Y if the figure is right, or send a number (0 = closed). "
+        "Overwatch: reply Y if the figure is right, or send a number (0 = closed). "
         "For a booking, reply CONFIRMED or DECLINE."
     )
 
@@ -202,10 +202,10 @@ def test_every_capacity_id_renders_on_the_text_channel(message_id: MessageId) ->
 def test_c1_email_has_subject_text_and_html_with_the_link() -> None:
     rendered = render(MessageId.C1, Channel.EMAIL, **C1_FIELDS)
     assert rendered.subject == "UCR West: confirm or update by 10:30"
-    assert rendered.text.startswith("DIUCS: UCR West. We have 3 referrals")
+    assert rendered.text.startswith("Overwatch: UCR West. We have 3 referrals")
     assert "The link works once, needs no login, and expires at 10:30." in rendered.text
     assert rendered.html is not None
-    assert 'href="diucs.example/k3F9a"' in rendered.html
+    assert 'href="overwatch.example/k3F9a"' in rendered.html
     assert "Confirm or update" in rendered.html
     assert "The link works once, needs no login, and expires at 10:30." in rendered.html
 
@@ -221,14 +221,14 @@ def test_c2_email_has_subject_and_link() -> None:
     rendered = render(MessageId.C2, Channel.EMAIL, **SAMPLE_FIELDS[MessageId.C2])
     assert rendered.subject == "UCR West: confirm or update by 08:30"
     assert rendered.html is not None
-    assert 'href="diucs.example/k3F9a"' in rendered.html
+    assert 'href="overwatch.example/k3F9a"' in rendered.html
 
 
 def test_c8_email_has_subject_and_link() -> None:
     rendered = render(MessageId.C8, Channel.EMAIL, **SAMPLE_FIELDS[MessageId.C8])
     assert rendered.subject == "UCR West: confirm or update by 10:30"
     assert rendered.html is not None
-    assert 'href="diucs.example/k3F9a"' in rendered.html
+    assert 'href="overwatch.example/k3F9a"' in rendered.html
 
 
 def test_c1_push_has_title_and_body() -> None:
@@ -347,7 +347,7 @@ def test_c9_letter_and_service_must_be_text(row: tuple[object, ...]) -> None:
 def test_c12_tells_the_reporter_the_figure_is_out_of_date_and_asks_for_a_number() -> None:
     rendered = render(MessageId.C12, Channel.TEXT, **SAMPLE_FIELDS[MessageId.C12])
     assert rendered.text == (
-        "DIUCS: UCR West. The figure on record, 3 referrals in the next 2 hrs, is out of date "
+        "Overwatch: UCR West. The figure on record, 3 referrals in the next 2 hrs, is out of date "
         "(as of 22 Oct 17:00), so Y was not used. Send a number (0 = closed). By 12:35."
     )
 
@@ -430,9 +430,9 @@ def test_a_capacity_email_ends_with_all_three_footer_sentences_in_both_parts(
 def test_the_link_is_written_into_the_html_href_escaped_and_into_the_text_as_it_is(
     message_id: MessageId,
 ) -> None:
-    link = 'diucs.example/k3F9a?a=1&b="2"'
+    link = 'overwatch.example/k3F9a?a=1&b="2"'
     rendered = render(message_id, Channel.EMAIL, **{**SAMPLE_FIELDS[message_id], "link": link})
 
     assert rendered.html is not None
-    assert 'href="diucs.example/k3F9a?a=1&amp;b=&quot;2&quot;"' in rendered.html
+    assert 'href="overwatch.example/k3F9a?a=1&amp;b=&quot;2&quot;"' in rendered.html
     assert link not in rendered.html

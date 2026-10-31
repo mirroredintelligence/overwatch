@@ -15,10 +15,10 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.outbound.graph_store.unit_of_work import neo4j_uow_factory
-from diucs.application.tenancy import bind_tenant
-from diucs.domain.codes import Role
-from diucs.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
+from overwatch.adapters.outbound.graph_store.unit_of_work import neo4j_uow_factory
+from overwatch.application.tenancy import bind_tenant
+from overwatch.domain.codes import Role
+from overwatch.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
 from tests.support.network_fixtures import (
     NetApp,
     bearer,

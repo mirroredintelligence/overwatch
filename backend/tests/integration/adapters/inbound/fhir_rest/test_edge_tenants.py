@@ -16,15 +16,15 @@ from fastapi import Depends, FastAPI
 from httpx import AsyncClient
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME, current_actor
-from diucs.adapters.outbound.graph_store.tenant_directory import tenant_properties
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET
-from diucs.application.actor import Actor
-from diucs.application.tenancy import current_scope_or_none
-from diucs.bootstrap.container import Container
-from diucs.domain.codes import Role
-from diucs.domain.model.tenant import SuspendMode, SuspendReason, TenantStatus
+from overwatch.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME, current_actor
+from overwatch.adapters.outbound.graph_store.tenant_directory import tenant_properties
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.tokens import TEST_BFF_SECRET
+from overwatch.application.actor import Actor
+from overwatch.application.tenancy import current_scope_or_none
+from overwatch.bootstrap.container import Container
+from overwatch.domain.codes import Role
+from overwatch.domain.model.tenant import SuspendMode, SuspendReason, TenantStatus
 from tests.support.api import token_headers
 from tests.support.neo4j import write_tx
 from tests.support.tenant_samples import make_tenant

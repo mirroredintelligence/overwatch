@@ -26,7 +26,7 @@ function post(token: string, body: unknown, header: string | null) {
 }
 
 beforeEach(() => {
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
   resetLinkRequests();
   resetCookieWrites();
   cookiesMock.mockClear();

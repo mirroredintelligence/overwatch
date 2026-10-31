@@ -9,12 +9,12 @@ from types import SimpleNamespace
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.use_cases.alerts import AlertEvaluator, _alert_subscribers
-from diucs.domain.codes import AlertKind, Cadence, Channel, Measure, ServiceCategory
-from diucs.domain.model.service import AvailableTime, ServiceProfile
-from diucs.domain.rules.alerts import QUIET_END, QUIET_START, Alert, AlertPreferences
-from diucs.domain.rules.london_time import LONDON
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.use_cases.alerts import AlertEvaluator, _alert_subscribers
+from overwatch.domain.codes import AlertKind, Cadence, Channel, Measure, ServiceCategory
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.rules.alerts import QUIET_END, QUIET_START, Alert, AlertPreferences
+from overwatch.domain.rules.london_time import LONDON
 
 NEW_YORK = ZoneInfo("America/New_York")
 NOW = datetime(2026, 7, 1, 23, 0, tzinfo=UTC)  # 00:00 in London (night), 19:00 in New York
@@ -70,6 +70,6 @@ async def test_a_quiet_night_is_the_tenants_night() -> None:
 
 
 def test_the_evaluator_takes_a_zone_source() -> None:
-    from diucs.application.tenant_settings import LondonZones
+    from overwatch.application.tenant_settings import LondonZones
 
     assert AlertEvaluator(lambda: None, SequentialIds(), zones=LondonZones()) is not None  # type: ignore[arg-type, return-value]

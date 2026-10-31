@@ -4,12 +4,12 @@ from datetime import UTC, datetime
 
 import pytest
 
-from diucs.adapters.outbound.graph_store.booking_repository import (
+from overwatch.adapters.outbound.graph_store.booking_repository import (
     booking_from_fhir,
     booking_to_fhir,
 )
-from diucs.domain.codes import BookingStatus
-from diucs.domain.model.booking import Booking
+from overwatch.domain.codes import BookingStatus
+from overwatch.domain.model.booking import Booking
 
 REQUESTED_AT = datetime(2026, 10, 25, 13, 16, tzinfo=UTC)
 REPLY_BY = datetime(2026, 10, 25, 13, 26, tzinfo=UTC)
@@ -115,7 +115,7 @@ def test_the_task_carries_the_reference_owner_focus_and_requester() -> None:
     assert resource["status"] == "requested"
     assert resource["businessStatus"]["coding"][0]["code"] == "requested"
     assert resource["identifier"] == [
-        {"system": "https://diucs.example/booking-reference", "value": "4821"}
+        {"system": "https://overwatch.mirroredintelligence.com/booking-reference", "value": "4821"}
     ]
     assert resource["owner"] == {"reference": "HealthcareService/svc-ucr-west"}
     assert resource["focus"] == {"reference": "ServiceRequest/case-1"}

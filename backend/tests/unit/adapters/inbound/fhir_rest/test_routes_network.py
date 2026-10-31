@@ -16,28 +16,28 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
-from diucs.adapters.inbound.fhir_rest.routes_network import NetworkServices
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.projection import ProjectionEndReason
-from diucs.application.use_cases.network_board_projector import network_board_to_dict
-from diucs.application.use_cases.query_network_board import NetworkBoardView
-from diucs.application.use_cases.query_network_directory import (
+from overwatch.adapters.inbound.fhir_rest.app import create_app
+from overwatch.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from overwatch.adapters.inbound.fhir_rest.routes_network import NetworkServices
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.projection import ProjectionEndReason
+from overwatch.application.use_cases.network_board_projector import network_board_to_dict
+from overwatch.application.use_cases.query_network_board import NetworkBoardView
+from overwatch.application.use_cases.query_network_directory import (
     NetworkCriteriaEntry,
     NetworkCriteriaView,
     NetworkDirectoryEntry,
     NetworkDirectoryView,
 )
-from diucs.domain.codes import NeedCategory, Role, ServiceCategory, Status
-from diucs.domain.errors import NotAllowed, NotFound
-from diucs.domain.model.network import DirectorySource
-from diucs.domain.rules.listing import ListingPresentation
-from diucs.domain.rules.network_board import NetworkBoard, NetworkBoardEntry
-from diucs.domain.rules.pressure import Pressure
-from diucs.domain.rules.projection import LocationProjection
+from overwatch.domain.codes import NeedCategory, Role, ServiceCategory, Status
+from overwatch.domain.errors import NotAllowed, NotFound
+from overwatch.domain.model.network import DirectorySource
+from overwatch.domain.rules.listing import ListingPresentation
+from overwatch.domain.rules.network_board import NetworkBoard, NetworkBoardEntry
+from overwatch.domain.rules.pressure import Pressure
+from overwatch.domain.rules.projection import LocationProjection
 from tests.support.edge import EDGE_NOW, TENANT_A, EdgeContainer, active_tenants
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -376,7 +376,7 @@ async def test_the_stream_route_gives_the_same_refusals_as_the_other_network_rou
 
 
 async def test_the_path_pattern_is_the_domains_network_id_pattern() -> None:
-    from diucs.adapters.inbound.fhir_rest.routes_network import NETWORK_ID_PATTERN
-    from diucs.domain.model.network import NETWORK_ID_PATTERN as DOMAIN
+    from overwatch.adapters.inbound.fhir_rest.routes_network import NETWORK_ID_PATTERN
+    from overwatch.domain.model.network import NETWORK_ID_PATTERN as DOMAIN
 
     assert f"^{DOMAIN.pattern}$" == NETWORK_ID_PATTERN

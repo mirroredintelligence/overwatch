@@ -15,16 +15,16 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.inbound.link_pages.capacity_links import LinkPagesDeps
-from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.tenant_directory import tenant_properties
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.bootstrap.container import Container, build_for_tests
-from diucs.domain.model.tenant import TenantStatus
+from overwatch.adapters.inbound.fhir_rest.app import create_app
+from overwatch.adapters.inbound.link_pages.capacity_links import LinkPagesDeps
+from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.tenant_directory import tenant_properties
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.bootstrap.container import Container, build_for_tests
+from overwatch.domain.model.tenant import TenantStatus
 from tests.support.ladder_rig import PHONE_HASH_2
 from tests.support.link_rig import (
     ANSWER_AT,

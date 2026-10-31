@@ -15,12 +15,12 @@ cannot be told from a suspended tenant's. Only a damaged record is logged, as a 
 
 import logging
 
-from diucs.application.ports.outbound.tenants import (
+from overwatch.application.ports.outbound.tenants import (
     TenantDirectory,
     TenantRecordInvalid,
     normalise_host,
 )
-from diucs.domain.model.tenant import Tenant, TenantStatus
+from overwatch.domain.model.tenant import Tenant, TenantStatus
 
 log = logging.getLogger(__name__)
 

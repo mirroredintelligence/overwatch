@@ -4,7 +4,8 @@ encode_result turns a command result into (resultType, json text). decode_result
 The JSON text is an intermediate form only: the Neo4j store writes it as typed graph nodes and never
 stores the text (DEC-001, DEC-090).
 
-Allowed result types are dataclasses and enum members defined in diucs.application or diucs.domain
+Allowed result types are dataclasses and enum members defined in overwatch.application or
+overwatch.domain
 (DEC-090 item 2). Decoding imports nothing else. Tuples, frozensets, enums, dataclasses, UTC
 datetimes and calendar dates keep their types through the round trip, so a replay returns an equal
 object.
@@ -19,7 +20,7 @@ from datetime import UTC, date, datetime
 from enum import Enum
 from typing import Protocol
 
-ALLOWED_PACKAGES = ("diucs.application", "diucs.domain")
+ALLOWED_PACKAGES = ("overwatch.application", "overwatch.domain")
 
 DATETIME_TAG = "$datetime"
 DATE_TAG = "$date"

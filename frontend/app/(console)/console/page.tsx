@@ -4,7 +4,7 @@ import styles from '@/components/console/Console.module.css';
 import { getSession } from '@/lib/auth/session';
 
 export const metadata: Metadata = {
-  title: 'DIUCS console: find a session',
+  title: 'Overwatch console: find a session',
 };
 
 // Read at every request: the console never shows a cached session list or timeline.

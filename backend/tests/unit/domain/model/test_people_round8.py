@@ -9,8 +9,8 @@ the value.
 
 import pytest
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.people import Practitioner
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.people import Practitioner
 
 # Neutral ids: a pytest id is built from its value, so a probe number must not appear in an id
 # (DEC-065 item 7).

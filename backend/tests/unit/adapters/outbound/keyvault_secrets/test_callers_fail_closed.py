@@ -7,20 +7,20 @@ read it as "not configured" and carry on with a default, so each of these must l
 
 import pytest
 
-from diucs.adapters.outbound.keyvault_secrets import KeyVaultSecretStore
-from diucs.adapters.outbound.push_webpush.web_push import (
+from overwatch.adapters.outbound.keyvault_secrets import KeyVaultSecretStore
+from overwatch.adapters.outbound.push_webpush.web_push import (
     configured_push_sender,
     vapid_private_key,
 )
-from diucs.application.ports.outbound.identity import (
+from overwatch.application.ports.outbound.identity import (
     HmacPhoneHasher,
     TenantKeyedSecrets,
     secret_is_configured,
 )
-from diucs.application.ports.outbound.tokens import LinkTokenService, SecretStoreUnavailable
-from diucs.application.use_cases.exchange_token import _secret as exchange_secret
-from diucs.bootstrap.api_main import edge_for
-from diucs.bootstrap.settings import Settings
+from overwatch.application.ports.outbound.tokens import LinkTokenService, SecretStoreUnavailable
+from overwatch.application.use_cases.exchange_token import _secret as exchange_secret
+from overwatch.bootstrap.api_main import edge_for
+from overwatch.bootstrap.settings import Settings
 from tests.support.fake_key_vault import FakeKeyVaultClient
 
 
@@ -51,7 +51,7 @@ def test_the_push_sender_is_not_quietly_switched_off_by_an_outage() -> None:
     with pytest.raises(SecretStoreUnavailable):
         vapid_private_key(_down())
     with pytest.raises(SecretStoreUnavailable):
-        configured_push_sender(_down(), "mailto:operations@diucs.example")
+        configured_push_sender(_down(), "mailto:operations@overwatch.example")
 
 
 def test_the_edge_does_not_drop_its_origin_secret_on_an_outage() -> None:

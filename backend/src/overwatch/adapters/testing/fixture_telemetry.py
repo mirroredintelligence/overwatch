@@ -14,7 +14,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
-from diucs.application.ports.outbound.telemetry_query import (
+from overwatch.application.ports.outbound.telemetry_query import (
     AttributeCleaner,
     SessionFilters,
     SessionSummary,
@@ -26,8 +26,8 @@ from diucs.application.ports.outbound.telemetry_query import (
     check_session_id,
     check_trace_id,
 )
-from diucs.application.tenancy import current_tenant
-from diucs.domain.model.telemetry_aggregates import (
+from overwatch.application.tenancy import current_tenant
+from overwatch.domain.model.telemetry_aggregates import (
     DayAggregates,
     ElementUsageDailyRow,
     FrictionDailyRow,

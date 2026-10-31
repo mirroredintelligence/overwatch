@@ -11,12 +11,12 @@ bus id: each is handled in its own tenant and none is taken for the other's dupl
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.inbound.workers.delivery_tracker import receipt_consumer
-from diucs.adapters.inbound.workers.outbox_relay import StaticTenants
-from diucs.adapters.inbound.workers.reply_processor import reply_consumer
-from diucs.adapters.outbound.graph_store.unit_of_work import neo4j_uow_factory
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.bootstrap.container import TEST_NOW
+from overwatch.adapters.inbound.workers.delivery_tracker import receipt_consumer
+from overwatch.adapters.inbound.workers.outbox_relay import StaticTenants
+from overwatch.adapters.inbound.workers.reply_processor import reply_consumer
+from overwatch.adapters.outbound.graph_store.unit_of_work import neo4j_uow_factory
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.bootstrap.container import TEST_NOW
 from tests.support.inbound_rig import (
     PHONE,
     RecordingUseCase,

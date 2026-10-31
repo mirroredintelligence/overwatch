@@ -13,9 +13,9 @@ from typing import Any
 
 import pytest
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import AuditEntry, AuditRecord
-from diucs.application.use_cases.clinical_context import (
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import AuditEntry, AuditRecord
+from overwatch.application.use_cases.clinical_context import (
     NO_NAME,
     SeenLine,
     figure_text,
@@ -23,8 +23,8 @@ from diucs.application.use_cases.clinical_context import (
     seen_lines,
     why_text,
 )
-from diucs.application.use_cases.filter_options import reason_code
-from diucs.domain.codes import Role, Status
+from overwatch.application.use_cases.filter_options import reason_code
+from overwatch.domain.codes import Role, Status
 from tests.support.actors import ACTOR_TENANT
 
 ASKED = datetime(2026, 10, 23, 13, 16, tzinfo=UTC)

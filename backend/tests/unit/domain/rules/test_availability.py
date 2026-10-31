@@ -14,10 +14,14 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from diucs.domain.codes import BookingStatus, Measure, ReportSource, ReportType
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.rules import availability
-from diucs.domain.rules.availability import effective_available, effective_occupied, pending_count
+from overwatch.domain.codes import BookingStatus, Measure, ReportSource, ReportType
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.rules import availability
+from overwatch.domain.rules.availability import (
+    effective_available,
+    effective_occupied,
+    pending_count,
+)
 
 REPORTED_AT = datetime(2026, 10, 25, 13, 3, tzinfo=UTC)
 NON_OCCUPIED_MEASURES = [m for m in Measure if m is not Measure.OCCUPIED_PATIENTS]

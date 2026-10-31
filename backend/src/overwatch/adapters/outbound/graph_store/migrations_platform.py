@@ -20,7 +20,7 @@ One schema statement each (lesson L8), idempotent (`IF NOT EXISTS`), fixed text 
 
 from typing import Final
 
-from diucs.adapters.outbound.graph_store.migration_types import Migration
+from overwatch.adapters.outbound.graph_store.migration_types import Migration
 
 PLATFORM_MIGRATIONS: Final[tuple[Migration, ...]] = (
     Migration(

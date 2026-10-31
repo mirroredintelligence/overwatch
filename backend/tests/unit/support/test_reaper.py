@@ -9,11 +9,11 @@ from tests.support.neo4j import reap_stale_test_containers
 NOW = datetime(2026, 10, 27, 21, 0, 0, tzinfo=UTC)
 MAX_AGE = timedelta(minutes=90)
 
-# name, Created as docker prints it (RFC 3339 with nanoseconds), value of the diucs-test label
+# name, Created as docker prints it (RFC 3339 with nanoseconds), value of the overwatch-test label
 CONTAINERS = [
-    ("diucs-test-neo4j-old", "2026-10-27T19:00:00.123456789Z", "true"),
-    ("diucs-test-neo4j-new", "2026-10-27T20:30:00.000000000Z", "true"),
-    ("diucs-local-neo4j", "2026-10-27T10:00:00.000000000Z", ""),
+    ("overwatch-test-neo4j-old", "2026-10-27T19:00:00.123456789Z", "true"),
+    ("overwatch-test-neo4j-new", "2026-10-27T20:30:00.000000000Z", "true"),
+    ("overwatch-local-neo4j", "2026-10-27T10:00:00.000000000Z", ""),
 ]
 
 
@@ -52,8 +52,8 @@ def test_reaper_removes_only_old_labelled_containers() -> None:
 
     removed = reap_stale_test_containers(MAX_AGE, run=docker, now=lambda: NOW)
 
-    assert removed == ["diucs-test-neo4j-old"]
-    assert docker.removed() == ["diucs-test-neo4j-old"]
+    assert removed == ["overwatch-test-neo4j-old"]
+    assert docker.removed() == ["overwatch-test-neo4j-old"]
 
 
 def test_reaper_returns_nothing_and_does_not_raise_when_docker_is_missing() -> None:
@@ -74,41 +74,41 @@ def test_reaper_keeps_a_labelled_container_whose_name_is_not_ours() -> None:
     docker = FakeDocker(
         [
             ("other-app-old", "2026-10-27T19:00:00.000000000Z", "true"),
-            ("diucs-test-neo4j-old", "2026-10-27T19:00:00.000000000Z", "true"),
+            ("overwatch-test-neo4j-old", "2026-10-27T19:00:00.000000000Z", "true"),
         ]
     )
 
     removed = reap_stale_test_containers(MAX_AGE, run=docker, now=lambda: NOW)
 
-    assert removed == ["diucs-test-neo4j-old"]
-    assert docker.removed() == ["diucs-test-neo4j-old"]
+    assert removed == ["overwatch-test-neo4j-old"]
+    assert docker.removed() == ["overwatch-test-neo4j-old"]
 
 
 def test_reaper_skips_a_bad_timestamp_and_still_removes_the_stale_good_container() -> None:
     docker = FakeDocker(
         [
-            ("diucs-test-neo4j-bad", "not-a-timestamp", "true"),
-            ("diucs-test-neo4j-old", "2026-10-27T19:00:00.000000000Z", "true"),
+            ("overwatch-test-neo4j-bad", "not-a-timestamp", "true"),
+            ("overwatch-test-neo4j-old", "2026-10-27T19:00:00.000000000Z", "true"),
         ]
     )
 
     removed = reap_stale_test_containers(MAX_AGE, run=docker, now=lambda: NOW)
 
-    assert removed == ["diucs-test-neo4j-old"]
-    assert docker.removed() == ["diucs-test-neo4j-old"]
+    assert removed == ["overwatch-test-neo4j-old"]
+    assert docker.removed() == ["overwatch-test-neo4j-old"]
 
 
 def test_reaper_never_removes_the_shared_container_whatever_its_age_or_labels() -> None:
     """The machine's shared Neo4j (TEN-034) is long-lived by design. It is not named
-    `diucs-test-neo4j-*`, so the sweep cannot reach it even if it carried the test label and no
+    `overwatch-test-neo4j-*`, so the sweep cannot reach it even if it carried the test label and no
     owner label, which is what a legacy container looks like."""
     shared = [
-        ("diucs-test-shared-neo4j", "2026-10-20T10:00:00.000000000Z", "true"),
+        ("overwatch-test-shared-neo4j", "2026-10-20T10:00:00.000000000Z", "true"),
         *CONTAINERS,
     ]
     docker = FakeDocker(shared)
 
     removed = reap_stale_test_containers(MAX_AGE, run=docker, now=lambda: NOW)
 
-    assert "diucs-test-shared-neo4j" not in removed
-    assert "diucs-test-shared-neo4j" not in docker.removed()
+    assert "overwatch-test-shared-neo4j" not in removed
+    assert "overwatch-test-shared-neo4j" not in docker.removed()

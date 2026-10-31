@@ -16,18 +16,18 @@ import pytest_asyncio
 from httpx import AsyncClient
 from neo4j import AsyncDriver
 
-from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET
-from diucs.application.ports.outbound.identity import PHONE_HASH_SECRET
-from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.work import CANCELLED, WorkKind
-from diucs.bootstrap.container import Container, build_for_tests
-from diucs.domain.codes import BookingStatus, Role
+from overwatch.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.adapters.testing.tokens import TEST_BFF_SECRET
+from overwatch.application.ports.outbound.identity import PHONE_HASH_SECRET
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.work import CANCELLED, WorkKind
+from overwatch.bootstrap.container import Container, build_for_tests
+from overwatch.domain.codes import BookingStatus, Role
 from tests.support.api import R01_TEST_NOW, TEST_PHONE_HASH_SECRET, token_headers
 from tests.support.booking_rig import CASE_ID, SERVICE_ID, at, request, seed_world
 from tests.support.neo4j import ThrowawayNeo4j
@@ -40,7 +40,12 @@ pytestmark = pytest.mark.asyncio(loop_scope="session")
 LINK_SECRET = b"link-token-test-secret-0123456789abcdef"
 UCR_EAST = "ucr-east"
 TASK_CODE = {
-    "coding": [{"system": "https://diucs.example/CodeSystem/task-code", "code": "booking-request"}]
+    "coding": [
+        {
+            "system": "https://overwatch.mirroredintelligence.com/CodeSystem/task-code",
+            "code": "booking-request",
+        }
+    ]
 }
 
 

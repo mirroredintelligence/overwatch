@@ -10,21 +10,21 @@ from typing import Any
 
 import httpx
 
-from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_geo import FixedGeocoder
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.fixed_terminology import FixedTerminology
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.adapters.testing.memory_code_store import InMemoryCodeStore
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
-from diucs.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
-from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET
-from diucs.application.tenancy import ScopeId
-from diucs.application.use_cases.pin import PIN_HMAC_SECRET
-from diucs.application.use_cases.registration_draft import (
+from overwatch.adapters.inbound.fhir_rest.app import create_app
+from overwatch.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_geo import FixedGeocoder
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.fixed_terminology import FixedTerminology
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.adapters.testing.memory_code_store import InMemoryCodeStore
+from overwatch.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
+from overwatch.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET
+from overwatch.application.tenancy import ScopeId
+from overwatch.application.use_cases.pin import PIN_HMAC_SECRET
+from overwatch.application.use_cases.registration_draft import (
     ApiStep,
     LocationStep,
     OrganisationStep,
@@ -32,11 +32,11 @@ from diucs.application.use_cases.registration_draft import (
     ServiceStep,
     encode_step,
 )
-from diucs.application.use_cases.registration_submit import Lookups, encode_lookups
-from diucs.application.use_cases.review_registration import districts_in_ranges
-from diucs.application.use_cases.text_code import CODE_HMAC_SECRET, INVITATION_PURPOSE
-from diucs.application.work import DONE, SCHEDULED, ScheduledWork, WorkKind
-from diucs.domain.codes import (
+from overwatch.application.use_cases.registration_submit import Lookups, encode_lookups
+from overwatch.application.use_cases.review_registration import districts_in_ranges
+from overwatch.application.use_cases.text_code import CODE_HMAC_SECRET, INVITATION_PURPOSE
+from overwatch.application.work import DONE, SCHEDULED, ScheduledWork, WorkKind
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     CriteriaStatus,
@@ -50,14 +50,14 @@ from diucs.domain.codes import (
     ScopeFlag,
     ServiceCategory,
 )
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.criteria import ServiceCriteria
-from diucs.domain.model.flags import ReportFlag, ServiceFlag
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.model.registration import Invitation, Registration, ScopeEntry
-from diucs.domain.model.service import AvailableTime, ServiceProfile
-from diucs.domain.model.tenant import ConfigStatus, TenantConfig, TenantContact, TenantStatus
-from diucs.domain.rules.tokens import LinkTokenRecord, hash_token
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.criteria import ServiceCriteria
+from overwatch.domain.model.flags import ReportFlag, ServiceFlag
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.model.registration import Invitation, Registration, ScopeEntry
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.model.tenant import ConfigStatus, TenantConfig, TenantContact, TenantStatus
+from overwatch.domain.rules.tokens import LinkTokenRecord, hash_token
 from tests.support.registration_rig import (
     StubDevices,
     StubFlags,
@@ -215,7 +215,7 @@ class W7BDevices(StubDevices):
     """The devices stub with a person's devices, as the registry reports them."""
 
     async def devices_of(self, practitioner_id: str) -> list[Any]:
-        from diucs.application.ports.outbound.identity import DeviceFacts
+        from overwatch.application.ports.outbound.identity import DeviceFacts
 
         found = [
             DeviceFacts(
@@ -679,8 +679,8 @@ class Rig:
     async def hold_code(
         self, mobile: str = MOBILE, purpose: str = "setup", code: str = CODE
     ) -> None:
-        from diucs.application.use_cases.text_code import code_hash
-        from diucs.domain.rules.identity_policy import CodeState
+        from overwatch.application.use_cases.text_code import code_hash
+        from overwatch.domain.rules.identity_policy import CodeState
 
         phone_hash = self.hasher.hash(mobile)
         stored = code_hash(SECRETS[CODE_HMAC_SECRET], phone_hash, purpose, code)

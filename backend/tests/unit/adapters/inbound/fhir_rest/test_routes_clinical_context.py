@@ -5,15 +5,15 @@ clinician who does not hold the request, are in tests/integration/adapters/inbou
 
 from datetime import UTC, datetime
 
-from diucs.adapters.inbound.fhir_rest.clinical_mapping import contact_json, seen_json
-from diucs.application.use_cases.clinical_context import (
+from overwatch.adapters.inbound.fhir_rest.clinical_mapping import contact_json, seen_json
+from overwatch.application.use_cases.clinical_context import (
     SEEN_NONE,
     SEEN_SHOWN,
     AdvisorContact,
     SeenLine,
     WhatAdvisorSaw,
 )
-from diucs.domain.codes import Role
+from overwatch.domain.codes import Role
 from tests.support.route_unit import assert_role_matrix, bearer, route_client
 
 CLINICAL = frozenset({Role.CLINICAL})

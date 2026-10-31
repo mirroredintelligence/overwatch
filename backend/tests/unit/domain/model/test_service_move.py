@@ -4,8 +4,8 @@ from datetime import UTC, datetime
 
 import pytest
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.service_move import ServiceMove
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.service_move import ServiceMove
 
 UNTIL = datetime(2026, 10, 25, 19, 0, tzinfo=UTC)
 DONE = datetime(2026, 10, 25, 18, 30, tzinfo=UTC)

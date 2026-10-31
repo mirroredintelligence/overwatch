@@ -13,11 +13,19 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.graph_store.driver import run_query
-from diucs.adapters.outbound.graph_store.queries import NamedQuery, QueryRegistry, Scenario
-from diucs.adapters.outbound.graph_store.unit_of_work import DEFAULT_FACTORIES, neo4j_uow_factory
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import ScopeId, TenantNotBound, current_scope_or_none, current_tenant
+from overwatch.adapters.outbound.graph_store.driver import run_query
+from overwatch.adapters.outbound.graph_store.queries import NamedQuery, QueryRegistry, Scenario
+from overwatch.adapters.outbound.graph_store.unit_of_work import (
+    DEFAULT_FACTORIES,
+    neo4j_uow_factory,
+)
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import (
+    ScopeId,
+    TenantNotBound,
+    current_scope_or_none,
+    current_tenant,
+)
 from tests.support.tenancy import as_tenant
 from tests.support.uow import tenant_uow_factory
 

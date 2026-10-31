@@ -3,13 +3,13 @@ from pathlib import Path
 
 import pytest
 
-import diucs
+import overwatch
 
 pytest_plugins = ["pytester"]
 
 
 def test_package_version() -> None:
-    assert diucs.__version__ == "0.1.0"
+    assert overwatch.__version__ == "0.1.0"
 
 
 async def test_async_test_runs_without_decorator() -> None:

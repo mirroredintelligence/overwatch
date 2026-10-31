@@ -14,19 +14,19 @@ from datetime import UTC, date, datetime, timedelta
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_geo import FixedPostcodeLocator, FixedTravelTime
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.geo import LatLon, TravelRange
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.filter_options import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_geo import FixedPostcodeLocator, FixedTravelTime
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.geo import LatLon, TravelRange
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.filter_options import (
     FilterOptions,
     FilterOptionsCommand,
     FilterOptionsResult,
     Option,
 )
-from diucs.application.use_cases.query_board import QueryBoard
-from diucs.domain.codes import (
+from overwatch.application.use_cases.query_board import QueryBoard
+from overwatch.domain.codes import (
     AgeBand,
     Cadence,
     Channel,
@@ -41,12 +41,12 @@ from diucs.domain.codes import (
     Status,
     Urgency,
 )
-from diucs.domain.errors import NotAllowed, ValidationFailed
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.case import Case
-from diucs.domain.model.criteria import ServiceCriteria
-from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
-from diucs.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.errors import NotAllowed, ValidationFailed
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.case import Case
+from overwatch.domain.model.criteria import ServiceCriteria
+from overwatch.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, read_tx, write_tx
 from tests.support.uow import ensure_audit_heads

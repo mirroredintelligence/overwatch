@@ -55,7 +55,7 @@ def _container_names(prefix: str) -> set[str]:
 async def test_a_real_container_has_its_memory_limit_neo4j_settings_and_owner_labels(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    monkeypatch.setenv("DIUCS_NEO4J_LOCK", str(tmp_path / "harness.lock"))
+    monkeypatch.setenv("OVERWATCH_NEO4J_LOCK", str(tmp_path / "harness.lock"))
 
     async with throwaway_driver() as (container, driver):
         inspected = _inspect(container.name)
@@ -65,8 +65,8 @@ async def test_a_real_container_has_its_memory_limit_neo4j_settings_and_owner_la
         assert isinstance(config, dict)
         assert DEFAULT_CONTAINER_MEMORY == "1g"
         assert host_config["Memory"] == 1024 * 1024 * 1024
-        assert config["Labels"]["diucs-test-owner-pid"] == str(os.getpid())
-        assert config["Labels"]["diucs-test-owner-start"] == process_start_marker(os.getpid())
+        assert config["Labels"]["overwatch-test-owner-pid"] == str(os.getpid())
+        assert config["Labels"]["overwatch-test-owner-start"] == process_start_marker(os.getpid())
 
         async def settings(tx: object) -> dict[str, str]:
             result = await tx.run(  # type: ignore[attr-defined]
@@ -83,14 +83,14 @@ async def test_a_real_container_has_its_memory_limit_neo4j_settings_and_owner_la
 def test_a_container_leaked_by_a_run_that_died_is_removed_by_the_next_sweep(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    shared_stack_before = _container_names("diucs-local-")
+    shared_stack_before = _container_names("overwatch-local-")
     leaked = subprocess.run(
         [sys.executable, "-c", LEAK],
         cwd=BACKEND,
         env={
             **os.environ,
             "PYTHONPATH": str(BACKEND),
-            "DIUCS_NEO4J_LOCK": str(tmp_path / "child.lock"),
+            "OVERWATCH_NEO4J_LOCK": str(tmp_path / "child.lock"),
         },
         capture_output=True,
         text=True,
@@ -100,13 +100,13 @@ def test_a_container_leaked_by_a_run_that_died_is_removed_by_the_next_sweep(
     name = leaked.stdout.strip().splitlines()[-1]
     try:
         assert name in _container_names(
-            "diucs-test-neo4j-"
+            "overwatch-test-neo4j-"
         )  # the owner is gone, the container is not
 
         removed = reap_stale_test_containers()
 
         assert name in removed
-        assert name not in _container_names("diucs-test-neo4j-")
-        assert _container_names("diucs-local-") == shared_stack_before
+        assert name not in _container_names("overwatch-test-neo4j-")
+        assert _container_names("overwatch-local-") == shared_stack_before
     finally:
         subprocess.run(["docker", "rm", "-f", "-v", name], capture_output=True, timeout=60)

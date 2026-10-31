@@ -20,7 +20,7 @@ describe('BookingDecision: an open request', () => {
   it('shows the reference, the service, the three rows and the footer', async () => {
     const { container } = render(<BookingDecision token={LINK.booking} />);
     expect(await screen.findByRole('heading', { level: 1, name: 'UCR West' })).toBeInTheDocument();
-    expect(screen.getByText('DIUCS booking request · Reference 4821')).toBeInTheDocument();
+    expect(screen.getByText('Overwatch booking request · Reference 4821')).toBeInTheDocument();
     expect(screen.getByText('Age band 80+')).toBeInTheDocument();
     expect(screen.getByText('Need fall, no injury and frailty')).toBeInTheDocument();
     expect(screen.getByText('Response wanted Within 2 hrs')).toBeInTheDocument();

@@ -15,17 +15,17 @@ from datetime import UTC, datetime
 from types import TracebackType
 from typing import Any, Self
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.adapters.testing.recording_platform_audit import RecordingPlatformAudit
-from diucs.application.actor import Actor
-from diucs.application.cross_tenant_guard import CrossTenantGuard, PlatformPrincipal
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.identity import TenantKeyedSecrets
-from diucs.application.tenancy import ScopeId, bind_tenant, current_scope_or_none
-from diucs.application.use_cases.cross_tenant_tickets import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.adapters.testing.recording_platform_audit import RecordingPlatformAudit
+from overwatch.application.actor import Actor
+from overwatch.application.cross_tenant_guard import CrossTenantGuard, PlatformPrincipal
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.identity import TenantKeyedSecrets
+from overwatch.application.tenancy import ScopeId, bind_tenant, current_scope_or_none
+from overwatch.application.use_cases.cross_tenant_tickets import (
     ApproveSupportTicket,
     CancelSupportTicket,
     DecideTicketCommand,
@@ -38,11 +38,11 @@ from diucs.application.use_cases.cross_tenant_tickets import (
     RevokeSupportTicket,
     UseTicketAccess,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import Conflict
-from diucs.domain.model.tenant import Tenant
-from diucs.domain.rules.support import SUPPORT_CODE_SECRET
-from diucs.domain.rules.support_ticket import SupportTicket, TicketState
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import Conflict
+from overwatch.domain.model.tenant import Tenant
+from overwatch.domain.rules.support import SUPPORT_CODE_SECRET
+from overwatch.domain.rules.support_ticket import SupportTicket, TicketState
 from tests.support.tenant_samples import make_tenant
 
 NOW = datetime(2026, 10, 30, 9, 0, tzinfo=UTC)

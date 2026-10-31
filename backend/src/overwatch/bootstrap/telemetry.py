@@ -8,9 +8,9 @@ from typing import Protocol
 from fastapi import FastAPI
 from opentelemetry.sdk.trace import TracerProvider
 
-from diucs.adapters.outbound.graph_store.driver import set_query_observer
-from diucs.adapters.outbound.telemetry import attributes as names
-from diucs.adapters.outbound.telemetry.otel import (
+from overwatch.adapters.outbound.graph_store.driver import set_query_observer
+from overwatch.adapters.outbound.telemetry import attributes as names
+from overwatch.adapters.outbound.telemetry.otel import (
     TelemetrySettings,
     configure_telemetry,
     instrument_fastapi,

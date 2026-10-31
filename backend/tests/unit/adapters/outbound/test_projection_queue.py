@@ -13,21 +13,21 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.outbound.projection_queue import (
+from overwatch.adapters.outbound.projection_queue import (
     BusProjectionPublisher,
     projection_message,
     projection_message_id,
 )
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.memory_event_bus import ManualEventBus
-from diucs.application.ports.outbound.event_bus import MAX_WIRE_ID_LENGTH, QUEUES, to_wire
-from diucs.application.ports.outbound.projection import ProjectionPublisher
-from diucs.application.projection import to_body
-from diucs.application.tenancy import bind_network, bind_tenant
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.events import PROJECTION_WORK, ProjectionRequested
-from diucs.domain.model.network import GrantScope
-from diucs.domain.rules.projection import PROJECTION_ALLOWLIST_VERSION
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.memory_event_bus import ManualEventBus
+from overwatch.application.ports.outbound.event_bus import MAX_WIRE_ID_LENGTH, QUEUES, to_wire
+from overwatch.application.ports.outbound.projection import ProjectionPublisher
+from overwatch.application.projection import to_body
+from overwatch.application.tenancy import bind_network, bind_tenant
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.events import PROJECTION_WORK, ProjectionRequested
+from overwatch.domain.model.network import GrantScope
+from overwatch.domain.rules.projection import PROJECTION_ALLOWLIST_VERSION
 from tests.support.network_samples import MEMBER_B, NETWORK_ID, OTHER_NETWORK_ID, OWNER
 from tests.support.projection_samples import (
     sample_capacity_projection,

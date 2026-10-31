@@ -11,16 +11,16 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.outbound.graph_store.mapper import from_graph, to_graph
-from diucs.adapters.outbound.graph_store.person_repository import (
+from overwatch.adapters.outbound.graph_store.mapper import from_graph, to_graph
+from overwatch.adapters.outbound.graph_store.person_repository import (
     practitioner_from_fhir,
     practitioner_to_fhir,
     role_from_fhir,
     role_to_fhir,
 )
-from diucs.domain.codes import BASE_URL, Channel, PractitionerRoleCode
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.codes import BASE_URL, Channel, PractitionerRoleCode
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.people import Practitioner, PractitionerRole
 
 H1 = "a" * 64
 PERSON = Practitioner(

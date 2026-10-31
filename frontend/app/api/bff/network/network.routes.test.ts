@@ -29,7 +29,7 @@ type Handler = (request: Request, context?: unknown) => Promise<Response>;
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${NETWORK_ROOT}/fhir`);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', `${NETWORK_ROOT}/fhir`);
   vi.stubEnv('NODE_ENV', 'production');
   resetNetworkBackend();
   server.use(...networkHandlers);

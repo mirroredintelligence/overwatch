@@ -14,7 +14,7 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.inbound.workers.code_sender import (
+from overwatch.adapters.inbound.workers.code_sender import (
     CODE_SUBSCRIPTION,
     CODES_TOPIC,
     CONSUMER_CODE,
@@ -22,8 +22,8 @@ from diucs.adapters.inbound.workers.code_sender import (
     CodeMessageSender,
     code_runner,
 )
-from diucs.adapters.inbound.workers.consumer import IdempotentConsumer, PermanentError
-from diucs.adapters.inbound.workers.message_senders import (
+from overwatch.adapters.inbound.workers.consumer import IdempotentConsumer, PermanentError
+from overwatch.adapters.inbound.workers.message_senders import (
     BAD_CONTENT,
     BAD_PAYLOAD,
     NO_CHANNEL,
@@ -32,22 +32,22 @@ from diucs.adapters.inbound.workers.message_senders import (
     REFUSED,
     SEND_FAILED,
 )
-from diucs.adapters.inbound.workers.outbox_relay import StaticTenants
-from diucs.adapters.inbound.workers.tenant_binding import TenantBoundConsumer
-from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.recording_senders import FixedSenderResolver, RecordingSmsSender
-from diucs.application.ports.outbound.messaging import (
+from overwatch.adapters.inbound.workers.outbox_relay import StaticTenants
+from overwatch.adapters.inbound.workers.tenant_binding import TenantBoundConsumer
+from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.recording_senders import FixedSenderResolver, RecordingSmsSender
+from overwatch.application.ports.outbound.messaging import (
     SendFailedError,
     SendReceipt,
     TransientSendError,
 )
-from diucs.application.use_cases.text_code import DISCARD_CODE, SEND_CODE
-from diucs.domain.codes import Channel
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.messages.templates import render
-from diucs.domain.rules.identity_policy import CODE_VALID_FOR
+from overwatch.application.use_cases.text_code import DISCARD_CODE, SEND_CODE
+from overwatch.domain.codes import Channel
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.messages.templates import render
+from overwatch.domain.rules.identity_policy import CODE_VALID_FOR
 from tests.support.bus import message_with_tenant
 from tests.support.tenancy import as_tenant
 

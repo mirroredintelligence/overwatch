@@ -1,7 +1,8 @@
 """The harness on a Neo4j that other runs share (TEN-034), against a real Neo4j.
 
 Whatever mode the session runs in (a private container, the machine's shared container, or an
-instance named by `DIUCS_TEST_NEO4J_URI`), the tests see the same thing: a migrated database, a run
+instance named by `OVERWATCH_TEST_NEO4J_URI`), the tests see the same thing: a migrated database, a
+run
 tenant that is theirs alone, and a refusal to empty a database they do not own. The tests here
 attach explicitly to the session's own database, to prove the attached path, and look the shared
 container up for real.
@@ -15,7 +16,7 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.graph_store.migrations import MIGRATIONS, apply_migrations
+from overwatch.adapters.outbound.graph_store.migrations import MIGRATIONS, apply_migrations
 from tests.support.harness_mode import (
     Mode,
     Selection,
@@ -46,9 +47,9 @@ DEAD_OWNER = RunIdentity(pid=4_194_302, started=1_800_000_000, nonce="5eed")
 def _attach_selection(container: ThrowawayNeo4j) -> Selection:
     return select_mode(
         {
-            "DIUCS_TEST_NEO4J_URI": container.uri,
-            "DIUCS_TEST_NEO4J_USER": container.user,
-            "DIUCS_TEST_NEO4J_PASSWORD": container.password,
+            "OVERWATCH_TEST_NEO4J_URI": container.uri,
+            "OVERWATCH_TEST_NEO4J_USER": container.user,
+            "OVERWATCH_TEST_NEO4J_PASSWORD": container.password,
         }
     )
 
@@ -148,7 +149,7 @@ async def test_the_shared_container_is_found_again_by_a_second_call() -> None:
     second = await asyncio.to_thread(ensure_shared_neo4j)
 
     assert first == second
-    assert first.name == "diucs-test-shared-neo4j"
+    assert first.name == "overwatch-test-shared-neo4j"
 
 
 # the migration lock, against a real schema

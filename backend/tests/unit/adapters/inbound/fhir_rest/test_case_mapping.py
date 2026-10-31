@@ -13,7 +13,7 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.inbound.fhir_rest.case_mapping import (
+from overwatch.adapters.inbound.fhir_rest.case_mapping import (
     AGE_BAND_EXTENSION,
     CLOSED_AT_EXTENSION,
     DISTRICT_EXTENSION,
@@ -27,8 +27,8 @@ from diucs.adapters.inbound.fhir_rest.case_mapping import (
     case_to_fhir,
     parse_case_details,
 )
-from diucs.adapters.inbound.fhir_rest.mapping import validate_outbound
-from diucs.domain.codes import (
+from overwatch.adapters.inbound.fhir_rest.mapping import validate_outbound
+from overwatch.domain.codes import (
     AgeBand,
     NeedCategory,
     Outcome,
@@ -36,9 +36,9 @@ from diucs.domain.codes import (
     Urgency,
     code_system_url,
 )
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.case import Case
-from diucs.domain.model.scores import (
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.case import Case
+from overwatch.domain.model.scores import (
     AmbulanceCategory,
     ClinicalFrailty,
     ManchesterTriage,

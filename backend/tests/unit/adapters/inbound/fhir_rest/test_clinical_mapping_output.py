@@ -8,15 +8,15 @@ advisor was considering is a task input, named by its name now and never by its 
 from datetime import UTC, datetime
 from typing import Any
 
-from diucs.adapters.inbound.fhir_rest.clinical_mapping import (
+from overwatch.adapters.inbound.fhir_rest.clinical_mapping import (
     TASK_OUTPUT_SYSTEM,
     clinical_task,
     input_url,
 )
-from diucs.application.use_cases.clinical_advice import CaseGlance, ClinicalRequestView
-from diucs.domain.codes import AgeBand, NeedCategory, Urgency
-from diucs.domain.model.clinical import ClinicalAdvice, ClinicalRequestRecord
-from diucs.domain.rules.clinical_queue import ClinicalRequest
+from overwatch.application.use_cases.clinical_advice import CaseGlance, ClinicalRequestView
+from overwatch.domain.codes import AgeBand, NeedCategory, Urgency
+from overwatch.domain.model.clinical import ClinicalAdvice, ClinicalRequestRecord
+from overwatch.domain.rules.clinical_queue import ClinicalRequest
 
 REQUESTED = datetime(2026, 10, 23, 13, 12, tzinfo=UTC)
 TAKEN = datetime(2026, 10, 23, 13, 14, tzinfo=UTC)

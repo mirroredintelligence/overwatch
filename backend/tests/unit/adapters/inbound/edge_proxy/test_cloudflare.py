@@ -14,7 +14,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
-from diucs.adapters.inbound.edge_proxy.cloudflare import (
+from overwatch.adapters.inbound.edge_proxy.cloudflare import (
     CLOUDFLARE_RANGES,
     EDGE_AUTH_HEADER,
     CloudflareEdge,

@@ -5,8 +5,8 @@ import logging
 
 import pytest
 
-from diucs.adapters.outbound.telemetry.attributes import is_allowed_key
-from diucs.adapters.outbound.telemetry.redaction import (
+from overwatch.adapters.outbound.telemetry.attributes import is_allowed_key
+from overwatch.adapters.outbound.telemetry.redaction import (
     RedactingLogFilter,
     clean_attributes,
     redact_text,
@@ -134,7 +134,7 @@ def test_redact_value_passes_numbers_and_redacts_strings_in_a_list() -> None:
 
 def test_a_log_line_is_redacted_before_any_handler_formats_it() -> None:
     record = logging.LogRecord(
-        "diucs.test",
+        "overwatch.test",
         logging.INFO,
         __file__,
         1,
@@ -154,7 +154,7 @@ def test_an_exception_message_never_reaches_the_formatted_log() -> None:
         import sys
 
         record = logging.LogRecord(
-            "diucs.test", logging.ERROR, __file__, 1, "reply failed", (), sys.exc_info()
+            "overwatch.test", logging.ERROR, __file__, 1, "reply failed", (), sys.exc_info()
         )
 
     RedactingLogFilter().filter(record)

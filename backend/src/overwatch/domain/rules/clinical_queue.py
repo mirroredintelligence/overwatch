@@ -18,8 +18,8 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Final
 
-from diucs.domain.errors import Conflict, InvalidTransition, NotAllowed, ValidationFailed
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
+from overwatch.domain.errors import Conflict, InvalidTransition, NotAllowed, ValidationFailed
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
 
 # Alias of the default policy (TEN-064): the number is defined once, in tenant_policy.py.
 TAKE_TIMEOUT: Final = DEFAULT_POLICY.clinical_take_timeout

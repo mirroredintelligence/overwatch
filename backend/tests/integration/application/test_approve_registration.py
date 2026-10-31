@@ -12,12 +12,12 @@ from datetime import UTC, datetime
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.approve_registration import (
+from overwatch.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.approve_registration import (
     ApproveRegistration,
     GetRegistrationRecord,
     NotApproveRegistration,
@@ -29,10 +29,10 @@ from diucs.application.use_cases.approve_registration import (
     SendBackRegistration,
     SetServiceLive,
 )
-from diucs.application.use_cases.review_registration import StartReview, StartReviewCommand
-from diucs.application.work import SCHEDULED, WorkKind
-from diucs.domain.codes import RegistrationStatus, Role
-from diucs.domain.errors import NotAllowed, ValidationFailed
+from overwatch.application.use_cases.review_registration import StartReview, StartReviewCommand
+from overwatch.application.work import SCHEDULED, WorkKind
+from overwatch.domain.codes import RegistrationStatus, Role
+from overwatch.domain.errors import NotAllowed, ValidationFailed
 from tests.integration.application.test_review_registration import (
     AREA,
     HASHER,

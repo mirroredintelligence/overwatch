@@ -15,15 +15,15 @@ it because the read checks that they are active (DEC-1034).
 from dataclasses import dataclass
 from typing import Final
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import ScopeKind, TenantNotBound
-from diucs.application.use_cases.registration_draft import is_full_uk_phone
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotAllowed, NotFound, ValidationFailed
-from diucs.domain.model.people import work_contact_key
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeKind, TenantNotBound
+from overwatch.application.use_cases.registration_draft import is_full_uk_phone
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.model.people import work_contact_key
 
 USE_CASE: Final = "RecordAdvisorWorkPhone"
 UPDATE_ACTION: Final = "U"

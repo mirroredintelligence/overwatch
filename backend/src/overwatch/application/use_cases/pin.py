@@ -28,17 +28,17 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Final
 
-from diucs.application.actor import anonymous_actor
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.identity import RateLimiter
-from diucs.application.ports.outbound.tokens import SecretStore
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound
-from diucs.domain.codes import PractitionerRoleCode, Role
-from diucs.domain.errors import DomainError, ValidationFailed
-from diucs.domain.model.people import REPORTER_ROLE_CODES, PractitionerRole, is_in_effect
-from diucs.domain.rules.identity_policy import (
+from overwatch.application.actor import anonymous_actor
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.identity import RateLimiter
+from overwatch.application.ports.outbound.tokens import SecretStore
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound
+from overwatch.domain.codes import PractitionerRoleCode, Role
+from overwatch.domain.errors import DomainError, ValidationFailed
+from overwatch.domain.model.people import REPORTER_ROLE_CODES, PractitionerRole, is_in_effect
+from overwatch.domain.rules.identity_policy import (
     PIN_MAX_TRIES,
     PinOutcome,
     PinState,

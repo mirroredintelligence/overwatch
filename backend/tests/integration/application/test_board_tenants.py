@@ -15,15 +15,15 @@ from datetime import UTC, datetime
 import pytest
 import pytest_asyncio
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.application.actor import wall_actor
-from diucs.application.ports.outbound.cache import BOARD_UPDATES_CHANNEL
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.board_projector import BOARD_CACHE_KEY, BoardProjector
-from diucs.application.use_cases.query_board import QueryBoard, QueryBoardQuery
-from diucs.domain.codes import Measure, ReportSource, ReportType, ServiceCategory
-from diucs.domain.model.capacity import CapacityReport
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.application.actor import wall_actor
+from overwatch.application.ports.outbound.cache import BOARD_UPDATES_CHANNEL
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.board_projector import BOARD_CACHE_KEY, BoardProjector
+from overwatch.application.use_cases.query_board import QueryBoard, QueryBoardQuery
+from overwatch.domain.codes import Measure, ReportSource, ReportType, ServiceCategory
+from overwatch.domain.model.capacity import CapacityReport
 from tests.integration.application.test_query_board import WEST
 from tests.support.tenancy import as_tenant
 

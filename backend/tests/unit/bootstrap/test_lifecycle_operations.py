@@ -9,9 +9,9 @@ from typing import Any
 
 import pytest
 
-from diucs.application.tenancy import current_scope_or_none
-from diucs.bootstrap.lifecycle_operations import COMMANDS, parse_args, run_command
-from diucs.domain.codes import Role
+from overwatch.application.tenancy import current_scope_or_none
+from overwatch.bootstrap.lifecycle_operations import COMMANDS, parse_args, run_command
+from overwatch.domain.codes import Role
 
 TENANT = "org-leaving"
 
@@ -176,7 +176,7 @@ async def test_a_purge_dry_run_prints_counts_by_label_set_and_says_nothing_was_d
         async def aclose(self) -> None:
             return None
 
-    from diucs.bootstrap import lifecycle_operations as module
+    from overwatch.bootstrap import lifecycle_operations as module
 
     monkeypatch.setattr(module, "PurgeTenant", _Purge)
     monkeypatch.setattr(module, "RedisCache", _Cache)

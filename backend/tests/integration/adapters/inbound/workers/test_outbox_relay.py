@@ -13,20 +13,20 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.adapters.inbound.workers.outbox_relay import (
+from overwatch.adapters.inbound.workers.outbox_relay import (
     LOCK_NAME,
     LOCK_TTL,
     OutboxRelay,
     RelayResult,
     StaticTenants,
 )
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.adapters.testing.memory_event_bus import ManualEventBus
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.ports.outbound.outbox import MAX_ATTEMPTS
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.scheduling import cancel_work
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.adapters.testing.memory_event_bus import ManualEventBus
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.ports.outbound.outbox import MAX_ATTEMPTS
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.scheduling import cancel_work
 from tests.support.relay_rig import (
     ABOUT,
     DUE,
@@ -45,7 +45,7 @@ from tests.support.relay_rig import (
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
-LOGGER = "diucs.adapters.inbound.workers.outbox_relay"
+LOGGER = "overwatch.adapters.inbound.workers.outbox_relay"
 
 
 @pytest.fixture

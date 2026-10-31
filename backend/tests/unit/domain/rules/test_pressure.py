@@ -1,4 +1,4 @@
-"""Tests for diucs.domain.rules.pressure: system pressure and the board banner (D08).
+"""Tests for overwatch.domain.rules.pressure: system pressure and the board banner (D08).
 
 Rule: docs/spec/domain-rules.md 1.7, and the D08 prompt. Limited or worse means limited,
 not-accepting or over-capacity. Not-updated is unknown, not worse. Out-of-hours is left out.
@@ -13,10 +13,10 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from diucs.domain.codes import Status
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
-from diucs.domain.rules import pressure as pressure_rules
-from diucs.domain.rules.pressure import (
+from overwatch.domain.codes import Status
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
+from overwatch.domain.rules import pressure as pressure_rules
+from overwatch.domain.rules.pressure import (
     HIGH_FROM,
     LIMITED_OR_WORSE,
     WATCH_FROM,

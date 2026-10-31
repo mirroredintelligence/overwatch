@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.inbound.workers.message_senders import (
+from overwatch.adapters.inbound.workers.message_senders import (
     EMAIL_SUBSCRIPTION,
     MESSAGES_TOPIC,
     PUSH_SUBSCRIPTION,

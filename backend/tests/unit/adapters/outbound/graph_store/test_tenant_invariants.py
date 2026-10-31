@@ -15,28 +15,28 @@ from typing import Any, cast
 
 import pytest
 
-from diucs.adapters.outbound.graph_store import invariants as invariants_module
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.health import HealthStatus, invariant_health
-from diucs.adapters.outbound.graph_store.invariants import (
+from overwatch.adapters.outbound.graph_store import invariants as invariants_module
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.health import HealthStatus, invariant_health
+from overwatch.adapters.outbound.graph_store.invariants import (
     CROSS_SCOPE_QUERY_ID,
     UNSTAMPED_QUERY_ID,
     Neo4jTenantInvariants,
 )
-from diucs.adapters.outbound.graph_store.migrations_tenant import (
+from overwatch.adapters.outbound.graph_store.migrations_tenant import (
     CROSS_SCOPE_RELATIONSHIPS_QUERY,
     REGISTRY_LABELS,
     UNSTAMPED_NODES_QUERY,
 )
-from diucs.adapters.outbound.graph_store.queries import GLOBAL_QUERY_IDS, REGISTRY
-from diucs.application.ports.outbound.invariants import (
+from overwatch.adapters.outbound.graph_store.queries import GLOBAL_QUERY_IDS, REGISTRY
+from overwatch.application.ports.outbound.invariants import (
     CrossScope,
     InvariantReport,
     TenantInvariantViolated,
     UnstampedNodes,
 )
-from diucs.application.tenancy import bind_tenant
-from diucs.application.use_cases.tenant_invariants import InvariantMonitor
+from overwatch.application.tenancy import bind_tenant
+from overwatch.application.use_cases.tenant_invariants import InvariantMonitor
 
 
 class _Result:

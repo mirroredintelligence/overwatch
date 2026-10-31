@@ -8,17 +8,17 @@ from datetime import UTC, datetime
 
 import pytest
 
-from diucs.adapters.outbound.graph_store import clinical_request_repository  # noqa: F401
-from diucs.adapters.outbound.graph_store.clinical_request_repository import (
+from overwatch.adapters.outbound.graph_store import clinical_request_repository  # noqa: F401
+from overwatch.adapters.outbound.graph_store.clinical_request_repository import (
     clinical_record_from_fhir,
     clinical_record_to_fhir,
     clinical_record_to_props,
 )
-from diucs.adapters.outbound.graph_store.queries import REGISTRY
-from diucs.adapters.outbound.graph_store.scenario import validate_scenario
-from diucs.domain.codes import code_system_url
-from diucs.domain.model.clinical import ClinicalAdvice, ClinicalRequestRecord
-from diucs.domain.rules.clinical_queue import ClinicalRequest, give_advice, take
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY
+from overwatch.adapters.outbound.graph_store.scenario import validate_scenario
+from overwatch.domain.codes import code_system_url
+from overwatch.domain.model.clinical import ClinicalAdvice, ClinicalRequestRecord
+from overwatch.domain.rules.clinical_queue import ClinicalRequest, give_advice, take
 
 REQUESTED = datetime(2026, 10, 25, 13, 13, tzinfo=UTC)
 TAKEN = datetime(2026, 10, 25, 13, 14, tzinfo=UTC)

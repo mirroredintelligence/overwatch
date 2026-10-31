@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
 
-from diucs.domain.model.network import (
+from overwatch.domain.model.network import (
     Grant,
     GrantScope,
     GrantStatus,
@@ -27,7 +27,7 @@ from diucs.domain.model.network import (
     NetworkMembership,
     NetworkStatus,
 )
-from diucs.domain.model.network_settings import NetworkSettings
+from overwatch.domain.model.network_settings import NetworkSettings
 
 
 class NetworkRecordInvalid(RuntimeError):

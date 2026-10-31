@@ -12,15 +12,15 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Self
 
-from diucs.application.ports.outbound.cache import (
+from overwatch.application.ports.outbound.cache import (
     CacheScopeMismatch,
     Lock,
     platform_names,
     scope_segment,
     scoped_names,
 )
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.tenancy import ScopeId
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.tenancy import ScopeId
 
 
 @dataclass(frozen=True, slots=True)

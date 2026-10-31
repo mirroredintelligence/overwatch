@@ -5,7 +5,7 @@ No role holds standing access to a tenant's data. Support access to one tenant i
 things, and the absence of any is a denial:
 
 1. a PRINCIPAL that came from the operator directory: a `PlatformPrincipal` is made only from the
-   claims of an operator token (TEN-043, audience `diucs-ops`) whose role is `support`; a tenant
+   claims of an operator token (TEN-043, audience `overwatch-ops`) whose role is `support`; a tenant
    token's actor, the platform operator (who has no data access) and every tenant role are none;
 2. a CODE the tenant's own ADMINISTRATOR issued (`issue_code`, role `tenant-admin` in the bound
    tenant), typed to the support person: eight characters, valid four hours, held as a keyed hash in
@@ -24,7 +24,7 @@ answer never says whether the tenant, the code or the access was wrong.
 
 This module is a binder: it binds the tenant the support person names, only after the principal is
 checked and the tenant is known to the directory, to write the tenant's chain and read its cache
-(`diucs.application.cross_tenant_guard` joins `BINDING_MODULES`). It reads no tenant data.
+(`overwatch.application.cross_tenant_guard` joins `BINDING_MODULES`). It reads no tenant data.
 
 The platform chain's graph adapter is `adapters/outbound/graph_store/platform_audit.py` (TEN-075).
 The ticket flow (`use_cases/cross_tenant_tickets.py`) asks a tenant's administrator for the code
@@ -44,35 +44,35 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Final
 
-from diucs.application.actor import Actor, require_actor_in_bound_tenant
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.cache import Cache
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.platform_audit import PlatformAudit, PlatformAuditEntry
-from diucs.application.ports.outbound.tenants import TenantDirectory
-from diucs.application.ports.outbound.tokens import SecretStore
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import (
+from overwatch.application.actor import Actor, require_actor_in_bound_tenant
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.cache import Cache
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.platform_audit import PlatformAudit, PlatformAuditEntry
+from overwatch.application.ports.outbound.tenants import TenantDirectory
+from overwatch.application.ports.outbound.tokens import SecretStore
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import (
     ScopeKind,
     TenantMismatch,
     TenantNotBound,
     bind_tenant,
     is_valid_tenant_id,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotAllowed, ValidationFailed
-from diucs.domain.model.network import ACCOUNT_REF_PATTERN
-from diucs.domain.model.tenant import Tenant, TenantStatus
-from diucs.domain.rules.bff_token import OperatorClaims
-from diucs.domain.rules.support import (
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotAllowed, ValidationFailed
+from overwatch.domain.model.network import ACCOUNT_REF_PATTERN
+from overwatch.domain.model.tenant import Tenant, TenantStatus
+from overwatch.domain.rules.bff_token import OperatorClaims
+from overwatch.domain.rules.support import (
     SUPPORT_ACCESS_VALID_FOR,
     SUPPORT_CODE_SECRET,
     SUPPORT_CODE_VALID_FOR,
     hash_support_code,
     normalise_support_code,
 )
-from diucs.domain.rules.tokens import new_support_code
+from overwatch.domain.rules.tokens import new_support_code
 
 log = logging.getLogger(__name__)
 

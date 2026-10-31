@@ -9,15 +9,15 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.ports.outbound.tenant_registry import TenantNumberRecord
-from diucs.application.ports.outbound.tenants import twilio_token_ref
-from diucs.application.tenancy import TenantMismatch
-from diucs.application.use_cases.platform_tenants import ListPlatformTenants, ReadPlatformTenant
-from diucs.application.use_cases.tenant_admin import ActivateTenant
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotAllowed, NotFound
-from diucs.domain.model.tenant import TenantStatus
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.ports.outbound.tenant_registry import TenantNumberRecord
+from overwatch.application.ports.outbound.tenants import twilio_token_ref
+from overwatch.application.tenancy import TenantMismatch
+from overwatch.application.use_cases.platform_tenants import ListPlatformTenants, ReadPlatformTenant
+from overwatch.application.use_cases.tenant_admin import ActivateTenant
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotAllowed, NotFound
+from overwatch.domain.model.tenant import TenantStatus
 from tests.support.provisioning_fakes import (
     DIRECTORY_ID,
     NOW,

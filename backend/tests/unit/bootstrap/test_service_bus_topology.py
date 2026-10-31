@@ -10,12 +10,12 @@ import json
 from pathlib import Path
 from typing import Any
 
-from diucs.adapters.inbound.workers.network_projector import NetworkApplyConsumer
-from diucs.adapters.inbound.workers.outbox_relay import StaticTenants
-from diucs.adapters.testing.recording_senders import FixedSenderResolver
-from diucs.application.work import WorkKind
-from diucs.bootstrap import workers_main
-from diucs.bootstrap.workers_main import AlertWiring, NetworkProjectorWiring, build_runners
+from overwatch.adapters.inbound.workers.network_projector import NetworkApplyConsumer
+from overwatch.adapters.inbound.workers.outbox_relay import StaticTenants
+from overwatch.adapters.testing.recording_senders import FixedSenderResolver
+from overwatch.application.work import WorkKind
+from overwatch.bootstrap import workers_main
+from overwatch.bootstrap.workers_main import AlertWiring, NetworkProjectorWiring, build_runners
 
 TOPOLOGY = Path(__file__).resolve().parents[4] / "infra" / "servicebus-config.json"
 
@@ -54,10 +54,10 @@ async def _no_work(work: Any) -> None:
 
 
 def _read() -> set[tuple[str, str | None]]:
-    from diucs.adapters.inbound.workers.tenant_binding import TenantBoundConsumer  # noqa: F401
-    from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
-    from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-    from diucs.application.ports.outbound.messaging import PushSender  # noqa: F401
+    from overwatch.adapters.inbound.workers.tenant_binding import TenantBoundConsumer  # noqa: F401
+    from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+    from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+    from overwatch.application.ports.outbound.messaging import PushSender  # noqa: F401
 
     class _Anything:
         def __getattr__(self, name: str) -> Any:

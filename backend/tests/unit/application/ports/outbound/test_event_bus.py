@@ -13,7 +13,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from diucs.application.ports.outbound.event_bus import (
+from overwatch.application.ports.outbound.event_bus import (
     REASON_TENANT_MALFORMED,
     REASON_TENANT_MISMATCH,
     REASON_TENANT_MISSING,
@@ -25,8 +25,8 @@ from diucs.application.ports.outbound.event_bus import (
     from_wire,
     to_wire,
 )
-from diucs.application.tenancy import ScopeId, bind_scope, bind_tenant
-from diucs.domain.errors import DomainError, ValidationFailed
+from overwatch.application.tenancy import ScopeId, bind_scope, bind_tenant
+from overwatch.domain.errors import DomainError, ValidationFailed
 
 TENANT = "acme-icb"
 OTHER = "other-org"

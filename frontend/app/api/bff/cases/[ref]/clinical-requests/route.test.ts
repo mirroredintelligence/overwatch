@@ -23,13 +23,13 @@ async function post(body: unknown, role: Session['role'] = 'advisor') {
   const s: Session = { role, tenantId: 'trust-a', host: 'app.test', services: [], sub: 'user-1', backendToken: TOKEN_ORG_A, expiresAt: new Date(Date.now() + 3_600_000).toISOString() };
   return POST(requestWithCookies('https://app.test/api/bff/cases/case-4821/clinical-requests', {
     [SESSION_COOKIE]: await sealSession(s),
-    diucs_csrf: CSRF,
+    overwatch_csrf: CSRF,
   }, { method: 'POST', headers: { 'X-CSRF-Token': CSRF, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }), { params: Promise.resolve({ ref: 'case-4821' }) });
 }
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', EXEC_BACKEND);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', EXEC_BACKEND);
   vi.stubEnv('NODE_ENV', 'production');
   requestBodies.length = 0;
   server.use(http.post(`${EXEC_BACKEND}/Task`, (async ({ request }) => {

@@ -20,18 +20,18 @@ from enum import StrEnum
 from typing import Final
 from zoneinfo import ZoneInfo
 
-from diucs.application.actor import Actor
-from diucs.application.idempotency import IdempotencyStore, format_instant
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.identity import PhoneHasher, normalise_uk_mobile
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
-from diucs.application.use_cases.setup_service_by_lead import international
-from diucs.domain.codes import Role
-from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.model.people import (
+from overwatch.application.actor import Actor
+from overwatch.application.idempotency import IdempotencyStore, format_instant
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.identity import PhoneHasher, normalise_uk_mobile
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
+from overwatch.application.use_cases.setup_service_by_lead import international
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.model.people import (
     COVER_CONTACT_PREFIX,
     Practitioner,
     PractitionerRole,

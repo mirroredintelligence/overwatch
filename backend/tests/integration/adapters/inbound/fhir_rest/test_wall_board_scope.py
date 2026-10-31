@@ -29,39 +29,39 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient, Response
 from neo4j import AsyncDriver
 
-from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
-from diucs.adapters.inbound.fhir_rest.routes_network import NetworkServices
-from diucs.adapters.outbound.cache_redis.redis_cache import RedisCache
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.unit_of_work import (
+from overwatch.adapters.inbound.fhir_rest.app import create_app
+from overwatch.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from overwatch.adapters.inbound.fhir_rest.routes_network import NetworkServices
+from overwatch.adapters.outbound.cache_redis.redis_cache import RedisCache
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.unit_of_work import (
     neo4j_network_uow_factory,
     neo4j_uow_factory,
 )
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
-from diucs.application.actor import Actor
-from diucs.application.network_access import NetworkAccess
-from diucs.application.tenancy import bind_network, bind_tenant
-from diucs.application.use_cases.network_board_projector import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
+from overwatch.application.actor import Actor
+from overwatch.application.network_access import NetworkAccess
+from overwatch.application.tenancy import bind_network, bind_tenant
+from overwatch.application.use_cases.network_board_projector import (
     NETWORK_BOARD_CACHE_KEY,
     NetworkBoardProjector,
 )
-from diucs.application.use_cases.query_network_board import QueryNetworkBoard
-from diucs.application.use_cases.query_network_directory import (
+from overwatch.application.use_cases.query_network_board import QueryNetworkBoard
+from overwatch.application.use_cases.query_network_directory import (
     QueryNetworkCriteria,
     QueryNetworkDirectory,
 )
-from diucs.application.use_cases.wall_board_scope import (
+from overwatch.application.use_cases.wall_board_scope import (
     ScreenSettingChanged,
     SetBoardScopeCommand,
     SetScreenBoardScope,
     UowScreens,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import Conflict
-from diucs.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import Conflict
+from overwatch.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
 from tests.support.edge import EdgeContainer, active_tenants
 from tests.support.neo4j import node_props
 from tests.support.network_world import NOW, NetworkWorld, world_ids

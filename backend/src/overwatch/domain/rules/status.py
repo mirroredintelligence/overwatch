@@ -17,14 +17,14 @@ from datetime import datetime
 from typing import Final
 from zoneinfo import ZoneInfo
 
-from diucs.domain.codes import Measure, Status
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.service import ServiceProfile
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
-from diucs.domain.rules.availability import effective_available, effective_occupied
-from diucs.domain.rules.freshness import Freshness, assess_freshness
-from diucs.domain.rules.london_time import LONDON, require_zone
-from diucs.domain.rules.opening_hours import is_in_hours
+from overwatch.domain.codes import Measure, Status
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.service import ServiceProfile
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
+from overwatch.domain.rules.availability import effective_available, effective_occupied
+from overwatch.domain.rules.freshness import Freshness, assess_freshness
+from overwatch.domain.rules.london_time import LONDON, require_zone
+from overwatch.domain.rules.opening_hours import is_in_hours
 
 PERCENT: Final = 100
 

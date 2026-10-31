@@ -13,8 +13,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from diucs.domain.codes import ReportFlagReason
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.codes import ReportFlagReason
+from overwatch.domain.errors import ValidationFailed
 
 REPORT_FLAG_OPEN = "open"
 REPORT_FLAG_CHECKED = "checked"

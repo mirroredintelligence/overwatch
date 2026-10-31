@@ -10,12 +10,12 @@ from datetime import UTC, datetime
 import pytest
 from fhir.resources.R4B.observation import Observation
 
-from diucs.adapters.outbound.graph_store.capacity_repository import (
+from overwatch.adapters.outbound.graph_store.capacity_repository import (
     report_from_fhir,
     report_to_fhir,
 )
-from diucs.domain.codes import BASE_URL, Measure, ReportSource, ReportType
-from diucs.domain.model.capacity import CapacityReport
+from overwatch.domain.codes import BASE_URL, Measure, ReportSource, ReportType
+from overwatch.domain.model.capacity import CapacityReport
 
 NUMBER_REPORT = CapacityReport(
     id="obs-ucr-west-0912",

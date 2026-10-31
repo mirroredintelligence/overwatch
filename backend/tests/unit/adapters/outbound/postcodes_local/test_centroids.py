@@ -13,10 +13,10 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.outbound.postcodes_local import centroids
-from diucs.adapters.outbound.postcodes_local.centroids import CsvPostcodeLocator, Located
-from diucs.application.ports.outbound.geo import LatLon
-from diucs.domain.errors import ValidationFailed
+from overwatch.adapters.outbound.postcodes_local import centroids
+from overwatch.adapters.outbound.postcodes_local.centroids import CsvPostcodeLocator, Located
+from overwatch.application.ports.outbound.geo import LatLon
+from overwatch.domain.errors import ValidationFailed
 
 FIXTURE = Path(__file__).resolve().parents[4] / "fixtures" / "postcode_centroids_sample.csv"
 DT4_8XX = LatLon(50.6151, -2.4612)

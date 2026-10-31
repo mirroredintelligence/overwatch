@@ -216,7 +216,7 @@ describe('a signed-in role', () => {
     const attempts: [string, Record<string, string>][] = [
       ['/lead?role=lead', {}],
       ['/lead?role=lead&tenant=trust-b', {}],
-      ['/lead', { 'x-role': 'lead', 'x-diucs-role': 'lead', authorization: 'Bearer lead' }],
+      ['/lead', { 'x-role': 'lead', 'x-overwatch-role': 'lead', authorization: 'Bearer lead' }],
     ];
     for (const [path, headers] of attempts) {
       expect(rewrittenTo(await proxy(await request(path, 'advisor', { headers })))).toBe('/forbidden');

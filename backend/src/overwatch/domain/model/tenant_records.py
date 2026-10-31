@@ -20,10 +20,10 @@ from enum import StrEnum
 from types import MappingProxyType
 from typing import Final
 
-from diucs.domain.codes import Role
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.messages.privacy_guard import find_patient_data
-from diucs.domain.model.tenant import NumberStatus, RetentionClass
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.messages.privacy_guard import find_patient_data
+from overwatch.domain.model.tenant import NumberStatus, RetentionClass
 
 WRONG_TYPE_MESSAGE: Final = "has the wrong type"
 TEXT_MESSAGE: Final = "must be plain text of the right length"

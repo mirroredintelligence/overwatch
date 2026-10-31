@@ -5,16 +5,16 @@ tenant. Synthetic tenants and hosts only."""
 
 import pytest
 
-from diucs.application.ports.outbound.tenants import TenantRecordInvalid
-from diucs.application.tenancy import ScopeId, TenantMismatch, TenantNotBound, bind_scope
-from diucs.application.tenant_settings import (
+from overwatch.application.ports.outbound.tenants import TenantRecordInvalid
+from overwatch.application.tenancy import ScopeId, TenantMismatch, TenantNotBound, bind_scope
+from overwatch.application.tenant_settings import (
     DirectoryLinkBase,
     FixedLinkBase,
     require_tenant_link_bases,
     resolve_link_base,
 )
-from diucs.application.tenant_wording import ConfiguredWording
-from diucs.domain.model.tenant import TenantWording
+from overwatch.application.tenant_wording import ConfiguredWording
+from overwatch.domain.model.tenant import TenantWording
 
 TENANT = "tenant-prod-a"
 OTHER = "tenant-prod-b"

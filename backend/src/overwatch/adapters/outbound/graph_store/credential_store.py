@@ -28,9 +28,9 @@ from typing import Any, Final, Literal
 
 from neo4j.exceptions import ConstraintError
 
-from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.adapters.outbound.graph_store.scenario import (
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx, run_query
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from overwatch.adapters.outbound.graph_store.scenario import (
     Expect,
     Marked,
     NodeSpec,
@@ -39,10 +39,10 @@ from diucs.adapters.outbound.graph_store.scenario import (
     SeedRel,
     TenantSeed,
 )
-from diucs.application.ports.outbound.identity import DeviceFacts
-from diucs.domain.errors import Conflict, NotFound, ValidationFailed
-from diucs.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
-from diucs.domain.rules.identity_policy import PinOutcome, PinState
+from overwatch.application.ports.outbound.identity import DeviceFacts
+from overwatch.domain.errors import Conflict, NotFound, ValidationFailed
+from overwatch.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
+from overwatch.domain.rules.identity_policy import PinOutcome, PinState
 
 _PRACTITIONER_KEY: Final = "Practitioner/{}"
 _STATUS_ACTIVE: Final = "active"

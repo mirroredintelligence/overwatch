@@ -1,6 +1,6 @@
 """The domain keeps its own copy of the tenant id rule; this test keeps it equal to the kernel's.
 
-The domain cannot import `diucs.application.tenancy` (DEC-011), so `check_tenant_id` has its own
+The domain cannot import `overwatch.application.tenancy` (DEC-011), so `check_tenant_id` has its own
 compiled pattern. This test may import both layers. A divergence fails here, and the fix is a
 decision plus aligning the domain with the kernel (TEN-001's validator is the standard).
 
@@ -13,20 +13,20 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from diucs.application.tenancy import (
+from overwatch.application.tenancy import (
     NETWORK_PREFIX,
     TENANT_ID_PATTERN,
     ScopeId,
     ScopeInvalid,
     is_valid_tenant_id,
 )
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.tenant import (
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.tenant import (
     RESERVED_TENANT_IDS,
     RESERVED_TENANT_PREFIX,
     check_tenant_id,
 )
-from diucs.domain.model.tenant import TENANT_ID_PATTERN as DOMAIN_PATTERN
+from overwatch.domain.model.tenant import TENANT_ID_PATTERN as DOMAIN_PATTERN
 
 CORPUS = [
     "",

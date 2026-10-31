@@ -15,18 +15,18 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.tenancy import ScopeId, bind_tenant
-from diucs.application.use_cases.network_admin import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.tenancy import ScopeId, bind_tenant
+from overwatch.application.use_cases.network_admin import (
     CreateNetwork,
     CreateNetworkCommand,
     GovernanceRecorder,
     RecordAgreement,
     RecordAgreementCommand,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.model.network import (
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.model.network import (
     Agreement,
     MembershipRole,
     MembershipStatus,
@@ -60,7 +60,7 @@ class _Rig:
         self.registry = MemoryRegistry(self.log)
         owner = active_tenant(OWNER)
         if not owner_active:
-            from diucs.domain.model.tenant import SuspendMode, SuspendReason, TenantStatus
+            from overwatch.domain.model.tenant import SuspendMode, SuspendReason, TenantStatus
 
             owner = replace(
                 owner,
@@ -235,7 +235,7 @@ async def test_the_owner_must_be_an_active_organisation() -> None:
 
 
 async def test_an_actor_of_another_tenant_than_the_bound_one_is_refused(rig: _Rig) -> None:
-    from diucs.application.tenancy import TenantMismatch
+    from overwatch.application.tenancy import TenantMismatch
 
     with pytest.raises(TenantMismatch):
         await rig.create.execute(_create(actor=_operator("someone-else")))
@@ -338,7 +338,7 @@ async def test_a_lost_race_is_a_conflict_and_records_nothing(rig: _Rig) -> None:
 
 
 def _reads(rig: _Rig) -> Any:
-    from diucs.application.use_cases.network_admin import QueryNetworkAdmin
+    from overwatch.application.use_cases.network_admin import QueryNetworkAdmin
     from tests.support.network_samples import MEMBER_B, MEMBER_C, make_member, rid
 
     rig.registry.seed(
@@ -406,12 +406,12 @@ async def test_an_organisation_reads_the_networks_it_belongs_to_with_its_own_mem
 
 
 async def test_the_projection_status_shows_states_and_dates_and_never_a_row(rig: _Rig) -> None:
-    from diucs.application.ports.outbound.projection import (
+    from overwatch.application.ports.outbound.projection import (
         ProjectionEndReason,
         SourceState,
         SourceStatus,
     )
-    from diucs.domain.model.network import GrantScope
+    from overwatch.domain.model.network import GrantScope
 
     query, member, _ = _reads(rig)
     rig.world.sources += [

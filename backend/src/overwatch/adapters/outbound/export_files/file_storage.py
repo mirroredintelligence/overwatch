@@ -18,9 +18,9 @@ import re
 from pathlib import Path
 from typing import Final
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.tenant import check_tenant_id
-from diucs.domain.rules.tenant_export import MANIFEST_FILE
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.tenant import check_tenant_id
+from overwatch.domain.rules.tenant_export import MANIFEST_FILE
 
 _PACKAGE: Final = re.compile(r"[a-z0-9][a-z0-9-]{0,127}")
 _SEGMENT: Final = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+-]{0,127}")

@@ -5,10 +5,10 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from diucs.domain.codes import PractitionerRoleCode as Code
-from diucs.domain.codes import Role
-from diucs.domain.model.people import PractitionerRole
-from diucs.domain.rules.support import (
+from overwatch.domain.codes import PractitionerRoleCode as Code
+from overwatch.domain.codes import Role
+from overwatch.domain.model.people import PractitionerRole
+from overwatch.domain.rules.support import (
     access_window,
     code_window,
     hash_support_code,
@@ -17,7 +17,7 @@ from diucs.domain.rules.support import (
     normalise_support_code,
     support_code_usable,
 )
-from diucs.domain.rules.tokens import hash_token
+from overwatch.domain.rules.tokens import hash_token
 
 NOW = datetime(2026, 10, 29, 9, 0, tzinfo=UTC)
 SECRET = b"support-code-test-secret-0123456789"

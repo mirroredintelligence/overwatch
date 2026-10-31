@@ -29,7 +29,7 @@ function session(role: Role): Session {
 }
 
 async function call(method: 'GET' | 'PUT', role: Role | null, payload?: unknown, withCsrf = true) {
-  const cookies: Record<string, string> = { diucs_csrf: CSRF };
+  const cookies: Record<string, string> = { overwatch_csrf: CSRF };
   if (role !== null) cookies[SESSION_COOKIE] = await sealSession(session(role));
   const headers: Record<string, string> = {};
   if (payload !== undefined) headers['Content-Type'] = 'application/json';
@@ -44,7 +44,7 @@ async function call(method: 'GET' | 'PUT', role: Role | null, payload?: unknown,
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', EXEC_BACKEND);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', EXEC_BACKEND);
   vi.stubEnv('NODE_ENV', 'production');
   resetExecBackend();
   server.use(...execBackendHandlers);

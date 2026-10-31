@@ -28,14 +28,19 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
 
-from diucs.application.actor import Actor, require_actor_in_bound_tenant, wall_actor
-from diucs.application.ports.outbound.cache import BOARD_UPDATES_CHANNEL, Cache
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.tenancy import current_tenant
-from diucs.application.use_cases.query_board import Board, BoardEntry, QueryBoard, QueryBoardQuery
-from diucs.domain.codes import Role, ServiceCategory, Status
-from diucs.domain.errors import NotAllowed, ValidationFailed
-from diucs.domain.rules.pressure import Pressure
+from overwatch.application.actor import Actor, require_actor_in_bound_tenant, wall_actor
+from overwatch.application.ports.outbound.cache import BOARD_UPDATES_CHANNEL, Cache
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.tenancy import current_tenant
+from overwatch.application.use_cases.query_board import (
+    Board,
+    BoardEntry,
+    QueryBoard,
+    QueryBoardQuery,
+)
+from overwatch.domain.codes import Role, ServiceCategory, Status
+from overwatch.domain.errors import NotAllowed, ValidationFailed
+from overwatch.domain.rules.pressure import Pressure
 
 
 class BoardAudience(StrEnum):

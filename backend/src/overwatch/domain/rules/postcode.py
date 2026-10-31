@@ -10,7 +10,7 @@ space that web pages paste) counts as a space. Anything else that upper-cases to
 
 import re
 
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.errors import ValidationFailed
 
 FULL_POSTCODE = re.compile(r"[A-Z]{1,2}[0-9][A-Z0-9]? [0-9][A-Z]{2}")
 DISTRICT = re.compile(r"[A-Z]{1,2}[0-9][A-Z0-9]?")

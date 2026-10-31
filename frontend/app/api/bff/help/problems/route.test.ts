@@ -29,7 +29,7 @@ async function post(body: unknown, role: Role = 'exec') {
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', EXEC_BACKEND);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', EXEC_BACKEND);
   vi.stubEnv('NODE_ENV', 'production');
   seen.length = 0;
   // The back end's `POST /help/problems` (W7A, DEC-778) is at its root, not under /fhir.

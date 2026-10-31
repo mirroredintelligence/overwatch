@@ -10,9 +10,9 @@ the unit of work that records the send (or by the tracker itself when the id is 
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.application.ports.outbound.messaging import Communication
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.domain.codes import Channel
+from overwatch.application.ports.outbound.messaging import Communication
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.domain.codes import Channel
 from tests.support.neo4j import count_nodes
 from tests.support.relay_rig import NOW
 
@@ -28,7 +28,7 @@ async def _queued(factory: UnitOfWorkFactory, communication_id: str = "comm-1") 
                 channel=Channel.TEXT,
                 recipient_role_id=None,
                 about_id=None,
-                payload_text="DIUCS: UCR West. We have 3 referrals in the next 2 hrs.",
+                payload_text="Overwatch: UCR West. We have 3 referrals in the next 2 hrs.",
                 sent_at=NOW,
                 delivery_status="queued",
             )

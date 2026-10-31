@@ -9,8 +9,8 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from diucs.domain.errors import Conflict, InvalidTransition, NotAllowed, ValidationFailed
-from diucs.domain.rules.clinical_queue import (
+from overwatch.domain.errors import Conflict, InvalidTransition, NotAllowed, ValidationFailed
+from overwatch.domain.rules.clinical_queue import (
     NOTE_MAX,
     TAKE_TIMEOUT,
     ClinicalRequest,

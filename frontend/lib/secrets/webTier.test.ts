@@ -107,7 +107,7 @@ describe('a secret the vault cannot give is a fault, never a quiet "no"', () => 
     ['verifyOperatorCsrfToken', () => verifyOperatorCsrfToken(OPERATOR_SUBJECT, 'x')],
     ['checkOperatorCsrf', () => checkOperatorCsrf(requestWithCookies('https://ops.test/x', {}), OPERATOR_SUBJECT)],
     ['rememberPairing', () => rememberPairing({ pairingId: 'p-1', screenSecret: 'secret-value' })],
-    ['pairingFrom', () => pairingFrom(requestWithCookies('https://app.test/x', { diucs_pairing: 'anything' }))],
+    ['pairingFrom', () => pairingFrom(requestWithCookies('https://app.test/x', { overwatch_pairing: 'anything' }))],
   ];
 
   describe.each([['missing', missing], ['unreadable', unreadable], ['malformed', malformed]] as const)('when the secret is %s', (_kind, arrange) => {

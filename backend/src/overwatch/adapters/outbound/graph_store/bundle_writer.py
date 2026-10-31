@@ -17,8 +17,8 @@ import copy
 from dataclasses import dataclass
 from typing import Any, Final, Protocol
 
-from diucs.adapters.outbound.graph_store.extensions import TENANT_OWNED_NAMES
-from diucs.domain.errors import NotFound, ValidationFailed
+from overwatch.adapters.outbound.graph_store.extensions import TENANT_OWNED_NAMES
+from overwatch.domain.errors import NotFound, ValidationFailed
 
 _URN: Final = "urn:uuid:"
 _METHODS: Final = frozenset({"POST", "PUT"})

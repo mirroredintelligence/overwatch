@@ -34,17 +34,17 @@ import logging
 from datetime import UTC, datetime
 from typing import Final, Protocol
 
-from diucs.adapters.inbound.workers.consumer import MAX_REASON_LENGTH, Outcome, PermanentError
-from diucs.adapters.inbound.workers.outbox_relay import ActiveTenants
-from diucs.adapters.inbound.workers.tenant_binding import Observe, TenantBoundConsumer, untraced
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import current_tenant
-from diucs.application.use_cases.handle_inbound_text import (
+from overwatch.adapters.inbound.workers.consumer import MAX_REASON_LENGTH, Outcome, PermanentError
+from overwatch.adapters.inbound.workers.outbox_relay import ActiveTenants
+from overwatch.adapters.inbound.workers.tenant_binding import Observe, TenantBoundConsumer, untraced
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import current_tenant
+from overwatch.application.use_cases.handle_inbound_text import (
     HandleInboundTextCommand,
     HandleInboundTextResult,
 )
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.errors import ValidationFailed
 
 logger = logging.getLogger(__name__)
 

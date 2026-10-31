@@ -31,8 +31,8 @@ from typing import Final
 
 from azure.servicebus.aio import ServiceBusClient
 
-from diucs.adapters.inbound.workers.consumer import IdempotentConsumer, PermanentError
-from diucs.adapters.inbound.workers.message_senders import (
+from overwatch.adapters.inbound.workers.consumer import IdempotentConsumer, PermanentError
+from overwatch.adapters.inbound.workers.message_senders import (
     BAD_CONTENT,
     BAD_PAYLOAD,
     NO_CHANNEL,
@@ -41,27 +41,27 @@ from diucs.adapters.inbound.workers.message_senders import (
     REFUSED,
     SEND_FAILED,
 )
-from diucs.adapters.inbound.workers.outbox_relay import ActiveTenants
-from diucs.adapters.inbound.workers.servicebus_runner import ServiceBusRunner
-from diucs.adapters.inbound.workers.tenant_binding import Observe, TenantBoundConsumer, untraced
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.ports.outbound.messaging import SendFailedError, TransientSendError
-from diucs.application.ports.outbound.sealing import ContentSealer
-from diucs.application.ports.outbound.sender_resolver import ChannelUnavailable, SenderResolver
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.use_cases.text_code import (
+from overwatch.adapters.inbound.workers.outbox_relay import ActiveTenants
+from overwatch.adapters.inbound.workers.servicebus_runner import ServiceBusRunner
+from overwatch.adapters.inbound.workers.tenant_binding import Observe, TenantBoundConsumer, untraced
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.ports.outbound.messaging import SendFailedError, TransientSendError
+from overwatch.application.ports.outbound.sealing import ContentSealer
+from overwatch.application.ports.outbound.sender_resolver import ChannelUnavailable, SenderResolver
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.use_cases.text_code import (
     CODE_DIGITS,
     CODES_TOPIC,
     DISCARD_CODE,
     PURPOSES,
     SEND_CODE,
 )
-from diucs.domain.codes import Channel
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.messages.templates import render
-from diucs.domain.rules.identity_policy import CODE_VALID_FOR
+from overwatch.domain.codes import Channel
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.messages.templates import render
+from overwatch.domain.rules.identity_policy import CODE_VALID_FOR
 
 logger = logging.getLogger(__name__)
 

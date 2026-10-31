@@ -7,8 +7,8 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.graph_store.support_repository import Neo4jSupportRepository
-from diucs.application.ports.outbound.support import SupportAccessRecord, SupportCodeRecord
+from overwatch.adapters.outbound.graph_store.support_repository import Neo4jSupportRepository
+from overwatch.application.ports.outbound.support import SupportAccessRecord, SupportCodeRecord
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
 from tests.support.round_trip import assert_round_trip
 

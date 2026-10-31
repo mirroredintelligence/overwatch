@@ -27,14 +27,14 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Final
 
-from diucs.application.actor import Actor
-from diucs.application.use_cases.network_board_projector import NetworkBoardProjector
-from diucs.application.use_cases.query_network_directory import QueryNetworkDirectory
-from diucs.domain.codes import ServiceCategory, Status
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY
-from diucs.domain.rules.listing import ListingPresentation
-from diucs.domain.rules.network_board import NetworkBoardEntry
-from diucs.domain.rules.pressure import Pressure, limited_or_worse_count
+from overwatch.application.actor import Actor
+from overwatch.application.use_cases.network_board_projector import NetworkBoardProjector
+from overwatch.application.use_cases.query_network_directory import QueryNetworkDirectory
+from overwatch.domain.codes import ServiceCategory, Status
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY
+from overwatch.domain.rules.listing import ListingPresentation
+from overwatch.domain.rules.network_board import NetworkBoardEntry
+from overwatch.domain.rules.pressure import Pressure, limited_or_worse_count
 
 UNAVAILABLE_KEY: Final = "unavailable"
 """The key of the rows with no status: a paused listing, shown by name only."""

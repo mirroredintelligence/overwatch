@@ -17,9 +17,9 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.tenancy import bind_tenant
-from diucs.application.use_cases.grants import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.tenancy import bind_tenant
+from overwatch.application.use_cases.grants import (
     ApproveGrant,
     ApproveGrantCommand,
     DeclineGrant,
@@ -33,19 +33,25 @@ from diucs.application.use_cases.grants import (
     ReviseGrantCommand,
     SupersedeDueGrants,
 )
-from diucs.application.use_cases.network_admin import GovernanceRecorder
-from diucs.application.use_cases.network_leave import EndResult
-from diucs.domain.codes import Role
-from diucs.domain.errors import Conflict, InvalidTransition, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.model.network import (
+from overwatch.application.use_cases.network_admin import GovernanceRecorder
+from overwatch.application.use_cases.network_leave import EndResult
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import (
+    Conflict,
+    InvalidTransition,
+    NotAllowed,
+    NotFound,
+    ValidationFailed,
+)
+from overwatch.domain.model.network import (
     GrantEndReason,
     GrantPurpose,
     GrantScope,
     GrantStatus,
     NetworkStatus,
 )
-from diucs.domain.rules.grant import is_effective
-from diucs.domain.rules.projection import PROJECTION_ALLOWLIST_VERSION
+from overwatch.domain.rules.grant import is_effective
+from overwatch.domain.rules.projection import PROJECTION_ALLOWLIST_VERSION
 from tests.support.network_admin_fakes import (
     Ids,
     MemoryDirectory,
@@ -627,8 +633,8 @@ async def test_two_approvals_that_race_both_land_because_the_loser_reads_again(r
             raced = True
             # the other party's approval lands first
             other = make_grant(id=GRANT_ID, tenant=MEMBER_B, approved=False)
-            from diucs.domain.model.network import GrantApprover
-            from diucs.domain.rules.grant import approve_grant
+            from overwatch.domain.model.network import GrantApprover
+            from overwatch.domain.rules.grant import approve_grant
 
             rig.registry.grant_rows[GRANT_ID] = approve_grant(
                 other,

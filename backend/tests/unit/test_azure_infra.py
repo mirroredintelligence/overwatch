@@ -10,9 +10,9 @@ from pathlib import Path
 
 import pytest
 
-from diucs.bootstrap.api_main import API_OPTIONAL_SECRETS, REQUIRED_SECRETS
-from diucs.bootstrap.secret_store import SETTING_SECRET_NAMES
-from diucs.bootstrap.workers_main import WORKER_REQUIRED_SECRETS
+from overwatch.bootstrap.api_main import API_OPTIONAL_SECRETS, REQUIRED_SECRETS
+from overwatch.bootstrap.secret_store import SETTING_SECRET_NAMES
+from overwatch.bootstrap.workers_main import WORKER_REQUIRED_SECRETS
 
 INFRA = Path(__file__).resolve().parents[3] / "infra" / "azure"
 SCRIPT = (INFRA / "create-pilot.sh").read_text(encoding="utf-8")
@@ -67,7 +67,7 @@ def test_no_container_app_is_given_a_secret_as_an_environment_value(text: str) -
 
 
 def test_setup_names_the_two_environment_values_a_vault_app_needs() -> None:
-    assert "DIUCS_KEY_VAULT_URL" in SETUP
+    assert "OVERWATCH_KEY_VAULT_URL" in SETUP
     assert "AZURE_CLIENT_ID" in SETUP
 
 

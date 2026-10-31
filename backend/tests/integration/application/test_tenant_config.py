@@ -13,12 +13,12 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.tenant_config import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.tenant_config import (
     ApproveConfigCommand,
     ApproveTenantConfig,
     BindDirectoryCommand,
@@ -35,22 +35,22 @@ from diucs.application.use_cases.tenant_config import (
     SetRetentionCommand,
     SetTenantRetention,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import (
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import (
     Conflict,
     InvalidTransition,
     NotAllowed,
     NotFound,
     ValidationFailed,
 )
-from diucs.domain.model.tenant import (
+from overwatch.domain.model.tenant import (
     ConfigStatus,
     ContactKind,
     NumberStatus,
     RetentionClass,
 )
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY
-from diucs.domain.model.tenant_records import (
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY
+from overwatch.domain.model.tenant_records import (
     BindingStatus,
     ChannelKind,
     MappingStatus,

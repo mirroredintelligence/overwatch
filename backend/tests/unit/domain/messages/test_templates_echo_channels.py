@@ -10,11 +10,11 @@ the email and push wording of the booking request (B2, B3): short, no patient in
 
 import pytest
 
-from diucs.domain.codes import Channel
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.messages.privacy_guard import find_patient_data
-from diucs.domain.messages.templates import render
+from overwatch.domain.codes import Channel
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.messages.privacy_guard import find_patient_data
+from overwatch.domain.messages.templates import render
 
 B4 = {"reference": "4821", "service": "UCR West", "confirmed_at": "14:19"}
 B5 = {"reference": "4821"}

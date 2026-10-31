@@ -8,7 +8,7 @@ export type BffResult<T> =
   | { ok: true; status: number; data: T }
   | { ok: false; status: number; code: string };
 
-const CSRF_COOKIE = 'diucs_csrf';
+const CSRF_COOKIE = 'overwatch_csrf';
 /** Where a console gets its CSRF token: the cookie it is in, and the session route that issues it. */
 export type CsrfChannel = { cookie: string; sessionUrl: string };
 const TENANT_CSRF: CsrfChannel = { cookie: CSRF_COOKIE, sessionUrl: '/api/bff/session' };

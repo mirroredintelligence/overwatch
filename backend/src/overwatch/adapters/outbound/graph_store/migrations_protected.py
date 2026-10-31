@@ -13,7 +13,7 @@ The ids are the ones the build wave was given for this area (0040 to 0044).
 
 from typing import Final
 
-from diucs.adapters.outbound.graph_store.migration_types import Migration
+from overwatch.adapters.outbound.graph_store.migration_types import Migration
 
 PROTECTED_MIGRATIONS: Final[tuple[Migration, ...]] = (
     Migration(

@@ -6,18 +6,18 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.inbound.sms_webhook import routes
-from diucs.adapters.inbound.workers.consumer import MAX_REASON_LENGTH, Outcome
-from diucs.adapters.inbound.workers.reply_processor import (
+from overwatch.adapters.inbound.sms_webhook import routes
+from overwatch.adapters.inbound.workers.consumer import MAX_REASON_LENGTH, Outcome
+from overwatch.adapters.inbound.workers.reply_processor import (
     CONSUMER_NAME,
     REPLY_EVENT,
     ReplyProcessor,
     reply_key,
 )
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork
-from diucs.application.tenancy import TenantNotBound, bind_tenant
-from diucs.application.use_cases.handle_inbound_text import (
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork
+from overwatch.application.tenancy import TenantNotBound, bind_tenant
+from overwatch.application.use_cases.handle_inbound_text import (
     HandleInboundTextCommand,
     HandleInboundTextResult,
 )

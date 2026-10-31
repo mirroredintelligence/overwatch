@@ -22,10 +22,10 @@ from typing import Final, Protocol
 
 import httpx
 
-from diucs.application.ports.outbound.cache import Cache
-from diucs.application.ports.outbound.geo import LatLon, TravelRange, TravelTime
-from diucs.application.tenancy import TenantNotBound, current_tenant
-from diucs.domain.errors import ValidationFailed
+from overwatch.application.ports.outbound.cache import Cache
+from overwatch.application.ports.outbound.geo import LatLon, TravelRange, TravelTime
+from overwatch.application.tenancy import TenantNotBound, current_tenant
+from overwatch.domain.errors import ValidationFailed
 
 # [ASSUMED] The request timeout. The I15 prompt said 2 s; the owner set 3 s.
 ROUTING_TIMEOUT: Final = timedelta(seconds=3)

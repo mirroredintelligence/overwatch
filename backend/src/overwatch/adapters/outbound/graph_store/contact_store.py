@@ -12,9 +12,9 @@ from typing import Any, Final, Literal
 
 from neo4j.exceptions import ConstraintError
 
-from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.adapters.outbound.graph_store.scenario import (
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx, run_query
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from overwatch.adapters.outbound.graph_store.scenario import (
     Expect,
     Marked,
     NodeSpec,
@@ -22,7 +22,7 @@ from diucs.adapters.outbound.graph_store.scenario import (
     SeedNode,
     TenantSeed,
 )
-from diucs.domain.errors import Conflict, ValidationFailed
+from overwatch.domain.errors import Conflict, ValidationFailed
 
 _PHONE: Final = "phone"
 _EMAIL: Final = "email"

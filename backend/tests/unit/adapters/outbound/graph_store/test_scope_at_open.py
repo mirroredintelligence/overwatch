@@ -14,32 +14,32 @@ from typing import Any, cast
 
 import pytest
 
-from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
-from diucs.adapters.outbound.graph_store import connection as connection_module
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
-from diucs.adapters.outbound.graph_store.health import (
+from overwatch.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
+from overwatch.adapters.outbound.graph_store import connection as connection_module
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx, run_query
+from overwatch.adapters.outbound.graph_store.health import (
     PING_QUERY_ID,
     HealthStatus,
     neo4j_health,
 )
-from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
-from diucs.adapters.outbound.graph_store.queries import (
+from overwatch.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
+from overwatch.adapters.outbound.graph_store.queries import (
     GLOBAL_QUERY_IDS,
     REGISTRY,
     NamedQuery,
     QueryRegistry,
     Scenario,
 )
-from diucs.application.ports.outbound.audit import GENESIS_HASH, genesis_hash_for
-from diucs.application.tenancy import (
+from overwatch.application.ports.outbound.audit import GENESIS_HASH, genesis_hash_for
+from overwatch.application.tenancy import (
     DEFAULT_TENANT_ID,
     GlobalStatementMisuse,
     ScopeId,
     TenantNotBound,
     bind_tenant,
 )
-from diucs.domain.codes import Role
+from overwatch.domain.codes import Role
 from tests.support.fake_neo4j import FakeDriver, FakeTx
 
 A1 = ScopeId.tenant("a1")

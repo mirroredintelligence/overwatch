@@ -39,41 +39,41 @@ from typing import Annotated, Any, Final, Literal, Protocol, cast
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response
 
-from diucs.adapters.inbound.fhir_rest.app import get_container
-from diucs.adapters.inbound.fhir_rest.auth import require_role
-from diucs.adapters.inbound.fhir_rest.capability import FhirJSONResponse
-from diucs.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
-from diucs.adapters.inbound.fhir_rest.parameters import (
+from overwatch.adapters.inbound.fhir_rest.app import get_container
+from overwatch.adapters.inbound.fhir_rest.auth import require_role
+from overwatch.adapters.inbound.fhir_rest.capability import FhirJSONResponse
+from overwatch.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
+from overwatch.adapters.inbound.fhir_rest.parameters import (
     PARAMETERS,
     enum_value,
     index_parameters,
     single,
     whole,
 )
-from diucs.application.actor import Actor
-from diucs.application.idempotency import format_instant
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.identity import (
+from overwatch.application.actor import Actor
+from overwatch.application.idempotency import format_instant
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.identity import (
     HmacPhoneHasher,
     SessionStore,
     normalise_uk_mobile,
 )
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.sealing import ContentSealer
-from diucs.application.ports.outbound.tenants import TenantDirectory
-from diucs.application.ports.outbound.tokens import SecretStore
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenant_settings import DirectoryZones
-from diucs.application.uow_idempotency import UnitOfWorkIdempotency
-from diucs.application.use_cases.advisor_phoned import RecordAdvisorPhoned
-from diucs.application.use_cases.audit_replay import (
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.sealing import ContentSealer
+from overwatch.application.ports.outbound.tenants import TenantDirectory
+from overwatch.application.ports.outbound.tokens import SecretStore
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenant_settings import DirectoryZones
+from overwatch.application.uow_idempotency import UnitOfWorkIdempotency
+from overwatch.application.use_cases.advisor_phoned import RecordAdvisorPhoned
+from overwatch.application.use_cases.audit_replay import (
     ExportAuditReplay,
     GetAuditReplay,
     GetAuditReplayCommand,
 )
-from diucs.application.use_cases.invite_reporter import MOBILE_MESSAGE
-from diucs.application.use_cases.move_service import StartServiceMove, StartServiceMoveCommand
-from diucs.application.use_cases.remove_person import (
+from overwatch.application.use_cases.invite_reporter import MOBILE_MESSAGE
+from overwatch.application.use_cases.move_service import StartServiceMove, StartServiceMoveCommand
+from overwatch.application.use_cases.remove_person import (
     ConfirmNewPhone,
     ConfirmNewPhoneCommand,
     RemovalReason,
@@ -82,23 +82,23 @@ from diucs.application.use_cases.remove_person import (
     SignOutEverywhere,
     SignOutEverywhereCommand,
 )
-from diucs.application.use_cases.report_capacity import ReportCapacity
-from diucs.application.use_cases.resolve_report_flag import (
+from overwatch.application.use_cases.report_capacity import ReportCapacity
+from overwatch.application.use_cases.resolve_report_flag import (
     ListReportFlags,
     ListReportFlagsQuery,
     ResolveReportFlag,
     ResolveReportFlagCommand,
 )
-from diucs.application.use_cases.suspend_service import (
+from overwatch.application.use_cases.suspend_service import (
     ResumeService,
     ResumeServiceCommand,
     SuspendReason,
     SuspendService,
     SuspendServiceCommand,
 )
-from diucs.application.use_cases.tenant_config import ReadTenantConfig
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotFound, ValidationFailed
+from overwatch.application.use_cases.tenant_config import ReadTenantConfig
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotFound, ValidationFailed
 
 router = APIRouter()
 

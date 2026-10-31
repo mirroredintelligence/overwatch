@@ -5,7 +5,7 @@ import typing
 
 import pytest
 
-from diucs.application.ports.outbound.network import (
+from overwatch.application.ports.outbound.network import (
     ActiveGrant,
     NetworkRecordInvalid,
     NetworkRegistry,

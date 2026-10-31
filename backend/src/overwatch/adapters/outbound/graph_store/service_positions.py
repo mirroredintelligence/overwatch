@@ -9,10 +9,10 @@ Location gives the first one by id; a service with none is left out.
 from collections.abc import Sequence
 from typing import Final
 
-from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.adapters.outbound.graph_store.service_scenarios import SCENARIOS
-from diucs.application.ports.outbound.geo import LatLon
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx, run_query
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from overwatch.adapters.outbound.graph_store.service_scenarios import SCENARIOS
+from overwatch.application.ports.outbound.geo import LatLon
 
 _SERVICE_POSITIONS: Final = NamedQuery(
     id="Q-SVC-POSITIONS",

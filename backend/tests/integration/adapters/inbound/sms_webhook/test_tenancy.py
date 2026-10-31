@@ -18,16 +18,16 @@ from fastapi import FastAPI
 from httpx import AsyncClient, Response
 from neo4j import AsyncDriver
 
-from diucs.adapters.inbound.sms_webhook.routes import SmsWebhookDeps
-from diucs.adapters.testing.fixed_inbound_lines import FixedInboundLines
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.adapters.testing.memory_event_bus import ManualEventBus
-from diucs.application.ports.outbound.identity import PHONE_HASH_SECRET
-from diucs.application.ports.outbound.tenant_lines import InboundLine
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork
-from diucs.application.tenancy import ScopeId, current_scope_or_none
-from diucs.bootstrap.container import Container
+from overwatch.adapters.inbound.sms_webhook.routes import SmsWebhookDeps
+from overwatch.adapters.testing.fixed_inbound_lines import FixedInboundLines
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.adapters.testing.memory_event_bus import ManualEventBus
+from overwatch.application.ports.outbound.identity import PHONE_HASH_SECRET
+from overwatch.application.ports.outbound.tenant_lines import InboundLine
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork
+from overwatch.application.tenancy import ScopeId, current_scope_or_none
+from overwatch.bootstrap.container import Container
 from tests.integration.adapters.inbound.sms_webhook.conftest import seed_practitioner
 from tests.support.sms import (
     INTERNAL_REPLY_URL,
@@ -117,8 +117,8 @@ async def test_a_tenant_in_the_body_a_header_or_the_host_changes_nothing(
         headers={
             "X-Tenant-Id": TENANT_B.tenant_id,
             "X-Tenant": TENANT_B.tenant_id,
-            "X-Forwarded-Host": f"{TENANT_B.tenant_id}.diucs.example",
-            "Host": f"{TENANT_B.tenant_id}.diucs.example",
+            "X-Forwarded-Host": f"{TENANT_B.tenant_id}.overwatch.example",
+            "Host": f"{TENANT_B.tenant_id}.overwatch.example",
             "Authorization": f"Bearer {TENANT_B.tenant_id}",
         },
     )

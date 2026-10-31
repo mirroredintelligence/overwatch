@@ -12,20 +12,20 @@ from datetime import UTC, date, datetime, time
 import pytest
 from fhir.resources.R4B.subscription import Subscription
 
-from diucs.adapters.inbound.fhir_rest.subscription_mapping import (
+from overwatch.adapters.inbound.fhir_rest.subscription_mapping import (
     alert_to_task,
     preferences_from_fhir,
     subscription_to_fhir,
     subscription_version,
     summary_parameters,
 )
-from diucs.application.actor import Actor
-from diucs.application.use_cases.subscribe_alert import NEVER_SAVED
-from diucs.application.use_cases.week_summary import Measure, WeekSummary
-from diucs.domain.codes import AlertKind, Role, code_system_url
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.alerts import AlertRecord, AlertSubscription
-from diucs.domain.rules.alerts import AlertPreferences
+from overwatch.application.actor import Actor
+from overwatch.application.use_cases.subscribe_alert import NEVER_SAVED
+from overwatch.application.use_cases.week_summary import Measure, WeekSummary
+from overwatch.domain.codes import AlertKind, Role, code_system_url
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.alerts import AlertRecord, AlertSubscription
+from overwatch.domain.rules.alerts import AlertPreferences
 
 NOW = datetime(2026, 10, 23, 13, 12, tzinfo=UTC)
 LEAD = Actor(

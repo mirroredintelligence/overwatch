@@ -16,19 +16,19 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.cache import Cache
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.identity import DEVICE_TOKEN_SECRET
-from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import ScopeId, TenantNotBound, bind_scope
-from diucs.application.use_cases.pair_wall_screen import (
+from overwatch.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.cache import Cache
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.identity import DEVICE_TOKEN_SECRET
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeId, TenantNotBound, bind_scope
+from overwatch.application.use_cases.pair_wall_screen import (
     CODE_ATTEMPTS,
     PAIRING_PURPOSE,
     PAIRING_SECRET_PURPOSE,
@@ -42,10 +42,10 @@ from diucs.application.use_cases.pair_wall_screen import (
     StartPairing,
     StartPairingResult,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import Conflict, NotAllowed, ValidationFailed
-from diucs.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
-from diucs.domain.rules.tokens import LinkTokenRecord, hash_token
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import Conflict, NotAllowed, ValidationFailed
+from overwatch.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
+from overwatch.domain.rules.tokens import LinkTokenRecord, hash_token
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import (
     count_nodes,

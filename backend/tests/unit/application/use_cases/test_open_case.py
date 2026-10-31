@@ -15,9 +15,9 @@ from typing import Any
 
 import pytest
 
-from diucs.application.actor import Actor
-from diucs.application.tenancy import ScopeId, TenantNotBound
-from diucs.application.use_cases.open_case import (
+from overwatch.application.actor import Actor
+from overwatch.application.tenancy import ScopeId, TenantNotBound
+from overwatch.application.use_cases.open_case import (
     OpenCaseCommand,
     UpdateCaseCommand,
     apply_update,
@@ -32,17 +32,17 @@ from diucs.application.use_cases.open_case import (
     tenant_scope,
     update_fingerprint,
 )
-from diucs.domain.codes import AgeBand, NeedCategory, Outcome, ReferrerType, Role, Urgency
-from diucs.domain.errors import Conflict, NotAllowed, ValidationFailed
-from diucs.domain.model.case import Case
-from diucs.domain.model.scores import (
+from overwatch.domain.codes import AgeBand, NeedCategory, Outcome, ReferrerType, Role, Urgency
+from overwatch.domain.errors import Conflict, NotAllowed, ValidationFailed
+from overwatch.domain.model.case import Case
+from overwatch.domain.model.scores import (
     AmbulanceCategory,
     ClinicalFrailty,
     ManchesterTriage,
     News2,
     PathwaysDx,
 )
-from diucs.domain.rules.booking_rules import REFERENCE_ATTEMPTS
+from overwatch.domain.rules.booking_rules import REFERENCE_ATTEMPTS
 from tests.support.actors import ACTOR_TENANT
 
 OPENED = datetime(2026, 10, 29, 9, 30, tzinfo=UTC)

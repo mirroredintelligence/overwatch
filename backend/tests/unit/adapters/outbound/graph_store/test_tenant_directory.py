@@ -15,15 +15,15 @@ from typing import Any, cast
 import pytest
 from neo4j.time import DateTime
 
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.tenant_directory import (
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.tenant_directory import (
     Neo4jTenantDirectory,
     tenant_from_properties,
     tenant_properties,
 )
-from diucs.application.ports.outbound.tenants import TenantRecordInvalid, twilio_token_ref
-from diucs.application.tenancy import bind_tenant
-from diucs.domain.model.tenant import (
+from overwatch.application.ports.outbound.tenants import TenantRecordInvalid, twilio_token_ref
+from overwatch.application.tenancy import bind_tenant
+from overwatch.domain.model.tenant import (
     OrganisationType,
     SuspendMode,
     SuspendReason,

@@ -6,15 +6,19 @@ import base64
 
 import pytest
 
-from diucs.adapters.outbound.content_seal.aes_gcm import derive_key, seal_content, unseal_content
-from diucs.domain.errors import ValidationFailed
+from overwatch.adapters.outbound.content_seal.aes_gcm import (
+    derive_key,
+    seal_content,
+    unseal_content,
+)
+from overwatch.domain.errors import ValidationFailed
 
 SECRET = b"s" * 40
 OTHER_SECRET = b"t" * 40
 AAD = {"message_id": "msg-1", "tenant_id": "tenant-a", "recipient_role_id": "role-1"}
 TEXT = (
-    "DIUCS: UCR West. We have 3 referrals in the next 2 hrs (as of 23 Oct 08:15). "
-    "Confirm or update: diucs.example/k3F9a Or reply Y, or a new number. By 10:30."
+    "Overwatch: UCR West. We have 3 referrals in the next 2 hrs (as of 23 Oct 08:15). "
+    "Confirm or update: overwatch.example/k3F9a Or reply Y, or a new number. By 10:30."
 )
 ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
 
@@ -41,7 +45,7 @@ def test_round_trip_returns_the_text(key: bytes) -> None:
 def test_the_sealed_text_does_not_show_its_plain_words(key: bytes) -> None:
     sealed = seal_content(TEXT, key, **AAD)
     assert "UCR West" not in sealed
-    assert "diucs.example" not in sealed
+    assert "overwatch.example" not in sealed
 
 
 def test_two_seals_of_one_text_differ(key: bytes) -> None:

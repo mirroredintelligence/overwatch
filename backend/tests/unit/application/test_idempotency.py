@@ -6,11 +6,11 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from diucs.application.actor import Actor
-from diucs.application.idempotency import decode_result, encode_result
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.use_cases.criteria import ConfirmCriteriaResult
-from diucs.domain.codes import Role
+from overwatch.application.actor import Actor
+from overwatch.application.idempotency import decode_result, encode_result
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.use_cases.criteria import ConfirmCriteriaResult
+from overwatch.domain.codes import Role
 from tests.support.actors import ACTOR_TENANT
 
 AT = datetime(2026, 10, 23, 13, 0, tzinfo=UTC)
@@ -42,7 +42,7 @@ def test_a_result_with_a_datetime_an_enum_a_tuple_and_a_nested_dataclass_round_t
 
 def test_the_result_type_name_is_module_and_qualname() -> None:
     type_name, _ = encode_result(_entry())
-    assert type_name == "diucs.application.ports.outbound.audit:AuditEntry"
+    assert type_name == "overwatch.application.ports.outbound.audit:AuditEntry"
 
 
 def test_a_london_datetime_comes_back_as_the_same_instant_in_utc() -> None:
@@ -73,7 +73,7 @@ def test_decoding_a_type_outside_the_allowed_packages_raises_value_error(type_na
 def test_a_domain_enum_nested_in_a_result_decodes_as_itself() -> None:
     """A deviation from the P15 prompt, recorded in DEC-090: results carry domain enums."""
     type_name, json_text = encode_result(_entry())
-    assert "diucs.domain.codes:Role" in json_text
+    assert "overwatch.domain.codes:Role" in json_text
     assert decode_result(type_name, json_text) == _entry()
 
 
@@ -129,7 +129,7 @@ def test_a_calendar_date_is_stored_as_its_own_text_not_as_an_instant() -> None:
 def test_a_stored_day_that_is_not_a_calendar_date_in_canonical_form_is_refused(
     stored_day: str,
 ) -> None:
-    type_name = "diucs.application.use_cases.criteria:ConfirmCriteriaResult"
+    type_name = "overwatch.application.use_cases.criteria:ConfirmCriteriaResult"
     stored = (
         '{"$type":"' + type_name + '","fields":{"criteria_id":"c",'
         '"review_by":{"$date":"' + stored_day + '"},"replayed":false}}'

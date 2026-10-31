@@ -2,9 +2,9 @@
 
 from datetime import UTC, datetime
 
-from diucs.adapters.inbound.fhir_rest.mapping import board_to_parameters
-from diucs.application.use_cases.query_board import Board
-from diucs.domain.rules.pressure import Pressure
+from overwatch.adapters.inbound.fhir_rest.mapping import board_to_parameters
+from overwatch.application.use_cases.query_board import Board
+from overwatch.domain.rules.pressure import Pressure
 
 NOW = datetime(2026, 10, 23, 13, 12, tzinfo=UTC)
 

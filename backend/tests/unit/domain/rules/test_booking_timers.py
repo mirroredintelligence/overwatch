@@ -4,8 +4,8 @@
 
 import pytest
 
-from diucs.domain.codes import BookingStatus
-from diucs.domain.rules.booking_timers import TimerEffect, expiry_effect, phone_prompt_effect
+from overwatch.domain.codes import BookingStatus
+from overwatch.domain.rules.booking_timers import TimerEffect, expiry_effect, phone_prompt_effect
 
 
 @pytest.mark.parametrize("status", [BookingStatus.REQUESTED])

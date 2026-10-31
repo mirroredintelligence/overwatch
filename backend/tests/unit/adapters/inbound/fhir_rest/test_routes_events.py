@@ -7,7 +7,7 @@ become the same event, with only the fields the page needs.
 
 import pytest
 
-from diucs.adapters.inbound.fhir_rest.routes_events import parse_message, to_sse
+from overwatch.adapters.inbound.fhir_rest.routes_events import parse_message, to_sse
 
 CHANGED_AT = "2026-10-23T13:12:00Z"
 
@@ -86,7 +86,7 @@ def test_the_heartbeat_is_a_named_event_with_the_time_only() -> None:
     # an open stream from a dead one.
     from datetime import UTC, datetime
 
-    from diucs.adapters.inbound.fhir_rest.routes_events import heartbeat_sse
+    from overwatch.adapters.inbound.fhir_rest.routes_events import heartbeat_sse
 
     assert heartbeat_sse(datetime(2026, 10, 23, 13, 12, tzinfo=UTC)) == (
         'event: heartbeat\ndata: {"changedAt":"2026-10-23T13:12:00Z"}\n\n'
@@ -96,7 +96,7 @@ def test_the_heartbeat_is_a_named_event_with_the_time_only() -> None:
 def test_the_heartbeat_time_is_written_in_utc_whatever_the_zone_of_the_clock() -> None:
     from datetime import datetime, timedelta, timezone
 
-    from diucs.adapters.inbound.fhir_rest.routes_events import heartbeat_sse
+    from overwatch.adapters.inbound.fhir_rest.routes_events import heartbeat_sse
 
     bst = timezone(timedelta(hours=1))
 
@@ -107,7 +107,7 @@ def test_the_heartbeat_time_is_written_in_utc_whatever_the_zone_of_the_clock() -
 
 def test_the_heartbeat_interval_is_well_inside_the_pages_silence_limit() -> None:
     # The page treats three missed beats as a dead stream; the interval is the shared constant.
-    from diucs.adapters.inbound.fhir_rest.routes_events import KEEPALIVE_INTERVAL_SECONDS
+    from overwatch.adapters.inbound.fhir_rest.routes_events import KEEPALIVE_INTERVAL_SECONDS
 
     assert KEEPALIVE_INTERVAL_SECONDS <= 15
 

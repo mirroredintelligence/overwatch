@@ -3,11 +3,11 @@ status, an organisation and nothing else that matters. Synthetic values only."""
 
 from datetime import UTC, datetime
 
-from diucs.domain.codes import ServiceCategory, Status
-from diucs.domain.model.network import DirectorySource
-from diucs.domain.rules.listing import ListingPresentation
-from diucs.domain.rules.network_board import NetworkBoard, NetworkBoardEntry
-from diucs.domain.rules.pressure import Pressure, all_limited_or_worse, system_pressure
+from overwatch.domain.codes import ServiceCategory, Status
+from overwatch.domain.model.network import DirectorySource
+from overwatch.domain.rules.listing import ListingPresentation
+from overwatch.domain.rules.network_board import NetworkBoard, NetworkBoardEntry
+from overwatch.domain.rules.pressure import Pressure, all_limited_or_worse, system_pressure
 
 BOARD_AT = datetime(2026, 10, 26, 9, 40, tzinfo=UTC)
 

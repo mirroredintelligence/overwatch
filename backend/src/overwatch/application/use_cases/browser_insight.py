@@ -19,15 +19,15 @@ from dataclasses import dataclass
 from datetime import UTC, date, timedelta
 from typing import Final
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.insight import InsightRepository
-from diucs.application.ports.outbound.tokens import SecretStore
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import current_tenant
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotAllowed, ValidationFailed
-from diucs.domain.model.insight import (
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.insight import InsightRepository
+from overwatch.application.ports.outbound.tokens import SecretStore
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import current_tenant
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotAllowed, ValidationFailed
+from overwatch.domain.model.insight import (
     FrictionAdd,
     FunnelAdd,
     FunnelMark,
@@ -36,8 +36,8 @@ from diucs.domain.model.insight import (
     RouteAdd,
     UsageAdd,
 )
-from diucs.domain.model.telemetry_aggregates import FunnelDailyRow
-from diucs.domain.rules.browser_insight import (
+from overwatch.domain.model.telemetry_aggregates import FunnelDailyRow
+from overwatch.domain.rules.browser_insight import (
     BROWSER_FUNNELS,
     DEVICES,
     MARKER_KEEP_DAYS,
@@ -49,7 +49,7 @@ from diucs.domain.rules.browser_insight import (
     marker_key,
     parse_event,
 )
-from diucs.domain.rules.insight_views import (
+from overwatch.domain.rules.insight_views import (
     FrictionTable,
     FunnelView,
     PathsView,

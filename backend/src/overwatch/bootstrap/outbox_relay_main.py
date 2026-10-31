@@ -1,4 +1,4 @@
-"""Process entry for the outbox relay (I03): `python -m diucs.bootstrap.outbox_relay_main`.
+"""Process entry for the outbox relay (I03): `python -m overwatch.bootstrap.outbox_relay_main`.
 
 It is in bootstrap, the one layer that may name both an inbound worker and the outbound adapters
 (the layers contract forbids the worker importing them). It builds the Neo4j connection and the
@@ -12,7 +12,8 @@ applies the migrations and makes sure the audit head exists, and stops the proce
 fails (DEC-012). A missing Service Bus connection stops it before anything opens (fail closed);
 messages say which setting is wrong and never repeat a value.
 
-With `DIUCS_KEY_VAULT_URL` set the Neo4j password, the Redis URL and the Service Bus connection are
+With `OVERWATCH_KEY_VAULT_URL` set the Neo4j password, the Redis URL and the Service Bus connection
+are
 read from Key Vault once, at start-up, and the vault is then closed: the relay reads no other secret
 (B8, DEC-1304). A plain environment value for one of them stops the process.
 """
@@ -23,19 +24,19 @@ import signal
 
 from azure.servicebus.aio import ServiceBusClient
 
-from diucs.adapters.inbound.workers.outbox_relay import OutboxRelay
-from diucs.adapters.outbound.bus_servicebus.service_bus import ServiceBusEventBus
-from diucs.adapters.outbound.cache_redis.redis_cache import RedisCache
-from diucs.bootstrap.container import build
-from diucs.bootstrap.secret_store import (
+from overwatch.adapters.inbound.workers.outbox_relay import OutboxRelay
+from overwatch.adapters.outbound.bus_servicebus.service_bus import ServiceBusEventBus
+from overwatch.adapters.outbound.cache_redis.redis_cache import RedisCache
+from overwatch.bootstrap.container import build
+from overwatch.bootstrap.secret_store import (
     SecretConfigError,
     close_store,
     load_secret_store,
     settings_from_vault,
 )
-from diucs.bootstrap.settings import Settings
+from overwatch.bootstrap.settings import Settings
 
-SERVICE_BUS_MISSING = "DIUCS_SERVICEBUS_CONNECTION must be set for the outbox relay"
+SERVICE_BUS_MISSING = "OVERWATCH_SERVICEBUS_CONNECTION must be set for the outbox relay"
 
 
 class RelayConfigError(Exception):

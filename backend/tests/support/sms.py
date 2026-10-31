@@ -16,14 +16,14 @@ from dataclasses import dataclass
 
 from httpx import AsyncClient, Response
 
-from diucs.adapters.testing.fixed_inbound_lines import FixedInboundLines
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.ports.outbound.identity import PHONE_HASH_SECRET
-from diucs.application.ports.outbound.tenant_lines import InboundLine
+from overwatch.adapters.testing.fixed_inbound_lines import FixedInboundLines
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.ports.outbound.identity import PHONE_HASH_SECRET
+from overwatch.application.ports.outbound.tenant_lines import InboundLine
 
-PUBLIC_BASE_URL = "https://diucs.example/"
-REPLY_URL = "https://diucs.example/webhooks/sms/twilio"
-STATUS_URL = "https://diucs.example/webhooks/sms/twilio/status"
+PUBLIC_BASE_URL = "https://overwatch.mirroredintelligence.com/"
+REPLY_URL = "https://overwatch.mirroredintelligence.com/webhooks/sms/twilio"
+STATUS_URL = "https://overwatch.mirroredintelligence.com/webhooks/sms/twilio/status"
 # The proxy in front of the app rewrites the host: the app sees this, Twilio signed the public URL.
 INTERNAL_REPLY_URL = "http://internal:8000/webhooks/sms/twilio"
 INTERNAL_STATUS_URL = "http://internal:8000/webhooks/sms/twilio/status"
@@ -49,8 +49,8 @@ class Subaccount:
 # The two organisations are the run's own two tenants (TEN-035): their records and the reporters
 # the tests write into them are removed by the wipe between tests, and another run on the same
 # Neo4j has tenants of its own. A fixed `tenant-a` would be neither.
-_RUN_TENANT = os.environ["DIUCS_TEST_TENANT"]
-_RUN_OTHER_TENANT = os.environ["DIUCS_TEST_OTHER_TENANT"]
+_RUN_TENANT = os.environ["OVERWATCH_TEST_TENANT"]
+_RUN_OTHER_TENANT = os.environ["OVERWATCH_TEST_OTHER_TENANT"]
 TENANT_A = Subaccount(
     _RUN_TENANT, "+447700900001", "AC" + "a" * 32, f"twilio/{_RUN_TENANT}", b"token-a"
 )

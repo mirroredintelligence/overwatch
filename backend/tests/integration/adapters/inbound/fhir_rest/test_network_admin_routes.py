@@ -26,18 +26,18 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from neo4j import AsyncDriver
 
-from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
-from diucs.adapters.inbound.fhir_rest.routes_network_admin import (
+from overwatch.adapters.inbound.fhir_rest.app import create_app
+from overwatch.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from overwatch.adapters.inbound.fhir_rest.routes_network_admin import (
     NETWORK_ID_PATTERN,
     RECORD_ID_PATTERN,
     NetworkAdminServices,
 )
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
-from diucs.application.use_cases.grants import (
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
+from overwatch.application.use_cases.grants import (
     ApproveGrant,
     DeclineGrant,
     EndGrant,
@@ -45,30 +45,30 @@ from diucs.application.use_cases.grants import (
     QueryGrants,
     ReviseGrant,
 )
-from diucs.application.use_cases.listing_admission import (
+from overwatch.application.use_cases.listing_admission import (
     DecideListing,
     QueryListings,
     RequestListing,
 )
-from diucs.application.use_cases.member_sharing import (
+from overwatch.application.use_cases.member_sharing import (
     MemberSharingView,
     QueryMemberSharing,
     allowlist_fields,
 )
-from diucs.application.use_cases.membership import (
+from overwatch.application.use_cases.membership import (
     AcceptMembership,
     InviteMember,
     LeaveNetwork,
     RemoveMember,
 )
-from diucs.application.use_cases.network_admin import (
+from overwatch.application.use_cases.network_admin import (
     GovernanceRecorder,
     QueryNetworkAdmin,
     RecordAgreement,
 )
-from diucs.application.use_cases.network_leave import EndResult
-from diucs.domain.codes import Role
-from diucs.domain.model.network import GrantScope
+from overwatch.application.use_cases.network_leave import EndResult
+from overwatch.domain.codes import Role
+from overwatch.domain.model.network import GrantScope
 from tests.support.edge import EdgeContainer, active_tenants
 from tests.support.network_admin_fakes import (
     Ids,
@@ -381,8 +381,8 @@ async def test_an_id_that_is_not_the_domains_shape_never_reaches_a_use_case(path
 
 
 async def test_the_path_patterns_are_the_domains() -> None:
-    from diucs.domain.model.network import NETWORK_ID_PATTERN as DOMAIN_NETWORK
-    from diucs.domain.model.network import RECORD_ID_PATTERN as DOMAIN_RECORD
+    from overwatch.domain.model.network import NETWORK_ID_PATTERN as DOMAIN_NETWORK
+    from overwatch.domain.model.network import RECORD_ID_PATTERN as DOMAIN_RECORD
 
     assert f"^{DOMAIN_NETWORK.pattern}$" == NETWORK_ID_PATTERN
     assert f"^{DOMAIN_RECORD.pattern}$" == RECORD_ID_PATTERN
@@ -578,7 +578,7 @@ async def test_the_owner_lists_the_members_by_name_with_the_membership_as_the_ha
 async def test_an_organisation_reads_what_it_shares_and_never_another_organisations(
     two: _World,
 ) -> None:
-    from diucs.application.ports.outbound.projection import (
+    from overwatch.application.ports.outbound.projection import (
         ProjectionEndReason,
         SourceState,
         SourceStatus,

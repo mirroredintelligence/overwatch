@@ -15,7 +15,7 @@ This module is pure data: no Neo4j, no tenant, no Cypher.
 
 from typing import Final
 
-from diucs.adapters.outbound.graph_store.scenario import (
+from overwatch.adapters.outbound.graph_store.scenario import (
     Expect,
     Marked,
     NodeSpec,
@@ -24,7 +24,7 @@ from diucs.adapters.outbound.graph_store.scenario import (
     SeedRel,
     TenantSeed,
 )
-from diucs.domain.codes import code_system_url
+from overwatch.domain.codes import code_system_url
 
 _SERVICE_KEY: Final = "HealthcareService/svc-1"
 _CURRENT_KEY: Final = "Basic/crit-1"

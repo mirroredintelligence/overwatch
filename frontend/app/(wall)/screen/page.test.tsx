@@ -61,7 +61,7 @@ async function redirectOf(): Promise<string> {
 
 beforeEach(() => {
   resetProfileCache();
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', BACKEND_BASE);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', BACKEND_BASE);
   resetSeenBoardRequests();
   // The wall now judges a board by the clock (W06): the sample board is the
   // sample time, so the clock is set to it. Only Date is faked.

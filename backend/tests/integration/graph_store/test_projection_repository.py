@@ -23,22 +23,22 @@ import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 from neo4j.exceptions import ConstraintError
 
-from diucs.adapters.outbound.graph_store.unit_of_work import Neo4jUnitOfWork
-from diucs.application.ports.outbound.projection import (
+from overwatch.adapters.outbound.graph_store.unit_of_work import Neo4jUnitOfWork
+from overwatch.application.ports.outbound.projection import (
     GrantRef,
     ProjectionEndReason,
     SourceStatus,
 )
-from diucs.application.tenancy import (
+from overwatch.application.tenancy import (
     ReadOnlyUnitWrite,
     ScopeKindMismatch,
     UnitOfWorkAlreadyOpen,
     bind_network,
     bind_tenant,
 )
-from diucs.domain.messages.privacy_guard import scan_value
-from diucs.domain.model.network import GrantScope
-from diucs.domain.rules import projection as allowlist
+from overwatch.domain.messages.privacy_guard import scan_value
+from overwatch.domain.model.network import GrantScope
+from overwatch.domain.rules import projection as allowlist
 from tests.support.neo4j import read_tx, write_tx
 from tests.support.projection_samples import (
     sample_capacity_projection,

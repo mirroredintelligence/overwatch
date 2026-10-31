@@ -19,21 +19,21 @@ from typing import Annotated, Final
 from fastapi import APIRouter, Depends, Path, Request
 from fastapi.responses import Response
 
-from diucs.adapters.inbound.fhir_rest.app import get_container
-from diucs.adapters.inbound.fhir_rest.auth import ensure_can_act_for, require_role
-from diucs.adapters.inbound.fhir_rest.capability import FhirJSONResponse
-from diucs.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
-from diucs.adapters.inbound.fhir_rest.errors import operation_outcome
-from diucs.adapters.inbound.fhir_rest.mapping import board_to_parameters, report_to_fhir
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenant_settings import DirectoryZones
-from diucs.application.uow_idempotency import UnitOfWorkIdempotency
-from diucs.application.use_cases.confirm_capacity import ConfirmCapacity, ConfirmCapacityCommand
-from diucs.application.use_cases.coordination_contact import ReadCoordinationPhone
-from diucs.application.use_cases.query_board import QueryBoard, QueryBoardQuery
-from diucs.domain.codes import ReportSource, Role
-from diucs.domain.errors import ConfirmLimitReached, NothingToConfirm
+from overwatch.adapters.inbound.fhir_rest.app import get_container
+from overwatch.adapters.inbound.fhir_rest.auth import ensure_can_act_for, require_role
+from overwatch.adapters.inbound.fhir_rest.capability import FhirJSONResponse
+from overwatch.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
+from overwatch.adapters.inbound.fhir_rest.errors import operation_outcome
+from overwatch.adapters.inbound.fhir_rest.mapping import board_to_parameters, report_to_fhir
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenant_settings import DirectoryZones
+from overwatch.application.uow_idempotency import UnitOfWorkIdempotency
+from overwatch.application.use_cases.confirm_capacity import ConfirmCapacity, ConfirmCapacityCommand
+from overwatch.application.use_cases.coordination_contact import ReadCoordinationPhone
+from overwatch.application.use_cases.query_board import QueryBoard, QueryBoardQuery
+from overwatch.domain.codes import ReportSource, Role
+from overwatch.domain.errors import ConfirmLimitReached, NothingToConfirm
 
 BOARD_ROLES: Final = (Role.WALL, Role.ADVISOR, Role.CLINICAL, Role.LEAD, Role.EXEC, Role.OWNER)
 CONFIRM_ROLES: Final = (Role.REPORTER, Role.LEAD)

@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.outbound.cache_redis.sessions import (
+from overwatch.adapters.outbound.cache_redis.sessions import (
     SESSION_TTL,
     RedisRateLimiter,
     RedisSessionStore,
@@ -17,9 +17,9 @@ from diucs.adapters.outbound.cache_redis.sessions import (
     encode_session,
     new_session_id,
 )
-from diucs.application.ports.outbound.identity import ReporterSession
-from diucs.application.tenancy import TenantNotBound, bind_tenant
-from diucs.domain.codes import Role
+from overwatch.application.ports.outbound.identity import ReporterSession
+from overwatch.application.tenancy import TenantNotBound, bind_tenant
+from overwatch.domain.codes import Role
 
 # Any call that reaches the client fails the test: the refusals below must come first.
 NO_CLIENT: Any = object()

@@ -14,23 +14,23 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.scheduling import schedule_work
-from diucs.application.work import SCHEDULED, ScheduledWork, WorkKind
-from diucs.bootstrap.container import Container, build_for_tests
-from diucs.domain.codes import (
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.scheduling import schedule_work
+from overwatch.application.work import SCHEDULED, ScheduledWork, WorkKind
+from overwatch.bootstrap.container import Container, build_for_tests
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     Measure,
     PractitionerRoleCode,
     ServiceCategory,
 )
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.neo4j import ThrowawayNeo4j
 from tests.support.tenancy import as_tenant
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory

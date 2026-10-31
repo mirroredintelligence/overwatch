@@ -16,13 +16,13 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
 
-from diucs.application.ports.outbound.tenants import (
+from overwatch.application.ports.outbound.tenants import (
     check_secret_ref,
     normalise_account_sid,
     normalise_e164,
 )
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.tenant import NumberStatus, Tenant, TenantStatus
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.tenant import NumberStatus, Tenant, TenantStatus
 
 
 @dataclass(frozen=True, slots=True)

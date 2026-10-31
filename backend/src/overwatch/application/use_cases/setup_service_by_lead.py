@@ -17,17 +17,17 @@ from datetime import date, datetime, time
 from enum import Enum
 from typing import Any, Final
 
-from diucs.application.actor import Actor
-from diucs.application.idempotency import IdempotencyStore
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.identity import PhoneHasher, normalise_uk_mobile
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.outbox import outbox_message_for
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.scheduling import schedule_work
-from diucs.application.work import WorkKind
-from diucs.domain.codes import (
+from overwatch.application.actor import Actor
+from overwatch.application.idempotency import IdempotencyStore
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.identity import PhoneHasher, normalise_uk_mobile
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.outbox import outbox_message_for
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.scheduling import schedule_work
+from overwatch.application.work import WorkKind
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     CriteriaStatus,
@@ -37,20 +37,20 @@ from diucs.domain.codes import (
     Role,
     ServiceCategory,
 )
-from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.events import ServiceActivated
-from diucs.domain.model.criteria import ServiceCriteria
-from diucs.domain.model.people import (
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.events import ServiceActivated
+from overwatch.domain.model.criteria import ServiceCriteria
+from overwatch.domain.model.people import (
     Practitioner,
     PractitionerRole,
     check_email_domain,
     check_staff_text,
 )
-from diucs.domain.model.service import AvailableTime, ServiceProfile
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
-from diucs.domain.rules.london_time import to_london
-from diucs.domain.rules.postcode import normalise_district
-from diucs.domain.rules.schedule import next_due
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
+from overwatch.domain.rules.london_time import to_london
+from overwatch.domain.rules.postcode import normalise_district
+from overwatch.domain.rules.schedule import next_due
 
 USE_CASE: Final = "SetupServiceByLead"
 AUDIT_ACTION: Final = "C"

@@ -9,13 +9,13 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.outbound.graph_store.flag_repository import (
+from overwatch.adapters.outbound.graph_store.flag_repository import (
     service_flag_from_fhir,
     service_flag_id,
     service_flag_to_fhir,
 )
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.flags import (
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.flags import (
     SERVICE_FLAG_CRITERIA_OVERDUE,
     SERVICE_FLAG_SUSPENDED,
     ServiceFlag,

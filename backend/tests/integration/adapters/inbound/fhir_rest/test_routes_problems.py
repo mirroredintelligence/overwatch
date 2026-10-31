@@ -10,8 +10,8 @@ report. Sample values only.
 import pytest
 from httpx import AsyncClient
 
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.domain.codes import Role
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.domain.codes import Role
 from tests.integration.adapters.inbound.fhir_rest.test_routes_clinical import (
     clinical_world,
     test_container,

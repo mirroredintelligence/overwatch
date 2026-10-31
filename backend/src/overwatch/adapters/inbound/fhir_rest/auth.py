@@ -30,22 +30,22 @@ from fhir.resources.R4B.meta import Meta
 from fhir.resources.R4B.resource import Resource
 from fhir.resources.R4B.task import Task
 
-from diucs.adapters.inbound.fhir_rest.app import get_container
-from diucs.adapters.inbound.fhir_rest.tenant_gate import TenantGate
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.tokens import SecretStore
-from diucs.application.tenancy import ScopeId, bind_scope
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotAllowed, NotFound, ValidationFailed
-from diucs.domain.model.tenant import check_tenant_id
-from diucs.domain.rules.bff_token import (
+from overwatch.adapters.inbound.fhir_rest.app import get_container
+from overwatch.adapters.inbound.fhir_rest.tenant_gate import TenantGate
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.tokens import SecretStore
+from overwatch.application.tenancy import ScopeId, bind_scope
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.model.tenant import check_tenant_id
+from overwatch.domain.rules.bff_token import (
     BffClaims,
     OperatorClaims,
     TokenRejected,
     decode_bff_token,
     decode_operator_token,
 )
-from diucs.domain.rules.edge_access import EdgeVerdict
+from overwatch.domain.rules.edge_access import EdgeVerdict
 
 BFF_SECRET_NAME: Final = "bff-jwt"
 SCREEN_SEEN_EVERY: Final = timedelta(seconds=30)
@@ -149,7 +149,8 @@ async def current_actor(request: Request) -> AsyncIterator[Actor]:
 async def current_operator(request: Request) -> OperatorClaims:
     """The operator or support person an operator-audience token names (TEN-043, TEN-075).
 
-    The operator door is the other audience: only a token for `diucs-ops` signed by this back end
+    The operator door is the other audience: only a token for `overwatch-ops` signed by this back
+    end
     passes, so a tenant token is refused here and an operator token is refused by `current_actor`.
     The token names no tenant, so none is bound and nothing of a tenant is read. Every refusal is
     the same 401 as the tenant door's."""

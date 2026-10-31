@@ -4,8 +4,8 @@ the reference format. Sample values only: no patient data.
 
 import pytest
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.safety_report import (
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.safety_report import (
     MAX_TEXT_LENGTH,
     ProblemCategory,
     SafetyConcernCategory,

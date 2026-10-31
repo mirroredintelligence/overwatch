@@ -37,15 +37,18 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Final
 
-from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.identity import HmacPhoneHasher
-from diucs.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
-from diucs.application.tenancy import bind_tenant
-from diucs.application.tenant_settings import DirectoryHostUrl, DirectoryZones
-from diucs.application.use_cases.tenant_access import InviteTenantAdmin, InviteTenantAdminCommand
-from diucs.application.use_cases.tenant_admin import (
+from overwatch.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.identity import HmacPhoneHasher
+from overwatch.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
+from overwatch.application.tenancy import bind_tenant
+from overwatch.application.tenant_settings import DirectoryHostUrl, DirectoryZones
+from overwatch.application.use_cases.tenant_access import (
+    InviteTenantAdmin,
+    InviteTenantAdminCommand,
+)
+from overwatch.application.use_cases.tenant_admin import (
     ActivateTenant,
     ActivateTenantCommand,
     CreateTenant,
@@ -61,22 +64,22 @@ from diucs.application.use_cases.tenant_admin import (
     VerifyDirectoryCommand,
     VerifyEntraBinding,
 )
-from diucs.application.use_cases.tenant_offboarding import (
+from overwatch.application.use_cases.tenant_offboarding import (
     StartOffboardingCommand,
     StartTenantOffboarding,
 )
-from diucs.application.use_cases.tenant_suspend import (
+from overwatch.application.use_cases.tenant_suspend import (
     ResumeTenant,
     ResumeTenantCommand,
     SuspendTenant,
     SuspendTenantCommand,
     TenantChanged,
 )
-from diucs.bootstrap.container import Container, build
-from diucs.bootstrap.settings import Settings
-from diucs.domain.codes import Role
-from diucs.domain.errors import DomainError
-from diucs.domain.model.tenant import OrganisationType, SuspendMode, SuspendReason, TenantStatus
+from overwatch.bootstrap.container import Container, build
+from overwatch.bootstrap.settings import Settings
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import DomainError
+from overwatch.domain.model.tenant import OrganisationType, SuspendMode, SuspendReason, TenantStatus
 
 OPERATOR_CHANNEL: Final = "script"
 COMMANDS: Final = (

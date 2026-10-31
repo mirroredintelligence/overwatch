@@ -163,7 +163,7 @@ describe('a correction on the ServiceRequest (Q7, KI-815)', () => {
     const none = toServiceRequest('case-1', { ...INPUT, scoreCorrectionReason: null });
 
     expect(extensionsOf(corrected).find((item) => item.url === SCORE_REASON_EXTENSION)).toEqual({
-      url: 'https://diucs.example/StructureDefinition/score-correction-reason',
+      url: 'https://overwatch.mirroredintelligence.com/StructureDefinition/score-correction-reason',
       valueCode: 'typing-error',
     });
     expect(extensionsOf(plain).some((item) => item.url === SCORE_REASON_EXTENSION)).toBe(false);
@@ -182,7 +182,7 @@ describe('a correction on the ServiceRequest (Q7, KI-815)', () => {
 
     expect(fromServiceRequest(corrected, 'W/"4"')?.scoreCorrections).toBe(2);
     expect(fromServiceRequest(request, 'W/"1"')?.scoreCorrections).toBe(0);
-    expect(SCORE_CORRECTIONS_EXTENSION).toBe('https://diucs.example/StructureDefinition/score-corrections');
+    expect(SCORE_CORRECTIONS_EXTENSION).toBe('https://overwatch.mirroredintelligence.com/StructureDefinition/score-corrections');
   });
 
   it('takes a count that is not a whole number from zero as none, never as a guess', () => {

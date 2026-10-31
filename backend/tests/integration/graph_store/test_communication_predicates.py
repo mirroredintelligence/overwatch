@@ -19,7 +19,7 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from tests.support.leaky_registry import LeakyRegistry
 from tests.support.neo4j import ThrowawayNeo4j
 from tests.support.predicate_removal import predicate_count, without_predicate

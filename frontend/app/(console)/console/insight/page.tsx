@@ -6,7 +6,7 @@ import { CONSOLE_ROLES } from '@/lib/console/backend';
 import { TABS, type InsightTab } from '@/lib/console/insight';
 
 export const metadata: Metadata = {
-  title: 'DIUCS console: insight',
+  title: 'Overwatch console: insight',
 };
 
 export const dynamic = 'force-dynamic';

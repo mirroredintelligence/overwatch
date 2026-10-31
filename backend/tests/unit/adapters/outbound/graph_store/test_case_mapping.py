@@ -10,11 +10,11 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.outbound.graph_store.case_repository import case_from_fhir, case_to_fhir
-from diucs.domain.codes import AgeBand, NeedCategory, Outcome, ReferrerType, Urgency
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.case import Case
-from diucs.domain.model.scores import ClinicalFrailty, ManchesterTriage, News2, PathwaysDx
+from overwatch.adapters.outbound.graph_store.case_repository import case_from_fhir, case_to_fhir
+from overwatch.domain.codes import AgeBand, NeedCategory, Outcome, ReferrerType, Urgency
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.case import Case
+from overwatch.domain.model.scores import ClinicalFrailty, ManchesterTriage, News2, PathwaysDx
 
 OPENED = datetime(2026, 10, 25, 13, 16, tzinfo=UTC)
 CLOSED = datetime(2026, 10, 25, 13, 40, tzinfo=UTC)
@@ -121,7 +121,9 @@ def test_scores_are_observations_with_their_acuity_code_and_recorded_value() -> 
 def test_an_observation_whose_code_is_not_an_acuity_method_is_refused() -> None:
     patient, request, scores = case_to_fhir(OPEN_CASE)
     scores[0]["code"] = {
-        "coding": [{"system": "https://diucs.example/CodeSystem/other", "code": "x"}]
+        "coding": [
+            {"system": "https://overwatch.mirroredintelligence.com/CodeSystem/other", "code": "x"}
+        ]
     }
 
     with pytest.raises(ValidationFailed):
@@ -140,7 +142,9 @@ def test_the_reference_is_the_case_identifier_value() -> None:
     _, request, _ = case_to_fhir(OPEN_CASE)
     identifiers: list[dict[str, Any]] = request["identifier"]
 
-    assert identifiers == [{"system": "https://diucs.example/case-reference", "value": "4821"}]
+    assert identifiers == [
+        {"system": "https://overwatch.mirroredintelligence.com/case-reference", "value": "4821"}
+    ]
 
 
 def test_a_stub_for_another_case_is_refused() -> None:
@@ -153,7 +157,9 @@ def test_a_stub_for_another_case_is_refused() -> None:
 
 def test_a_request_with_two_case_references_is_refused() -> None:
     patient, request, scores = case_to_fhir(OPEN_CASE)
-    request["identifier"].append({"system": "https://diucs.example/case-reference", "value": "9"})
+    request["identifier"].append(
+        {"system": "https://overwatch.mirroredintelligence.com/case-reference", "value": "9"}
+    )
 
     with pytest.raises(ValidationFailed):
         case_from_fhir(patient, request, scores)
@@ -187,13 +193,15 @@ def test_a_closed_time_without_a_zone_is_refused() -> None:
 
 def test_a_manchester_score_coded_in_another_system_is_refused() -> None:
     patient, request, scores = case_to_fhir(SCORED_CASE)
-    scores[0]["valueCodeableConcept"]["coding"][0]["system"] = "https://diucs.example/other"
+    scores[0]["valueCodeableConcept"]["coding"][0]["system"] = (
+        "https://overwatch.mirroredintelligence.com/other"
+    )
 
     with pytest.raises(ValidationFailed):
         case_from_fhir(patient, request, scores)
 
 
-OUTCOME_URL = "https://diucs.example/StructureDefinition/outcome"
+OUTCOME_URL = "https://overwatch.mirroredintelligence.com/StructureDefinition/outcome"
 
 
 def test_a_full_postcode_is_refused_and_the_value_is_not_echoed() -> None:
@@ -274,7 +282,9 @@ def test_an_outcome_without_a_close_time_is_refused() -> None:
 
 def test_a_need_coded_in_another_system_is_refused() -> None:
     patient, request, scores = case_to_fhir(OPEN_CASE)
-    request["reasonCode"][0]["coding"][0]["system"] = "https://diucs.example/CodeSystem/other"
+    request["reasonCode"][0]["coding"][0]["system"] = (
+        "https://overwatch.mirroredintelligence.com/CodeSystem/other"
+    )
 
     with pytest.raises(ValidationFailed):
         case_from_fhir(patient, request, scores)

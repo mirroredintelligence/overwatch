@@ -14,13 +14,13 @@ from datetime import time
 from enum import StrEnum
 from typing import Any, Final
 
-from diucs.adapters.fhir_shared.booking_task import codeable_to_fhir as codeable_to_fhir
-from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
-from diucs.adapters.outbound.graph_store.extensions import EXTENSIONS, by_short_name
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.adapters.outbound.graph_store.service_scenarios import SCENARIOS
-from diucs.domain.codes import (
+from overwatch.adapters.fhir_shared.booking_task import codeable_to_fhir as codeable_to_fhir
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx, run_query
+from overwatch.adapters.outbound.graph_store.extensions import EXTENSIONS, by_short_name
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.adapters.outbound.graph_store.service_scenarios import SCENARIOS
+from overwatch.domain.codes import (
     CODE_SYSTEM_NAMES,
     Cadence,
     Channel,
@@ -29,8 +29,8 @@ from diucs.domain.codes import (
     code_system_url,
     parse_code,
 )
-from diucs.domain.errors import NotFound, ValidationFailed
-from diucs.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.errors import NotFound, ValidationFailed
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
 
 _DAY_CODES: Final = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 _DAY_NUMBERS: Final = {code: number for number, code in enumerate(_DAY_CODES)}

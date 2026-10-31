@@ -36,26 +36,26 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.tenant_directory import Neo4jTenantDirectory
-from diucs.adapters.outbound.graph_store.tenant_registry import Neo4jTenantRegistry
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.identity import HmacPhoneHasher
-from diucs.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.provisioning import TENANT_ADMIN_INVITE
-from diucs.application.tenancy import bind_tenant
-from diucs.application.tenant_settings import DirectoryHostUrl
-from diucs.application.use_cases.tenant_access import (
+from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.tenant_directory import Neo4jTenantDirectory
+from overwatch.adapters.outbound.graph_store.tenant_registry import Neo4jTenantRegistry
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.identity import HmacPhoneHasher
+from overwatch.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.provisioning import TENANT_ADMIN_INVITE
+from overwatch.application.tenancy import bind_tenant
+from overwatch.application.tenant_settings import DirectoryHostUrl
+from overwatch.application.use_cases.tenant_access import (
     InviteTenantAdmin,
     InviteTenantAdminCommand,
     invitation_key,
 )
-from diucs.application.use_cases.tenant_admin import (
+from overwatch.application.use_cases.tenant_admin import (
     ActivateTenant,
     ActivateTenantCommand,
     CreateTenant,
@@ -71,7 +71,7 @@ from diucs.application.use_cases.tenant_admin import (
     VerifyDirectoryCommand,
     VerifyEntraBinding,
 )
-from diucs.application.use_cases.tenant_config import (
+from overwatch.application.use_cases.tenant_config import (
     ApproveConfigCommand,
     ApproveTenantConfig,
     BindDirectoryCommand,
@@ -85,11 +85,11 @@ from diucs.application.use_cases.tenant_config import (
     SetRetentionCommand,
     SetTenantRetention,
 )
-from diucs.application.work import SCHEDULED, WorkKind
-from diucs.bootstrap.provisioning import AuditHeads
-from diucs.domain.codes import Role
-from diucs.domain.errors import Conflict, NotAllowed
-from diucs.domain.model.tenant import ContactKind, OrganisationType, TenantStatus
+from overwatch.application.work import SCHEDULED, WorkKind
+from overwatch.bootstrap.provisioning import AuditHeads
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import Conflict, NotAllowed
+from overwatch.domain.model.tenant import ContactKind, OrganisationType, TenantStatus
 from tests.support.neo4j import ThrowawayNeo4j, read_tx, wipe_all
 from tests.support.tenancy import as_tenant
 from tests.support.uow import tenant_uow_factory
@@ -347,7 +347,7 @@ async def test_each_new_chain_starts_from_its_own_genesis(
     world: World,
 ) -> None:
     await _create(world, NEW)
-    from diucs.application.ports.outbound.audit import genesis_hash_for
+    from overwatch.application.ports.outbound.audit import genesis_hash_for
 
     assert genesis_hash_for(NEW) != genesis_hash_for(OTHER)
 
@@ -444,7 +444,7 @@ async def test_another_role_and_an_operator_of_another_tenant_change_nothing(
     set_host = SetTenantHost(world.directory, world.registry, factory, world.clock)
     before = await _count(world, NEW, "AuditEvent")
 
-    from diucs.application.tenancy import TenantMismatch
+    from overwatch.application.tenancy import TenantMismatch
 
     with as_tenant(NEW):
         for role in (Role.OWNER, Role.LEAD, Role.TENANT_ADMIN, Role.SUPPORT):
@@ -532,7 +532,7 @@ async def test_the_invitation_holds_no_token_number_or_link_at_rest(world: World
 
 
 def _scope(tenant: str) -> Any:
-    from diucs.application.tenancy import ScopeId
+    from overwatch.application.tenancy import ScopeId
 
     return ScopeId.tenant(tenant)
 

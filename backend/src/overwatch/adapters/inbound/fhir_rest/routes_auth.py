@@ -36,21 +36,21 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 
-from diucs.adapters.inbound.fhir_rest.errors import (
+from overwatch.adapters.inbound.fhir_rest.errors import (
     RateLimited,
     TemporarilyUnavailable,
     operation_outcome,
 )
-from diucs.adapters.inbound.fhir_rest.host_tenant import bind_host_tenant
-from diucs.adapters.inbound.fhir_rest.token_resolvers import resolve_active_device
-from diucs.application.ports.outbound.cache import PlatformSlots
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.identity_verifier import IdentityVerifier
-from diucs.application.ports.outbound.platform_audit import PlatformAudit, PlatformAuditEntry
-from diucs.application.ports.outbound.tokens import SecretStore
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.rate_limits import PlatformRateLimiter
-from diucs.application.use_cases.exchange_token import (
+from overwatch.adapters.inbound.fhir_rest.host_tenant import bind_host_tenant
+from overwatch.adapters.inbound.fhir_rest.token_resolvers import resolve_active_device
+from overwatch.application.ports.outbound.cache import PlatformSlots
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.identity_verifier import IdentityVerifier
+from overwatch.application.ports.outbound.platform_audit import PlatformAudit, PlatformAuditEntry
+from overwatch.application.ports.outbound.tokens import SecretStore
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.rate_limits import PlatformRateLimiter
+from overwatch.application.use_cases.exchange_token import (
     EXCHANGE_REFUSED_MESSAGE,
     MAX_CREDENTIAL_LENGTH,
     ExchangeDeviceCommand,
@@ -63,8 +63,8 @@ from diucs.application.use_cases.exchange_token import (
     IssuedToken,
     NetworkOwnership,
 )
-from diucs.domain.model.device import Device
-from diucs.domain.model.tenant import Tenant
+from overwatch.domain.model.device import Device
+from overwatch.domain.model.tenant import Tenant
 
 log = logging.getLogger(__name__)
 

@@ -15,24 +15,24 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.graph_store import driver as driver_module
-from diucs.adapters.outbound.graph_store import queries as queries_module
-from diucs.adapters.outbound.graph_store.driver import (
+from overwatch.adapters.outbound.graph_store import driver as driver_module
+from overwatch.adapters.outbound.graph_store import queries as queries_module
+from overwatch.adapters.outbound.graph_store.driver import (
     create_driver,
     run_global_query,
     run_query,
     set_query_observer,
 )
-from diucs.adapters.outbound.graph_store.queries import (
+from overwatch.adapters.outbound.graph_store.queries import (
     BOTH_KINDS as BOTH,
 )
-from diucs.adapters.outbound.graph_store.queries import (
+from overwatch.adapters.outbound.graph_store.queries import (
     NamedQuery,
     QueryRegistry,
     Scenario,
     statement_digest,
 )
-from diucs.application.tenancy import (
+from overwatch.application.tenancy import (
     GLOBAL_STATEMENT_MESSAGE,
     QUERY_NOT_REGISTERED_MESSAGE,
     RAW_TRANSACTION_MESSAGE,

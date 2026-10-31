@@ -10,9 +10,9 @@ from datetime import UTC, datetime, timedelta
 from hypothesis import given
 from hypothesis import strategies as st
 
-from diucs.domain.codes import Cadence, Channel, Measure, ServiceCategory
-from diucs.domain.model.service import AvailableTime, ServiceProfile
-from diucs.domain.rules.schedule import next_due
+from overwatch.domain.codes import Cadence, Channel, Measure, ServiceCategory
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.rules.schedule import next_due
 
 TIMES = st.times().map(lambda t: t.replace(second=0, microsecond=0))
 

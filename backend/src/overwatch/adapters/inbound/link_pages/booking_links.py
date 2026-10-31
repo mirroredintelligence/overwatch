@@ -16,12 +16,12 @@ from collections.abc import Callable, Iterable
 from datetime import timedelta
 from typing import Any, Final, Literal
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.tenancy import current_tenant
-from diucs.application.use_cases.link_access import (
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.tenancy import current_tenant
+from overwatch.application.use_cases.link_access import (
     Body,
     ClosedDetail,
     LinkAction,
@@ -32,19 +32,19 @@ from diucs.application.use_cases.link_access import (
     command_key,
     iso_utc,
 )
-from diucs.application.use_cases.request_booking import need_text, urgency_wording
-from diucs.application.use_cases.respond_to_booking import (
+from overwatch.application.use_cases.request_booking import need_text, urgency_wording
+from overwatch.application.use_cases.respond_to_booking import (
     ChangeLinkRequest,
     RespondToBooking,
     RespondToBookingCommand,
 )
-from diucs.application.use_cases.withdraw_booking import (
+from overwatch.application.use_cases.withdraw_booking import (
     ReportNotReached,
     ReportNotReachedCommand,
     WithdrawBooking,
     WithdrawBookingCommand,
 )
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     BookingStatus,
     DeclineReason,
     NotReachedReason,
@@ -52,11 +52,11 @@ from diucs.domain.codes import (
     Role,
     WithdrawReason,
 )
-from diucs.domain.errors import Conflict, InvalidTransition, ValidationFailed
-from diucs.domain.model.booking import Booking
-from diucs.domain.model.case import Case
-from diucs.domain.model.service import ServiceProfile
-from diucs.domain.model.tenant import ContactKind
+from overwatch.domain.errors import Conflict, InvalidTransition, ValidationFailed
+from overwatch.domain.model.booking import Booking
+from overwatch.domain.model.case import Case
+from overwatch.domain.model.service import ServiceProfile
+from overwatch.domain.model.tenant import ContactKind
 
 REQUEST_PURPOSE: Final = "booking-request"
 CHANGE_PURPOSE: Final = "booking-change"

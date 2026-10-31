@@ -5,8 +5,8 @@ from datetime import UTC, date, datetime, timedelta
 
 import pytest
 
-from diucs.application.actor import Actor
-from diucs.application.use_cases.week_summary import (
+from overwatch.application.actor import Actor
+from overwatch.application.use_cases.week_summary import (
     check_may_read,
     count_measure,
     london_week,
@@ -15,8 +15,8 @@ from diucs.application.use_cases.week_summary import (
     percent_measure,
     time_back_text,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotAllowed
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotAllowed
 from tests.support.actors import ACTOR_TENANT
 
 MONDAY = date(2026, 10, 19)

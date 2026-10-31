@@ -4,8 +4,8 @@ from datetime import UTC, datetime
 
 import pytest
 
-from diucs.application.work import ScheduledWork, WorkKind
-from diucs.domain.errors import ValidationFailed
+from overwatch.application.work import ScheduledWork, WorkKind
+from overwatch.domain.errors import ValidationFailed
 
 
 def test_the_work_kinds_are_named_as_the_spec_names_them() -> None:

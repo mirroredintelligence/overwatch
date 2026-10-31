@@ -9,8 +9,8 @@ from typing import Any
 import pytest
 from azure.monitor.query import LogsQueryPartialResult
 
-from diucs.adapters.outbound.telemetry.sdk_logs_client import SdkLogsQueryClient
-from diucs.application.ports.outbound.telemetry_query import TelemetryUnavailable
+from overwatch.adapters.outbound.telemetry.sdk_logs_client import SdkLogsQueryClient
+from overwatch.application.ports.outbound.telemetry_query import TelemetryUnavailable
 
 WORKSPACE = "00000000-0000-0000-0000-000000000000"
 START = datetime(2026, 10, 28, 9, 0, tzinfo=UTC)

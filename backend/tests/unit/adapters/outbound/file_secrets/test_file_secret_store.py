@@ -11,10 +11,10 @@ from pathlib import Path
 
 import pytest
 
-from diucs.adapters.outbound.file_secrets import FileSecretStore, SecretsDirectoryError
-from diucs.adapters.outbound.keyvault_secrets import vault_secret_name
-from diucs.application.ports.outbound.tokens import SecretStore, SecretStoreUnavailable
-from diucs.domain.errors import NotFound
+from overwatch.adapters.outbound.file_secrets import FileSecretStore, SecretsDirectoryError
+from overwatch.adapters.outbound.keyvault_secrets import vault_secret_name
+from overwatch.application.ports.outbound.tokens import SecretStore, SecretStoreUnavailable
+from overwatch.domain.errors import NotFound
 
 CANARY = "FILE-secret-canary-3d9a1c"
 

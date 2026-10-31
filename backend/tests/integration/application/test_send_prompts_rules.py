@@ -19,12 +19,12 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases import send_prompts
-from diucs.application.use_cases.send_prompts import RACED_MESSAGE
-from diucs.domain.codes import Cadence
-from diucs.domain.errors import Conflict, ValidationFailed
-from diucs.domain.messages.catalogue import MessageId
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases import send_prompts
+from overwatch.application.use_cases.send_prompts import RACED_MESSAGE
+from overwatch.domain.codes import Cadence
+from overwatch.domain.errors import Conflict, ValidationFailed
+from overwatch.domain.messages.catalogue import MessageId
 from tests.integration.application.test_send_prompts import (
     _command,
     _counts,

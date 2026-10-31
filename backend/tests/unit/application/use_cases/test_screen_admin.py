@@ -10,15 +10,15 @@ from datetime import timedelta
 
 import pytest
 
-from diucs.application.actor import Actor
-from diucs.application.use_cases.screen_admin import (
+from overwatch.application.actor import Actor
+from overwatch.application.use_cases.screen_admin import (
     ListWallScreens,
     RevokeWallScreen,
     RevokeWallScreenCommand,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotAllowed, NotFound
-from diucs.domain.model.device import (
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotAllowed, NotFound
+from overwatch.domain.model.device import (
     REVOKED_LISTED_FOR,
     BoardScope,
     Device,

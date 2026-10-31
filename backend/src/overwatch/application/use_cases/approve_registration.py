@@ -22,16 +22,16 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Any, Final
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.identity import PhoneHasher
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.outbox import outbox_message_for
-from diucs.application.ports.outbound.sealing import ContentSealer
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.scheduling import schedule_work
-from diucs.application.sealed_send import queue_message
-from diucs.application.use_cases.review_registration import (
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.identity import PhoneHasher
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.outbox import outbox_message_for
+from overwatch.application.ports.outbound.sealing import ContentSealer
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.scheduling import schedule_work
+from overwatch.application.sealed_send import queue_message
+from overwatch.application.use_cases.review_registration import (
     AreaDistrictsFor,
     _audit,
     _checks_of,
@@ -43,23 +43,23 @@ from diucs.application.use_cases.review_registration import (
     _tenant_scope,
     check_may_review,
 )
-from diucs.application.work import WorkKind
-from diucs.domain.codes import Channel, RegistrationStatus
-from diucs.domain.errors import InvalidTransition, NotAllowed, NotFound
-from diucs.domain.events import RegistrationApproved
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.messages.templates import render
-from diucs.domain.model.registration import Registration
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY
-from diucs.domain.rules.registration import approve_registration, transition_registration
-from diucs.domain.rules.registration_approval import (
+from overwatch.application.work import WorkKind
+from overwatch.domain.codes import Channel, RegistrationStatus
+from overwatch.domain.errors import InvalidTransition, NotAllowed, NotFound
+from overwatch.domain.events import RegistrationApproved
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.messages.templates import render
+from overwatch.domain.model.registration import Registration
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY
+from overwatch.domain.rules.registration import approve_registration, transition_registration
+from overwatch.domain.rules.registration_approval import (
     answers_the_test,
     check_note,
     may_set_live,
     require_distinct_approver,
 )
-from diucs.domain.rules.registration_record import RECORD_STEP, RecordedStep, registration_steps
-from diucs.domain.rules.schedule import next_due
+from overwatch.domain.rules.registration_record import RECORD_STEP, RecordedStep, registration_steps
+from overwatch.domain.rules.schedule import next_due
 
 NO_REGISTRATION: Final = "no registration with this id"
 NO_SERVICE: Final = "no service with this id"

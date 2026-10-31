@@ -15,25 +15,25 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.inbound.workers.consumer import Outcome
-from diucs.adapters.inbound.workers.outbox_relay import StaticTenants
-from diucs.adapters.inbound.workers.reply_processor import reply_consumer, reply_key
-from diucs.adapters.inbound.workers.servicebus_runner import ServiceBusRunner
-from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
-from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.application.ports.outbound.messaging import Communication
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import current_scope_or_none
-from diucs.application.use_cases.confirm_capacity import ConfirmCapacity
-from diucs.application.use_cases.handle_inbound_text import (
+from overwatch.adapters.inbound.workers.consumer import Outcome
+from overwatch.adapters.inbound.workers.outbox_relay import StaticTenants
+from overwatch.adapters.inbound.workers.reply_processor import reply_consumer, reply_key
+from overwatch.adapters.inbound.workers.servicebus_runner import ServiceBusRunner
+from overwatch.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
+from overwatch.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.application.ports.outbound.messaging import Communication
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import current_scope_or_none
+from overwatch.application.use_cases.confirm_capacity import ConfirmCapacity
+from overwatch.application.use_cases.handle_inbound_text import (
     HandleInboundText,
     HandleInboundTextCommand,
 )
-from diucs.application.use_cases.report_capacity import ReportCapacity
-from diucs.domain.codes import (
+from overwatch.application.use_cases.report_capacity import ReportCapacity
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     Measure,
@@ -42,10 +42,10 @@ from diucs.domain.codes import (
     ReportType,
     ServiceCategory,
 )
-from diucs.domain.errors import Conflict, ValidationFailed
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.errors import Conflict, ValidationFailed
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.inbound_rig import (
     PHONE,
     RECEIVED_AT,
@@ -238,7 +238,7 @@ async def _seed_world(factory: UnitOfWorkFactory, driver: AsyncDriver) -> None:
                 channel=Channel.TEXT,
                 recipient_role_id="role-west",
                 about_id="ucr-west",
-                payload_text="DIUCS: UCR West. We have 3 referrals in the next 2 hrs.",
+                payload_text="Overwatch: UCR West. We have 3 referrals in the next 2 hrs.",
                 sent_at=bst(10, 0),
                 delivery_status="sent",
             )

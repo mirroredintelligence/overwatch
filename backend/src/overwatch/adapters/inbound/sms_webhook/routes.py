@@ -42,16 +42,16 @@ from urllib.parse import parse_qsl
 
 from fastapi import APIRouter, Request, Response
 
-from diucs.adapters.outbound.sms_twilio.twilio_sms import parse_status_callback
-from diucs.application.ports.outbound.cache import Cache
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.event_bus import BusMessage, EventBus
-from diucs.application.ports.outbound.identity import PhoneHasher
-from diucs.application.ports.outbound.tenant_lines import InboundLine, InboundLineDirectory
-from diucs.application.ports.outbound.tokens import SecretStore
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import ScopeId, ScopeInvalid, bind_tenant, current_tenant
-from diucs.domain.errors import Conflict, NotFound, ValidationFailed
+from overwatch.adapters.outbound.sms_twilio.twilio_sms import parse_status_callback
+from overwatch.application.ports.outbound.cache import Cache
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.event_bus import BusMessage, EventBus
+from overwatch.application.ports.outbound.identity import PhoneHasher
+from overwatch.application.ports.outbound.tenant_lines import InboundLine, InboundLineDirectory
+from overwatch.application.ports.outbound.tokens import SecretStore
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeId, ScopeInvalid, bind_tenant, current_tenant
+from overwatch.domain.errors import Conflict, NotFound, ValidationFailed
 
 log = logging.getLogger(__name__)
 

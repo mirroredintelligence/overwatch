@@ -5,13 +5,13 @@ from datetime import date
 
 import pytest
 
-from diucs.adapters.outbound.graph_store.criteria_repository import (
+from overwatch.adapters.outbound.graph_store.criteria_repository import (
     criteria_from_fhir,
     criteria_to_fhir,
 )
-from diucs.domain.codes import CriteriaStatus, NeedCategory
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.criteria import ServiceCriteria
+from overwatch.domain.codes import CriteriaStatus, NeedCategory
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.criteria import ServiceCriteria
 
 
 def _criteria(review_months: int | None) -> ServiceCriteria:

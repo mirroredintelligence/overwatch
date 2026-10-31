@@ -70,34 +70,34 @@ from fastapi import APIRouter, Depends, Path, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, ConfigDict
 
-from diucs.adapters.inbound.fhir_rest.app import get_container
-from diucs.adapters.inbound.fhir_rest.auth import require_role
-from diucs.adapters.inbound.fhir_rest.concurrency import (
+from overwatch.adapters.inbound.fhir_rest.app import get_container
+from overwatch.adapters.inbound.fhir_rest.auth import require_role
+from overwatch.adapters.inbound.fhir_rest.concurrency import (
     etag_for,
     idempotency_key,
     replay_or_run,
     require_if_match,
 )
-from diucs.adapters.inbound.fhir_rest.errors import (
+from overwatch.adapters.inbound.fhir_rest.errors import (
     NOT_FOUND_TEXT,
     PreconditionFailed,
     operation_outcome,
 )
-from diucs.adapters.inbound.fhir_rest.routes_network import network_services
-from diucs.adapters.inbound.fhir_rest.routes_network_events import open_wall_network_events
-from diucs.application.actor import Actor
-from diucs.application.edge_tenant import resolve_active_tenant
-from diucs.application.idempotency import format_instant
-from diucs.application.ports.outbound.cache import Cache
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.identity import DEVICE_TOKEN_SECRET, secret_is_configured
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.tenants import TenantDirectory
-from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET, SecretStore
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import bind_tenant
-from diucs.application.use_cases.network_board_projector import network_board_to_dict
-from diucs.application.use_cases.pair_wall_screen import (
+from overwatch.adapters.inbound.fhir_rest.routes_network import network_services
+from overwatch.adapters.inbound.fhir_rest.routes_network_events import open_wall_network_events
+from overwatch.application.actor import Actor
+from overwatch.application.edge_tenant import resolve_active_tenant
+from overwatch.application.idempotency import format_instant
+from overwatch.application.ports.outbound.cache import Cache
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.identity import DEVICE_TOKEN_SECRET, secret_is_configured
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.tenants import TenantDirectory
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET, SecretStore
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import bind_tenant
+from overwatch.application.use_cases.network_board_projector import network_board_to_dict
+from overwatch.application.use_cases.pair_wall_screen import (
     LIMIT_WINDOW,
     RATE_LIMITED_MESSAGE,
     AttemptLimiter,
@@ -109,12 +109,12 @@ from diucs.application.use_cases.pair_wall_screen import (
     PreviewPairing,
     StartPairing,
 )
-from diucs.application.use_cases.screen_admin import (
+from overwatch.application.use_cases.screen_admin import (
     ListWallScreens,
     RevokeWallScreen,
     RevokeWallScreenCommand,
 )
-from diucs.application.use_cases.wall_board_scope import (
+from overwatch.application.use_cases.wall_board_scope import (
     ADMIN_ROLES,
     FALLBACK_REASON,
     ListScreens,
@@ -124,9 +124,9 @@ from diucs.application.use_cases.wall_board_scope import (
     SetBoardScopeCommand,
     SetScreenBoardScope,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotAllowed
-from diucs.domain.model.device import BoardScope
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotAllowed
+from overwatch.domain.model.device import BoardScope
 
 log = logging.getLogger(__name__)
 

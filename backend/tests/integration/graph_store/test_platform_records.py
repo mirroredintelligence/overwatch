@@ -28,24 +28,24 @@ import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 from neo4j.exceptions import ConstraintError
 
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.invariants import Neo4jTenantInvariants
-from diucs.adapters.outbound.graph_store.platform_audit import (
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.invariants import Neo4jTenantInvariants
+from overwatch.adapters.outbound.graph_store.platform_audit import (
     GENESIS_SCOPE,
     Neo4jPlatformAudit,
     entry_json,
 )
-from diucs.adapters.outbound.graph_store.queries import REGISTRY
-from diucs.adapters.outbound.graph_store.support_ticket_store import (
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY
+from overwatch.adapters.outbound.graph_store.support_ticket_store import (
     Neo4jSupportTickets,
     ticket_properties,
 )
-from diucs.adapters.outbound.graph_store.tenant_registry import Neo4jTenantRegistry
-from diucs.application.ports.outbound.audit import chain_hash_over, genesis_hash_for
-from diucs.application.ports.outbound.platform_audit import PlatformAuditEntry
-from diucs.domain.errors import Conflict
-from diucs.domain.model.tenant import OrganisationType, Tenant, TenantStatus
-from diucs.domain.rules.support_ticket import (
+from overwatch.adapters.outbound.graph_store.tenant_registry import Neo4jTenantRegistry
+from overwatch.application.ports.outbound.audit import chain_hash_over, genesis_hash_for
+from overwatch.application.ports.outbound.platform_audit import PlatformAuditEntry
+from overwatch.domain.errors import Conflict
+from overwatch.domain.model.tenant import OrganisationType, Tenant, TenantStatus
+from overwatch.domain.rules.support_ticket import (
     EndedBy,
     ReasonCode,
     SupportTicket,

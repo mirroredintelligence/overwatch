@@ -10,9 +10,9 @@ from datetime import datetime
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.person_repository import Neo4jPersonRepository
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.domain.errors import ValidationFailed
+from overwatch.adapters.outbound.graph_store.person_repository import Neo4jPersonRepository
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.domain.errors import ValidationFailed
 from tests.support.neo4j import read_tx
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")

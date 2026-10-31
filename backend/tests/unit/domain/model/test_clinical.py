@@ -4,9 +4,9 @@ from datetime import UTC, datetime
 
 import pytest
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.clinical import ClinicalAdvice, ClinicalRequestRecord
-from diucs.domain.rules.clinical_queue import ClinicalRequest, give_advice, take
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.clinical import ClinicalAdvice, ClinicalRequestRecord
+from overwatch.domain.rules.clinical_queue import ClinicalRequest, give_advice, take
 
 REQUESTED = datetime(2026, 10, 25, 13, 13, tzinfo=UTC)
 TAKEN = datetime(2026, 10, 25, 13, 14, tzinfo=UTC)

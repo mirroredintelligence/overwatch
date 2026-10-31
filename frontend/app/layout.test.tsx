@@ -44,7 +44,7 @@ describe('root layout', () => {
 // their own; the organisation's own name, when the host has a profile, comes from the profile.
 describe('root layout metadata (TEN-045, TEN-049)', () => {
   beforeEach(() => {
-    vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
+    vi.stubEnv('OVERWATCH_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
     resetCookieWrites();
     resetProfileCache();
   });

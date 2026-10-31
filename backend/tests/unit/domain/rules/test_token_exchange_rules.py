@@ -15,17 +15,17 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from diucs.domain.codes import Role
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.network import ACCOUNT_REF_PATTERN
-from diucs.domain.model.tenant import SuspendMode, TenantStatus
-from diucs.domain.model.tenant_records import (
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.network import ACCOUNT_REF_PATTERN
+from overwatch.domain.model.tenant import SuspendMode, TenantStatus
+from overwatch.domain.model.tenant_records import (
     BindingStatus,
     EntraBinding,
     MappingStatus,
     RoleMapping,
 )
-from diucs.domain.rules.token_exchange import (
+from overwatch.domain.rules.token_exchange import (
     OPERATOR_ROLE_CLAIMS,
     OPERATOR_TOKEN_LIFETIME,
     STAFF_ROLE_PRIORITY,
@@ -170,31 +170,33 @@ def test_the_staff_priority_lists_the_administration_roles_first_and_no_platform
 
 def test_the_operator_claims_name_two_platform_roles() -> None:
     assert dict(OPERATOR_ROLE_CLAIMS) == {
-        "DIUCS.PlatformOperator": Role.PLATFORM_OPERATOR,
-        "DIUCS.Support": Role.SUPPORT,
+        "Overwatch.PlatformOperator": Role.PLATFORM_OPERATOR,
+        "Overwatch.Support": Role.SUPPORT,
     }
 
 
 def test_an_operator_role_comes_from_the_operators_own_app_roles() -> None:
-    assert operator_role(["DIUCS.Support"]) is Role.SUPPORT
-    assert operator_role(["DIUCS.PlatformOperator"]) is Role.PLATFORM_OPERATOR
+    assert operator_role(["Overwatch.Support"]) is Role.SUPPORT
+    assert operator_role(["Overwatch.PlatformOperator"]) is Role.PLATFORM_OPERATOR
 
 
 def test_a_person_with_both_operator_roles_is_the_platform_operator_who_has_no_data_access() -> (
     None
 ):
-    assert operator_role(["DIUCS.Support", "DIUCS.PlatformOperator"]) is Role.PLATFORM_OPERATOR
+    assert (
+        operator_role(["Overwatch.Support", "Overwatch.PlatformOperator"]) is Role.PLATFORM_OPERATOR
+    )
 
 
 @pytest.mark.parametrize(
     "claims",
     [
         [],
-        ["DIUCS.Advisor"],
-        ["DIUCS.Lead"],
+        ["Overwatch.Advisor"],
+        ["Overwatch.Lead"],
         ["support"],
-        ["diucs.support"],
-        ["DIUCS.Support "],
+        ["overwatch.support"],
+        ["Overwatch.Support "],
         [""],
     ],
 )
@@ -203,7 +205,7 @@ def test_an_app_role_that_is_not_an_operator_claim_gives_no_role(claims: list[st
 
 
 def test_an_operator_claim_that_is_not_text_is_ignored() -> None:
-    assert operator_role([7, None, ("DIUCS.Support",)]) is None  # type: ignore[list-item]
+    assert operator_role([7, None, ("Overwatch.Support",)]) is None  # type: ignore[list-item]
 
 
 # ----------------------------------------------------------------------- the bound directory

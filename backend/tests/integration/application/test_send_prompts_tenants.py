@@ -31,26 +31,26 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
-from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.actor import Actor, system_actor
-from diucs.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import ScopeId, TenantMismatch, TenantNotBound
-from diucs.application.use_cases.send_prompts import SendPromptCommand, SendPrompts, prompt_key
-from diucs.application.use_cases.tenant_config import (
+from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from overwatch.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.actor import Actor, system_actor
+from overwatch.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeId, TenantMismatch, TenantNotBound
+from overwatch.application.use_cases.send_prompts import SendPromptCommand, SendPrompts, prompt_key
+from overwatch.application.use_cases.tenant_config import (
     ApproveConfigCommand,
     ApproveTenantConfig,
     DraftConfigCommand,
     DraftTenantConfig,
 )
-from diucs.application.work import WorkKind
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotFound, ValidationFailed
-from diucs.domain.model.service import AvailableTime
+from overwatch.application.work import WorkKind
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotFound, ValidationFailed
+from overwatch.domain.model.service import AvailableTime
 from tests.support.ladder_rig import (
     PHONE_HASH_1,
     SECRET,

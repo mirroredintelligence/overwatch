@@ -15,17 +15,17 @@ from neo4j import AsyncDriver, AsyncManagedTransaction
 from neo4j.exceptions import ClientError, ConstraintError
 from neo4j.time import DateTime
 
-from diucs.adapters.outbound.graph_store.credential_store import (
+from overwatch.adapters.outbound.graph_store.credential_store import (
     Neo4jDeviceRegistry,
     Neo4jPinStore,
 )
-from diucs.adapters.outbound.graph_store.migrations import apply_migrations
-from diucs.adapters.outbound.graph_store.person_repository import Neo4jPersonRepository
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.application.tenancy import current_tenant
-from diucs.domain.errors import Conflict, NotFound, ValidationFailed
-from diucs.domain.model.people import Practitioner
-from diucs.domain.rules.identity_policy import PinOutcome, PinState, pin_attempt
+from overwatch.adapters.outbound.graph_store.migrations import apply_migrations
+from overwatch.adapters.outbound.graph_store.person_repository import Neo4jPersonRepository
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.application.tenancy import current_tenant
+from overwatch.domain.errors import Conflict, NotFound, ValidationFailed
+from overwatch.domain.model.people import Practitioner
+from overwatch.domain.rules.identity_policy import PinOutcome, PinState, pin_attempt
 from tests.support.neo4j import count_nodes, node_props, read_tx, run_nodes, write_tx
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")

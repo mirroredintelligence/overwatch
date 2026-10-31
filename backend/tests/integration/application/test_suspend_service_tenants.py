@@ -9,19 +9,19 @@ uow_factory_b fixtures of tests/conftest.py).
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
-from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.suspend_service import (
+from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from overwatch.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.suspend_service import (
     ResumeService,
     ResumeServiceCommand,
     SuspendService,
     SuspendServiceCommand,
 )
-from diucs.domain.errors import NotFound
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY
+from overwatch.domain.errors import NotFound
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY
 from tests.integration.application.test_suspend_service import sample_wording, seed_east
 from tests.support.booking_rig import LEAD, SECRETS, at
 from tests.support.neo4j import count_nodes

@@ -12,9 +12,9 @@ import json
 from pathlib import Path
 from typing import Any, Final
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.scores import PATHWAYS_DX_PATTERN
-from diucs.domain.rules.code_search import search_codes
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.scores import PATHWAYS_DX_PATTERN
+from overwatch.domain.rules.code_search import search_codes
 
 NOTICE_KEY: Final = "notice"
 CODES_KEY: Final = "codes"

@@ -16,8 +16,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Final, Protocol
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.tenant import Tenant, check_tenant_id
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.tenant import Tenant, check_tenant_id
 
 SECRET_REF_MESSAGE: Final = "is not a valid secret reference"
 

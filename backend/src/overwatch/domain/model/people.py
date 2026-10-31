@@ -18,8 +18,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Final
 
-from diucs.domain.codes import Channel, PractitionerRoleCode
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.codes import Channel, PractitionerRoleCode
+from overwatch.domain.errors import ValidationFailed
 
 REPORTER_ROLE_CODES: frozenset[PractitionerRoleCode] = frozenset(
     {PractitionerRoleCode.DUTY_MANAGER, PractitionerRoleCode.COORDINATOR}

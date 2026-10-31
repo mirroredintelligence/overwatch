@@ -9,9 +9,9 @@ composes them differently:
 - The review's area comes from `bootstrap/areas.py` through `Container.area_districts_for` (U28).
 """
 
-from diucs.application.use_cases.registration_draft import SubmitRegistration
-from diucs.application.use_cases.registration_submit import PersistRegistration
-from diucs.bootstrap.container import Container
+from overwatch.application.use_cases.registration_draft import SubmitRegistration
+from overwatch.application.use_cases.registration_submit import PersistRegistration
+from overwatch.bootstrap.container import Container
 
 
 def submit_registration(container: Container) -> SubmitRegistration:

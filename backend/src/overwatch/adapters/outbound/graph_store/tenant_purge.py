@@ -24,10 +24,10 @@ from typing import Any, Final
 
 from neo4j.time import Date, DateTime, Duration, Time
 
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.driver import run_query
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.adapters.outbound.graph_store.scenario import (
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.driver import run_query
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from overwatch.adapters.outbound.graph_store.scenario import (
     Expect,
     Marked,
     Scenario,
@@ -35,13 +35,13 @@ from diucs.adapters.outbound.graph_store.scenario import (
     SeedRel,
     TenantSeed,
 )
-from diucs.application.ports.outbound.tenant_export import (
+from overwatch.application.ports.outbound.tenant_export import (
     AuditHeadState,
     ExportedNode,
     ExportedRelationship,
     LabelCount,
 )
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.errors import ValidationFailed
 
 BATCH_MAX: Final = 5000
 # The nodes that make up an audit chain: the head, the links and what they point at.

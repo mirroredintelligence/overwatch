@@ -10,10 +10,10 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.application.tenancy import bind_tenant
-from diucs.application.use_cases.pair_wall_screen import AttemptLimiter, normalise_code
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.application.tenancy import bind_tenant
+from overwatch.application.use_cases.pair_wall_screen import AttemptLimiter, normalise_code
 
 
 @pytest.fixture(autouse=True)

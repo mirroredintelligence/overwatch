@@ -13,9 +13,9 @@ from typing import Any, Final, Literal
 
 from neo4j.exceptions import ConstraintError
 
-from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.adapters.outbound.graph_store.scenario import (
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx, run_query
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from overwatch.adapters.outbound.graph_store.scenario import (
     Expect,
     Marked,
     NodeSpec,
@@ -24,8 +24,8 @@ from diucs.adapters.outbound.graph_store.scenario import (
     TenantSeed,
     Unique,
 )
-from diucs.domain.errors import Conflict, ValidationFailed
-from diucs.domain.rules.tokens import LinkTokenRecord, check_phone_hash
+from overwatch.domain.errors import Conflict, ValidationFailed
+from overwatch.domain.rules.tokens import LinkTokenRecord, check_phone_hash
 
 # Scenarios (DEC-142 item 5, DEC-167 item 2). Both tenants hold a link with the same id, phone hash,
 # prompt id and times; the purpose and the burn key differ (`Marked`), so a row that came from the

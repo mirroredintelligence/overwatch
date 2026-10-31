@@ -12,8 +12,8 @@ from typing import Any
 
 from neo4j import AsyncManagedTransaction, AsyncTransaction
 
-from diucs.adapters.outbound.graph_store.driver import ScopedTx
-from diucs.application.tenancy import current_scope_or_none
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx
+from overwatch.application.tenancy import current_scope_or_none
 
 
 class OpenTx(ScopedTx):
@@ -43,6 +43,6 @@ def scoped(tx: AsyncManagedTransaction | AsyncTransaction) -> Any:
 def scoped_stub(tx: object, tenant: str) -> Any:
     """A recording double of a transaction, carried on a `ScopedTx` for `tenant`: what a unit of
     work hands a repository. The double records what reaches it."""
-    from diucs.application.tenancy import ScopeId
+    from overwatch.application.tenancy import ScopeId
 
     return ScopedTx(tx, ScopeId.tenant(tenant))  # type: ignore[arg-type]

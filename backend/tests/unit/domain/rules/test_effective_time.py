@@ -12,7 +12,7 @@ from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 
-from diucs.domain.rules.effective_time import (
+from overwatch.domain.rules.effective_time import (
     ONE_MICROSECOND,
     default_effective_at,
     is_later_than_latest,

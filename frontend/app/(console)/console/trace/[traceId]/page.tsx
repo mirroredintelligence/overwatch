@@ -7,7 +7,7 @@ import { formatMs, QUERY_BUDGET_MS, slowestSpan, type SpanView } from '@/lib/con
 import { FhirError } from '@/lib/fhir/client';
 
 export const metadata: Metadata = {
-  title: 'DIUCS console: trace',
+  title: 'Overwatch console: trace',
 };
 
 export const dynamic = 'force-dynamic';

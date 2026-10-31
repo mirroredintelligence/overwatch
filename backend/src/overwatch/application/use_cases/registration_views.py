@@ -25,36 +25,42 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from typing import Any, Final
 
-from diucs.application.actor import Actor
-from diucs.application.idempotency import format_instant, parse_instant
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.sealing import ContentSealer
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.sealed_send import queue_message
-from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound
-from diucs.application.use_cases.registration_draft import (
+from overwatch.application.actor import Actor
+from overwatch.application.idempotency import format_instant, parse_instant
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.sealing import ContentSealer
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.sealed_send import queue_message
+from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound
+from overwatch.application.use_cases.registration_draft import (
     _check_applicant,
     encode_step,
     read_draft,
     validate_step,
     with_protected_contacts,
 )
-from diucs.application.use_cases.registration_session import number_ending, reporter_services
-from diucs.application.use_cases.review_registration import (
+from overwatch.application.use_cases.registration_session import number_ending, reporter_services
+from overwatch.application.use_cases.review_registration import (
     AutomaticCheck,
     GetReviewStatus,
     GetReviewStatusQuery,
     check_may_review,
 )
-from diucs.application.work import SCHEDULED, WorkKind
-from diucs.domain.codes import Channel, RegistrationStatus, Role
-from diucs.domain.errors import Conflict, InvalidTransition, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.messages.templates import render
-from diucs.domain.model.registration import Registration
-from diucs.domain.rules.registration import (
+from overwatch.application.work import SCHEDULED, WorkKind
+from overwatch.domain.codes import Channel, RegistrationStatus, Role
+from overwatch.domain.errors import (
+    Conflict,
+    InvalidTransition,
+    NotAllowed,
+    NotFound,
+    ValidationFailed,
+)
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.messages.templates import render
+from overwatch.domain.model.registration import Registration
+from overwatch.domain.rules.registration import (
     INVITATION_VALID_FOR,
     ApprovalChecks,
     missing_for_approval,

@@ -11,12 +11,12 @@ import pytest
 import pytest_asyncio
 from httpx import AsyncClient
 
-from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.domain.codes import Role
-from diucs.domain.model.tenant import ContactKind, TenantContact
+from overwatch.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.tokens import TEST_BFF_SECRET
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.domain.codes import Role
+from overwatch.domain.model.tenant import ContactKind, TenantContact
 from tests.support.api import token_headers
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")

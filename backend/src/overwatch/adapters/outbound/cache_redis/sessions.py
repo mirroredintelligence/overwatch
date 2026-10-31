@@ -25,10 +25,10 @@ from typing import Final, cast
 from redis.asyncio import Redis
 from redis.asyncio.client import Pipeline
 
-from diucs.adapters.outbound.cache_redis.redis_cache import ROOT
-from diucs.adapters.outbound.cache_redis.tenant_keys import millis, tenant_prefix
-from diucs.application.ports.outbound.identity import ReporterSession, SessionEpochChanged
-from diucs.domain.codes import Role
+from overwatch.adapters.outbound.cache_redis.redis_cache import ROOT
+from overwatch.adapters.outbound.cache_redis.tenant_keys import millis, tenant_prefix
+from overwatch.application.ports.outbound.identity import ReporterSession, SessionEpochChanged
+from overwatch.domain.codes import Role
 
 # [ASSUMED] Sliding lifetime of a reporter session (I13 prompt: 12 hours). A named constant so the
 # owner can change it without touching logic.

@@ -12,10 +12,10 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from diucs.domain.model.service import AvailableTime
-from diucs.domain.rules.london_time import local_to_utc
-from diucs.domain.rules.opening_hours import is_in_hours
-from diucs.domain.rules.prompt_hours import ONE_TICK, is_due_time_in_hours
+from overwatch.domain.model.service import AvailableTime
+from overwatch.domain.rules.london_time import local_to_utc
+from overwatch.domain.rules.opening_hours import is_in_hours
+from overwatch.domain.rules.prompt_hours import ONE_TICK, is_due_time_in_hours
 
 DAY = date(2026, 10, 23)  # a Friday, BST
 DAYTIME = (AvailableTime.every_day(time(8, 0), time(20, 0)),)

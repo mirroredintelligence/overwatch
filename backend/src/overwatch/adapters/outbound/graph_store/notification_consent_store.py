@@ -3,7 +3,7 @@ resource store (G05) inside the caller's unit of work.
 
 The shape (R4B accepts it without a patient, DEC-340): status `active` or `inactive`; `dateTime`
 the instant the person chose; `performer` the Practitioner; `sourceReference` the Device the consent
-is for; `category` the DIUCS code `notification`; `scope` patient-privacy, the closest R4B scope
+is for; `category` the Overwatch code `notification`; `scope` patient-privacy, the closest R4B scope
 value; `policyRule` a coding whose code is the wording version the person saw. Nothing else: no
 name, telephone, postcode or subscription text (the subscription stays on the Device, P19).
 
@@ -14,16 +14,20 @@ import re
 from datetime import UTC, datetime
 from typing import Any, Final
 
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.application.ports.outbound.consent import NotificationConsent
-from diucs.domain.errors import ValidationFailed
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.application.ports.outbound.consent import NotificationConsent
+from overwatch.domain.errors import ValidationFailed
 
 CONSENT: Final = "Consent"
 CONSENT_CATEGORY_CODE: Final = "notification"
-CONSENT_CATEGORY_SYSTEM: Final = "https://diucs.example/CodeSystem/consent-category"
+CONSENT_CATEGORY_SYSTEM: Final = (
+    "https://overwatch.mirroredintelligence.com/CodeSystem/consent-category"
+)
 CONSENT_SCOPE_CODE: Final = "patient-privacy"
 CONSENT_SCOPE_SYSTEM: Final = "http://terminology.hl7.org/CodeSystem/consentscope"
-CONSENT_WORDING_SYSTEM: Final = "https://diucs.example/CodeSystem/consent-wording"
+CONSENT_WORDING_SYSTEM: Final = (
+    "https://overwatch.mirroredintelligence.com/CodeSystem/consent-wording"
+)
 ACTIVE: Final = "active"
 INACTIVE: Final = "inactive"
 _FHIR_ID: Final = re.compile(r"[A-Za-z0-9\-.]{1,64}")

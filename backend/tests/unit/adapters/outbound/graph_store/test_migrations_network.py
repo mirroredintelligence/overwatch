@@ -4,12 +4,12 @@ idempotent, registry labels only, ids in the block 0110 to 0129 given to build w
 
 import re
 
-from diucs.adapters.outbound.graph_store.migrations import MIGRATIONS
-from diucs.adapters.outbound.graph_store.migrations_network import (
+from overwatch.adapters.outbound.graph_store.migrations import MIGRATIONS
+from overwatch.adapters.outbound.graph_store.migrations_network import (
     NETWORK_MIGRATIONS,
     NETWORK_REGISTRY_CONSTRAINTS,
 )
-from diucs.adapters.outbound.graph_store.migrations_tenant import REGISTRY_LABELS
+from overwatch.adapters.outbound.graph_store.migrations_tenant import REGISTRY_LABELS
 
 IDS = ["0110_network_registry"]
 BLOCK = range(110, 130)

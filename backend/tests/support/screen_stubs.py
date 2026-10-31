@@ -8,7 +8,7 @@ the integration tests'. Values are synthetic.
 from dataclasses import replace
 from datetime import datetime, timedelta
 
-from diucs.domain.model.device import Device, DeviceStatus
+from overwatch.domain.model.device import Device, DeviceStatus
 from tests.support.w7b_rig import W7BDevices
 
 

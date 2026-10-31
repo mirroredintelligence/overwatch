@@ -14,22 +14,22 @@ from typing import Any
 import httpx
 import pytest
 
-from diucs.adapters.inbound.workers.message_senders import (
+from overwatch.adapters.inbound.workers.message_senders import (
     MESSAGES_TOPIC,
     NO_CHANNEL,
     SEND_MESSAGE_EVENT,
 )
-from diucs.adapters.inbound.workers.outbox_relay import StaticTenants
-from diucs.adapters.outbound.email_smtp.smtp_email import SmtpRelay
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.ports.outbound.messaging import Communication
-from diucs.application.ports.outbound.tenants import secret_ref
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.bootstrap.tenant_senders import TenantSenderResolver
-from diucs.domain.codes import Channel
-from diucs.domain.model.tenant import NumberStatus
-from diucs.domain.model.tenant_records import ChannelKind, ChannelProvider, TenantChannel
+from overwatch.adapters.inbound.workers.outbox_relay import StaticTenants
+from overwatch.adapters.outbound.email_smtp.smtp_email import SmtpRelay
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.ports.outbound.messaging import Communication
+from overwatch.application.ports.outbound.tenants import secret_ref
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.bootstrap.tenant_senders import TenantSenderResolver
+from overwatch.domain.codes import Channel
+from overwatch.domain.model.tenant import NumberStatus
+from overwatch.domain.model.tenant_records import ChannelKind, ChannelProvider, TenantChannel
 from tests.integration.adapters.inbound.workers.test_message_senders import (
     EMAIL,
     HTML,
@@ -156,7 +156,7 @@ def _resolver(tenant: str, other: str) -> TenantSenderResolver:
         None,  # type: ignore[arg-type]  # the directory is not asked for email
         secrets,
         http,
-        "https://diucs.example/webhooks/sms/twilio/status",
+        "https://overwatch.mirroredintelligence.com/webhooks/sms/twilio/status",
         smtp_relay=RELAY,
     )
 

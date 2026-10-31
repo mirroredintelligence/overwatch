@@ -14,8 +14,8 @@ O01 acceptance tests use; the SDK marks it deprecated, so both are emitted for N
 
 from typing import Final
 
-SERVICE_NAME: Final = "diucs-backend"
-INSTRUMENTATION_NAME: Final = "diucs"
+SERVICE_NAME: Final = "overwatch-backend"
+INSTRUMENTATION_NAME: Final = "overwatch"
 NEO4J_SYSTEM: Final = "neo4j"
 
 SPAN_NEO4J_QUERY: Final = "neo4j.query {query_id}"

@@ -20,10 +20,10 @@ screens read the outputs.
 
 from typing import Any, Final
 
-from diucs.application.idempotency import format_instant
-from diucs.application.use_cases.clinical_advice import ClinicalRequestView
-from diucs.application.use_cases.clinical_context import AdvisorContact, WhatAdvisorSaw
-from diucs.domain.codes import code_system_url
+from overwatch.application.idempotency import format_instant
+from overwatch.application.use_cases.clinical_advice import ClinicalRequestView
+from overwatch.application.use_cases.clinical_context import AdvisorContact, WhatAdvisorSaw
+from overwatch.domain.codes import code_system_url
 
 CLINICAL_CODE: Final = "clinical-advice"
 REQUESTED: Final = "requested"

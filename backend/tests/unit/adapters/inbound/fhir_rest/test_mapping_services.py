@@ -15,7 +15,7 @@ import pytest
 from fhir.resources.R4B.bundle import Bundle
 from fhir.resources.R4B.healthcareservice import HealthcareService
 
-from diucs.adapters.inbound.fhir_rest.mapping import (
+from overwatch.adapters.inbound.fhir_rest.mapping import (
     API_SOURCES,
     ReportRequest,
     report_request_from_fhir,
@@ -24,8 +24,8 @@ from diucs.adapters.inbound.fhir_rest.mapping import (
     ucum_unit,
     validate_outbound,
 )
-from diucs.application.actor import Actor
-from diucs.domain.codes import (
+from overwatch.application.actor import Actor
+from overwatch.domain.codes import (
     BASE_URL,
     Cadence,
     Channel,
@@ -35,8 +35,8 @@ from diucs.domain.codes import (
     ServiceCategory,
     code_system_url,
 )
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
 
 KEY = "key-1"
@@ -340,7 +340,11 @@ def test_a_unit_text_and_extra_coding_text_are_allowed_and_not_used() -> None:
     resource["code"]["text"] = "Referrals"
     resource["code"]["coding"][0]["display"] = "Referrals acceptable"
     resource["id"] = "ignored"
-    resource["meta"] = {"profile": ["https://diucs.example/StructureDefinition/capacity-report"]}
+    resource["meta"] = {
+        "profile": [
+            "https://overwatch.mirroredintelligence.com/StructureDefinition/capacity-report"
+        ]
+    }
 
     request = report_request_from_fhir(resource, REPORTER, KEY)
 
@@ -509,7 +513,10 @@ REFUSED: list[tuple[str, Any, str]] = [
     ("a performer", _with([{"reference": "PractitionerRole/x"}], "performer"), "Observation"),
     (
         "a report type",
-        _with([{"url": "https://diucs.example/StructureDefinition/reportType"}], "extension"),
+        _with(
+            [{"url": "https://overwatch.mirroredintelligence.com/StructureDefinition/reportType"}],
+            "extension",
+        ),
         "Observation",
     ),
     ("a component", _with([], "component"), "Observation"),

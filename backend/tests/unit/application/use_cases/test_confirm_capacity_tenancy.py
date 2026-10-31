@@ -13,19 +13,19 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.actor import Actor
-from diucs.application.tenancy import ScopeId, TenantMismatch, TenantNotBound
-from diucs.application.use_cases.confirm_capacity import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.actor import Actor
+from overwatch.application.tenancy import ScopeId, TenantMismatch, TenantNotBound
+from overwatch.application.use_cases.confirm_capacity import (
     ConfirmCapacity,
     ConfirmCapacityCommand,
     _fingerprint,
     check_confirm_limit,
 )
-from diucs.domain.codes import ReportSource, Role
-from diucs.domain.errors import ConfirmLimitReached
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
+from overwatch.domain.codes import ReportSource, Role
+from overwatch.domain.errors import ConfirmLimitReached
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
 from tests.support.tenancy import as_tenant
 
 NOW = datetime(2026, 10, 23, 11, 0, tzinfo=UTC)

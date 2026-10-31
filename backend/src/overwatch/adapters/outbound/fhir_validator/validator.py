@@ -27,8 +27,8 @@ from typing import Any, Final
 from fhir.resources.R4B import get_fhir_model_class
 from pydantic import ValidationError
 
-from diucs.application.ports.outbound.terminology import ValidationIssue, profile_url
-from diucs.domain.codes import (
+from overwatch.application.ports.outbound.terminology import ValidationIssue, profile_url
+from overwatch.domain.codes import (
     BASE_URL,
     AgeBand,
     CriteriaStatus,
@@ -38,7 +38,7 @@ from diucs.domain.codes import (
     code_system_url,
     parse_code,
 )
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.errors import ValidationFailed
 
 UCUM_SYSTEM: Final = "http://unitsofmeasure.org"
 AGE_BAND_EXTENSION: Final = f"{BASE_URL}Extension/age-band"
@@ -245,11 +245,11 @@ class _Profile:
 
 
 PROFILES: Final[tuple[_Profile, ...]] = (
-    _Profile("DiucsCapacityReport", "Observation", True, _capacity),
-    _Profile("DiucsPatientCaseStub", "Patient", True, _case_stub),
-    _Profile("DiucsServiceCriteria", "Basic", False, _criteria),
-    _Profile("DiucsBookingRequest", "Task", True, _booking),
-    _Profile("DiucsHealthcareService", "HealthcareService", True, _service),
+    _Profile("OverwatchCapacityReport", "Observation", True, _capacity),
+    _Profile("OverwatchPatientCaseStub", "Patient", True, _case_stub),
+    _Profile("OverwatchServiceCriteria", "Basic", False, _criteria),
+    _Profile("OverwatchBookingRequest", "Task", True, _booking),
+    _Profile("OverwatchHealthcareService", "HealthcareService", True, _service),
 )
 PROFILE_NAMES: Final[tuple[str, ...]] = tuple(profile.name for profile in PROFILES)
 _BY_URL: Final[Mapping[str, _Profile]] = MappingProxyType(

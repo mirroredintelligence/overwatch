@@ -59,9 +59,9 @@ from fastapi import APIRouter, Depends, Path, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
-from diucs.adapters.inbound.fhir_rest.auth import require_role
-from diucs.application.actor import Actor
-from diucs.application.use_cases.grants import (
+from overwatch.adapters.inbound.fhir_rest.auth import require_role
+from overwatch.application.actor import Actor
+from overwatch.application.use_cases.grants import (
     ApproveGrant,
     ApproveGrantCommand,
     DeclineGrant,
@@ -75,7 +75,7 @@ from diucs.application.use_cases.grants import (
     ReviseGrant,
     ReviseGrantCommand,
 )
-from diucs.application.use_cases.listing_admission import (
+from overwatch.application.use_cases.listing_admission import (
     DecideListing,
     DecideListingCommand,
     ListingDecision,
@@ -84,8 +84,8 @@ from diucs.application.use_cases.listing_admission import (
     RequestListing,
     RequestListingCommand,
 )
-from diucs.application.use_cases.member_sharing import MemberSharingView, QueryMemberSharing
-from diucs.application.use_cases.membership import (
+from overwatch.application.use_cases.member_sharing import MemberSharingView, QueryMemberSharing
+from overwatch.application.use_cases.membership import (
     AcceptMembership,
     AcceptMembershipCommand,
     InviteMember,
@@ -95,7 +95,7 @@ from diucs.application.use_cases.membership import (
     RemoveMember,
     RemoveMemberCommand,
 )
-from diucs.application.use_cases.network_admin import (
+from overwatch.application.use_cases.network_admin import (
     AdminMemberView,
     AdminNetworkView,
     MemberProjectionStatus,
@@ -103,8 +103,8 @@ from diucs.application.use_cases.network_admin import (
     RecordAgreement,
     RecordAgreementCommand,
 )
-from diucs.domain.codes import Role
-from diucs.domain.model.network import GrantScope, ListingReason
+from overwatch.domain.codes import Role
+from overwatch.domain.model.network import GrantScope, ListingReason
 
 # The domain's patterns (kept equal by a test): a network id, and a registry record id.
 NETWORK_ID_PATTERN: Final = r"^net-[a-z0-9][a-z0-9-]{1,26}$"
@@ -320,7 +320,7 @@ def _ok(body: dict[str, Any], status: int = 200) -> JSONResponse:
 
 
 def _enum[E: GrantScope | ListingReason](cls: type[E], value: str | None, field: str) -> E | None:
-    from diucs.domain.errors import ValidationFailed
+    from overwatch.domain.errors import ValidationFailed
 
     if value is None:
         return None

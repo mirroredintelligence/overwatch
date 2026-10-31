@@ -7,7 +7,7 @@ import { server } from '@/test/msw/server';
 import { backendRoot, callLinkApi, LinkApiError, publicReply, readLink } from './server';
 
 beforeEach(() => {
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
 });
 
 describe('backendRoot', () => {
@@ -17,8 +17,8 @@ describe('backendRoot', () => {
   });
 
   it('names the variable, and never its value, when the base URL does not end in /fhir', () => {
-    expect(() => backendRoot('https://api.example.test/other')).toThrow(/DIUCS_FHIR_BASE_URL/);
-    expect(() => backendRoot(undefined)).toThrow(/DIUCS_FHIR_BASE_URL/);
+    expect(() => backendRoot('https://api.example.test/other')).toThrow(/OVERWATCH_FHIR_BASE_URL/);
+    expect(() => backendRoot(undefined)).toThrow(/OVERWATCH_FHIR_BASE_URL/);
     try {
       backendRoot('https://api.example.test/other');
     } catch (error) {

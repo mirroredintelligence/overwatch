@@ -21,26 +21,26 @@ import hashlib
 from dataclasses import dataclass, replace
 from typing import Final, Protocol
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.sealing import ContentSealer
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.sealed_send import queue_message
-from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound
-from diucs.application.use_cases.lead_views import check_lead, ending
-from diucs.application.use_cases.missed_report_ladder import (
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.sealing import ContentSealer
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.sealed_send import queue_message
+from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound
+from overwatch.application.use_cases.lead_views import check_lead, ending
+from overwatch.application.use_cases.missed_report_ladder import (
     REMINDED,
     LadderStepCommand,
     LadderStepResult,
 )
-from diucs.application.work import SCHEDULED, WorkKind
-from diucs.domain.codes import Channel
-from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.messages.templates import render
-from diucs.domain.model.people import cover_in_force, phone_contact_key
+from overwatch.application.work import SCHEDULED, WorkKind
+from overwatch.domain.codes import Channel
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.messages.templates import render
+from overwatch.domain.model.people import cover_in_force, phone_contact_key
 
 AUDIT_ACTION: Final = "U"
 USE_CASE_TEST: Final = "SendLeadTestPrompt"

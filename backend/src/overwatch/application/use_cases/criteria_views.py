@@ -18,16 +18,16 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Final
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.use_cases.criteria import author_label
-from diucs.domain.codes import CriteriaStatus, NeedCategory, PractitionerRoleCode, Role, display
-from diucs.domain.errors import NotAllowed, NotFound
-from diucs.domain.model.criteria import ServiceCriteria
-from diucs.domain.model.tenant import ContactKind
-from diucs.domain.rules.criteria_workflow import is_review_overdue
-from diucs.domain.rules.london_time import to_london
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.use_cases.criteria import author_label
+from overwatch.domain.codes import CriteriaStatus, NeedCategory, PractitionerRoleCode, Role, display
+from overwatch.domain.errors import NotAllowed, NotFound
+from overwatch.domain.model.criteria import ServiceCriteria
+from overwatch.domain.model.tenant import ContactKind
+from overwatch.domain.rules.criteria_workflow import is_review_overdue
+from overwatch.domain.rules.london_time import to_london
 
 READERS: Final = frozenset({Role.OWNER, Role.CLINICAL, Role.LEAD})
 NO_LIMIT: Final = "no limit"

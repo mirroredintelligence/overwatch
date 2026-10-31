@@ -12,23 +12,23 @@ from typing import Any, Self
 
 import pytest
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import AuditEntry, AuditRecord
-from diucs.application.tenancy import TenantNotBound, current_scope_or_none
-from diucs.application.use_cases.tenant_admin_views import (
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import AuditEntry, AuditRecord
+from overwatch.application.tenancy import TenantNotBound, current_scope_or_none
+from overwatch.application.use_cases.tenant_admin_views import (
     ACCESS_LOG_LIMIT,
     ReadTenantAdmin,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotAllowed, NotFound, ValidationFailed
-from diucs.domain.model.tenant import (
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.model.tenant import (
     ConfigStatus,
     ContactKind,
     NumberStatus,
     TenantConfig,
     TenantContact,
 )
-from diucs.domain.model.tenant_records import (
+from overwatch.domain.model.tenant_records import (
     BindingStatus,
     ChannelKind,
     ChannelProvider,

@@ -14,13 +14,13 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.tenant_purge import AUDIT_LABELS, Neo4jTenantData
-from diucs.application.actor import wall_actor
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import ScopeKindMismatch, bind_network, bind_tenant
-from diucs.domain.errors import ValidationFailed
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.tenant_purge import AUDIT_LABELS, Neo4jTenantData
+from overwatch.application.actor import wall_actor
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeKindMismatch, bind_network, bind_tenant
+from overwatch.domain.errors import ValidationFailed
 from tests.support.neo4j import read_tx, tx_run
 from tests.support.projection_samples import (
     sample_criteria,

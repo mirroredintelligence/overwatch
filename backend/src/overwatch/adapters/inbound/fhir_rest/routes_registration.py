@@ -43,12 +43,12 @@ from typing import Annotated, Any, Final, Protocol, cast
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response
 
-from diucs.adapters.inbound.fhir_rest.app import get_container
-from diucs.adapters.inbound.fhir_rest.auth import require_role
-from diucs.adapters.inbound.fhir_rest.capability import FhirJSONResponse
-from diucs.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
-from diucs.adapters.inbound.fhir_rest.errors import operation_outcome
-from diucs.adapters.inbound.fhir_rest.parameters import (
+from overwatch.adapters.inbound.fhir_rest.app import get_container
+from overwatch.adapters.inbound.fhir_rest.auth import require_role
+from overwatch.adapters.inbound.fhir_rest.capability import FhirJSONResponse
+from overwatch.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
+from overwatch.adapters.inbound.fhir_rest.errors import operation_outcome
+from overwatch.adapters.inbound.fhir_rest.parameters import (
     PARAMETERS,
     enum_value,
     index_parameters,
@@ -57,19 +57,19 @@ from diucs.adapters.inbound.fhir_rest.parameters import (
     single,
     text,
 )
-from diucs.adapters.inbound.fhir_rest.routes_lead import number_ending
-from diucs.application.actor import Actor
-from diucs.application.idempotency import format_instant
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.geo import Geocoder
-from diucs.application.ports.outbound.identity import HmacPhoneHasher, normalise_uk_mobile
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.sealing import ContentSealer
-from diucs.application.ports.outbound.terminology import Terminology
-from diucs.application.ports.outbound.tokens import LinkTokenService, SecretStore
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.uow_idempotency import UnitOfWorkIdempotency
-from diucs.application.use_cases.approve_registration import (
+from overwatch.adapters.inbound.fhir_rest.routes_lead import number_ending
+from overwatch.application.actor import Actor
+from overwatch.application.idempotency import format_instant
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.geo import Geocoder
+from overwatch.application.ports.outbound.identity import HmacPhoneHasher, normalise_uk_mobile
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.sealing import ContentSealer
+from overwatch.application.ports.outbound.terminology import Terminology
+from overwatch.application.ports.outbound.tokens import LinkTokenService, SecretStore
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.uow_idempotency import UnitOfWorkIdempotency
+from overwatch.application.use_cases.approve_registration import (
     ApproveRegistration,
     NotApproveRegistration,
     NoteCommand,
@@ -77,14 +77,14 @@ from diucs.application.use_cases.approve_registration import (
     SendBackRegistration,
     SetServiceLive,
 )
-from diucs.application.use_cases.invite_reporter import (
+from overwatch.application.use_cases.invite_reporter import (
     MOBILE_MESSAGE,
     NOT_IN_PILOT_MESSAGE,
     InviteReporter,
     InviteReporterCommand,
     LinkBaseUrlFor,
 )
-from diucs.application.use_cases.registration_draft import (
+from overwatch.application.use_cases.registration_draft import (
     ApiStep,
     FieldError,
     LocationStep,
@@ -97,8 +97,8 @@ from diucs.application.use_cases.registration_draft import (
     SubmitRegistrationCommand,
     validate_step,
 )
-from diucs.application.use_cases.registration_submit import PersistRegistration
-from diucs.application.use_cases.review_registration import (
+from overwatch.application.use_cases.registration_submit import PersistRegistration
+from overwatch.application.use_cases.review_registration import (
     AreaDistrictsFor,
     RecordCallBack,
     RecordCallBackCommand,
@@ -106,15 +106,15 @@ from diucs.application.use_cases.review_registration import (
     RecordScopeDecisionCommand,
     ScopeAnswers,
 )
-from diucs.application.use_cases.scope_list import (
+from overwatch.application.use_cases.scope_list import (
     AddScopeEntry,
     AddScopeEntryCommand,
     ListScope,
     ScopeRow,
 )
-from diucs.domain.codes import Channel, Role, ScopeFlag, ServiceCategory, code_system_url
-from diucs.domain.errors import DomainError, NotAllowed, ValidationFailed
-from diucs.domain.model.registration import Answer, CallBackResult
+from overwatch.domain.codes import Channel, Role, ScopeFlag, ServiceCategory, code_system_url
+from overwatch.domain.errors import DomainError, NotAllowed, ValidationFailed
+from overwatch.domain.model.registration import Answer, CallBackResult
 
 router = APIRouter(prefix="/fhir")
 

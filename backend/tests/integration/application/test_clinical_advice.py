@@ -13,14 +13,14 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.clinical_advice import (
+from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.clinical_advice import (
     AvailableClinicians,
     GiveClinicalAdvice,
     GiveClinicalAdviceCommand,
@@ -34,8 +34,8 @@ from diucs.application.use_cases.clinical_advice import (
     TakeClinicalRequestCommand,
     presence_key,
 )
-from diucs.application.work import WorkKind
-from diucs.domain.codes import (
+from overwatch.application.work import WorkKind
+from overwatch.domain.codes import (
     AgeBand,
     NeedCategory,
     PractitionerRoleCode,
@@ -43,10 +43,10 @@ from diucs.domain.codes import (
     Role,
     Urgency,
 )
-from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.model.case import Case
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.rules.clinical_queue import Presence
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.model.case import Case
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.rules.clinical_queue import Presence
 from tests.support.actors import ACTOR_TENANT
 from tests.support.booking_rig import SECRETS
 from tests.support.neo4j import count_nodes, read_tx
@@ -476,7 +476,7 @@ async def _returns(factory: UnitOfWorkFactory) -> list[Any]:
 async def test_reading_the_waiting_queue_releases_a_lapsed_lock_in_the_store(
     seeded: None, uow_factory: UnitOfWorkFactory
 ) -> None:
-    from diucs.application.use_cases.clinical_advice import ListClinicalRequests
+    from overwatch.application.use_cases.clinical_advice import ListClinicalRequests
 
     request_id = await _taken_request(uow_factory)
 
@@ -506,7 +506,7 @@ async def test_reading_the_queue_with_the_queue_use_case_releases_it_too(
 async def test_the_holders_own_list_drops_a_lapsed_lock_and_releases_it_in_the_store(
     seeded: None, uow_factory: UnitOfWorkFactory
 ) -> None:
-    from diucs.application.use_cases.clinical_advice import ListClinicalRequests
+    from overwatch.application.use_cases.clinical_advice import ListClinicalRequests
 
     request_id = await _taken_request(uow_factory)
 
@@ -519,7 +519,7 @@ async def test_the_holders_own_list_drops_a_lapsed_lock_and_releases_it_in_the_s
 async def test_a_lock_that_has_not_lapsed_is_left_alone_and_writes_nothing(
     seeded: None, uow_factory: UnitOfWorkFactory
 ) -> None:
-    from diucs.application.use_cases.clinical_advice import ListClinicalRequests
+    from overwatch.application.use_cases.clinical_advice import ListClinicalRequests
 
     request_id = await _taken_request(uow_factory)
 
@@ -593,7 +593,7 @@ async def test_a_refreshed_presence_lives_another_120_seconds(
 async def test_a_request_keeps_the_service_the_advisor_was_considering(
     seeded: None, uow_factory: UnitOfWorkFactory, seed_service: Any
 ) -> None:
-    from diucs.application.use_cases.clinical_advice import ReadClinicalRequest
+    from overwatch.application.use_cases.clinical_advice import ReadClinicalRequest
     from tests.integration.application.test_filter_options import _profile
 
     await seed_service(_profile("svc-ucr-west", "UCR West"))

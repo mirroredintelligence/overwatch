@@ -14,24 +14,24 @@ import pytest
 from rdflib import RDF, BNode, Graph, Literal, Namespace
 from rdflib.compare import isomorphic
 
-from diucs.adapters.outbound.graph_store.capacity_repository import report_to_fhir
-from diucs.adapters.outbound.graph_store.criteria_repository import criteria_to_fhir
-from diucs.adapters.outbound.graph_store.mapper import GraphFragment, RelSpec, to_graph
-from diucs.adapters.outbound.graph_store.rdf_export import (
+from overwatch.adapters.outbound.graph_store.capacity_repository import report_to_fhir
+from overwatch.adapters.outbound.graph_store.criteria_repository import criteria_to_fhir
+from overwatch.adapters.outbound.graph_store.mapper import GraphFragment, RelSpec, to_graph
+from overwatch.adapters.outbound.graph_store.rdf_export import (
     fragment_to_graph,
     ontology_turtle,
     to_turtle,
 )
-from diucs.application.tenancy import ScopeId, TenantNotBound, bind_scope, bind_tenant
-from diucs.domain.codes import BASE_URL, code_system_url
-from diucs.domain.errors import ValidationFailed
+from overwatch.application.tenancy import ScopeId, TenantNotBound, bind_scope, bind_tenant
+from overwatch.domain.codes import BASE_URL, code_system_url
+from overwatch.domain.errors import ValidationFailed
 from tests.unit.adapters.outbound.graph_store.test_capacity_repository import NUMBER_REPORT
 from tests.unit.adapters.outbound.graph_store.test_criteria_mapping import UCR_WEST_V3
 
 TENANT = "tt-sample-a"
 OTHER = "tt-sample-b"
 FHIR = Namespace("http://hl7.org/fhir/")
-DIUCS = Namespace(f"{BASE_URL}def#")
+Overwatch = Namespace(f"{BASE_URL}def#")
 SKOS = Namespace("http://www.w3.org/2004/02/skos/core#")
 PROV = Namespace("http://www.w3.org/ns/prov#")
 XSD = Namespace("http://www.w3.org/2001/XMLSchema#")
@@ -117,7 +117,7 @@ def _criteria_fragment(supersedes: str | None = "crit-ucr-west-v2") -> GraphFrag
 # worked example's `res:Type/id` form is not valid Turtle (see the fragment's known issues).
 EXPECTED_SERVICE = """
 @prefix fhir: <http://hl7.org/fhir/> .
-@prefix diucs: <https://diucs.example/def#> .
+@prefix overwatch: <https://overwatch.mirroredintelligence.com/def#> .
 @prefix skos: <http://www.w3.org/2004/02/skos/core#> .
 
 <@R@HealthcareService/a1> a fhir:HealthcareService ;
@@ -127,7 +127,7 @@ EXPECTED_SERVICE = """
     fhir:HealthcareService.category <@C@service-category#urgent-community-response> ;
     fhir:HealthcareService.coverageArea <@R@Location/d3>, <@R@Location/d4> ;
     fhir:HealthcareService.referralMethod <@C@referral-method#phone> ;
-    diucs:currentCriteria <@R@Basic/c3> .
+    overwatch:currentCriteria <@R@Basic/c3> .
 
 <@R@Location/d3> a fhir:Location ;
     fhir:Location.name "DT3" ;
@@ -169,7 +169,7 @@ def test_the_capacity_report_is_a_capacity_report_with_its_time_and_quantity() -
     graph = fragment_to_graph(to_graph(report_to_fhir(NUMBER_REPORT)))
     subject = RES[f"Observation/{NUMBER_REPORT.id}"]
     assert (subject, RDF.type, FHIR.Observation) in graph
-    assert (subject, RDF.type, DIUCS.CapacityReport) in graph
+    assert (subject, RDF.type, Overwatch.CapacityReport) in graph
     assert (
         subject,
         FHIR["Observation.effectiveDateTime"],
@@ -182,21 +182,21 @@ def test_the_capacity_report_is_a_capacity_report_with_its_time_and_quantity() -
     assert (quantity, RDF.type, FHIR.Quantity) in graph
     assert (quantity, FHIR["Quantity.value"], Literal(NUMBER_REPORT.value)) in graph
     assert (quantity, FHIR["Quantity.code"], Literal("{referral}")) in graph
-    assert (subject, DIUCS.reportType, Literal("number")) in graph
+    assert (subject, Overwatch.reportType, Literal("number")) in graph
 
 
 def test_the_criteria_version_has_two_accepted_needs_and_its_predecessor() -> None:
     graph = fragment_to_graph(_criteria_fragment())
     criteria = RES["Basic/c3"]
     assert (criteria, RDF.type, FHIR.Basic) in graph
-    assert (criteria, RDF.type, DIUCS.ServiceCriteria) in graph
-    accepted = set(graph.objects(criteria, DIUCS.acceptsNeed))
+    assert (criteria, RDF.type, Overwatch.ServiceCriteria) in graph
+    accepted = set(graph.objects(criteria, Overwatch.acceptsNeed))
     assert accepted == {
         CS["need-category#fall-no-injury"],
         CS["need-category#frailty"],
     }
-    assert (criteria, DIUCS.supersedes, RES["Basic/crit-ucr-west-v2"]) in graph
-    assert (criteria, DIUCS.version, Literal(3)) in graph
+    assert (criteria, Overwatch.supersedes, RES["Basic/crit-ucr-west-v2"]) in graph
+    assert (criteria, Overwatch.version, Literal(3)) in graph
 
 
 def test_no_json_is_ever_a_predicate() -> None:
@@ -209,7 +209,7 @@ def test_no_json_is_ever_a_predicate() -> None:
 
 def test_the_ontology_parses_and_defines_the_limited_status() -> None:
     graph = _parse(ontology_turtle())
-    assert (DIUCS.Limited, RDF.type, SKOS.Concept) in graph
+    assert (Overwatch.Limited, RDF.type, SKOS.Concept) in graph
 
 
 def test_a_need_is_accepted_by_the_service_whose_current_criteria_accept_it() -> None:
@@ -217,17 +217,17 @@ def test_a_need_is_accepted_by_the_service_whose_current_criteria_accept_it() ->
     graph += fragment_to_graph(_criteria_fragment())
     derived = graph.query(
         """
-        CONSTRUCT { ?need diucs:acceptedBy ?svc . }
+        CONSTRUCT { ?need overwatch:acceptedBy ?svc . }
         WHERE {
-          ?svc diucs:currentCriteria ?c .
-          ?c   diucs:acceptsNeed ?need .
+          ?svc overwatch:currentCriteria ?c .
+          ?c   overwatch:acceptsNeed ?need .
         }
         """,
-        initNs={"diucs": DIUCS},
+        initNs={"overwatch": Overwatch},
     ).graph
-    assert set(derived.triples((None, DIUCS.acceptedBy, None))) == {
-        (CS["need-category#fall-no-injury"], DIUCS.acceptedBy, RES["HealthcareService/a1"]),
-        (CS["need-category#frailty"], DIUCS.acceptedBy, RES["HealthcareService/a1"]),
+    assert set(derived.triples((None, Overwatch.acceptedBy, None))) == {
+        (CS["need-category#fall-no-injury"], Overwatch.acceptedBy, RES["HealthcareService/a1"]),
+        (CS["need-category#frailty"], Overwatch.acceptedBy, RES["HealthcareService/a1"]),
     }
 
 
@@ -283,7 +283,7 @@ def test_a_relationship_property_is_a_qualified_association() -> None:
     association = associations[0]
     assert (association, RDF.type, PROV.Association) in graph
     assert (association, PROV.agent, RES["Practitioner/p1"]) in graph
-    assert (association, PROV.hadRole, DIUCS.SecondApprover) in graph
+    assert (association, PROV.hadRole, Overwatch.SecondApprover) in graph
     assert (
         association,
         PROV.atTime,

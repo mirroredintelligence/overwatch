@@ -15,19 +15,19 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.outbox import OutboxMessage
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.confirm_capacity import ConfirmCapacity, ConfirmCapacityCommand
-from diucs.application.use_cases.report_capacity import (
+from overwatch.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.outbox import OutboxMessage
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.confirm_capacity import ConfirmCapacity, ConfirmCapacityCommand
+from overwatch.application.use_cases.report_capacity import (
     ReportCapacity,
     ReportCapacityCommand,
     ReportCapacityResult,
 )
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     Measure,
@@ -36,12 +36,12 @@ from diucs.domain.codes import (
     Role,
     ServiceCategory,
 )
-from diucs.domain.model.flags import (
+from overwatch.domain.model.flags import (
     REPORT_FLAG_CHECKED,
     REPORT_FLAG_OPEN,
     ReportFlag,
 )
-from diucs.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes
 

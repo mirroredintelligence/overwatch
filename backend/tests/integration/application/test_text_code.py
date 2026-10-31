@@ -12,17 +12,17 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
-from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.memory_code_store import InMemoryCodeStore
-from diucs.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
-from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET, LinkTokenService
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import current_scope
-from diucs.application.use_cases.text_code import (
+from overwatch.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
+from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.memory_code_store import InMemoryCodeStore
+from overwatch.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET, LinkTokenService
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import current_scope
+from overwatch.application.use_cases.text_code import (
     SEND_CODE,
     RequestTextCode,
     RequestTextCodeCommand,
@@ -32,8 +32,8 @@ from diucs.application.use_cases.text_code import (
     VerifyTextCodeResult,
     code_key,
 )
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.identity_policy import CODE_VALID_FOR
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.identity_policy import CODE_VALID_FOR
 from tests.support.neo4j import node_props
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")

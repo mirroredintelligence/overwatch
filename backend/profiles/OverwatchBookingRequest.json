@@ -1,8 +1,8 @@
 {
   "resourceType": "StructureDefinition",
-  "url": "https://diucs.example/StructureDefinition/DiucsBookingRequest",
-  "name": "DiucsBookingRequest",
-  "title": "DIUCS booking request",
+  "url": "https://overwatch.mirroredintelligence.com/StructureDefinition/OverwatchBookingRequest",
+  "name": "OverwatchBookingRequest",
+  "title": "Overwatch booking request",
   "status": "active",
   "description": "A request by an advisor for a service to take a patient, and the business status the service answers with. Owned by the HealthcareService that is asked.",
   "fhirVersion": "4.3.0",

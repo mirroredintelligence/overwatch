@@ -8,7 +8,7 @@ ends at 02:00 BST, so 07:00 London that day is GMT). Sample values only.
 from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
-from diucs.application.use_cases.criteria_reviews import REVIEW_RUN_AT, next_run_due
+from overwatch.application.use_cases.criteria_reviews import REVIEW_RUN_AT, next_run_due
 
 LONDON = ZoneInfo("Europe/London")
 

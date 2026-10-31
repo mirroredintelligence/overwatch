@@ -11,23 +11,23 @@ from typing import Any
 import pytest
 from fhir.resources.R4B.structuredefinition import StructureDefinition
 
-from diucs.adapters.outbound.fhir_validator.validator import (
+from overwatch.adapters.outbound.fhir_validator.validator import (
     PROFILE_NAMES,
     ProfileValidator,
     profile_url,
 )
-from diucs.adapters.outbound.graph_store.capacity_repository import report_to_fhir
+from overwatch.adapters.outbound.graph_store.capacity_repository import report_to_fhir
 from tests.unit.adapters.outbound.graph_store.test_capacity_repository import NUMBER_REPORT
 
 PROFILES_DIR = Path(__file__).resolve().parents[5] / "profiles"
 EXPECTED_PROFILES = {
-    "DiucsPatientCaseStub",
-    "DiucsCapacityReport",
-    "DiucsServiceCriteria",
-    "DiucsBookingRequest",
-    "DiucsHealthcareService",
+    "OverwatchPatientCaseStub",
+    "OverwatchCapacityReport",
+    "OverwatchServiceCriteria",
+    "OverwatchBookingRequest",
+    "OverwatchHealthcareService",
 }
-CAPACITY = profile_url("DiucsCapacityReport")
+CAPACITY = profile_url("OverwatchCapacityReport")
 
 
 def _capacity_observation() -> dict[str, Any]:
@@ -57,11 +57,14 @@ async def test_a_patient_stub_with_a_name_is_refused_with_the_rule_in_words() ->
         "id": "stub-sample-1",
         "meta": {"tag": [{"code": "pseudonymised-case-stub"}]},
         "extension": [
-            {"url": "https://diucs.example/Extension/age-band", "valueCode": "65-79"},
+            {
+                "url": "https://overwatch.mirroredintelligence.com/Extension/age-band",
+                "valueCode": "65-79",
+            },
         ],
         "name": [{"family": "Sample"}],
     }
-    issues = await ProfileValidator().validate(stub, profile_url("DiucsPatientCaseStub"))
+    issues = await ProfileValidator().validate(stub, profile_url("OverwatchPatientCaseStub"))
     refused = [issue for issue in issues if issue.path == "Patient.name"]
     assert [issue.message for issue in refused] == ["No patient names are stored"]
 
@@ -75,7 +78,7 @@ async def test_a_wrong_type_for_status_is_a_structural_issue() -> None:
 
 async def test_a_resource_of_another_type_is_refused_for_the_profile() -> None:
     issues = await ProfileValidator().validate(
-        _capacity_observation(), profile_url("DiucsHealthcareService")
+        _capacity_observation(), profile_url("OverwatchHealthcareService")
     )
     assert issues != []
 

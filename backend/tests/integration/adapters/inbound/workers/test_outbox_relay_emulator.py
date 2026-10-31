@@ -11,11 +11,11 @@ import pytest_asyncio
 from azure.servicebus import ServiceBusReceivedMessage
 from neo4j import AsyncDriver
 
-from diucs.adapters.inbound.workers.outbox_relay import OutboxRelay, RelayResult, StaticTenants
-from diucs.adapters.outbound.bus_servicebus.service_bus import ServiceBusEventBus
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.adapters.inbound.workers.outbox_relay import OutboxRelay, RelayResult, StaticTenants
+from overwatch.adapters.outbound.bus_servicebus.service_bus import ServiceBusEventBus
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from tests.support.relay_rig import (
     NOW,
     add_messages,

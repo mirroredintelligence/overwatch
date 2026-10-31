@@ -30,7 +30,7 @@ const supportOnly = withOperatorBff(ok, { roles: ['support'] });
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', BACKEND_BASE);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', BACKEND_BASE);
   vi.stubEnv('NODE_ENV', 'production');
   resetCookieWrites();
 });
@@ -67,7 +67,7 @@ describe('withOperatorBff', () => {
 
   it('answers a tenant session cookie renamed to the operator one as no session', async () => {
     const tenant = await requestAs(TENANTS.A, 'tenant-admin');
-    const sealed = /diucs_session=([^;]+)/.exec(tenant.headers.get('cookie') ?? '')?.[1] ?? '';
+    const sealed = /overwatch_session=([^;]+)/.exec(tenant.headers.get('cookie') ?? '')?.[1] ?? '';
     const forged = requestWithCookies(`https://${TENANTS.A.host}/x`, { [OPERATOR_COOKIE]: sealed }, { headers: { Host: TENANTS.A.host } });
     expect((await get(forged, undefined)).status).toBe(401);
   });
@@ -101,7 +101,7 @@ describe('withOperatorBff', () => {
   it('does not take a tenant’s CSRF pair: the token of a tenant session is no operator token', async () => {
     const tenant = await requestAs(TENANTS.A, 'tenant-admin', { csrf: true });
     const token = tenant.headers.get('x-csrf-token') ?? '';
-    const response = await post(await requestAsOperator('platform-operator', { method: 'POST', headers: { 'X-CSRF-Token': token }, cookies: { diucs_csrf: token } }), undefined);
+    const response = await post(await requestAsOperator('platform-operator', { method: 'POST', headers: { 'X-CSRF-Token': token }, cookies: { overwatch_csrf: token } }), undefined);
     expect(response.status).toBe(403);
   });
 

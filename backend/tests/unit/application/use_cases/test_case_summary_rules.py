@@ -9,9 +9,9 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from diucs.application.use_cases.case_summary import booking_line, data_age_line
-from diucs.domain.codes import BookingStatus
-from diucs.domain.model.booking import Booking
+from overwatch.application.use_cases.case_summary import booking_line, data_age_line
+from overwatch.domain.codes import BookingStatus
+from overwatch.domain.model.booking import Booking
 
 REQUESTED = datetime(
     2026, 10, 29, 14, 5, tzinfo=UTC

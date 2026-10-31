@@ -11,9 +11,9 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from diucs.adapters.outbound.keyvault_secrets import vault_secret_name
-from diucs.application.ports.outbound.tenants import secret_ref, twilio_token_ref
-from diucs.domain.rules.tenant_keys import PER_TENANT_KEY_NAMES
+from overwatch.adapters.outbound.keyvault_secrets import vault_secret_name
+from overwatch.application.ports.outbound.tenants import secret_ref, twilio_token_ref
+from overwatch.domain.rules.tenant_keys import PER_TENANT_KEY_NAMES
 
 PART = st.from_regex(r"[a-z0-9]+(-[a-z0-9]+)*", fullmatch=True)
 VALID_NAMES = st.lists(PART, min_size=1, max_size=4).map("/".join)

@@ -23,19 +23,19 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Final
 
-from diucs.application.actor import timer_actor
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.sealing import ContentSealer
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.sealed_send import queue_message
-from diucs.application.tenancy import ScopeKind, TenantNotBound
-from diucs.domain.codes import Channel, PractitionerRoleCode
-from diucs.domain.errors import NotFound
-from diucs.domain.events import AlertEscalatedToLead, ReportEscalated, WithdrawalEscalated
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.messages.templates import render
+from overwatch.application.actor import timer_actor
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.sealing import ContentSealer
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.sealed_send import queue_message
+from overwatch.application.tenancy import ScopeKind, TenantNotBound
+from overwatch.domain.codes import Channel, PractitionerRoleCode
+from overwatch.domain.errors import NotFound
+from overwatch.domain.events import AlertEscalatedToLead, ReportEscalated, WithdrawalEscalated
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.messages.templates import render
 
 log = logging.getLogger(__name__)
 

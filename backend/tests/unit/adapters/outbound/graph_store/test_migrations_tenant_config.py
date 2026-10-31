@@ -7,8 +7,8 @@ schema statement runs in its own transaction, lesson L8), each idempotent, and n
 
 import re
 
-from diucs.adapters.outbound.graph_store.migrations import MIGRATIONS
-from diucs.adapters.outbound.graph_store.migrations_tenant_config import (
+from overwatch.adapters.outbound.graph_store.migrations import MIGRATIONS
+from overwatch.adapters.outbound.graph_store.migrations_tenant_config import (
     TENANT_CONFIG_MIGRATIONS,
 )
 

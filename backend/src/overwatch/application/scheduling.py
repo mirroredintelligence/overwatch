@@ -14,12 +14,12 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Final
 
-from diucs.application.idempotency import format_instant
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.outbox import OutboxMessage
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork
-from diucs.application.work import CANCELLED, SCHEDULED, ScheduledWork, WorkKind
-from diucs.domain.errors import ValidationFailed
+from overwatch.application.idempotency import format_instant
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.outbox import OutboxMessage
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork
+from overwatch.application.work import CANCELLED, SCHEDULED, ScheduledWork, WorkKind
+from overwatch.domain.errors import ValidationFailed
 
 SCHEDULED_WORK_TOPIC: Final = "scheduled.work"
 SCHEDULE_WORK: Final = "ScheduleWork"

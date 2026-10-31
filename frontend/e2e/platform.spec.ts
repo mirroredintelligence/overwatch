@@ -67,9 +67,9 @@ test.describe('the operator console door', () => {
   test('the operator’s session cookie is HttpOnly and Strict and not readable by the page', async ({ page }) => {
     await signInOperator(page.context(), SITE_URL, 'platform-operator');
     await page.goto('/operator');
-    const cookie = (await page.context().cookies()).find((c) => c.name === 'diucs_operator');
+    const cookie = (await page.context().cookies()).find((c) => c.name === 'overwatch_operator');
     expect(cookie).toMatchObject({ httpOnly: true, sameSite: 'Strict' });
-    expect(await page.evaluate(() => document.cookie)).not.toContain('diucs_operator');
+    expect(await page.evaluate(() => document.cookie)).not.toContain('overwatch_operator');
   });
 
   test('a tenant’s BFF routes and the console’s are each a 401 to the other’s session', async ({ page, request }) => {

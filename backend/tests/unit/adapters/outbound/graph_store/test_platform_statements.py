@@ -15,15 +15,15 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.outbound.graph_store import health, tenant_directory, tenant_registry  # noqa: F401
-from diucs.adapters.outbound.graph_store import queries as queries_module
-from diucs.adapters.outbound.graph_store.driver import (
+from overwatch.adapters.outbound.graph_store import health, tenant_directory, tenant_registry  # noqa: F401
+from overwatch.adapters.outbound.graph_store import queries as queries_module
+from overwatch.adapters.outbound.graph_store.driver import (
     run_global_query,
     run_platform_query,
     run_query,
 )
-from diucs.adapters.outbound.graph_store.migrations_tenant import REGISTRY_LABELS
-from diucs.adapters.outbound.graph_store.queries import (
+from overwatch.adapters.outbound.graph_store.migrations_tenant import REGISTRY_LABELS
+from overwatch.adapters.outbound.graph_store.queries import (
     GLOBAL_QUERY_IDS,
     GLOBAL_STATEMENT_LABELS,
     PLATFORM_QUERY_IDS,
@@ -36,7 +36,7 @@ from diucs.adapters.outbound.graph_store.queries import (
     _check_global_text,
     statement_digest,
 )
-from diucs.application.tenancy import (
+from overwatch.application.tenancy import (
     GlobalStatementMisuse,
     PlatformStatementMisuse,
     TenantParameterRefused,
@@ -440,7 +440,7 @@ async def test_the_platform_path_refuses_a_tenant_or_a_global_statement() -> Non
 
 
 async def test_the_platform_path_refuses_a_string_and_an_unregistered_statement() -> None:
-    from diucs.application.tenancy import QueryNotRegistered
+    from overwatch.application.tenancy import QueryNotRegistered
 
     tx = _Tx()
     with pytest.raises(QueryNotRegistered):

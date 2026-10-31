@@ -30,11 +30,11 @@ from datetime import UTC, datetime, time, timedelta
 from typing import Final
 from zoneinfo import ZoneInfo
 
-from diucs.domain.codes import AlertKind, Status
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
-from diucs.domain.rules.london_time import LONDON, local_to_utc, require_zone, to_local
-from diucs.domain.rules.pressure import Pressure
+from overwatch.domain.codes import AlertKind, Status
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
+from overwatch.domain.rules.london_time import LONDON, local_to_utc, require_zone, to_local
+from overwatch.domain.rules.pressure import Pressure
 
 # [ASSUMED] critical set, rule book section 8. Alias of the default policy (TEN-064): the set is
 # defined once, in tenant_policy.py.

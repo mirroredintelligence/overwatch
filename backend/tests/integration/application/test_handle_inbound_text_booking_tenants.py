@@ -11,9 +11,9 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.handle_inbound_text import HandleInboundTextCommand
-from diucs.domain.codes import BookingStatus
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.handle_inbound_text import HandleInboundTextCommand
+from overwatch.domain.codes import BookingStatus
 from tests.integration.application.test_handle_inbound_text_booking import handler
 from tests.support.booking_rig import (
     SERVICE_ID,

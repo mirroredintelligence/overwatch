@@ -7,8 +7,8 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.outbound.graph_store.bundle_writer import resolve_bundle, write_bundle
-from diucs.domain.errors import NotFound, ValidationFailed
+from overwatch.adapters.outbound.graph_store.bundle_writer import resolve_bundle, write_bundle
+from overwatch.domain.errors import NotFound, ValidationFailed
 
 
 def _entry(resource_type: str, id_: str, method: str = "POST", **elements: Any) -> dict[str, Any]:
@@ -172,7 +172,7 @@ def test_a_resource_that_names_a_tenant_is_refused() -> None:
 
 
 async def test_the_registration_repository_writes_a_bundle_through_its_store() -> None:
-    from diucs.adapters.outbound.graph_store.registration_repository import (
+    from overwatch.adapters.outbound.graph_store.registration_repository import (
         Neo4jRegistrationRepository,
     )
 

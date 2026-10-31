@@ -7,15 +7,15 @@ import re
 
 import pytest
 
-from diucs.adapters.outbound.graph_store import (
+from overwatch.adapters.outbound.graph_store import (
     booking_repository,
     capacity_repository,
     case_repository,
     communication_repository,
 )
-from diucs.adapters.outbound.graph_store.queries import REGISTRY
-from diucs.adapters.outbound.graph_store.scenario import validate_scenario
-from diucs.adapters.outbound.graph_store.week_scenarios import WEEK_SCENARIOS
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY
+from overwatch.adapters.outbound.graph_store.scenario import validate_scenario
+from overwatch.adapters.outbound.graph_store.week_scenarios import WEEK_SCENARIOS
 
 _IDS = (
     "Q-CASE-OPENED-BETWEEN",

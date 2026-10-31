@@ -20,10 +20,10 @@ import pytest_asyncio
 from httpx import AsyncClient
 from neo4j import AsyncDriver
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.domain.codes import (
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.domain.codes import (
     AgeBand,
     Cadence,
     Channel,
@@ -34,12 +34,12 @@ from diucs.domain.codes import (
     ServiceCategory,
     Urgency,
 )
-from diucs.domain.model.case import Case
-from diucs.domain.model.clinical import ClinicalAdvice, ClinicalRequestRecord
-from diucs.domain.model.people import Practitioner, work_contact_key
-from diucs.domain.model.service import AvailableTime, ServiceProfile
-from diucs.domain.model.tenant import ContactKind, TenantContact
-from diucs.domain.rules.clinical_queue import ClinicalRequest
+from overwatch.domain.model.case import Case
+from overwatch.domain.model.clinical import ClinicalAdvice, ClinicalRequestRecord
+from overwatch.domain.model.people import Practitioner, work_contact_key
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.model.tenant import ContactKind, TenantContact
+from overwatch.domain.rules.clinical_queue import ClinicalRequest
 from tests.integration.adapters.inbound.fhir_rest.test_routes_clinical import (
     clinical_world,
     test_container,

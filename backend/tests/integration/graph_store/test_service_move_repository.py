@@ -8,12 +8,14 @@ from datetime import UTC, datetime
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.adapters.outbound.graph_store.service_move_repository import Neo4jServiceMoveRepository
-from diucs.adapters.outbound.graph_store.service_repository import codeable_to_fhir
-from diucs.domain.codes import ServiceCategory
-from diucs.domain.errors import Conflict
-from diucs.domain.model.service_move import ServiceMove
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.adapters.outbound.graph_store.service_move_repository import (
+    Neo4jServiceMoveRepository,
+)
+from overwatch.adapters.outbound.graph_store.service_repository import codeable_to_fhir
+from overwatch.domain.codes import ServiceCategory
+from overwatch.domain.errors import Conflict
+from overwatch.domain.model.service_move import ServiceMove
 from tests.support.neo4j import read_tx, write_tx
 from tests.support.round_trip import assert_round_trip
 

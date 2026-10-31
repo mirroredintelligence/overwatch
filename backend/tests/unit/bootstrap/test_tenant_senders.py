@@ -10,31 +10,31 @@ from urllib.parse import parse_qs
 import httpx
 import pytest
 
-from diucs.adapters.outbound.email_smtp.smtp_email import SmtpEmail, SmtpRelay
-from diucs.adapters.outbound.sms_twilio.twilio_sms import TwilioSms
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.ports.outbound.sender_resolver import ChannelUnavailable
-from diucs.application.ports.outbound.tenants import (
+from overwatch.adapters.outbound.email_smtp.smtp_email import SmtpEmail, SmtpRelay
+from overwatch.adapters.outbound.sms_twilio.twilio_sms import TwilioSms
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.ports.outbound.sender_resolver import ChannelUnavailable
+from overwatch.application.ports.outbound.tenants import (
     TenantLine,
     TenantRecordInvalid,
     secret_ref,
     twilio_token_ref,
 )
-from diucs.application.tenancy import TenancyError, bind_tenant
-from diucs.bootstrap.settings import Settings
-from diucs.bootstrap.tenant_senders import (
+from overwatch.application.tenancy import TenancyError, bind_tenant
+from overwatch.bootstrap.settings import Settings
+from overwatch.bootstrap.tenant_senders import (
     TenantSenderResolver,
     smtp_relay_from,
     status_callback_url,
 )
-from diucs.domain.model.tenant import NumberStatus
-from diucs.domain.model.tenant_records import ChannelKind, ChannelProvider, TenantChannel
+from overwatch.domain.model.tenant import NumberStatus
+from overwatch.domain.model.tenant_records import ChannelKind, ChannelProvider, TenantChannel
 from tests.support.tenant_samples import SAMPLE_ID, make_tenant
 
 NUMBER = "+447700900123"
 SID = "AC" + "1" * 32
 TOKEN = b"token-for-the-example-subaccount-0123"
-STATUS_URL = "https://diucs.example/webhooks/sms/twilio/status"
+STATUS_URL = "https://overwatch.mirroredintelligence.com/webhooks/sms/twilio/status"
 
 
 class _Directory:
@@ -368,8 +368,11 @@ async def test_with_no_tenant_bound_the_resolver_refuses_instead_of_choosing_one
 
 
 def test_the_status_callback_is_the_inbound_webhook_of_this_deployment() -> None:
-    assert status_callback_url(Settings(base_url="https://diucs.example/")) == STATUS_URL
-    assert status_callback_url(Settings(base_url="https://diucs.example")) == STATUS_URL
+    assert (
+        status_callback_url(Settings(base_url="https://overwatch.mirroredintelligence.com/"))
+        == STATUS_URL
+    )
+    assert status_callback_url(Settings(base_url="https://overwatch.example")) == STATUS_URL
 
 
 # Email through Twilio's own Email API: the tenant's own subaccount, the same credentials as its
@@ -396,7 +399,7 @@ def _twilio_email_resolver(
 
 
 async def test_a_twilio_email_channel_resolves_to_a_sender_on_the_tenants_own_subaccount() -> None:
-    from diucs.adapters.outbound.email_twilio.twilio_email import TwilioEmail
+    from overwatch.adapters.outbound.email_twilio.twilio_email import TwilioEmail
 
     seen: list[httpx.Request] = []
     directory = _Directory(_line())

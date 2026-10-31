@@ -27,7 +27,7 @@ describe('HomeScreen', () => {
   it('shows the iPhone guide for an iPhone, with the iOS version it needs, and passes axe', async () => {
     setAgent(IPHONE);
     const { container } = render(<HomeScreen />);
-    expect(screen.getByRole('heading', { name: 'Add DIUCS to your home screen' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Add Overwatch to your home screen' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'iPhone', selected: true })).toBeInTheDocument();
     expect(screen.getByText('iPhone needs iOS 16.4 or later.')).toBeInTheDocument();
     expect(await runAxe(container)).toHaveNoViolations();
@@ -44,7 +44,7 @@ describe('HomeScreen', () => {
     render(<HomeScreen />);
     await userEvent.click(screen.getByRole('button', { name: 'I have added it' }));
     expect(
-      screen.getByText('Open DIUCS from your home screen to carry on. Notifications only work from there.'),
+      screen.getByText('Open Overwatch from your home screen to carry on. Notifications only work from there.'),
     ).toBeInTheDocument();
     expect(push).not.toHaveBeenCalled();
   });

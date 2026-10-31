@@ -4,8 +4,8 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from diucs.application.ports.outbound.geo import LatLon, TravelRange
-from diucs.domain.errors import ValidationFailed
+from overwatch.application.ports.outbound.geo import LatLon, TravelRange
+from overwatch.domain.errors import ValidationFailed
 
 
 def test_range_keeps_its_bounds_and_source() -> None:

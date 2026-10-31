@@ -3,8 +3,8 @@ a read, tenant-scoped on every node, and given a scenario for the generated two-
 
 import re
 
-from diucs.adapters.outbound.graph_store import registration_repository  # registers the queries
-from diucs.adapters.outbound.graph_store.queries import REGISTRY
+from overwatch.adapters.outbound.graph_store import registration_repository  # registers the queries
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY
 
 QUERY_ID = "Q-REG-DISTRICT-LOCATIONS"
 

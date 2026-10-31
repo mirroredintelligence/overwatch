@@ -9,7 +9,7 @@ synthetic.
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
-from diucs.domain.model.device import (
+from overwatch.domain.model.device import (
     ONLINE_WITHIN,
     Device,
     DeviceStatus,
@@ -17,7 +17,7 @@ from diucs.domain.model.device import (
     ScreenState,
     screen_state,
 )
-from diucs.domain.rules.tokens import PAIRING_CODE_VALID_FOR
+from overwatch.domain.rules.tokens import PAIRING_CODE_VALID_FOR
 
 NOW = datetime(2026, 10, 30, 10, 0, tzinfo=UTC)
 HASH = "a" * 64

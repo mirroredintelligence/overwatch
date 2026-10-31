@@ -16,17 +16,17 @@ from typing import Any, Self
 
 from neo4j import AsyncDriver
 
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.adapters.testing.memory_event_bus import ManualEventBus
-from diucs.application.ports.outbound.cache import Cache, Lock, scoped_names
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.ports.outbound.outbox import OutboxMessage
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.scheduling import schedule_work
-from diucs.application.tenancy import ScopeId, current_tenant
-from diucs.application.work import ScheduledWork, WorkKind
-from diucs.domain.rules.london_time import london_to_utc
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.adapters.testing.memory_event_bus import ManualEventBus
+from overwatch.application.ports.outbound.cache import Cache, Lock, scoped_names
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.ports.outbound.outbox import OutboxMessage
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.scheduling import schedule_work
+from overwatch.application.tenancy import ScopeId, current_tenant
+from overwatch.application.work import ScheduledWork, WorkKind
+from overwatch.domain.rules.london_time import london_to_utc
 from tests.support.neo4j import node_props
 
 # 14:16 London on 2026-10-23 (BST, UTC+1), and the due time ten minutes later.

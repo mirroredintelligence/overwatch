@@ -15,9 +15,9 @@ import re
 from dataclasses import dataclass
 from typing import Final
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.messages.privacy_guard import find_patient_data
-from diucs.domain.model.tenant import check_time_zone
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.messages.privacy_guard import find_patient_data
+from overwatch.domain.model.tenant import check_time_zone
 
 NAME_MAX_LENGTH: Final = 60
 # A name has no run of digits that could be a telephone number: the guard reads postcodes,

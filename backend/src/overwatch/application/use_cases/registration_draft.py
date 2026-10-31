@@ -17,20 +17,32 @@ from dataclasses import dataclass, fields, replace
 from datetime import date
 from typing import Any, Final, Protocol
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.lookups import TransientLookupError
-from diucs.application.ports.outbound.outbox import outbox_message_for
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.tenancy import ScopeId
-from diucs.domain.codes import Cadence, Measure, NeedCategory, RegistrationStatus, ServiceCategory
-from diucs.domain.errors import Conflict, InvalidTransition, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.events import RegistrationSubmitted
-from diucs.domain.model.registration import Registration
-from diucs.domain.rules.postcode import normalise_district, normalise_postcode
-from diucs.domain.rules.registration import invitation_valid, transition_registration
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.lookups import TransientLookupError
+from overwatch.application.ports.outbound.outbox import outbox_message_for
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeId
+from overwatch.domain.codes import (
+    Cadence,
+    Measure,
+    NeedCategory,
+    RegistrationStatus,
+    ServiceCategory,
+)
+from overwatch.domain.errors import (
+    Conflict,
+    InvalidTransition,
+    NotAllowed,
+    NotFound,
+    ValidationFailed,
+)
+from overwatch.domain.events import RegistrationSubmitted
+from overwatch.domain.model.registration import Registration
+from overwatch.domain.rules.postcode import normalise_district, normalise_postcode
+from overwatch.domain.rules.registration import invitation_valid, transition_registration
 
 AUDIT_ACTION: Final = "U"
 ORGANISATION_TYPES: Final = frozenset(

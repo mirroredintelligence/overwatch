@@ -41,7 +41,7 @@ async function post(options: Options = {}) {
 }
 
 beforeEach(() => {
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', BACKEND);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', BACKEND);
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
   server.use(...BACKEND_TASK_HANDLERS(BACKEND));
 });

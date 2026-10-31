@@ -4,9 +4,9 @@ from collections.abc import AsyncIterator
 
 import pytest
 
-from diucs.application.ports.outbound.cache import Cache
-from diucs.application.ports.outbound.event_bus import EventBus
-from diucs.application.ports.outbound.identity import CodeStore
+from overwatch.application.ports.outbound.cache import Cache
+from overwatch.application.ports.outbound.event_bus import EventBus
+from overwatch.application.ports.outbound.identity import CodeStore
 from tests.contract.factories import CACHE_FACTORIES, CODE_STORE_FACTORIES, EVENT_BUS_FACTORIES
 from tests.contract.harness import Harness
 

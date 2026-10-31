@@ -7,7 +7,7 @@ import { E2E_SESSION_SECRET, E2E_TENANT } from './env';
 // it, because it imports `next/headers`. If the sealed format changes, these
 // tests fail at sign-in, which is the signal to change this file too.
 
-const SESSION_COOKIE = 'diucs_session';
+const SESSION_COOKIE = 'overwatch_session';
 
 export async function signIn(context: BrowserContext, baseURL: string, role: string, backendToken: string) {
   const expiresAt = new Date(Date.now() + 3_600_000);

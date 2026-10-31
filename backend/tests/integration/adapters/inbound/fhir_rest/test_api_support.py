@@ -4,10 +4,10 @@ from datetime import UTC, datetime
 
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.application.ports.outbound.outbox import outbox_message_for
-from diucs.bootstrap.container import Container
-from diucs.domain.codes import ReportSource
-from diucs.domain.events import CapacityReported
+from overwatch.application.ports.outbound.outbox import outbox_message_for
+from overwatch.bootstrap.container import Container
+from overwatch.domain.codes import ReportSource
+from overwatch.domain.events import CapacityReported
 from tests.support.neo4j import read_tx
 
 FIXED_NOW = datetime(2026, 10, 23, 13, 12, tzinfo=UTC)

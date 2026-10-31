@@ -5,9 +5,9 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any, Final
 
-from diucs.domain.codes import BASE_URL, BookingStatus, Coding, code_system_url, coding_for
-from diucs.domain.model.booking import Booking
-from diucs.domain.rules.booking_state import from_fhir, to_fhir
+from overwatch.domain.codes import BASE_URL, BookingStatus, Coding, code_system_url, coding_for
+from overwatch.domain.model.booking import Booking
+from overwatch.domain.rules.booking_state import from_fhir, to_fhir
 
 BOOKING_REFERENCE_SYSTEM: Final = f"{BASE_URL}booking-reference"
 

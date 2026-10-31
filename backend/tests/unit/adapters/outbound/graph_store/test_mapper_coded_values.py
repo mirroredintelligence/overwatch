@@ -17,7 +17,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from diucs.adapters.outbound.graph_store.mapper import (
+from overwatch.adapters.outbound.graph_store.mapper import (
     FILTER_CODE_PROPERTIES,
     ODS_ORG_SYSTEM,
     ODS_SITE_SYSTEM,
@@ -29,17 +29,17 @@ from diucs.adapters.outbound.graph_store.mapper import (
     from_graph,
     to_graph,
 )
-from diucs.domain.errors import DomainError, NotFound, ValidationFailed
+from overwatch.domain.errors import DomainError, NotFound, ValidationFailed
 
 OBS_ID = "9e4c3f5b-6d7a-4182-8d2e-3f4a5b6c7d8e"
 ORG_ID = "6b1f0c2e-3a4d-4e5f-8a9b-0c1d2e3f4a5b"
 SVC_ID = "8d3b2e4a-5c6f-4071-8c1d-2e3f4a5b6c7d"
 
-CAPACITY_MEASURE = "https://diucs.example/CodeSystem/capacity-measure"
-REPORT_SOURCE = "https://diucs.example/CodeSystem/report-source"
-STATUS = "https://diucs.example/CodeSystem/status"
-SERVICE_CATEGORY = "https://diucs.example/CodeSystem/service-category"
-ORGANIZATION_TYPE = "https://diucs.example/CodeSystem/organization-type"
+CAPACITY_MEASURE = "https://overwatch.mirroredintelligence.com/CodeSystem/capacity-measure"
+REPORT_SOURCE = "https://overwatch.mirroredintelligence.com/CodeSystem/report-source"
+STATUS = "https://overwatch.mirroredintelligence.com/CodeSystem/status"
+SERVICE_CATEGORY = "https://overwatch.mirroredintelligence.com/CodeSystem/service-category"
+ORGANIZATION_TYPE = "https://overwatch.mirroredintelligence.com/CodeSystem/organization-type"
 UCUM = "http://unitsofmeasure.org"
 
 CAPACITY_REPORT: dict[str, Any] = {
@@ -678,7 +678,8 @@ def test_new_samples_hold_no_map_no_list_of_maps_and_no_json_string(
 
 def test_the_ods_uris_appear_only_as_the_two_constants() -> None:
     source = (
-        Path(__file__).resolve().parents[5] / "src/diucs/adapters/outbound/graph_store/mapper.py"
+        Path(__file__).resolve().parents[5]
+        / "src/overwatch/adapters/outbound/graph_store/mapper.py"
     ).read_text(encoding="utf-8")
     literals = [
         node.value

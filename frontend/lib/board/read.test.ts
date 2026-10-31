@@ -14,7 +14,7 @@ import { server } from '@/test/msw/server';
 import { BOARD_ROLES, canReadBoard, readBoard } from './read';
 
 beforeEach(() => {
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', BACKEND_BASE);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', BACKEND_BASE);
   resetSeenBoardRequests();
 });
 

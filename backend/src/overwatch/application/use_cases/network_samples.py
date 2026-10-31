@@ -10,10 +10,10 @@ A failure to record is the projector's to swallow (a board must never fail becau
 could not be written); here it is raised, so a test sees it.
 """
 
-from diucs.application.ports.outbound.unit_of_work import NetworkUnitOfWorkFactory
-from diucs.application.tenancy import bind_network
-from diucs.application.use_cases.query_network_board import NetworkBoardView
-from diucs.domain.rules.network_sample import sample_of
+from overwatch.application.ports.outbound.unit_of_work import NetworkUnitOfWorkFactory
+from overwatch.application.tenancy import bind_network
+from overwatch.application.use_cases.query_network_board import NetworkBoardView
+from overwatch.domain.rules.network_sample import sample_of
 
 
 class RecordNetworkSample:

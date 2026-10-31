@@ -11,7 +11,8 @@ needs clean-up:
   records). A schema that is up to date is detected with one read and takes no lock.
 
 The files are keyed by the instance (a short hash of its uri or container name, so no secret and no
-host name is in a file name), and live in `/tmp` unless `DIUCS_TEST_NEO4J_LOCK_DIR` says otherwise.
+host name is in a file name), and live in `/tmp` unless `OVERWATCH_TEST_NEO4J_LOCK_DIR` says
+otherwise.
 The locks are between processes of one machine: an instance that is used from several machines is
 not covered (the harness documents it).
 """
@@ -26,10 +27,10 @@ from collections.abc import Awaitable, Callable, Mapping
 
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.migrations import MIGRATIONS, apply_migrations
+from overwatch.adapters.outbound.graph_store.migrations import MIGRATIONS, apply_migrations
 from tests.support.neo4j import read_tx
 
-LOCK_DIR_ENV = "DIUCS_TEST_NEO4J_LOCK_DIR"
+LOCK_DIR_ENV = "OVERWATCH_TEST_NEO4J_LOCK_DIR"
 DEFAULT_LOCK_DIR = "/tmp"
 DEFAULT_TIMEOUT_S = 3600.0
 USE_POLL_S = 0.5
@@ -45,7 +46,7 @@ def lock_path(kind: str, key: str, environ: Mapping[str, str] | None = None) -> 
     source = os.environ if environ is None else environ
     directory = source.get(LOCK_DIR_ENV) or DEFAULT_LOCK_DIR
     digest = hashlib.sha256(key.encode("utf-8")).hexdigest()[:12]
-    return f"{directory}/diucs-neo4j-{kind}-{digest}.lock"
+    return f"{directory}/overwatch-neo4j-{kind}-{digest}.lock"
 
 
 def _open(path: str) -> int:

@@ -9,10 +9,15 @@ restart in production by design.
 from dataclasses import dataclass
 from datetime import UTC
 
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.identity import CodeResendRefused
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.identity_policy import CODE_VALID_FOR, CodeState, can_resend, check_purpose
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.identity import CodeResendRefused
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.identity_policy import (
+    CODE_VALID_FOR,
+    CodeState,
+    can_resend,
+    check_purpose,
+)
 
 
 class InMemoryCodeStore:

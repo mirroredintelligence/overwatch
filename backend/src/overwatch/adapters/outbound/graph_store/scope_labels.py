@@ -20,7 +20,7 @@ generated test over all three scopes (TEN-060). Pure: no import of the driver.
 
 from typing import Final
 
-from diucs.adapters.outbound.graph_store.migrations_tenant import REGISTRY_LABELS
+from overwatch.adapters.outbound.graph_store.migrations_tenant import REGISTRY_LABELS
 
 NETWORK_ONLY_LABELS: Final[frozenset[str]] = frozenset(
     {

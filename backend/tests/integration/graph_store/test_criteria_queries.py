@@ -18,15 +18,15 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.criteria_repository import Neo4jCriteriaRepository
-from diucs.adapters.outbound.graph_store.flag_repository import Neo4jFlagRepository
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.adapters.outbound.graph_store.service_repository import Neo4jServiceRepository
-from diucs.domain.codes import AgeBand, CriteriaStatus, NeedCategory
-from diucs.domain.model.criteria import ServiceCriteria
-from diucs.domain.model.flags import ServiceFlag
-from diucs.domain.model.service import ServiceProfile
-from diucs.domain.rules.criteria_filter import check_hard_criteria
+from overwatch.adapters.outbound.graph_store.criteria_repository import Neo4jCriteriaRepository
+from overwatch.adapters.outbound.graph_store.flag_repository import Neo4jFlagRepository
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.adapters.outbound.graph_store.service_repository import Neo4jServiceRepository
+from overwatch.domain.codes import AgeBand, CriteriaStatus, NeedCategory
+from overwatch.domain.model.criteria import ServiceCriteria
+from overwatch.domain.model.flags import ServiceFlag
+from overwatch.domain.model.service import ServiceProfile
+from overwatch.domain.rules.criteria_filter import check_hard_criteria
 from tests.support.neo4j import read_tx, write_tx
 from tests.support.tenancy import as_tenant
 from tests.unit.adapters.outbound.graph_store.test_service_repository import UCR_WEST

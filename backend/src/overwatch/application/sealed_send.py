@@ -10,14 +10,14 @@ import json
 from datetime import datetime
 from typing import Final
 
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.messaging import Communication
-from diucs.application.ports.outbound.outbox import OutboxMessage
-from diucs.application.ports.outbound.sealing import ContentSealer
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork
-from diucs.application.tenancy import ScopeId
-from diucs.application.use_cases.send_prompts import LINK_PLACEHOLDER
-from diucs.domain.messages.templates import RenderedMessage
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.messaging import Communication
+from overwatch.application.ports.outbound.outbox import OutboxMessage
+from overwatch.application.ports.outbound.sealing import ContentSealer
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork
+from overwatch.application.tenancy import ScopeId
+from overwatch.application.use_cases.send_prompts import LINK_PLACEHOLDER
+from overwatch.domain.messages.templates import RenderedMessage
 
 MESSAGES_TOPIC: Final = "messages.outbound"
 SEND_MESSAGE: Final = "SendMessage"

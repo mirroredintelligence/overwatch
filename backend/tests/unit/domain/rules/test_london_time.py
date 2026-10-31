@@ -7,8 +7,8 @@ import pytest
 from hypothesis import assume, given
 from hypothesis import strategies as st
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.london_time import (
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.london_time import (
     LONDON,
     format_hhmm,
     format_stamp,

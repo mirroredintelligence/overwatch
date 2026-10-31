@@ -5,9 +5,9 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from diucs.domain.codes import ReportFlagReason
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.flags import (
+from overwatch.domain.codes import ReportFlagReason
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.flags import (
     REPORT_FLAG_ACCEPTED,
     REPORT_FLAG_CHECKED,
     REPORT_FLAG_OPEN,

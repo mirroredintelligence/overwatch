@@ -23,26 +23,26 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Final
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.tenants import TenantDirectory
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.tenancy import ScopeKind, TenantNotBound
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotAllowed, NotFound, ValidationFailed
-from diucs.domain.model.tenant import (
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.tenants import TenantDirectory
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeKind, TenantNotBound
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.model.tenant import (
     ConfigStatus,
     Tenant,
     TenantConfig,
     TenantContact,
 )
-from diucs.domain.model.tenant_records import (
+from overwatch.domain.model.tenant_records import (
     EntraBinding,
     RoleMapping,
     TenantChannel,
     TenantRetention,
 )
-from diucs.domain.rules.tenant_settings import (
+from overwatch.domain.rules.tenant_settings import (
     approvals_required,
     changed_keys,
     clinical_keys,

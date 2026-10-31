@@ -2,7 +2,7 @@
 
 The sealed text is opened by the sender at send time. The associated data (the outbox message id,
 the tenant and the recipient role) bind a sealed text to one message, tenant and recipient, so it
-cannot be moved. The adapter is diucs.adapters.outbound.content_seal (AES-256-GCM).
+cannot be moved. The adapter is overwatch.adapters.outbound.content_seal (AES-256-GCM).
 """
 
 from typing import Protocol

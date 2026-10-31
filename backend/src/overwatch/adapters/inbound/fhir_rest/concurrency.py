@@ -21,14 +21,14 @@ from typing import Any, Final
 
 from fastapi import Request, Response
 
-from diucs.adapters.inbound.fhir_rest.capability import FhirJSONResponse
-from diucs.adapters.inbound.fhir_rest.errors import (
+from overwatch.adapters.inbound.fhir_rest.capability import FhirJSONResponse
+from overwatch.adapters.inbound.fhir_rest.errors import (
     HeaderRefused,
     PreconditionFailed,
     PreconditionRequired,
 )
-from diucs.application.actor import Actor, require_actor_in_bound_tenant
-from diucs.application.ports.outbound.cache import Cache
+from overwatch.application.actor import Actor, require_actor_in_bound_tenant
+from overwatch.application.ports.outbound.cache import Cache
 
 REPLAY_TTL: Final = timedelta(hours=24)
 REPLAY_HEADER: Final = "Idempotent-Replay"

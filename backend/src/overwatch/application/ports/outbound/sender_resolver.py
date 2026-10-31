@@ -11,8 +11,8 @@ references held by the adapter; the sender port never sees a tenant id or a secr
 
 from typing import Protocol
 
-from diucs.application.ports.outbound.messaging import EmailSender, SmsSender
-from diucs.domain.model.tenant_records import TenantChannel
+from overwatch.application.ports.outbound.messaging import EmailSender, SmsSender
+from overwatch.domain.model.tenant_records import TenantChannel
 
 
 class ChannelUnavailable(Exception):

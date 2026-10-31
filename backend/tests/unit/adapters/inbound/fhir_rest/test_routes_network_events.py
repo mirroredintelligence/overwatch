@@ -16,19 +16,19 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.inbound.fhir_rest import routes_network_events as module
-from diucs.adapters.inbound.fhir_rest.routes_network_events import (
+from overwatch.adapters.inbound.fhir_rest import routes_network_events as module
+from overwatch.adapters.inbound.fhir_rest.routes_network_events import (
     SCOPE_ENDED_EVENT,
     network_events,
     to_network_sse,
 )
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.cache import NETWORK_BOARD_UPDATES_CHANNEL
-from diucs.application.tenancy import bind_network
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotFound
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.cache import NETWORK_BOARD_UPDATES_CHANNEL
+from overwatch.application.tenancy import bind_network
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotFound
 from tests.support.edge import EDGE_NOW, TENANT_A
 
 NET = "net-pilot"

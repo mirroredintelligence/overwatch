@@ -15,17 +15,17 @@ from dataclasses import dataclass, replace
 from datetime import date, datetime
 from typing import Final
 
-from diucs.application.actor import Actor
-from diucs.application.idempotency import IdempotencyStore
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
-from diucs.domain.codes import RegistrationStatus, Role, ScopeFlag, ServiceCategory
-from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.model.registration import ScopeEntry
-from diucs.domain.rules.london_time import to_london
+from overwatch.application.actor import Actor
+from overwatch.application.idempotency import IdempotencyStore
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
+from overwatch.domain.codes import RegistrationStatus, Role, ScopeFlag, ServiceCategory
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.model.registration import ScopeEntry
+from overwatch.domain.rules.london_time import to_london
 
 ADD_ACTION: Final = "C"
 CHANGE_ACTION: Final = "U"

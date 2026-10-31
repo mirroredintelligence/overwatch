@@ -2,11 +2,12 @@
 
 `load_secret_store(settings)` is the one place a process learns where its secrets live:
 
-- `DIUCS_KEY_VAULT_URL` set: Azure Key Vault, read through the app's managed identity
+- `OVERWATCH_KEY_VAULT_URL` set: Azure Key Vault, read through the app's managed identity
   (`KeyVaultSecretStore`). The only environment values are the vault URL and `AZURE_CLIENT_ID`; a
   secret that is also in the plain environment stops the process (item 8: a secret in plain
   configuration is an error, not a fallback).
-- `DIUCS_SECRETS_DIR` set, no vault: the development file store (`FileSecretStore`), refused in the
+- `OVERWATCH_SECRETS_DIR` set, no vault: the development file store (`FileSecretStore`), refused in
+the
   production profile, beside a vault URL and when the directory is open to group or others.
 - neither: None, as before (tests, and a process that then stops or runs without secrets).
 
@@ -25,12 +26,12 @@ from urllib.parse import urlparse
 
 from pydantic import SecretStr
 
-from diucs.adapters.outbound.file_secrets import FileSecretStore, SecretsDirectoryError
-from diucs.adapters.outbound.keyvault_secrets import KeyVaultSecretStore
-from diucs.adapters.outbound.keyvault_secrets.key_vault_store import SecretClientLike
-from diucs.application.ports.outbound.tokens import SecretStore, SecretStoreUnavailable
-from diucs.bootstrap.settings import Settings
-from diucs.domain.errors import NotFound
+from overwatch.adapters.outbound.file_secrets import FileSecretStore, SecretsDirectoryError
+from overwatch.adapters.outbound.keyvault_secrets import KeyVaultSecretStore
+from overwatch.adapters.outbound.keyvault_secrets.key_vault_store import SecretClientLike
+from overwatch.application.ports.outbound.tokens import SecretStore, SecretStoreUnavailable
+from overwatch.bootstrap.settings import Settings
+from overwatch.domain.errors import NotFound
 
 log = logging.getLogger(__name__)
 
@@ -54,7 +55,7 @@ _SETTING_FIELDS: Final = (
     ("servicebus_connection", SERVICEBUS_CONNECTION_SECRET),
     ("os_places_api_key", OS_PLACES_API_KEY_SECRET),
 )
-_ENV_PREFIX: Final = "DIUCS_"
+_ENV_PREFIX: Final = "OVERWATCH_"
 
 # A read of a name that is not cached waits for the vault on the calling thread, which on the API is
 # the event loop. The Azure client's own defaults (300 s to connect or read, several retries) would
@@ -92,7 +93,7 @@ def _refuse_plain_secrets(settings: Settings) -> None:
     if found:
         listed = ", ".join(f"{variable} (the vault holds {name})" for variable, name in found)
         raise SecretConfigError(
-            "a secret is set in the plain environment while DIUCS_KEY_VAULT_URL is set, and the "
+            "a secret is set in the plain environment while OVERWATCH_KEY_VAULT_URL is set, and the "  # noqa: E501
             f"vault is the only source: remove {listed}"
         )
 
@@ -105,15 +106,15 @@ def _valid_vault_url(url: str) -> bool:
 def _file_store(settings: Settings, directory: Path) -> FileSecretStore:
     if settings.profile == "production":
         raise SecretConfigError(
-            "DIUCS_SECRETS_DIR is for development only and is refused when DIUCS_PROFILE is "
-            "production: set DIUCS_KEY_VAULT_URL"
+            "OVERWATCH_SECRETS_DIR is for development only and is refused when OVERWATCH_PROFILE is "  # noqa: E501
+            "production: set OVERWATCH_KEY_VAULT_URL"
         )
     try:
         store = FileSecretStore(directory)
     except SecretsDirectoryError as error:
-        raise SecretConfigError(f"DIUCS_SECRETS_DIR: {error}") from None
+        raise SecretConfigError(f"OVERWATCH_SECRETS_DIR: {error}") from None
     log.warning(
-        "the secret store is the development file store (DIUCS_SECRETS_DIR): not for production"
+        "the secret store is the development file store (OVERWATCH_SECRETS_DIR): not for production"
     )
     return store
 
@@ -132,7 +133,7 @@ def load_secret_store(
     directory = settings.secrets_dir
     if url is not None and directory is not None:
         raise SecretConfigError(
-            "DIUCS_KEY_VAULT_URL and DIUCS_SECRETS_DIR are both set: use the vault, or the "
+            "OVERWATCH_KEY_VAULT_URL and OVERWATCH_SECRETS_DIR are both set: use the vault, or the "
             "development directory, not both"
         )
     if directory is not None:
@@ -140,7 +141,7 @@ def load_secret_store(
     if url is None:
         return None
     if not _valid_vault_url(url):
-        raise SecretConfigError("DIUCS_KEY_VAULT_URL must be the https URL of a Key Vault")
+        raise SecretConfigError("OVERWATCH_KEY_VAULT_URL must be the https URL of a Key Vault")
     _refuse_plain_secrets(settings)
     on_close: Callable[[], None] | None = None
     if client is None:

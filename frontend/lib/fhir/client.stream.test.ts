@@ -10,7 +10,7 @@ const EVENTS = `${BASE}/events`;
 const SSE = 'text/event-stream';
 
 beforeEach(() => {
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', BASE);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', BASE);
 });
 
 afterEach(() => {
@@ -120,9 +120,9 @@ describe('fhirStream', () => {
   });
 
   it('fails, naming the variable only, when the base URL is not set', async () => {
-    vi.stubEnv('DIUCS_FHIR_BASE_URL', '');
+    vi.stubEnv('OVERWATCH_FHIR_BASE_URL', '');
 
-    await expect(fhirStream('/events', { token: 't' })).rejects.toThrow(/DIUCS_FHIR_BASE_URL/);
+    await expect(fhirStream('/events', { token: 't' })).rejects.toThrow(/OVERWATCH_FHIR_BASE_URL/);
   });
 });
 

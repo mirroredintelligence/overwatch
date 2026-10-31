@@ -21,29 +21,29 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.ports.outbound.identity import DEVICE_TOKEN_SECRET
-from diucs.application.ports.outbound.tenant_lines import InboundLine
-from diucs.application.ports.outbound.tenants import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.ports.outbound.identity import DEVICE_TOKEN_SECRET
+from overwatch.application.ports.outbound.tenant_lines import InboundLine
+from overwatch.application.ports.outbound.tenants import (
     TenantLine,
     TenantRecordInvalid,
     secret_ref,
     twilio_token_ref,
 )
-from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET
-from diucs.application.tenancy import ScopeId, bind_tenant
-from diucs.application.tenant_resolution import (
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET
+from overwatch.application.tenancy import ScopeId, bind_tenant
+from overwatch.application.tenant_resolution import (
     ENTRY_REFUSED_MESSAGE,
     DirectoryInboundLines,
     EntryKind,
     EntryRefused,
     PreSessionResolver,
 )
-from diucs.domain.errors import Conflict, NotFound
-from diucs.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
-from diucs.domain.model.tenant import Tenant, TenantStatus
-from diucs.domain.rules.tokens import LinkCheck, LinkTokenRecord, hash_token
+from overwatch.domain.errors import Conflict, NotFound
+from overwatch.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
+from overwatch.domain.model.tenant import Tenant, TenantStatus
+from overwatch.domain.rules.tokens import LinkCheck, LinkTokenRecord, hash_token
 from tests.support.pre_session import Devices, Links, Uow
 from tests.support.tenant_samples import make_tenant
 

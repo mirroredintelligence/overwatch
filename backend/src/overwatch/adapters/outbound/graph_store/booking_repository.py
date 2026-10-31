@@ -17,7 +17,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any, Final
 
-from diucs.adapters.fhir_shared.booking_task import (
+from overwatch.adapters.fhir_shared.booking_task import (
     _ACKNOWLEDGED_AT,
     _ACKNOWLEDGED_BY,
     _CONFIRMED_AT,
@@ -29,16 +29,16 @@ from diucs.adapters.fhir_shared.booking_task import (
     BOOKING_REFERENCE_SYSTEM,
     booking_to_fhir,
 )
-from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.adapters.outbound.graph_store.service_repository import codeable_to_fhir
-from diucs.adapters.outbound.graph_store.service_scenarios import SCENARIOS
-from diucs.adapters.outbound.graph_store.week_scenarios import WEEK_SCENARIOS
-from diucs.domain.codes import code_system_url
-from diucs.domain.errors import NotFound, ValidationFailed
-from diucs.domain.model.booking import Booking
-from diucs.domain.rules.booking_state import from_fhir
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx, run_query
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.adapters.outbound.graph_store.service_repository import codeable_to_fhir
+from overwatch.adapters.outbound.graph_store.service_scenarios import SCENARIOS
+from overwatch.adapters.outbound.graph_store.week_scenarios import WEEK_SCENARIOS
+from overwatch.domain.codes import code_system_url
+from overwatch.domain.errors import NotFound, ValidationFailed
+from overwatch.domain.model.booking import Booking
+from overwatch.domain.rules.booking_state import from_fhir
 
 _BUSINESS_STATUS: Final = "businessStatus"
 _REFERENCE: Final = "reference"

@@ -27,31 +27,31 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response
 from fhir.resources.R4B.task import Task
 
-from diucs.adapters.fhir_shared.booking_task import booking_to_fhir
-from diucs.adapters.inbound.fhir_rest import capability
-from diucs.adapters.inbound.fhir_rest.app import ApiContainer, get_container
-from diucs.adapters.inbound.fhir_rest.auth import PROJECTIONS, current_actor, require_role
-from diucs.adapters.inbound.fhir_rest.capability import FhirJSONResponse
-from diucs.adapters.inbound.fhir_rest.clinical_mapping import clinical_task
-from diucs.adapters.inbound.fhir_rest.concurrency import idempotency_key
-from diucs.adapters.inbound.fhir_rest.errors import operation_outcome
-from diucs.adapters.inbound.fhir_rest.mapping import validate_outbound
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.uow_idempotency import UnitOfWorkIdempotency
-from diucs.application.use_cases.cancel_booking import CancelBooking, CancelBookingCommand
-from diucs.application.use_cases.clinical_advice import ReadClinicalRequest
-from diucs.application.use_cases.query_board import QueryBoard
-from diucs.application.use_cases.request_booking import (
+from overwatch.adapters.fhir_shared.booking_task import booking_to_fhir
+from overwatch.adapters.inbound.fhir_rest import capability
+from overwatch.adapters.inbound.fhir_rest.app import ApiContainer, get_container
+from overwatch.adapters.inbound.fhir_rest.auth import PROJECTIONS, current_actor, require_role
+from overwatch.adapters.inbound.fhir_rest.capability import FhirJSONResponse
+from overwatch.adapters.inbound.fhir_rest.clinical_mapping import clinical_task
+from overwatch.adapters.inbound.fhir_rest.concurrency import idempotency_key
+from overwatch.adapters.inbound.fhir_rest.errors import operation_outcome
+from overwatch.adapters.inbound.fhir_rest.mapping import validate_outbound
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.uow_idempotency import UnitOfWorkIdempotency
+from overwatch.application.use_cases.cancel_booking import CancelBooking, CancelBookingCommand
+from overwatch.application.use_cases.clinical_advice import ReadClinicalRequest
+from overwatch.application.use_cases.query_board import QueryBoard
+from overwatch.application.use_cases.request_booking import (
     RequestBooking,
     RequestBookingCommand,
 )
-from diucs.application.use_cases.respond_to_booking import (
+from overwatch.application.use_cases.respond_to_booking import (
     RespondToBooking,
     RespondToBookingCommand,
 )
-from diucs.application.use_cases.withdraw_booking import (
+from overwatch.application.use_cases.withdraw_booking import (
     AcknowledgeWithdrawal,
     AcknowledgeWithdrawalCommand,
     ReportNotReached,
@@ -59,7 +59,7 @@ from diucs.application.use_cases.withdraw_booking import (
     WithdrawBooking,
     WithdrawBookingCommand,
 )
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     BASE_URL,
     BookingStatus,
     CancelReason,
@@ -69,9 +69,9 @@ from diucs.domain.codes import (
     Role,
     WithdrawReason,
 )
-from diucs.domain.errors import InvalidTransition, NotFound, ValidationFailed
-from diucs.domain.model.booking import Booking
-from diucs.domain.rules.booking_response import responder_may_act
+from overwatch.domain.errors import InvalidTransition, NotFound, ValidationFailed
+from overwatch.domain.model.booking import Booking
+from overwatch.domain.rules.booking_response import responder_may_act
 
 BOOKING_REQUEST: Final = "booking-request"
 _FOCUS: Final = re.compile(r"ServiceRequest/([A-Za-z0-9.-]{1,64})")

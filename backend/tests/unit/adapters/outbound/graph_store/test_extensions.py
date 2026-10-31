@@ -10,13 +10,13 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.outbound.graph_store.extensions import (
+from overwatch.adapters.outbound.graph_store.extensions import (
     EXTENSIONS,
     TENANT_OWNED_NAMES,
     ExtensionDef,
     register_extension,
 )
-from diucs.adapters.outbound.graph_store.mapper import (
+from overwatch.adapters.outbound.graph_store.mapper import (
     GraphFragment,
     NodeSpec,
     RelSpec,
@@ -25,8 +25,8 @@ from diucs.adapters.outbound.graph_store.mapper import (
     from_graph,
     to_graph,
 )
-from diucs.domain.codes import BASE_URL
-from diucs.domain.errors import DomainError, ValidationFailed
+from overwatch.domain.codes import BASE_URL
+from overwatch.domain.errors import DomainError, ValidationFailed
 
 ORG_ID = "6b1f0c2e-3a4d-4e5f-8a9b-0c1d2e3f4a5b"
 LOC_ID = "7c2a1d3f-4b5e-4f60-9b0c-1d2e3f4a5b6c"

@@ -14,7 +14,7 @@ the form `Concept|system|code`. This module is pure data: no Neo4j, no tenant, n
 
 from typing import Final
 
-from diucs.adapters.outbound.graph_store.scenario import (
+from overwatch.adapters.outbound.graph_store.scenario import (
     Expect,
     Marked,
     NodeSpec,

@@ -1,4 +1,4 @@
-"""Tests for diucs.domain.events: domain event payloads and Service Bus topics (D25).
+"""Tests for overwatch.domain.events: domain event payloads and Service Bus topics (D25).
 
 Events are pure data: identifiers, counts and codes, never patient values. Sample values only.
 """
@@ -10,7 +10,7 @@ from typing import Any, get_args
 
 import pytest
 
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     AdviceChoice,
     AlertKind,
     BookingStatus,
@@ -20,8 +20,8 @@ from diucs.domain.codes import (
     Role,
     Status,
 )
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.events import (
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.events import (
     AgreementRecorded,
     AlertAcknowledged,
     AlertEscalatedToLead,
@@ -62,7 +62,7 @@ from diucs.domain.events import (
     session_id_for,
     topic_for,
 )
-from diucs.domain.model.network import (
+from overwatch.domain.model.network import (
     DirectorySource,
     GrantApprover,
     GrantEndReason,

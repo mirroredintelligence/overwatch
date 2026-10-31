@@ -11,16 +11,16 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.outbound.graph_store.registration_repository import (
+from overwatch.adapters.outbound.graph_store.registration_repository import (
     draft_from_rows,
     draft_to_rows,
     registration_from_fhir,
     registration_to_fhir,
 )
-from diucs.domain.codes import BASE_URL, RegistrationStatus, ScopeFlag, code_system_url
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.registration import Registration
-from diucs.domain.rules.registration import ApprovalChecks
+from overwatch.domain.codes import BASE_URL, RegistrationStatus, ScopeFlag, code_system_url
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.registration import Registration
+from overwatch.domain.rules.registration import ApprovalChecks
 
 CREATED = datetime(2026, 10, 25, 12, 50, tzinfo=UTC)
 CHANGED = datetime(2026, 10, 25, 13, 5, 30, tzinfo=UTC)

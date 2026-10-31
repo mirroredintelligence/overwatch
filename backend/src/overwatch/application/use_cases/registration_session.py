@@ -31,27 +31,30 @@ from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Final, Protocol
 
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.identity import PhoneHasher, SessionStore
-from diucs.application.ports.outbound.tokens import SecretStore
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.tenancy import ScopeKind, TenantNotBound
-from diucs.application.tenant_resolution import EntryRefused, ResolvedLink
-from diucs.application.use_cases.exchange_token import SIGNING_SECRET, IssuedToken
-from diucs.application.use_cases.reporter_identity import ConfirmDeviceCommand, ConfirmDeviceResult
-from diucs.application.use_cases.text_code import (
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.identity import PhoneHasher, SessionStore
+from overwatch.application.ports.outbound.tokens import SecretStore
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeKind, TenantNotBound
+from overwatch.application.tenant_resolution import EntryRefused, ResolvedLink
+from overwatch.application.use_cases.exchange_token import SIGNING_SECRET, IssuedToken
+from overwatch.application.use_cases.reporter_identity import (
+    ConfirmDeviceCommand,
+    ConfirmDeviceResult,
+)
+from overwatch.application.use_cases.text_code import (
     INVITATION_PURPOSE,
     RequestTextCodeCommand,
     RequestTextCodeResult,
 )
-from diucs.domain.codes import PractitionerRoleCode, Role
-from diucs.domain.errors import NotFound, ValidationFailed
-from diucs.domain.model.people import PractitionerRole
-from diucs.domain.model.registration import Invitation, Registration
-from diucs.domain.model.tenant import Tenant
-from diucs.domain.rules.bff_token import BffClaims, encode_bff_token
-from diucs.domain.rules.token_exchange import expiry, may_issue
-from diucs.domain.rules.tokens import LinkCheck
+from overwatch.domain.codes import PractitionerRoleCode, Role
+from overwatch.domain.errors import NotFound, ValidationFailed
+from overwatch.domain.model.people import PractitionerRole
+from overwatch.domain.model.registration import Invitation, Registration
+from overwatch.domain.model.tenant import Tenant
+from overwatch.domain.rules.bff_token import BffClaims, encode_bff_token
+from overwatch.domain.rules.token_exchange import expiry, may_issue
+from overwatch.domain.rules.tokens import LinkCheck
 
 REGISTRATION_TOKEN_LIFETIME: Final = timedelta(hours=2)
 """[ASSUMED] How long a token from a text code lasts: a registration is filled in over a sitting,

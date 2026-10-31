@@ -11,23 +11,23 @@ from typing import Protocol, cast
 
 from fastapi import APIRouter, FastAPI, Request
 
-from diucs.adapters.inbound.fhir_rest import capability
-from diucs.adapters.inbound.fhir_rest.errors import (
+from overwatch.adapters.inbound.fhir_rest import capability
+from overwatch.adapters.inbound.fhir_rest.errors import (
     BodyTypeMiddleware,
     UnhandledErrorMiddleware,
     install_exception_handlers,
 )
-from diucs.adapters.inbound.fhir_rest.routes_synthetic import SyntheticHook
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.geo import PostcodeLocator, TravelTime
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.sealing import ContentSealer
-from diucs.application.ports.outbound.tenants import TenantDirectory
-from diucs.application.ports.outbound.terminology import FhirValidator, Terminology
-from diucs.application.ports.outbound.tokens import SecretStore
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.request_booking import LinkBaseUrlFor
-from diucs.application.use_cases.suspend_service import WordingFor
+from overwatch.adapters.inbound.fhir_rest.routes_synthetic import SyntheticHook
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.geo import PostcodeLocator, TravelTime
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.sealing import ContentSealer
+from overwatch.application.ports.outbound.tenants import TenantDirectory
+from overwatch.application.ports.outbound.terminology import FhirValidator, Terminology
+from overwatch.application.ports.outbound.tokens import SecretStore
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.request_booking import LinkBaseUrlFor
+from overwatch.application.use_cases.suspend_service import WordingFor
 
 
 class ApiContainer(Protocol):
@@ -85,7 +85,7 @@ def create_app(
     composition root decides, from the telemetry setting; the default adds nothing)."""
     # The OpenAPI pages are off: every response is FHIR, and the surface is the FHIR API only.
     app = FastAPI(
-        title="DIUCS capacity FHIR API",
+        title="Overwatch FHIR API",
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
@@ -106,7 +106,7 @@ def create_app(
     fhir.include_router(capability.router)
     app.include_router(fhir)
     # Imported here: the route modules depend on auth, which imports this module (DEC-111).
-    from diucs.adapters.inbound.fhir_rest import (
+    from overwatch.adapters.inbound.fhir_rest import (
         routes_admin,
         routes_alerts,
         routes_auth,
@@ -185,44 +185,44 @@ def create_app(
     app.include_router(routes_criteria_views.router)
 
     # Support codes and the support console (R18): JSON routes over the O06 and R18 use cases.
-    from diucs.adapters.inbound.fhir_rest import routes_support
+    from overwatch.adapters.inbound.fhir_rest import routes_support
 
     app.include_router(routes_support.router)
 
     # The platform operator's and the support person's routes (TEN-075), on the operator door
-    # (audience diucs-ops), and the tenant administrator's own (TEN-075), on the tenant door.
-    from diucs.adapters.inbound.fhir_rest import routes_platform, routes_tenant
+    # (audience overwatch-ops), and the tenant administrator's own (TEN-075), on the tenant door.
+    from overwatch.adapters.inbound.fhir_rest import routes_platform, routes_tenant
 
     app.include_router(routes_platform.router)
     app.include_router(routes_tenant.router)
 
     # The planning analysis (W51, U43): aggregates from the decision log, for a lead or an
     # executive.
-    from diucs.adapters.inbound.fhir_rest import routes_planning
+    from overwatch.adapters.inbound.fhir_rest import routes_planning
 
     app.include_router(routes_planning.router)
 
     # The insight console's routes (W9F): the browser's ui.* events counted into the tenant's
     # daily aggregates, and the five tabs of the insight page read back for the support role.
-    from diucs.adapters.inbound.fhir_rest import routes_insight
+    from overwatch.adapters.inbound.fhir_rest import routes_insight
 
     app.include_router(routes_insight.router)
 
     # The Twilio webhook (I07). It imports no FHIR module; the named ignore in .importlinter lets
     # this one module wire it in.
-    from diucs.adapters.inbound.sms_webhook import routes as sms_routes
+    from overwatch.adapters.inbound.sms_webhook import routes as sms_routes
 
     app.include_router(sms_routes.router)
 
     # The one-tap capacity link pages (L01). Another inbound adapter, wired in the same way; the
     # named ignore in .importlinter lets this one module do it.
-    from diucs.adapters.inbound.link_pages import capacity_links
+    from overwatch.adapters.inbound.link_pages import capacity_links
 
     app.include_router(capacity_links.router)
 
     # The synthetic test hook (O09, TEN-G04): refuses everything unless it is configured and the
     # bearer is its token. Mounted always, so an unconfigured server answers the same 404.
-    from diucs.adapters.inbound.fhir_rest import routes_synthetic
+    from overwatch.adapters.inbound.fhir_rest import routes_synthetic
 
     app.include_router(routes_synthetic.router)
     if instrument is not None:

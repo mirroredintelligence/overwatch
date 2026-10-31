@@ -13,17 +13,17 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.case_summary import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.case_summary import (
     BuildCaseSummary,
     BuildCaseSummaryQuery,
     CaseSummary,
 )
-from diucs.application.use_cases.query_board import QueryBoard
-from diucs.domain.codes import BookingStatus, Outcome, Role
-from diucs.domain.errors import Conflict, NotAllowed, NotFound
-from diucs.domain.model.booking import Booking
+from overwatch.application.use_cases.query_board import QueryBoard
+from overwatch.domain.codes import BookingStatus, Outcome, Role
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound
+from overwatch.domain.model.booking import Booking
 from tests.integration.application.test_filter_options import (
     ACTOR,
     CASE_ID,

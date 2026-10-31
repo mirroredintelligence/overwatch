@@ -23,21 +23,21 @@ from typing import Annotated, Any, Final
 from fastapi import APIRouter, Depends, Path, Query, Request
 from fastapi.responses import JSONResponse
 
-from diucs.adapters.inbound.fhir_rest.auth import require_role
-from diucs.application.actor import Actor
-from diucs.application.network_access import NETWORK_VIEW_ROLES, NetworkAccess
-from diucs.application.use_cases.filter_network_options import (
+from overwatch.adapters.inbound.fhir_rest.auth import require_role
+from overwatch.application.actor import Actor
+from overwatch.application.network_access import NETWORK_VIEW_ROLES, NetworkAccess
+from overwatch.application.use_cases.filter_network_options import (
     FilterNetworkOptions,
     FilterNetworkOptionsCommand,
     FilterNetworkOptionsResult,
     NetworkOption,
 )
-from diucs.application.use_cases.network_board_projector import (
+from overwatch.application.use_cases.network_board_projector import (
     NetworkBoardProjector,
     network_board_to_dict,
 )
-from diucs.application.use_cases.network_week_summary import GetNetworkWeekSummary
-from diucs.application.use_cases.query_network_directory import (
+from overwatch.application.use_cases.network_week_summary import GetNetworkWeekSummary
+from overwatch.application.use_cases.query_network_directory import (
     NetworkCriteriaEntry,
     NetworkCriteriaView,
     NetworkDirectoryEntry,
@@ -45,9 +45,9 @@ from diucs.application.use_cases.query_network_directory import (
     QueryNetworkCriteria,
     QueryNetworkDirectory,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotFound
-from diucs.domain.rules.projection import LocationProjection, OpeningHourProjection
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotFound
+from overwatch.domain.rules.projection import LocationProjection, OpeningHourProjection
 
 # The network id pattern of the domain (`check_network_id`): `net-` and lower-case letters, digits
 # and hyphens, 31 characters at most in all (a test keeps the two equal).

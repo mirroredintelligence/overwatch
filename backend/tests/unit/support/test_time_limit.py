@@ -79,22 +79,22 @@ def test_zero_means_no_limit() -> None:
 def test_the_default_limit_is_five_minutes_and_the_environment_overrides_it(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.delenv("DIUCS_TEST_TIMEOUT", raising=False)
+    monkeypatch.delenv("OVERWATCH_TEST_TIMEOUT", raising=False)
     assert DEFAULT_TEST_TIMEOUT_S == 300.0
     assert configured_timeout_s() == 300.0
 
-    monkeypatch.setenv("DIUCS_TEST_TIMEOUT", "42")
+    monkeypatch.setenv("OVERWATCH_TEST_TIMEOUT", "42")
     assert configured_timeout_s() == 42.0
-    monkeypatch.setenv("DIUCS_TEST_TIMEOUT", "0")
+    monkeypatch.setenv("OVERWATCH_TEST_TIMEOUT", "0")
     assert configured_timeout_s() == 0.0
-    monkeypatch.setenv("DIUCS_TEST_TIMEOUT", "not a number")
+    monkeypatch.setenv("OVERWATCH_TEST_TIMEOUT", "not a number")
     assert configured_timeout_s() == 300.0
 
 
 def test_the_conftest_fails_a_hanging_sync_test_and_a_hanging_async_test_and_runs_the_next(
     pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("DIUCS_TEST_TIMEOUT", "1")
+    monkeypatch.setenv("OVERWATCH_TEST_TIMEOUT", "1")
     conftest_source = (Path(__file__).parents[2] / "conftest.py").read_text(encoding="utf-8")
     pytester.makeini(
         "[pytest]\nasyncio_mode = auto\nasyncio_default_fixture_loop_scope = session\n"
@@ -154,7 +154,7 @@ print("not reached")
 
 
 def test_the_hard_stage_ends_a_stuck_test_and_its_report_reaches_the_real_stderr() -> None:
-    result, took = _run_script(HUNG, DIUCS_TEST_HARD_GRACE="1")
+    result, took = _run_script(HUNG, OVERWATCH_TEST_HARD_GRACE="1")
 
     assert result.returncode == 3
     assert took < 20  # limit 1 s plus grace 1 s, not the 60 s default grace
@@ -168,13 +168,13 @@ def test_the_hard_stage_ends_a_stuck_test_and_its_report_reaches_the_real_stderr
 def test_the_hard_grace_defaults_to_sixty_seconds_and_the_environment_overrides_it(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.delenv("DIUCS_TEST_HARD_GRACE", raising=False)
+    monkeypatch.delenv("OVERWATCH_TEST_HARD_GRACE", raising=False)
     assert hard_grace_s() == 60.0
-    monkeypatch.setenv("DIUCS_TEST_HARD_GRACE", "2.5")
+    monkeypatch.setenv("OVERWATCH_TEST_HARD_GRACE", "2.5")
     assert hard_grace_s() == 2.5
-    monkeypatch.setenv("DIUCS_TEST_HARD_GRACE", "nonsense")
+    monkeypatch.setenv("OVERWATCH_TEST_HARD_GRACE", "nonsense")
     assert hard_grace_s() == 60.0
-    monkeypatch.setenv("DIUCS_TEST_HARD_GRACE", "-1")
+    monkeypatch.setenv("OVERWATCH_TEST_HARD_GRACE", "-1")
     assert hard_grace_s() == 60.0
 
 
@@ -201,13 +201,13 @@ def test_with_no_outer_alarm_the_block_leaves_no_alarm_and_the_old_handler() -> 
 def test_the_setup_limit_defaults_to_fifteen_minutes_and_the_environment_overrides_it(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.delenv("DIUCS_TEST_SETUP_TIMEOUT", raising=False)
+    monkeypatch.delenv("OVERWATCH_TEST_SETUP_TIMEOUT", raising=False)
     assert setup_timeout_s() == 900.0
-    monkeypatch.setenv("DIUCS_TEST_SETUP_TIMEOUT", "30")
+    monkeypatch.setenv("OVERWATCH_TEST_SETUP_TIMEOUT", "30")
     assert setup_timeout_s() == 30.0
-    monkeypatch.setenv("DIUCS_TEST_SETUP_TIMEOUT", "0")
+    monkeypatch.setenv("OVERWATCH_TEST_SETUP_TIMEOUT", "0")
     assert setup_timeout_s() == 0.0
-    monkeypatch.setenv("DIUCS_TEST_SETUP_TIMEOUT", "nonsense")
+    monkeypatch.setenv("OVERWATCH_TEST_SETUP_TIMEOUT", "nonsense")
     assert setup_timeout_s() == 900.0
 
 
@@ -243,7 +243,7 @@ def test_the_lock_wait_of_a_start_is_not_counted_against_the_setup_limit(
     import subprocess as sp
 
     path = tmp_path / "harness.lock"
-    monkeypatch.setenv("DIUCS_NEO4J_LOCK", str(path))
+    monkeypatch.setenv("OVERWATCH_NEO4J_LOCK", str(path))
     other = os.open(path, os.O_RDWR | os.O_CREAT, 0o666)
     fcntl.flock(other, fcntl.LOCK_EX)
     threading.Timer(2.5, lambda: os.close(other)).start()  # frees the lock after 2.5 s
@@ -262,7 +262,7 @@ def test_a_slow_image_pull_is_not_counted_against_the_setup_limit(
 ) -> None:
     import subprocess as sp
 
-    monkeypatch.setenv("DIUCS_NEO4J_LOCK", str(tmp_path / "harness.lock"))
+    monkeypatch.setenv("OVERWATCH_NEO4J_LOCK", str(tmp_path / "harness.lock"))
 
     def docker(*args: str, timeout: float = 60.0) -> sp.CompletedProcess[str]:
         if args[:2] == ("image", "inspect"):
@@ -301,7 +301,7 @@ SLOW_SETUP = (
 def test_the_conftest_fails_a_test_whose_set_up_hangs_and_runs_the_next(
     pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("DIUCS_TEST_SETUP_TIMEOUT", "1")
+    monkeypatch.setenv("OVERWATCH_TEST_SETUP_TIMEOUT", "1")
     began = time.monotonic()
 
     result = _setup_session(pytester, SLOW_SETUP)
@@ -314,7 +314,7 @@ def test_the_conftest_fails_a_test_whose_set_up_hangs_and_runs_the_next(
 def test_a_set_up_limit_of_zero_turns_it_off(
     pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("DIUCS_TEST_SETUP_TIMEOUT", "0")
+    monkeypatch.setenv("OVERWATCH_TEST_SETUP_TIMEOUT", "0")
 
     result = _setup_session(pytester, SLOW_SETUP.replace("sleep(20)", "sleep(2)"))
 
@@ -326,8 +326,8 @@ def test_under_pytests_default_output_capture_the_hard_report_still_reaches_the_
 ) -> None:
     # The verifier's N2: with fd capture on (the default), the report written at the hard stage
     # was lost with the capture buffer and the run just ended with exit code 3.
-    monkeypatch.setenv("DIUCS_TEST_TIMEOUT", "1")
-    monkeypatch.setenv("DIUCS_TEST_HARD_GRACE", "1")
+    monkeypatch.setenv("OVERWATCH_TEST_TIMEOUT", "1")
+    monkeypatch.setenv("OVERWATCH_TEST_HARD_GRACE", "1")
     monkeypatch.setenv("PYTHONPATH", str(BACKEND))
     conftest_source = (Path(__file__).parents[2] / "conftest.py").read_text(encoding="utf-8")
     pytester.makeini("[pytest]\nmarkers =\n    integration: needs docker\n")

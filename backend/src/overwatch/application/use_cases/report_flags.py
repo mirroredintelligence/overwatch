@@ -13,17 +13,17 @@ DEC-161.
 from datetime import UTC, datetime, timedelta
 from typing import Final
 
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.outbox import outbox_message_for
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork
-from diucs.domain.codes import ReportFlagReason
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.events import ReportFlagged
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.flags import REPORT_FLAG_OPEN, ReportFlag
-from diucs.domain.model.service import ServiceProfile
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
-from diucs.domain.rules.report_flags import (
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.outbox import outbox_message_for
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork
+from overwatch.domain.codes import ReportFlagReason
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.events import ReportFlagged
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.flags import REPORT_FLAG_OPEN, ReportFlag
+from overwatch.domain.model.service import ServiceProfile
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
+from overwatch.domain.rules.report_flags import (
     MANY_CHANGES_WINDOW,
     PHONED_WINDOW,
     flags_for_report,

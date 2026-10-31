@@ -26,25 +26,31 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Any, Final
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.identity import PHONE_HASH_SECRET, PhoneHasher
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.tokens import SecretStore
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound
-from diucs.application.use_cases.invite_reporter import lead_post
-from diucs.application.use_cases.registration_draft import RegistrationDraft, read_draft
-from diucs.application.use_cases.registration_submit import Lookups, lookups_of
-from diucs.application.use_cases.scope_list import check_reason
-from diucs.domain.codes import CriteriaStatus, RegistrationStatus, Role, ScopeFlag
-from diucs.domain.errors import Conflict, InvalidTransition, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.messages.privacy_guard import find_patient_data
-from diucs.domain.model.people import check_staff_text
-from diucs.domain.model.registration import Answer, CallBackResult, Registration
-from diucs.domain.rules.postcode import normalise_district
-from diucs.domain.rules.registration import (
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.identity import PHONE_HASH_SECRET, PhoneHasher
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.tokens import SecretStore
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound
+from overwatch.application.use_cases.invite_reporter import lead_post
+from overwatch.application.use_cases.registration_draft import RegistrationDraft, read_draft
+from overwatch.application.use_cases.registration_submit import Lookups, lookups_of
+from overwatch.application.use_cases.scope_list import check_reason
+from overwatch.domain.codes import CriteriaStatus, RegistrationStatus, Role, ScopeFlag
+from overwatch.domain.errors import (
+    Conflict,
+    InvalidTransition,
+    NotAllowed,
+    NotFound,
+    ValidationFailed,
+)
+from overwatch.domain.messages.privacy_guard import find_patient_data
+from overwatch.domain.model.people import check_staff_text
+from overwatch.domain.model.registration import Answer, CallBackResult, Registration
+from overwatch.domain.rules.postcode import normalise_district
+from overwatch.domain.rules.registration import (
     ApprovalChecks,
     missing_for_approval,
     transition_registration,

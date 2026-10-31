@@ -10,17 +10,17 @@ only checks that the two agree.
 
 from dataclasses import dataclass, field
 
-from diucs.application.tenancy import (
+from overwatch.application.tenancy import (
     ScopeId,
     ScopeKind,
     TenantMismatch,
     TenantNotBound,
     current_tenant,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.network import check_network_id
-from diucs.domain.model.tenant import check_tenant_id
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.network import check_network_id
+from overwatch.domain.model.tenant import check_tenant_id
 
 SYSTEM_CHANNEL = "system"
 

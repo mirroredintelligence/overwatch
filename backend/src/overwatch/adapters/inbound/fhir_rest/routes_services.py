@@ -27,22 +27,22 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response
 
-from diucs.adapters.inbound.fhir_rest import capability
-from diucs.adapters.inbound.fhir_rest.app import get_container
-from diucs.adapters.inbound.fhir_rest.auth import (
+from overwatch.adapters.inbound.fhir_rest import capability
+from overwatch.adapters.inbound.fhir_rest.app import get_container
+from overwatch.adapters.inbound.fhir_rest.auth import (
     current_actor,
     ensure_can_act_for,
     ensure_screen_live,
     require_role,
 )
-from diucs.adapters.inbound.fhir_rest.capability import FhirJSONResponse
-from diucs.adapters.inbound.fhir_rest.concurrency import (
+from overwatch.adapters.inbound.fhir_rest.capability import FhirJSONResponse
+from overwatch.adapters.inbound.fhir_rest.concurrency import (
     idempotency_key,
     replay_or_run,
     versioned_response,
 )
-from diucs.adapters.inbound.fhir_rest.errors import operation_outcome
-from diucs.adapters.inbound.fhir_rest.mapping import (
+from overwatch.adapters.inbound.fhir_rest.errors import operation_outcome
+from overwatch.adapters.inbound.fhir_rest.mapping import (
     FHIR_ID_PATTERN,
     ReportRequest,
     report_request_from_fhir,
@@ -52,16 +52,16 @@ from diucs.adapters.inbound.fhir_rest.mapping import (
     ucum_unit,
     validate_outbound,
 )
-from diucs.adapters.inbound.fhir_rest.routes_board import BOARD_ROLES
-from diucs.adapters.inbound.fhir_rest.validation import validated_body
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.terminology import profile_url
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork
-from diucs.application.tenancy import ScopeKind
-from diucs.application.tenant_settings import DirectoryZones
-from diucs.application.uow_idempotency import UnitOfWorkIdempotency
-from diucs.application.use_cases.report_capacity import ReportCapacity
-from diucs.domain.codes import (
+from overwatch.adapters.inbound.fhir_rest.routes_board import BOARD_ROLES
+from overwatch.adapters.inbound.fhir_rest.validation import validated_body
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.terminology import profile_url
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork
+from overwatch.application.tenancy import ScopeKind
+from overwatch.application.tenant_settings import DirectoryZones
+from overwatch.application.uow_idempotency import UnitOfWorkIdempotency
+from overwatch.application.use_cases.report_capacity import ReportCapacity
+from overwatch.domain.codes import (
     BASE_URL,
     CODE_SYSTEM_NAMES,
     Role,
@@ -69,9 +69,9 @@ from diucs.domain.codes import (
     code_system_url,
     parse_code,
 )
-from diucs.domain.errors import NotFound, ValidationFailed
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.service import ServiceProfile
+from overwatch.domain.errors import NotFound, ValidationFailed
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.service import ServiceProfile
 
 SERVICES_PATH: Final = "/fhir/HealthcareService"
 OBSERVATION_PATH: Final = "/fhir/Observation"
@@ -381,7 +381,7 @@ async def create_report(
     actor: Annotated[Actor, Depends(require_role(*REPORT_WRITE_ROLES))],
     _conforming: Annotated[
         dict[str, Any],
-        Depends(validated_body(profile_url("DiucsCapacityReport"), "Observation")),
+        Depends(validated_body(profile_url("OverwatchCapacityReport"), "Observation")),
     ],
 ) -> Response:
     # The body conforms to the capacity profile (R14) before anything else. The key and the body

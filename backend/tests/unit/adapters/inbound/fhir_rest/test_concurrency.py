@@ -10,7 +10,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from diucs.adapters.inbound.fhir_rest.concurrency import (
+from overwatch.adapters.inbound.fhir_rest.concurrency import (
     ReplayCache,
     StoredResponse,
     body_hash,
@@ -21,16 +21,16 @@ from diucs.adapters.inbound.fhir_rest.concurrency import (
     scoped_key,
     subject_of,
 )
-from diucs.adapters.inbound.fhir_rest.errors import (
+from overwatch.adapters.inbound.fhir_rest.errors import (
     HeaderRefused,
     PreconditionFailed,
     PreconditionRequired,
 )
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.application.actor import Actor
-from diucs.application.tenancy import TenantMismatch, bind_tenant
-from diucs.domain.codes import Role
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.application.actor import Actor
+from overwatch.application.tenancy import TenantMismatch, bind_tenant
+from overwatch.domain.codes import Role
 
 
 @pytest.fixture(autouse=True)

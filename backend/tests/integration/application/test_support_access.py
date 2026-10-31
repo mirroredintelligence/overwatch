@@ -10,12 +10,12 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.support_access import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.support_access import (
     ACTION_SESSION_OPENED,
     USE_CASE_OPEN,
     CreateSupportCode,
@@ -27,10 +27,10 @@ from diucs.application.use_cases.support_access import (
     StopSharing,
     StopSharingCommand,
 )
-from diucs.domain.codes import PractitionerRoleCode, Role
-from diucs.domain.errors import NotAllowed
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.rules.support import hash_support_code, normalise_support_code
+from overwatch.domain.codes import PractitionerRoleCode, Role
+from overwatch.domain.errors import NotAllowed
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.rules.support import hash_support_code, normalise_support_code
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, node_props, read_tx
 from tests.support.uow import ensure_audit_heads

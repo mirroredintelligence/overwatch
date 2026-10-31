@@ -17,12 +17,17 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.cache import NETWORK_BOARD_UPDATES_CHANNEL
-from diucs.application.tenancy import ScopeKind, bind_network, bind_tenant, current_scope_or_none
-from diucs.application.use_cases.network_board_projector import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.cache import NETWORK_BOARD_UPDATES_CHANNEL
+from overwatch.application.tenancy import (
+    ScopeKind,
+    bind_network,
+    bind_tenant,
+    current_scope_or_none,
+)
+from overwatch.application.use_cases.network_board_projector import (
     NETWORK_BOARD_CACHE_KEY,
     NETWORK_BOARD_CACHE_TTL,
     NETWORK_BOARD_CHANGED,
@@ -33,14 +38,14 @@ from diucs.application.use_cases.network_board_projector import (
     network_board_from_dict,
     network_board_to_dict,
 )
-from diucs.application.use_cases.query_network_board import NetworkBoardView
-from diucs.domain.codes import Role, ServiceCategory, Status
-from diucs.domain.errors import NotFound, ValidationFailed
-from diucs.domain.events import ProjectionApplied, ProjectionRejected, ProjectionRejectReason
-from diucs.domain.model.network import DirectorySource, GrantScope
-from diucs.domain.rules.listing import ListingPresentation
-from diucs.domain.rules.network_board import NetworkBoard, NetworkBoardEntry
-from diucs.domain.rules.pressure import Pressure
+from overwatch.application.use_cases.query_network_board import NetworkBoardView
+from overwatch.domain.codes import Role, ServiceCategory, Status
+from overwatch.domain.errors import NotFound, ValidationFailed
+from overwatch.domain.events import ProjectionApplied, ProjectionRejected, ProjectionRejectReason
+from overwatch.domain.model.network import DirectorySource, GrantScope
+from overwatch.domain.rules.listing import ListingPresentation
+from overwatch.domain.rules.network_board import NetworkBoard, NetworkBoardEntry
+from overwatch.domain.rules.pressure import Pressure
 
 AT = datetime(2026, 10, 31, 9, 0, tzinfo=UTC)
 NET_A = "net-pilot"
@@ -164,7 +169,7 @@ def test_an_audience_that_is_not_a_member_of_the_enum_is_refused(audience: Any) 
 
 
 def test_the_network_key_is_not_the_tenant_boards_key() -> None:
-    from diucs.application.use_cases.board_projector import BOARD_CACHE_KEY
+    from overwatch.application.use_cases.board_projector import BOARD_CACHE_KEY
 
     assert NETWORK_BOARD_CACHE_KEY != BOARD_CACHE_KEY
     assert NETWORK_BOARD_UPDATES_CHANNEL != "board.updates"

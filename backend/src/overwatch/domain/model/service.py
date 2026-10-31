@@ -11,8 +11,8 @@ from dataclasses import dataclass
 from datetime import time
 from typing import Final
 
-from diucs.domain.codes import Cadence, Channel, Measure, ServiceCategory
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.codes import Cadence, Channel, Measure, ServiceCategory
+from overwatch.domain.errors import ValidationFailed
 
 ALL_DAYS: Final[frozenset[int]] = frozenset(range(7))
 MONDAY_TO_FRIDAY: Final[frozenset[int]] = frozenset({0, 1, 2, 3, 4})

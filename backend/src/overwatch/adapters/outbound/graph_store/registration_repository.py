@@ -20,18 +20,18 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any, Final
 
-from diucs.adapters.outbound.graph_store.bundle_writer import write_bundle as write_resources
-from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
-from diucs.adapters.outbound.graph_store.extensions import EXTENSIONS, by_short_name
-from diucs.adapters.outbound.graph_store.invitation_fhir import (
+from overwatch.adapters.outbound.graph_store.bundle_writer import write_bundle as write_resources
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx, run_query
+from overwatch.adapters.outbound.graph_store.extensions import EXTENSIONS, by_short_name
+from overwatch.adapters.outbound.graph_store.invitation_fhir import (
     INVITE_REPORTER,
     invitation_from_fhir,
     invitation_to_fhir,
     is_invitation,
 )
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.adapters.outbound.graph_store.scenario import (
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.adapters.outbound.graph_store.scenario import (
     Expect,
     Marked,
     NodeSpec,
@@ -40,24 +40,24 @@ from diucs.adapters.outbound.graph_store.scenario import (
     SeedRel,
     TenantSeed,
 )
-from diucs.adapters.outbound.graph_store.service_repository import (
+from overwatch.adapters.outbound.graph_store.service_repository import (
     codeable_from_fhir,
     codeable_to_fhir,
 )
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     RegistrationStatus,
     ScopeFlag,
     code_system_url,
     parse_code,
 )
-from diucs.domain.errors import NotFound, ValidationFailed
-from diucs.domain.model.registration import (
+from overwatch.domain.errors import NotFound, ValidationFailed
+from overwatch.domain.model.registration import (
     DISTRICT_TYPE_CODE,
     LOCATION_TYPE_SYSTEM,
     Invitation,
     Registration,
 )
-from diucs.domain.rules.registration import ApprovalChecks
+from overwatch.domain.rules.registration import ApprovalChecks
 
 TASK: Final = "Task"
 SERVICE: Final = "HealthcareService"

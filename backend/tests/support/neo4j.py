@@ -8,19 +8,21 @@ Load protection (DEC-135). Four agents running pytest at once, each with its own
 machine to load 15 on 4 cores. So:
 
 * One container at a time machine-wide. start_throwaway_neo4j takes an exclusive flock on
-  /tmp/diucs-neo4j-harness.lock (environment DIUCS_NEO4J_LOCK overrides the path) and holds it until
+  /tmp/overwatch-neo4j-harness.lock (environment OVERWATCH_NEO4J_LOCK overrides the path) and holds
+  it until
   stop_throwaway_neo4j, or until the process dies (the operating system frees it). A second session
-  waits up to DIUCS_NEO4J_LOCK_TIMEOUT seconds (default 3600), then fails naming the holder's pid.
+  waits up to OVERWATCH_NEO4J_LOCK_TIMEOUT seconds (default 3600), then fails naming the holder's
+  pid.
   Since TEN-034 this lock matters only for private containers (owned mode, `own_neo4j`): runs on
   the shared Neo4j (tests/support/harness_mode.py) need no lock to queue on, and agents no longer
   wrap pytest in a manual flock.
-* Memory limits. The container gets --memory (DIUCS_NEO4J_MEMORY, default 1g) and Neo4j heap
-  (DIUCS_NEO4J_HEAP, 256m) and page cache (DIUCS_NEO4J_PAGECACHE, 128m) settings.
+* Memory limits. The container gets --memory (OVERWATCH_NEO4J_MEMORY, default 1g) and Neo4j heap
+  (OVERWATCH_NEO4J_HEAP, 256m) and page cache (OVERWATCH_NEO4J_PAGECACHE, 128m) settings.
 * Owner labels. The container is labelled with the owning pid, that process's start time and the
   host, so the reaper can tell a live run's container from a leaked one.
 * Readiness is a Bolt check with the Python driver, not `docker exec cypher-shell`, which starts
   a JVM per probe. The image is checked, and pulled if missing, before the readiness clock starts
-  (DIUCS_NEO4J_READY_TIMEOUT, default 120 s). A failure names its phase: lock, config, docker,
+  (OVERWATCH_NEO4J_READY_TIMEOUT, default 120 s). A failure names its phase: lock, config, docker,
   image, start or ready.
 
 Helpers run in fresh sessions: a write commits in one session and a read sees it only from another
@@ -45,8 +47,8 @@ from typing import Any, NamedTuple
 from neo4j import AsyncDriver, AsyncManagedTransaction, GraphDatabase
 from neo4j.exceptions import ServiceUnavailable
 
-from diucs.adapters.outbound.graph_store.driver import create_driver
-from diucs.application.tenancy import (
+from overwatch.adapters.outbound.graph_store.driver import create_driver
+from overwatch.application.tenancy import (
     ScopeId,
     TenantNotBound,
     TenantParameterRefused,
@@ -86,20 +88,20 @@ class HarnessStartError(Neo4jNotRunning):
         self.phase = phase
 
 
-OWNER_PID_LABEL = "diucs-test-owner-pid"
-OWNER_START_LABEL = "diucs-test-owner-start"
-OWNER_HOST_LABEL = "diucs-test-owner-host"
-OWNER_NS_LABEL = "diucs-test-owner-pidns"
-OWNER_BOOT_LABEL = "diucs-test-owner-boot"
+OWNER_PID_LABEL = "overwatch-test-owner-pid"
+OWNER_START_LABEL = "overwatch-test-owner-start"
+OWNER_HOST_LABEL = "overwatch-test-owner-host"
+OWNER_NS_LABEL = "overwatch-test-owner-pidns"
+OWNER_BOOT_LABEL = "overwatch-test-owner-boot"
 # DEC-135: heap 256m and page cache 128m inside a 1g container; see the decision for the measured
 # peak. A heavier test can raise them with the environment variables named in the module docstring.
 DEFAULT_CONTAINER_MEMORY = "1g"
 DEFAULT_HEAP = "256m"
 DEFAULT_PAGECACHE = "128m"
-MEMORY_ENV = "DIUCS_NEO4J_MEMORY"
-HEAP_ENV = "DIUCS_NEO4J_HEAP"
-PAGECACHE_ENV = "DIUCS_NEO4J_PAGECACHE"
-READY_TIMEOUT_ENV = "DIUCS_NEO4J_READY_TIMEOUT"
+MEMORY_ENV = "OVERWATCH_NEO4J_MEMORY"
+HEAP_ENV = "OVERWATCH_NEO4J_HEAP"
+PAGECACHE_ENV = "OVERWATCH_NEO4J_PAGECACHE"
+READY_TIMEOUT_ENV = "OVERWATCH_NEO4J_READY_TIMEOUT"
 IMAGE_PULL_TIMEOUT_S = 900.0
 DOCKER_RUN_TIMEOUT_S = 120.0
 _SIZE = re.compile(r"^[1-9][0-9]*[kKmMgG]$")
@@ -369,7 +371,8 @@ def wait_until_ready(
     sleep: Callable[[float], None] = time.sleep,
     timeout_s: float | None = None,
 ) -> None:
-    """Block until Neo4j answers on Bolt, for up to timeout_s (default DIUCS_NEO4J_READY_TIMEOUT or
+    """Block until Neo4j answers on Bolt, for up to timeout_s (default
+    OVERWATCH_NEO4J_READY_TIMEOUT or
     120 s), probing with a backoff from 0.25 s to 2 s. Raises HarnessStartError (phase ready, a
     Neo4jNotRunning) if it does not. The caller decides whether to remove the container."""
     limit = ready_timeout_s() if timeout_s is None else timeout_s
@@ -578,9 +581,10 @@ async def tx_run(tx: Any, cypher: str, /, **params: Any) -> Any:
 
 def run_scope_ids() -> list[str]:
     """The scope ids of this process's run (tenant, second tenant, network scope), as the conftest
-    exported them (`DIUCS_TEST_TENANT`, `_OTHER_TENANT`, `_NETWORK`): the only scopes a test of this
+    exported them (`OVERWATCH_TEST_TENANT`, `_OTHER_TENANT`, `_NETWORK`): the only scopes a test of
+    this
     run may write to, and so the only ones a whole-graph scan of a test needs to read."""
-    names = ("DIUCS_TEST_TENANT", "DIUCS_TEST_OTHER_TENANT", "DIUCS_TEST_NETWORK")
+    names = ("OVERWATCH_TEST_TENANT", "OVERWATCH_TEST_OTHER_TENANT", "OVERWATCH_TEST_NETWORK")
     values = [os.environ.get(name, "") for name in names]
     if not all(values):
         raise RuntimeError("the run's scope ids are not set: the tests conftest sets them")
@@ -675,9 +679,9 @@ REAPER_MAX_AGE = timedelta(minutes=90)
 # (a pid and start time can repeat across boots), an owner label that is only partly written, and
 # a process table that will not say (see proc.process_start_marker). The owner may be alive there.
 OTHER_HOST_MAX_AGE = timedelta(hours=6)
-TEST_LABEL = "diucs-test"
+TEST_LABEL = "overwatch-test"
 # A container is removed only if its name has this prefix AND it carries TEST_LABEL (DEC-108).
-NAME_PREFIX = "diucs-test-neo4j-"
+NAME_PREFIX = "overwatch-test-neo4j-"
 DockerRunner = Callable[..., subprocess.CompletedProcess[str]]
 ProcessStart = Callable[[int], str | None]
 _CREATED_AT = re.compile(
@@ -759,7 +763,7 @@ def reap_stale_test_containers(
     here_namespace: str | None = None,
     here_boot: str | None = None,
 ) -> list[str]:
-    """Remove the diucs-test containers whose owner has gone, and return their names.
+    """Remove the overwatch-test containers whose owner has gone, and return their names.
 
     A run killed by a timeout or a signal never reaches stop_throwaway_neo4j, so its container
     stays. Each container carries the pid and start time of its owner (owner_labels): the sweep

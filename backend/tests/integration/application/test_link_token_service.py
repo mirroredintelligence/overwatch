@@ -8,12 +8,12 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.link_token_repository import Neo4jLinkTokenRepository
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.ports.outbound.tokens import LinkTokenService
-from diucs.domain.errors import Conflict, NotFound, ValidationFailed
-from diucs.domain.rules.tokens import LinkTokenRecord, hash_token
+from overwatch.adapters.outbound.graph_store.link_token_repository import Neo4jLinkTokenRepository
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.ports.outbound.tokens import LinkTokenService
+from overwatch.domain.errors import Conflict, NotFound, ValidationFailed
+from overwatch.domain.rules.tokens import LinkTokenRecord, hash_token
 from tests.support.neo4j import count_nodes, read_tx, run_nodes, write_tx
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")

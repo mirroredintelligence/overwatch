@@ -7,15 +7,15 @@ from collections.abc import Iterator
 
 import pytest
 
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.actor import Actor
-from diucs.application.tenancy import bind_tenant
-from diucs.application.use_cases.change_reporter_number import (
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.actor import Actor
+from overwatch.application.tenancy import bind_tenant
+from overwatch.application.use_cases.change_reporter_number import (
     ChangeReporterNumber,
     ChangeReporterNumberCommand,
     CoverDuration,
 )
-from diucs.domain.codes import Role
+from overwatch.domain.codes import Role
 from tests.support.actors import ACTOR_TENANT
 from tests.support.w7b_rig import LEAD, NOW, Rig
 

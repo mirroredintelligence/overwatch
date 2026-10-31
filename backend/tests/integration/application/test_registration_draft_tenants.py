@@ -14,11 +14,11 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.registration_draft import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.registration_draft import (
     ApiStep,
     LocationStep,
     OrganisationStep,
@@ -29,7 +29,7 @@ from diucs.application.use_cases.registration_draft import (
     SubmitRegistration,
     SubmitRegistrationCommand,
 )
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     Measure,
@@ -39,9 +39,9 @@ from diucs.domain.codes import (
     ScopeFlag,
     ServiceCategory,
 )
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.model.registration import Registration, ScopeEntry
-from diucs.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.model.registration import Registration, ScopeEntry
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
 from tests.support.uow import ensure_audit_heads
 
@@ -217,7 +217,7 @@ async def test_a_tenant_b_registration_id_given_to_tenant_a_is_not_found_and_cha
     uow_factory_b: UnitOfWorkFactory,
     tenants: None,
 ) -> None:
-    from diucs.domain.errors import NotFound
+    from overwatch.domain.errors import NotFound
 
     with pytest.raises(NotFound):
         await _save(uow_factory_a).execute(

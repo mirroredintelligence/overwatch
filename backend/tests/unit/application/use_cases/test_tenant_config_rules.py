@@ -15,12 +15,12 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.actor import Actor
-from diucs.application.tenancy import ScopeId, TenantNotBound
-from diucs.application.use_cases import tenant_config as use_cases
-from diucs.application.use_cases.tenant_config import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.actor import Actor
+from overwatch.application.tenancy import ScopeId, TenantNotBound
+from overwatch.application.use_cases import tenant_config as use_cases
+from overwatch.application.use_cases.tenant_config import (
     CONFIGURATION_ROLES,
     ApproveConfigCommand,
     ApproveTenantConfig,
@@ -49,9 +49,9 @@ from diucs.application.use_cases.tenant_config import (
     plan_retention,
     supersede,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import Conflict, InvalidTransition, NotAllowed, ValidationFailed
-from diucs.domain.model.tenant import (
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import Conflict, InvalidTransition, NotAllowed, ValidationFailed
+from overwatch.domain.model.tenant import (
     ConfigStatus,
     ContactKind,
     NumberStatus,
@@ -59,7 +59,7 @@ from diucs.domain.model.tenant import (
     TenantConfig,
     TenantContact,
 )
-from diucs.domain.model.tenant_records import (
+from overwatch.domain.model.tenant_records import (
     BindingStatus,
     ChannelKind,
     ChannelProvider,

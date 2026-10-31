@@ -19,23 +19,23 @@ the merged tip. Synthetic values only.
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.ports.outbound.identity import DEVICE_TOKEN_SECRET, TenantKeyedSecrets
-from diucs.application.ports.outbound.tenant_lines import InboundLine
-from diucs.application.ports.outbound.tenants import TenantDirectory, twilio_token_ref
-from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenant_resolution import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.ports.outbound.identity import DEVICE_TOKEN_SECRET, TenantKeyedSecrets
+from overwatch.application.ports.outbound.tenant_lines import InboundLine
+from overwatch.application.ports.outbound.tenants import TenantDirectory, twilio_token_ref
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenant_resolution import (
     ENTRY_REFUSED_MESSAGE,
     DirectoryInboundLines,
     EntryRefused,
     PreSessionResolver,
 )
-from diucs.bootstrap.container import TEST_NOW, Container
-from diucs.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
-from diucs.domain.model.tenant import TenantStatus
-from diucs.domain.rules.tokens import hash_token
+from overwatch.bootstrap.container import TEST_NOW, Container
+from overwatch.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
+from overwatch.domain.model.tenant import TenantStatus
+from overwatch.domain.rules.tokens import hash_token
 from tests.support.neo4j import write_tx
 from tests.support.tenancy import as_tenant
 

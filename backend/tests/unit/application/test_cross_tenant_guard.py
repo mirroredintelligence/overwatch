@@ -22,13 +22,13 @@ from typing import Any, Self
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.adapters.testing.recording_platform_audit import RecordingPlatformAudit
-from diucs.application.actor import Actor
-from diucs.application.cross_tenant_guard import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.adapters.testing.recording_platform_audit import RecordingPlatformAudit
+from overwatch.application.actor import Actor
+from overwatch.application.cross_tenant_guard import (
     ACCESS_VALID_FOR,
     CODE_VALID_FOR,
     AuthoriseCommand,
@@ -43,12 +43,17 @@ from diucs.application.cross_tenant_guard import (
     TicketNoteCommand,
     WithdrawCodeCommand,
 )
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.identity import TenantKeyedSecrets
-from diucs.application.tenancy import ScopeId, TenantMismatch, bind_tenant, current_scope_or_none
-from diucs.domain.codes import Role
-from diucs.domain.model.tenant import SuspendMode, Tenant, TenantStatus
-from diucs.domain.rules.support import SUPPORT_CODE_SECRET
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.identity import TenantKeyedSecrets
+from overwatch.application.tenancy import (
+    ScopeId,
+    TenantMismatch,
+    bind_tenant,
+    current_scope_or_none,
+)
+from overwatch.domain.codes import Role
+from overwatch.domain.model.tenant import SuspendMode, Tenant, TenantStatus
+from overwatch.domain.rules.support import SUPPORT_CODE_SECRET
 from tests.support.tenant_samples import make_tenant
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")

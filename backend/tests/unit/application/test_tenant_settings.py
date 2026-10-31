@@ -15,10 +15,10 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from diucs.adapters.inbound.link_pages.capacity_links import LINK_PAGE_PATH, LINK_SCHEME
-from diucs.application.ports.outbound.tenants import TenantRecordInvalid
-from diucs.application.tenancy import DEFAULT_TENANT_ID, ScopeId, TenantNotBound
-from diucs.application.tenant_settings import (
+from overwatch.adapters.inbound.link_pages.capacity_links import LINK_PAGE_PATH, LINK_SCHEME
+from overwatch.application.ports.outbound.tenants import TenantRecordInvalid
+from overwatch.application.tenancy import DEFAULT_TENANT_ID, ScopeId, TenantNotBound
+from overwatch.application.tenant_settings import (
     LINK_PATH,
     LINK_SCHEME_TEXT,
     DirectoryLinkBase,
@@ -29,9 +29,9 @@ from diucs.application.tenant_settings import (
     as_zones,
     read_settings,
 )
-from diucs.domain.model.tenant import OrganisationType, Tenant, TenantStatus
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY
-from diucs.domain.rules.london_time import LONDON
+from overwatch.domain.model.tenant import OrganisationType, Tenant, TenantStatus
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY
+from overwatch.domain.rules.london_time import LONDON
 
 A = ScopeId.tenant("tenant-a")
 B = ScopeId.tenant("tenant-b")
@@ -110,10 +110,10 @@ def test_no_zone_source_means_london() -> None:
 
 
 async def test_the_link_base_is_the_tenants_own_host_and_the_link_pages_path() -> None:
-    directory = _Directory({"tenant-a": "a.diucs.example", "tenant-b": "b.diucs.example"})
+    directory = _Directory({"tenant-a": "a.overwatch.example", "tenant-b": "b.overwatch.example"})
     links = DirectoryLinkBase(directory)  # type: ignore[arg-type]
-    assert await links.link_base_url(A) == "https://a.diucs.example/l"
-    assert await links.link_base_url(B) == "https://b.diucs.example/l"
+    assert await links.link_base_url(A) == "https://a.overwatch.example/l"
+    assert await links.link_base_url(B) == "https://b.overwatch.example/l"
 
 
 async def test_a_tenant_with_no_host_has_no_link_base() -> None:
@@ -125,8 +125,11 @@ async def test_a_tenant_with_no_host_has_no_link_base() -> None:
 
 async def test_only_the_default_tenant_may_fall_back_to_the_platform_base() -> None:
     directory = _Directory({})
-    links = DirectoryLinkBase(directory, fallback="https://diucs.example/")  # type: ignore[arg-type]
-    assert await links.link_base_url(ScopeId.tenant(DEFAULT_TENANT_ID)) == "https://diucs.example/l"
+    links = DirectoryLinkBase(directory, fallback="https://overwatch.mirroredintelligence.com/")  # type: ignore[arg-type]
+    assert (
+        await links.link_base_url(ScopeId.tenant(DEFAULT_TENANT_ID))
+        == "https://overwatch.mirroredintelligence.com/l"
+    )
     with pytest.raises(TenantRecordInvalid):
         await links.link_base_url(A)
 
@@ -137,12 +140,12 @@ async def test_a_network_scope_has_no_link_base() -> None:
 
 
 async def test_a_fixed_base_is_the_same_for_every_tenant_without_a_trailing_slash() -> None:
-    links = FixedLinkBase("diucs.example/")
-    assert await links.link_base_url(A) == await links.link_base_url(B) == "diucs.example"
+    links = FixedLinkBase("overwatch.example/")
+    assert await links.link_base_url(A) == await links.link_base_url(B) == "overwatch.example"
 
 
 async def test_a_plain_string_is_a_fixed_base() -> None:
-    assert await as_link_base("diucs.example").link_base_url(A) == "diucs.example"
+    assert await as_link_base("overwatch.example").link_base_url(A) == "overwatch.example"
     given = FixedLinkBase("x")
     assert as_link_base(given) is given
 
@@ -170,7 +173,7 @@ async def test_no_version_in_force_gives_the_default_policy_and_no_version() -> 
 
 
 async def test_the_version_in_force_gives_its_policy_and_its_number() -> None:
-    from diucs.domain.model.tenant import ConfigStatus, TenantConfig
+    from overwatch.domain.model.tenant import ConfigStatus, TenantConfig
 
     config = TenantConfig(
         version=3,
@@ -215,7 +218,7 @@ async def test_a_unit_with_no_tenant_or_a_network_is_refused_before_a_read(
 
 
 def test_the_settings_are_a_value() -> None:
-    from diucs.application.tenant_settings import TenantSettings
+    from overwatch.application.tenant_settings import TenantSettings
 
     one = TenantSettings(DEFAULT_POLICY, LONDON, None)
     assert replace(one, config_version=2).config_version == 2

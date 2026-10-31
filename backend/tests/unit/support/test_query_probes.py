@@ -12,13 +12,13 @@ from typing import Any
 import pytest
 from neo4j.time import DateTime
 
-from diucs.adapters.outbound.graph_store.queries import (
+from overwatch.adapters.outbound.graph_store.queries import (
     REGISTRY,
     NamedQuery,
     QueryRegistry,
     QueryTemplate,
 )
-from diucs.adapters.outbound.graph_store.scenario import (
+from overwatch.adapters.outbound.graph_store.scenario import (
     Expect,
     Marked,
     NodeSpec,
@@ -110,7 +110,7 @@ def test_a_template_with_a_scenario_stands_for_its_instance_and_one_without_for_
 
 
 def test_the_universe_of_the_real_registry_holds_the_eager_ids_and_the_templates() -> None:
-    from diucs.adapters.outbound.graph_store.queries import REGISTRY
+    from overwatch.adapters.outbound.graph_store.queries import REGISTRY
 
     statements = production_statements()
     templates = set(REGISTRY.template_ids())

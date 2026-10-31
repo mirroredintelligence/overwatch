@@ -28,23 +28,23 @@ from typing import Any, Final
 
 from neo4j import AsyncDriver
 
-import diucs.adapters.outbound.audit_neo4j as audit_package
-import diucs.adapters.outbound.graph_store as graph_store_package
-from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
-from diucs.adapters.outbound.graph_store.queries import (
+import overwatch.adapters.outbound.audit_neo4j as audit_package
+import overwatch.adapters.outbound.graph_store as graph_store_package
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx, run_query
+from overwatch.adapters.outbound.graph_store.queries import (
     PLACEHOLDER,
     REGISTRY,
     NamedQuery,
     QueryRegistry,
 )
-from diucs.adapters.outbound.graph_store.scenario import (
+from overwatch.adapters.outbound.graph_store.scenario import (
     Expect,
     NodeSpec,
     Scenario,
     Slot,
     render,
 )
-from diucs.application.tenancy import ScopeId, ScopeKind
+from overwatch.application.tenancy import ScopeId, ScopeKind
 from tests.support.neo4j import wipe_all
 from tests.support.tenant_seed import (
     Snapshot,

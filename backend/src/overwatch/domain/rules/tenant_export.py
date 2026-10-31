@@ -13,7 +13,7 @@ A label set that none of them names is `UnclassifiedData` and the export refuses
 quietly leaves a class out is worse than no package. A test keeps the table equal to the labels the
 registered statements name, so a new label cannot be added without a decision about it.
 
-Pure: classification and the manifest's bytes, no I/O. Standard library and `diucs.domain` only.
+Pure: classification and the manifest's bytes, no I/O. Standard library and `overwatch.domain` only.
 """
 
 import hashlib

@@ -14,26 +14,26 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.inbound.workers.network_projector import (
+from overwatch.adapters.inbound.workers.network_projector import (
     PRODUCER_CONSUMER_NAME,
     PRODUCER_EVENTS,
     NetworkApplyConsumer,
     NetworkProducerConsumer,
     producer_consumer,
 )
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.ports.outbound.network import RegisteredNetwork
-from diucs.application.projection import to_body
-from diucs.application.tenancy import ScopeKind, bind_tenant, current_scope_or_none
-from diucs.application.use_cases.apply_projection import (
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.ports.outbound.network import RegisteredNetwork
+from overwatch.application.projection import to_body
+from overwatch.application.tenancy import ScopeKind, bind_tenant, current_scope_or_none
+from overwatch.application.use_cases.apply_projection import (
     ApplyOutcome,
     ApplyResult,
     ProjectionMismatch,
 )
-from diucs.application.use_cases.project_network import ProjectionRun
-from diucs.domain.events import ProjectionRejectReason, ProjectionRequested
-from diucs.domain.model.network import GrantScope, NetworkStatus
-from diucs.domain.rules.projection import PROJECTION_ALLOWLIST_VERSION
+from overwatch.application.use_cases.project_network import ProjectionRun
+from overwatch.domain.events import ProjectionRejectReason, ProjectionRequested
+from overwatch.domain.model.network import GrantScope, NetworkStatus
+from overwatch.domain.rules.projection import PROJECTION_ALLOWLIST_VERSION
 from tests.support.network_samples import MEMBER_B, NETWORK_ID, SETTINGS, make_network
 from tests.support.projection_samples import sample_capacity_projection
 

@@ -7,7 +7,7 @@ import { baseCookieOptions, readRequestCookie, sessionSecretKey } from '@/lib/au
 // read nor change (it is sealed with the session key). It lives fifteen minutes and only the BFF's
 // identity routes can see it (path /api/bff/identity).
 
-export const PENDING_COOKIE = 'diucs_register';
+export const PENDING_COOKIE = 'overwatch_register';
 export const PENDING_PATH = '/api/bff/identity';
 const LIFETIME_SECONDS = 15 * 60;
 const KIND = 'registration-pending';

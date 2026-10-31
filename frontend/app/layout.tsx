@@ -29,7 +29,7 @@ export async function generateMetadata(): Promise<Metadata> {
     title: { default: tail, template: `%s | ${tail}` },
     description: 'Urgent-care capacity',
     manifest: '/manifest.webmanifest',
-    appleWebApp: { capable: true, title: 'DIUCS', statusBarStyle: 'default' },
+    appleWebApp: { capable: true, title: 'Overwatch', statusBarStyle: 'default' },
   };
 }
 

@@ -2,7 +2,7 @@
 
 They need the Redis of infra/docker-compose.yml (REDIS_URL, default localhost:6379). Each test binds
 its own run tenant (`ct<run>-<label>`, tests/support/redis.py), so the keys a test writes are
-`diucs:<that tenant>:...` and overlapping runs share nothing. Subscriber counts come from PUBSUB
+`overwatch:<that tenant>:...` and overlapping runs share nothing. Subscriber counts come from PUBSUB
 NUMSUB on a second client, so the adapter's own connections cannot hide a leak.
 """
 
@@ -15,9 +15,9 @@ from uuid import uuid4
 import pytest
 from redis.asyncio import Redis
 
-from diucs.adapters.outbound.cache_redis.redis_cache import RedisCache
-from diucs.application.ports.outbound.cache import BOARD_UPDATES_CHANNEL
-from diucs.application.tenancy import bind_tenant
+from overwatch.adapters.outbound.cache_redis.redis_cache import RedisCache
+from overwatch.application.ports.outbound.cache import BOARD_UPDATES_CHANNEL
+from overwatch.application.tenancy import bind_tenant
 from tests.contract.harness import next_message
 from tests.support.redis import flush_tenant, run_tenant
 from tests.support.tenancy import as_tenant
@@ -41,7 +41,7 @@ def tenant() -> str:
 
 
 def channel_key(tenant: str) -> str:
-    return f"diucs:{tenant}:chan:{BOARD_UPDATES_CHANNEL}"
+    return f"overwatch:{tenant}:chan:{BOARD_UPDATES_CHANNEL}"
 
 
 async def subscriber_count(counter: Redis, key: str) -> int:
@@ -146,20 +146,20 @@ async def test_the_key_shapes_are_tenant_scoped_and_the_old_global_names_are_nev
         cache = RedisCache.from_url(REDIS_URL)
         try:
             await cache.set("svc-1:status", "accepting", PATIENCE)
-            assert await store.get(f"diucs:{tenant}:cache:svc-1:status") == "accepting"
+            assert await store.get(f"overwatch:{tenant}:cache:svc-1:status") == "accepting"
 
             lock = await cache.acquire_lock("relay", PATIENCE)
             assert lock is not None
-            assert 0 < await store.pttl(f"diucs:{tenant}:lock:relay") <= 2000
-            assert await store.pttl(f"diucs:{tenant}:fence:relay") == -1
+            assert 0 < await store.pttl(f"overwatch:{tenant}:lock:relay") <= 2000
+            assert await store.pttl(f"overwatch:{tenant}:fence:relay") == -1
             await cache.release_lock(lock)
 
             subscription = await cache.subscribe(BOARD_UPDATES_CHANNEL)
             assert await subscriber_count(store, channel_key(tenant)) == 1
             await subscription.aclose()
 
-            assert await store.exists("diucs:chan:board.updates") == 0
-            assert await store.exists("diucs:cache:board:v1") == 0
+            assert await store.exists("overwatch:chan:board.updates") == 0
+            assert await store.exists("overwatch:cache:board:v1") == 0
         finally:
             await cache.aclose()
             await flush_tenant(store, tenant)
@@ -171,11 +171,11 @@ async def test_flushing_one_tenant_leaves_the_tenant_whose_id_it_prefixes(tenant
         store = Redis.from_url(REDIS_URL, decode_responses=True)
         shorter, longer = tenant, f"{tenant}b"
         try:
-            await store.set(f"diucs:{shorter}:cache:k", "1")
-            await store.set(f"diucs:{longer}:cache:k", "2")
+            await store.set(f"overwatch:{shorter}:cache:k", "1")
+            await store.set(f"overwatch:{longer}:cache:k", "2")
             await flush_tenant(store, shorter)
-            assert await store.get(f"diucs:{shorter}:cache:k") is None
-            assert await store.get(f"diucs:{longer}:cache:k") == "2"
+            assert await store.get(f"overwatch:{shorter}:cache:k") is None
+            assert await store.get(f"overwatch:{longer}:cache:k") == "2"
         finally:
             await flush_tenant(store, longer)
             await store.aclose()
@@ -185,12 +185,12 @@ async def test_a_flush_refuses_a_tenant_that_is_not_this_runs(tenant: str) -> No
     with as_tenant(tenant):
         store = Redis.from_url(REDIS_URL, decode_responses=True)
         try:
-            await store.set("diucs:acme-icb:cache:k", "real")
+            await store.set("overwatch:acme-icb:cache:k", "real")
             with pytest.raises(ValueError, match="not this run's"):
                 await flush_tenant(store, "acme-icb")
-            assert await store.get("diucs:acme-icb:cache:k") == "real"
+            assert await store.get("overwatch:acme-icb:cache:k") == "real"
         finally:
-            await store.delete("diucs:acme-icb:cache:k")
+            await store.delete("overwatch:acme-icb:cache:k")
             await store.aclose()
 
 
@@ -215,14 +215,14 @@ async def test_a_token_after_the_counter_is_lost_is_greater_than_every_token_bef
                 other_lock = await cache.acquire_lock("relay", PATIENCE)
                 assert other_lock is not None
                 await cache.release_lock(other_lock)
-            other_before = await counter.get(f"diucs:{other}:fence:relay")
+            other_before = await counter.get(f"overwatch:{other}:fence:relay")
 
-            await counter.delete(f"diucs:{tenant}:fence:relay")
+            await counter.delete(f"overwatch:{tenant}:fence:relay")
 
             lock = await cache.acquire_lock("relay", PATIENCE)
             assert lock is not None
             assert lock.fencing_token > last
-            assert await counter.get(f"diucs:{other}:fence:relay") == other_before
+            assert await counter.get(f"overwatch:{other}:fence:relay") == other_before
         finally:
             await cache.aclose()
             await flush_tenant(counter, tenant)
@@ -241,8 +241,8 @@ async def test_each_lock_name_has_its_own_fencing_counter(tenant: str) -> None:
                 lock = await cache.acquire_lock(name, PATIENCE)
                 assert lock is not None
                 await cache.release_lock(lock)
-            assert await counter.exists(f"diucs:{tenant}:fence:relay") == 1
-            assert await counter.exists(f"diucs:{tenant}:fence:board") == 1
+            assert await counter.exists(f"overwatch:{tenant}:fence:relay") == 1
+            assert await counter.exists(f"overwatch:{tenant}:fence:board") == 1
         finally:
             await cache.aclose()
             await flush_tenant(counter, tenant)

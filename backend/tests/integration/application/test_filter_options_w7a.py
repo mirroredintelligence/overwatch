@@ -13,18 +13,18 @@ from datetime import UTC, datetime
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_geo import FixedPostcodeLocator, FixedTravelTime
-from diucs.application.ports.outbound.geo import LatLon, TravelRange
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.filter_options import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_geo import FixedPostcodeLocator, FixedTravelTime
+from overwatch.application.ports.outbound.geo import LatLon, TravelRange
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.filter_options import (
     FilterOptions,
     FilterOptionsCommand,
     FilterOptionsResult,
 )
-from diucs.application.use_cases.query_board import QueryBoard
-from diucs.domain.codes import ServiceCategory
-from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
+from overwatch.application.use_cases.query_board import QueryBoard
+from overwatch.domain.codes import ServiceCategory
+from overwatch.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
 from tests.integration.application.test_filter_options import (
     ACTOR,
     CASE_ID,

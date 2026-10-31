@@ -25,13 +25,13 @@ async function post(body: unknown, role: Session['role'] = 'advisor', csrf = tru
   if (csrf) headers['X-CSRF-Token'] = CSRF;
   return POST(requestWithCookies('https://app.test/api/bff/help/safety-concerns', {
     [SESSION_COOKIE]: await sealSession(s),
-    diucs_csrf: CSRF,
+    overwatch_csrf: CSRF,
   }, { method: 'POST', headers, body: JSON.stringify(body) }));
 }
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', EXEC_BACKEND);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', EXEC_BACKEND);
   vi.stubEnv('NODE_ENV', 'production');
   backend.length = 0;
   server.use(http.post(`${EXEC_BACKEND}/Task`, (async ({ request }) => {

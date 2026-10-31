@@ -138,9 +138,9 @@ export function Tour({ initialStep, initialRole }: { initialStep: TourStep; init
               <li key={line}>{line}</li>
             ))}
           </ul>
-          <h2 className={styles.sub}>With DIUCS</h2>
-          <ul aria-label="With DIUCS">
-            {screen.withDiucs.map((line) => (
+          <h2 className={styles.sub}>With Overwatch</h2>
+          <ul aria-label="With Overwatch">
+            {screen.withOverwatch.map((line) => (
               <li key={line}>{line}</li>
             ))}
           </ul>

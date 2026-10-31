@@ -20,37 +20,37 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Final
 
-from diucs.application.actor import Actor, require_actor_in_bound_tenant
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.identity import PhoneHasher
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.sealing import ContentSealer
-from diucs.application.ports.outbound.tenants import TenantDirectory
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.provisioning import TENANT_ADMIN_INVITE
-from diucs.application.sealed_send import queue_message
-from diucs.application.tenancy import ScopeId
-from diucs.application.tenant_settings import HostUrls
-from diucs.application.use_cases.invite_reporter import (
+from overwatch.application.actor import Actor, require_actor_in_bound_tenant
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.identity import PhoneHasher
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.sealing import ContentSealer
+from overwatch.application.ports.outbound.tenants import TenantDirectory
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.provisioning import TENANT_ADMIN_INVITE
+from overwatch.application.sealed_send import queue_message
+from overwatch.application.tenancy import ScopeId
+from overwatch.application.tenant_settings import HostUrls
+from overwatch.application.use_cases.invite_reporter import (
     check_invite_mobile,
     invitation_link,
 )
-from diucs.application.use_cases.send_prompts import LinkTokenServiceFactory
-from diucs.application.use_cases.setup_service_by_lead import international
-from diucs.application.use_cases.tenant_admin import (
+from overwatch.application.use_cases.send_prompts import LinkTokenServiceFactory
+from overwatch.application.use_cases.setup_service_by_lead import international
+from overwatch.application.use_cases.tenant_admin import (
     NO_TENANT,
     NOT_OPEN,
     _bound_tenant_scope,
     _unit_scope,
     check_operator,
 )
-from diucs.domain.codes import Channel
-from diucs.domain.errors import Conflict, NotAllowed, NotFound
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.messages.templates import render
-from diucs.domain.model.tenant import TenantStatus
-from diucs.domain.rules.registration import INVITATION_VALID_FOR
+from overwatch.domain.codes import Channel
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.messages.templates import render
+from overwatch.domain.model.tenant import TenantStatus
+from overwatch.domain.rules.registration import INVITATION_VALID_FOR
 
 USE_CASE: Final = "InviteTenantAdmin"
 AUDIT_ACTION: Final = "C"

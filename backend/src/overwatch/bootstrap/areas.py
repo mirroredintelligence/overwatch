@@ -10,9 +10,12 @@ import re
 from collections.abc import Mapping
 from typing import Final
 
-from diucs.application.tenancy import ScopeId, ScopeKind
-from diucs.application.use_cases.review_registration import AreaDistrictsFor, districts_in_ranges
-from diucs.domain.rules.postcode import normalise_district
+from overwatch.application.tenancy import ScopeId, ScopeKind
+from overwatch.application.use_cases.review_registration import (
+    AreaDistrictsFor,
+    districts_in_ranges,
+)
+from overwatch.domain.rules.postcode import normalise_district
 
 _RUN: Final = re.compile(r"([A-Za-z]{1,2})([0-9]{1,2})-([A-Za-z]{1,2})([0-9]{1,2})")
 

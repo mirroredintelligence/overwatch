@@ -6,7 +6,7 @@ Split from test_booking_rules.py so that the red test file stays byte-identical 
 
 import random
 
-from diucs.domain.rules.booking_rules import new_reference
+from overwatch.domain.rules.booking_rules import new_reference
 
 # Reference bounds, pinned with a recording rng so no draw is needed to see the range.
 # The generator must ask randint for exactly 1000 to 9999 inclusive (DEC-007, 4 digits, no zero).

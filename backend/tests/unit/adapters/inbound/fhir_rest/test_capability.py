@@ -2,7 +2,7 @@
 
 import pytest
 
-from diucs.adapters.inbound.fhir_rest import capability
+from overwatch.adapters.inbound.fhir_rest import capability
 
 
 @pytest.fixture
@@ -33,7 +33,7 @@ def test_a_resource_type_cannot_be_registered_twice(empty_registry: None) -> Non
 
 # KI-399: a route module adds operations to a type another module registered.
 
-DEFINITION = "https://diucs.example/OperationDefinition/"
+DEFINITION = "https://overwatch.mirroredintelligence.com/OperationDefinition/"
 
 
 @pytest.fixture

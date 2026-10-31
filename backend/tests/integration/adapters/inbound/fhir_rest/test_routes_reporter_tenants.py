@@ -19,12 +19,12 @@ from fastapi import FastAPI
 from httpx import AsyncClient
 from neo4j import AsyncDriver
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.ports.outbound.identity import HmacPhoneHasher
-from diucs.application.tenancy import bind_tenant
-from diucs.bootstrap.container import Container
-from diucs.domain.codes import BookingStatus
-from diucs.domain.model.booking import Booking
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.ports.outbound.identity import HmacPhoneHasher
+from overwatch.application.tenancy import bind_tenant
+from overwatch.bootstrap.container import Container
+from overwatch.domain.codes import BookingStatus
+from overwatch.domain.model.booking import Booking
 from tests.integration.adapters.inbound.fhir_rest.reporter_rig import (
     COVER_MOBILE,
     DEVICE,

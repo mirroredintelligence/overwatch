@@ -22,14 +22,14 @@ from neo4j.exceptions import ClientError
 from neo4j.spatial import WGS84Point
 from neo4j.time import Date, DateTime, Time
 
-from diucs.adapters.outbound.graph_store import resource_store
-from diucs.adapters.outbound.graph_store.mapper import RelSpec, UnknownExtension
-from diucs.adapters.outbound.graph_store.queries import REGISTRY
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.tenancy import RawTransactionRefused, bind_tenant
-from diucs.domain.codes import BASE_URL
-from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
+from overwatch.adapters.outbound.graph_store import resource_store
+from overwatch.adapters.outbound.graph_store.mapper import RelSpec, UnknownExtension
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.tenancy import RawTransactionRefused, bind_tenant
+from overwatch.domain.codes import BASE_URL
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
 from tests.support.neo4j import (
     ThrowawayNeo4j,
     count_nodes,
@@ -448,8 +448,8 @@ RES_TEMPLATES = frozenset(
 )
 # The run's own two tenants: a fixed id would not be removed by the wipe between tests, and two
 # runs on one Neo4j would write to the same tenant (TEN-035).
-TENANT_A = os.environ["DIUCS_TEST_TENANT"]
-TENANT_B = os.environ["DIUCS_TEST_OTHER_TENANT"]
+TENANT_A = os.environ["OVERWATCH_TEST_TENANT"]
+TENANT_B = os.environ["OVERWATCH_TEST_OTHER_TENANT"]
 # A node pattern: `(`, an optional variable, optional labels (a label expression may use `|`), an
 # optional property map, `)`; not a function call (no word character before the parenthesis).
 _NODE_PATTERN = re.compile(r"(?<![\w`])\(\s*\w*\s*(?::[\w|:]+)?\s*(?:\{[^}]*\})?\s*\)")

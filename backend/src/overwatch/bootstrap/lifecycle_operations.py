@@ -33,39 +33,39 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-from diucs.adapters.outbound.cache_redis.redis_cache import RedisCache
-from diucs.adapters.outbound.export_files.file_storage import FileExportStorage
-from diucs.adapters.outbound.graph_store.network_registry import Neo4jNetworkRegistry
-from diucs.adapters.outbound.graph_store.tenant_purge import Neo4jTenantData
-from diucs.adapters.outbound.graph_store.unit_of_work import neo4j_network_uow_factory
-from diucs.application.actor import Actor
-from diucs.application.tenancy import bind_tenant
-from diucs.application.use_cases.membership import LeaveAllNetworks
-from diucs.application.use_cases.network_admin import (
+from overwatch.adapters.outbound.cache_redis.redis_cache import RedisCache
+from overwatch.adapters.outbound.export_files.file_storage import FileExportStorage
+from overwatch.adapters.outbound.graph_store.network_registry import Neo4jNetworkRegistry
+from overwatch.adapters.outbound.graph_store.tenant_purge import Neo4jTenantData
+from overwatch.adapters.outbound.graph_store.unit_of_work import neo4j_network_uow_factory
+from overwatch.application.actor import Actor
+from overwatch.application.tenancy import bind_tenant
+from overwatch.application.use_cases.membership import LeaveAllNetworks
+from overwatch.application.use_cases.network_admin import (
     CreateNetwork,
     CreateNetworkCommand,
     GovernanceRecorder,
     MapNetworkAdminGroup,
     MapNetworkAdminGroupCommand,
 )
-from diucs.application.use_cases.network_leave import EndProjections
-from diucs.application.use_cases.tenant_offboard import (
+from overwatch.application.use_cases.network_leave import EndProjections
+from overwatch.application.use_cases.tenant_offboard import (
     CompleteOffboarding,
     CompleteOffboardingCommand,
     ExportTenant,
     ExportTenantCommand,
     OffboardTenant,
 )
-from diucs.application.use_cases.tenant_offboarding import (
+from overwatch.application.use_cases.tenant_offboarding import (
     StartOffboardingCommand,
     StartTenantOffboarding,
 )
-from diucs.application.use_cases.tenant_purge import PurgeTenant, PurgeTenantCommand
-from diucs.application.use_cases.tenant_suspend import TenantChanged
-from diucs.bootstrap.container import Container, build
-from diucs.bootstrap.provisioning import AuditHeads, operator_actor
-from diucs.bootstrap.settings import Settings
-from diucs.domain.errors import DomainError
+from overwatch.application.use_cases.tenant_purge import PurgeTenant, PurgeTenantCommand
+from overwatch.application.use_cases.tenant_suspend import TenantChanged
+from overwatch.bootstrap.container import Container, build
+from overwatch.bootstrap.provisioning import AuditHeads, operator_actor
+from overwatch.bootstrap.settings import Settings
+from overwatch.domain.errors import DomainError
 
 COMMANDS: Final = (
     "network-create",

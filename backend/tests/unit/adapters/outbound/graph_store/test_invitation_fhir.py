@@ -7,16 +7,16 @@ from typing import Any
 import pytest
 from fhir.resources.R4B.task import Task
 
-from diucs.adapters.outbound.graph_store.invitation_fhir import (
+from overwatch.adapters.outbound.graph_store.invitation_fhir import (
     INVITE_REPORTER,
     TASK_CODE_SYSTEM,
     invitation_from_fhir,
     invitation_to_fhir,
     is_invitation,
 )
-from diucs.adapters.outbound.graph_store.mapper import from_graph, to_graph
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.registration import Invitation
+from overwatch.adapters.outbound.graph_store.mapper import from_graph, to_graph
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.registration import Invitation
 
 CREATED = datetime(2026, 10, 29, 9, 0, tzinfo=UTC)
 SENT = datetime(2026, 10, 29, 9, 5, 30, tzinfo=UTC)

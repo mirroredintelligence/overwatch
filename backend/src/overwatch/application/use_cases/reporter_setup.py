@@ -24,24 +24,24 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Final
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.tokens import LinkTokenService
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound
-from diucs.application.use_cases.link_access import MAX_TOKEN_LENGTH
-from diucs.application.use_cases.pin import PIN_SET_WINDOW
-from diucs.application.use_cases.reporter_identity import unknown_person
-from diucs.application.use_cases.send_prompts import LinkTokenServiceFactory
-from diucs.application.use_cases.text_code import INVITATION_PURPOSE
-from diucs.domain.codes import Channel, Role
-from diucs.domain.errors import DomainError, ValidationFailed
-from diucs.domain.model.people import REPORTER_ROLE_CODES
-from diucs.domain.model.registration import Invitation
-from diucs.domain.model.tenant import ContactKind
-from diucs.domain.rules.reporter_app import MASKED_NOTHING, mask_mobile
-from diucs.domain.rules.tokens import LinkCheck, LinkTokenRecord, check_link
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.tokens import LinkTokenService
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound
+from overwatch.application.use_cases.link_access import MAX_TOKEN_LENGTH
+from overwatch.application.use_cases.pin import PIN_SET_WINDOW
+from overwatch.application.use_cases.reporter_identity import unknown_person
+from overwatch.application.use_cases.send_prompts import LinkTokenServiceFactory
+from overwatch.application.use_cases.text_code import INVITATION_PURPOSE
+from overwatch.domain.codes import Channel, Role
+from overwatch.domain.errors import DomainError, ValidationFailed
+from overwatch.domain.model.people import REPORTER_ROLE_CODES
+from overwatch.domain.model.registration import Invitation
+from overwatch.domain.model.tenant import ContactKind
+from overwatch.domain.rules.reporter_app import MASKED_NOTHING, mask_mobile
+from overwatch.domain.rules.tokens import LinkCheck, LinkTokenRecord, check_link
 
 STAND_IN_TOKEN: Final = "unknown-invitation"
 STAND_IN_DEVICE: Final = "unknown-device"

@@ -10,20 +10,20 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.push_subscription import (
+from overwatch.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.push_subscription import (
     RemovePushSubscription,
     RemovePushSubscriptionCommand,
     SavePushSubscription,
     SavePushSubscriptionCommand,
     SavePushSubscriptionResult,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import Conflict, NotAllowed, NotFound
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound
 from tests.support.actors import ACTOR_TENANT
 from tests.support.ladder_rig import reporter, seed_people, virtual_ward
 from tests.support.neo4j import count_nodes

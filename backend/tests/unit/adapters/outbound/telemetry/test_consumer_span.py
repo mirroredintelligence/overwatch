@@ -8,8 +8,8 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-from diucs.adapters.outbound.telemetry.consumer import consumer_observer
-from diucs.application.ports.outbound.event_bus import BusMessage
+from overwatch.adapters.outbound.telemetry.consumer import consumer_observer
+from overwatch.application.ports.outbound.event_bus import BusMessage
 
 TRACE_ID = "4bf92f3577b34da6a3ce929d0e0e4736"
 PARENT_SPAN_ID = "00f067aa0ba902b7"
@@ -40,7 +40,7 @@ def _message(traceparent: str | None) -> BusMessage:
 
 
 def _observe_once(provider: TracerProvider, message: BusMessage) -> None:
-    observe: Any = consumer_observer(provider.get_tracer("diucs-test"))
+    observe: Any = consumer_observer(provider.get_tracer("overwatch-test"))
     with observe(message):
         pass
 

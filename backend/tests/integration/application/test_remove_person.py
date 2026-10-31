@@ -11,20 +11,20 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.messaging import PushSubscription
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.pin import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.messaging import PushSubscription
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.pin import (
     PIN_HMAC_SECRET,
     PinSignIn,
     PinSignInCommand,
     SetPin,
     SetPinCommand,
 )
-from diucs.application.use_cases.remove_person import (
+from overwatch.application.use_cases.remove_person import (
     ConfirmNewPhone,
     ConfirmNewPhoneCommand,
     RemovalReason,
@@ -35,8 +35,8 @@ from diucs.application.use_cases.remove_person import (
     StartNewPhone,
     StartNewPhoneCommand,
 )
-from diucs.application.use_cases.send_prompts import _phone_hash
-from diucs.domain.codes import (
+from overwatch.application.use_cases.send_prompts import _phone_hash
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     Measure,
@@ -46,11 +46,11 @@ from diucs.domain.codes import (
     Role,
     ServiceCategory,
 )
-from diucs.domain.errors import NotAllowed, NotFound
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.flags import SERVICE_FLAG_NO_REPORTER
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.errors import NotAllowed, NotFound
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.flags import SERVICE_FLAG_NO_REPORTER
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, node_props
 from tests.support.registration_rig import StubLimiter

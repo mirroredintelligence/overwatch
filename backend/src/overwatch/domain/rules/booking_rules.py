@@ -17,10 +17,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Final
 
-from diucs.domain.codes import BookingStatus
-from diucs.domain.errors import Conflict
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
-from diucs.domain.rules.booking_state import is_open
+from overwatch.domain.codes import BookingStatus
+from overwatch.domain.errors import Conflict
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
+from overwatch.domain.rules.booking_state import is_open
 
 # Aliases of the default policy (TEN-064): the numbers are defined once, in tenant_policy.py.
 BOOKING_REPLY_WINDOW: Final = DEFAULT_POLICY.booking_reply_window

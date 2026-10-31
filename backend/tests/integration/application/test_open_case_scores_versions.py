@@ -13,15 +13,15 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.open_case import (
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.open_case import (
     OpenCaseCommand,
     UpdateCase,
     UpdateCaseCommand,
 )
-from diucs.domain.codes import ReferrerType
-from diucs.domain.errors import NotFound, StaleVersion, ValidationFailed
-from diucs.domain.model.scores import (
+from overwatch.domain.codes import ReferrerType
+from overwatch.domain.errors import NotFound, StaleVersion, ValidationFailed
+from overwatch.domain.model.scores import (
     ClinicalFrailty,
     News2,
     PathwaysDx,
@@ -310,8 +310,8 @@ async def test_two_updates_that_read_the_same_version_cannot_both_be_applied(
 async def test_a_closed_case_is_a_conflict_before_the_version_is_looked_at(
     uow_factory: UnitOfWorkFactory, tenant_id: str
 ) -> None:
-    from diucs.domain.codes import Outcome
-    from diucs.domain.errors import Conflict
+    from overwatch.domain.codes import Outcome
+    from overwatch.domain.errors import Conflict
 
     case_id = await _filled(uow_factory, tenant_id)
     async with uow_factory() as uow:
@@ -368,7 +368,7 @@ async def test_details_that_are_refused_leave_no_case_behind(
 async def test_the_same_key_with_other_details_is_a_conflict(
     uow_factory: UnitOfWorkFactory, tenant_id: str
 ) -> None:
-    from diucs.domain.errors import Conflict
+    from overwatch.domain.errors import Conflict
 
     opener = _opener(uow_factory, tenant_id, ScriptedRng())
     await opener.execute(OpenCaseCommand("open-k", ADVISOR, ReferrerType.GP, _details()))

@@ -15,9 +15,9 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any, Final
 
-from diucs.adapters.outbound.graph_store.driver import Tx, run_query
-from diucs.adapters.outbound.graph_store.queries import NETWORK_KINDS, REGISTRY, NamedQuery
-from diucs.adapters.outbound.graph_store.scenario import (
+from overwatch.adapters.outbound.graph_store.driver import Tx, run_query
+from overwatch.adapters.outbound.graph_store.queries import NETWORK_KINDS, REGISTRY, NamedQuery
+from overwatch.adapters.outbound.graph_store.scenario import (
     Expect,
     Marked,
     NodeSpec,
@@ -25,10 +25,10 @@ from diucs.adapters.outbound.graph_store.scenario import (
     SeedNode,
     TenantSeed,
 )
-from diucs.domain.codes import Status
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.network_sample import READINGS, NetworkSample
-from diucs.domain.rules.pressure import Pressure
+from overwatch.domain.codes import Status
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.network_sample import READINGS, NetworkSample
+from overwatch.domain.rules.pressure import Pressure
 
 _HOUR: Final = datetime(2026, 10, 26, 9, 0, tzinfo=UTC)
 _LATER_HOUR: Final = datetime(2026, 10, 26, 10, 0, tzinfo=UTC)

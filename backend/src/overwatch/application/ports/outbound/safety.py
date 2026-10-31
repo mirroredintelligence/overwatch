@@ -8,7 +8,7 @@ the caller's unit of work.
 
 from typing import Protocol
 
-from diucs.domain.model.safety import SafetyReport
+from overwatch.domain.model.safety import SafetyReport
 
 
 class SafetyReportRepository(Protocol):

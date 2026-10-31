@@ -15,22 +15,22 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Final, Protocol
 
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.tenant_registry import TenantNumberRecord
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import ScopeKind, TenantNotBound, current_scope
-from diucs.application.use_cases.criteria_reviews import ensure_daily_schedule
-from diucs.application.use_cases.tenant_config import ConfigurationFacts
-from diucs.application.use_cases.tenant_invariants import ensure_invariant_schedule
-from diucs.domain.model.tenant import (
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.tenant_registry import TenantNumberRecord
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeKind, TenantNotBound, current_scope
+from overwatch.application.use_cases.criteria_reviews import ensure_daily_schedule
+from overwatch.application.use_cases.tenant_config import ConfigurationFacts
+from overwatch.application.use_cases.tenant_invariants import ensure_invariant_schedule
+from overwatch.domain.model.tenant import (
     DEFAULT_TIME_ZONE,
     NumberStatus,
     OrganisationType,
     Tenant,
     TenantStatus,
 )
-from diucs.domain.rules.tenant_lifecycle import ActivationFacts
+from overwatch.domain.rules.tenant_lifecycle import ActivationFacts
 
 OPERATOR_ROLE_MESSAGE: Final = "only the platform operator runs a tenant's lifecycle"
 OPERATOR_UNNAMED_MESSAGE: Final = "the operator must be named"

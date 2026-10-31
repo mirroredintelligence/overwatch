@@ -10,9 +10,9 @@ read private data from a network scope. The proof is the generated test (TEN-060
 
 import pytest
 
-from diucs.adapters.outbound.graph_store import queries as queries_module
-from diucs.adapters.outbound.graph_store import scope_labels
-from diucs.adapters.outbound.graph_store.queries import (
+from overwatch.adapters.outbound.graph_store import queries as queries_module
+from overwatch.adapters.outbound.graph_store import scope_labels
+from overwatch.adapters.outbound.graph_store.queries import (
     BOTH_KINDS,
     NETWORK_KINDS,
     REGISTRY,
@@ -23,7 +23,7 @@ from diucs.adapters.outbound.graph_store.queries import (
     Scenario,
     statement_labels,
 )
-from diucs.domain.rules import projection as allowlist
+from overwatch.domain.rules import projection as allowlist
 from tests.support.query_probes import production_statements
 
 SCENARIO = Scenario("placeholder until TEN-060")

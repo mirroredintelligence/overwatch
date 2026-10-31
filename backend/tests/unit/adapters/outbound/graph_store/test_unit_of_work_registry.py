@@ -12,22 +12,22 @@ from typing import Any, cast
 
 import pytest
 
-from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
-from diucs.adapters.outbound.graph_store.queries import NamedQuery, QueryRegistry, Scenario
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.adapters.outbound.graph_store.unit_of_work import (
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx, run_query
+from overwatch.adapters.outbound.graph_store.queries import NamedQuery, QueryRegistry, Scenario
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.adapters.outbound.graph_store.unit_of_work import (
     DEFAULT_FACTORIES,
     Neo4jUnitOfWork,
     RepositoryFactory,
 )
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork
-from diucs.application.tenancy import (
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork
+from overwatch.application.tenancy import (
     ScopeId,
     UnitOfWorkAlreadyOpen,
     bind_scope,
     bind_tenant,
 )
-from diucs.domain.errors import Conflict
+from overwatch.domain.errors import Conflict
 from tests.support.fake_neo4j import FakeDriver
 
 # Every attribute of the UnitOfWork port, from docs/spec/contracts.md, plus the three P16 stores

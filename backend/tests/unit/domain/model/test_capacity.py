@@ -1,4 +1,4 @@
-"""Tests for diucs.domain.model.capacity: the capacity report value object (D02).
+"""Tests for overwatch.domain.model.capacity: the capacity report value object (D02).
 
 Reports are immutable measurements. A correction is a new report, never an edit. The latest
 report is the one with the greatest effective_at. Sample values only; no patient data.
@@ -11,9 +11,9 @@ from typing import Any
 
 import pytest
 
-from diucs.domain.codes import Measure, ReportSource, ReportType
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.capacity import CapacityReport, latest_report
+from overwatch.domain.codes import Measure, ReportSource, ReportType
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.capacity import CapacityReport, latest_report
 
 SERVICE_ID = "svc-ucr-west"
 MORNING = datetime(2026, 10, 23, 7, 15, tzinfo=UTC)

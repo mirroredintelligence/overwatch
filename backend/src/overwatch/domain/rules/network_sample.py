@@ -32,10 +32,10 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Final
 
-from diucs.domain.codes import Status
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.network_board import NetworkBoard
-from diucs.domain.rules.pressure import Pressure
+from overwatch.domain.codes import Status
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.network_board import NetworkBoard
+from overwatch.domain.rules.pressure import Pressure
 
 SMALL_GROUP: Final = 10
 """Counts and bases under this are hidden (domain-rules 10, as in the tenant's week summary)."""

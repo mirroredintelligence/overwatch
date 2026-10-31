@@ -8,15 +8,15 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Final, Literal
 
-from diucs.domain.codes import BookingStatus, DeclineReason
-from diucs.domain.model.booking import Booking
-from diucs.domain.rules.booking_rules import (
+from overwatch.domain.codes import BookingStatus, DeclineReason
+from overwatch.domain.model.booking import Booking
+from overwatch.domain.rules.booking_rules import (
     AskWhichReference,
     NoOpenBooking,
     OpenBookingRef,
     match_reply,
 )
-from diucs.domain.rules.reply_parser import BookingConfirm, BookingDecline, Number, ParsedReply
+from overwatch.domain.rules.reply_parser import BookingConfirm, BookingDecline, Number, ParsedReply
 
 # [ASSUMED] A digit that sets the reason of a decline must come within ten minutes of it (U22).
 DECLINE_REASON_WINDOW: Final = timedelta(minutes=10)

@@ -13,26 +13,26 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from diucs.application.ports.outbound.messaging import Communication
-from diucs.application.tenancy import ScopeId
-from diucs.application.use_cases.link_access import (
+from overwatch.application.ports.outbound.messaging import Communication
+from overwatch.application.tenancy import ScopeId
+from overwatch.application.use_cases.link_access import (
     CAPACITY_PURPOSE,
     CapacityLinkHandler,
     LinkRequest,
     next_due_iso,
 )
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     Measure,
     PractitionerRoleCode,
     ServiceCategory,
 )
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.model.service import AvailableTime, ServiceProfile
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY
-from diucs.domain.rules.london_time import LONDON
-from diucs.domain.rules.tokens import LinkTokenRecord
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY
+from overwatch.domain.rules.london_time import LONDON
+from overwatch.domain.rules.tokens import LinkTokenRecord
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -160,7 +160,7 @@ def test_the_next_prompt_is_worked_out_in_the_zone_given() -> None:
 
 
 def test_a_service_with_no_next_prompt_has_none(monkeypatch: pytest.MonkeyPatch) -> None:
-    from diucs.application.use_cases import link_access
+    from overwatch.application.use_cases import link_access
 
     monkeypatch.setattr(link_access, "next_due", lambda *args, **kwargs: None)
 

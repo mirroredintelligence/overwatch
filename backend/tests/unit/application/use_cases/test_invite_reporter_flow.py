@@ -11,19 +11,19 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
-from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET, LinkTokenService
-from diucs.application.use_cases.invite_reporter import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET, LinkTokenService
+from overwatch.application.use_cases.invite_reporter import (
     InviteReporter,
     InviteReporterCommand,
     ResendInvitation,
     ResendInvitationCommand,
 )
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     Channel,
     PractitionerRoleCode,
     RegistrationStatus,
@@ -31,10 +31,10 @@ from diucs.domain.codes import (
     ScopeFlag,
     ServiceCategory,
 )
-from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.events import ReporterInvited
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.model.registration import ScopeEntry
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.events import ReporterInvited
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.model.registration import ScopeEntry
 from tests.support.actors import ACTOR_TENANT
 from tests.support.registration_rig import StubUnits
 
@@ -87,14 +87,14 @@ class World:
             HASHER,
             self.clock,
             self.ids,
-            link_base_url_for=lambda scope: "https://diucs.example",
+            link_base_url_for=lambda scope: "https://overwatch.example",
         )
         self.resend = ResendInvitation(
             self.units,
             lambda repo: LinkTokenService(repo, SECRETS, self.clock),
             self.clock,
             self.ids,
-            link_base_url_for=lambda scope: "https://diucs.example",
+            link_base_url_for=lambda scope: "https://overwatch.example",
         )
 
     def command(self, **changes: Any) -> InviteReporterCommand:
@@ -172,11 +172,11 @@ async def test_the_text_i1_carries_a_link_that_resolves_to_the_invitation_and_th
     assert payload["message_id"] == "I1"
     assert payload["channel"] == "text"
     text = payload["text"]
-    assert text.startswith("DIUCS: You are invited to report capacity for UCR West. ")
+    assert text.startswith("Overwatch: You are invited to report capacity for UCR West. ")
     assert text.endswith(" Valid for 48 hrs.")
     link = text.split("Set up takes about 3 minutes: ")[1].split(" Valid")[0]
-    assert link.startswith("https://diucs.example/i/")
-    token = link.removeprefix("https://diucs.example/i/")
+    assert link.startswith("https://overwatch.mirroredintelligence.com/i/")
+    token = link.removeprefix("https://overwatch.mirroredintelligence.com/i/")
     record = await LinkTokenService(world.units.link_tokens, SECRETS, world.clock).resolve(token)
     assert record is not None
     assert record.purpose == "invite"
@@ -207,7 +207,7 @@ async def test_the_stored_copy_of_the_text_holds_no_token() -> None:
 
     communication = world.units.communications.sent[0]
     assert communication.message_id == "I1"
-    assert "https://diucs.example/i/[link]" in communication.payload_text
+    assert "https://overwatch.mirroredintelligence.com/i/[link]" in communication.payload_text
     token = world.units.outbox.messages[0].payload["text"].split("/i/")[1].split(" ")[0]
     assert token not in communication.payload_text
     assert communication.recipient_role_id in world.units.people.roles

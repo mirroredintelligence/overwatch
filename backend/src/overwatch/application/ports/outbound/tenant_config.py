@@ -2,8 +2,8 @@
 
 from typing import Protocol
 
-from diucs.domain.model.tenant import ConfigStatus, TenantConfig, TenantContact
-from diucs.domain.model.tenant_records import (
+from overwatch.domain.model.tenant import ConfigStatus, TenantConfig, TenantContact
+from overwatch.domain.model.tenant_records import (
     EntraBinding,
     RoleMapping,
     TenantChannel,

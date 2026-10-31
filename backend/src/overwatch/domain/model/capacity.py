@@ -11,8 +11,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from diucs.domain.codes import Measure, ReportSource, ReportType
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.codes import Measure, ReportSource, ReportType
+from overwatch.domain.errors import ValidationFailed
 
 
 @dataclass(frozen=True, slots=True)

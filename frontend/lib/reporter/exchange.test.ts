@@ -19,7 +19,7 @@ const INPUT: ExchangeInput = { pinSession: PIN_SESSION, host: A.host, tenantId: 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(NOW);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND}/fhir`);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', `${BACKEND}/fhir`);
   seen.length = 0;
   reply = () => ({ body: exchangeBody({}, {}, NOW) });
   server.use(exchangeHandler(seen, () => reply()));
@@ -78,7 +78,7 @@ describe('exchangeSessionToken: what is believed', () => {
     ['another phone', INPUT, { device: 'E'.repeat(22) }],
     ['no phone', INPUT, { device: undefined }],
     ['a role that is not reporter', INPUT, { role: 'lead' }],
-    ['another audience', INPUT, { aud: 'diucs-operator' }],
+    ['another audience', INPUT, { aud: 'overwatch-operator' }],
     ['an expired token', INPUT, { exp: Math.floor(NOW.getTime() / 1000) - 1 }],
     ['a token that lasts longer than an hour', INPUT, { exp: Math.floor(NOW.getTime() / 1000) + 61 * 60 }],
     ['a network id as its tenant', INPUT, { tenant: 'net-sample' }],
@@ -146,8 +146,8 @@ describe('exchangeSessionToken: what the back end can say', () => {
   });
 
   it('an address of the back end that is not set is a fault that names the variable, not an answer', async () => {
-    vi.stubEnv('DIUCS_FHIR_BASE_URL', '');
-    await expect(exchangeSessionToken(INPUT, NOW)).rejects.toThrow(/DIUCS_FHIR_BASE_URL/);
+    vi.stubEnv('OVERWATCH_FHIR_BASE_URL', '');
+    await expect(exchangeSessionToken(INPUT, NOW)).rejects.toThrow(/OVERWATCH_FHIR_BASE_URL/);
   });
 
   it('refuses a PIN session id that cannot be one without calling the back end', async () => {
@@ -162,6 +162,6 @@ describe('exchangeSessionToken: what the back end can say', () => {
 describe('the sample token', () => {
   it('is a reporter token for tenant A and the sample phone', () => {
     const [, body] = reporterToken({}, NOW).split('.');
-    expect(JSON.parse(Buffer.from(body ?? '', 'base64url').toString('utf8'))).toMatchObject({ role: 'reporter', tenant: A.id, device: DEVICE, aud: 'diucs-api' });
+    expect(JSON.parse(Buffer.from(body ?? '', 'base64url').toString('utf8'))).toMatchObject({ role: 'reporter', tenant: A.id, device: DEVICE, aud: 'overwatch-api' });
   });
 });

@@ -16,23 +16,23 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
-from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET, LinkTokenService
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.invite_reporter import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET, LinkTokenService
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.invite_reporter import (
     InviteReporter,
     InviteReporterCommand,
     ResendInvitation,
     ResendInvitationCommand,
 )
-from diucs.domain.codes import Channel, PractitionerRoleCode, Role, ScopeFlag, ServiceCategory
-from diucs.domain.errors import NotFound
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.model.registration import ScopeEntry
+from overwatch.domain.codes import Channel, PractitionerRoleCode, Role, ScopeFlag, ServiceCategory
+from overwatch.domain.errors import NotFound
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.model.registration import ScopeEntry
 from tests.support.actors import ACTOR_TENANT
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory
 
@@ -110,14 +110,14 @@ def _use_cases(factory: UnitOfWorkFactory) -> tuple[InviteReporter, ResendInvita
             HASHER,
             clock,
             SequentialIds("inv"),
-            link_base_url_for=lambda scope: f"https://{scope}.diucs.example",
+            link_base_url_for=lambda scope: f"https://{scope}.overwatch.example",
         ),
         ResendInvitation(
             factory,
             tokens,
             clock,
             SequentialIds("rsd"),
-            link_base_url_for=lambda scope: f"https://{scope}.diucs.example",
+            link_base_url_for=lambda scope: f"https://{scope}.overwatch.example",
         ),
     )
 

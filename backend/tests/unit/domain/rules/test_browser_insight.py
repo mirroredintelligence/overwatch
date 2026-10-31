@@ -11,7 +11,7 @@ from datetime import date
 
 import pytest
 
-from diucs.domain.rules.browser_insight import (
+from overwatch.domain.rules.browser_insight import (
     BROWSER_FUNNELS,
     BUCKET_COUNT,
     BUDGETS,
@@ -25,7 +25,7 @@ from diucs.domain.rules.browser_insight import (
     parse_event,
     percentile,
 )
-from diucs.domain.rules.telemetry_insights import FUNNELS
+from overwatch.domain.rules.telemetry_insights import FUNNELS
 
 SESSION = "a1b2c3d4e5f60718"
 OTHER_SESSION = "0f1e2d3c4b5a6978"

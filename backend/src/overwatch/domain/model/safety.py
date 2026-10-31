@@ -9,8 +9,8 @@ import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.safety_report import (
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.safety_report import (
     REPORT_CODES,
     SAFETY_CONCERN_CODE,
     ProblemCategory,

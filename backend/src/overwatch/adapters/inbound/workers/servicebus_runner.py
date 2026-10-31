@@ -28,9 +28,9 @@ from azure.servicebus import NEXT_AVAILABLE_SESSION
 from azure.servicebus.aio import ServiceBusClient
 from azure.servicebus.exceptions import OperationTimeoutError
 
-from diucs.adapters.inbound.workers.consumer import MessageConsumer, Outcome
-from diucs.application.ports.outbound.event_bus import BusMessage, MessageTenantError, from_wire
-from diucs.domain.errors import ValidationFailed
+from overwatch.adapters.inbound.workers.consumer import MessageConsumer, Outcome
+from overwatch.application.ports.outbound.event_bus import BusMessage, MessageTenantError, from_wire
+from overwatch.domain.errors import ValidationFailed
 
 logger = logging.getLogger(__name__)
 

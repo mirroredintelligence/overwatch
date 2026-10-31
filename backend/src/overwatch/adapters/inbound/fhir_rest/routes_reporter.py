@@ -34,10 +34,10 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response
 from pydantic import Field, StrictBool, StrictInt
 
-from diucs.adapters.inbound.fhir_rest.auth import require_role
-from diucs.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
-from diucs.adapters.inbound.fhir_rest.errors import operation_outcome
-from diucs.adapters.inbound.fhir_rest.routes_identity import (
+from overwatch.adapters.inbound.fhir_rest.auth import require_role
+from overwatch.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
+from overwatch.adapters.inbound.fhir_rest.errors import operation_outcome
+from overwatch.adapters.inbound.fhir_rest.routes_identity import (
     RATE_LIMITED_TEXT,
     _answer,
     _Body,
@@ -46,15 +46,15 @@ from diucs.adapters.inbound.fhir_rest.routes_identity import (
     _json,
     _signed_in,
 )
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.identity import HmacPhoneHasher
-from diucs.application.tenant_settings import DirectoryZones, TenantZones
-from diucs.application.uow_idempotency import UnitOfWorkIdempotency
-from diucs.application.use_cases.confirm_capacity import ConfirmCapacity
-from diucs.application.use_cases.link_access import iso_utc
-from diucs.application.use_cases.pin import RATE_WINDOW, limiter_key
-from diucs.application.use_cases.report_capacity import ReportCapacity
-from diucs.application.use_cases.reporter_app import (
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.identity import HmacPhoneHasher
+from overwatch.application.tenant_settings import DirectoryZones, TenantZones
+from overwatch.application.uow_idempotency import UnitOfWorkIdempotency
+from overwatch.application.use_cases.confirm_capacity import ConfirmCapacity
+from overwatch.application.use_cases.link_access import iso_utc
+from overwatch.application.use_cases.pin import RATE_WINDOW, limiter_key
+from overwatch.application.use_cases.report_capacity import ReportCapacity
+from overwatch.application.use_cases.reporter_app import (
     CoverCommand,
     ReporterReader,
     ReporterReportCommand,
@@ -63,15 +63,15 @@ from diucs.application.use_cases.reporter_app import (
     ReportOutcome,
     ServiceRow,
 )
-from diucs.application.use_cases.reporter_booking import (
+from overwatch.application.use_cases.reporter_booking import (
     ReporterBookingReader,
     ReporterBookingResponder,
 )
-from diucs.application.use_cases.reporter_push import NoPushSubscription, SendPushTest
-from diucs.application.use_cases.respond_to_booking import RespondToBooking
-from diucs.domain.codes import DeclineReason, Role
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.reporter_app import channel_for, channel_word
+from overwatch.application.use_cases.reporter_push import NoPushSubscription, SendPushTest
+from overwatch.application.use_cases.respond_to_booking import RespondToBooking
+from overwatch.domain.codes import DeclineReason, Role
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.reporter_app import channel_for, channel_word
 
 log = logging.getLogger(__name__)
 

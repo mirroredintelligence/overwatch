@@ -14,26 +14,26 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.criteria_reviews import (
+from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.criteria_reviews import (
     RunCriteriaReviews,
     RunCriteriaReviewsCommand,
     ensure_daily_schedule,
 )
-from diucs.application.work import WorkKind
-from diucs.domain.codes import (
+from overwatch.application.work import WorkKind
+from overwatch.domain.codes import (
     Channel,
     CriteriaStatus,
     Measure,
     PractitionerRoleCode,
     ServiceCategory,
 )
-from diucs.domain.model.criteria import ServiceCriteria
-from diucs.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.model.criteria import ServiceCriteria
+from overwatch.domain.model.people import Practitioner, PractitionerRole
 from tests.support.ladder_rig import virtual_ward
 from tests.support.uow import ensure_audit_heads
 

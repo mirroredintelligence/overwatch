@@ -4,14 +4,14 @@ checks a resume needs. The stored effects are tested in tests/integration. Sampl
 
 import pytest
 
-from diucs.application.use_cases.suspend_service import (
+from overwatch.application.use_cases.suspend_service import (
     SuspendReason,
     may_suspend,
     require_resume_checks,
     suspend_reason_of,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import ValidationFailed
 
 
 def test_the_suspend_reasons_are_the_four_the_shift_lead_can_give() -> None:

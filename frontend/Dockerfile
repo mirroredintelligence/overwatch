@@ -1,5 +1,5 @@
 # The web tier: Next.js on port 3000. The app reads its secrets from Key Vault at run time
-# (DIUCS_KEY_VAULT_URL, AZURE_CLIENT_ID), so no secret is baked into the image.
+# (OVERWATCH_KEY_VAULT_URL, AZURE_CLIENT_ID), so no secret is baked into the image.
 FROM node:22-slim AS build
 RUN corepack enable
 WORKDIR /app

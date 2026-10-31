@@ -16,8 +16,8 @@ second. The id is a digest, so it holds none of the ids it was made from and alw
 import hashlib
 from typing import Final
 
-from diucs.application.ports.outbound.event_bus import BusMessage, EventBus
-from diucs.domain.events import PROJECTION_WORK, ProjectionRequested
+from overwatch.application.ports.outbound.event_bus import BusMessage, EventBus
+from overwatch.domain.events import PROJECTION_WORK, ProjectionRequested
 
 ID_PREFIX: Final = "proj-"
 DIGEST_LENGTH: Final = 40

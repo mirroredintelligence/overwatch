@@ -12,9 +12,9 @@ import pytest
 from fastapi import Depends, FastAPI, Request, Response
 from httpx import AsyncClient
 
-from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME, current_actor
-from diucs.adapters.inbound.fhir_rest.capability import FhirJSONResponse
-from diucs.adapters.inbound.fhir_rest.concurrency import (
+from overwatch.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME, current_actor
+from overwatch.adapters.inbound.fhir_rest.capability import FhirJSONResponse
+from overwatch.adapters.inbound.fhir_rest.concurrency import (
     check_version,
     idempotency_key,
     replay_or_run,
@@ -23,13 +23,13 @@ from diucs.adapters.inbound.fhir_rest.concurrency import (
     subject_of,
     versioned_response,
 )
-from diucs.adapters.outbound.graph_store.unit_of_work import Neo4jUnitOfWork
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
-from diucs.application.actor import Actor
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotAllowed, NotFound
+from overwatch.adapters.outbound.graph_store.unit_of_work import Neo4jUnitOfWork
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
+from overwatch.application.actor import Actor
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotAllowed, NotFound
 from tests.support.things import THING_FACTORIES, as_things
 
 LONG_EXPIRY = datetime(2026, 11, 30, 12, 0, tzinfo=UTC)

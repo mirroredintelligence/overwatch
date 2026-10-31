@@ -2,9 +2,9 @@ from typing import Any, cast
 
 import pytest
 
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.tenancy import ScopeId, ScopeInvalid
-from diucs.bootstrap.container import build_for_tests
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.tenancy import ScopeId, ScopeInvalid
+from overwatch.bootstrap.container import build_for_tests
 
 
 def test_default_prefix_counts_up_from_one() -> None:

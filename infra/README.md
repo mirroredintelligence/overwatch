@@ -1,6 +1,6 @@
 # Local infrastructure
 
-Docker Compose runs the services DIUCS needs when you run it by hand:
+Docker Compose runs the services Overwatch needs when you run it by hand:
 
 | Service | Image (pinned) | Port | Notes |
 |---|---|---|---|
@@ -64,7 +64,7 @@ Service Bus messages are not kept when the stack is taken down (`down`), because
 
 ## Open the Neo4j browser
 
-Open <http://localhost:7474>, connect to `bolt://localhost:7687`, user `neo4j`, password `diucs-test-password`.
+Open <http://localhost:7474>, connect to `bolt://localhost:7687`, user `neo4j`, password `overwatch-test-password`.
 
 ## Run the infrastructure smoke tests
 

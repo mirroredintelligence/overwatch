@@ -37,7 +37,7 @@ export type WipeResult = { failed: WipeStep[] };
 export type EndResult = { signedOut: boolean; failed: WipeStep[]; navigated: boolean };
 
 const SESSION_URL = '/api/bff/session';
-const CSRF_COOKIE = 'diucs_csrf';
+const CSRF_COOKIE = 'overwatch_csrf';
 const CSRF_HEADER = 'X-CSRF-Token';
 const SIGN_IN = '/sign-in';
 const PAIRING = '/screen/pair';

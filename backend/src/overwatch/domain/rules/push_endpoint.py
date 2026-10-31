@@ -13,7 +13,7 @@ import re
 from typing import Final
 from urllib.parse import urlsplit
 
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.errors import ValidationFailed
 
 MAX_ENDPOINT_LENGTH: Final = 2048
 _REFUSED: Final = "must hold an https endpoint of a push service"

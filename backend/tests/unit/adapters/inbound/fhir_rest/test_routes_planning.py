@@ -5,19 +5,19 @@ pinned here. The stored answers and the tenant boundary are in tests/integration
 
 import pytest
 
-from diucs.adapters.inbound.fhir_rest.routes_planning import (
+from overwatch.adapters.inbound.fhir_rest.routes_planning import (
     cohort_text,
     planning_json,
     query_from,
 )
-from diucs.application.use_cases.planning_analysis import (
+from overwatch.application.use_cases.planning_analysis import (
     FlowRow,
     HiddenCount,
     PlanningQuery,
     PlanningResult,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import ValidationFailed
 from tests.support.route_unit import assert_role_matrix, bearer, route_client
 
 PLANNERS = frozenset({Role.LEAD, Role.EXEC})

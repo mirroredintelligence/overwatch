@@ -20,13 +20,13 @@ from opentelemetry.sdk.trace import Event, ReadableSpan, SpanProcessor, TracerPr
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 from opentelemetry.trace import Status, StatusCode
 
-from diucs.adapters.outbound.telemetry import attributes as names
-from diucs.adapters.outbound.telemetry.redaction import (
+from overwatch.adapters.outbound.telemetry import attributes as names
+from overwatch.adapters.outbound.telemetry.redaction import (
     clean_attributes,
     install_log_redaction,
     redact_text,
 )
-from diucs.application import tracing
+from overwatch.application import tracing
 
 _NANOSECONDS_PER_MILLISECOND: Final = 1_000_000
 
@@ -216,7 +216,7 @@ def configure_telemetry(settings: TelemetrySettings) -> TracerProvider | None:
     return provider
 
 
-_INSTRUMENTED_FLAG: Final = "diucs_fastapi_instrumented"
+_INSTRUMENTED_FLAG: Final = "overwatch_fastapi_instrumented"
 
 
 def instrument_fastapi(app: Any, provider: TracerProvider | None = None) -> None:

@@ -25,17 +25,17 @@ The `route` of a friction row is the route of a page-level friction and empty fo
 from datetime import date
 from typing import Any, Final, Literal
 
-from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.adapters.outbound.graph_store.scenario import (
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx, run_query
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from overwatch.adapters.outbound.graph_store.scenario import (
     Expect,
     Marked,
     Scenario,
     SeedNode,
     TenantSeed,
 )
-from diucs.application.ports.outbound.aggregates import check_one_day
-from diucs.domain.model.telemetry_aggregates import (
+from overwatch.application.ports.outbound.aggregates import check_one_day
+from overwatch.domain.model.telemetry_aggregates import (
     DayAggregates,
     ElementUsageDailyRow,
     FrictionDailyRow,

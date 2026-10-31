@@ -14,7 +14,7 @@ export const FLUSH_MS = 5000;
 /** How long a click waits for a visible result before it is recorded as `none`. */
 export const CLICK_WINDOW_MS = 1000;
 
-const SESSION_KEY = 'diucs.session.id';
+const SESSION_KEY = 'overwatch.session.id';
 
 /** The events this module sends (the names are fixed in schema.ts). Anything else is refused by the BFF route. */
 export const ALLOWED_EVENTS: readonly string[] = UI_EVENT_NAMES;

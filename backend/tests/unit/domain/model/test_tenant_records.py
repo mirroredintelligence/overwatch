@@ -12,10 +12,10 @@ from typing import Any
 
 import pytest
 
-from diucs.domain.codes import Role
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.tenant import NumberStatus, RetentionClass
-from diucs.domain.model.tenant_records import (
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.tenant import NumberStatus, RetentionClass
+from overwatch.domain.model.tenant_records import (
     ENTRA_MAPPABLE_ROLES,
     KEPT_UNTIL_PURGE,
     MAX_KEEP_DAYS,
@@ -105,7 +105,7 @@ def test_a_twilio_email_channel_holds_no_secret_of_its_own() -> None:
 
 
 def test_the_provider_a_new_channel_takes_is_twilio_for_both_kinds() -> None:
-    from diucs.domain.model.tenant_records import CHANNEL_PROVIDER
+    from overwatch.domain.model.tenant_records import CHANNEL_PROVIDER
 
     assert CHANNEL_PROVIDER[ChannelKind.SMS] is ChannelProvider.TWILIO
     assert CHANNEL_PROVIDER[ChannelKind.EMAIL] is ChannelProvider.TWILIO

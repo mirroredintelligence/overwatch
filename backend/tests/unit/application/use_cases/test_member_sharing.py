@@ -14,18 +14,18 @@ from typing import Any
 
 import pytest
 
-from diucs.application.ports.outbound.projection import (
+from overwatch.application.ports.outbound.projection import (
     ProjectionEndReason,
     SourceState,
     SourceStatus,
 )
-from diucs.application.projection import body_keys
-from diucs.application.tenancy import bind_tenant
-from diucs.application.use_cases.member_sharing import QueryMemberSharing
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotAllowed
-from diucs.domain.model.network import GrantScope, MembershipEndReason, MembershipStatus
-from diucs.domain.rules.projection import PROJECTION_ALLOWLIST_VERSION
+from overwatch.application.projection import body_keys
+from overwatch.application.tenancy import bind_tenant
+from overwatch.application.use_cases.member_sharing import QueryMemberSharing
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotAllowed
+from overwatch.domain.model.network import GrantScope, MembershipEndReason, MembershipStatus
+from overwatch.domain.rules.projection import PROJECTION_ALLOWLIST_VERSION
 from tests.support.network_admin_fakes import MemoryRegistry, UnitFactories, UnitWorld, person
 from tests.support.network_samples import (
     MEMBER_B,

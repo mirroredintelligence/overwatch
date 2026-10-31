@@ -15,19 +15,19 @@ from datetime import timedelta
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.ports.outbound.identity import TenantKeyedSecrets
-from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET, LinkTokenService
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenant_resolution import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.ports.outbound.identity import TenantKeyedSecrets
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET, LinkTokenService
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenant_resolution import (
     ENTRY_REFUSED_MESSAGE,
     EntryRefused,
     PreSessionResolver,
 )
-from diucs.bootstrap.container import TEST_NOW
-from diucs.domain.errors import Conflict
-from diucs.domain.rules.tokens import LinkCheck, hash_token
+from overwatch.bootstrap.container import TEST_NOW
+from overwatch.domain.errors import Conflict
+from overwatch.domain.rules.tokens import LinkCheck, hash_token
 from tests.support.tenancy import as_tenant
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")

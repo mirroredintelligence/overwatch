@@ -5,8 +5,8 @@ from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 
-from diucs.domain.codes import Channel, PractitionerRoleCode
-from diucs.domain.model.people import (
+from overwatch.domain.codes import Channel, PractitionerRoleCode
+from overwatch.domain.model.people import (
     COVER_CONTACT_PREFIX,
     PractitionerRole,
     cover_in_force,

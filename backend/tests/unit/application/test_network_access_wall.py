@@ -10,13 +10,13 @@ from dataclasses import replace
 
 import pytest
 
-from diucs.application.actor import Actor, wall_actor
-from diucs.application.network_access import NETWORK_NOT_FOUND, NetworkAccess
-from diucs.application.use_cases.wall_board_scope import ReadWallScope
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotAllowed, NotFound
-from diucs.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
-from diucs.domain.model.network import MembershipStatus, NetworkStatus
+from overwatch.application.actor import Actor, wall_actor
+from overwatch.application.network_access import NETWORK_NOT_FOUND, NetworkAccess
+from overwatch.application.use_cases.wall_board_scope import ReadWallScope
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotAllowed, NotFound
+from overwatch.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
+from overwatch.domain.model.network import MembershipStatus, NetworkStatus
 from tests.support.network_samples import MEMBER_B, NETWORK_ID, make_member
 from tests.unit.application.test_network_access import Names, Registry
 

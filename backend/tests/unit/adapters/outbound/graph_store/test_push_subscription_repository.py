@@ -10,21 +10,21 @@ from typing import Any
 import pytest
 from neo4j.exceptions import ConstraintError
 
-from diucs.adapters.outbound.graph_store import (
+from overwatch.adapters.outbound.graph_store import (
     credential_store,  # noqa: F401 (wall displays)
     push_subscription_repository,
 )
-from diucs.adapters.outbound.graph_store.push_subscription_repository import (
+from overwatch.adapters.outbound.graph_store.push_subscription_repository import (
     Neo4jPushSubscriptionRepository,
     checked_subscription,
     subscription_from_json,
     subscription_json,
 )
-from diucs.adapters.outbound.graph_store.queries import REGISTRY
-from diucs.adapters.outbound.graph_store.scenario import validate_scenario
-from diucs.application.ports.outbound.messaging import PushSubscription
-from diucs.domain.errors import Conflict, ValidationFailed
-from diucs.domain.model.device import DeviceType
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY
+from overwatch.adapters.outbound.graph_store.scenario import validate_scenario
+from overwatch.application.ports.outbound.messaging import PushSubscription
+from overwatch.domain.errors import Conflict, ValidationFailed
+from overwatch.domain.model.device import DeviceType
 
 SAVED = datetime(2026, 10, 25, 13, 12, tzinfo=UTC)
 ENDPOINT = "https://push.example/abc"

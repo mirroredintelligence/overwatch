@@ -18,17 +18,17 @@ from zoneinfo import ZoneInfo
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.ports.outbound.messaging import Communication
-from diucs.application.ports.outbound.tokens import LinkTokenService
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import ScopeId, TenantNotBound, bind_scope
-from diucs.application.uow_idempotency import UnitOfWorkIdempotency
-from diucs.application.use_cases import link_access
-from diucs.application.use_cases.confirm_capacity import ConfirmCapacity
-from diucs.application.use_cases.link_access import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.ports.outbound.messaging import Communication
+from overwatch.application.ports.outbound.tokens import LinkTokenService
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeId, TenantNotBound, bind_scope
+from overwatch.application.uow_idempotency import UnitOfWorkIdempotency
+from overwatch.application.use_cases import link_access
+from overwatch.application.use_cases.confirm_capacity import ConfirmCapacity
+from overwatch.application.use_cases.link_access import (
     CAPACITY_PURPOSE,
     CsrfRejected,
     LinkGone,
@@ -39,10 +39,10 @@ from diucs.application.use_cases.link_access import (
     SendTheNumber,
     ViewLinkQuery,
 )
-from diucs.application.use_cases.link_access import LinkAction as Action
-from diucs.application.use_cases.report_capacity import ReportCapacityResult
-from diucs.domain.codes import Channel, ReportFlagReason, ReportSource, ReportType, Status
-from diucs.domain.errors import (
+from overwatch.application.use_cases.link_access import LinkAction as Action
+from overwatch.application.use_cases.report_capacity import ReportCapacityResult
+from overwatch.domain.codes import Channel, ReportFlagReason, ReportSource, ReportType, Status
+from overwatch.domain.errors import (
     ConfirmLimitReached,
     Conflict,
     LatestReportChanged,
@@ -51,8 +51,8 @@ from diucs.domain.errors import (
     NothingToConfirm,
     ValidationFailed,
 )
-from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
-from diucs.domain.rules.london_time import LONDON
+from overwatch.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
+from overwatch.domain.rules.london_time import LONDON
 from tests.support.ladder_rig import PHONE_HASH_1, SECRET, london, reporter, seed_people
 from tests.support.link_rig import (
     ANSWER_AT,
@@ -802,7 +802,7 @@ async def test_renewing_an_expired_link_queues_a_fresh_prompt_with_a_new_link(
     assert len(sent) == sent_before + 1
     fresh = sent[-1]
     assert fresh["message_id"] == "C1"
-    assert fresh["text"].startswith("DIUCS")
+    assert fresh["text"].startswith("Overwatch")
     found = re.search(rf"{re.escape(BASE_URL_A)}/([A-Za-z]{{23}})", fresh["text"])
     assert found is not None
     # The new link works, for a window that starts now, and the old one still does not.

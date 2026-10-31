@@ -14,13 +14,13 @@ from typing import Any, Self
 
 import pytest
 
-from diucs.adapters.inbound.workers.consumer import (
+from overwatch.adapters.inbound.workers.consumer import (
     TENANT_MISMATCH,
     IdempotentConsumer,
     Outcome,
 )
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.tenancy import ScopeId, bind_scope, bind_tenant
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.tenancy import ScopeId, bind_scope, bind_tenant
 
 TENANT_A = "tenant-a"
 TENANT_B = "tenant-b"

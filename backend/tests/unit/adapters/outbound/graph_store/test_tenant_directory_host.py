@@ -6,8 +6,8 @@ host in its lookup form or None, and a key that is not a tenant id sends nothing
 
 from typing import Any, cast
 
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.tenant_directory import (
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.tenant_directory import (
     Neo4jTenantDirectory,
     tenant_properties,
 )

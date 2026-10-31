@@ -35,7 +35,7 @@ function post(cookie: string | null, headers: Record<string, string> = {}) {
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
   vi.stubEnv('NODE_ENV', 'production');
   resetExchanges();
   resetCookieWrites();

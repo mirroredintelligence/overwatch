@@ -13,8 +13,8 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.tokens import issue_test_token
-from diucs.domain.codes import Role
+from overwatch.adapters.testing.tokens import issue_test_token
+from overwatch.domain.codes import Role
 from tests.support.w7b_roles import EDGE_REFUSED, roles_client
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")

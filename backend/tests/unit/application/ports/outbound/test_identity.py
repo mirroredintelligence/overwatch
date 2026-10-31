@@ -5,8 +5,8 @@ import re
 
 import pytest
 
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.ports.outbound.identity import (
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.ports.outbound.identity import (
     DEVICE_TOKEN_SECRET,
     PHONE_HASH_SECRET,
     HmacPhoneHasher,
@@ -14,21 +14,21 @@ from diucs.application.ports.outbound.identity import (
     normalise_uk_mobile,
     secret_is_configured,
 )
-from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET
-from diucs.application.tenancy import (
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET
+from overwatch.application.tenancy import (
     DEFAULT_TENANT_ID,
     ScopeId,
     TenantNotBound,
     bind_scope,
     bind_tenant,
 )
-from diucs.application.use_cases.link_access import LINK_CSRF_SECRET
-from diucs.application.use_cases.pin import PIN_HMAC_SECRET
-from diucs.application.use_cases.text_code import CODE_HMAC_SECRET
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotFound, ValidationFailed
-from diucs.domain.rules.support import SUPPORT_CODE_SECRET
-from diucs.domain.rules.tenant_keys import PER_TENANT_KEY_NAMES, derive_tenant_key
+from overwatch.application.use_cases.link_access import LINK_CSRF_SECRET
+from overwatch.application.use_cases.pin import PIN_HMAC_SECRET
+from overwatch.application.use_cases.text_code import CODE_HMAC_SECRET
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotFound, ValidationFailed
+from overwatch.domain.rules.support import SUPPORT_CODE_SECRET
+from overwatch.domain.rules.tenant_keys import PER_TENANT_KEY_NAMES, derive_tenant_key
 
 PHONE_SECRET = b"phone-hash-test-secret-0123456789abcdef"
 

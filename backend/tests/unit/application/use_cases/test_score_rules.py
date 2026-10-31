@@ -11,9 +11,9 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_terminology import FixedTerminology
-from diucs.application.actor import Actor
-from diucs.application.use_cases.open_case import (
+from overwatch.adapters.testing.fixed_terminology import FixedTerminology
+from overwatch.application.actor import Actor
+from overwatch.application.use_cases.open_case import (
     UpdateCaseCommand,
     apply_update,
     check_pathways_listed,
@@ -21,10 +21,10 @@ from diucs.application.use_cases.open_case import (
     score_correction_snapshot,
     update_fingerprint,
 )
-from diucs.domain.codes import AgeBand, ReferrerType, Role
-from diucs.domain.errors import Conflict, ValidationFailed
-from diucs.domain.model.case import Case
-from diucs.domain.model.scores import (
+from overwatch.domain.codes import AgeBand, ReferrerType, Role
+from overwatch.domain.errors import Conflict, ValidationFailed
+from overwatch.domain.model.case import Case
+from overwatch.domain.model.scores import (
     ClinicalFrailty,
     ManchesterTriage,
     News2,

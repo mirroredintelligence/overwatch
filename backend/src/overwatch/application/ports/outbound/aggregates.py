@@ -16,7 +16,7 @@ from collections.abc import Sequence
 from datetime import date
 from typing import Protocol
 
-from diucs.domain.model.telemetry_aggregates import (
+from overwatch.domain.model.telemetry_aggregates import (
     DayAggregates,
     ElementUsageDailyRow,
     FrictionDailyRow,

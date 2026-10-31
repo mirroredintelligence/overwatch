@@ -29,19 +29,19 @@ from datetime import UTC, datetime, timedelta
 from typing import Final
 from zoneinfo import ZoneInfo
 
-from diucs.application.actor import Actor, require_actor_in_bound_tenant, tenant_scope_of_unit
-from diucs.application.idempotency import IdempotencyStore
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.messaging import GROUPED_STATUS, Communication
-from diucs.application.ports.outbound.outbox import OutboxMessage
-from diucs.application.ports.outbound.sealing import ContentSealer
-from diucs.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.scheduling import schedule_work
-from diucs.application.tenancy import ScopeId, TenantMismatch
-from diucs.application.tenant_settings import (
+from overwatch.application.actor import Actor, require_actor_in_bound_tenant, tenant_scope_of_unit
+from overwatch.application.idempotency import IdempotencyStore
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.messaging import GROUPED_STATUS, Communication
+from overwatch.application.ports.outbound.outbox import OutboxMessage
+from overwatch.application.ports.outbound.sealing import ContentSealer
+from overwatch.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.scheduling import schedule_work
+from overwatch.application.tenancy import ScopeId, TenantMismatch
+from overwatch.application.tenant_settings import (
     LinkBases,
     TenantSettings,
     TenantZones,
@@ -49,21 +49,27 @@ from diucs.application.tenant_settings import (
     as_zones,
     read_settings,
 )
-from diucs.application.work import WorkKind
-from diucs.domain.codes import Channel
-from diucs.domain.errors import Conflict, DomainError, NotFound, ValidationFailed
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.messages.templates import RenderedMessage, render
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED
-from diucs.domain.model.people import PractitionerRole, role_holder
-from diucs.domain.model.service import ServiceProfile
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
-from diucs.domain.rules.confirmable_age import confirmable_age
-from diucs.domain.rules.london_time import LONDON, format_hhmm, format_stamp
-from diucs.domain.rules.multi_service import GroupedItem, group_due
-from diucs.domain.rules.prompt_hours import is_due_time_in_hours
-from diucs.domain.rules.schedule import LadderStep, current_due, ladder_times, next_due, reply_by
+from overwatch.application.work import WorkKind
+from overwatch.domain.codes import Channel
+from overwatch.domain.errors import Conflict, DomainError, NotFound, ValidationFailed
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.messages.templates import RenderedMessage, render
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.flags import SERVICE_FLAG_SUSPENDED
+from overwatch.domain.model.people import PractitionerRole, role_holder
+from overwatch.domain.model.service import ServiceProfile
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
+from overwatch.domain.rules.confirmable_age import confirmable_age
+from overwatch.domain.rules.london_time import LONDON, format_hhmm, format_stamp
+from overwatch.domain.rules.multi_service import GroupedItem, group_due
+from overwatch.domain.rules.prompt_hours import is_due_time_in_hours
+from overwatch.domain.rules.schedule import (
+    LadderStep,
+    current_due,
+    ladder_times,
+    next_due,
+    reply_by,
+)
 
 MESSAGES_TOPIC: Final = "messages.outbound"
 SEND_MESSAGE: Final = "SendMessage"

@@ -109,20 +109,20 @@ def _line(stream: IO[str] | None, within_s: float) -> str | None:
 def test_the_default_lock_is_not_the_manual_pytest_lock_and_the_environment_overrides_it(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    monkeypatch.delenv("DIUCS_NEO4J_LOCK", raising=False)
-    assert lock_path() == "/tmp/diucs-neo4j-harness.lock" == DEFAULT_LOCK_PATH
+    monkeypatch.delenv("OVERWATCH_NEO4J_LOCK", raising=False)
+    assert lock_path() == "/tmp/overwatch-neo4j-harness.lock" == DEFAULT_LOCK_PATH
     # The manual whole-run lock of the serial era is gone (TEN-035); nothing else may use this file.
     assert lock_path().endswith("harness.lock")
 
-    monkeypatch.setenv("DIUCS_NEO4J_LOCK", str(tmp_path / "other.lock"))
+    monkeypatch.setenv("OVERWATCH_NEO4J_LOCK", str(tmp_path / "other.lock"))
     assert lock_path() == str(tmp_path / "other.lock")
 
 
 def test_the_module_documentation_names_the_container_lock() -> None:
     assert harness.__doc__ is not None
-    assert "/tmp/diucs-neo4j-harness.lock" in harness.__doc__
+    assert "/tmp/overwatch-neo4j-harness.lock" in harness.__doc__
     assert "manual flock" in harness.__doc__
-    assert "DIUCS_NEO4J_LOCK" in harness.__doc__
+    assert "OVERWATCH_NEO4J_LOCK" in harness.__doc__
 
 
 def test_acquire_takes_the_lock_and_writes_the_holder_pid(tmp_path: Path) -> None:
@@ -231,7 +231,7 @@ def test_a_failed_acquire_leaves_nothing_held(tmp_path: Path) -> None:
 def test_the_timeout_comes_from_the_environment_when_not_given(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    monkeypatch.setenv("DIUCS_NEO4J_LOCK_TIMEOUT", "7")
+    monkeypatch.setenv("OVERWATCH_NEO4J_LOCK_TIMEOUT", "7")
     clock = FakeClock()
 
     with pytest.raises(HarnessLockTimeout):
@@ -337,7 +337,7 @@ def test_a_symlinked_lock_file_fails_a_start_in_the_lock_phase(
     target.write_text("keep\n", encoding="utf-8")
     link = tmp_path / "link.lock"
     link.symlink_to(target)
-    monkeypatch.setenv("DIUCS_NEO4J_LOCK", str(link))
+    monkeypatch.setenv("OVERWATCH_NEO4J_LOCK", str(link))
     calls: list[tuple[str, ...]] = []
 
     def docker(*args: str, timeout: float = 60.0) -> subprocess.CompletedProcess[str]:

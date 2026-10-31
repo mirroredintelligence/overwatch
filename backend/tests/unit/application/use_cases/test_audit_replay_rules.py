@@ -7,9 +7,9 @@ from datetime import UTC, datetime
 
 import pytest
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import AuditEntry, AuditRecord
-from diucs.application.use_cases.audit_replay import (
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import AuditEntry, AuditRecord
+from overwatch.application.use_cases.audit_replay import (
     REPLAY_USE_CASE,
     ReplayRow,
     age_words,
@@ -19,8 +19,8 @@ from diucs.application.use_cases.audit_replay import (
     status_word,
     timeline_item,
 )
-from diucs.domain.codes import Role, Status
-from diucs.domain.errors import NotAllowed
+from overwatch.domain.codes import Role, Status
+from overwatch.domain.errors import NotAllowed
 from tests.support.actors import ACTOR_TENANT
 
 T = datetime(2026, 10, 23, 13, 12, tzinfo=UTC)

@@ -12,14 +12,14 @@ from typing import Final
 
 import httpx
 
-from diucs.application.ports.outbound.identity import normalise_uk_mobile
-from diucs.application.ports.outbound.messaging import (
+from overwatch.application.ports.outbound.identity import normalise_uk_mobile
+from overwatch.application.ports.outbound.messaging import (
     DeliveryUpdate,
     SendFailedError,
     SendReceipt,
     TransientSendError,
 )
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.errors import ValidationFailed
 
 _log = logging.getLogger(__name__)
 

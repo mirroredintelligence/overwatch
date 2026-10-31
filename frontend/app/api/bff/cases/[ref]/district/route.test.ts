@@ -20,7 +20,7 @@ vi.mock('next/headers', async () => {
 
 const SR_URL = `${BACKEND_BASE}/ServiceRequest/case-1`;
 const KEY = 'district-key-0001';
-const EXTENSION = 'https://diucs.example/StructureDefinition/postcode-district';
+const EXTENSION = 'https://overwatch.mirroredintelligence.com/StructureDefinition/postcode-district';
 const context = (ref: string) => ({ params: Promise.resolve({ ref }) });
 
 type Seen = { method: string; ifMatch: string | null; key: string | null; token: string | null; body: unknown };
@@ -29,7 +29,7 @@ const seen: Seen[] = [];
 beforeEach(() => {
   seen.length = 0;
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', BACKEND_BASE);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', BACKEND_BASE);
   vi.stubEnv('NODE_ENV', 'production');
   server.use(
     http.get(SR_URL, ({ request }) => {

@@ -18,9 +18,9 @@ from typing import Any
 import pytest
 from neo4j import AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.unit_of_work import Neo4jUnitOfWork
-from diucs.application.ports.outbound.projection import GrantRef
-from diucs.application.tenancy import (
+from overwatch.adapters.outbound.graph_store.unit_of_work import Neo4jUnitOfWork
+from overwatch.application.ports.outbound.projection import GrantRef
+from overwatch.application.tenancy import (
     ReadOnlyUnitWrite,
     ScopeKindMismatch,
     UnitOfWorkAlreadyOpen,
@@ -28,11 +28,11 @@ from diucs.application.tenancy import (
     bind_tenant,
     current_scope_or_none,
 )
-from diucs.application.use_cases.apply_projection import ApplyOutcome, ProjectionMismatch
-from diucs.domain.codes import Role
-from diucs.domain.model.network import GrantScope
-from diucs.domain.rules.network_sample import READINGS, NetworkSample
-from diucs.domain.rules.pressure import Pressure
+from overwatch.application.use_cases.apply_projection import ApplyOutcome, ProjectionMismatch
+from overwatch.domain.codes import Role
+from overwatch.domain.model.network import GrantScope
+from overwatch.domain.rules.network_sample import READINGS, NetworkSample
+from overwatch.domain.rules.pressure import Pressure
 from tests.support import network_fixtures
 from tests.support.neo4j import read_tx
 from tests.support.network_fixtures import NetApp, bearer, client_of

@@ -27,10 +27,10 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.tenancy import ScopeId, ScopeKind, current_scope_or_none
-from diucs.domain.errors import DomainError
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeId, ScopeKind, current_scope_or_none
+from overwatch.domain.errors import DomainError
 
 logger = logging.getLogger(__name__)
 

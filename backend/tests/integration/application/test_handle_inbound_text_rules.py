@@ -13,10 +13,10 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.handle_inbound_text import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.handle_inbound_text import (
     CONFIRMED,
     LATE,
     NEED_NUMBER,
@@ -25,8 +25,8 @@ from diucs.application.use_cases.handle_inbound_text import (
     STALE_FIGURE,
     HandleInboundTextResult,
 )
-from diucs.domain.codes import Cadence, ReportType
-from diucs.domain.errors import Conflict
+from overwatch.domain.codes import Cadence, ReportType
+from overwatch.domain.errors import Conflict
 from tests.integration.application.test_handle_inbound_text import (
     EARLY,
     LONG_AGO,

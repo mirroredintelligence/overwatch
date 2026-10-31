@@ -15,13 +15,17 @@ import re
 
 import pytest
 
-from diucs.adapters.outbound.graph_store import projection_repository  # noqa: F401
-from diucs.adapters.outbound.graph_store.projection_scenarios import PROJECTION_SCENARIOS
-from diucs.adapters.outbound.graph_store.queries import NETWORK_KINDS, REGISTRY, statement_labels
-from diucs.adapters.outbound.graph_store.scenario import Marked, validate_scenario
-from diucs.application.projection import check_network_write_statement
-from diucs.domain.messages.privacy_guard import find_forbidden_keys
-from diucs.domain.rules import projection as allowlist
+from overwatch.adapters.outbound.graph_store import projection_repository  # noqa: F401
+from overwatch.adapters.outbound.graph_store.projection_scenarios import PROJECTION_SCENARIOS
+from overwatch.adapters.outbound.graph_store.queries import (
+    NETWORK_KINDS,
+    REGISTRY,
+    statement_labels,
+)
+from overwatch.adapters.outbound.graph_store.scenario import Marked, validate_scenario
+from overwatch.application.projection import check_network_write_statement
+from overwatch.domain.messages.privacy_guard import find_forbidden_keys
+from overwatch.domain.rules import projection as allowlist
 
 READS = (
     "Q-PROJ-SOURCE-GET",

@@ -6,7 +6,7 @@ import { fhirFetch } from './client';
 const ROOT = 'http://backend.test';
 
 beforeEach(() => {
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${ROOT}/fhir`);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', `${ROOT}/fhir`);
 });
 
 afterEach(() => {

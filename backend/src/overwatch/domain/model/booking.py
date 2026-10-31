@@ -7,9 +7,9 @@ timezone-aware, because instants are compared across the London clock change (le
 from dataclasses import dataclass, replace
 from datetime import datetime
 
-from diucs.domain.codes import BookingStatus
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.booking_state import transition
+from overwatch.domain.codes import BookingStatus
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.booking_state import transition
 
 
 def _aware(field: str, value: datetime) -> None:

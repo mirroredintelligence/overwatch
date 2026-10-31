@@ -1,7 +1,7 @@
 {
   "resourceType": "CodeSystem",
   "id": "practitioner-role",
-  "url": "https://diucs.example/CodeSystem/practitioner-role",
+  "url": "https://overwatch.mirroredintelligence.com/CodeSystem/practitioner-role",
   "name": "practitioner-role",
   "status": "active",
   "content": "complete",

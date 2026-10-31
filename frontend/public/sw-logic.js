@@ -1,6 +1,6 @@
 // The service worker's pure logic (W32). A classic script, so the worker can load it with
 // importScripts; it is tested by loading this same file (test/pwa/sw-logic.test.ts).
-// It exposes its functions on self.DiucsSw and never logs a payload.
+// It exposes its functions on self.OverwatchSw and never logs a payload.
 (function (scope) {
   var FALLBACK = '/app';
   var OFFLINE = '/offline';
@@ -39,7 +39,7 @@
     return path === OFFLINE || path.indexOf(STATIC_PREFIX) === 0;
   }
 
-  scope.DiucsSw = {
+  scope.OverwatchSw = {
     handlePush: handlePush,
     pickClientOrOpen: pickClientOrOpen,
     isCacheable: isCacheable,

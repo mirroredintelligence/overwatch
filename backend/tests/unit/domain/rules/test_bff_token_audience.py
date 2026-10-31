@@ -1,8 +1,10 @@
 """The audience of a back-end token, and the operator token (TEN-043, DEC-522, DEC-134 item 2).
 
 The back end issues every token (the BFF holds no signing secret), and a token is for one audience:
-`diucs-api` for the tenant API (staff, reporter and wall tokens, which name a tenant and its epoch)
-and `diucs-ops` for the operator console (an operator or a support person, who names no tenant). A
+`overwatch-api` for the tenant API (staff, reporter and wall tokens, which name a tenant and its
+epoch)
+and `overwatch-ops` for the operator console (an operator or a support person, who names no
+tenant). A
 token for one audience is refused at the other's door, and a token with no audience, or with any
 other, is refused at both: a signature that is right is not enough.
 
@@ -20,9 +22,9 @@ from typing import Any
 
 import pytest
 
-from diucs.domain.codes import Role
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.bff_token import (
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.bff_token import (
     BFF_SECRET_MIN_BYTES,
     OPERATOR_AUDIENCE,
     OPERATOR_ROLES,
@@ -106,8 +108,8 @@ def operator_payload(**changes: Any) -> dict[str, Any]:
 
 
 def test_the_audiences_are_two_fixed_distinct_words() -> None:
-    assert STAFF_AUDIENCE == "diucs-api"
-    assert OPERATOR_AUDIENCE == "diucs-ops"
+    assert STAFF_AUDIENCE == "overwatch-api"
+    assert OPERATOR_AUDIENCE == "overwatch-ops"
     assert STAFF_AUDIENCE != OPERATOR_AUDIENCE
 
 
@@ -149,10 +151,10 @@ def test_the_operator_roles_are_the_platform_operator_and_support_only() -> None
         pytest.param(None, id="null"),
         pytest.param("", id="empty"),
         pytest.param(7, id="not-text"),
-        pytest.param(["diucs-api"], id="a-list-holding-the-right-word"),
-        pytest.param("DIUCS-API", id="upper-case"),
-        pytest.param("diucs-api ", id="trailing-space"),
-        pytest.param("diucs-ops", id="the-operator-audience"),
+        pytest.param(["overwatch-api"], id="a-list-holding-the-right-word"),
+        pytest.param("Overwatch-API", id="upper-case"),
+        pytest.param("overwatch-api ", id="trailing-space"),
+        pytest.param("overwatch-ops", id="the-operator-audience"),
         pytest.param("other", id="another-word"),
     ],
 )
@@ -168,9 +170,9 @@ def test_a_tenant_token_with_no_audience_or_another_is_refused(aud: Any) -> None
         pytest.param(None, id="null"),
         pytest.param("", id="empty"),
         pytest.param(7, id="not-text"),
-        pytest.param(["diucs-ops"], id="a-list-holding-the-right-word"),
-        pytest.param("DIUCS-OPS", id="upper-case"),
-        pytest.param("diucs-api", id="the-api-audience"),
+        pytest.param(["overwatch-ops"], id="a-list-holding-the-right-word"),
+        pytest.param("Overwatch-OPS", id="upper-case"),
+        pytest.param("overwatch-api", id="the-api-audience"),
         pytest.param("other", id="another-word"),
     ],
 )

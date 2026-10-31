@@ -18,8 +18,8 @@ from collections.abc import Mapping, Sequence
 from types import MappingProxyType
 from typing import Final
 
-from diucs.domain.codes import NeedCategory
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.codes import NeedCategory
+from overwatch.domain.errors import ValidationFailed
 
 NEED_WORDS: Final[Mapping[NeedCategory, str]] = MappingProxyType(
     {

@@ -6,17 +6,17 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.inbound.sms_webhook import routes
-from diucs.adapters.inbound.workers.consumer import PermanentError
-from diucs.adapters.inbound.workers.delivery_tracker import (
+from overwatch.adapters.inbound.sms_webhook import routes
+from overwatch.adapters.inbound.workers.consumer import PermanentError
+from overwatch.adapters.inbound.workers.delivery_tracker import (
     CONSUMER_NAME,
     RECEIPT_EVENT,
     RECEIPT_STATUSES,
     DeliveryTracker,
 )
-from diucs.adapters.outbound.sms_twilio.twilio_sms import parse_status_callback
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.ports.outbound.messaging import DELIVERY_STATUSES
+from overwatch.adapters.outbound.sms_twilio.twilio_sms import parse_status_callback
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.ports.outbound.messaging import DELIVERY_STATUSES
 
 
 class _Untouched:

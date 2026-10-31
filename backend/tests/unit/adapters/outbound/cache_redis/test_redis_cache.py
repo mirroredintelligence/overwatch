@@ -11,13 +11,13 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.outbound.cache_redis.redis_cache import RedisCache
-from diucs.application.ports.outbound.cache import (
+from overwatch.adapters.outbound.cache_redis.redis_cache import RedisCache
+from overwatch.application.ports.outbound.cache import (
     BOARD_UPDATES_CHANNEL,
     CacheScopeMismatch,
     Lock,
 )
-from diucs.application.tenancy import TenantNotBound, bind_tenant
+from overwatch.application.tenancy import TenantNotBound, bind_tenant
 
 TTL = timedelta(seconds=5)
 TENANT = "acme-icb"
@@ -114,7 +114,7 @@ async def test_every_name_the_adapter_passes_to_the_client_is_under_the_bound_te
     await _every_method(RedisCache(client))  # type: ignore[arg-type]
 
     assert client.names
-    assert all(name.startswith(f"diucs:{TENANT}:") for name in client.names)
+    assert all(name.startswith(f"overwatch:{TENANT}:") for name in client.names)
 
 
 async def test_each_key_family_is_used_under_its_own_family_part_and_nothing_else() -> None:
@@ -124,8 +124,8 @@ async def test_each_key_family_is_used_under_its_own_family_part_and_nothing_els
     families = {name.split(":")[2] for name in client.names}
     assert families == FAMILIES
     assert {name.split(":")[1] for name in client.names} == {TENANT}
-    assert not [name for name in client.names if name.startswith("diucs:cache:")]
-    assert not [name for name in client.names if name.startswith("diucs:chan:")]
+    assert not [name for name in client.names if name.startswith("overwatch:cache:")]
+    assert not [name for name in client.names if name.startswith("overwatch:chan:")]
 
 
 async def test_a_closed_subscription_ends_a_reader_that_is_waiting() -> None:
@@ -268,7 +268,7 @@ async def test_acquire_lock_keeps_the_tenant_it_began_with_when_the_scope_moves(
     finally:
         client.release()
     assert lock == Lock("relay", 1, TENANT)
-    assert f"diucs:{TENANT}:lock:relay" in client.names
+    assert f"overwatch:{TENANT}:lock:relay" in client.names
     assert not [name for name in client.names if OTHER in name]
 
 
@@ -279,7 +279,7 @@ async def test_a_get_keeps_the_tenant_it_began_with_when_the_scope_moves() -> No
         await cache.get("svc-1:status")
     finally:
         client.release()
-    assert client.names == [f"diucs:{TENANT}:cache:svc-1:status"]
+    assert client.names == [f"overwatch:{TENANT}:cache:svc-1:status"]
 
 
 async def test_a_publish_keeps_the_tenant_it_began_with_when_the_scope_moves() -> None:
@@ -289,7 +289,7 @@ async def test_a_publish_keeps_the_tenant_it_began_with_when_the_scope_moves() -
         await cache.publish(BOARD_UPDATES_CHANNEL, "svc-1")
     finally:
         client.release()
-    assert client.names == [f"diucs:{TENANT}:chan:board.updates"]
+    assert client.names == [f"overwatch:{TENANT}:chan:board.updates"]
 
 
 async def test_releasing_a_lock_issued_in_another_tenant_is_refused_and_sends_nothing() -> None:
@@ -314,5 +314,5 @@ async def test_a_subscription_is_removed_under_its_own_tenant_when_closed_in_ano
     client.names.clear()
     with bind_tenant(OTHER):
         await subscription.aclose()
-    assert f"diucs:{TENANT}:chan:board.updates" in client.names
+    assert f"overwatch:{TENANT}:chan:board.updates" in client.names
     assert not [name for name in client.names if OTHER in name]

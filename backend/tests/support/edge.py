@@ -8,9 +8,9 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.domain.model.tenant import Tenant, TenantStatus
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.domain.model.tenant import Tenant, TenantStatus
 from tests.support.tenant_samples import make_tenant
 
 EDGE_NOW = datetime(2026, 10, 23, 13, 12, tzinfo=UTC)

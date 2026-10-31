@@ -1,6 +1,6 @@
 import pytest
 
-from diucs.domain.errors import (
+from overwatch.domain.errors import (
     Conflict,
     DomainError,
     InvalidTransition,

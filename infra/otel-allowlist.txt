@@ -1,7 +1,7 @@
 # OpenTelemetry Collector allow-list (O04). One exact key per line; the collector matches exact keys only.
 # infra/otel-collector.yaml keeps these keys in its transform processor, and
 # backend/tests/unit/adapters/outbound/telemetry/test_collector_allowlist.py keeps the three sections equal to the sources:
-#   [backend]  = diucs.adapters.outbound.telemetry.attributes.ALLOWED_KEYS (O01), written out in full;
+#   [backend]  = overwatch.adapters.outbound.telemetry.attributes.ALLOWED_KEYS (O01), written out in full;
 #                the O01 prefixes usecase., db. and messaging. are listed key by key, so a new key is dropped until listed.
 #   [browser]  = the ui.* attributes of docs/spec/observability.md (O04), plus trace_id, which O02 sends on every event.
 #   [resource] = the resource attributes the collector keeps.

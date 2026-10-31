@@ -30,33 +30,33 @@ from typing import Annotated, Any, Final, Protocol, cast
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response
 
-from diucs.adapters.inbound.fhir_rest.app import get_container
-from diucs.adapters.inbound.fhir_rest.auth import require_role
-from diucs.adapters.inbound.fhir_rest.capability import FhirJSONResponse
-from diucs.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
-from diucs.adapters.inbound.fhir_rest.errors import TemporarilyUnavailable
-from diucs.adapters.inbound.fhir_rest.parameters import (
+from overwatch.adapters.inbound.fhir_rest.app import get_container
+from overwatch.adapters.inbound.fhir_rest.auth import require_role
+from overwatch.adapters.inbound.fhir_rest.capability import FhirJSONResponse
+from overwatch.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
+from overwatch.adapters.inbound.fhir_rest.errors import TemporarilyUnavailable
+from overwatch.adapters.inbound.fhir_rest.parameters import (
     PARAMETERS,
     index_parameters,
     single,
     text,
 )
-from diucs.adapters.inbound.fhir_rest.routes_registration import (
+from overwatch.adapters.inbound.fhir_rest.routes_registration import (
     NO_STORE,
     _camel,
     _task_response,
 )
-from diucs.application.actor import Actor
-from diucs.application.idempotency import format_instant
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.geo import Geocoder
-from diucs.application.ports.outbound.identity import HmacPhoneHasher
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.lookups import LookupRejected, TransientLookupError
-from diucs.application.ports.outbound.sealing import ContentSealer
-from diucs.application.ports.outbound.tokens import SecretStore
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.registration_views import (
+from overwatch.application.actor import Actor
+from overwatch.application.idempotency import format_instant
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.geo import Geocoder
+from overwatch.application.ports.outbound.identity import HmacPhoneHasher
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.lookups import LookupRejected, TransientLookupError
+from overwatch.application.ports.outbound.sealing import ContentSealer
+from overwatch.application.ports.outbound.tokens import SecretStore
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.registration_views import (
     QUEUE_TABS,
     ConfirmRegistrationDetails,
     DecisionView,
@@ -74,7 +74,7 @@ from diucs.application.use_cases.registration_views import (
     SendTestNotification,
     StepView,
 )
-from diucs.application.use_cases.review_registration import (
+from overwatch.application.use_cases.review_registration import (
     NOTE_MAX_LENGTH,
     AreaDistrictsFor,
     ExplainCheck,
@@ -83,9 +83,9 @@ from diucs.application.use_cases.review_registration import (
     StartReview,
     StartReviewCommand,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.postcode import normalise_postcode
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.postcode import normalise_postcode
 
 router = APIRouter()
 

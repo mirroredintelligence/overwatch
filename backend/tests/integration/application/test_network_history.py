@@ -17,19 +17,19 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.unit_of_work import neo4j_uow_factory
-from diucs.application.ports.outbound.projection import ProjectionEndReason
-from diucs.application.tenancy import bind_tenant
-from diucs.application.use_cases.membership import (
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.unit_of_work import neo4j_uow_factory
+from overwatch.application.ports.outbound.projection import ProjectionEndReason
+from overwatch.application.tenancy import bind_tenant
+from overwatch.application.use_cases.membership import (
     AcceptMembershipCommand,
     InviteMemberCommand,
     LeaveNetworkCommand,
     RemoveMemberCommand,
 )
-from diucs.application.use_cases.query_network_directory import QueryNetworkDirectory
-from diucs.domain.errors import NotFound
-from diucs.domain.model.network import (
+from overwatch.application.use_cases.query_network_directory import QueryNetworkDirectory
+from overwatch.domain.errors import NotFound
+from overwatch.domain.model.network import (
     GrantScope,
     GrantStatus,
     ListingStatus,

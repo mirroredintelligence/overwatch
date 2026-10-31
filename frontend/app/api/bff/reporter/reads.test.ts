@@ -32,7 +32,7 @@ const BOOKING = { reference: '4821', taskId: 'task-internal-1', service: 'UCR We
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND}/fhir`);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', `${BACKEND}/fhir`);
   vi.stubEnv('NODE_ENV', 'production');
   resetCookieWrites();
   cookiesMock.mockClear();

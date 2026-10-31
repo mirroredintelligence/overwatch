@@ -1,6 +1,6 @@
-"""Tests for diucs.domain.codes: local FHIR code systems and the Coding value object.
+"""Tests for overwatch.domain.codes: local FHIR code systems and the Coding value object.
 
-The expected values below are copied from docs/spec/contracts.md ("diucs/domain/codes.py (F07)")
+The expected values below are copied from docs/spec/contracts.md ("overwatch/domain/codes.py (F07)")
 and must match it exactly.
 """
 
@@ -9,8 +9,8 @@ from enum import StrEnum
 
 import pytest
 
-from diucs.domain import codes
-from diucs.domain.codes import (
+from overwatch.domain import codes
+from overwatch.domain.codes import (
     AcuityMethod,
     AgeBand,
     AlertKind,
@@ -43,7 +43,7 @@ from diucs.domain.codes import (
     display,
     parse_code,
 )
-from diucs.domain.errors import DomainError, ValidationFailed
+from overwatch.domain.errors import DomainError, ValidationFailed
 
 # Enum class -> (code system name, values in contracts.md order)
 SPEC: dict[type[StrEnum], tuple[str, tuple[str, ...]]] = {
@@ -215,16 +215,18 @@ ALL_MEMBERS = [member for cls in ENUM_CLASSES for member in cls]
 
 
 def test_base_url_is_the_placeholder_constant() -> None:
-    assert codes.BASE_URL == "https://diucs.example/"
+    assert codes.BASE_URL == "https://overwatch.mirroredintelligence.com/"
 
 
 def test_code_system_url_builds_local_url() -> None:
-    assert code_system_url("status") == "https://diucs.example/CodeSystem/status"
+    assert (
+        code_system_url("status") == "https://overwatch.mirroredintelligence.com/CodeSystem/status"
+    )
 
 
 def test_coding_for_status_limited() -> None:
     assert coding_for(Status.LIMITED) == Coding(
-        "https://diucs.example/CodeSystem/status", "limited", "Limited"
+        "https://overwatch.mirroredintelligence.com/CodeSystem/status", "limited", "Limited"
     )
 
 

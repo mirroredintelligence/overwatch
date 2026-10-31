@@ -51,13 +51,13 @@ describe('clinicalRequestFromTask', () => {
     const ext = base.extension as { url: string }[];
     expect(() => clinicalRequestFromTask({ ...base, status: 'cancelled' })).toThrow();
     const without = (name: string) => ext.filter((item) => !item.url.endsWith(`/${name}`));
-    expect(() => clinicalRequestFromTask({ ...base, extension: [...without('age-band'), { url: 'https://diucs.example/CodeSystem/task-input/age-band', valueCode: '99+' }] })).toThrow();
-    expect(() => clinicalRequestFromTask({ ...base, extension: [...without('need'), { url: 'https://diucs.example/CodeSystem/task-input/need', valueCode: 'shopping' }] })).toThrow();
-    expect(() => clinicalRequestFromTask({ ...ADVISED_TASK, extension: [...ADVISED_TASK.extension.filter((item) => !/advice-choice/.test(item.url)), { url: 'https://diucs.example/CodeSystem/task-input/advice-choice', valueCode: 'shrug' }] })).toThrow();
+    expect(() => clinicalRequestFromTask({ ...base, extension: [...without('age-band'), { url: 'https://overwatch.mirroredintelligence.com/CodeSystem/task-input/age-band', valueCode: '99+' }] })).toThrow();
+    expect(() => clinicalRequestFromTask({ ...base, extension: [...without('need'), { url: 'https://overwatch.mirroredintelligence.com/CodeSystem/task-input/need', valueCode: 'shopping' }] })).toThrow();
+    expect(() => clinicalRequestFromTask({ ...ADVISED_TASK, extension: [...ADVISED_TASK.extension.filter((item) => !/advice-choice/.test(item.url)), { url: 'https://overwatch.mirroredintelligence.com/CodeSystem/task-input/advice-choice', valueCode: 'shrug' }] })).toThrow();
   });
 
   it('never carries a postcode, a district or a practitioner, whatever the Task holds', () => {
-    const read = clinicalRequestFromTask({ ...QUEUE_TASKS[0], owner: { reference: 'Practitioner/pr-1' }, requester: { reference: 'Practitioner/pr-2' }, extension: [...(QUEUE_TASKS[0]!.extension as { url: string }[]), { url: 'https://diucs.example/CodeSystem/task-input/postcode', valueString: 'DT4 8XX' }] });
+    const read = clinicalRequestFromTask({ ...QUEUE_TASKS[0], owner: { reference: 'Practitioner/pr-1' }, requester: { reference: 'Practitioner/pr-2' }, extension: [...(QUEUE_TASKS[0]!.extension as { url: string }[]), { url: 'https://overwatch.mirroredintelligence.com/CodeSystem/task-input/postcode', valueString: 'DT4 8XX' }] });
     expect(JSON.stringify(read)).not.toMatch(/practitioner|DT4|postcode/i);
   });
 });
@@ -65,7 +65,7 @@ describe('clinicalRequestFromTask', () => {
 describe('the service under consideration (KI-768)', () => {
   const named = (name: unknown) => ({
     ...QUEUE_TASKS[0],
-    extension: [...(QUEUE_TASKS[0]!.extension as object[]), { url: 'https://diucs.example/CodeSystem/task-input/service', valueString: name }],
+    extension: [...(QUEUE_TASKS[0]!.extension as object[]), { url: 'https://overwatch.mirroredintelligence.com/CodeSystem/task-input/service', valueString: name }],
   });
 
   it('is the name the back end gives, and none when it gives none', () => {

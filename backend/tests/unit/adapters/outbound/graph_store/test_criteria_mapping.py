@@ -10,13 +10,13 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.outbound.graph_store.criteria_repository import (
+from overwatch.adapters.outbound.graph_store.criteria_repository import (
     criteria_from_fhir,
     criteria_to_fhir,
 )
-from diucs.domain.codes import CODE_SYSTEM_NAMES, CriteriaStatus, NeedCategory, code_system_url
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.criteria import ServiceCriteria
+from overwatch.domain.codes import CODE_SYSTEM_NAMES, CriteriaStatus, NeedCategory, code_system_url
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.criteria import ServiceCriteria
 
 UCR_WEST_V3 = ServiceCriteria(
     id="crit-ucr-west-v3",

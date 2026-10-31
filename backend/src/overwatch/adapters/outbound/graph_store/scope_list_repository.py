@@ -17,10 +17,10 @@ from typing import Any, Final
 
 from neo4j.exceptions import ClientError
 
-from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.adapters.outbound.graph_store.scenario import (
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx, run_query
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.adapters.outbound.graph_store.scenario import (
     Expect,
     Marked,
     Scenario,
@@ -28,13 +28,13 @@ from diucs.adapters.outbound.graph_store.scenario import (
     SeedRel,
     TenantSeed,
 )
-from diucs.adapters.outbound.graph_store.service_repository import (
+from overwatch.adapters.outbound.graph_store.service_repository import (
     codeable_from_fhir,
     codeable_to_fhir,
 )
-from diucs.domain.codes import ScopeFlag, ServiceCategory, parse_code
-from diucs.domain.errors import Conflict, NotFound
-from diucs.domain.model.registration import ScopeEntry
+from overwatch.domain.codes import ScopeFlag, ServiceCategory, parse_code
+from overwatch.domain.errors import Conflict, NotFound
+from overwatch.domain.model.registration import ScopeEntry
 
 LIST_ID: Final = "scope-list"
 _LIST_TITLE: Final = "Scope list"

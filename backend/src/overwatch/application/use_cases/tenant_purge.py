@@ -38,21 +38,21 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Final
 
-from diucs.application.actor import Actor, require_actor_in_bound_tenant
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.platform_audit import PlatformAudit, PlatformAuditEntry
-from diucs.application.ports.outbound.tenant_export import (
+from overwatch.application.actor import Actor, require_actor_in_bound_tenant
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.platform_audit import PlatformAudit, PlatformAuditEntry
+from overwatch.application.ports.outbound.tenant_export import (
     ScopeCachePurger,
     TenantDataReader,
     TenantPurger,
 )
-from diucs.application.ports.outbound.tenant_registry import TenantRegistry
-from diucs.application.ports.outbound.tenants import TenantDirectory
-from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
-from diucs.application.use_cases.tenant_admin import MOVED, NO_TENANT, check_operator
-from diucs.domain.errors import Conflict, NotAllowed, NotFound
-from diucs.domain.model.tenant import TenantStatus
-from diucs.domain.rules.tenant_lifecycle import purge_blockers, purge_tenant
+from overwatch.application.ports.outbound.tenant_registry import TenantRegistry
+from overwatch.application.ports.outbound.tenants import TenantDirectory
+from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
+from overwatch.application.use_cases.tenant_admin import MOVED, NO_TENANT, check_operator
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound
+from overwatch.domain.model.tenant import TenantStatus
+from overwatch.domain.rules.tenant_lifecycle import purge_blockers, purge_tenant
 
 BATCH_SIZE: Final = 1000
 MAX_BATCHES: Final = 100_000

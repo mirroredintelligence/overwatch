@@ -7,19 +7,19 @@ at 14:26. Every assertion reads back through a fresh unit of work or the harness
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.inbound.scheduler.scheduled_work_consumer import ScheduledWorkDispatcher
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.booking_timers import (
+from overwatch.adapters.inbound.scheduler.scheduled_work_consumer import ScheduledWorkDispatcher
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.booking_timers import (
     BookingPhonePrompt,
     BookingPhonePromptCommand,
     ExpireBooking,
     ExpireBookingCommand,
     booking_timer_handlers,
 )
-from diucs.application.use_cases.query_board import QueryBoard, QueryBoardQuery
-from diucs.application.work import WorkKind
-from diucs.domain.codes import BookingStatus
+from overwatch.application.use_cases.query_board import QueryBoard, QueryBoardQuery
+from overwatch.application.work import WorkKind
+from overwatch.domain.codes import BookingStatus
 from tests.support.booking_rig import (
     ADVISOR,
     REQUESTED_AT,

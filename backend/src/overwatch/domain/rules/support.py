@@ -22,10 +22,10 @@ from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
 from typing import Final
 
-from diucs.domain.codes import PractitionerRoleCode, Role
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.people import PractitionerRole
-from diucs.domain.rules.tokens import (
+from overwatch.domain.codes import PractitionerRoleCode, Role
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.people import PractitionerRole
+from overwatch.domain.rules.tokens import (
     SUPPORT_CODE_ALPHABET,
     SUPPORT_CODE_GROUP,
     SUPPORT_CODE_LENGTH,

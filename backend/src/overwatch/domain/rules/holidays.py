@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Final
 
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.errors import ValidationFailed
 
 ENGLAND_AND_WALES: Final = "england-and-wales"
 SCOTLAND: Final = "scotland"

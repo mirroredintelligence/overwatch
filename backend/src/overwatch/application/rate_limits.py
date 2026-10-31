@@ -18,7 +18,7 @@ import re
 from datetime import timedelta
 from typing import Final
 
-from diucs.application.ports.outbound.cache import PlatformSlots
+from overwatch.application.ports.outbound.cache import PlatformSlots
 
 # [ASSUMED] (domain-rules 7): a person's browser asks for a profile once per page, so 60 a minute is
 # generous for one address and small for a flood.

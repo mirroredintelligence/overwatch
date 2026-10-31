@@ -1,7 +1,7 @@
 """Architecture tests: the hexagonal import rules fail the build when crossed.
 
 The real rules live in backend/.importlinter. Each negative test builds a throwaway
-package named diucs_probe in tmp_path, copies the real contracts with the package name
+package named overwatch_probe in tmp_path, copies the real contracts with the package name
 swapped, plants one illegal import, and asserts that lint-imports fails on that contract.
 """
 
@@ -27,68 +27,68 @@ TENANCY_CONTRACT = "The tenancy kernel is standard library only"
 
 # A clean probe tree: every package the real contracts name, with no violations.
 PROBE_TREE: dict[str, str] = {
-    "diucs_probe/__init__.py": "",
-    "diucs_probe/domain/__init__.py": "",
-    "diucs_probe/domain/ok.py": "import datetime\n",
-    "diucs_probe/application/__init__.py": "",
-    "diucs_probe/application/use_case.py": "from diucs_probe.domain import ok\n",
+    "overwatch_probe/__init__.py": "",
+    "overwatch_probe/domain/__init__.py": "",
+    "overwatch_probe/domain/ok.py": "import datetime\n",
+    "overwatch_probe/application/__init__.py": "",
+    "overwatch_probe/application/use_case.py": "from overwatch_probe.domain import ok\n",
     # TEN-001: the tenancy kernel, the source module of the tenancy contract.
-    "diucs_probe/application/tenancy.py": "import contextvars\n",
-    "diucs_probe/bootstrap/__init__.py": "",
-    "diucs_probe/adapters/__init__.py": "",
-    "diucs_probe/adapters/x.py": "",
-    "diucs_probe/adapters/inbound/__init__.py": "",
-    "diucs_probe/adapters/outbound/__init__.py": "",
-    "diucs_probe/adapters/outbound/a.py": "",
-    "diucs_probe/adapters/outbound/b.py": "",
+    "overwatch_probe/application/tenancy.py": "import contextvars\n",
+    "overwatch_probe/bootstrap/__init__.py": "",
+    "overwatch_probe/adapters/__init__.py": "",
+    "overwatch_probe/adapters/x.py": "",
+    "overwatch_probe/adapters/inbound/__init__.py": "",
+    "overwatch_probe/adapters/outbound/__init__.py": "",
+    "overwatch_probe/adapters/outbound/a.py": "",
+    "overwatch_probe/adapters/outbound/b.py": "",
     # The two modules named in .importlinter's ignore_imports (DEC-055), so the ignore has a target.
-    "diucs_probe/adapters/outbound/graph_store/__init__.py": "",
-    "diucs_probe/adapters/outbound/graph_store/driver.py": "",
-    "diucs_probe/adapters/outbound/graph_store/queries.py": "",
-    "diucs_probe/adapters/outbound/graph_store/scenario.py": "",
-    "diucs_probe/adapters/outbound/audit_neo4j/__init__.py": "",
-    "diucs_probe/adapters/outbound/audit_neo4j/audit_log.py": (
-        "import diucs_probe.adapters.outbound.graph_store.driver\n"
-        "import diucs_probe.adapters.outbound.graph_store.queries\n"
-        "import diucs_probe.adapters.outbound.graph_store.scenario\n"
+    "overwatch_probe/adapters/outbound/graph_store/__init__.py": "",
+    "overwatch_probe/adapters/outbound/graph_store/driver.py": "",
+    "overwatch_probe/adapters/outbound/graph_store/queries.py": "",
+    "overwatch_probe/adapters/outbound/graph_store/scenario.py": "",
+    "overwatch_probe/adapters/outbound/audit_neo4j/__init__.py": "",
+    "overwatch_probe/adapters/outbound/audit_neo4j/audit_log.py": (
+        "import overwatch_probe.adapters.outbound.graph_store.driver\n"
+        "import overwatch_probe.adapters.outbound.graph_store.queries\n"
+        "import overwatch_probe.adapters.outbound.graph_store.scenario\n"
     ),
     # DEC-084: the outbox and the unit of work, the other modules named in ignore_imports.
-    "diucs_probe/adapters/outbound/audit_neo4j/outbox.py": (
-        "import diucs_probe.adapters.outbound.graph_store.driver\n"
-        "import diucs_probe.adapters.outbound.graph_store.queries\n"
-        "import diucs_probe.adapters.outbound.graph_store.scenario\n"
+    "overwatch_probe/adapters/outbound/audit_neo4j/outbox.py": (
+        "import overwatch_probe.adapters.outbound.graph_store.driver\n"
+        "import overwatch_probe.adapters.outbound.graph_store.queries\n"
+        "import overwatch_probe.adapters.outbound.graph_store.scenario\n"
     ),
-    "diucs_probe/adapters/outbound/graph_store/unit_of_work.py": (
-        "import diucs_probe.adapters.outbound.audit_neo4j.audit_log\n"
-        "import diucs_probe.adapters.outbound.audit_neo4j.outbox\n"
+    "overwatch_probe/adapters/outbound/graph_store/unit_of_work.py": (
+        "import overwatch_probe.adapters.outbound.audit_neo4j.audit_log\n"
+        "import overwatch_probe.adapters.outbound.audit_neo4j.outbox\n"
     ),
-    "diucs_probe/adapters/testing/__init__.py": "",
+    "overwatch_probe/adapters/testing/__init__.py": "",
     # I07: the two modules pairs named in ignore_imports for the Twilio webhook.
-    "diucs_probe/adapters/inbound/fhir_rest/__init__.py": "",
-    "diucs_probe/adapters/inbound/fhir_rest/app.py": (
-        "import diucs_probe.adapters.inbound.sms_webhook.routes\n"
-        "import diucs_probe.adapters.inbound.link_pages.capacity_links\n"
+    "overwatch_probe/adapters/inbound/fhir_rest/__init__.py": "",
+    "overwatch_probe/adapters/inbound/fhir_rest/app.py": (
+        "import overwatch_probe.adapters.inbound.sms_webhook.routes\n"
+        "import overwatch_probe.adapters.inbound.link_pages.capacity_links\n"
     ),
     # L01: the link pages, mounted on the same app by the same named ignore.
-    "diucs_probe/adapters/inbound/link_pages/__init__.py": "",
-    "diucs_probe/adapters/inbound/link_pages/capacity_links.py": "",
-    "diucs_probe/adapters/inbound/sms_webhook/__init__.py": "",
-    "diucs_probe/adapters/inbound/sms_webhook/routes.py": (
-        "import diucs_probe.adapters.outbound.sms_twilio.twilio_sms\n"
+    "overwatch_probe/adapters/inbound/link_pages/__init__.py": "",
+    "overwatch_probe/adapters/inbound/link_pages/capacity_links.py": "",
+    "overwatch_probe/adapters/inbound/sms_webhook/__init__.py": "",
+    "overwatch_probe/adapters/inbound/sms_webhook/routes.py": (
+        "import overwatch_probe.adapters.outbound.sms_twilio.twilio_sms\n"
     ),
-    "diucs_probe/adapters/outbound/sms_twilio/__init__.py": "",
-    "diucs_probe/adapters/outbound/sms_twilio/twilio_sms.py": "",
+    "overwatch_probe/adapters/outbound/sms_twilio/__init__.py": "",
+    "overwatch_probe/adapters/outbound/sms_twilio/twilio_sms.py": "",
     # I05 (DEC-196): the scheduled-work consumer reuses three modules of the workers package.
-    "diucs_probe/adapters/inbound/scheduler/__init__.py": "",
-    "diucs_probe/adapters/inbound/scheduler/scheduled_work_consumer.py": (
-        "import diucs_probe.adapters.inbound.workers.consumer\n"
-        "import diucs_probe.adapters.inbound.workers.tenant_binding\n"
-        "import diucs_probe.adapters.inbound.workers.outbox_relay\n"
+    "overwatch_probe/adapters/inbound/scheduler/__init__.py": "",
+    "overwatch_probe/adapters/inbound/scheduler/scheduled_work_consumer.py": (
+        "import overwatch_probe.adapters.inbound.workers.consumer\n"
+        "import overwatch_probe.adapters.inbound.workers.tenant_binding\n"
+        "import overwatch_probe.adapters.inbound.workers.outbox_relay\n"
     ),
-    "diucs_probe/adapters/inbound/workers/__init__.py": "",
-    "diucs_probe/adapters/inbound/workers/consumer.py": "",
-    "diucs_probe/adapters/inbound/workers/tenant_binding.py": "",
-    "diucs_probe/adapters/inbound/workers/outbox_relay.py": "",
+    "overwatch_probe/adapters/inbound/workers/__init__.py": "",
+    "overwatch_probe/adapters/inbound/workers/consumer.py": "",
+    "overwatch_probe/adapters/inbound/workers/tenant_binding.py": "",
+    "overwatch_probe/adapters/inbound/workers/outbox_relay.py": "",
 }
 
 
@@ -120,7 +120,7 @@ def _lint(
 def _probe_config(tmp_path: Path) -> Path:
     assert CONFIG.is_file(), "backend/.importlinter is missing: no import contracts exist"
     text = CONFIG.read_text(encoding="utf-8")
-    probe_text = re.sub(r"\bdiucs\b", "diucs_probe", text)
+    probe_text = re.sub(r"\boverwatch\b", "overwatch_probe", text)
     target = tmp_path / "probe.importlinter"
     target.write_text(probe_text, encoding="utf-8")
     return target
@@ -154,7 +154,9 @@ def test_probe_with_clean_domain_passes(tmp_path: Path) -> None:
 
 def test_domain_importing_adapter_breaks_domain_contract(tmp_path: Path) -> None:
     config = _probe_config(tmp_path)
-    src = _build_probe(tmp_path, {"diucs_probe/domain/bad.py": "import diucs_probe.adapters.x\n"})
+    src = _build_probe(
+        tmp_path, {"overwatch_probe/domain/bad.py": "import overwatch_probe.adapters.x\n"}
+    )
     result = _lint(config, cwd=tmp_path, pythonpath=src)
     output = result.stdout + result.stderr
     assert result.returncode != 0, output
@@ -165,7 +167,7 @@ def test_adapter_importing_sibling_adapter_breaks_independence(tmp_path: Path) -
     config = _probe_config(tmp_path)
     src = _build_probe(
         tmp_path,
-        {"diucs_probe/adapters/outbound/a.py": "import diucs_probe.adapters.outbound.b\n"},
+        {"overwatch_probe/adapters/outbound/a.py": "import overwatch_probe.adapters.outbound.b\n"},
     )
     result = _lint(config, cwd=tmp_path, pythonpath=src)
     output = result.stdout + result.stderr
@@ -177,22 +179,22 @@ def test_adapter_importing_sibling_adapter_breaks_independence(tmp_path: Path) -
     ("relpath", "source", "contract"),
     [
         (
-            "diucs_probe/application/bad.py",
-            "import diucs_probe.adapters.x\n",
+            "overwatch_probe/application/bad.py",
+            "import overwatch_probe.adapters.x\n",
             APPLICATION_CONTRACT,
         ),
         (
-            "diucs_probe/application/bad.py",
-            "import diucs_probe.bootstrap\n",
+            "overwatch_probe/application/bad.py",
+            "import overwatch_probe.bootstrap\n",
             APPLICATION_CONTRACT,
         ),
         (
-            "diucs_probe/domain/bad.py",
+            "overwatch_probe/domain/bad.py",
             "import neo4j\n",
             DOMAIN_CONTRACT,
         ),
         (
-            "diucs_probe/application/bad.py",
+            "overwatch_probe/application/bad.py",
             "import fastapi\n",
             APPLICATION_CONTRACT,
         ),
@@ -212,9 +214,9 @@ def test_forbidden_import_breaks_named_contract(
 @pytest.mark.parametrize(
     "source",
     [
-        "import diucs_probe.domain.ok\n",
-        "import diucs_probe.adapters.x\n",
-        "import diucs_probe.bootstrap\n",
+        "import overwatch_probe.domain.ok\n",
+        "import overwatch_probe.adapters.x\n",
+        "import overwatch_probe.bootstrap\n",
         "import neo4j\n",
         "import pydantic\n",
         "import fastapi\n",
@@ -224,7 +226,7 @@ def test_the_tenancy_kernel_importing_anything_but_the_standard_library_breaks_i
     tmp_path: Path, source: str
 ) -> None:
     config = _probe_config(tmp_path)
-    src = _build_probe(tmp_path, {"diucs_probe/application/tenancy.py": source})
+    src = _build_probe(tmp_path, {"overwatch_probe/application/tenancy.py": source})
     result = _lint(config, cwd=tmp_path, pythonpath=src)
     output = result.stdout + result.stderr
     assert result.returncode != 0, output
@@ -257,7 +259,7 @@ def test_adapter_importing_bootstrap_breaks_layers_contract(tmp_path: Path) -> N
     config = _probe_config(tmp_path)
     src = _build_probe(
         tmp_path,
-        {"diucs_probe/adapters/outbound/a.py": "import diucs_probe.bootstrap\n"},
+        {"overwatch_probe/adapters/outbound/a.py": "import overwatch_probe.bootstrap\n"},
     )
     result = _lint(config, cwd=tmp_path, pythonpath=src)
     output = result.stdout + result.stderr
@@ -269,7 +271,7 @@ def test_adapter_importing_application_passes_layers_contract(tmp_path: Path) ->
     config = _probe_config(tmp_path)
     src = _build_probe(
         tmp_path,
-        {"diucs_probe/adapters/outbound/a.py": "import diucs_probe.application.use_case\n"},
+        {"overwatch_probe/adapters/outbound/a.py": "import overwatch_probe.application.use_case\n"},
     )
     result = _lint(config, cwd=tmp_path, pythonpath=src)
     output = result.stdout + result.stderr
@@ -281,7 +283,7 @@ def test_swapped_layer_order_rejects_adapter_importing_application(tmp_path: Pat
     config = _swapped_layers_config(tmp_path)
     src = _build_probe(
         tmp_path,
-        {"diucs_probe/adapters/outbound/a.py": "import diucs_probe.application.use_case\n"},
+        {"overwatch_probe/adapters/outbound/a.py": "import overwatch_probe.application.use_case\n"},
     )
     result = _lint(config, cwd=tmp_path, pythonpath=src)
     output = result.stdout + result.stderr
@@ -293,9 +295,9 @@ def test_swapped_layer_order_rejects_adapter_importing_application(tmp_path: Pat
 # blacklists; these tests state what the domain and application may import, so an unlisted
 # third-party package fails the build. Only direct imports are read: fhir.resources pulls
 # in pydantic internally, and that indirect path is not a violation.
-DOMAIN_INTERNAL = ("diucs.domain",)
+DOMAIN_INTERNAL = ("overwatch.domain",)
 DOMAIN_EXTERNAL = ("fhir.resources",)
-APPLICATION_INTERNAL = ("diucs.application", "diucs.domain")
+APPLICATION_INTERNAL = ("overwatch.application", "overwatch.domain")
 APPLICATION_EXTERNAL: tuple[str, ...] = ()
 
 SRC_ROOT = BACKEND / "src"
@@ -335,15 +337,19 @@ def _allowlist_violations(
 
 
 def test_real_domain_imports_are_on_the_allowlist() -> None:
-    assert any((SRC_ROOT / "diucs" / "domain").rglob("*.py")), "no domain files were scanned"
-    assert _allowlist_violations(SRC_ROOT, "diucs.domain", DOMAIN_INTERNAL, DOMAIN_EXTERNAL) == []
+    assert any((SRC_ROOT / "overwatch" / "domain").rglob("*.py")), "no domain files were scanned"
+    assert (
+        _allowlist_violations(SRC_ROOT, "overwatch.domain", DOMAIN_INTERNAL, DOMAIN_EXTERNAL) == []
+    )
 
 
 def test_real_application_imports_are_on_the_allowlist() -> None:
-    assert any((SRC_ROOT / "diucs" / "application").rglob("*.py")), "no application files scanned"
+    assert any((SRC_ROOT / "overwatch" / "application").rglob("*.py")), (
+        "no application files scanned"
+    )
     assert (
         _allowlist_violations(
-            SRC_ROOT, "diucs.application", APPLICATION_INTERNAL, APPLICATION_EXTERNAL
+            SRC_ROOT, "overwatch.application", APPLICATION_INTERNAL, APPLICATION_EXTERNAL
         )
         == []
     )
@@ -351,7 +357,7 @@ def test_real_application_imports_are_on_the_allowlist() -> None:
 
 def _layer_file(tmp_path: Path, layer: str, relpath: str, source: str) -> Path:
     src = tmp_path / "src"
-    target = src / "diucs" / layer / relpath
+    target = src / "overwatch" / layer / relpath
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(source, encoding="utf-8")
     return src
@@ -362,12 +368,12 @@ def _layer_file(tmp_path: Path, layer: str, relpath: str, source: str) -> Path:
     [
         "import datetime\nfrom typing import Protocol\n",
         "from fhir.resources.patient import Patient\n",
-        "from diucs.domain import errors\nfrom . import errors as same\n",
+        "from overwatch.domain import errors\nfrom . import errors as same\n",
     ],
 )
 def test_domain_allowlist_accepts_permitted_imports(tmp_path: Path, source: str) -> None:
     src = _layer_file(tmp_path, "domain", "ok.py", source)
-    assert _allowlist_violations(src, "diucs.domain", DOMAIN_INTERNAL, DOMAIN_EXTERNAL) == []
+    assert _allowlist_violations(src, "overwatch.domain", DOMAIN_INTERNAL, DOMAIN_EXTERNAL) == []
 
 
 @pytest.mark.parametrize(
@@ -376,27 +382,27 @@ def test_domain_allowlist_accepts_permitted_imports(tmp_path: Path, source: str)
         ("import pydantic\n", "pydantic"),
         ("from pydantic import BaseModel\n", "pydantic"),
         ("import httpx\n", "httpx"),
-        ("import diucs.adapters.x\n", "diucs.adapters.x"),
-        ("from ..adapters import x\n", "diucs.adapters"),
+        ("import overwatch.adapters.x\n", "overwatch.adapters.x"),
+        ("from ..adapters import x\n", "overwatch.adapters"),
     ],
 )
 def test_domain_allowlist_rejects_unlisted_imports(
     tmp_path: Path, source: str, expected: str
 ) -> None:
     src = _layer_file(tmp_path, "domain", "bad.py", source)
-    found = _allowlist_violations(src, "diucs.domain", DOMAIN_INTERNAL, DOMAIN_EXTERNAL)
+    found = _allowlist_violations(src, "overwatch.domain", DOMAIN_INTERNAL, DOMAIN_EXTERNAL)
     assert any(f"imports {expected}" in line for line in found), found
 
 
 def test_application_allowlist_rejects_fhir_and_adapters(tmp_path: Path) -> None:
     src = _layer_file(tmp_path, "application", "bad.py", "import fhir.resources\n")
     found = _allowlist_violations(
-        src, "diucs.application", APPLICATION_INTERNAL, APPLICATION_EXTERNAL
+        src, "overwatch.application", APPLICATION_INTERNAL, APPLICATION_EXTERNAL
     )
     assert any("imports fhir.resources" in line for line in found), found
 
-    src = _layer_file(tmp_path, "application", "worse.py", "import diucs.adapters.x\n")
+    src = _layer_file(tmp_path, "application", "worse.py", "import overwatch.adapters.x\n")
     found = _allowlist_violations(
-        src, "diucs.application", APPLICATION_INTERNAL, APPLICATION_EXTERNAL
+        src, "overwatch.application", APPLICATION_INTERNAL, APPLICATION_EXTERNAL
     )
-    assert any("imports diucs.adapters.x" in line for line in found), found
+    assert any("imports overwatch.adapters.x" in line for line in found), found

@@ -1,8 +1,8 @@
 """Per-test time limit without a new dependency (F10b, DEC-135).
 
 Lesson L67: a run stalled on its first Neo4j test for over nine minutes and nothing ended it. The
-root conftest wraps each test's set-up (default 900 s, DIUCS_TEST_SETUP_TIMEOUT) and call phase
-(default 300 s, DIUCS_TEST_TIMEOUT) in time_limit. Two stages:
+root conftest wraps each test's set-up (default 900 s, OVERWATCH_TEST_SETUP_TIMEOUT) and call phase
+(default 300 s, OVERWATCH_TEST_TIMEOUT) in time_limit. Two stages:
 
 1. Soft: a SIGALRM raises TimeLimitExceeded in the test, so that test fails with a message naming
    it and the stack where it was, and the next test still runs. It is a BaseException, so a broad
@@ -33,11 +33,11 @@ from dataclasses import dataclass, field
 from types import FrameType
 
 DEFAULT_TEST_TIMEOUT_S = 300.0
-TIMEOUT_ENV = "DIUCS_TEST_TIMEOUT"
+TIMEOUT_ENV = "OVERWATCH_TEST_TIMEOUT"
 DEFAULT_SETUP_TIMEOUT_S = 900.0
-SETUP_TIMEOUT_ENV = "DIUCS_TEST_SETUP_TIMEOUT"
+SETUP_TIMEOUT_ENV = "OVERWATCH_TEST_SETUP_TIMEOUT"
 HARD_GRACE_S = 60.0
-GRACE_ENV = "DIUCS_TEST_HARD_GRACE"
+GRACE_ENV = "OVERWATCH_TEST_HARD_GRACE"
 HARD_EXIT_CODE = 3
 
 
@@ -54,19 +54,19 @@ def _seconds_from_environment(variable: str, default: float) -> float:
 
 
 def configured_timeout_s() -> float:
-    """The per-test limit in seconds: DIUCS_TEST_TIMEOUT, default 300. 0 turns the limit off. A
+    """The per-test limit in seconds: OVERWATCH_TEST_TIMEOUT, default 300. 0 turns the limit off. A
     value that is not a non-negative number is ignored."""
     return _seconds_from_environment(TIMEOUT_ENV, DEFAULT_TEST_TIMEOUT_S)
 
 
 def setup_timeout_s() -> float:
-    """The limit for a test's fixture set-up: DIUCS_TEST_SETUP_TIMEOUT, default 900. 0 turns it
+    """The limit for a test's fixture set-up: OVERWATCH_TEST_SETUP_TIMEOUT, default 900. 0 turns it
     off. The harness's lock wait and image pull are paused, so they do not count."""
     return _seconds_from_environment(SETUP_TIMEOUT_ENV, DEFAULT_SETUP_TIMEOUT_S)
 
 
 def hard_grace_s() -> float:
-    """Seconds between the soft limit and the hard stage: DIUCS_TEST_HARD_GRACE, default 60."""
+    """Seconds between the soft limit and the hard stage: OVERWATCH_TEST_HARD_GRACE, default 60."""
     value = _seconds_from_environment(GRACE_ENV, HARD_GRACE_S)
     return value if value > 0 else HARD_GRACE_S
 

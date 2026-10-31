@@ -1,7 +1,7 @@
 {
   "resourceType": "CodeSystem",
   "id": "report-flag-reason",
-  "url": "https://diucs.example/CodeSystem/report-flag-reason",
+  "url": "https://overwatch.mirroredintelligence.com/CodeSystem/report-flag-reason",
   "name": "report-flag-reason",
   "status": "active",
   "content": "complete",

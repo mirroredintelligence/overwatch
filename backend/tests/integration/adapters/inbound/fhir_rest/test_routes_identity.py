@@ -19,22 +19,25 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from neo4j import AsyncDriver
 
-from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
-from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
-from diucs.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
-from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET
-from diucs.application.tenancy import bind_tenant
-from diucs.application.use_cases.pin import PIN_HMAC_SECRET
-from diucs.application.use_cases.remove_person import SignOutEverywhere, SignOutEverywhereCommand
-from diucs.application.use_cases.text_code import CODE_HMAC_SECRET, code_hash
-from diucs.bootstrap.container import Container, build_for_tests
-from diucs.domain.codes import (
+from overwatch.adapters.inbound.fhir_rest.app import create_app
+from overwatch.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from overwatch.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
+from overwatch.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET
+from overwatch.application.tenancy import bind_tenant
+from overwatch.application.use_cases.pin import PIN_HMAC_SECRET
+from overwatch.application.use_cases.remove_person import (
+    SignOutEverywhere,
+    SignOutEverywhereCommand,
+)
+from overwatch.application.use_cases.text_code import CODE_HMAC_SECRET, code_hash
+from overwatch.bootstrap.container import Container, build_for_tests
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     Measure,
@@ -42,9 +45,9 @@ from diucs.domain.codes import (
     Role,
     ServiceCategory,
 )
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.model.service import AvailableTime, ServiceProfile
-from diucs.domain.rules.identity_policy import CodeState
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.rules.identity_policy import CodeState
 from tests.integration.adapters.inbound.link_pages.conftest import seed_tenant_host
 from tests.support.actors import ACTOR_TENANT
 from tests.support.link_rig import HOST_A
@@ -89,11 +92,11 @@ async def identity_container(
         neo4j=connection,
         secrets=FixedSecretStore(SECRETS),
     )
-    await flush_prefix(container.redis, f"diucs:{tenant_id}:")
+    await flush_prefix(container.redis, f"overwatch:{tenant_id}:")
     try:
         yield container
     finally:
-        await flush_prefix(container.redis, f"diucs:{tenant_id}:")
+        await flush_prefix(container.redis, f"overwatch:{tenant_id}:")
         await container.redis.aclose()
         await connection.close()
 
@@ -347,7 +350,7 @@ async def test_sign_out_everywhere_ends_the_session_and_the_token_of_that_device
 
 
 def _actor(person: str) -> Any:
-    from diucs.application.actor import Actor
+    from overwatch.application.actor import Actor
 
     return Actor(
         role=Role.REPORTER,

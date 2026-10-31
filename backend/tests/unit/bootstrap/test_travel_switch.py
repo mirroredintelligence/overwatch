@@ -6,12 +6,12 @@ from datetime import UTC, datetime
 import httpx
 import pytest
 
-from diucs.adapters.outbound.travel_time.routing import RoutingTravelTime
-from diucs.adapters.outbound.travel_time.straight_line import StraightLineTravelTime
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.bootstrap.container import build, travel_time_for
-from diucs.bootstrap.settings import Settings
+from overwatch.adapters.outbound.travel_time.routing import RoutingTravelTime
+from overwatch.adapters.outbound.travel_time.straight_line import StraightLineTravelTime
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.bootstrap.container import build, travel_time_for
+from overwatch.bootstrap.settings import Settings
 
 CLOCK = FixedClock(datetime(2026, 10, 23, 13, 0, tzinfo=UTC))
 

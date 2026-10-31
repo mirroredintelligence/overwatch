@@ -21,7 +21,7 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.queries import (
+from overwatch.adapters.outbound.graph_store.queries import (
     GLOBAL_QUERY_IDS,
     GLOBAL_STATEMENTS,
     PLATFORM_QUERY_IDS,
@@ -30,7 +30,7 @@ from diucs.adapters.outbound.graph_store.queries import (
     NamedQuery,
     QueryRegistry,
 )
-from diucs.adapters.outbound.graph_store.scenario import (
+from overwatch.adapters.outbound.graph_store.scenario import (
     SINGLE_PROPERTY_UNIQUE,
     Expect,
     Marked,
@@ -42,7 +42,7 @@ from diucs.adapters.outbound.graph_store.scenario import (
     Unique,
     validate_scenario,
 )
-from diucs.application.tenancy import ScopeKind
+from overwatch.application.tenancy import ScopeKind
 from tests.support.leaky_registry import LeakyRegistry
 from tests.support.neo4j import ThrowawayNeo4j, read_tx, wipe_all, write_tx
 from tests.support.predicate_removal import mutant_of, predicate_count
@@ -639,7 +639,7 @@ async def test_a_template_scenario_runs_its_instance(
     isolation_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
 ) -> None:
     """A template with a scenario is run through its `insert`, as the resource store will."""
-    from diucs.adapters.outbound.graph_store.queries import QueryTemplate
+    from overwatch.adapters.outbound.graph_store.queries import QueryTemplate
 
     registry = QueryRegistry()
     registry.register_template(

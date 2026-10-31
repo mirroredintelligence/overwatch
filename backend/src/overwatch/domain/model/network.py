@@ -20,9 +20,9 @@ from enum import StrEnum
 from types import MappingProxyType
 from typing import Final
 
-from diucs.domain.errors import Conflict, InvalidTransition, NotAllowed, ValidationFailed
-from diucs.domain.messages.privacy_guard import find_patient_data
-from diucs.domain.model.tenant import RESERVED_TENANT_PREFIX, check_tenant_id
+from overwatch.domain.errors import Conflict, InvalidTransition, NotAllowed, ValidationFailed
+from overwatch.domain.messages.privacy_guard import find_patient_data
+from overwatch.domain.model.tenant import RESERVED_TENANT_PREFIX, check_tenant_id
 
 # ---------------------------------------------------------------- identifiers
 

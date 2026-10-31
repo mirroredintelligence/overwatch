@@ -9,11 +9,13 @@ Three modes:
   that every run uses, each in its own tenants (the run tenant, the second tenant and the network
   scope of its identity). It is not named like a private container, so the reaper (DEC-108) can
   never remove it; `make neo4j-shared-down` does.
-* `attached`: an instance named by `DIUCS_TEST_NEO4J_URI`, `DIUCS_TEST_NEO4J_USER` (default `neo4j`)
-  and `DIUCS_TEST_NEO4J_PASSWORD`, for example a CI service container. This is the explicit opt-in
+* `attached`: an instance named by `OVERWATCH_TEST_NEO4J_URI`, `OVERWATCH_TEST_NEO4J_USER` (default
+`neo4j`)
+  and `OVERWATCH_TEST_NEO4J_PASSWORD`, for example a CI service container. This is the explicit
+  opt-in
   that DEC-013 item 3 left open: the old `NEO4J_URI` is still never read, so a shell that points at
   another stack changes nothing. The compose stack of the owner (loopback port 7687) is refused
-  unless `DIUCS_TEST_NEO4J_ALLOW_LOCAL=1`.
+  unless `OVERWATCH_TEST_NEO4J_ALLOW_LOCAL=1`.
 
 On a shared or attached database a run holds the use lock shared, or exclusively when it selected an
 `exclusive` test (`neo4j_locks`), applies the migrations once at a time, and sweeps the tenants of
@@ -61,15 +63,15 @@ from tests.support.sweeper import sweep_orphan_tenants
 from tests.support.tenancy import RunIdentity
 from tests.support.watchdog import paused
 
-MODE_ENV = "DIUCS_TEST_NEO4J"
-URI_ENV = "DIUCS_TEST_NEO4J_URI"
-USER_ENV = "DIUCS_TEST_NEO4J_USER"
-PASSWORD_ENV = "DIUCS_TEST_NEO4J_PASSWORD"
-ALLOW_LOCAL_ENV = "DIUCS_TEST_NEO4J_ALLOW_LOCAL"
-SWEEP_ENV = "DIUCS_TEST_NEO4J_SWEEP"
-SHARED_NAME = "diucs-test-shared-neo4j"
-# Not `diucs-test`: that label (with the name prefix) is what the reaper removes (DEC-108).
-SHARED_LABEL = "diucs-test-shared"
+MODE_ENV = "OVERWATCH_TEST_NEO4J"
+URI_ENV = "OVERWATCH_TEST_NEO4J_URI"
+USER_ENV = "OVERWATCH_TEST_NEO4J_USER"
+PASSWORD_ENV = "OVERWATCH_TEST_NEO4J_PASSWORD"
+ALLOW_LOCAL_ENV = "OVERWATCH_TEST_NEO4J_ALLOW_LOCAL"
+SWEEP_ENV = "OVERWATCH_TEST_NEO4J_SWEEP"
+SHARED_NAME = "overwatch-test-shared-neo4j"
+# Not `overwatch-test`: that label (with the name prefix) is what the reaper removes (DEC-108).
+SHARED_LABEL = "overwatch-test-shared"
 # The shared container serves several runs at once, so it gets more than a private one (DEC-135
 # measured 1g, 256m and 128m for one run). The same environment variables override them.
 SHARED_MEMORY = "2g"
@@ -221,7 +223,8 @@ def _shared_target(runner: DockerRunner) -> ThrowawayNeo4j:
 def _creation_lock(path: str | None) -> Iterator[None]:
     """One session at a time looks for, starts or creates the shared container."""
     resolved = (
-        path or f"{os.environ.get(LOCK_DIR_ENV) or DEFAULT_LOCK_DIR}/diucs-neo4j-shared-create.lock"
+        path
+        or f"{os.environ.get(LOCK_DIR_ENV) or DEFAULT_LOCK_DIR}/overwatch-neo4j-shared-create.lock"
     )
     fd = os.open(resolved, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o666)
     with contextlib.suppress(OSError):
@@ -311,7 +314,8 @@ async def open_harness_database(
     Owned: a private container (removed on exit, with the machine-wide container lock of DEC-135).
     Shared or attached: the use lock (shared, or exclusive for an exclusive run), the connection,
     the migrations under their lock, and the sweep of the tenants of dead runs (not for an instance
-    on another host, unless DIUCS_TEST_NEO4J_SWEEP=1). `own` is the run that must not be swept."""
+    on another host, unless OVERWATCH_TEST_NEO4J_SWEEP=1). `own` is the run that must not be
+    swept."""
     swept: list[RunIdentity] = []
     if selection.mode is Mode.OWNED:
         async with throwaway_driver() as (container, driver):

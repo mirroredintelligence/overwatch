@@ -11,11 +11,11 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from azure.servicebus import ServiceBusReceivedMessage
 
-from diucs.adapters.outbound.bus_servicebus.service_bus import (
+from overwatch.adapters.outbound.bus_servicebus.service_bus import (
     ServiceBusEventBus,
     to_service_bus_message,
 )
-from diucs.application.ports.outbound.event_bus import BusMessage, from_wire
+from overwatch.application.ports.outbound.event_bus import BusMessage, from_wire
 from tests.support.servicebus import client, run_tenant, unique_id
 
 # These suites send as tenants of their own on the shared emulator, with nothing bound: the way the

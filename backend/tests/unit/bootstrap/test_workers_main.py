@@ -8,17 +8,17 @@ from pathlib import Path
 import pytest
 from pydantic import SecretStr
 
-from diucs.adapters.inbound.workers.delivery_tracker import receipt_consumer
-from diucs.adapters.inbound.workers.outbox_relay import StaticTenants
-from diucs.adapters.inbound.workers.tenant_binding import TenantBoundConsumer
-from diucs.application.use_cases.handle_inbound_text import (
+from overwatch.adapters.inbound.workers.delivery_tracker import receipt_consumer
+from overwatch.adapters.inbound.workers.outbox_relay import StaticTenants
+from overwatch.adapters.inbound.workers.tenant_binding import TenantBoundConsumer
+from overwatch.application.use_cases.handle_inbound_text import (
     HandleInboundTextCommand,
     HandleInboundTextResult,
 )
-from diucs.application.work import WorkKind
-from diucs.bootstrap import workers_main
-from diucs.bootstrap.settings import Settings
-from diucs.bootstrap.workers_main import (
+from overwatch.application.work import WorkKind
+from overwatch.bootstrap import workers_main
+from overwatch.bootstrap.settings import Settings
+from overwatch.bootstrap.workers_main import (
     NetworkProjectorWiring,
     WorkersConfigError,
     build_runners,
@@ -47,7 +47,7 @@ def test_the_environment_no_longer_lists_the_tenants_the_workers_serve() -> None
     # The list in the environment that stood in for it is gone, and so is its loader.
     assert not hasattr(workers_main, "configured_tenants")
     assert not hasattr(workers_main, "TENANTS_VARIABLE")
-    assert "DIUCS_WORKER_TENANTS" not in Path(workers_main.__file__).read_text(encoding="utf-8")
+    assert "OVERWATCH_WORKER_TENANTS" not in Path(workers_main.__file__).read_text(encoding="utf-8")
 
 
 def test_the_service_bus_connection_is_the_setting() -> None:
@@ -57,25 +57,25 @@ def test_the_service_bus_connection_is_the_setting() -> None:
 
 
 def test_no_service_bus_connection_is_refused_without_a_value() -> None:
-    with pytest.raises(WorkersConfigError, match="DIUCS_SERVICEBUS_CONNECTION"):
+    with pytest.raises(WorkersConfigError, match="OVERWATCH_SERVICEBUS_CONNECTION"):
         service_bus_connection(Settings(servicebus_connection=None))
 
 
 def test_main_stops_with_the_fixed_message_when_there_is_no_service_bus_connection(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.delenv("DIUCS_SERVICEBUS_CONNECTION", raising=False)
+    monkeypatch.delenv("OVERWATCH_SERVICEBUS_CONNECTION", raising=False)
 
     with pytest.raises(SystemExit) as raised:
         workers_main.main()
 
-    assert "DIUCS_SERVICEBUS_CONNECTION" in str(raised.value)
+    assert "OVERWATCH_SERVICEBUS_CONNECTION" in str(raised.value)
 
 
 def test_main_runs_the_workers_on_the_settings_alone(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("DIUCS_SERVICEBUS_CONNECTION", CONNECTION)
+    monkeypatch.setenv("OVERWATCH_SERVICEBUS_CONNECTION", CONNECTION)
     seen: list[object] = []
 
     async def fake_run(settings: Settings, store: object = None) -> None:
@@ -134,8 +134,8 @@ async def test_run_workers_runs_every_runner_until_stop_is_set() -> None:
 
 
 def test_the_queues_are_the_ones_the_webhook_fills() -> None:
-    from diucs.adapters.inbound.sms_webhook import routes
-    from diucs.application.ports.outbound.event_bus import QUEUES
+    from overwatch.adapters.inbound.sms_webhook import routes
+    from overwatch.application.ports.outbound.event_bus import QUEUES
 
     assert workers_main.REPLIES_QUEUE == routes.REPLIES_QUEUE
     assert workers_main.RECEIPTS_QUEUE == routes.RECEIPTS_QUEUE
@@ -145,9 +145,9 @@ def test_the_queues_are_the_ones_the_webhook_fills() -> None:
 def test_with_a_sender_resolver_the_two_sender_runners_are_added_and_each_binds_the_tenant() -> (
     None
 ):
-    from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
-    from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-    from diucs.adapters.testing.recording_senders import FixedSenderResolver
+    from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+    from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+    from overwatch.adapters.testing.recording_senders import FixedSenderResolver
 
     sealer = AesGcmContentSealer(FixedSecretStore({"link-token": b"x" * 32}))
     runners = build_runners(
@@ -213,7 +213,7 @@ def test_with_a_board_projector_the_two_board_runners_are_added_and_each_binds_t
 
 
 def test_with_the_network_projector_its_five_runners_are_added() -> None:
-    from diucs.adapters.inbound.workers.network_projector import NetworkApplyConsumer
+    from overwatch.adapters.inbound.workers.network_projector import NetworkApplyConsumer
     from tests.unit.adapters.inbound.workers.test_network_projector import (
         _Apply,
         _Producer,
@@ -289,8 +289,8 @@ def test_with_the_network_governance_handler_its_runner_is_added() -> None:
 async def test_the_heartbeat_handler_runs_the_job_for_the_work_it_is_given() -> None:
     from datetime import UTC, datetime
 
-    from diucs.application.work import ScheduledWork
-    from diucs.bootstrap.workers_main import projection_heartbeat_handler
+    from overwatch.application.work import ScheduledWork
+    from overwatch.bootstrap.workers_main import projection_heartbeat_handler
 
     seen: list[str] = []
 

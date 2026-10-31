@@ -21,8 +21,8 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from diucs.application import projection as projection_module
-from diucs.application.projection import (
+from overwatch.application import projection as projection_module
+from overwatch.application.projection import (
     ProjectionRow,
     assert_network_write_statement,
     body_keys,
@@ -33,16 +33,16 @@ from diucs.application.projection import (
     to_body,
     to_rows,
 )
-from diucs.domain.codes import Channel, Measure, ReportSource, ReportType
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.messages.privacy_guard import (
+from overwatch.domain.codes import Channel, Measure, ReportSource, ReportType
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.messages.privacy_guard import (
     FORBIDDEN_KEY_FORMS,
     find_patient_data,
     normalise_key,
 )
-from diucs.domain.model.network import GrantScope
-from diucs.domain.rules import projection as domain_projection
-from diucs.domain.rules.projection import (
+from overwatch.domain.model.network import GrantScope
+from overwatch.domain.rules import projection as domain_projection
+from overwatch.domain.rules.projection import (
     ALLOWLIST,
     NETWORK_RELATIONSHIPS,
     NEVER_SHARED,

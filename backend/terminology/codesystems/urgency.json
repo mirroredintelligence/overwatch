@@ -1,7 +1,7 @@
 {
   "resourceType": "CodeSystem",
   "id": "urgency",
-  "url": "https://diucs.example/CodeSystem/urgency",
+  "url": "https://overwatch.mirroredintelligence.com/CodeSystem/urgency",
   "name": "urgency",
   "status": "active",
   "content": "complete",

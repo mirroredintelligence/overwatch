@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from diucs.application.use_cases.clinical_advice import (
+from overwatch.application.use_cases.clinical_advice import (
     ADVICE_CHOICES,
     PRESENCE_TTL,
     REQUEST_WHYS,
@@ -17,9 +17,9 @@ from diucs.application.use_cases.clinical_advice import (
     validate_advice,
     validate_request,
 )
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.clinical import ClinicalAdvice, ClinicalRequestRecord
-from diucs.domain.rules.clinical_queue import ClinicalRequest, Presence
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.clinical import ClinicalAdvice, ClinicalRequestRecord
+from overwatch.domain.rules.clinical_queue import ClinicalRequest, Presence
 
 T0 = datetime(2026, 10, 23, 13, 0, tzinfo=UTC)
 

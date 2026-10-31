@@ -20,13 +20,13 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.platform_audit import (
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.platform_audit import (
     PlatformAudit,
     PlatformAuditEntry,
     PlatformAuditReader,
 )
-from diucs.application.use_cases.cross_tenant_tickets import (
+from overwatch.application.use_cases.cross_tenant_tickets import (
     ApproveSupportTicket,
     CancelSupportTicket,
     EndTicketAccess,
@@ -38,9 +38,9 @@ from diucs.application.use_cases.cross_tenant_tickets import (
     RevokeSupportTicket,
     UseTicketAccess,
 )
-from diucs.application.use_cases.platform_tenants import ListPlatformTenants, ReadPlatformTenant
-from diucs.application.use_cases.tenant_access import InviteTenantAdmin
-from diucs.application.use_cases.tenant_admin import (
+from overwatch.application.use_cases.platform_tenants import ListPlatformTenants, ReadPlatformTenant
+from overwatch.application.use_cases.tenant_access import InviteTenantAdmin
+from overwatch.application.use_cases.tenant_admin import (
     ActivateTenant,
     CreateTenant,
     MarkNumberTested,
@@ -49,8 +49,8 @@ from diucs.application.use_cases.tenant_admin import (
     SetTenantHost,
     VerifyEntraBinding,
 )
-from diucs.application.use_cases.tenant_admin_views import ReadTenantAdmin
-from diucs.application.use_cases.tenant_config import (
+from overwatch.application.use_cases.tenant_admin_views import ReadTenantAdmin
+from overwatch.application.use_cases.tenant_config import (
     ApproveTenantConfig,
     BindEntraDirectory,
     DraftTenantConfig,
@@ -59,11 +59,11 @@ from diucs.application.use_cases.tenant_config import (
     RecordTenantContact,
     SetTenantRetention,
 )
-from diucs.application.use_cases.tenant_offboarding import (
+from overwatch.application.use_cases.tenant_offboarding import (
     StartOffboardingCommand,
     StartOffboardingResult,
 )
-from diucs.application.use_cases.tenant_suspend import ResumeTenant, SuspendTenant
+from overwatch.application.use_cases.tenant_suspend import ResumeTenant, SuspendTenant
 
 log = logging.getLogger(__name__)
 

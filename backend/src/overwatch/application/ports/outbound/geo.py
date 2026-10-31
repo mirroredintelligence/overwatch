@@ -1,18 +1,18 @@
 """Outbound ports for geography (P11): geocoding, postcode centroids and travel time.
 
 Geocoding (OS Places), the local postcode centroid file and the travel-time engine are external
-providers, so each port has a fixed-table fake in diucs.adapters.testing (DEC-002, DEC-004). The
+providers, so each port has a fixed-table fake in overwatch.adapters.testing (DEC-002, DEC-004). The
 real adapters come later (I11, I12, I15).
 
 Postcodes given to these ports are normalised by the caller or by the adapter using the D19 rules
-(diucs.domain.rules.postcode). Nothing here logs or echoes a postcode (DEC-047).
+(overwatch.domain.rules.postcode). Nothing here logs or echoes a postcode (DEC-047).
 """
 
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.errors import ValidationFailed
 
 
 @dataclass(frozen=True, slots=True)

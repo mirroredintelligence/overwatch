@@ -9,22 +9,22 @@ import json
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from diucs.adapters.inbound.workers.message_senders import (
+from overwatch.adapters.inbound.workers.message_senders import (
     MESSAGES_TOPIC,
     SEND_MESSAGE_EVENT,
     EmailMessageSender,
     SmsMessageSender,
 )
-from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.recording_senders import RecordingEmailSender, RecordingSmsSender
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.ports.outbound.messaging import Communication, EmailSender, SmsSender
-from diucs.domain.codes import Channel, PractitionerRoleCode
-from diucs.domain.model.people import PractitionerRole
-from diucs.domain.model.tenant import NumberStatus
-from diucs.domain.model.tenant_records import ChannelKind, ChannelProvider, TenantChannel
+from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.recording_senders import RecordingEmailSender, RecordingSmsSender
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.ports.outbound.messaging import Communication, EmailSender, SmsSender
+from overwatch.domain.codes import Channel, PractitionerRoleCode
+from overwatch.domain.model.people import PractitionerRole
+from overwatch.domain.model.tenant import NumberStatus
+from overwatch.domain.model.tenant_records import ChannelKind, ChannelProvider, TenantChannel
 
 SEALER = AesGcmContentSealer(
     FixedSecretStore({"link-token": b"link-token-test-secret-0123456789abcdef"})

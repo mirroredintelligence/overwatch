@@ -6,9 +6,9 @@ another tenant's code. The statements that store and read the hashes are tenant-
 test_link_token_queries.py; these tests pin the keying they are given. Values are synthetic.
 """
 
-from diucs.application.tenancy import ScopeId, ScopeKind
-from diucs.application.use_cases.pair_wall_screen import _keyed
-from diucs.domain.rules.tokens import hash_token
+from overwatch.application.tenancy import ScopeId, ScopeKind
+from overwatch.application.use_cases.pair_wall_screen import _keyed
+from overwatch.domain.rules.tokens import hash_token
 
 SECRET = b"link-secret-for-tests-only-0000000000"
 CODE = "482913"

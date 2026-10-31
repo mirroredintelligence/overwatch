@@ -23,22 +23,22 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.routing import APIRoute, _IncludedRouter
 from httpx import ASGITransport, AsyncClient
 
-from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.inbound.fhir_rest.auth import (
+from overwatch.adapters.inbound.fhir_rest.app import create_app
+from overwatch.adapters.inbound.fhir_rest.auth import (
     BFF_SECRET_NAME,
     current_actor,
     current_operator,
     operator_in_tenant,
     require_role,
 )
-from diucs.adapters.inbound.fhir_rest.errors import LOGIN_TEXT
-from diucs.adapters.inbound.fhir_rest.host_tenant import bind_host_tenant
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
-from diucs.application.actor import Actor
-from diucs.application.tenancy import current_scope_or_none
-from diucs.domain.codes import Role
-from diucs.domain.model.tenant import SuspendMode, SuspendReason, TenantStatus
+from overwatch.adapters.inbound.fhir_rest.errors import LOGIN_TEXT
+from overwatch.adapters.inbound.fhir_rest.host_tenant import bind_host_tenant
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
+from overwatch.application.actor import Actor
+from overwatch.application.tenancy import current_scope_or_none
+from overwatch.domain.codes import Role
+from overwatch.domain.model.tenant import SuspendMode, SuspendReason, TenantStatus
 from tests.support.edge import (
     EDGE_NOW,
     TENANT_A,
@@ -161,7 +161,7 @@ async def test_a_refused_request_leaves_nothing_bound() -> None:
 
 
 async def test_a_request_inside_another_binding_restores_that_binding() -> None:
-    from diucs.application.tenancy import bind_tenant
+    from overwatch.application.tenancy import bind_tenant
 
     app = build(active_tenants(TENANT_A))
 
@@ -174,7 +174,7 @@ async def test_a_request_inside_another_binding_restores_that_binding() -> None:
 
 
 async def test_the_request_binds_the_token_tenant_even_when_one_is_already_bound() -> None:
-    from diucs.application.tenancy import bind_tenant
+    from overwatch.application.tenancy import bind_tenant
 
     app = build(active_tenants(TENANT_A, TENANT_B))
 

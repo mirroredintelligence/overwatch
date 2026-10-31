@@ -18,13 +18,13 @@ from fhir.resources.R4B.healthcareservice import HealthcareService
 from fhir.resources.R4B.location import Location
 from fhir.resources.R4B.organization import Organization
 
-from diucs.adapters.outbound.graph_store import mapper
-from diucs.adapters.outbound.graph_store.bundle_writer import resolve_bundle
-from diucs.adapters.outbound.graph_store.criteria_repository import criteria_from_fhir
-from diucs.adapters.outbound.graph_store.service_repository import profile_from_fhir
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.ports.outbound.geo import AddressCandidate, LatLon
-from diucs.application.use_cases.registration_draft import (
+from overwatch.adapters.outbound.graph_store import mapper
+from overwatch.adapters.outbound.graph_store.bundle_writer import resolve_bundle
+from overwatch.adapters.outbound.graph_store.criteria_repository import criteria_from_fhir
+from overwatch.adapters.outbound.graph_store.service_repository import profile_from_fhir
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.ports.outbound.geo import AddressCandidate, LatLon
+from overwatch.application.use_cases.registration_draft import (
     ApiStep,
     LocationStep,
     OrganisationStep,
@@ -32,7 +32,7 @@ from diucs.application.use_cases.registration_draft import (
     ReportingStep,
     ServiceStep,
 )
-from diucs.application.use_cases.registration_submit import (
+from overwatch.application.use_cases.registration_submit import (
     DISTRICT_TYPE_CODE,
     GEOCODE_SOURCE,
     LOOKUPS_STEP,
@@ -46,7 +46,7 @@ from diucs.application.use_cases.registration_submit import (
     lookups_of,
     unit_label,
 )
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     CriteriaStatus,
@@ -55,10 +55,10 @@ from diucs.domain.codes import (
     RegistrationStatus,
     ServiceCategory,
 )
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.criteria import ServiceCriteria
-from diucs.domain.model.registration import Registration
-from diucs.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.criteria import ServiceCriteria
+from overwatch.domain.model.registration import Registration
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
 
 NOW = datetime(2026, 10, 29, 10, 0, tzinfo=UTC)
 SERVICE_ID = "svc-ucr-west"
@@ -257,9 +257,10 @@ def test_the_location_takes_its_position_address_and_uprn_from_the_chosen_candid
     assert location["address"]["city"] == "Weymouth"
     assert location["address"]["postalCode"] == "DT4 8XX"
     assert location["address"]["district"] == "DT4"
-    assert {"system": "https://diucs.example/uprn", "value": "100012345678"} in location[
-        "identifier"
-    ]
+    assert {
+        "system": "https://overwatch.mirroredintelligence.com/uprn",
+        "value": "100012345678",
+    } in location["identifier"]
 
 
 def test_the_location_records_where_and_when_it_was_geocoded() -> None:

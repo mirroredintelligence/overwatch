@@ -13,7 +13,7 @@ from datetime import UTC, datetime
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.graph_store.migrations import MIGRATIONS, apply_migrations
+from overwatch.adapters.outbound.graph_store.migrations import MIGRATIONS, apply_migrations
 from tests.support import neo4j as harness
 from tests.support.neo4j import (
     Neo4jNotRunning,

@@ -1,7 +1,7 @@
 """The names a network scope holds in Redis, and who can see them (TEN-062, DEC-130 item 7,
 DEC-132 item 4, DEC-547 item 1, TEN-019).
 
-Every key, lock and channel is `diucs:<scope>:<family>:<name>`, and a network's scope segment is
+Every key, lock and channel is `overwatch:<scope>:<family>:<name>`, and a network's scope segment is
 `_net-<id>`, which no tenant id can begin with. The tests show on a real Redis: the network board is
 cached under its network's own segment and no other; the same logical name in a tenant scope and in
 a network scope, or in two networks, is three keys and three channels; a message published in one
@@ -20,15 +20,15 @@ import pytest
 import pytest_asyncio
 from redis.asyncio import Redis
 
-from diucs.adapters.inbound.fhir_rest.routes_network_events import to_network_sse
-from diucs.adapters.outbound.cache_redis.redis_cache import RedisCache
-from diucs.application.ports.outbound.cache import (
+from overwatch.adapters.inbound.fhir_rest.routes_network_events import to_network_sse
+from overwatch.adapters.outbound.cache_redis.redis_cache import RedisCache
+from overwatch.application.ports.outbound.cache import (
     BOARD_UPDATES_CHANNEL,
     NETWORK_BOARD_UPDATES_CHANNEL,
     CacheScopeMismatch,
 )
-from diucs.application.tenancy import bind_network, bind_tenant
-from diucs.application.use_cases.network_board_projector import (
+from overwatch.application.tenancy import bind_network, bind_tenant
+from overwatch.application.use_cases.network_board_projector import (
     NETWORK_BOARD_CACHE_KEY,
     NETWORK_BOARD_CACHE_TTL,
     NETWORK_BOARD_CHANGED,
@@ -77,14 +77,14 @@ async def cache() -> AsyncIterator[RedisCache]:
 
 async def _wipe(client: Redis, net_a: str, net_b: str, tenant: str) -> None:
     for network in (net_a, net_b):
-        keys = [k async for k in client.scan_iter(match=f"diucs:_{network}:*")]
+        keys = [k async for k in client.scan_iter(match=f"overwatch:_{network}:*")]
         if keys:
             await client.delete(*keys)
     await flush_tenant(client, tenant)
 
 
 async def _keys(client: Redis, segment: str) -> list[str]:
-    return sorted([k async for k in client.scan_iter(match=f"diucs:{segment}:*")])
+    return sorted([k async for k in client.scan_iter(match=f"overwatch:{segment}:*")])
 
 
 # ------------------------------------------------------------------ keys
@@ -95,10 +95,12 @@ async def test_a_network_key_sits_under_the_networks_own_segment_and_no_other(
 ) -> None:
     with bind_network(net_a):
         await cache.set(NETWORK_BOARD_CACHE_KEY, "board-a", NETWORK_BOARD_CACHE_TTL)
-    assert await _keys(redis, f"_{net_a}") == [f"diucs:_{net_a}:cache:{NETWORK_BOARD_CACHE_KEY}"]
+    assert await _keys(redis, f"_{net_a}") == [
+        f"overwatch:_{net_a}:cache:{NETWORK_BOARD_CACHE_KEY}"
+    ]
     assert await _keys(redis, f"_{net_b}") == []
     assert await _keys(redis, tenant) == []
-    ttl = await redis.pttl(f"diucs:_{net_a}:cache:{NETWORK_BOARD_CACHE_KEY}")
+    ttl = await redis.pttl(f"overwatch:_{net_a}:cache:{NETWORK_BOARD_CACHE_KEY}")
     assert 0 < ttl <= NETWORK_BOARD_CACHE_TTL / timedelta(milliseconds=1)
 
 
@@ -151,9 +153,9 @@ async def test_the_cached_board_holds_no_tenant_grant_or_source_service(
 ) -> None:
     from datetime import UTC, datetime
 
-    from diucs.application.use_cases.network_board_projector import network_board_to_dict
-    from diucs.application.use_cases.query_network_board import NetworkBoardView
-    from diucs.domain.codes import Status
+    from overwatch.application.use_cases.network_board_projector import network_board_to_dict
+    from overwatch.application.use_cases.query_network_board import NetworkBoardView
+    from overwatch.domain.codes import Status
     from tests.support.network_board_samples import board_entry, board_of
 
     view = NetworkBoardView(
@@ -167,7 +169,7 @@ async def test_the_cached_board_holds_no_tenant_grant_or_source_service(
     )
     with bind_network(net_a):
         await cache.set(NETWORK_BOARD_CACHE_KEY, json.dumps(network_board_to_dict(view)))
-    stored = await redis.get(f"diucs:_{net_a}:cache:{NETWORK_BOARD_CACHE_KEY}")
+    stored = await redis.get(f"overwatch:_{net_a}:cache:{NETWORK_BOARD_CACHE_KEY}")
     assert stored is not None
     for forbidden in ("tenant", "grant", "sourceService", "source_service", net_a):
         assert forbidden not in stored

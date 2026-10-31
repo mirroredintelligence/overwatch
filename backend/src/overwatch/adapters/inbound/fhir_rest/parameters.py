@@ -8,7 +8,7 @@ body can carry a name, a number or free text from the request (DEC-086 items 2 t
 from enum import StrEnum
 from typing import Any, Final
 
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.errors import ValidationFailed
 
 PARAMETERS: Final = "Parameters"
 VALUE_KEYS: Final = (

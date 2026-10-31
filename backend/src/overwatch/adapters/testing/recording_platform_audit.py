@@ -1,7 +1,7 @@
 """Recording stand-in for the platform audit chain (TEN-084): keeps every entry in order and can be
 told to fail the next append, so a test can show that an access never stands without its record."""
 
-from diucs.application.ports.outbound.platform_audit import PlatformAuditEntry
+from overwatch.application.ports.outbound.platform_audit import PlatformAuditEntry
 
 
 class RecordingPlatformAudit:

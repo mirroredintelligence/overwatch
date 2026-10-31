@@ -24,14 +24,14 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Final
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import AuditEntry, AuditRecord
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.audit_replay import shown_order
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotAllowed, ValidationFailed
-from diucs.domain.rules.london_time import to_london
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import AuditEntry, AuditRecord
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.audit_replay import shown_order
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotAllowed, ValidationFailed
+from overwatch.domain.rules.london_time import to_london
 
 MIN_COUNT: Final = 10
 ALLOWED_ROLES: Final = frozenset({Role.LEAD, Role.EXEC})

@@ -1,7 +1,7 @@
 {
   "resourceType": "CodeSystem",
   "id": "scope-flag",
-  "url": "https://diucs.example/CodeSystem/scope-flag",
+  "url": "https://overwatch.mirroredintelligence.com/CodeSystem/scope-flag",
   "name": "scope-flag",
   "status": "active",
   "content": "complete",

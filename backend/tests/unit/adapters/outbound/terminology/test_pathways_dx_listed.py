@@ -11,10 +11,10 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.outbound.terminology.local_terminology import LocalTerminology
-from diucs.adapters.outbound.terminology.pathways_dx_file import PathwaysDxFile
-from diucs.adapters.testing.fixed_terminology import FixedTerminology
-from diucs.domain.errors import ValidationFailed
+from overwatch.adapters.outbound.terminology.local_terminology import LocalTerminology
+from overwatch.adapters.outbound.terminology.pathways_dx_file import PathwaysDxFile
+from overwatch.adapters.testing.fixed_terminology import FixedTerminology
+from overwatch.domain.errors import ValidationFailed
 
 BACKEND = Path(__file__).resolve().parents[5]
 SAMPLE = BACKEND / "data" / "pathways_dx_sample.json"

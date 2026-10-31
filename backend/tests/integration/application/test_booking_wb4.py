@@ -25,26 +25,26 @@ from datetime import datetime, timedelta
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.tokens import LinkTokenService
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.respond_to_booking import (
+from overwatch.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.tokens import LinkTokenService
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.respond_to_booking import (
     ChangeLinkRequest,
     RespondToBooking,
     RespondToBookingCommand,
     SetDeclineReason,
     SetDeclineReasonCommand,
 )
-from diucs.application.use_cases.tenant_config import (
+from overwatch.application.use_cases.tenant_config import (
     ApproveConfigCommand,
     ApproveTenantConfig,
     DraftConfigCommand,
     DraftTenantConfig,
 )
-from diucs.application.use_cases.withdraw_booking import (
+from overwatch.application.use_cases.withdraw_booking import (
     AcknowledgeWithdrawal,
     AcknowledgeWithdrawalCommand,
     ReportNotReached,
@@ -52,8 +52,8 @@ from diucs.application.use_cases.withdraw_booking import (
     WithdrawBooking,
     WithdrawBookingCommand,
 )
-from diucs.application.work import WorkKind
-from diucs.domain.codes import (
+from overwatch.application.work import WorkKind
+from overwatch.domain.codes import (
     BookingStatus,
     Channel,
     DeclineReason,
@@ -62,8 +62,8 @@ from diucs.domain.codes import (
     Role,
     WithdrawReason,
 )
-from diucs.domain.errors import Conflict
-from diucs.domain.model.booking import Booking
+from overwatch.domain.errors import Conflict
+from overwatch.domain.model.booking import Booking
 from tests.support.actors import ACTOR_TENANT
 from tests.support.booking_rig import (
     ADVISOR,
@@ -269,8 +269,8 @@ async def test_the_other_tenant_does_not_get_this_tenants_policy(
     neo4j_driver: AsyncDriver,
     clean_graph: None,
 ) -> None:
-    from diucs.application.tenant_settings import read_policy
-    from diucs.domain.model.tenant_policy import DEFAULT_POLICY
+    from overwatch.application.tenant_settings import read_policy
+    from overwatch.domain.model.tenant_policy import DEFAULT_POLICY
 
     await seed_world(uow_factory, neo4j_driver)
     await _config_in_force(uow_factory)
@@ -550,8 +550,8 @@ async def test_a_decline_is_echoed_on_the_channel_of_the_reporter(
 async def test_a_cancellation_is_echoed_on_the_channel_of_the_reporter(
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, clean_graph: None, channel: Channel
 ) -> None:
-    from diucs.application.use_cases.cancel_booking import CancelBooking, CancelBookingCommand
-    from diucs.domain.codes import CancelReason
+    from overwatch.application.use_cases.cancel_booking import CancelBooking, CancelBookingCommand
+    from overwatch.domain.codes import CancelReason
 
     await seed_world(uow_factory, neo4j_driver)
     await set_reporter_channel(uow_factory, channel)

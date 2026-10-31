@@ -15,9 +15,9 @@ from collections.abc import Awaitable, Callable
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.missed_report_ladder import ESCALATED, IGNORED, REMINDED
-from diucs.application.work import CANCELLED, DONE, SCHEDULED, WorkKind
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.missed_report_ladder import ESCALATED, IGNORED, REMINDED
+from overwatch.application.work import CANCELLED, DONE, SCHEDULED, WorkKind
 from tests.support.ladder_rig import (
     PHONE_HASH_1,
     Rig,

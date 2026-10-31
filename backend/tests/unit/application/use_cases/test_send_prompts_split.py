@@ -2,7 +2,7 @@
 
 import pytest
 
-from diucs.application.use_cases.send_prompts import split_unit_label
+from overwatch.application.use_cases.send_prompts import split_unit_label
 
 
 @pytest.mark.parametrize(

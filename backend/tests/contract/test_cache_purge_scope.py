@@ -8,9 +8,15 @@ from uuid import uuid4
 
 import pytest
 
-from diucs.application.ports.outbound.cache import Cache
-from diucs.application.ports.outbound.tenant_export import ScopeCachePurger
-from diucs.application.tenancy import ScopeId, ScopeInvalid, bind_network, bind_scope, bind_tenant
+from overwatch.application.ports.outbound.cache import Cache
+from overwatch.application.ports.outbound.tenant_export import ScopeCachePurger
+from overwatch.application.tenancy import (
+    ScopeId,
+    ScopeInvalid,
+    bind_network,
+    bind_scope,
+    bind_tenant,
+)
 from tests.contract.harness import Harness
 from tests.support.redis import run_tenant
 

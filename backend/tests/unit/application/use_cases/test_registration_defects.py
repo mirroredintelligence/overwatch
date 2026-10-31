@@ -8,23 +8,29 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.actor import Actor
-from diucs.application.tenancy import bind_tenant
-from diucs.application.use_cases.registration_draft import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.actor import Actor
+from overwatch.application.tenancy import bind_tenant
+from overwatch.application.use_cases.registration_draft import (
     OrganisationStep,
     ReportingStep,
     SaveRegistrationStep,
     SaveRegistrationStepCommand,
     ServiceStep,
 )
-from diucs.application.use_cases.registration_submit import UNIT_LABELS
-from diucs.application.use_cases.review_registration import _role_spoken_to
-from diucs.domain.codes import Measure, PractitionerRoleCode, RegistrationStatus, Role, ScopeFlag
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.people import PractitionerRole
-from diucs.domain.model.registration import CallBackResult, Registration, ScopeEntry
+from overwatch.application.use_cases.registration_submit import UNIT_LABELS
+from overwatch.application.use_cases.review_registration import _role_spoken_to
+from overwatch.domain.codes import (
+    Measure,
+    PractitionerRoleCode,
+    RegistrationStatus,
+    Role,
+    ScopeFlag,
+)
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.people import PractitionerRole
+from overwatch.domain.model.registration import CallBackResult, Registration, ScopeEntry
 from tests.support.actors import ACTOR_TENANT
 from tests.support.registration_rig import StubUnits
 
@@ -71,7 +77,7 @@ def _world() -> StubUnits:
 
 
 def _category() -> Any:
-    from diucs.domain.codes import ServiceCategory
+    from overwatch.domain.codes import ServiceCategory
 
     return ServiceCategory.URGENT_COMMUNITY_RESPONSE
 

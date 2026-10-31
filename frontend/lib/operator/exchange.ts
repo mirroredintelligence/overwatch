@@ -6,12 +6,12 @@ import { decodeJwt } from 'jose';
 
 // Server-only. The operator sign-in's last step (TEN-083, DEC-1000, DEC-1005): the BFF hands the back end the
 // person's verified ID token from the OPERATOR directory and gets back the operator token the back end signed
-// itself (`POST /auth/operator-token`, audience `diucs-ops`, one hour). The BFF holds no secret that can sign
+// itself (`POST /auth/operator-token`, audience `overwatch-ops`, one hour). The BFF holds no secret that can sign
 // one and decides no role. The token must be an operator's: it names no tenant, epoch, service or device, and
 // its role is the answer's and is one an operator has. Nothing here logs, and no error holds a token, a
 // subject or a claim.
 
-export const OPERATOR_AUDIENCE = 'diucs-ops';
+export const OPERATOR_AUDIENCE = 'overwatch-ops';
 const ID_TOKEN_MAX_LENGTH = 8192; // the back end refuses more (routes_auth.py)
 const TOKEN_MAX_LENGTH = 4096;
 const SUBJECT_MAX_LENGTH = 128;

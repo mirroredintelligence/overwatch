@@ -10,15 +10,15 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.inbound.sms_webhook.routes import SmsWebhookDeps
-from diucs.adapters.outbound.graph_store.person_repository import Neo4jPersonRepository
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.adapters.testing.memory_event_bus import ManualEventBus
-from diucs.application.ports.outbound.identity import HmacPhoneHasher
-from diucs.application.tenancy import bind_tenant
-from diucs.bootstrap.container import Container
-from diucs.domain.model.people import Practitioner
+from overwatch.adapters.inbound.sms_webhook.routes import SmsWebhookDeps
+from overwatch.adapters.outbound.graph_store.person_repository import Neo4jPersonRepository
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.adapters.testing.memory_event_bus import ManualEventBus
+from overwatch.application.ports.outbound.identity import HmacPhoneHasher
+from overwatch.application.tenancy import bind_tenant
+from overwatch.bootstrap.container import Container
+from overwatch.domain.model.people import Practitioner
 from tests.support.api import api_app, edge_tenants, test_container
 from tests.support.neo4j import write_tx
 from tests.support.sms import (

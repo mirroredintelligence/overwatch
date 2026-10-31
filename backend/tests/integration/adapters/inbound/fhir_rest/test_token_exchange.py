@@ -30,39 +30,39 @@ from fastapi import Depends, FastAPI
 from httpx import ASGITransport, AsyncClient
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.inbound.fhir_rest.auth import current_actor
-from diucs.adapters.inbound.fhir_rest.routes_auth import (
+from overwatch.adapters.inbound.fhir_rest.app import create_app
+from overwatch.adapters.inbound.fhir_rest.auth import current_actor
+from overwatch.adapters.inbound.fhir_rest.routes_auth import (
     DEVICE_PATH,
     FORBIDDEN_TEXT,
     STAFF_PATH,
     ExchangeDeps,
 )
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.tenant_config_repository import (
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.tenant_config_repository import (
     Neo4jTenantConfigRepository,
 )
-from diucs.adapters.testing.fake_identity_verifier import FakeIdentityVerifier
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.identity import DEVICE_TOKEN_SECRET, PHONE_HASH_SECRET
-from diucs.application.ports.outbound.identity_verifier import Audience, VerifiedIdentity
-from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET
-from diucs.application.tenancy import current_scope_or_none
-from diucs.application.use_cases.exchange_token import ACCOUNT_REF_SECRET, SIGNING_SECRET
-from diucs.bootstrap.container import Container, build_for_tests
-from diucs.domain.codes import Role
-from diucs.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
-from diucs.domain.model.tenant_records import (
+from overwatch.adapters.testing.fake_identity_verifier import FakeIdentityVerifier
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.identity import DEVICE_TOKEN_SECRET, PHONE_HASH_SECRET
+from overwatch.application.ports.outbound.identity_verifier import Audience, VerifiedIdentity
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET
+from overwatch.application.tenancy import current_scope_or_none
+from overwatch.application.use_cases.exchange_token import ACCOUNT_REF_SECRET, SIGNING_SECRET
+from overwatch.bootstrap.container import Container, build_for_tests
+from overwatch.domain.codes import Role
+from overwatch.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
+from overwatch.domain.model.tenant_records import (
     BindingStatus,
     EntraBinding,
     MappingStatus,
     RoleMapping,
 )
-from diucs.domain.rules.bff_token import decode_bff_token
-from diucs.domain.rules.tokens import hash_token
+from overwatch.domain.rules.bff_token import decode_bff_token
+from overwatch.domain.rules.tokens import hash_token
 from tests.support.api import seed_edge_tenants
 from tests.support.neo4j import ThrowawayNeo4j, write_tx
 from tests.support.tenancy import as_tenant

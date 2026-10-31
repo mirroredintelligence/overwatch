@@ -14,16 +14,16 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from diucs.application.prompt_judgement import (
+from overwatch.application.prompt_judgement import (
     CONFIRMABLE_FIGURE_AGE,
     figure_is_out_of_date,
     recorded_since_prompt,
 )
-from diucs.application.use_cases.handle_inbound_text import CONFIRM_PROCESSING_LIMIT
-from diucs.domain.codes import Measure, ReportSource, ReportType
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.rules.freshness import STALE_WARNING_AFTER
+from overwatch.application.use_cases.handle_inbound_text import CONFIRM_PROCESSING_LIMIT
+from overwatch.domain.codes import Measure, ReportSource, ReportType
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.rules.freshness import STALE_WARNING_AFTER
 
 LONDON = ZoneInfo("Europe/London")
 ONE_SECOND = timedelta(seconds=1)

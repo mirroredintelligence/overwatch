@@ -19,7 +19,7 @@ from typing import Any, Final
 from neo4j import AsyncDriver, AsyncManagedTransaction, AsyncTransaction
 from neo4j.time import Date, DateTime, Duration, Time
 
-from diucs.adapters.outbound.graph_store.scenario import Slot, TenantSeed, render
+from overwatch.adapters.outbound.graph_store.scenario import Slot, TenantSeed, render
 from tests.support.neo4j import is_owned, read_tx, write_tx
 
 # Labels a node may carry without a tenantId: the migration record, the registry nodes of the

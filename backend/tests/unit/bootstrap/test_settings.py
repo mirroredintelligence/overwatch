@@ -3,16 +3,16 @@ import os
 import pytest
 from pydantic import SecretStr, ValidationError
 
-from diucs.bootstrap.settings import Settings
+from overwatch.bootstrap.settings import Settings
 
-SECRET = "diucs-test-password"
+SECRET = "overwatch-test-password"
 
 
 @pytest.fixture(autouse=True)
-def _no_diucs_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Start every test from an environment with no DIUCS_ settings set."""
+def _no_overwatch_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Start every test from an environment with no OVERWATCH_ settings set."""
     for name in list(os.environ):
-        if name.startswith("DIUCS_"):
+        if name.startswith("OVERWATCH_"):
             monkeypatch.delenv(name, raising=False)
 
 
@@ -23,16 +23,18 @@ def test_defaults_with_no_environment() -> None:
     assert settings.neo4j_uri == "bolt://localhost:7687"
 
 
-def test_values_are_read_from_diucs_prefixed_environment(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("DIUCS_PROFILE", "production")
-    monkeypatch.setenv("DIUCS_NEO4J_URI", "bolt://graph:7687")
+def test_values_are_read_from_overwatch_prefixed_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OVERWATCH_PROFILE", "production")
+    monkeypatch.setenv("OVERWATCH_NEO4J_URI", "bolt://graph:7687")
     settings = Settings()
     assert settings.profile == "production"
     assert settings.neo4j_uri == "bolt://graph:7687"
 
 
 def test_unknown_profile_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("DIUCS_PROFILE", "memory")
+    monkeypatch.setenv("OVERWATCH_PROFILE", "memory")
     with pytest.raises(ValidationError):
         Settings()
 
@@ -53,7 +55,7 @@ NEO4J_CANARY = "canary-neo4j-4d8e1b"
 def test_servicebus_connection_is_a_secret_and_hidden_from_repr_and_str(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("DIUCS_SERVICEBUS_CONNECTION", SERVICEBUS_CANARY)
+    monkeypatch.setenv("OVERWATCH_SERVICEBUS_CONNECTION", SERVICEBUS_CANARY)
     settings = Settings()
     assert isinstance(settings.servicebus_connection, SecretStr)
     assert settings.servicebus_connection.get_secret_value() == SERVICEBUS_CANARY
@@ -64,7 +66,7 @@ def test_servicebus_connection_is_a_secret_and_hidden_from_repr_and_str(
 def test_neo4j_password_from_environment_is_hidden_from_repr_and_str(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("DIUCS_NEO4J_PASSWORD", NEO4J_CANARY)
+    monkeypatch.setenv("OVERWATCH_NEO4J_PASSWORD", NEO4J_CANARY)
     settings = Settings()
     assert isinstance(settings.neo4j_password, SecretStr)
     assert settings.neo4j_password.get_secret_value() == NEO4J_CANARY
@@ -96,9 +98,9 @@ def test_no_global_twilio_or_email_credential_or_identity_is_a_setting(name: str
 def test_an_environment_variable_that_once_set_a_global_credential_changes_nothing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("DIUCS_TWILIO_AUTH_TOKEN", TWILIO_CANARY)
-    monkeypatch.setenv("DIUCS_SMTP_PASSWORD", SMTP_CANARY)
-    monkeypatch.setenv("DIUCS_EMAIL_FROM", "someone@example.test")
+    monkeypatch.setenv("OVERWATCH_TWILIO_AUTH_TOKEN", TWILIO_CANARY)
+    monkeypatch.setenv("OVERWATCH_SMTP_PASSWORD", SMTP_CANARY)
+    monkeypatch.setenv("OVERWATCH_EMAIL_FROM", "someone@example.test")
 
     settings = Settings()
 
@@ -131,9 +133,9 @@ def test_the_synthetic_hook_is_off_by_default_and_its_token_is_hidden() -> None:
 def test_the_synthetic_hook_token_is_read_from_the_environment_and_never_shown(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("DIUCS_SYNTHETIC_ENABLED", "true")
-    monkeypatch.setenv("DIUCS_SYNTHETIC_HOOK_TOKEN", "test-only-hook-token")
-    monkeypatch.setenv("DIUCS_SYNTHETIC_TENANT_ID", "synthetic")
+    monkeypatch.setenv("OVERWATCH_SYNTHETIC_ENABLED", "true")
+    monkeypatch.setenv("OVERWATCH_SYNTHETIC_HOOK_TOKEN", "test-only-hook-token")
+    monkeypatch.setenv("OVERWATCH_SYNTHETIC_TENANT_ID", "synthetic")
     settings = Settings()
     assert settings.synthetic_enabled is True
     assert settings.synthetic_tenant_id == "synthetic"
@@ -146,5 +148,5 @@ def test_the_telemetry_workspace_is_unset_by_default_and_read_from_the_environme
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     assert Settings().telemetry_workspace_id is None
-    monkeypatch.setenv("DIUCS_TELEMETRY_WORKSPACE_ID", "00000000-0000-0000-0000-000000000000")
+    monkeypatch.setenv("OVERWATCH_TELEMETRY_WORKSPACE_ID", "00000000-0000-0000-0000-000000000000")
     assert Settings().telemetry_workspace_id == "00000000-0000-0000-0000-000000000000"

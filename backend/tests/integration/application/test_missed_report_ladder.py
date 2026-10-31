@@ -16,18 +16,18 @@ from typing import Any, Self
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
-from diucs.adapters.outbound.graph_store.link_token_repository import Neo4jLinkTokenRepository
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.messaging import Communication
-from diucs.application.ports.outbound.outbox import OutboxMessage
-from diucs.application.ports.outbound.tokens import LinkTokenService
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.scheduling import schedule_work
-from diucs.application.use_cases.confirm_capacity import ConfirmCapacity, ConfirmCapacityCommand
-from diucs.application.use_cases.missed_report_ladder import (
+from overwatch.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
+from overwatch.adapters.outbound.graph_store.link_token_repository import Neo4jLinkTokenRepository
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.messaging import Communication
+from overwatch.application.ports.outbound.outbox import OutboxMessage
+from overwatch.application.ports.outbound.tokens import LinkTokenService
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.scheduling import schedule_work
+from overwatch.application.use_cases.confirm_capacity import ConfirmCapacity, ConfirmCapacityCommand
+from overwatch.application.use_cases.missed_report_ladder import (
     ESCALATED,
     IGNORED,
     PHONE_TASK_RAISED,
@@ -35,12 +35,12 @@ from diucs.application.use_cases.missed_report_ladder import (
     STOPPED,
     LadderStepCommand,
 )
-from diucs.application.work import CANCELLED, DONE, SCHEDULED, WorkKind
-from diucs.domain.codes import Channel, ReportSource, Role
-from diucs.domain.errors import Conflict, NotFound, ValidationFailed
-from diucs.domain.messages.privacy_guard import find_patient_data
-from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
-from diucs.domain.model.service import AvailableTime
+from overwatch.application.work import CANCELLED, DONE, SCHEDULED, WorkKind
+from overwatch.domain.codes import Channel, ReportSource, Role
+from overwatch.domain.errors import Conflict, NotFound, ValidationFailed
+from overwatch.domain.messages.privacy_guard import find_patient_data
+from overwatch.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
+from overwatch.domain.model.service import AvailableTime
 from tests.support.actors import ACTOR_TENANT
 from tests.support.ladder_rig import (
     LINK_BASE,
@@ -172,7 +172,7 @@ async def test_the_reminder_sends_c8_with_a_fresh_link_and_the_board_reads_not_u
     assert reminder["service"] == SERVICE
     # The record holds the words with the link replaced: the token is never stored.
     assert reminder["text"] == (
-        "DIUCS reminder: Virtual ward · frailty has not updated. Confirm or update: [link] "
+        "Overwatch reminder: Virtual ward · frailty has not updated. Confirm or update: [link] "
         "By 13:00."
     )
     [message] = _of_type(await rig.events("SendMessage"), "C8")
@@ -898,7 +898,7 @@ async def test_work_about_a_message_with_no_service_is_not_found(
                 channel=Channel.TEXT,
                 recipient_role_id=None,
                 about_id=None,
-                payload_text="DIUCS: a message about nothing",
+                payload_text="Overwatch: a message about nothing",
                 sent_at=london(12, 0),
                 delivery_status="queued",
             )

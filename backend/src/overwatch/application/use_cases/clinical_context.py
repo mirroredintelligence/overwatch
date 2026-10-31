@@ -24,19 +24,19 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Any, Final
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import AuditEntry, AuditRecord
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.use_cases.audit_replay import age_words, figure_text, status_word
-from diucs.domain.codes import Role, Status
-from diucs.domain.errors import NotFound
-from diucs.domain.model.clinical import ClinicalRequestRecord
-from diucs.domain.model.people import work_contact_key
-from diucs.domain.model.tenant import ContactKind
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY
-from diucs.domain.rules.clinical_queue import return_if_idle
-from diucs.domain.rules.freshness import STALE_WARNING_AFTER
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import AuditEntry, AuditRecord
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.use_cases.audit_replay import age_words, figure_text, status_word
+from overwatch.domain.codes import Role, Status
+from overwatch.domain.errors import NotFound
+from overwatch.domain.model.clinical import ClinicalRequestRecord
+from overwatch.domain.model.people import work_contact_key
+from overwatch.domain.model.tenant import ContactKind
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY
+from overwatch.domain.rules.clinical_queue import return_if_idle
+from overwatch.domain.rules.freshness import STALE_WARNING_AFTER
 
 FILTER_OPTIONS: Final = "FilterOptions"
 CONTACT_USE_CASE: Final = "ReadAdvisorContact"

@@ -12,18 +12,18 @@ import pytest
 from neo4j.exceptions import ConstraintError
 from neo4j.time import DateTime
 
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.tenant_registry import (
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.tenant_registry import (
     Neo4jTenantRegistry,
     number_from_row,
     number_properties,
     tenant_write_properties,
 )
-from diucs.application.ports.outbound.tenant_registry import TenantNumberRecord
-from diucs.application.ports.outbound.tenants import TenantRecordInvalid, twilio_token_ref
-from diucs.domain.errors import Conflict, NotFound, ValidationFailed
-from diucs.domain.model.tenant import NumberStatus, SuspendMode, SuspendReason, TenantStatus
-from diucs.domain.rules.tenant_lifecycle import resume_tenant, suspend_tenant
+from overwatch.application.ports.outbound.tenant_registry import TenantNumberRecord
+from overwatch.application.ports.outbound.tenants import TenantRecordInvalid, twilio_token_ref
+from overwatch.domain.errors import Conflict, NotFound, ValidationFailed
+from overwatch.domain.model.tenant import NumberStatus, SuspendMode, SuspendReason, TenantStatus
+from overwatch.domain.rules.tenant_lifecycle import resume_tenant, suspend_tenant
 from tests.support.registry_connection import RecordingWriteConnection
 from tests.support.tenant_samples import SAMPLE_ID, T0, make_tenant
 

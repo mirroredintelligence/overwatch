@@ -10,14 +10,14 @@ them for, and never shows a credential, an id or a group in a repr, a message or
 
 import pytest
 
-from diucs.adapters.testing.fake_identity_verifier import FakeIdentityVerifier
-from diucs.application.ports.outbound.identity_verifier import (
+from overwatch.adapters.testing.fake_identity_verifier import FakeIdentityVerifier
+from overwatch.application.ports.outbound.identity_verifier import (
     IDENTITY_REJECTED_MESSAGE,
     Audience,
     IdentityRejected,
     VerifiedIdentity,
 )
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.errors import ValidationFailed
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -32,7 +32,7 @@ def identity(**changes: object) -> VerifiedIdentity:
         "directory_id": D1,
         "object_id": OID,
         "group_ids": frozenset({G1}),
-        "app_roles": frozenset({"DIUCS.Support"}),
+        "app_roles": frozenset({"Overwatch.Support"}),
     }
     fields.update(changes)
     return VerifiedIdentity(**fields)  # type: ignore[arg-type]
@@ -65,7 +65,7 @@ def test_an_identity_holds_what_it_was_given_in_lower_case() -> None:
         {"group_ids": [G1]},
         {"app_roles": frozenset({7})},
         {"app_roles": frozenset({""})},
-        {"app_roles": ["DIUCS.Support"]},
+        {"app_roles": ["Overwatch.Support"]},
         {"app_roles": frozenset({"x" * 129})},
     ],
 )
@@ -82,7 +82,7 @@ def test_an_identity_shows_none_of_its_values() -> None:
     made = identity()
 
     shown = repr(made) + str(made)
-    for text in (D1, OID, G1, "DIUCS.Support"):
+    for text in (D1, OID, G1, "Overwatch.Support"):
         assert text not in shown
 
 

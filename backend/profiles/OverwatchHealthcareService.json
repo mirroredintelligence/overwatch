@@ -1,8 +1,8 @@
 {
   "resourceType": "StructureDefinition",
-  "url": "https://diucs.example/StructureDefinition/DiucsHealthcareService",
-  "name": "DiucsHealthcareService",
-  "title": "DIUCS health care service",
+  "url": "https://overwatch.mirroredintelligence.com/StructureDefinition/OverwatchHealthcareService",
+  "name": "OverwatchHealthcareService",
+  "title": "Overwatch health care service",
   "status": "active",
   "description": "A service a capacity is reported for: its name, whether it is active, its category, and the organisation that provides it.",
   "fhirVersion": "4.3.0",

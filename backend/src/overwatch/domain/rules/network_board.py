@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Final
 
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     Measure,
@@ -27,14 +27,14 @@ from diucs.domain.codes import (
     ServiceCategory,
     Status,
 )
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.network import DirectorySource, GrantScope, ListingStatus
-from diucs.domain.model.service import AvailableTime, ServiceProfile
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
-from diucs.domain.rules.listing import ListingPresentation, listing_presentation
-from diucs.domain.rules.pressure import Pressure, all_limited_or_worse, system_pressure
-from diucs.domain.rules.projection import (
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.network import DirectorySource, GrantScope, ListingStatus
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
+from overwatch.domain.rules.listing import ListingPresentation, listing_presentation
+from overwatch.domain.rules.pressure import Pressure, all_limited_or_worse, system_pressure
+from overwatch.domain.rules.projection import (
     NAME_MAX,
     CapacityProjection,
     OpeningHourProjection,
@@ -42,7 +42,7 @@ from diucs.domain.rules.projection import (
     check_projection_id,
     check_projection_text,
 )
-from diucs.domain.rules.status import ServiceState, compute_status
+from overwatch.domain.rules.status import ServiceState, compute_status
 
 TYPE_MESSAGE: Final = "has the wrong type"
 AWARE_MESSAGE: Final = "must be a timezone-aware datetime"

@@ -5,9 +5,9 @@ import re
 
 import pytest
 
-from diucs.adapters.outbound.graph_store import support_repository  # noqa: F401  (registers)
-from diucs.adapters.outbound.graph_store.queries import REGISTRY
-from diucs.adapters.outbound.graph_store.scenario import validate_scenario
+from overwatch.adapters.outbound.graph_store import support_repository  # noqa: F401  (registers)
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY
+from overwatch.adapters.outbound.graph_store.scenario import validate_scenario
 
 SUPPORT_IDS = (
     "Q-SUPPORT-SESSION-ENSURE",

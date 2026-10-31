@@ -14,10 +14,10 @@ from fastapi import FastAPI
 from httpx import AsyncClient
 from neo4j import AsyncDriver
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.tenancy import bind_tenant
-from diucs.bootstrap.container import Container
-from diucs.domain.model.tenant import ContactKind, TenantContact
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.tenancy import bind_tenant
+from overwatch.bootstrap.container import Container
+from overwatch.domain.model.tenant import ContactKind, TenantContact
 from tests.integration.adapters.inbound.fhir_rest.reporter_rig import (
     CODE,
     MOBILE,

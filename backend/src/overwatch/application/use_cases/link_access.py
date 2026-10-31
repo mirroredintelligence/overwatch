@@ -42,28 +42,28 @@ from datetime import UTC, datetime, timedelta
 from typing import Final, Protocol
 from zoneinfo import ZoneInfo
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.cache import Cache
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.messaging import Communication
-from diucs.application.ports.outbound.outbox import OutboxMessage
-from diucs.application.ports.outbound.sealing import ContentSealer
-from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET, SecretStore
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.prompt_judgement import figure_is_out_of_date, number_after_prompt
-from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_tenant
-from diucs.application.use_cases.confirm_capacity import (
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.cache import Cache
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.messaging import Communication
+from overwatch.application.ports.outbound.outbox import OutboxMessage
+from overwatch.application.ports.outbound.sealing import ContentSealer
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET, SecretStore
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.prompt_judgement import figure_is_out_of_date, number_after_prompt
+from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_tenant
+from overwatch.application.use_cases.confirm_capacity import (
     ConfirmCapacityCommand,
     ConfirmCapacityResult,
 )
-from diucs.application.use_cases.pair_wall_screen import AttemptLimiter
-from diucs.application.use_cases.report_capacity import (
+from overwatch.application.use_cases.pair_wall_screen import AttemptLimiter
+from overwatch.application.use_cases.report_capacity import (
     ReportCapacityCommand,
     ReportCapacityResult,
 )
-from diucs.application.use_cases.send_prompts import (
+from overwatch.application.use_cases.send_prompts import (
     LINK_PLACEHOLDER,
     LINK_PURPOSE,
     MESSAGES_TOPIC,
@@ -73,8 +73,8 @@ from diucs.application.use_cases.send_prompts import (
     send_payload,
     split_unit_label,
 )
-from diucs.domain.codes import ReportSource, Role
-from diucs.domain.errors import (
+from overwatch.domain.codes import ReportSource, Role
+from overwatch.domain.errors import (
     ConfirmLimitReached,
     Conflict,
     DomainError,
@@ -84,16 +84,16 @@ from diucs.domain.errors import (
     NothingToConfirm,
     ValidationFailed,
 )
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED
-from diucs.domain.model.people import PractitionerRole
-from diucs.domain.model.service import ServiceProfile
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
-from diucs.domain.rules.confirmable_age import confirmable_age
-from diucs.domain.rules.london_time import LONDON
-from diucs.domain.rules.reply_parser import Confirm, Number
-from diucs.domain.rules.reply_policy import (
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.flags import SERVICE_FLAG_SUSPENDED
+from overwatch.domain.model.people import PractitionerRole
+from overwatch.domain.model.service import ServiceProfile
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
+from overwatch.domain.rules.confirmable_age import confirmable_age
+from overwatch.domain.rules.london_time import LONDON
+from overwatch.domain.rules.reply_parser import Confirm, Number
+from overwatch.domain.rules.reply_policy import (
     AskRecheck,
     Decision,
     NeedNumber,
@@ -103,8 +103,8 @@ from diucs.domain.rules.reply_policy import (
     RejectConfirmLimit,
     decide_capacity_reply,
 )
-from diucs.domain.rules.schedule import next_due, reply_by
-from diucs.domain.rules.tokens import LinkCheck, LinkTokenRecord, check_link, hash_token
+from overwatch.domain.rules.schedule import next_due, reply_by
+from overwatch.domain.rules.tokens import LinkCheck, LinkTokenRecord, check_link, hash_token
 
 LINK_CSRF_SECRET: Final = "link-csrf"
 """The name of the secret that keys the CSRF token."""
@@ -368,7 +368,7 @@ def _renew_key(scope: ScopeId, record: LinkTokenRecord) -> str:
 
 def _limit_key(kind: str, tenant: str, part: str) -> str:
     """The one place a rate-limit key is built, so the tenant is part of every key."""
-    return f"diucs:linkpage:{tenant}:{kind}:{part}"
+    return f"overwatch:linkpage:{tenant}:{kind}:{part}"
 
 
 def _gone() -> LinkGone:

@@ -18,29 +18,29 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from typing import Final
 
-from diucs.application.actor import Actor, timer_actor
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.cache import Cache
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.outbox import outbox_message_for
-from diucs.application.ports.outbound.sealing import ContentSealer
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.scheduling import cancel_work, schedule_work
-from diucs.application.sealed_send import queue_message
-from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound
-from diucs.application.use_cases.clinical_context import pinned_display
-from diucs.application.work import WorkKind
-from diucs.domain.codes import AdviceChoice, AgeBand, Channel, NeedCategory, Role, Urgency
-from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.events import ClinicalAdviceGiven
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.messages.templates import render
-from diucs.domain.model.case import Case
-from diucs.domain.model.clinical import ClinicalAdvice, ClinicalRequestRecord
-from diucs.domain.model.scores import News2
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY
-from diucs.domain.rules.clinical_queue import (
+from overwatch.application.actor import Actor, timer_actor
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.cache import Cache
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.outbox import outbox_message_for
+from overwatch.application.ports.outbound.sealing import ContentSealer
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.scheduling import cancel_work, schedule_work
+from overwatch.application.sealed_send import queue_message
+from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound
+from overwatch.application.use_cases.clinical_context import pinned_display
+from overwatch.application.work import WorkKind
+from overwatch.domain.codes import AdviceChoice, AgeBand, Channel, NeedCategory, Role, Urgency
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.events import ClinicalAdviceGiven
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.messages.templates import render
+from overwatch.domain.model.case import Case
+from overwatch.domain.model.clinical import ClinicalAdvice, ClinicalRequestRecord
+from overwatch.domain.model.scores import News2
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY
+from overwatch.domain.rules.clinical_queue import (
     TAKE_TIMEOUT,
     ClinicalRequest,
     Presence,
@@ -52,7 +52,7 @@ from diucs.domain.rules.clinical_queue import (
     take,
     validate_note,
 )
-from diucs.domain.rules.need_words import need_words
+from overwatch.domain.rules.need_words import need_words
 
 PRESENCE_TTL: Final = timedelta(seconds=120)
 PRESENCE_PREFIX: Final = "presence:clinical:"

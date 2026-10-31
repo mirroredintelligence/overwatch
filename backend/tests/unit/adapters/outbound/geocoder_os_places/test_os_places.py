@@ -12,9 +12,12 @@ from typing import Any
 import httpx
 import pytest
 
-from diucs.adapters.outbound.geocoder_os_places.os_places import OsPlacesGeocoder, parse_os_places
-from diucs.application.ports.outbound.geo import AddressCandidate, LatLon
-from diucs.application.ports.outbound.lookups import TransientLookupError
+from overwatch.adapters.outbound.geocoder_os_places.os_places import (
+    OsPlacesGeocoder,
+    parse_os_places,
+)
+from overwatch.application.ports.outbound.geo import AddressCandidate, LatLon
+from overwatch.application.ports.outbound.lookups import TransientLookupError
 
 KEY = "test-os-places-key-0123456789"
 SAMPLE: dict[str, Any] = {

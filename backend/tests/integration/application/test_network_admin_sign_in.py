@@ -22,41 +22,41 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
-from diucs.adapters.inbound.fhir_rest.routes_network_admin import NetworkAdminServices
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.tenant_config_repository import (
+from overwatch.adapters.inbound.fhir_rest.app import create_app
+from overwatch.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from overwatch.adapters.inbound.fhir_rest.routes_network_admin import NetworkAdminServices
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.tenant_config_repository import (
     Neo4jTenantConfigRepository,
 )
-from diucs.adapters.testing.fake_identity_verifier import FakeIdentityVerifier
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET
-from diucs.application.ports.outbound.identity_verifier import Audience, VerifiedIdentity
-from diucs.application.tenancy import bind_tenant
-from diucs.application.use_cases.exchange_token import (
+from overwatch.adapters.testing.fake_identity_verifier import FakeIdentityVerifier
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.tokens import TEST_BFF_SECRET
+from overwatch.application.ports.outbound.identity_verifier import Audience, VerifiedIdentity
+from overwatch.application.tenancy import bind_tenant
+from overwatch.application.use_cases.exchange_token import (
     ACCOUNT_REF_SECRET,
     SIGNING_SECRET,
     ExchangeRefused,
     ExchangeStaffCommand,
     ExchangeStaffToken,
 )
-from diucs.application.use_cases.network_admin import (
+from overwatch.application.use_cases.network_admin import (
     CreateNetworkCommand,
     MapNetworkAdminGroup,
     MapNetworkAdminGroupCommand,
     RegistryNetworkOwnership,
     owns_active_network,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotFound
-from diucs.domain.model.tenant_records import (
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotFound
+from overwatch.domain.model.tenant_records import (
     BindingStatus,
     EntraBinding,
     MappingStatus,
     RoleMapping,
 )
-from diucs.domain.rules.bff_token import decode_bff_token
+from overwatch.domain.rules.bff_token import decode_bff_token
 from tests.support.edge import EdgeContainer, active_tenants
 from tests.support.neo4j import read_tx, write_tx
 from tests.support.network_admin_fakes import active_tenant, person

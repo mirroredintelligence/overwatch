@@ -1,7 +1,7 @@
 """Random platform secrets for running the API and the workers on a development machine (B8).
 
     uv run python scripts/make_local_secrets.py <directory>
-    export DIUCS_SECRETS_DIR=<directory>
+    export OVERWATCH_SECRETS_DIR=<directory>
 
 Writes a file for every secret the API requires (`REQUIRED_SECRETS`, which holds what the workers
 read too), each 48 random bytes as base64 text (64 characters, like the pilot's vault values), into
@@ -18,8 +18,8 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Final
 
-from diucs.bootstrap.api_main import REQUIRED_SECRETS
-from diucs.bootstrap.secret_store import SecretConfigError
+from overwatch.bootstrap.api_main import REQUIRED_SECRETS
+from overwatch.bootstrap.secret_store import SecretConfigError
 
 SECRET_BYTES: Final = 48
 _OTHERS: Final = 0o077
@@ -72,5 +72,5 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(f"wrote {len(written)} secret files into {directory}: {', '.join(written) or 'none'}")
     if kept:
         print(f"kept {len(kept)} that were there: {', '.join(kept)}")
-    print(f"next: export DIUCS_SECRETS_DIR={directory}")
+    print(f"next: export OVERWATCH_SECRETS_DIR={directory}")
     return 0

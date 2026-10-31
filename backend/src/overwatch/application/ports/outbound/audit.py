@@ -20,13 +20,13 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any, Protocol
 
-from diucs.application.actor import Actor
-from diucs.application.tenancy import DEFAULT_TENANT_ID
-from diucs.domain.codes import Role
-from diucs.domain.errors import ValidationFailed
+from overwatch.application.actor import Actor
+from overwatch.application.tenancy import DEFAULT_TENANT_ID
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import ValidationFailed
 
 GENESIS_HASH = "0" * 64
-GENESIS_LABEL = "diucs-genesis|"
+GENESIS_LABEL = "overwatch-genesis|"
 TIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
 

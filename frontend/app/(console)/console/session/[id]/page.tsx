@@ -7,7 +7,7 @@ import { CONSOLE_ROLES, consoleCall, sessionIdOf } from '@/lib/console/backend';
 import { FhirError } from '@/lib/fhir/client';
 
 export const metadata: Metadata = {
-  title: 'DIUCS console: session timeline',
+  title: 'Overwatch console: session timeline',
 };
 
 export const dynamic = 'force-dynamic';

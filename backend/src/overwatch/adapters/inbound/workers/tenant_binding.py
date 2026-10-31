@@ -29,10 +29,10 @@ from collections.abc import Callable
 from contextlib import AbstractContextManager, nullcontext
 from typing import ClassVar, Final
 
-from diucs.adapters.inbound.workers.consumer import MessageConsumer, Outcome, PermanentError
-from diucs.adapters.inbound.workers.outbox_relay import ActiveTenants
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.tenancy import ScopeId, ScopeInvalid, bind_scope
+from overwatch.adapters.inbound.workers.consumer import MessageConsumer, Outcome, PermanentError
+from overwatch.adapters.inbound.workers.outbox_relay import ActiveTenants
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.tenancy import ScopeId, ScopeInvalid, bind_scope
 
 logger = logging.getLogger(__name__)
 

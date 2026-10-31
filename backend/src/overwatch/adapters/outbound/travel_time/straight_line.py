@@ -14,8 +14,8 @@ routed time. The answer is always a range, never a promise (ui-screens "MapWeb")
 import math
 from typing import Final
 
-from diucs.application.ports.outbound.geo import LatLon, TravelRange
-from diucs.domain.errors import ValidationFailed
+from overwatch.application.ports.outbound.geo import LatLon, TravelRange
+from overwatch.domain.errors import ValidationFailed
 
 EARTH_RADIUS_KM: Final = 6371.0088
 ROAD_DISTANCE_FACTOR: Final = 1.3  # [ASSUMED] road distance is 30% longer than the straight line

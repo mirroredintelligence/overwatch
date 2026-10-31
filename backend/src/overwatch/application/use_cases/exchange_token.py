@@ -33,32 +33,32 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Final, Protocol
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.identity_verifier import (
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.identity_verifier import (
     Audience,
     IdentityRejected,
     IdentityVerifier,
     VerifiedIdentity,
 )
-from diucs.application.ports.outbound.tenants import normalise_directory_id
-from diucs.application.ports.outbound.tokens import SecretStore
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import ScopeKind, TenantMismatch, TenantNotBound
-from diucs.application.tenant_resolution import EntryKind, EntryRefused
-from diucs.domain.codes import Role
-from diucs.domain.errors import DomainError, NotFound
-from diucs.domain.model.device import Device
-from diucs.domain.model.tenant import Tenant
-from diucs.domain.model.tenant_records import RoleMapping
-from diucs.domain.rules.bff_token import (
+from overwatch.application.ports.outbound.tenants import normalise_directory_id
+from overwatch.application.ports.outbound.tokens import SecretStore
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeKind, TenantMismatch, TenantNotBound
+from overwatch.application.tenant_resolution import EntryKind, EntryRefused
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import DomainError, NotFound
+from overwatch.domain.model.device import Device
+from overwatch.domain.model.tenant import Tenant
+from overwatch.domain.model.tenant_records import RoleMapping
+from overwatch.domain.rules.bff_token import (
     BffClaims,
     OperatorClaims,
     encode_bff_token,
     encode_operator_token,
 )
-from diucs.domain.rules.token_exchange import (
+from overwatch.domain.rules.token_exchange import (
     OPERATOR_TOKEN_LIFETIME,
     STAFF_TOKEN_LIFETIME,
     WALL_TOKEN_LIFETIME,

@@ -4,24 +4,24 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from diucs.application.actor import Actor
-from diucs.application.use_cases.resolve_report_flag import (
+from overwatch.application.actor import Actor
+from overwatch.application.use_cases.resolve_report_flag import (
     check_lead,
     check_resolution,
     describe_flag,
     resolved_status,
     sequence_of,
 )
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     Measure,
     ReportFlagReason,
     ReportSource,
     ReportType,
     Role,
 )
-from diucs.domain.errors import NotAllowed, ValidationFailed
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.flags import REPORT_FLAG_ACCEPTED, REPORT_FLAG_CHECKED, ReportFlag
+from overwatch.domain.errors import NotAllowed, ValidationFailed
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.flags import REPORT_FLAG_ACCEPTED, REPORT_FLAG_CHECKED, ReportFlag
 from tests.support.actors import ACTOR_TENANT
 
 

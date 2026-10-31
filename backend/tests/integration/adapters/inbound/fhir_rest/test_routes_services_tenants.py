@@ -27,19 +27,19 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from neo4j import AsyncDriver
 
-from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
-from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.bootstrap.container import Container, build_for_tests
-from diucs.domain.codes import Measure, ReportSource, ReportType, Role, ServiceCategory
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.service import ServiceProfile
+from overwatch.adapters.inbound.fhir_rest.app import create_app
+from overwatch.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from overwatch.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.adapters.testing.tokens import TEST_BFF_SECRET
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.bootstrap.container import Container, build_for_tests
+from overwatch.domain.codes import Measure, ReportSource, ReportType, Role, ServiceCategory
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.service import ServiceProfile
 from tests.integration.adapters.inbound.fhir_rest.test_routes_services import (
     LATEST_WEST,
     OBSERVATION,
@@ -109,7 +109,7 @@ async def both_tenants(
 
 def _b_lead() -> dict[str, str]:
     """Tenant B's lead: a token that names tenant B, which is what the REST edge binds (TEN-018)."""
-    return token_headers(os.environ["DIUCS_TEST_OTHER_TENANT"], Role.LEAD, (), "prac-lead-b")
+    return token_headers(os.environ["OVERWATCH_TEST_OTHER_TENANT"], Role.LEAD, (), "prac-lead-b")
 
 
 async def test_tenant_a_lists_only_its_own_services(
@@ -283,7 +283,7 @@ async def test_a_tenant_in_the_body_a_header_or_the_query_is_never_read(
         **report_body(4),
         "extension": [
             {
-                "url": "https://diucs.example/StructureDefinition/tenantId",
+                "url": "https://overwatch.mirroredintelligence.com/StructureDefinition/tenantId",
                 "valueString": other_tenant_id,
             }
         ],

@@ -7,10 +7,10 @@ says what to type: `A 40`. Without one the wording is the single-service wording
 
 import pytest
 
-from diucs.domain.codes import Channel
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.messages.templates import render
+from overwatch.domain.codes import Channel
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.messages.templates import render
 
 C7 = {"service": "UCR West", "value": 40, "low": 0, "high": 12}
 C6 = {"service": "UCR West", "confirm_limit": 2}

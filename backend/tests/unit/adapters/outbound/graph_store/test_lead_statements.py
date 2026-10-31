@@ -6,13 +6,13 @@ from datetime import UTC, datetime
 
 import pytest
 
-from diucs.adapters.outbound.graph_store.flag_repository import (
+from overwatch.adapters.outbound.graph_store.flag_repository import (
     service_flag_from_fhir,
     service_flag_to_fhir,
 )
-from diucs.adapters.outbound.graph_store.queries import REGISTRY
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.flags import ServiceFlag
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.flags import ServiceFlag
 
 AT = datetime(2026, 10, 30, 8, 12, tzinfo=UTC)
 

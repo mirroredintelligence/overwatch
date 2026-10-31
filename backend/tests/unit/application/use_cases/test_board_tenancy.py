@@ -12,27 +12,27 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.application.actor import wall_actor
-from diucs.application.ports.outbound.cache import BOARD_UPDATES_CHANNEL
-from diucs.application.tenancy import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.application.actor import wall_actor
+from overwatch.application.ports.outbound.cache import BOARD_UPDATES_CHANNEL
+from overwatch.application.tenancy import (
     ScopeId,
     TenantMismatch,
     TenantNotBound,
     bind_scope,
     bind_tenant,
 )
-from diucs.application.use_cases.board_projector import (
+from overwatch.application.use_cases.board_projector import (
     BOARD_CACHE_KEY,
     BoardAudience,
     BoardProjector,
 )
-from diucs.application.use_cases.board_projector import board_cache_key as cache_key
-from diucs.application.use_cases.query_board import Board, QueryBoard, QueryBoardQuery
-from diucs.domain.codes import Role
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.pressure import Pressure
+from overwatch.application.use_cases.board_projector import board_cache_key as cache_key
+from overwatch.application.use_cases.query_board import Board, QueryBoard, QueryBoardQuery
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.pressure import Pressure
 
 AT = datetime(2026, 10, 23, 13, 12, tzinfo=UTC)
 EMPTY = Board(entries=(), pressure=Pressure.NORMAL, all_limited_or_worse=False, generated_at=AT)
@@ -119,8 +119,8 @@ async def test_a_rebuild_with_no_tenant_bound_is_refused_and_publishes_nothing()
 
 
 async def test_the_anonymous_link_is_still_refused_in_its_own_tenant() -> None:
-    from diucs.application.actor import anonymous_actor
-    from diucs.domain.errors import NotAllowed
+    from overwatch.application.actor import anonymous_actor
+    from overwatch.domain.errors import NotAllowed
 
     projector, board, _ = _projector()
 

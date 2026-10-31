@@ -9,13 +9,13 @@ import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from diucs.adapters.outbound.entra_identity.verifier import (
+from overwatch.adapters.outbound.entra_identity.verifier import (
     AUTHORITY,
     COMMON_KEYS_URL,
     EntraConfig,
     EntraIdentityVerifier,
 )
-from diucs.application.ports.outbound.identity_verifier import (
+from overwatch.application.ports.outbound.identity_verifier import (
     Audience,
     IdentityRejected,
     VerifiedIdentity,

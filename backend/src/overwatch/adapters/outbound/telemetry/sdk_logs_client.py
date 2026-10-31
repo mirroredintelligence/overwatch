@@ -14,8 +14,8 @@ from typing import Any
 
 from azure.monitor.query import LogsQueryPartialResult
 
-from diucs.adapters.outbound.telemetry.azure_monitor_query import LogsTable
-from diucs.application.ports.outbound.telemetry_query import TelemetryUnavailable
+from overwatch.adapters.outbound.telemetry.azure_monitor_query import LogsTable
+from overwatch.application.ports.outbound.telemetry_query import TelemetryUnavailable
 
 
 class SdkLogsQueryClient:

@@ -22,13 +22,13 @@ from dataclasses import dataclass, replace
 from types import MappingProxyType
 from typing import Final
 
-from diucs.adapters.inbound.workers.consumer import MAX_REASON_LENGTH, Outcome, PermanentError
-from diucs.adapters.inbound.workers.outbox_relay import ActiveTenants
-from diucs.adapters.inbound.workers.tenant_binding import Observe, TenantBoundConsumer, untraced
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.work import DONE, SCHEDULED, ScheduledWork, WorkKind
-from diucs.domain.errors import NotFound, ValidationFailed
+from overwatch.adapters.inbound.workers.consumer import MAX_REASON_LENGTH, Outcome, PermanentError
+from overwatch.adapters.inbound.workers.outbox_relay import ActiveTenants
+from overwatch.adapters.inbound.workers.tenant_binding import Observe, TenantBoundConsumer, untraced
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.work import DONE, SCHEDULED, ScheduledWork, WorkKind
+from overwatch.domain.errors import NotFound, ValidationFailed
 
 logger = logging.getLogger(__name__)
 

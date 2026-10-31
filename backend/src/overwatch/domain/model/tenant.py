@@ -23,10 +23,10 @@ from types import MappingProxyType
 from typing import Final, cast
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.messages.privacy_guard import find_patient_data
-from diucs.domain.model.tenant_policy import SettingValue, TenantPolicy
-from diucs.domain.rules.tenant_settings import (
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.messages.privacy_guard import find_patient_data
+from overwatch.domain.model.tenant_policy import SettingValue, TenantPolicy
+from overwatch.domain.rules.tenant_settings import (
     check_tenant_text,
     policy_from_settings,
     validate_settings,

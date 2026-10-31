@@ -7,8 +7,8 @@ write one, whatever the payload holds.
 from datetime import UTC, datetime
 from typing import Any
 
-from diucs.adapters.outbound.audit_neo4j.outbox import Neo4jOutbox
-from diucs.application.ports.outbound.outbox import OutboxMessage
+from overwatch.adapters.outbound.audit_neo4j.outbox import Neo4jOutbox
+from overwatch.application.ports.outbound.outbox import OutboxMessage
 from tests.support.scoped import scoped_stub
 
 

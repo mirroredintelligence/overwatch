@@ -14,12 +14,12 @@ import pytest_asyncio
 from httpx import AsyncClient
 from neo4j import AsyncDriver
 
-from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.domain.codes import (
+from overwatch.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.adapters.testing.tokens import TEST_BFF_SECRET
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     CriteriaStatus,
@@ -30,9 +30,9 @@ from diucs.domain.codes import (
     Role,
     ServiceCategory,
 )
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.criteria import ServiceCriteria
-from diucs.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.criteria import ServiceCriteria
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.api import token_headers
 from tests.support.neo4j import count_nodes
 from tests.support.uow import ensure_audit_heads
@@ -54,7 +54,7 @@ CASE_BODY: dict[str, Any] = {
             "address": [{"postalCode": "DT4 8XX"}],
             "extension": [
                 {
-                    "url": "https://diucs.example/StructureDefinition/age-band",
+                    "url": "https://overwatch.mirroredintelligence.com/StructureDefinition/age-band",
                     "valueCode": "80+",
                 }
             ],
@@ -64,11 +64,11 @@ CASE_BODY: dict[str, Any] = {
         {
             "coding": [
                 {
-                    "system": "https://diucs.example/CodeSystem/need-category",
+                    "system": "https://overwatch.mirroredintelligence.com/CodeSystem/need-category",
                     "code": "fall-no-injury",
                 },
                 {
-                    "system": "https://diucs.example/CodeSystem/need-category",
+                    "system": "https://overwatch.mirroredintelligence.com/CodeSystem/need-category",
                     "code": "frailty",
                 },
             ]
@@ -76,7 +76,7 @@ CASE_BODY: dict[str, Any] = {
     ],
     "extension": [
         {
-            "url": "https://diucs.example/StructureDefinition/referrer-type",
+            "url": "https://overwatch.mirroredintelligence.com/StructureDefinition/referrer-type",
             "valueCode": "ambulance-crew",
         }
     ],

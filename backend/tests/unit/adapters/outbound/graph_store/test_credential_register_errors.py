@@ -8,9 +8,9 @@ from typing import Any
 import pytest
 from neo4j.exceptions import ConstraintError
 
-from diucs.adapters.outbound.graph_store import credential_store
-from diucs.adapters.outbound.graph_store.queries import NamedQuery
-from diucs.domain.errors import Conflict
+from overwatch.adapters.outbound.graph_store import credential_store
+from overwatch.adapters.outbound.graph_store.queries import NamedQuery
+from overwatch.domain.errors import Conflict
 
 AT = datetime(2026, 10, 25, 11, 0, tzinfo=UTC)
 

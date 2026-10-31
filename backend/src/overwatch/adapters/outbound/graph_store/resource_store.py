@@ -34,24 +34,24 @@ from typing import Any, Literal
 from neo4j.exceptions import ClientError
 from neo4j.time import Date, DateTime, Time
 
-from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
-from diucs.adapters.outbound.graph_store.extensions import TENANT_OWNED_NAMES
-from diucs.adapters.outbound.graph_store.mapper import (
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx, run_query
+from overwatch.adapters.outbound.graph_store.extensions import TENANT_OWNED_NAMES
+from overwatch.adapters.outbound.graph_store.mapper import (
     GraphFragment,
     NodeSpec,
     RelSpec,
     from_graph,
     to_graph,
 )
-from diucs.adapters.outbound.graph_store.migrations_tenant import REGISTRY_LABELS
-from diucs.adapters.outbound.graph_store.queries import (
+from overwatch.adapters.outbound.graph_store.migrations_tenant import REGISTRY_LABELS
+from overwatch.adapters.outbound.graph_store.queries import (
     GLOBAL_STATEMENT_LABELS,
     REGISTRY,
     QueryTemplate,
 )
-from diucs.adapters.outbound.graph_store.resource_scenarios import SCENARIOS
-from diucs.application.ports.outbound.clock import Clock
-from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
+from overwatch.adapters.outbound.graph_store.resource_scenarios import SCENARIOS
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
 
 # DEC-053 item 3: these types keep no ResourceVersion, so a cleared value is gone everywhere.
 NO_HISTORY_TYPES = frozenset({"Patient", "ServiceRequest"})

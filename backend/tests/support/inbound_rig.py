@@ -10,10 +10,10 @@ from datetime import UTC, datetime
 from types import SimpleNamespace, TracebackType
 from typing import Any, Self
 
-from diucs.application.ports.outbound.event_bus import BusMessage, to_wire
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.tenancy import ScopeId, current_scope_or_none
-from diucs.application.use_cases.handle_inbound_text import (
+from overwatch.application.ports.outbound.event_bus import BusMessage, to_wire
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeId, current_scope_or_none
+from overwatch.application.use_cases.handle_inbound_text import (
     HandleInboundTextCommand,
     HandleInboundTextResult,
 )

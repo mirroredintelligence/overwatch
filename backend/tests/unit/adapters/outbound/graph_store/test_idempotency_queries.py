@@ -11,13 +11,13 @@ from typing import Any, cast
 
 import pytest
 
-from diucs.adapters.outbound.audit_neo4j.outbox import Neo4jOutbox
-from diucs.adapters.outbound.graph_store.idempotency_store import Neo4jIdempotencyStore
-from diucs.adapters.outbound.graph_store.queries import REGISTRY
-from diucs.adapters.outbound.graph_store.scenario import validate_scenario
-from diucs.application.actor import Actor
-from diucs.application.tenancy import RawTransactionRefused
-from diucs.domain.codes import Role
+from overwatch.adapters.outbound.audit_neo4j.outbox import Neo4jOutbox
+from overwatch.adapters.outbound.graph_store.idempotency_store import Neo4jIdempotencyStore
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY
+from overwatch.adapters.outbound.graph_store.scenario import validate_scenario
+from overwatch.application.actor import Actor
+from overwatch.application.tenancy import RawTransactionRefused
+from overwatch.domain.codes import Role
 from tests.support.actors import ACTOR_TENANT
 from tests.support.scoped import scoped_stub
 
@@ -38,7 +38,7 @@ CONVERTED_BY_TEN_016: tuple[str, ...] = (
 _LABELLED_NODE = re.compile(r"\(\s*\w*\s*((?::\s*\w+)+)\s*(\{(?:[^{}]|\{[^{}]*\})*\})?\s*\)")
 _STAMP = "tenantId: $tenant"
 _AT = datetime(2026, 10, 25, 9, 0, tzinfo=UTC)
-# A command result the replay codec accepts (a dataclass of diucs.application).
+# A command result the replay codec accepts (a dataclass of overwatch.application).
 _RESULT = Actor(
     role=Role.REPORTER,
     practitioner_id=None,

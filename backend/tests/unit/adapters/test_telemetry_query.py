@@ -15,14 +15,14 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.outbound.telemetry.azure_monitor_query import (
+from overwatch.adapters.outbound.telemetry.azure_monitor_query import (
     AzureMonitorTelemetryQuery,
     LogsTable,
 )
-from diucs.adapters.outbound.telemetry.kql import SESSIONS_QUERY, SPANS_QUERY, TIMELINE_QUERY
-from diucs.adapters.outbound.telemetry.result_attributes import result_attributes
-from diucs.adapters.testing.fixture_telemetry import FixtureTelemetryQuery
-from diucs.application.ports.outbound.telemetry_query import (
+from overwatch.adapters.outbound.telemetry.kql import SESSIONS_QUERY, SPANS_QUERY, TIMELINE_QUERY
+from overwatch.adapters.outbound.telemetry.result_attributes import result_attributes
+from overwatch.adapters.testing.fixture_telemetry import FixtureTelemetryQuery
+from overwatch.application.ports.outbound.telemetry_query import (
     SessionFilters,
     SessionSummary,
     SpanRecord,
@@ -33,8 +33,8 @@ from diucs.application.ports.outbound.telemetry_query import (
     check_session_id,
     check_trace_id,
 )
-from diucs.application.tenancy import TenantNotBound, bind_tenant
-from diucs.domain.errors import ValidationFailed
+from overwatch.application.tenancy import TenantNotBound, bind_tenant
+from overwatch.domain.errors import ValidationFailed
 
 FIXTURE = Path(__file__).resolve().parents[2] / "fixtures" / "telemetry" / "s-7f3a.json"
 TRACE_ID = "7c1e9a2b5d4f48e0a3b6c9d2e1f0a8b7"

@@ -8,24 +8,24 @@ from collections.abc import Iterable, Sequence
 from datetime import datetime
 from typing import Any, Protocol
 
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     AgeBand,
     AlertKind,
     NeedCategory,
     PractitionerRoleCode,
     RegistrationStatus,
 )
-from diucs.domain.model.alerts import AlertRecord, AlertSubscription
-from diucs.domain.model.booking import Booking
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.case import Case
-from diucs.domain.model.clinical import ClinicalRequestRecord
-from diucs.domain.model.criteria import ServiceCriteria
-from diucs.domain.model.flags import ReportFlag, ServiceFlag
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.model.registration import Invitation, Registration, ScopeEntry
-from diucs.domain.model.service import ServiceProfile
-from diucs.domain.model.service_move import ServiceMove
+from overwatch.domain.model.alerts import AlertRecord, AlertSubscription
+from overwatch.domain.model.booking import Booking
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.case import Case
+from overwatch.domain.model.clinical import ClinicalRequestRecord
+from overwatch.domain.model.criteria import ServiceCriteria
+from overwatch.domain.model.flags import ReportFlag, ServiceFlag
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.model.registration import Invitation, Registration, ScopeEntry
+from overwatch.domain.model.service import ServiceProfile
+from overwatch.domain.model.service_move import ServiceMove
 
 
 class ServiceRepository(Protocol):

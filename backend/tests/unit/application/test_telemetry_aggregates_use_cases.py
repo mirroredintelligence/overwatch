@@ -5,8 +5,8 @@ from datetime import UTC, date, datetime
 
 import pytest
 
-from diucs.application.use_cases.telemetry_aggregates import BuildDailyAggregates, ReadInsights
-from diucs.domain.errors import ValidationFailed
+from overwatch.application.use_cases.telemetry_aggregates import BuildDailyAggregates, ReadInsights
+from overwatch.domain.errors import ValidationFailed
 
 
 async def test_a_build_refuses_a_datetime_where_a_calendar_day_is_meant() -> None:

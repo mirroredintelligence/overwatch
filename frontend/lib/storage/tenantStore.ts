@@ -12,7 +12,7 @@ import { namesTenantInput } from '@/lib/tenant/inputNames';
 // Sign-out and unpair delete everything here (lib/session/signOut.ts). Every use of `localStorage`
 // goes through this module (a scan test holds that, TEN-048).
 
-export const STORAGE_PREFIX = 'diucs:v1:';
+export const STORAGE_PREFIX = 'overwatch:v1:';
 
 const NAME = /^[a-z][a-z0-9]*([.-][a-z0-9]+)*$/;
 const MAX_NAME_LENGTH = 40;

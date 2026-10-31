@@ -30,12 +30,12 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Final
 
-from diucs.application.actor import Actor, require_actor_in_bound_tenant
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.tenant_registry import TenantNumberRecord, TenantRegistry
-from diucs.application.ports.outbound.tenants import (
+from overwatch.application.actor import Actor, require_actor_in_bound_tenant
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.tenant_registry import TenantNumberRecord, TenantRegistry
+from overwatch.application.ports.outbound.tenants import (
     TenantDirectory,
     normalise_account_sid,
     normalise_directory_id,
@@ -43,8 +43,8 @@ from diucs.application.ports.outbound.tenants import (
     normalise_host,
     twilio_token_ref,
 )
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.provisioning import (
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.provisioning import (
     OPERATOR_ROLE_MESSAGE,
     OPERATOR_UNNAMED_MESSAGE,
     TENANT_ADMIN_INVITE,
@@ -56,30 +56,30 @@ from diucs.application.provisioning import (
     same_creation,
     seed_recurring_work,
 )
-from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
-from diucs.application.use_cases.tenant_config import configuration_facts
-from diucs.domain.codes import Role
-from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.model.tenant import (
+from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
+from overwatch.application.use_cases.tenant_config import configuration_facts
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.model.tenant import (
     NumberStatus,
     OrganisationType,
     Tenant,
     TenantStatus,
     check_tenant_id,
 )
-from diucs.domain.model.tenant_records import (
+from overwatch.domain.model.tenant_records import (
     CHANNEL_PROVIDER,
     BindingStatus,
     ChannelKind,
     EntraBinding,
     TenantChannel,
 )
-from diucs.domain.rules.tenant_lifecycle import (
+from overwatch.domain.rules.tenant_lifecycle import (
     ActivationFacts,
     activate_tenant,
     activation_blockers,
 )
-from diucs.domain.rules.tenant_settings import is_named_ref
+from overwatch.domain.rules.tenant_settings import is_named_ref
 
 AUDIT_CREATE: Final = "C"
 AUDIT_UPDATE: Final = "U"

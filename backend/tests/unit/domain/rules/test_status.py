@@ -1,4 +1,4 @@
-"""Tests for diucs.domain.rules.status: the service status rule (D07).
+"""Tests for overwatch.domain.rules.status: the service status rule (D07).
 
 Rules: docs/spec/domain-rules.md 1.2 and 1.3 (first match wins), and the D07 prompt. Sample
 services are the ones in the spec's sample board. Friday 2026-10-23 is in British summer time
@@ -19,7 +19,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     Measure,
@@ -28,15 +28,21 @@ from diucs.domain.codes import (
     ServiceCategory,
     Status,
 )
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.service import AvailableTime, ServiceProfile
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
-from diucs.domain.rules.freshness import Freshness, assess_freshness
-from diucs.domain.rules.pressure import system_pressure
-from diucs.domain.rules.reply_parser import Number
-from diucs.domain.rules.reply_policy import PromptState, decide_capacity_reply
-from diucs.domain.rules.schedule import current_due, due_times_on, ladder_times, next_due, reply_by
-from diucs.domain.rules.status import ServiceState, compute_status
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
+from overwatch.domain.rules.freshness import Freshness, assess_freshness
+from overwatch.domain.rules.pressure import system_pressure
+from overwatch.domain.rules.reply_parser import Number
+from overwatch.domain.rules.reply_policy import PromptState, decide_capacity_reply
+from overwatch.domain.rules.schedule import (
+    current_due,
+    due_times_on,
+    ladder_times,
+    next_due,
+    reply_by,
+)
+from overwatch.domain.rules.status import ServiceState, compute_status
 from tests.support.policy_samples import policies, policy
 
 BST: Final = timezone(timedelta(hours=1))
@@ -512,7 +518,7 @@ NINE_POLICY_POSITION: Final = {
     "system_pressure": 1,
     "decide_capacity_reply": 3,
 }
-SOURCE_ROOT: Final = Path(__file__).resolve().parents[4] / "src" / "diucs"
+SOURCE_ROOT: Final = Path(__file__).resolve().parents[4] / "src" / "overwatch"
 
 # Callers that do not yet pass the tenant's policy, with the task that converts each one. Each
 # entry must still offend: a converted caller is removed, so the list can only shrink.

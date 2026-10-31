@@ -37,10 +37,10 @@ from enum import StrEnum
 from types import MappingProxyType
 from typing import Final
 
-from diucs.domain.errors import InvalidTransition, NotAllowed, ValidationFailed
-from diucs.domain.messages.privacy_guard import find_patient_data
-from diucs.domain.model.network import ACCOUNT_REF_PATTERN
-from diucs.domain.model.tenant import check_tenant_id
+from overwatch.domain.errors import InvalidTransition, NotAllowed, ValidationFailed
+from overwatch.domain.messages.privacy_guard import find_patient_data
+from overwatch.domain.model.network import ACCOUNT_REF_PATTERN
+from overwatch.domain.model.tenant import check_tenant_id
 
 PENDING_VALID_FOR: Final = timedelta(hours=24)  # [ASSUMED]
 """How long a request waits for the tenant's administrator before it lapses."""

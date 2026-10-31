@@ -14,19 +14,19 @@ from typing import Any
 
 import pytest
 
-from diucs.application.use_cases.missed_report_ladder import LadderStepResult
-from diucs.application.work import SCHEDULED, ScheduledWork, WorkKind
-from diucs.domain.codes import (
+from overwatch.application.use_cases.missed_report_ladder import LadderStepResult
+from overwatch.application.work import SCHEDULED, ScheduledWork, WorkKind
+from overwatch.domain.codes import (
     Channel,
     PractitionerRoleCode,
     RegistrationStatus,
     ReportFlagReason,
     Role,
 )
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.flags import ReportFlag
-from diucs.domain.model.people import PractitionerRole
-from diucs.domain.rules.identity_policy import PinState
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.flags import ReportFlag
+from overwatch.domain.model.people import PractitionerRole
+from overwatch.domain.rules.identity_policy import PinState
 from tests.support.w7b_rig import (
     DEVICE,
     INVITATION,
@@ -173,7 +173,7 @@ class _Ladder:
 async def test_a_reminder_runs_the_step_that_is_waiting_for_that_service(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from diucs.adapters.inbound.fhir_rest import routes_lead_views
+    from overwatch.adapters.inbound.fhir_rest import routes_lead_views
 
     ladder = _Ladder()
     monkeypatch.setattr(routes_lead_views, "build_ladder", lambda container: ladder)
@@ -194,7 +194,7 @@ async def test_a_reminder_runs_the_step_that_is_waiting_for_that_service(
 async def test_a_reminder_already_sent_an_unknown_service_and_no_key_are_refused(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from diucs.adapters.inbound.fhir_rest import routes_lead_views
+    from overwatch.adapters.inbound.fhir_rest import routes_lead_views
 
     ladder = _Ladder()
     monkeypatch.setattr(routes_lead_views, "build_ladder", lambda container: ladder)
@@ -420,7 +420,7 @@ async def test_an_invitation_says_how_far_the_set_up_has_got() -> None:
 async def test_a_pin_a_push_subscription_and_a_first_report_complete_the_steps() -> None:
     rig = _invited(RegistrationStatus.LIVE)
     rig.units.pins.held[(INVITEE, DEVICE)] = ("hash", PinState())
-    from diucs.application.ports.outbound.messaging import PushSubscription
+    from overwatch.application.ports.outbound.messaging import PushSubscription
 
     rig.units.push_subscriptions.held[DEVICE] = PushSubscription(
         device_id=DEVICE,
@@ -428,7 +428,7 @@ async def test_a_pin_a_push_subscription_and_a_first_report_complete_the_steps()
         subscription={"endpoint": "https://push.example/x", "keys": {"p256dh": "a", "auth": "b"}},
         saved_at=NOW,
     )
-    from diucs.domain.codes import Measure, ReportSource, ReportType
+    from overwatch.domain.codes import Measure, ReportSource, ReportType
 
     rig.units.capacity.reports[SERVICE] = CapacityReport(
         "obs-1",
@@ -635,7 +635,7 @@ async def test_a_test_prompt_for_an_unknown_service_or_one_with_no_reporter_is_r
 
 
 async def test_a_lead_records_what_a_service_said_by_phone_with_no_case() -> None:
-    from diucs.domain.codes import ReportSource
+    from overwatch.domain.codes import ReportSource
 
     rig = _world()
     async with client(rig) as http:

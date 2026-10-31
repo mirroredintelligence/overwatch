@@ -11,19 +11,25 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.inbound.fhir_rest.tenant_gate import TenantGate
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.tenancy import TenantMismatch
-from diucs.application.use_cases.tenant_offboarding import (
+from overwatch.adapters.inbound.fhir_rest.tenant_gate import TenantGate
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.tenancy import TenantMismatch
+from overwatch.application.use_cases.tenant_offboarding import (
     StartOffboardingCommand,
     StartTenantOffboarding,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import Conflict, InvalidTransition, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.model.tenant import SuspendMode, SuspendReason, TenantStatus
-from diucs.domain.rules.bff_token import BffClaims
-from diucs.domain.rules.edge_access import EdgeVerdict
-from diucs.domain.rules.tenant_lifecycle import OFFBOARDING_NOTICE
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import (
+    Conflict,
+    InvalidTransition,
+    NotAllowed,
+    NotFound,
+    ValidationFailed,
+)
+from overwatch.domain.model.tenant import SuspendMode, SuspendReason, TenantStatus
+from overwatch.domain.rules.bff_token import BffClaims
+from overwatch.domain.rules.edge_access import EdgeVerdict
+from overwatch.domain.rules.tenant_lifecycle import OFFBOARDING_NOTICE
 from tests.support.provisioning_fakes import (
     NOW,
     OTHER,

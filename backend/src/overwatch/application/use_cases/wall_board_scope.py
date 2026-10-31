@@ -27,15 +27,15 @@ Roles. The shift lead and the tenant administrator may list and set: the lead al
 from dataclasses import dataclass, replace
 from typing import Final
 
-from diucs.application.actor import Actor, tenant_scope_of_unit
-from diucs.application.network_access import NetworkAccess
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.domain.codes import Role
-from diucs.domain.errors import Conflict, DomainError, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.model.device import BoardScope, Device, DeviceStatus
-from diucs.domain.model.network import check_network_id
+from overwatch.application.actor import Actor, tenant_scope_of_unit
+from overwatch.application.network_access import NetworkAccess
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import Conflict, DomainError, NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.model.device import BoardScope, Device, DeviceStatus
+from overwatch.domain.model.network import check_network_id
 
 USE_CASE: Final = "SetScreenBoardScope"
 ACTION_SET: Final = "wall-screen-board-set"

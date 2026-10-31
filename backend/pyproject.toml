@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "diucs"
+name = "overwatch"
 version = "0.1.0"
-description = "DIUCS capacity back end"
+description = "Overwatch back end"
 requires-python = ">=3.14"
 dependencies = [
     "aiosmtplib>=5.1.3",

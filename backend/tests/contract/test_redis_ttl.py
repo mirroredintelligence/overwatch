@@ -10,9 +10,9 @@ from datetime import timedelta
 import pytest
 from redis.asyncio import Redis
 
-from diucs.adapters.outbound.cache_redis.redis_cache import RedisCache
-from diucs.application.tenancy import bind_tenant
-from diucs.bootstrap.settings import Settings
+from overwatch.adapters.outbound.cache_redis.redis_cache import RedisCache
+from overwatch.application.tenancy import bind_tenant
+from overwatch.bootstrap.settings import Settings
 from tests.support.redis import flush_tenant, run_tenant
 
 TTL = timedelta(seconds=10)
@@ -29,7 +29,7 @@ async def test_a_key_is_stored_with_the_ttl_it_was_given() -> None:
     try:
         with bind_tenant(tenant):
             await cache.set("svc-1:status", "accepting", TTL)
-        remaining_ms = await store.pttl(f"diucs:{tenant}:cache:svc-1:status")
+        remaining_ms = await store.pttl(f"overwatch:{tenant}:cache:svc-1:status")
         requested_ms = int(TTL.total_seconds() * 1000)
         assert requested_ms - TOLERANCE_MS <= remaining_ms <= requested_ms
     finally:

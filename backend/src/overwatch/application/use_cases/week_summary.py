@@ -18,15 +18,15 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from typing import Final, Protocol
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.domain.codes import BestFitNotUsedReason, Outcome, ReportSource, Role
-from diucs.domain.errors import NotAllowed, ValidationFailed
-from diucs.domain.model.case import Case
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
-from diucs.domain.rules.london_time import london_to_utc
-from diucs.domain.rules.schedule import reply_by
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.domain.codes import BestFitNotUsedReason, Outcome, ReportSource, Role
+from overwatch.domain.errors import NotAllowed, ValidationFailed
+from overwatch.domain.model.case import Case
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
+from overwatch.domain.rules.london_time import london_to_utc
+from overwatch.domain.rules.schedule import reply_by
 
 SMALL_GROUP: Final = 10
 """Counts, and bases of percentages and medians, below this are hidden (domain-rules 10)."""

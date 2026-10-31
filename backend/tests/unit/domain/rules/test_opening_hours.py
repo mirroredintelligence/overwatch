@@ -1,4 +1,5 @@
-"""Tests for diucs.domain.rules.opening_hours: is a service in hours, and when it next opens (D03).
+"""Tests for overwatch.domain.rules.opening_hours: is a service in hours, and when it next opens
+(D03).
 
 Rules from docs/spec/domain-rules.md 1.3 (rule 2) and the D03 prompt. Windows are London local.
 A window with start < end covers start <= t < end on each listed day. An end earlier than the
@@ -14,9 +15,9 @@ import pytest
 from hypothesis import assume, given
 from hypothesis import strategies as st
 
-from diucs.domain.model.service import AvailableTime
-from diucs.domain.rules.london_time import LONDON, london_to_utc, to_london
-from diucs.domain.rules.opening_hours import is_in_hours, next_opening
+from overwatch.domain.model.service import AvailableTime
+from overwatch.domain.rules.london_time import LONDON, london_to_utc, to_london
+from overwatch.domain.rules.opening_hours import is_in_hours, next_opening
 
 ALL_DAYS = frozenset(range(7))
 WEEKDAYS = frozenset({0, 1, 2, 3, 4})

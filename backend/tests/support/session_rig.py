@@ -5,8 +5,8 @@ record)."""
 
 from datetime import datetime
 
-from diucs.application.ports.outbound.identity import ReporterSession, SessionEpochChanged
-from diucs.domain.codes import Role
+from overwatch.application.ports.outbound.identity import ReporterSession, SessionEpochChanged
+from overwatch.domain.codes import Role
 
 
 class StubSessions:

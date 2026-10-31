@@ -9,7 +9,7 @@ import { BookingDecision } from '@/components/reporter/BookingDecision';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'DIUCS booking request',
+  title: 'Overwatch booking request',
   referrer: 'no-referrer',
   robots: { index: false, follow: false },
 };

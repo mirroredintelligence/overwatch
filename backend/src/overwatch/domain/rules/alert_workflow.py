@@ -9,8 +9,8 @@ a snooze applies to a new alert only and moves its escalation one hour later.
 from datetime import UTC, datetime, timedelta
 from typing import Final
 
-from diucs.domain.errors import InvalidTransition, NotAllowed
-from diucs.domain.rules.alerts import NOT_UPDATED_HOURS
+from overwatch.domain.errors import InvalidTransition, NotAllowed
+from overwatch.domain.rules.alerts import NOT_UPDATED_HOURS
 
 SNOOZE_BY: Final = timedelta(hours=1)
 _ACKNOWLEDGEABLE: Final = frozenset({"new", "escalated"})

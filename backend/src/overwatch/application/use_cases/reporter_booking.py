@@ -15,18 +15,18 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Final, Literal
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.reporter_app import held_services
-from diucs.application.use_cases.request_booking import need_text, urgency_wording
-from diucs.application.use_cases.respond_to_booking import (
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.reporter_app import held_services
+from overwatch.application.use_cases.request_booking import need_text, urgency_wording
+from overwatch.application.use_cases.respond_to_booking import (
     RespondToBooking,
     RespondToBookingCommand,
 )
-from diucs.domain.codes import BookingStatus, DeclineReason, ReportSource
-from diucs.domain.errors import InvalidTransition, NotFound
-from diucs.domain.model.tenant import ContactKind
+from overwatch.domain.codes import BookingStatus, DeclineReason, ReportSource
+from overwatch.domain.errors import InvalidTransition, NotFound
+from overwatch.domain.model.tenant import ContactKind
 
 REFERENCE_PATTERN: Final = re.compile(r"[0-9]{4}")
 NO_BOOKING: Final = "no booking with this reference"

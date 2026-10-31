@@ -10,9 +10,9 @@ from datetime import datetime
 from secrets import token_bytes
 from typing import Final, Protocol
 
-from diucs.application.ports.outbound.clock import Clock
-from diucs.domain.errors import Conflict, NotFound, ValidationFailed
-from diucs.domain.rules.tokens import LinkTokenRecord, hash_token, new_link_token
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.domain.errors import Conflict, NotFound, ValidationFailed
+from overwatch.domain.rules.tokens import LinkTokenRecord, hash_token, new_link_token
 
 LINK_TOKEN_SECRET: Final = "link-token"
 

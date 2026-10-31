@@ -10,10 +10,13 @@ from typing import cast
 
 from neo4j import AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.driver import run_query
-from diucs.adapters.outbound.graph_store.queries import NamedQuery, QueryRegistry, Scenario
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.adapters.outbound.graph_store.unit_of_work import DEFAULT_FACTORIES, RepositoryFactory
+from overwatch.adapters.outbound.graph_store.driver import run_query
+from overwatch.adapters.outbound.graph_store.queries import NamedQuery, QueryRegistry, Scenario
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.adapters.outbound.graph_store.unit_of_work import (
+    DEFAULT_FACTORIES,
+    RepositoryFactory,
+)
 
 # A unit of work hands its repositories a ScopedTx, which has no `run` (TEN-002): the statements of
 # this test-only repository are registered in a registry of its own and run through run_query. Since

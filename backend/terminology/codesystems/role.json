@@ -1,7 +1,7 @@
 {
   "resourceType": "CodeSystem",
   "id": "role",
-  "url": "https://diucs.example/CodeSystem/role",
+  "url": "https://overwatch.mirroredintelligence.com/CodeSystem/role",
   "name": "role",
   "status": "active",
   "content": "complete",

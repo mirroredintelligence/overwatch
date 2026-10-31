@@ -24,13 +24,13 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Final, Protocol
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.network import NetworkRegistry
-from diucs.application.ports.outbound.tenants import TenantDirectory
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotAllowed, NotFound
-from diucs.domain.model.device import BoardScope, Device, DeviceStatus
-from diucs.domain.model.network import (
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.network import NetworkRegistry
+from overwatch.application.ports.outbound.tenants import TenantDirectory
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotAllowed, NotFound
+from overwatch.domain.model.device import BoardScope, Device, DeviceStatus
+from overwatch.domain.model.network import (
     GrantScope,
     Listing,
     ListingStatus,
@@ -39,8 +39,8 @@ from diucs.domain.model.network import (
     NetworkMembership,
     NetworkStatus,
 )
-from diucs.domain.model.network_settings import NetworkSettings
-from diucs.domain.rules.listing import visible_scopes
+from overwatch.domain.model.network_settings import NetworkSettings
+from overwatch.domain.rules.listing import visible_scopes
 
 NETWORK_NOT_FOUND: Final = "the network was not found"
 ROLE_REFUSED: Final = "this role cannot see a network"

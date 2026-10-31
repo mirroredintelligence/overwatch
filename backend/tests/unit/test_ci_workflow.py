@@ -129,11 +129,11 @@ def test_the_harness_attaches_to_the_service_not_to_the_compose_port(jobs: dict[
     env = job["env"]
     published = [str(p) for p in job["services"]["neo4j"]["ports"]]
 
-    assert env["DIUCS_TEST_NEO4J_URI"] == "bolt://localhost:7690"
+    assert env["OVERWATCH_TEST_NEO4J_URI"] == "bolt://localhost:7690"
     assert "7690:7687" in published
-    assert env["DIUCS_TEST_NEO4J_USER"] == "neo4j"
+    assert env["OVERWATCH_TEST_NEO4J_USER"] == "neo4j"
     # The attach refuses localhost:7687 (the compose stack of the owner) unless told otherwise.
-    assert "7687" not in env["DIUCS_TEST_NEO4J_URI"]
+    assert "7687" not in env["OVERWATCH_TEST_NEO4J_URI"]
 
 
 def test_the_service_password_is_made_per_run_and_is_the_one_the_harness_uses(
@@ -141,7 +141,7 @@ def test_the_service_password_is_made_per_run_and_is_the_one_the_harness_uses(
 ) -> None:
     job = jobs["backend"]
     service_auth = job["services"]["neo4j"]["env"]["NEO4J_AUTH"]
-    harness_password = job["env"]["DIUCS_TEST_NEO4J_PASSWORD"]
+    harness_password = job["env"]["OVERWATCH_TEST_NEO4J_PASSWORD"]
 
     assert service_auth == f"neo4j/{harness_password}"
     assert "github.run_id" in harness_password

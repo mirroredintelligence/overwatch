@@ -9,11 +9,11 @@ import re
 
 import pytest
 
-import diucs.adapters.outbound.graph_store.insight_repository  # noqa: F401  (registers them)
-from diucs.adapters.outbound.graph_store.migrations import MIGRATIONS
-from diucs.adapters.outbound.graph_store.migrations_insight import INSIGHT_MIGRATIONS
-from diucs.adapters.outbound.graph_store.queries import REGISTRY
-from diucs.adapters.outbound.graph_store.scenario import validate_scenario
+import overwatch.adapters.outbound.graph_store.insight_repository  # noqa: F401  (registers them)
+from overwatch.adapters.outbound.graph_store.migrations import MIGRATIONS
+from overwatch.adapters.outbound.graph_store.migrations_insight import INSIGHT_MIGRATIONS
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY
+from overwatch.adapters.outbound.graph_store.scenario import validate_scenario
 
 WRITE_IDS = [
     "Q-INSIGHT-SEEN",

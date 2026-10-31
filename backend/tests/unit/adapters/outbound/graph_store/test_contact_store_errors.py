@@ -10,9 +10,9 @@ from typing import Any
 import pytest
 from neo4j.exceptions import ConstraintError
 
-from diucs.adapters.outbound.graph_store import contact_store
-from diucs.adapters.outbound.graph_store.queries import NamedQuery
-from diucs.domain.errors import Conflict
+from overwatch.adapters.outbound.graph_store import contact_store
+from overwatch.adapters.outbound.graph_store.queries import NamedQuery
+from overwatch.domain.errors import Conflict
 
 
 async def test_a_constraint_error_on_put_is_a_conflict(monkeypatch: pytest.MonkeyPatch) -> None:

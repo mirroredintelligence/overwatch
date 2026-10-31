@@ -19,9 +19,13 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Protocol
 
-from diucs.domain.events import ProjectionApplied, ProjectionRejected, ProjectionRequested
-from diucs.domain.model.network import GrantScope
-from diucs.domain.rules.projection import CapacityProjection, CriteriaProjection, ServiceProjection
+from overwatch.domain.events import ProjectionApplied, ProjectionRejected, ProjectionRequested
+from overwatch.domain.model.network import GrantScope
+from overwatch.domain.rules.projection import (
+    CapacityProjection,
+    CriteriaProjection,
+    ServiceProjection,
+)
 
 
 class ProjectionRecordInvalid(RuntimeError):

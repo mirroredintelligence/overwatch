@@ -13,17 +13,17 @@ from neo4j import AsyncDriver, AsyncManagedTransaction
 from neo4j.exceptions import ConstraintError
 from neo4j.time import DateTime
 
-from diucs.adapters.outbound.graph_store.idempotency_store import (
+from overwatch.adapters.outbound.graph_store.idempotency_store import (
     DriverIdempotencyStore,
     Neo4jIdempotencyStore,
     Neo4jProcessedMessages,
 )
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import current_tenant
-from diucs.domain.codes import Role
-from diucs.domain.errors import Conflict
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import current_tenant
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import Conflict
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
 from tests.support.scoped import scoped

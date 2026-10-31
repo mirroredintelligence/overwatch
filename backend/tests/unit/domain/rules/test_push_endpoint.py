@@ -7,8 +7,8 @@ no credentials, a real DNS name, the default port.
 
 import pytest
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.push_endpoint import MAX_ENDPOINT_LENGTH, check_push_endpoint
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.push_endpoint import MAX_ENDPOINT_LENGTH, check_push_endpoint
 
 GOOD = [
     "https://fcm.googleapis.com/fcm/send/sample-token",

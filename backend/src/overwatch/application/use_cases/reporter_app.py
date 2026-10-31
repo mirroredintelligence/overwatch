@@ -23,29 +23,29 @@ from dataclasses import dataclass, field, replace
 from datetime import date, datetime
 from typing import Final, Literal
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.identity import PhoneHasher, normalise_uk_mobile
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.prompt_judgement import number_after_prompt
-from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound
-from diucs.application.tenant_settings import TenantZones, as_zones, read_settings
-from diucs.application.use_cases.confirm_capacity import (
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.identity import PhoneHasher, normalise_uk_mobile
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.prompt_judgement import number_after_prompt
+from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound
+from overwatch.application.tenant_settings import TenantZones, as_zones, read_settings
+from overwatch.application.use_cases.confirm_capacity import (
     ConfirmCapacity,
     ConfirmCapacityCommand,
 )
-from diucs.application.use_cases.link_access import (
+from overwatch.application.use_cases.link_access import (
     LinkGone,
     LinkOutOfRange,
     SendTheNumber,
     iso_utc,
     judge,
 )
-from diucs.application.use_cases.report_capacity import ReportCapacity, ReportCapacityCommand
-from diucs.domain.codes import Channel, ReportSource, ReportType, Role
-from diucs.domain.errors import (
+from overwatch.application.use_cases.report_capacity import ReportCapacity, ReportCapacityCommand
+from overwatch.domain.codes import Channel, ReportSource, ReportType, Role
+from overwatch.domain.errors import (
     ConfirmLimitReached,
     LatestReportChanged,
     NotAllowed,
@@ -53,26 +53,26 @@ from diucs.domain.errors import (
     NothingToConfirm,
     ValidationFailed,
 )
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED
-from diucs.domain.model.people import (
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.flags import SERVICE_FLAG_SUSPENDED
+from overwatch.domain.model.people import (
     COVER_CONTACT_PREFIX,
     REPORTER_ROLE_CODES,
     Practitioner,
     PractitionerRole,
     is_in_effect,
 )
-from diucs.domain.model.service import ServiceProfile
-from diucs.domain.model.tenant_policy import TenantPolicy
-from diucs.domain.rules.multi_service import letters_for
-from diucs.domain.rules.reply_parser import Confirm, Number
-from diucs.domain.rules.reply_policy import (
+from overwatch.domain.model.service import ServiceProfile
+from overwatch.domain.model.tenant_policy import TenantPolicy
+from overwatch.domain.rules.multi_service import letters_for
+from overwatch.domain.rules.reply_parser import Confirm, Number
+from overwatch.domain.rules.reply_policy import (
     PromptState,
     RecordConfirm,
     RecordNumber,
     decide_capacity_reply,
 )
-from diucs.domain.rules.reporter_app import (
+from overwatch.domain.rules.reporter_app import (
     MASKED_NOTHING,
     RowState,
     assess_row,

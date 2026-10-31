@@ -8,11 +8,11 @@ import { E2E_SESSION_SECRET } from './env';
 // no tenant. It does not import that module: Playwright cannot load it (it imports `next/headers`). If the
 // sealed format changes, these tests fail at the first console page, which is the signal to change this too.
 
-const OPERATOR_COOKIE = 'diucs_operator';
+const OPERATOR_COOKIE = 'overwatch_operator';
 
 function key(): Uint8Array {
   const secret = new Uint8Array(Buffer.from(E2E_SESSION_SECRET, 'base64'));
-  return new Uint8Array(hkdfSync('sha256', secret, 'diucs-operator-session', 'operator-session-v1', 32));
+  return new Uint8Array(hkdfSync('sha256', secret, 'overwatch-operator-session', 'operator-session-v1', 32));
 }
 
 export async function signInOperator(context: BrowserContext, baseURL: string, role: 'platform-operator' | 'support', backendToken = 'e2e-operator-token') {

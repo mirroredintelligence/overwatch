@@ -17,13 +17,16 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.application.tenancy import bind_tenant
-from diucs.application.use_cases.listing_admission import DecideListingCommand, ListingDecision
-from diucs.application.use_cases.membership import LeaveNetworkCommand
-from diucs.application.use_cases.network_admin import CreateNetworkCommand, RecordAgreementCommand
-from diucs.domain.errors import Conflict, NotFound
-from diucs.domain.model.network import (
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.application.tenancy import bind_tenant
+from overwatch.application.use_cases.listing_admission import DecideListingCommand, ListingDecision
+from overwatch.application.use_cases.membership import LeaveNetworkCommand
+from overwatch.application.use_cases.network_admin import (
+    CreateNetworkCommand,
+    RecordAgreementCommand,
+)
+from overwatch.domain.errors import Conflict, NotFound
+from overwatch.domain.model.network import (
     GrantScope,
     ListingReason,
     ListingStatus,
@@ -119,7 +122,7 @@ async def test_a_member_joins_and_every_step_is_in_both_chains(rig: AdminRig) ->
 
 
 async def test_an_unaccepted_invitation_is_not_a_member_and_sees_no_network(rig: AdminRig) -> None:
-    from diucs.application.use_cases.membership import InviteMemberCommand
+    from overwatch.application.use_cases.membership import InviteMemberCommand
 
     await rig.make_network()
     member = rig.ids.members[1]

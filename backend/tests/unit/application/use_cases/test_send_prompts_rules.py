@@ -8,14 +8,14 @@ from typing import Any
 
 import pytest
 
-from diucs.application.use_cases.send_prompts import (
+from overwatch.application.use_cases.send_prompts import (
     RACED_MESSAGE,
     SKIP_OUT_OF_HOURS,
     _skip_reason,
     _too_old_to_confirm,
     store_prompt_result,
 )
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     Measure,
@@ -23,11 +23,11 @@ from diucs.domain.codes import (
     ReportType,
     ServiceCategory,
 )
-from diucs.domain.errors import Conflict
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.service import AvailableTime, ServiceProfile
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY
-from diucs.domain.rules.london_time import local_to_utc
+from overwatch.domain.errors import Conflict
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY
+from overwatch.domain.rules.london_time import local_to_utc
 
 DAY = date(2026, 10, 23)
 WINDOW = ("referrals", "in the next 2 hrs")

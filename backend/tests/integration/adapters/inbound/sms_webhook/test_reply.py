@@ -16,12 +16,12 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from neo4j import AsyncDriver
 
-from diucs.adapters.inbound.sms_webhook import routes
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.adapters.testing.memory_event_bus import ManualEventBus
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.bootstrap.container import Container
+from overwatch.adapters.inbound.sms_webhook import routes
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.adapters.testing.memory_event_bus import ManualEventBus
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.bootstrap.container import Container
 from tests.integration.adapters.inbound.sms_webhook.conftest import seed_practitioner
 from tests.support.sms import (
     FORM,
@@ -130,7 +130,7 @@ async def test_a_request_that_does_not_verify_is_refused_and_nothing_is_queued(
 async def test_the_signature_is_over_the_public_url_from_settings_not_the_url_the_app_saw(
     sms_client: AsyncClient, sms_bus: ManualEventBus, reporter: None
 ) -> None:
-    # The app is reached at http://internal:8000 and Twilio signed https://diucs.example/...
+    # The app is reached at http://internal:8000 and Twilio signed https://overwatch.mirroredintelligence.com/...
     response = await post_signed(
         sms_client, reply_params(sid=SID), signed_url=REPLY_URL, send_to=INTERNAL_REPLY_URL
     )

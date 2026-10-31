@@ -27,9 +27,9 @@ try:
 except ImportError:  # pragma: no cover - Windows
     fcntl = None  # type: ignore[assignment]
 
-DEFAULT_LOCK_PATH = "/tmp/diucs-neo4j-harness.lock"
-LOCK_ENV = "DIUCS_NEO4J_LOCK"
-LOCK_TIMEOUT_ENV = "DIUCS_NEO4J_LOCK_TIMEOUT"
+DEFAULT_LOCK_PATH = "/tmp/overwatch-neo4j-harness.lock"
+LOCK_ENV = "OVERWATCH_NEO4J_LOCK"
+LOCK_TIMEOUT_ENV = "OVERWATCH_NEO4J_LOCK_TIMEOUT"
 # A full serial run is about 15 minutes; four agents queued is an hour.
 DEFAULT_LOCK_TIMEOUT_S = 3600.0
 POLL_INTERVAL_S = 0.5

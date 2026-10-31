@@ -9,9 +9,9 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from diucs.domain.codes import BookingStatus, DeclineReason
-from diucs.domain.model.booking import Booking
-from diucs.domain.rules.booking_reply_text import (
+from overwatch.domain.codes import BookingStatus, DeclineReason
+from overwatch.domain.model.booking import Booking
+from overwatch.domain.rules.booking_reply_text import (
     DECLINE_REASON_WINDOW,
     AskReference,
     BookingTextPlan,
@@ -21,8 +21,8 @@ from diucs.domain.rules.booking_reply_text import (
     SetReason,
     plan_booking_text,
 )
-from diucs.domain.rules.booking_rules import OpenBookingRef
-from diucs.domain.rules.reply_parser import (
+from overwatch.domain.rules.booking_rules import OpenBookingRef
+from overwatch.domain.rules.reply_parser import (
     BookingConfirm,
     BookingDecline,
     Confirm,

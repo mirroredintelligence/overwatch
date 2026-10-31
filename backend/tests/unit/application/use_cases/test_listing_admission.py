@@ -13,9 +13,9 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.tenancy import bind_tenant
-from diucs.application.use_cases.listing_admission import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.tenancy import bind_tenant
+from overwatch.application.use_cases.listing_admission import (
     DecideListing,
     DecideListingCommand,
     ListingDecision,
@@ -23,10 +23,16 @@ from diucs.application.use_cases.listing_admission import (
     RequestListing,
     RequestListingCommand,
 )
-from diucs.application.use_cases.network_admin import GovernanceRecorder
-from diucs.domain.codes import Role
-from diucs.domain.errors import Conflict, InvalidTransition, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.model.network import ListingReason, ListingStatus
+from overwatch.application.use_cases.network_admin import GovernanceRecorder
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import (
+    Conflict,
+    InvalidTransition,
+    NotAllowed,
+    NotFound,
+    ValidationFailed,
+)
+from overwatch.domain.model.network import ListingReason, ListingStatus
 from tests.support.network_admin_fakes import (
     Ids,
     MemoryDirectory,
@@ -290,7 +296,7 @@ async def test_a_listing_of_another_network_is_not_found(rig: _Rig) -> None:
 async def test_a_network_that_is_not_active_admits_nothing(rig: _Rig) -> None:
     from dataclasses import replace
 
-    from diucs.domain.model.network import NetworkStatus
+    from overwatch.domain.model.network import NetworkStatus
 
     lid = rig.pending()
     network, settings = rig.registry.networks[NETWORK_ID]
@@ -371,8 +377,8 @@ async def test_a_listing_id_never_looks_like_a_postcode_a_phone_or_an_nhs_number
     refuses an id the privacy guard reads as personal data: a random UUID can hold a postcode shape
     (`b59al`), which would make the whole board fail. The id of a listing is therefore made of
     letters only, whatever the generator gave."""
-    from diucs.domain.messages.privacy_guard import find_patient_data
-    from diucs.domain.rules.projection import check_projection_id
+    from overwatch.domain.messages.privacy_guard import find_patient_data
+    from overwatch.domain.rules.projection import check_projection_id
 
     awkward = ["b59al-0001", "07700900123", "9434765919", "dt48xx-12", "e12ab-77-d48xx"]
 

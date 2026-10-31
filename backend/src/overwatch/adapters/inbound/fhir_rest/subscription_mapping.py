@@ -24,14 +24,14 @@ kinds it leaves out are none (the body is the list of kinds that are on).
 from datetime import time
 from typing import Any, Final
 
-from diucs.adapters.inbound.fhir_rest.parameters import reference_id
-from diucs.application.actor import Actor
-from diucs.application.use_cases.subscribe_alert import NEVER_SAVED, SaveAlertPreferencesCommand
-from diucs.application.use_cases.week_summary import Measure, WeekSummary
-from diucs.domain.codes import AlertKind, code_system_url
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.alerts import AlertRecord, AlertSubscription
-from diucs.domain.rules.alerts import (
+from overwatch.adapters.inbound.fhir_rest.parameters import reference_id
+from overwatch.application.actor import Actor
+from overwatch.application.use_cases.subscribe_alert import NEVER_SAVED, SaveAlertPreferencesCommand
+from overwatch.application.use_cases.week_summary import Measure, WeekSummary
+from overwatch.domain.codes import AlertKind, code_system_url
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.alerts import AlertRecord, AlertSubscription
+from overwatch.domain.rules.alerts import (
     ACK_MINUTES,
     NOT_UPDATED_HOURS,
     QUIET_END,

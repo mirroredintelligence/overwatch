@@ -19,23 +19,23 @@ from typing import Any
 import httpx
 import pytest
 
-from diucs.adapters.inbound.fhir_rest import routes_identity
-from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.adapters.testing.memory_code_store import InMemoryCodeStore
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
-from diucs.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
-from diucs.application.tenancy import ScopeId
-from diucs.application.use_cases.pin import PIN_HMAC_SECRET, pin_hash
-from diucs.application.use_cases.text_code import CODE_HMAC_SECRET, code_hash
-from diucs.domain.codes import PractitionerRoleCode, Role
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.model.tenant import TenantStatus
-from diucs.domain.rules.identity_policy import CodeState, PinState
+from overwatch.adapters.inbound.fhir_rest import routes_identity
+from overwatch.adapters.inbound.fhir_rest.app import create_app
+from overwatch.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.adapters.testing.memory_code_store import InMemoryCodeStore
+from overwatch.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
+from overwatch.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
+from overwatch.application.tenancy import ScopeId
+from overwatch.application.use_cases.pin import PIN_HMAC_SECRET, pin_hash
+from overwatch.application.use_cases.text_code import CODE_HMAC_SECRET, code_hash
+from overwatch.domain.codes import PractitionerRoleCode, Role
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.model.tenant import TenantStatus
+from overwatch.domain.rules.identity_policy import CodeState, PinState
 from tests.support.registration_rig import StubLimiter, StubUnits
 from tests.support.session_rig import StubSessions
 from tests.support.tenant_samples import make_tenant

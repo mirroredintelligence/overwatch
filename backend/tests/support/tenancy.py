@@ -20,7 +20,7 @@ from collections.abc import Awaitable, Callable, Iterator, Mapping, MutableMappi
 from dataclasses import dataclass
 from typing import Any, Final
 
-from diucs.application.tenancy import (
+from overwatch.application.tenancy import (
     ScopeId,
     ScopeInvalid,
     ScopeKind,
@@ -48,7 +48,7 @@ MAX_PID: Final = 2**22
 MAX_STARTED: Final = 2**36 - 1
 # At most this many parallel workers (`-w` and three base-36 digits keep a scope id within 31).
 MAX_WORKERS: Final = 4096
-WORKERINPUT_KEY: Final = "diucs_run"
+WORKERINPUT_KEY: Final = "overwatch_run"
 _WORKER_ID: Final = re.compile(r"gw(0|[1-9][0-9]*)")
 
 
@@ -188,7 +188,7 @@ def identity_from_workerinput(received: Mapping[str, object]) -> RunIdentity:
         raise ValueError(f"workerinput does not hold a valid run identity: {error}") from error
 
 
-RUN_ENV: Final = "DIUCS_TEST_RUN"
+RUN_ENV: Final = "OVERWATCH_TEST_RUN"
 WORKER_ENV: Final = "PYTEST_XDIST_WORKER"
 _PROCESS_IDENTITY: RunIdentity | None = None
 
@@ -196,7 +196,7 @@ _PROCESS_IDENTITY: RunIdentity | None = None
 def derive_process_identity(environ: Mapping[str, str]) -> RunIdentity:
     """The identity of the process that holds `environ`. A pytest-xdist worker
     (`PYTEST_XDIST_WORKER` is `gw<n>`, set before any conftest is read) takes its controller's run
-    from `DIUCS_TEST_RUN` (inherited from the controller, which exported it when it started) and
+    from `OVERWATCH_TEST_RUN` (inherited from the controller, which exported it when it started) and
     its own number; any other process makes a new one. A worker with no run from its controller
     raises: it must not guess a tenant."""
     worker = environ.get(WORKER_ENV)
@@ -229,9 +229,9 @@ def export_identity(identity: RunIdentity, environ: MutableMapping[str, str]) ->
     """Write the three scope ids of `identity` to `environ` (child processes and the front end's
     end-to-end run read them). A process with no worker number also writes its run token, so the
     workers it starts, which inherit the environment, derive their identities from it."""
-    environ["DIUCS_TEST_TENANT"] = identity.tenant_id
-    environ["DIUCS_TEST_OTHER_TENANT"] = identity.other_tenant_id
-    environ["DIUCS_TEST_NETWORK"] = identity.network_id
+    environ["OVERWATCH_TEST_TENANT"] = identity.tenant_id
+    environ["OVERWATCH_TEST_OTHER_TENANT"] = identity.other_tenant_id
+    environ["OVERWATCH_TEST_NETWORK"] = identity.network_id
     if identity.worker is None:
         environ[RUN_ENV] = f"{identity.pid}.{identity.started}.{identity.nonce}"
 
@@ -253,7 +253,7 @@ def run_host(label: str) -> str:
     host is looked up across the whole directory, so two runs that register `alpha.example.org`
     for their own tenants on one Neo4j would make it ambiguous (TEN-035). Lower case, one DNS
     label of at most 63 characters before the domain."""
-    run_tenant = os.environ.get("DIUCS_TEST_TENANT", "")
+    run_tenant = os.environ.get("OVERWATCH_TEST_TENANT", "")
     if not run_tenant.startswith("tt-") or not re.fullmatch(r"[a-z0-9]{1,20}", label):
         raise ValueError("run_host needs the run's tenant in the environment and a short label")
     return f"{label}-{run_tenant.removeprefix('tt-')}.example.org"

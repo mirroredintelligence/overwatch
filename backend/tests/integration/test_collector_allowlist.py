@@ -26,21 +26,21 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import Status, StatusCode
 
-from diucs.adapters.outbound.telemetry.attributes import SERVICE_NAME
+from overwatch.adapters.outbound.telemetry.attributes import SERVICE_NAME
 
 pytestmark = [pytest.mark.integration, pytest.mark.infra, pytest.mark.exclusive]
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[3]
 INFRA: Final = REPO_ROOT / "infra"
 OUT_FILE: Final = INFRA / "otel-out" / "out.json"
-ENDPOINT: Final = os.environ.get("DIUCS_OTLP_TEST_ENDPOINT", "http://127.0.0.1:4318/v1/traces")
+ENDPOINT: Final = os.environ.get("OVERWATCH_OTLP_TEST_ENDPOINT", "http://127.0.0.1:4318/v1/traces")
 WAIT_SECONDS: Final = 30.0
 
 
 def _send_span(name: str, attributes: dict[str, str | int], *, error: bool = False) -> None:
     provider = TracerProvider(resource=Resource.create({"service.name": SERVICE_NAME}))
     provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=ENDPOINT)))
-    tracer = provider.get_tracer("diucs-collector-test")
+    tracer = provider.get_tracer("overwatch-collector-test")
     with tracer.start_as_current_span(name, attributes=attributes) as span:
         if error:
             span.set_status(Status(StatusCode.ERROR, "collector test"))

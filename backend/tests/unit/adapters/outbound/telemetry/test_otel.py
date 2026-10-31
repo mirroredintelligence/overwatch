@@ -7,18 +7,18 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from opentelemetry.trace import StatusCode
 
-from diucs.adapters.outbound.telemetry import otel
-from diucs.adapters.outbound.telemetry.otel import (
+from overwatch.adapters.outbound.telemetry import otel
+from overwatch.adapters.outbound.telemetry.otel import (
     OtelTracer,
     build_provider,
     configure_telemetry,
     neo4j_span,
     record_query,
 )
-from diucs.application import tracing
-from diucs.application.tracing import NoopTracer, annotate_usecase, set_tracer, traced_use_case
-from diucs.bootstrap.settings import Settings
-from diucs.domain.errors import Conflict
+from overwatch.application import tracing
+from overwatch.application.tracing import NoopTracer, annotate_usecase, set_tracer, traced_use_case
+from overwatch.bootstrap.settings import Settings
+from overwatch.domain.errors import Conflict
 
 
 @pytest.fixture
@@ -28,14 +28,14 @@ def exporter() -> InMemorySpanExporter:
 
 @pytest.fixture
 def provider(exporter: InMemorySpanExporter) -> Iterator[TracerProvider]:
-    built = build_provider(service_name="diucs-test", release="test-release", exporter=exporter)
+    built = build_provider(service_name="overwatch-test", release="test-release", exporter=exporter)
     yield built
     built.shutdown()
 
 
 @pytest.fixture
 def traced(provider: TracerProvider) -> Iterator[None]:
-    set_tracer(OtelTracer(provider.get_tracer("diucs-test")))
+    set_tracer(OtelTracer(provider.get_tracer("overwatch-test")))
     yield
     set_tracer(NoopTracer())
 
@@ -79,7 +79,7 @@ async def test_a_conflict_sets_the_outcome_to_its_class_and_the_span_status_to_e
 def test_attributes_outside_the_allow_list_never_reach_the_exporter(
     provider: TracerProvider, exporter: InMemorySpanExporter
 ) -> None:
-    tracer = provider.get_tracer("diucs-test")
+    tracer = provider.get_tracer("overwatch-test")
     with tracer.start_as_current_span(
         "usecase.CaseOpened",
         attributes={
@@ -109,7 +109,7 @@ def test_attributes_outside_the_allow_list_never_reach_the_exporter(
 def test_a_named_query_span_carries_the_query_id_and_mode_and_no_cypher(
     provider: TracerProvider, exporter: InMemorySpanExporter
 ) -> None:
-    with neo4j_span("Q-BOARD", "read", tracer=provider.get_tracer("diucs-test")):
+    with neo4j_span("Q-BOARD", "read", tracer=provider.get_tracer("overwatch-test")):
         pass
 
     provider.force_flush()
@@ -125,7 +125,7 @@ def test_a_named_query_span_carries_the_query_id_and_mode_and_no_cypher(
 def test_the_query_observer_records_rows_and_duration_on_a_finished_span(
     provider: TracerProvider, exporter: InMemorySpanExporter
 ) -> None:
-    record_query("Q-BOARD", "read", 7, 12.5, tracer=provider.get_tracer("diucs-test"))
+    record_query("Q-BOARD", "read", 7, 12.5, tracer=provider.get_tracer("overwatch-test"))
 
     provider.force_flush()
     [recorded] = exporter.get_finished_spans()
@@ -137,7 +137,7 @@ def test_the_query_observer_records_rows_and_duration_on_a_finished_span(
 def test_a_tenant_id_is_allow_listed_and_survives(
     provider: TracerProvider, exporter: InMemorySpanExporter
 ) -> None:
-    tracer = provider.get_tracer("diucs-test")
+    tracer = provider.get_tracer("overwatch-test")
     with tracer.start_as_current_span("usecase.ReportCapacity", attributes={"tenant.id": "T-A"}):
         pass
 

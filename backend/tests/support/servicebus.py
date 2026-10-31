@@ -21,19 +21,19 @@ from uuid import uuid4
 
 from azure.servicebus.aio import ServiceBusClient
 
-from diucs.application.tenancy import is_valid_tenant_id
-from diucs.bootstrap.settings import Settings
+from overwatch.application.tenancy import is_valid_tenant_id
+from overwatch.bootstrap.settings import Settings
 
 RUN_ID: str = uuid4().hex[:8]
 _LABEL = re.compile(r"[a-z0-9-]{1,20}")
 
 # The emulator's documented local development connection string (infra/README.md). It is a
-# public key for the local emulator only; a real namespace uses DIUCS_SERVICEBUS_CONNECTION.
+# public key for the local emulator only; a real namespace uses OVERWATCH_SERVICEBUS_CONNECTION.
 EMULATOR_CONNECTION = (
     "Endpoint=sb://localhost;SharedAccessKeyName=RootManageSharedAccessKey;"
     "SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true"
 )
-EMULATOR_LOCK_PATH = "/tmp/diucs-servicebus-emulator.lock"
+EMULATOR_LOCK_PATH = "/tmp/overwatch-servicebus-emulator.lock"
 # A contract run takes about six minutes; several queued runs are well inside this.
 EMULATOR_LOCK_TIMEOUT_S = 3600.0
 _POLL_INTERVAL_S = 0.25

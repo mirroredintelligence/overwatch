@@ -12,11 +12,11 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.outbound.graph_store.criteria_repository import Neo4jCriteriaRepository
-from diucs.adapters.outbound.graph_store.queries import REGISTRY
-from diucs.adapters.outbound.graph_store.scenario import validate_scenario
-from diucs.domain.codes import AgeBand, NeedCategory
-from diucs.domain.errors import ValidationFailed
+from overwatch.adapters.outbound.graph_store.criteria_repository import Neo4jCriteriaRepository
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY
+from overwatch.adapters.outbound.graph_store.scenario import validate_scenario
+from overwatch.domain.codes import AgeBand, NeedCategory
+from overwatch.domain.errors import ValidationFailed
 
 _TENANT_LABELS = ("HealthcareService", "ServiceCriteria", "ServiceFlag", "Concept")
 _LABELLED_NODE = re.compile(r"\((\w*):(\w+)([^()]*)\)")

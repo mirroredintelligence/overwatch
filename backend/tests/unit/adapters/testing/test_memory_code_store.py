@@ -5,10 +5,10 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.memory_code_store import InMemoryCodeStore, RecordingCodeSender
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.identity_policy import CodeState
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.memory_code_store import InMemoryCodeStore, RecordingCodeSender
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.identity_policy import CodeState
 
 ISSUED = datetime(2026, 10, 25, 11, 0, tzinfo=UTC)
 PHONE_HASH = "e" * 64

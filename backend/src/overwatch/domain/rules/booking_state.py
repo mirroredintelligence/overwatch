@@ -12,8 +12,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
 
-from diucs.domain.codes import BookingStatus
-from diucs.domain.errors import InvalidTransition, ValidationFailed
+from overwatch.domain.codes import BookingStatus
+from overwatch.domain.errors import InvalidTransition, ValidationFailed
 
 _R = BookingStatus.REQUESTED
 _C = BookingStatus.CONFIRMED

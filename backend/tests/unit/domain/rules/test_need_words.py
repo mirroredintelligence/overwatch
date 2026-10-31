@@ -5,9 +5,9 @@ booking pages and the case summary all take their words from this table (KI-650,
 
 import pytest
 
-from diucs.domain.codes import NeedCategory
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.need_words import NEED_WORDS, is_need_words, need_words
+from overwatch.domain.codes import NeedCategory
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.need_words import NEED_WORDS, is_need_words, need_words
 
 # DEC-062 item 2, word for word.
 DECIDED = {

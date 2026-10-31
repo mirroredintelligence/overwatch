@@ -8,17 +8,17 @@ from datetime import UTC, date, datetime, timedelta
 
 import pytest
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.insight import MeasureRow, PipelineRow, ReleaseRow
-from diucs.domain.model.telemetry_aggregates import (
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.insight import MeasureRow, PipelineRow, ReleaseRow
+from overwatch.domain.model.telemetry_aggregates import (
     ElementUsageDailyRow,
     FrictionDailyRow,
     FunnelDailyRow,
     QueryStatDailyRow,
     RouteDailyRow,
 )
-from diucs.domain.rules.browser_insight import BUCKET_COUNT, bucket_of
-from diucs.domain.rules.insight_views import (
+from overwatch.domain.rules.browser_insight import BUCKET_COUNT, bucket_of
+from overwatch.domain.rules.insight_views import (
     GATE_FRICTION_POINTS,
     GATE_SLOWER_FRACTION,
     SLOWEST_LIMIT,
@@ -648,8 +648,8 @@ def test_an_age_in_the_future_is_zero() -> None:
 
 
 def test_the_known_topics_hold_every_event_bus_topic_and_queue_and_the_code_topic() -> None:
-    from diucs.application.ports.outbound.event_bus import QUEUES, TOPICS
-    from diucs.domain.rules.insight_views import PIPELINE_TOPICS
+    from overwatch.application.ports.outbound.event_bus import QUEUES, TOPICS
+    from overwatch.domain.rules.insight_views import PIPELINE_TOPICS
 
     assert PIPELINE_TOPICS >= TOPICS | QUEUES
     assert "codes.dispatch" in PIPELINE_TOPICS

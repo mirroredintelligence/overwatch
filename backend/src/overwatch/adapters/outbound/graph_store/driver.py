@@ -17,13 +17,13 @@ from typing import Any
 
 from neo4j import AsyncDriver, AsyncGraphDatabase, AsyncManagedTransaction, AsyncTransaction
 
-from diucs.adapters.outbound.graph_store.queries import (
+from overwatch.adapters.outbound.graph_store.queries import (
     NETWORK_KINDS,
     REGISTRY,
     NamedQuery,
     QueryRegistry,
 )
-from diucs.application.tenancy import (
+from overwatch.application.tenancy import (
     GlobalStatementMisuse,
     PlatformStatementMisuse,
     QueryNotRegistered,

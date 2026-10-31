@@ -47,7 +47,7 @@ function post(csrf: string | null = CSRF) {
 
 beforeEach(async () => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
   cookiesMock.mockClear();
   upstream = null;
   answerWith(200, { resourceType: 'Task', id: ID, businessStatus: { coding: [{ system: 'x', code: 'submitted' }] } });

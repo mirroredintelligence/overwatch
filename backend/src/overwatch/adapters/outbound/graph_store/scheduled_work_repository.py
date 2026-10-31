@@ -16,9 +16,9 @@ different record under an existing id is refused with Conflict.
 from datetime import UTC, datetime
 from typing import Any, Final
 
-from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.adapters.outbound.graph_store.scenario import (
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx, run_query
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from overwatch.adapters.outbound.graph_store.scenario import (
     Expect,
     Marked,
     NodeSpec,
@@ -27,8 +27,8 @@ from diucs.adapters.outbound.graph_store.scenario import (
     SeedRel,
     TenantSeed,
 )
-from diucs.application.work import ScheduledWork, WorkKind
-from diucs.domain.errors import Conflict, NotFound
+from overwatch.application.work import ScheduledWork, WorkKind
+from overwatch.domain.errors import Conflict, NotFound
 
 _FIELDS = (
     "w.id AS id, w.kind AS kind, w.dueAt AS dueAt, "

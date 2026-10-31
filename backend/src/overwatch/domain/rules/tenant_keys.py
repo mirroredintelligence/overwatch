@@ -7,7 +7,8 @@ that opened one tenant's hashes would open all of them. So each tenant has its o
 purpose, derived from the platform secret with HKDF (RFC 5869, HMAC-SHA256), the tenant and the
 purpose being the context:
 
-    key = HKDF(ikm = platform secret, salt = "diucs/tenant-key/v1", info = purpose NUL tenant id)
+    key = HKDF(ikm = platform secret, salt = "overwatch/tenant-key/v1", info = purpose NUL tenant
+    id)
 
 The same number therefore hashes differently in each tenant, a key for one tenant never produces
 (or verifies) another tenant's hash, and the key of one purpose is not the key of another. The
@@ -26,8 +27,8 @@ import hashlib
 import hmac
 from typing import Final
 
-from diucs.domain.errors import DomainError, ValidationFailed
-from diucs.domain.model.tenant import check_tenant_id
+from overwatch.domain.errors import DomainError, ValidationFailed
+from overwatch.domain.model.tenant import check_tenant_id
 
 HASH_KEY_VERSION_LEGACY: Final = 0
 HASH_KEY_VERSION_DERIVED: Final = 1
@@ -49,7 +50,7 @@ PER_TENANT_KEY_NAMES: Final[frozenset[str]] = frozenset(
     }
 )
 
-_SALT: Final = b"diucs/tenant-key/v1"
+_SALT: Final = b"overwatch/tenant-key/v1"
 _HASH_BYTES: Final = hashlib.sha256().digest_size
 _MAX_LENGTH: Final = 255 * _HASH_BYTES
 KEY_VERSION_MESSAGE: Final = "a tenant record's hash key version does not match its key rule"

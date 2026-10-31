@@ -17,7 +17,7 @@ vi.mock('next/headers', async () => {
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', 'http://backend.test/fhir');
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', 'http://backend.test/fhir');
 });
 
 afterEach(() => {
@@ -41,7 +41,7 @@ describe('POST /api/bff/criteria/[serviceId]/submit', () => {
     const cookie = await owner();
     const request = requestWithCookies(
       `https://${TENANTS.A.host}/api/bff/criteria/s1/submit`,
-      { diucs_session: cookie },
+      { overwatch_session: cookie },
       { method: 'POST', body: JSON.stringify({ reason: 'Youngest age', reviewInMonths: 6 }), headers: { 'Content-Type': 'application/json' } },
     );
     const response = await POST(request, { params: Promise.resolve({ serviceId: 's1' }) });
@@ -55,7 +55,7 @@ describe('POST /api/bff/criteria/[serviceId]/submit', () => {
     const cookie = await owner();
     const request = requestWithCookies(
       `https://${TENANTS.A.host}/api/bff/criteria/s1/submit`,
-      { diucs_session: cookie, diucs_csrf: CSRF },
+      { overwatch_session: cookie, overwatch_csrf: CSRF },
       {
         method: 'POST',
         body: JSON.stringify({ reason: 'Youngest age', reviewInMonths: 4, accepts: [] }),

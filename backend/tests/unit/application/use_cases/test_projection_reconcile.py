@@ -14,12 +14,15 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.ports.outbound.projection import SourceState, SourceStatus
-from diucs.application.tenancy import bind_tenant
-from diucs.application.use_cases.network_leave import EndProjections
-from diucs.application.use_cases.projection_reconcile import ReconcileProjection, ReconcileResult
-from diucs.domain.model.network import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.ports.outbound.projection import SourceState, SourceStatus
+from overwatch.application.tenancy import bind_tenant
+from overwatch.application.use_cases.network_leave import EndProjections
+from overwatch.application.use_cases.projection_reconcile import (
+    ReconcileProjection,
+    ReconcileResult,
+)
+from overwatch.domain.model.network import (
     GrantScope,
     GrantStatus,
     MembershipEndReason,

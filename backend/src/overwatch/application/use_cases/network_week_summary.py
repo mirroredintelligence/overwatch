@@ -17,15 +17,15 @@ unknown network are the one refusal.
 from dataclasses import dataclass
 from datetime import date
 
-from diucs.application.actor import Actor
-from diucs.application.network_access import NetworkAccess
-from diucs.application.ports.outbound.unit_of_work import NetworkUnitOfWorkFactory
-from diucs.application.tenancy import bind_network
-from diucs.application.use_cases.query_network_board import NetworkReadUnitNotReadOnly
-from diucs.application.use_cases.week_summary import london_week
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotAllowed, ValidationFailed
-from diucs.domain.rules.network_sample import NetworkWeek, week_of_samples
+from overwatch.application.actor import Actor
+from overwatch.application.network_access import NetworkAccess
+from overwatch.application.ports.outbound.unit_of_work import NetworkUnitOfWorkFactory
+from overwatch.application.tenancy import bind_network
+from overwatch.application.use_cases.query_network_board import NetworkReadUnitNotReadOnly
+from overwatch.application.use_cases.week_summary import london_week
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotAllowed, ValidationFailed
+from overwatch.domain.rules.network_sample import NetworkWeek, week_of_samples
 
 READERS = frozenset({Role.EXEC, Role.LEAD})
 READERS_ONLY = "only the exec and the lead may read the network week summary"

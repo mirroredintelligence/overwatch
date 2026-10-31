@@ -11,9 +11,9 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from diucs.domain.codes import Channel, PractitionerRoleCode, ReferrerType
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.people import (
+from overwatch.domain.codes import Channel, PractitionerRoleCode, ReferrerType
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.people import (
     REPORTER_ROLE_CODES,
     Practitioner,
     PractitionerRole,

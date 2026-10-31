@@ -11,21 +11,21 @@ from typing import Any
 import pytest
 from pywebpush import WebPushException
 
-from diucs.adapters.outbound.push_webpush.web_push import (
+from overwatch.adapters.outbound.push_webpush.web_push import (
     GONE,
     PUSH_TTL_SECONDS,
     VAPID_PRIVATE_KEY_SECRET,
     WebPushSender,
     vapid_private_key,
 )
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.ports.outbound.messaging import SendFailedError, TransientSendError
-from diucs.domain.errors import NotFound
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.ports.outbound.messaging import SendFailedError, TransientSendError
+from overwatch.domain.errors import NotFound
 
 ENDPOINT = "https://push.example/sample-endpoint"
 SUBSCRIPTION = {"endpoint": ENDPOINT, "keys": {"auth": "sample-auth", "p256dh": "sample-p256dh"}}
 KEY = "sample-vapid-private-key"
-SUBJECT = "mailto:operations@diucs.example"
+SUBJECT = "mailto:operations@overwatch.example"
 RESPONSE_BODY = "provider says: SENSITIVE-PROVIDER-BODY"
 
 

@@ -5,13 +5,13 @@ from typing import Any, cast
 
 import pytest
 
-from diucs.adapters.inbound.workers.consumer import (
+from overwatch.adapters.inbound.workers.consumer import (
     TENANT_MISMATCH,
     IdempotentConsumer,
     PermanentError,
 )
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, node_props
 from tests.support.uow import tenant_uow_factory

@@ -11,16 +11,16 @@ from typing import Any
 
 import pytest
 
-import diucs.adapters.outbound.graph_store as graph_store_package
-from diucs.adapters.outbound.graph_store import protected_text_store
-from diucs.adapters.outbound.graph_store.protected_text_store import (
+import overwatch.adapters.outbound.graph_store as graph_store_package
+from overwatch.adapters.outbound.graph_store import protected_text_store
+from overwatch.adapters.outbound.graph_store.protected_text_store import (
     Neo4jProtectedTextStore,
     checked_text,
     new_handle,
 )
-from diucs.adapters.outbound.graph_store.queries import REGISTRY
-from diucs.adapters.outbound.graph_store.scenario import validate_scenario
-from diucs.domain.errors import ValidationFailed
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY
+from overwatch.adapters.outbound.graph_store.scenario import validate_scenario
+from overwatch.domain.errors import ValidationFailed
 
 PROTECTED_LABEL = re.compile(r":\s*`?Protected(?:Text)?`?\b")
 

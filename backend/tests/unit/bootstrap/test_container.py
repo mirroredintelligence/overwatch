@@ -9,37 +9,37 @@ import pytest_asyncio
 from neo4j import AsyncDriver, AsyncGraphDatabase
 from redis.asyncio import Redis
 
-from diucs.adapters.outbound.cache_redis.code_store import RedisCodeStore
-from diucs.adapters.outbound.cache_redis.sessions import RedisRateLimiter, RedisSessionStore
-from diucs.adapters.outbound.clock_system.system_clock import SystemClock
-from diucs.adapters.outbound.graph_store import connection as connection_module
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection, Neo4jPoolOptions
-from diucs.adapters.outbound.graph_store.invariants import Neo4jTenantInvariants
-from diucs.adapters.outbound.graph_store.tenant_directory import Neo4jTenantDirectory
-from diucs.adapters.outbound.ids_uuid.uuid_ids import UuidGenerator
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.ports.outbound.identity import TenantKeyedSecrets
-from diucs.application.ports.outbound.invariants import (
+from overwatch.adapters.outbound.cache_redis.code_store import RedisCodeStore
+from overwatch.adapters.outbound.cache_redis.sessions import RedisRateLimiter, RedisSessionStore
+from overwatch.adapters.outbound.clock_system.system_clock import SystemClock
+from overwatch.adapters.outbound.graph_store import connection as connection_module
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection, Neo4jPoolOptions
+from overwatch.adapters.outbound.graph_store.invariants import Neo4jTenantInvariants
+from overwatch.adapters.outbound.graph_store.tenant_directory import Neo4jTenantDirectory
+from overwatch.adapters.outbound.ids_uuid.uuid_ids import UuidGenerator
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.ports.outbound.identity import TenantKeyedSecrets
+from overwatch.application.ports.outbound.invariants import (
     InvariantReport,
     TenantInvariantViolated,
     UnstampedNodes,
 )
-from diucs.application.tenancy import (
+from overwatch.application.tenancy import (
     DEFAULT_TENANT_ID,
     bind_tenant,
     current_scope,
     current_scope_or_none,
 )
-from diucs.application.use_cases.tenant_invariants import InvariantMonitor
-from diucs.application.work import WorkKind
-from diucs.bootstrap import container as container_module
-from diucs.bootstrap.container import build, build_for_tests
-from diucs.bootstrap.settings import Settings
-from diucs.domain.errors import NotFound
-from diucs.domain.model.tenant import Tenant
-from diucs.domain.rules.tenant_keys import KeyVersionMismatch, derive_tenant_key
+from overwatch.application.use_cases.tenant_invariants import InvariantMonitor
+from overwatch.application.work import WorkKind
+from overwatch.bootstrap import container as container_module
+from overwatch.bootstrap.container import build, build_for_tests
+from overwatch.bootstrap.settings import Settings
+from overwatch.domain.errors import NotFound
+from overwatch.domain.model.tenant import Tenant
+from overwatch.domain.rules.tenant_keys import KeyVersionMismatch, derive_tenant_key
 from tests.support.tenant_samples import make_tenant
 
 TEST_NOW = datetime(2026, 10, 23, 13, 0, tzinfo=UTC)
@@ -102,10 +102,10 @@ async def test_build_wires_one_neo4j_connection_from_settings() -> None:
 async def test_build_passes_the_dec_012_pool_settings_to_the_connection(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("DIUCS_NEO4J_MAX_CONNECTION_LIFETIME_S", "600")
-    monkeypatch.setenv("DIUCS_NEO4J_LIVENESS_CHECK_TIMEOUT_S", "5")
-    monkeypatch.setenv("DIUCS_NEO4J_CONNECTION_ACQUISITION_TIMEOUT_S", "2")
-    monkeypatch.setenv("DIUCS_NEO4J_MAX_CONNECTION_POOL_SIZE", "7")
+    monkeypatch.setenv("OVERWATCH_NEO4J_MAX_CONNECTION_LIFETIME_S", "600")
+    monkeypatch.setenv("OVERWATCH_NEO4J_LIVENESS_CHECK_TIMEOUT_S", "5")
+    monkeypatch.setenv("OVERWATCH_NEO4J_CONNECTION_ACQUISITION_TIMEOUT_S", "2")
+    monkeypatch.setenv("OVERWATCH_NEO4J_MAX_CONNECTION_POOL_SIZE", "7")
     container = build(Settings())
     try:
         assert container.neo4j.pool_options == Neo4jPoolOptions(
@@ -438,8 +438,8 @@ async def test_build_wires_the_redis_identity_stores_from_settings() -> None:
 async def test_build_wires_the_local_postcode_locator_and_the_straight_line_travel_estimate(
     tmp_path: Any,
 ) -> None:
-    from diucs.adapters.outbound.postcodes_local.centroids import CsvPostcodeLocator
-    from diucs.adapters.outbound.travel_time.straight_line import StraightLineTravelTime
+    from overwatch.adapters.outbound.postcodes_local.centroids import CsvPostcodeLocator
+    from overwatch.adapters.outbound.travel_time.straight_line import StraightLineTravelTime
 
     fixture = tmp_path / "centroids.csv"
     fixture.write_text("postcode,latitude,longitude\nDT4 8XX,50.6151,-2.4612\n", encoding="utf-8")
@@ -499,7 +499,7 @@ async def test_build_wires_the_pilot_terminology_and_no_geocoder_without_a_key()
 async def test_build_wires_the_os_places_geocoder_and_closes_its_client_on_shutdown() -> None:
     from pydantic import SecretStr
 
-    from diucs.adapters.outbound.geocoder_os_places.os_places import OsPlacesGeocoder
+    from overwatch.adapters.outbound.geocoder_os_places.os_places import OsPlacesGeocoder
 
     container = build(Settings(os_places_api_key=SecretStr("test-key")))
     assert isinstance(container.geocoder, OsPlacesGeocoder)
@@ -521,7 +521,7 @@ class _EmptyLogsClient:
         self.workspaces: list[str] = []
 
     async def query_workspace(self, workspace_id: str, query: str, **kwargs: Any) -> Any:
-        from diucs.adapters.outbound.telemetry.azure_monitor_query import LogsTable
+        from overwatch.adapters.outbound.telemetry.azure_monitor_query import LogsTable
 
         self.workspaces.append(workspace_id)
         return LogsTable(columns=(), rows=())
@@ -530,8 +530,8 @@ class _EmptyLogsClient:
 async def test_build_for_tests_serves_the_sample_telemetry_from_the_fixture(
     neo4j: Neo4jConnection,
 ) -> None:
-    from diucs.application.ports.outbound.telemetry_query import SessionFilters
-    from diucs.application.tenancy import bind_tenant
+    from overwatch.application.ports.outbound.telemetry_query import SessionFilters
+    from overwatch.application.tenancy import bind_tenant
 
     container = build_for_tests(neo4j=neo4j)
     with bind_tenant("test-a"):
@@ -542,8 +542,8 @@ async def test_build_for_tests_serves_the_sample_telemetry_from_the_fixture(
 async def test_build_for_tests_passes_a_telemetry_query_that_is_given(
     neo4j: Neo4jConnection,
 ) -> None:
-    from diucs.adapters.outbound.telemetry.result_attributes import result_attributes
-    from diucs.adapters.testing.fixture_telemetry import FixtureTelemetryQuery
+    from overwatch.adapters.outbound.telemetry.result_attributes import result_attributes
+    from overwatch.adapters.testing.fixture_telemetry import FixtureTelemetryQuery
 
     other = FixtureTelemetryQuery(Path(container_module.TELEMETRY_FIXTURE), result_attributes)
     container = build_for_tests(neo4j=neo4j, telemetry=other)
@@ -551,11 +551,11 @@ async def test_build_for_tests_passes_a_telemetry_query_that_is_given(
 
 
 async def test_build_with_no_workspace_refuses_every_telemetry_read() -> None:
-    from diucs.application.ports.outbound.telemetry_query import (
+    from overwatch.application.ports.outbound.telemetry_query import (
         SessionFilters,
         TelemetryUnavailable,
     )
-    from diucs.application.tenancy import bind_tenant
+    from overwatch.application.tenancy import bind_tenant
 
     container = build(Settings())
     with bind_tenant("test-a"), pytest.raises(TelemetryUnavailable):
@@ -563,11 +563,11 @@ async def test_build_with_no_workspace_refuses_every_telemetry_read() -> None:
 
 
 async def test_build_with_a_workspace_but_no_client_still_refuses_every_read() -> None:
-    from diucs.application.ports.outbound.telemetry_query import (
+    from overwatch.application.ports.outbound.telemetry_query import (
         SessionFilters,
         TelemetryUnavailable,
     )
-    from diucs.application.tenancy import bind_tenant
+    from overwatch.application.tenancy import bind_tenant
 
     container = build(Settings(telemetry_workspace_id=WORKSPACE))
     with bind_tenant("test-a"), pytest.raises(TelemetryUnavailable):
@@ -575,9 +575,9 @@ async def test_build_with_a_workspace_but_no_client_still_refuses_every_read() -
 
 
 async def test_build_with_a_workspace_and_a_client_reads_from_that_workspace() -> None:
-    from diucs.adapters.outbound.telemetry.azure_monitor_query import AzureMonitorTelemetryQuery
-    from diucs.application.ports.outbound.telemetry_query import SessionFilters
-    from diucs.application.tenancy import bind_tenant
+    from overwatch.adapters.outbound.telemetry.azure_monitor_query import AzureMonitorTelemetryQuery
+    from overwatch.application.ports.outbound.telemetry_query import SessionFilters
+    from overwatch.application.tenancy import bind_tenant
 
     client = _EmptyLogsClient()
     container = build(Settings(telemetry_workspace_id=WORKSPACE), telemetry_client=client)

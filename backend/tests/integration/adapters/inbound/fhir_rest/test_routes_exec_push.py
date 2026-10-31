@@ -18,14 +18,14 @@ from fastapi import FastAPI
 from httpx import AsyncClient
 from neo4j import AsyncDriver
 
-from diucs.adapters.inbound.workers.message_senders import PushMessageSender
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.recording_senders import RecordingPushSender
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.tenancy import bind_tenant
-from diucs.bootstrap.container import Container
-from diucs.domain.codes import Role
-from diucs.domain.model.people import Practitioner
+from overwatch.adapters.inbound.workers.message_senders import PushMessageSender
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.recording_senders import RecordingPushSender
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.tenancy import bind_tenant
+from overwatch.bootstrap.container import Container
+from overwatch.domain.codes import Role
+from overwatch.domain.model.people import Practitioner
 from tests.integration.adapters.inbound.fhir_rest.reporter_rig import (
     NOW,
     OTHER_DEVICE,
@@ -207,7 +207,9 @@ async def test_the_queued_test_reaches_the_executives_phone_through_the_push_sen
                 m for m in await uow.outbox.pending(20) if m.payload.get("channel") == "push"
             ]
     sender = RecordingPushSender()
-    handler = PushMessageSender(sender, _Sealer(), "https://diucs.example/app", FixedClock(NOW))  # type: ignore[arg-type]
+    handler = PushMessageSender(
+        sender, _Sealer(), "https://overwatch.mirroredintelligence.com/app", FixedClock(NOW)
+    )  # type: ignore[arg-type]
 
     with bind_tenant(tenant_id):
         async with two_container.uow_factory() as uow:

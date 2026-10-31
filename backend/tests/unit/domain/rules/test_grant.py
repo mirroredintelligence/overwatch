@@ -13,14 +13,14 @@ from hypothesis import settings
 from hypothesis import strategies as st
 from hypothesis.stateful import RuleBasedStateMachine, invariant, rule
 
-from diucs.domain.errors import (
+from overwatch.domain.errors import (
     Conflict,
     DomainError,
     InvalidTransition,
     NotAllowed,
     ValidationFailed,
 )
-from diucs.domain.model.network import (
+from overwatch.domain.model.network import (
     Agreement,
     Approval,
     Grant,
@@ -36,7 +36,7 @@ from diucs.domain.model.network import (
     MembershipStatus,
     NetworkMembership,
 )
-from diucs.domain.rules.grant import (
+from overwatch.domain.rules.grant import (
     approve_grant,
     decline_grant,
     effective_grant,

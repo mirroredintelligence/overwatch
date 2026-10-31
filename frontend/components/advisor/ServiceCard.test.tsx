@@ -13,7 +13,7 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
 beforeEach(() => {
   resetBookingRequests();
-  document.cookie = 'diucs_csrf=csrf-value-for-the-card; path=/';
+  document.cookie = 'overwatch_csrf=csrf-value-for-the-card; path=/';
 });
 
 const [UCR_WEST, WARD_B, HAH] = OPTIONS_VIEW.options as unknown as OptionView[];

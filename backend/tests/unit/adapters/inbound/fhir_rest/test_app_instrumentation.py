@@ -8,10 +8,10 @@ from types import SimpleNamespace
 from fastapi.testclient import TestClient
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.outbound.telemetry.otel import build_provider, instrument_fastapi
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.bootstrap.container import TEST_NOW
+from overwatch.adapters.inbound.fhir_rest.app import create_app
+from overwatch.adapters.outbound.telemetry.otel import build_provider, instrument_fastapi
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.bootstrap.container import TEST_NOW
 
 
 def _container() -> SimpleNamespace:

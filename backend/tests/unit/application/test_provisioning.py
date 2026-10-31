@@ -10,8 +10,8 @@ from datetime import UTC, datetime
 
 import pytest
 
-from diucs.application.ports.outbound.tenant_registry import TenantNumberRecord
-from diucs.application.provisioning import (
+from overwatch.application.ports.outbound.tenant_registry import TenantNumberRecord
+from overwatch.application.provisioning import (
     MISSING_HOST,
     activation_facts,
     count_tested_numbers,
@@ -22,17 +22,17 @@ from diucs.application.provisioning import (
     same_creation,
     seed_recurring_work,
 )
-from diucs.application.tenancy import ScopeId, TenantNotBound, bind_scope
-from diucs.application.use_cases.tenant_config import ConfigurationFacts
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.tenant import (
+from overwatch.application.tenancy import ScopeId, TenantNotBound, bind_scope
+from overwatch.application.use_cases.tenant_config import ConfigurationFacts
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.tenant import (
     ContactKind,
     NumberStatus,
     OrganisationType,
     RetentionClass,
     TenantStatus,
 )
-from diucs.domain.rules.tenant_lifecycle import (
+from overwatch.domain.rules.tenant_lifecycle import (
     ActivationFacts,
     activation_blockers,
 )

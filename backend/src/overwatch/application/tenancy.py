@@ -202,7 +202,7 @@ class ScopeId:
 
 
 # Created and set only here (an architecture test checks it).
-_SCOPE: ContextVar[ScopeId | None] = ContextVar("diucs_tenancy_scope", default=None)
+_SCOPE: ContextVar[ScopeId | None] = ContextVar("overwatch_tenancy_scope", default=None)
 
 
 @contextlib.contextmanager
@@ -259,7 +259,7 @@ def current_network() -> str:
 
 # Created and set only here (an architecture test checks it). Holds the unit of work that is open in
 # this context, so a second one cannot open inside it (DEC-132 item 4: a unit binds one scope).
-_UNIT: ContextVar[object | None] = ContextVar("diucs_open_unit", default=None)
+_UNIT: ContextVar[object | None] = ContextVar("overwatch_open_unit", default=None)
 
 
 def claim_unit(owner: object) -> None:

@@ -23,14 +23,14 @@ async function post(role: Role, id: string, withCsrf = true) {
   if (withCsrf) headers['X-CSRF-Token'] = CSRF;
   const request = requestWithCookies(`https://app.test/api/bff/exec/alerts/${id}/acknowledge`, {
     [SESSION_COOKIE]: await sealSession(s),
-    diucs_csrf: CSRF,
+    overwatch_csrf: CSRF,
   }, { method: 'POST', headers });
   return POST(request, { params: Promise.resolve({ id }) });
 }
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', EXEC_BACKEND);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', EXEC_BACKEND);
   vi.stubEnv('NODE_ENV', 'production');
   resetExecBackend();
   server.use(...execBackendHandlers);

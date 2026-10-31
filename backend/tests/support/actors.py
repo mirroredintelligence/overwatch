@@ -8,4 +8,4 @@ With no harness (a plain import) it is the sample tenant.
 import os
 from typing import Final
 
-ACTOR_TENANT: Final = os.environ.get("DIUCS_TEST_TENANT") or "example-icb"
+ACTOR_TENANT: Final = os.environ.get("OVERWATCH_TEST_TENANT") or "example-icb"

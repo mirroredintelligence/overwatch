@@ -7,8 +7,8 @@ the field only; it never echoes the value, because the value may be a phone numb
 
 import pytest
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.people import Practitioner, check_phone_hash
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.people import Practitioner, check_phone_hash
 
 VALID_HASH = "ab" * 32
 

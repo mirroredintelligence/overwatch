@@ -17,7 +17,7 @@ vi.mock('next/headers', async () => {
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', 'http://backend.test/fhir');
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', 'http://backend.test/fhir');
 });
 
 afterEach(() => {
@@ -41,7 +41,7 @@ describe('POST /api/bff/criteria/[serviceId]/pending/decision', () => {
     const cookie = await lead();
     const request = requestWithCookies(
       `https://${TENANTS.A.host}/api/bff/criteria/s1/pending/decision`,
-      { diucs_session: cookie, diucs_csrf: CSRF },
+      { overwatch_session: cookie, overwatch_csrf: CSRF },
       {
         method: 'POST',
         body: JSON.stringify({ decision: 'maybe' }),

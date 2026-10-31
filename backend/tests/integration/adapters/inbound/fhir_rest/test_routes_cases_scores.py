@@ -16,10 +16,10 @@ from fastapi import FastAPI
 from httpx import AsyncClient
 from neo4j import AsyncDriver
 
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.domain.codes import AgeBand, NeedCategory, ReferrerType, Role, Urgency
-from diucs.domain.model.case import Case
-from diucs.domain.model.scores import News2
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.domain.codes import AgeBand, NeedCategory, ReferrerType, Role, Urgency
+from overwatch.domain.model.case import Case
+from overwatch.domain.model.scores import News2
 from tests.integration.adapters.inbound.fhir_rest.test_routes_cases import (
     CASE_BODY,
     fresh_cases,
@@ -42,7 +42,7 @@ __all__ = ["fresh_cases", "route_state", "seeded"]
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
-BASE = "https://diucs.example/StructureDefinition"
+BASE = "https://overwatch.mirroredintelligence.com/StructureDefinition"
 REASON = f"{BASE}/score-correction-reason"
 CORRECTIONS = f"{BASE}/score-corrections"
 B_CASE_ID = "case-of-tenant-b"

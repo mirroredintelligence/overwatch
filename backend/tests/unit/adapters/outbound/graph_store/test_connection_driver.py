@@ -3,7 +3,7 @@ clear refusal before it opens and after it closes. No server is contacted."""
 
 import pytest
 
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection, Neo4jConnectionError
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection, Neo4jConnectionError
 
 
 def test_the_driver_is_refused_before_the_connection_is_opened() -> None:

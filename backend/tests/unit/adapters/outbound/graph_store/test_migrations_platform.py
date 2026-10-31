@@ -3,10 +3,10 @@ schema statement per key, idempotent, and no key with a tenant (these nodes are 
 
 import re
 
-from diucs.adapters.outbound.graph_store.migrations import MIGRATIONS
-from diucs.adapters.outbound.graph_store.migrations_platform import PLATFORM_MIGRATIONS
-from diucs.adapters.outbound.graph_store.migrations_tenant import REGISTRY_LABELS
-from diucs.adapters.outbound.graph_store.queries import PLATFORM_RECORD_LABELS
+from overwatch.adapters.outbound.graph_store.migrations import MIGRATIONS
+from overwatch.adapters.outbound.graph_store.migrations_platform import PLATFORM_MIGRATIONS
+from overwatch.adapters.outbound.graph_store.migrations_tenant import REGISTRY_LABELS
+from overwatch.adapters.outbound.graph_store.queries import PLATFORM_RECORD_LABELS
 
 
 def test_the_platform_records_have_one_migration_in_the_block_of_wave_9_bundle_c() -> None:

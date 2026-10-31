@@ -12,13 +12,13 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any, Self
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.tenant_registry import RegistryTenant, TenantNumberRecord
-from diucs.application.ports.outbound.tenants import TenantRecordInvalid, normalise_host
-from diucs.application.tenancy import ScopeId, current_scope_or_none
-from diucs.domain.codes import Role
-from diucs.domain.errors import Conflict, NotFound
-from diucs.domain.model.tenant import (
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.tenant_registry import RegistryTenant, TenantNumberRecord
+from overwatch.application.ports.outbound.tenants import TenantRecordInvalid, normalise_host
+from overwatch.application.tenancy import ScopeId, current_scope_or_none
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import Conflict, NotFound
+from overwatch.domain.model.tenant import (
     ConfigStatus,
     ContactKind,
     OrganisationType,
@@ -27,7 +27,7 @@ from diucs.domain.model.tenant import (
     TenantContact,
     TenantStatus,
 )
-from diucs.domain.model.tenant_records import (
+from overwatch.domain.model.tenant_records import (
     BindingStatus,
     EntraBinding,
     MappingStatus,

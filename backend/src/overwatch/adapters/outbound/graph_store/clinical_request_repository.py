@@ -17,11 +17,11 @@ Python.
 from datetime import UTC, datetime
 from typing import Any, Final
 
-from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
-from diucs.adapters.outbound.graph_store.extensions import by_short_name
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.adapters.outbound.graph_store.scenario import (
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx, run_query
+from overwatch.adapters.outbound.graph_store.extensions import by_short_name
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.adapters.outbound.graph_store.scenario import (
     Expect,
     Marked,
     NodeSpec,
@@ -30,10 +30,10 @@ from diucs.adapters.outbound.graph_store.scenario import (
     SeedRel,
     TenantSeed,
 )
-from diucs.domain.codes import code_system_url
-from diucs.domain.errors import NotFound, ValidationFailed
-from diucs.domain.model.clinical import ClinicalAdvice, ClinicalRequestRecord
-from diucs.domain.rules.clinical_queue import ClinicalRequest, queue_order
+from overwatch.domain.codes import code_system_url
+from overwatch.domain.errors import NotFound, ValidationFailed
+from overwatch.domain.model.clinical import ClinicalAdvice, ClinicalRequestRecord
+from overwatch.domain.rules.clinical_queue import ClinicalRequest, queue_order
 
 TASK: Final = "Task"
 SERVICE_REQUEST: Final = "ServiceRequest"

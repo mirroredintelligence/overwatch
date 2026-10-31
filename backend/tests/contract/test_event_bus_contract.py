@@ -8,9 +8,9 @@ from datetime import timedelta
 
 import pytest
 
-from diucs.application.ports.outbound.event_bus import BusMessage, EventBus
-from diucs.application.tenancy import bind_network, bind_tenant
-from diucs.domain.errors import ValidationFailed
+from overwatch.application.ports.outbound.event_bus import BusMessage, EventBus
+from overwatch.application.tenancy import bind_network, bind_tenant
+from overwatch.domain.errors import ValidationFailed
 from tests.contract.harness import Harness
 from tests.support.servicebus import run_tenant, unique_id
 

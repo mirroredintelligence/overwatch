@@ -29,10 +29,10 @@ from typing import Any, Final
 from neo4j import AsyncManagedTransaction
 from neo4j.time import DateTime
 
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.driver import run_global_query
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.application.ports.outbound.tenants import (
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.driver import run_global_query
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from overwatch.application.ports.outbound.tenants import (
     TenantLine,
     TenantRecordInvalid,
     check_secret_ref,
@@ -41,8 +41,8 @@ from diucs.application.ports.outbound.tenants import (
     normalise_e164,
     normalise_host,
 )
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.tenant import (
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.tenant import (
     OrganisationType,
     SuspendMode,
     SuspendReason,

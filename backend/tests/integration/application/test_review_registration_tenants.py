@@ -18,15 +18,19 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import ScopeId
-from diucs.application.use_cases.registration_draft import encode_step
-from diucs.application.use_cases.registration_submit import LOOKUPS_STEP, Lookups, encode_lookups
-from diucs.application.use_cases.review_registration import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeId
+from overwatch.application.use_cases.registration_draft import encode_step
+from overwatch.application.use_cases.registration_submit import (
+    LOOKUPS_STEP,
+    Lookups,
+    encode_lookups,
+)
+from overwatch.application.use_cases.review_registration import (
     CHECK_ADDRESS,
     GetReviewStatus,
     GetReviewStatusQuery,
@@ -34,16 +38,16 @@ from diucs.application.use_cases.review_registration import (
     StartReviewCommand,
     districts_in_ranges,
 )
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     PractitionerRoleCode,
     RegistrationStatus,
     Role,
     ScopeFlag,
     ServiceCategory,
 )
-from diucs.domain.errors import NotFound
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.model.registration import Registration, ScopeEntry
+from overwatch.domain.errors import NotFound
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.model.registration import Registration, ScopeEntry
 from tests.integration.application.test_review_registration import (
     APPLICANT_ROLE,
     INVITED_MOBILE,

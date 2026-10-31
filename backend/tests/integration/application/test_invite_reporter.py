@@ -13,21 +13,21 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
-from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET, LinkTokenService
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.invite_reporter import (
+from overwatch.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET, LinkTokenService
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.invite_reporter import (
     InviteReporter,
     InviteReporterCommand,
     ResendInvitation,
     ResendInvitationCommand,
 )
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     Channel,
     PractitionerRoleCode,
     RegistrationStatus,
@@ -35,9 +35,9 @@ from diucs.domain.codes import (
     ScopeFlag,
     ServiceCategory,
 )
-from diucs.domain.errors import Conflict, NotAllowed, ValidationFailed
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.model.registration import ScopeEntry
+from overwatch.domain.errors import Conflict, NotAllowed, ValidationFailed
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.model.registration import ScopeEntry
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, read_tx, run_nodes
 
@@ -76,14 +76,14 @@ class Rig:
             HASHER,
             self.clock,
             SequentialIds("inv"),
-            link_base_url_for=lambda scope: "https://diucs.example",
+            link_base_url_for=lambda scope: "https://overwatch.example",
         )
         self.resend = ResendInvitation(
             uow_factory,
             lambda repo: LinkTokenService(repo, SECRETS, self.clock),
             self.clock,
             SequentialIds("rsd"),
-            link_base_url_for=lambda scope: "https://diucs.example",
+            link_base_url_for=lambda scope: "https://overwatch.example",
         )
 
     def command(self, **changes: Any) -> InviteReporterCommand:
@@ -178,7 +178,7 @@ async def test_an_invitation_stores_the_task_the_invited_registration_the_text_a
     sent = [m for m in messages if m.event_type == "SendMessage"]
     assert len(sent) == 1
     assert sent[0].payload["message_id"] == "I1"
-    assert "https://diucs.example/i/" in sent[0].payload["text"]
+    assert "https://overwatch.mirroredintelligence.com/i/" in sent[0].payload["text"]
     assert [m.event_type for m in messages if m.event_type == "ReporterInvited"] == [
         "ReporterInvited"
     ]

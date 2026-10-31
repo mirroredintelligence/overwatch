@@ -29,7 +29,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Final
 
-_STORE: Final = Path(__file__).resolve().parents[2] / "src/diucs/adapters/outbound/graph_store"
+_STORE: Final = Path(__file__).resolve().parents[2] / "src/overwatch/adapters/outbound/graph_store"
 _TYPE_IN_PATTERN: Final = re.compile(r"\[[a-z_]*:([A-Z][A-Z_]*(?:\|[A-Z][A-Z_]*)*)")
 ID_PLACEHOLDER: Final = "<id>"
 

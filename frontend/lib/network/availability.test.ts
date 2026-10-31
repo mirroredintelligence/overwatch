@@ -15,7 +15,7 @@ import { offeredNetworks, requireOffered } from './availability';
 // network's own routes are not called at all for them.
 
 beforeEach(() => {
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${NETWORK_ROOT}/fhir`);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', `${NETWORK_ROOT}/fhir`);
   resetNetworkBackend();
   server.use(...networkHandlers);
 });

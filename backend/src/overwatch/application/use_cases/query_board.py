@@ -13,17 +13,17 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Final
 
-from diucs.application.actor import Actor, require_actor_in_bound_tenant
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.domain.codes import Role, ServiceCategory, Status
-from diucs.domain.errors import NotAllowed
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED
-from diucs.domain.model.service import ServiceProfile
-from diucs.domain.rules.pressure import Pressure, all_limited_or_worse, system_pressure
-from diucs.domain.rules.schedule import next_due
-from diucs.domain.rules.status import compute_status
+from overwatch.application.actor import Actor, require_actor_in_bound_tenant
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.domain.codes import Role, ServiceCategory, Status
+from overwatch.domain.errors import NotAllowed
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.flags import SERVICE_FLAG_SUSPENDED
+from overwatch.domain.model.service import ServiceProfile
+from overwatch.domain.rules.pressure import Pressure, all_limited_or_worse, system_pressure
+from overwatch.domain.rules.schedule import next_due
+from overwatch.domain.rules.status import compute_status
 
 _CATEGORY_ORDER: Final[dict[ServiceCategory, int]] = {
     category: position for position, category in enumerate(ServiceCategory)

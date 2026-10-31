@@ -15,7 +15,7 @@ import re
 from collections.abc import Mapping
 from typing import Any, Final
 
-from diucs.adapters.outbound.telemetry.attributes import is_allowed_key
+from overwatch.adapters.outbound.telemetry.attributes import is_allowed_key
 
 REDACTED: Final = "[redacted]"
 

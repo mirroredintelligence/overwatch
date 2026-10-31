@@ -10,12 +10,12 @@ from datetime import UTC, datetime, time
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.alerts import (
+from overwatch.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.alerts import (
     AcknowledgeAlert,
     AcknowledgeAlertCommand,
     AlertEvaluator,
@@ -28,12 +28,12 @@ from diucs.application.use_cases.alerts import (
     StatusChangedCommand,
     check_about,
 )
-from diucs.application.work import SCHEDULED, WorkKind
-from diucs.domain.codes import AlertKind, Role, Status
-from diucs.domain.model.alerts import AlertRecord, AlertSubscription
-from diucs.domain.model.people import Practitioner
-from diucs.domain.model.service import AvailableTime, ServiceProfile
-from diucs.domain.rules.alerts import AlertPreferences
+from overwatch.application.work import SCHEDULED, WorkKind
+from overwatch.domain.codes import AlertKind, Role, Status
+from overwatch.domain.model.alerts import AlertRecord, AlertSubscription
+from overwatch.domain.model.people import Practitioner
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.rules.alerts import AlertPreferences
 from tests.support.actors import ACTOR_TENANT
 from tests.support.ladder_rig import seed_report
 from tests.support.link_rig import ucr_west
@@ -325,7 +325,7 @@ async def test_the_same_status_changed_message_twice_raises_one_alert(
 async def test_someone_else_cannot_acknowledge_or_snooze_the_alert(
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, clean_graph: None
 ) -> None:
-    from diucs.domain.errors import NotAllowed
+    from overwatch.domain.errors import NotAllowed
 
     await seed(uow_factory, neo4j_driver, owner=subscription("prac-1", prefs(), None))
     await change(uow_factory, "sc-9", Status.LIMITED, Status.OVER_CAPACITY, at(14, 12), "a9")

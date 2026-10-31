@@ -11,16 +11,16 @@ from datetime import datetime
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.query_board import QueryBoard, QueryBoardQuery
-from diucs.application.use_cases.respond_to_booking import (
+from overwatch.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.query_board import QueryBoard, QueryBoardQuery
+from overwatch.application.use_cases.respond_to_booking import (
     RespondToBooking,
     RespondToBookingCommand,
 )
-from diucs.application.use_cases.withdraw_booking import (
+from overwatch.application.use_cases.withdraw_booking import (
     AcknowledgeWithdrawal,
     AcknowledgeWithdrawalCommand,
     EscalateWithdrawal,
@@ -30,15 +30,15 @@ from diucs.application.use_cases.withdraw_booking import (
     WithdrawBooking,
     WithdrawBookingCommand,
 )
-from diucs.application.work import SCHEDULED, ScheduledWork, WorkKind
-from diucs.domain.codes import (
+from overwatch.application.work import SCHEDULED, ScheduledWork, WorkKind
+from overwatch.domain.codes import (
     BookingStatus,
     NotReachedReason,
     ReportSource,
     WithdrawReason,
 )
-from diucs.domain.errors import InvalidTransition, NotAllowed
-from diucs.domain.model.booking import Booking
+from overwatch.domain.errors import InvalidTransition, NotAllowed
+from overwatch.domain.model.booking import Booking
 from tests.support.booking_rig import (
     ADVISOR,
     OTHER_REPORTER,

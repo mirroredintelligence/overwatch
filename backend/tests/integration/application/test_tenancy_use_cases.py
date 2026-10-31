@@ -25,29 +25,32 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
-from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.actor import Actor, system_actor
-from diucs.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.confirm_capacity import ConfirmCapacity, ConfirmCapacityCommand
-from diucs.application.use_cases.missed_report_ladder import LadderStepCommand, MissedReportLadder
-from diucs.application.use_cases.report_capacity import ReportCapacity, ReportCapacityCommand
-from diucs.application.use_cases.send_prompts import SendPromptCommand, SendPrompts, prompt_key
-from diucs.application.use_cases.suspend_service import (
+from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from overwatch.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.actor import Actor, system_actor
+from overwatch.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.confirm_capacity import ConfirmCapacity, ConfirmCapacityCommand
+from overwatch.application.use_cases.missed_report_ladder import (
+    LadderStepCommand,
+    MissedReportLadder,
+)
+from overwatch.application.use_cases.report_capacity import ReportCapacity, ReportCapacityCommand
+from overwatch.application.use_cases.send_prompts import SendPromptCommand, SendPrompts, prompt_key
+from overwatch.application.use_cases.suspend_service import (
     ResumeService,
     ResumeServiceCommand,
     SuspendService,
     SuspendServiceCommand,
 )
-from diucs.application.work import WorkKind
-from diucs.domain.codes import ReportSource, Role
-from diucs.domain.errors import DomainError
-from diucs.domain.model.service import AvailableTime
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY
+from overwatch.application.work import WorkKind
+from overwatch.domain.codes import ReportSource, Role
+from overwatch.domain.errors import DomainError
+from overwatch.domain.model.service import AvailableTime
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY
 from tests.support.ladder_rig import (
     PHONE_HASH_1,
     SECRET,
@@ -145,7 +148,7 @@ async def world(
             SequentialIds.scoped(other_tenant_id),
             DriverIdempotencyStore(driver),
             _tokens(clock),
-            "diucs.example",
+            "overwatch.example",
             AesGcmContentSealer(FixedSecretStore({"link-token": SECRET})),
         ).execute(
             SendPromptCommand(
@@ -210,7 +213,7 @@ async def _prompt(world: World, service_id: str) -> Any:
         SequentialIds.scoped(world.a),
         DriverIdempotencyStore(world.driver),
         _tokens(world.clock),
-        "diucs.example",
+        "overwatch.example",
         AesGcmContentSealer(FixedSecretStore({"link-token": SECRET})),
     )
     with as_tenant(world.a):
@@ -230,7 +233,7 @@ async def _ladder(world: World, target: str) -> Any:
         world.clock,
         SequentialIds.scoped(world.a),
         _tokens(world.clock),
-        "diucs.example",
+        "overwatch.example",
         AesGcmContentSealer(FixedSecretStore({"link-token": SECRET})),
     )
     with as_tenant(world.a):

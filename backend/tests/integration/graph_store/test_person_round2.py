@@ -10,12 +10,12 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.person_repository import Neo4jPersonRepository
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.application.tenancy import current_tenant
-from diucs.domain.codes import Channel, PractitionerRoleCode
-from diucs.domain.errors import Conflict, ValidationFailed
-from diucs.domain.model.people import Practitioner, PractitionerRole
+from overwatch.adapters.outbound.graph_store.person_repository import Neo4jPersonRepository
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.application.tenancy import current_tenant
+from overwatch.domain.codes import Channel, PractitionerRoleCode
+from overwatch.domain.errors import Conflict, ValidationFailed
+from overwatch.domain.model.people import Practitioner, PractitionerRole
 from tests.support.neo4j import count_nodes, read_tx, write_tx
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")

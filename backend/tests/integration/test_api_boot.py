@@ -27,27 +27,27 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.tenant_config_repository import (
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.tenant_config_repository import (
     Neo4jTenantConfigRepository,
 )
-from diucs.adapters.testing.fake_identity_verifier import FakeIdentityVerifier
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.memory_event_bus import ManualEventBus
-from diucs.application.ports.outbound.identity_verifier import Audience, VerifiedIdentity
-from diucs.bootstrap.api_main import REQUIRED_SECRETS, ApiParts, build_api
-from diucs.bootstrap.container import Container, build_for_tests
-from diucs.bootstrap.settings import Settings
-from diucs.domain.codes import Role
-from diucs.domain.model.tenant_records import (
+from overwatch.adapters.testing.fake_identity_verifier import FakeIdentityVerifier
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.memory_event_bus import ManualEventBus
+from overwatch.application.ports.outbound.identity_verifier import Audience, VerifiedIdentity
+from overwatch.bootstrap.api_main import REQUIRED_SECRETS, ApiParts, build_api
+from overwatch.bootstrap.container import Container, build_for_tests
+from overwatch.bootstrap.settings import Settings
+from overwatch.domain.codes import Role
+from overwatch.domain.model.tenant_records import (
     BindingStatus,
     EntraBinding,
     MappingStatus,
     RoleMapping,
 )
-from diucs.domain.rules.bff_token import decode_bff_token
+from overwatch.domain.rules.bff_token import decode_bff_token
 from tests.support.api import seed_edge_tenants
 from tests.support.neo4j import ThrowawayNeo4j, write_tx
 from tests.support.tenancy import as_tenant

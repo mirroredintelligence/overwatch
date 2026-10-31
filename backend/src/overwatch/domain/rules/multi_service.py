@@ -17,9 +17,9 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Final
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
-from diucs.domain.rules.schedule import reply_by
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
+from overwatch.domain.rules.schedule import reply_by
 
 # [ASSUMED] domain-rules 2.4: the 10-minute grouping window. Aliases of the default policy
 # (TEN-064): the numbers are defined once, in tenant_policy.py.

@@ -22,21 +22,21 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.adapters.inbound.workers.code_sender import code_runner
-from diucs.adapters.inbound.workers.outbox_relay import OutboxRelay, StaticTenants
-from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
-from diucs.adapters.outbound.bus_servicebus.service_bus import ServiceBusEventBus
-from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.adapters.testing.memory_code_store import InMemoryCodeStore
-from diucs.adapters.testing.recording_senders import FixedSenderResolver, RecordingSmsSender
-from diucs.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
-from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET, LinkTokenService
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.text_code import (
+from overwatch.adapters.inbound.workers.code_sender import code_runner
+from overwatch.adapters.inbound.workers.outbox_relay import OutboxRelay, StaticTenants
+from overwatch.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
+from overwatch.adapters.outbound.bus_servicebus.service_bus import ServiceBusEventBus
+from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.adapters.testing.memory_code_store import InMemoryCodeStore
+from overwatch.adapters.testing.recording_senders import FixedSenderResolver, RecordingSmsSender
+from overwatch.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET, LinkTokenService
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.text_code import (
     RequestTextCode,
     RequestTextCodeCommand,
     VerifyTextCode,
@@ -137,7 +137,9 @@ async def test_a_code_for_a_known_number_is_texted_once_and_one_for_an_unknown_n
 
     assert [sms.to for sms in recorder.sent] == ["+447700900456"]
     (text,) = [sms.text for sms in recorder.sent]
-    match = re.fullmatch(r"DIUCS code: (\d{6})\. It works for 10 minutes\. Do not share it\.", text)
+    match = re.fullmatch(
+        r"Overwatch code: (\d{6})\. It works for 10 minutes\. Do not share it\.", text
+    )
     assert match is not None
     code = match.group(1)
     assert recorder.sent[0].tenant == tenant_id

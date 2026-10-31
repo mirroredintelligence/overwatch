@@ -4,9 +4,9 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from diucs.domain.codes import BookingStatus
-from diucs.domain.errors import InvalidTransition, ValidationFailed
-from diucs.domain.model.booking import Booking
+from overwatch.domain.codes import BookingStatus
+from overwatch.domain.errors import InvalidTransition, ValidationFailed
+from overwatch.domain.model.booking import Booking
 
 REQUESTED_AT = datetime(2026, 10, 25, 13, 16, tzinfo=UTC)
 REPLY_BY = REQUESTED_AT + timedelta(minutes=10)

@@ -7,16 +7,16 @@ import json
 import pytest
 from fastapi.responses import Response
 
-from diucs.adapters.inbound.fhir_rest.routes_support import (
+from overwatch.adapters.inbound.fhir_rest.routes_support import (
     CODE_REFUSED_TEXT,
     EVENTS_REFUSED_TEXT,
     TELEMETRY_UNAVAILABLE_TEXT,
     _answer,
 )
-from diucs.application.ports.outbound.telemetry_query import TelemetryUnavailable
-from diucs.application.use_cases.support_access import OPEN_REFUSED, ROLE_REFUSED
-from diucs.application.use_cases.support_console import EVENTS_REFUSED
-from diucs.domain.errors import NotAllowed
+from overwatch.application.ports.outbound.telemetry_query import TelemetryUnavailable
+from overwatch.application.use_cases.support_access import OPEN_REFUSED, ROLE_REFUSED
+from overwatch.application.use_cases.support_console import EVENTS_REFUSED
+from overwatch.domain.errors import NotAllowed
 
 
 def _body(response: Response) -> dict[str, object]:

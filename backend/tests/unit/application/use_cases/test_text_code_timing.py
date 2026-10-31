@@ -11,20 +11,20 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.memory_code_store import InMemoryCodeStore
-from diucs.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
-from diucs.application.tenancy import ScopeId
-from diucs.application.use_cases.text_code import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.memory_code_store import InMemoryCodeStore
+from overwatch.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
+from overwatch.application.tenancy import ScopeId
+from overwatch.application.use_cases.text_code import (
     DISCARD_CODE,
     SEND_CODE,
     RequestTextCode,
     RequestTextCodeCommand,
 )
-from diucs.domain.model.people import Practitioner
-from diucs.domain.rules.tokens import LinkTokenRecord
+from overwatch.domain.model.people import Practitioner
+from overwatch.domain.rules.tokens import LinkTokenRecord
 
 CLOCK_AT = datetime(2026, 10, 29, 14, 0, tzinfo=UTC)
 KNOWN_MOBILE = "07700 900456"

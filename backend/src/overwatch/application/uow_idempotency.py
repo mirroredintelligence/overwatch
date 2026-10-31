@@ -7,7 +7,7 @@ One class for the routes, the link pages and the worker: three copies had been w
 could drift apart.
 """
 
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 
 
 class UnitOfWorkIdempotency:

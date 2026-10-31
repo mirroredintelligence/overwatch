@@ -15,8 +15,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Protocol
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.events import DomainEvent, session_id_for, topic_for
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.events import DomainEvent, session_id_for, topic_for
 
 MAX_ATTEMPTS = 10
 PENDING = "pending"

@@ -10,7 +10,7 @@ import { baseCookieOptions, readRequestCookie, sessionSecretKey } from '@/lib/au
 //
 //   - it has NO tenant: an operator's token names none and the back end takes the tenant of an act from
 //     the path of the call, after it has checked the token and the role;
-//   - its cookie has another name (`diucs_operator`) and is sealed with a key derived from the session
+//   - its cookie has another name (`overwatch_operator`) and is sealed with a key derived from the session
 //     secret for this one purpose, so a tenant's sealed session is not an operator's and the other way
 //     round, even if a cookie is renamed;
 //   - an unsealed payload that carries a tenant, another kind or a role that is not an operator's is not
@@ -28,13 +28,13 @@ export type OperatorSession = {
   host: string;
   /** The opaque account reference the back end derived for the operator (never a name or an object id). */
   accountRef: string;
-  /** The back end's operator token (audience `diucs-ops`). Opaque here: sent to `/platform` and nowhere else. */
+  /** The back end's operator token (audience `overwatch-ops`). Opaque here: sent to `/platform` and nowhere else. */
   backendToken: string;
   /** ISO 8601 instant. At or after this instant the session is void; never later than the token. */
   expiresAt: string;
 };
 
-export const OPERATOR_COOKIE = 'diucs_operator';
+export const OPERATOR_COOKIE = 'overwatch_operator';
 const KIND = 'operator';
 const ENCRYPTION = { alg: 'dir', enc: 'A256GCM' } as const;
 
@@ -48,7 +48,7 @@ function nonEmptyString(value: unknown): value is string {
 
 /** The sealing key of an operator session: derived from the session secret, for this purpose only. */
 export async function operatorSealingKey(): Promise<Uint8Array> {
-  return new Uint8Array(hkdfSync('sha256', await sessionSecretKey(), 'diucs-operator-session', 'operator-session-v1', 32));
+  return new Uint8Array(hkdfSync('sha256', await sessionSecretKey(), 'overwatch-operator-session', 'operator-session-v1', 32));
 }
 
 export async function sealOperatorSession(session: OperatorSession, now: Date = new Date()): Promise<string> {

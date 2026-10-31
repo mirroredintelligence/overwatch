@@ -1,4 +1,4 @@
-"""Tests for diucs.domain.rules.multi_service: grouped prompts and the phone load limit (D28).
+"""Tests for overwatch.domain.rules.multi_service: grouped prompts and the phone load limit (D28).
 
 Rules from docs/spec/domain-rules.md 2.4 and the D28 prompt. Groups start at the earliest due time
 and take every item less than 10 minutes after the group's first item. Lettering follows name
@@ -13,8 +13,8 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.multi_service import (
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.multi_service import (
     GROUP_WINDOW,
     MAX_SERVICES_PER_PHONE,
     GroupedItem,
@@ -23,7 +23,7 @@ from diucs.domain.rules.multi_service import (
     letters_for,
     phone_overloaded,
 )
-from diucs.domain.rules.schedule import REPLY_WINDOW
+from overwatch.domain.rules.schedule import REPLY_WINDOW
 
 LONDON: ZoneInfo = ZoneInfo("Europe/London")
 TEN: datetime = datetime(2026, 10, 25, 10, 0, tzinfo=UTC)

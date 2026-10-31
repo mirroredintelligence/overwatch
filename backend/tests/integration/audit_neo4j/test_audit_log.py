@@ -14,15 +14,15 @@ from datetime import UTC, datetime
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.audit_neo4j.audit_log import (
+from overwatch.adapters.outbound.audit_neo4j.audit_log import (
     AuditHeadMissing,
     Neo4jAuditLog,
 )
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import AuditEntry, genesis_hash_for
-from diucs.domain.codes import Role
-from diucs.domain.errors import ValidationFailed
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import AuditEntry, genesis_hash_for
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import ValidationFailed
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, node_props, read_tx, wipe_tenant, write_tx
 from tests.support.scoped import scoped
@@ -356,7 +356,7 @@ async def test_a_retyped_activity_concept_system_is_detected(neo4j_driver: Async
         neo4j_driver,
         "MATCH (:Provenance {tenantId: $tenant})-[:ACTIVITY]->(c:Concept {code: 'confirm', "
         "tenantId: $tenant}) "
-        "SET c.system = 'https://diucs.example/CodeSystem/other'",
+        "SET c.system = 'https://overwatch.mirroredintelligence.com/CodeSystem/other'",
     )
 
     assert await _verifies(neo4j_driver) is False

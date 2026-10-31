@@ -1,7 +1,7 @@
 {
   "resourceType": "CodeSystem",
   "id": "service-category",
-  "url": "https://diucs.example/CodeSystem/service-category",
+  "url": "https://overwatch.mirroredintelligence.com/CodeSystem/service-category",
   "name": "service-category",
   "status": "active",
   "content": "complete",

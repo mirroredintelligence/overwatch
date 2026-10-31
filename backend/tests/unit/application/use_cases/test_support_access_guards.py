@@ -7,13 +7,13 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.actor import Actor
-from diucs.application.use_cases.support_access import OpenSessionCommand, OpenSessionForSupport
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotAllowed
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.actor import Actor
+from overwatch.application.use_cases.support_access import OpenSessionCommand, OpenSessionForSupport
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotAllowed
 from tests.support.actors import ACTOR_TENANT
 
 NOW = datetime(2026, 10, 29, 9, 0, tzinfo=UTC)

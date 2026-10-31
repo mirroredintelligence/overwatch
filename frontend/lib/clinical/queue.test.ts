@@ -16,7 +16,7 @@ describe('queueItemFromTask', () => {
   });
 
   it('refuses a Task with an urgency it does not know', () => {
-    const bad = { ...QUEUE_TASKS[0], extension: [{ url: 'https://diucs.example/CodeSystem/task-input/urgency', valueCode: 'soon' }] };
+    const bad = { ...QUEUE_TASKS[0], extension: [{ url: 'https://overwatch.mirroredintelligence.com/CodeSystem/task-input/urgency', valueCode: 'soon' }] };
     expect(() => queueItemFromTask(bad)).toThrow('urgency is not known');
   });
 });

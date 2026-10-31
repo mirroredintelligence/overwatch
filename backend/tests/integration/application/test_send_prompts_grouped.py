@@ -20,22 +20,22 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
-from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.outbox import OutboxMessage
-from diucs.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.send_prompts import (
+from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from overwatch.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.outbox import OutboxMessage
+from overwatch.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.send_prompts import (
     SendPromptCommand,
     SendPromptResult,
     SendPrompts,
 )
-from diucs.application.work import ScheduledWork, WorkKind
-from diucs.domain.codes import (
+from overwatch.application.work import ScheduledWork, WorkKind
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     Measure,
@@ -45,12 +45,12 @@ from diucs.domain.codes import (
     Role,
     ServiceCategory,
 )
-from diucs.domain.errors import Conflict
-from diucs.domain.messages.privacy_guard import find_patient_data
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.errors import Conflict
+from overwatch.domain.messages.privacy_guard import find_patient_data
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, read_tx
 
@@ -192,7 +192,7 @@ def _rig(
         SequentialIds(),
         DriverIdempotencyStore(driver),
         tokens,
-        "diucs.example",
+        "overwatch.example",
         AesGcmContentSealer(FixedSecretStore({"link-token": SECRET})),
         TENANT,
     )
@@ -282,7 +282,7 @@ async def test_a_phone_with_two_services_due_together_gets_one_c9_in_name_order(
     [message] = _sent(await _outbox(uow_factory))
     text = _opened(message)["text"]
     assert text == (
-        "DIUCS: 2 services need an update by 10:30. A) UCR East 1. B) UCR West 3. "
+        "Overwatch: 2 services need an update by 10:30. A) UCR East 1. B) UCR West 3. "
         "Reply Y if both right, or A 2, or B 4."
     )
     assert message.payload["message_id"] == "C9"
@@ -497,7 +497,7 @@ async def test_three_services_due_together_are_lettered_a_b_c_in_name_order(
 
     [message] = _sent(await _outbox(uow_factory))
     assert _opened(message)["text"] == (
-        "DIUCS: 3 services need an update by 10:30. A) UCR East 1. B) UCR North 5. "
+        "Overwatch: 3 services need an update by 10:30. A) UCR East 1. B) UCR North 5. "
         "C) UCR West 3. Reply Y if all right, or A 2, or B 6."
     )
     assert result.grouped_service_ids == ("ucr-east", "ucr-north", "ucr-west")
@@ -544,7 +544,7 @@ async def test_the_letters_follow_name_order_even_when_the_due_times_do_not(
 
     [message] = _sent(await _outbox(uow_factory))
     assert _opened(message)["text"].startswith(
-        "DIUCS: 2 services need an update by 10:30. A) UCR East 1. B) UCR West 3."
+        "Overwatch: 2 services need an update by 10:30. A) UCR East 1. B) UCR West 3."
     )
     rows = _by_service(await _communications(neo4j_driver))
     assert (rows["ucr-east"]["status"], rows["ucr-west"]["status"]) == ("queued", "grouped")

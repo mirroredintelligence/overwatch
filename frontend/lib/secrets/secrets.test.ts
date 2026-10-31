@@ -11,7 +11,7 @@ import {
 // The web tier reads four secrets, `session-secret`, `edge-origin`, `entra-staff-client-secret` and
 // `entra-operator-client-secret`, from Key Vault through the app's managed identity (DEC-1304). Nothing here reaches a network: the vault is a fake and so is the clock.
 
-const VAULT = 'https://diucs-test.vault.azure.net';
+const VAULT = 'https://overwatch-test.vault.azure.net';
 const VALUE = 'CANARY-vault-value-0f3a9c7d';
 const PLAIN = 'CANARY-plain-env-value-77aa';
 const SECONDS = 1000;
@@ -21,7 +21,7 @@ type Fake = VaultClient & { getSecret: ReturnType<typeof vi.fn> };
 const FOUR = ['session-secret', 'edge-origin', 'entra-staff-client-secret', 'entra-operator-client-secret'] as const;
 const VARIABLES: Record<(typeof FOUR)[number], string> = {
   'session-secret': 'SESSION_SECRET',
-  'edge-origin': 'DIUCS_EDGE_ORIGIN_SECRET',
+  'edge-origin': 'OVERWATCH_EDGE_ORIGIN_SECRET',
   'entra-staff-client-secret': 'ENTRA_CLIENT_SECRET',
   'entra-operator-client-secret': 'OPERATOR_ENTRA_CLIENT_SECRET',
 };
@@ -62,10 +62,10 @@ beforeEach(() => {
 });
 afterEach(() => vi.restoreAllMocks());
 
-describe('without DIUCS_KEY_VAULT_URL (local runs and tests)', () => {
+describe('without OVERWATCH_KEY_VAULT_URL (local runs and tests)', () => {
   it('reads the plain variables as it did before', async () => {
     const client = fakeVault();
-    const secrets = build({ SESSION_SECRET: PLAIN, DIUCS_EDGE_ORIGIN_SECRET: `${PLAIN}-edge` }, client);
+    const secrets = build({ SESSION_SECRET: PLAIN, OVERWATCH_EDGE_ORIGIN_SECRET: `${PLAIN}-edge` }, client);
     expect(secrets.vaultConfigured()).toBe(false);
     expect(await secrets.getSecret('session-secret')).toBe(PLAIN);
     expect(await secrets.getSecret('edge-origin')).toBe(`${PLAIN}-edge`);
@@ -105,8 +105,8 @@ describe('without DIUCS_KEY_VAULT_URL (local runs and tests)', () => {
   });
 });
 
-describe('with DIUCS_KEY_VAULT_URL', () => {
-  const env = { DIUCS_KEY_VAULT_URL: VAULT };
+describe('with OVERWATCH_KEY_VAULT_URL', () => {
+  const env = { OVERWATCH_KEY_VAULT_URL: VAULT };
 
   it.each(FOUR)('reads %s from the vault, by its own name', async (name) => {
     const client = fakeVault();
@@ -144,11 +144,11 @@ describe('with DIUCS_KEY_VAULT_URL', () => {
     expect(createClient).toHaveBeenCalledTimes(2);
   });
 
-  it.each(['http://diucs-test.vault.azure.net', 'not a url', 'https://', 'ftp://x.test'])(
+  it.each(['http://overwatch-test.vault.azure.net', 'not a url', 'https://', 'ftp://x.test'])(
     'refuses %j as the vault URL, before any call',
     async (url) => {
       const client = fakeVault();
-      const secrets = build({ DIUCS_KEY_VAULT_URL: url }, client);
+      const secrets = build({ OVERWATCH_KEY_VAULT_URL: url }, client);
       await expect(secrets.getSecret('session-secret')).rejects.toBeInstanceOf(SecretConfigurationError);
       expect(client.getSecret).not.toHaveBeenCalled();
     },
@@ -176,9 +176,9 @@ describe('with DIUCS_KEY_VAULT_URL', () => {
       expect(client.getSecret).toHaveBeenCalledTimes(2);
     });
 
-    it('takes the time to live from DIUCS_SECRET_CACHE_SECONDS', async () => {
+    it('takes the time to live from OVERWATCH_SECRET_CACHE_SECONDS', async () => {
       const client = fakeVault();
-      const secrets = build({ ...env, DIUCS_SECRET_CACHE_SECONDS: '30' }, client);
+      const secrets = build({ ...env, OVERWATCH_SECRET_CACHE_SECONDS: '30' }, client);
       await secrets.getSecret('session-secret');
       now += 29 * SECONDS;
       await secrets.getSecret('session-secret');
@@ -188,18 +188,18 @@ describe('with DIUCS_KEY_VAULT_URL', () => {
       expect(client.getSecret).toHaveBeenCalledTimes(2);
     });
 
-    it.each(['abc', '-1', '1.5', '86401'])('refuses DIUCS_SECRET_CACHE_SECONDS=%j, naming the variable', async (value) => {
-      const secrets = build({ ...env, DIUCS_SECRET_CACHE_SECONDS: value }, fakeVault());
+    it.each(['abc', '-1', '1.5', '86401'])('refuses OVERWATCH_SECRET_CACHE_SECONDS=%j, naming the variable', async (value) => {
+      const secrets = build({ ...env, OVERWATCH_SECRET_CACHE_SECONDS: value }, fakeVault());
       const error = await secrets.getSecret('session-secret').catch((e: unknown) => e);
       expect(error).toBeInstanceOf(SecretConfigurationError);
-      expect((error as Error).message).toContain('DIUCS_SECRET_CACHE_SECONDS');
+      expect((error as Error).message).toContain('OVERWATCH_SECRET_CACHE_SECONDS');
     });
 
-    it('refuses DIUCS_SECRET_STALE_SECONDS that is not a whole number of seconds', async () => {
-      const secrets = build({ ...env, DIUCS_SECRET_STALE_SECONDS: 'soon' }, fakeVault());
+    it('refuses OVERWATCH_SECRET_STALE_SECONDS that is not a whole number of seconds', async () => {
+      const secrets = build({ ...env, OVERWATCH_SECRET_STALE_SECONDS: 'soon' }, fakeVault());
       const error = await secrets.getSecret('session-secret').catch((e: unknown) => e);
       expect(error).toBeInstanceOf(SecretConfigurationError);
-      expect((error as Error).message).toContain('DIUCS_SECRET_STALE_SECONDS');
+      expect((error as Error).message).toContain('OVERWATCH_SECRET_STALE_SECONDS');
     });
 
     it('asks the vault once for callers that arrive together', async () => {
@@ -301,8 +301,8 @@ describe('with DIUCS_KEY_VAULT_URL', () => {
         expect(client.getSecret).toHaveBeenCalledTimes(4);
       });
 
-      it('takes the window from DIUCS_SECRET_STALE_SECONDS', async () => {
-        const { secrets, down } = await expiredAfterGood({ DIUCS_SECRET_STALE_SECONDS: '60' });
+      it('takes the window from OVERWATCH_SECRET_STALE_SECONDS', async () => {
+        const { secrets, down } = await expiredAfterGood({ OVERWATCH_SECRET_STALE_SECONDS: '60' });
         down();
         now += 59 * SECONDS;
         expect(await secrets.getSecret('session-secret')).toBe(VALUE);
@@ -336,7 +336,7 @@ describe('with DIUCS_KEY_VAULT_URL', () => {
   });
 
   describe('a plain variable beside the vault', () => {
-    it.each(['SESSION_SECRET', 'DIUCS_EDGE_ORIGIN_SECRET', 'ENTRA_CLIENT_SECRET', 'OPERATOR_ENTRA_CLIENT_SECRET'])('refuses to serve when %s is set, naming it and never its value', async (variable) => {
+    it.each(['SESSION_SECRET', 'OVERWATCH_EDGE_ORIGIN_SECRET', 'ENTRA_CLIENT_SECRET', 'OPERATOR_ENTRA_CLIENT_SECRET'])('refuses to serve when %s is set, naming it and never its value', async (variable) => {
       const client = fakeVault();
       const secrets = build({ ...env, [variable]: PLAIN }, client);
       for (const name of FOUR) {
@@ -388,8 +388,8 @@ describe('with DIUCS_KEY_VAULT_URL', () => {
 
       record(await createSecrets({ env, client: fakeVault(), now: clock }).getSecret('Bad Name').catch((e: unknown) => e));
       record(await createSecrets({ env: { ...env, SESSION_SECRET: VALUE }, client: fakeVault(), now: clock }).getSecret('session-secret').catch((e: unknown) => e));
-      record(await createSecrets({ env: { ...env, DIUCS_SECRET_CACHE_SECONDS: VALUE }, client: fakeVault(), now: clock }).getSecret('session-secret').catch((e: unknown) => e));
-      record(await createSecrets({ env: { DIUCS_KEY_VAULT_URL: VALUE }, client: fakeVault(), now: clock }).getSecret('session-secret').catch((e: unknown) => e));
+      record(await createSecrets({ env: { ...env, OVERWATCH_SECRET_CACHE_SECONDS: VALUE }, client: fakeVault(), now: clock }).getSecret('session-secret').catch((e: unknown) => e));
+      record(await createSecrets({ env: { OVERWATCH_KEY_VAULT_URL: VALUE }, client: fakeVault(), now: clock }).getSecret('session-secret').catch((e: unknown) => e));
       record(await createSecrets({ env: { SESSION_SECRET: VALUE }, now: clock }).getSecret('edge-origin').catch((e: unknown) => e));
 
       const logged = [...spies.flatMap((s) => s.mock.calls.flat().map(String)), ...warnings];
@@ -415,7 +415,7 @@ describe('with DIUCS_KEY_VAULT_URL', () => {
 
 describe('the default client', () => {
   it('is built from the Azure SDK and the default credential without calling the network', async () => {
-    const secrets = createSecrets({ env: { DIUCS_KEY_VAULT_URL: VAULT }, now: clock });
+    const secrets = createSecrets({ env: { OVERWATCH_KEY_VAULT_URL: VAULT }, now: clock });
     const fetch = vi.spyOn(globalThis, 'fetch');
     // The first read would reach Key Vault, so only the factory is exercised here.
     const { createVaultClient } = await import('./client');

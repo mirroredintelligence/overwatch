@@ -54,7 +54,7 @@ TENANT_TEXT_FIELD_NAMES: Final = frozenset(
     {"system_name", "referral_system_name", "coordination_team_name"}
 )
 
-# Which tenant wording field each id takes. The platform name ("DIUCS") and the sender identity
+# Which tenant wording field each id takes. The platform name ("Overwatch") and the sender identity
 # are not here: they are not tenant words in the body (TEN-022).
 TENANT_TEXT_FIELDS: Final[Mapping[MessageId, frozenset[str]]] = {
     MessageId.I2: frozenset({"system_name"}),

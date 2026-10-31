@@ -20,14 +20,14 @@ TEN-026).
 from functools import partial
 from typing import Any
 
-from diucs.adapters.inbound.fhir_rest.auth import forget_tenant
-from diucs.application.platform_services import (
+from overwatch.adapters.inbound.fhir_rest.auth import forget_tenant
+from overwatch.application.platform_services import (
     PlatformRecorder,
     PlatformServices,
     SupportTicketServices,
     TenantAdminServices,
 )
-from diucs.application.use_cases.cross_tenant_tickets import (
+from overwatch.application.use_cases.cross_tenant_tickets import (
     ApproveSupportTicket,
     CancelSupportTicket,
     EndTicketAccess,
@@ -39,9 +39,9 @@ from diucs.application.use_cases.cross_tenant_tickets import (
     RevokeSupportTicket,
     UseTicketAccess,
 )
-from diucs.application.use_cases.platform_tenants import ListPlatformTenants, ReadPlatformTenant
-from diucs.application.use_cases.tenant_admin_views import ReadTenantAdmin
-from diucs.application.use_cases.tenant_config import (
+from overwatch.application.use_cases.platform_tenants import ListPlatformTenants, ReadPlatformTenant
+from overwatch.application.use_cases.tenant_admin_views import ReadTenantAdmin
+from overwatch.application.use_cases.tenant_config import (
     ApproveTenantConfig,
     BindEntraDirectory,
     DraftTenantConfig,
@@ -50,11 +50,11 @@ from diucs.application.use_cases.tenant_config import (
     RecordTenantContact,
     SetTenantRetention,
 )
-from diucs.application.use_cases.tenant_suspend import TenantChanged
-from diucs.bootstrap.container import Container
-from diucs.bootstrap.lifecycle_operations import build_offboard
-from diucs.bootstrap.provisioning import build_provisioning
-from diucs.domain.codes import Role
+from overwatch.application.use_cases.tenant_suspend import TenantChanged
+from overwatch.bootstrap.container import Container
+from overwatch.bootstrap.lifecycle_operations import build_offboard
+from overwatch.bootstrap.provisioning import build_provisioning
+from overwatch.domain.codes import Role
 
 CONFIGURATION_ROLES = frozenset({Role.TENANT_ADMIN})
 

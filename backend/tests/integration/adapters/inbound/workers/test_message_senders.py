@@ -13,8 +13,8 @@ from datetime import UTC, datetime
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.inbound.workers.consumer import IdempotentConsumer, Outcome
-from diucs.adapters.inbound.workers.message_senders import (
+from overwatch.adapters.inbound.workers.consumer import IdempotentConsumer, Outcome
+from overwatch.adapters.inbound.workers.message_senders import (
     BAD_CHANNEL,
     CONSUMER_EMAIL,
     CONSUMER_SMS,
@@ -28,25 +28,25 @@ from diucs.adapters.inbound.workers.message_senders import (
     SmsMessageSender,
     sender_runners,
 )
-from diucs.adapters.inbound.workers.outbox_relay import StaticTenants
-from diucs.adapters.inbound.workers.tenant_binding import TenantBoundConsumer
-from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.recording_senders import (
+from overwatch.adapters.inbound.workers.outbox_relay import StaticTenants
+from overwatch.adapters.inbound.workers.tenant_binding import TenantBoundConsumer
+from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.recording_senders import (
     FixedSenderResolver,
     RecordingEmailSender,
     RecordingSmsSender,
 )
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.ports.outbound.messaging import (
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.ports.outbound.messaging import (
     Communication,
     SendFailedError,
     SendReceipt,
     TransientSendError,
 )
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.domain.codes import Channel
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.domain.codes import Channel
 from tests.support.neo4j import node_props
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -59,7 +59,7 @@ ROLE = "role-1"
 PHONE = "07700 900123"
 EMAIL = "duty.manager@example.test"
 TEXT = "How many referrals can you take in the next 2 hrs? Reply with a number. UCR West"
-SUBJECT = "DIUCS Dorset: capacity question for UCR West"
+SUBJECT = "Overwatch Dorset: capacity question for UCR West"
 HTML = "<p>How many referrals can you take in the next 2 hrs?</p>"
 
 

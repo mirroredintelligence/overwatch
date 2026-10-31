@@ -21,7 +21,7 @@ async function get(ref: string, id: string, role: Role = 'advisor') {
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', EXEC_BACKEND);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', EXEC_BACKEND);
   vi.stubEnv('NODE_ENV', 'production');
   resetClinicalBackend();
   server.use(...clinicalBackendHandlers, ...execBackendHandlers);
@@ -76,7 +76,7 @@ describe('GET /api/bff/cases/[ref]/clinical-requests/[id]', () => {
 
 function clinicalTask(status: string) {
   const base = clinicalTaskBase();
-  return { ...base, status, extension: [...(base.extension as unknown[]), { url: 'https://diucs.example/CodeSystem/task-input/returns-at', valueDateTime: '2026-10-23T13:29:30Z' }] };
+  return { ...base, status, extension: [...(base.extension as unknown[]), { url: 'https://overwatch.mirroredintelligence.com/CodeSystem/task-input/returns-at', valueDateTime: '2026-10-23T13:29:30Z' }] };
 }
 
 function clinicalTaskBase() {
@@ -88,8 +88,8 @@ function clinicalTaskBase() {
     focus: { reference: 'ServiceRequest/case-4821' },
     authoredOn: '2026-10-23T13:10:00+00:00',
     extension: [
-      { url: 'https://diucs.example/CodeSystem/task-input/urgency', valueCode: 'now' },
-      { url: 'https://diucs.example/CodeSystem/task-input/why', valueCode: 'other' },
+      { url: 'https://overwatch.mirroredintelligence.com/CodeSystem/task-input/urgency', valueCode: 'now' },
+      { url: 'https://overwatch.mirroredintelligence.com/CodeSystem/task-input/why', valueCode: 'other' },
     ],
   };
 }
@@ -98,12 +98,12 @@ describe('the service under consideration on the read (KI-768)', () => {
   it('answers the name of the service the advisor asked about, on a waiting, taken and advised request', async () => {
     const withService = (status: string, more: unknown[] = []) => {
       const base = clinicalTask(status);
-      return { ...base, extension: [...(base.extension as unknown[]), { url: 'https://diucs.example/CodeSystem/task-input/service', valueString: 'UCR West' }, ...more] };
+      return { ...base, extension: [...(base.extension as unknown[]), { url: 'https://overwatch.mirroredintelligence.com/CodeSystem/task-input/service', valueString: 'UCR West' }, ...more] };
     };
     for (const [status, more] of [
       ['requested', []],
       ['in-progress', []],
-      ['completed', [{ url: 'https://diucs.example/CodeSystem/task-input/advice-choice', valueCode: 'go-ahead' }]],
+      ['completed', [{ url: 'https://overwatch.mirroredintelligence.com/CodeSystem/task-input/advice-choice', valueCode: 'go-ahead' }]],
     ] as const) {
       server.use(http.get(`${EXEC_BACKEND}/Task/req-9001`, (() => HttpResponse.json(withService(status, [...more]))) as HttpResponseResolver));
       const body = (await (await get('case-4821', 'req-9001')).json()) as { service?: string };

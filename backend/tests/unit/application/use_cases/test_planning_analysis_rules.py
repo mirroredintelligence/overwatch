@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from diucs.application.use_cases.planning_analysis import (
+from overwatch.application.use_cases.planning_analysis import (
     MIN_COUNT,
     DeclineFact,
     DisplayFact,
@@ -24,7 +24,7 @@ from diucs.application.use_cases.planning_analysis import (
     validate_query,
     windows,
 )
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.errors import ValidationFailed
 
 THU_NOON_LONDON_BST = datetime(2026, 10, 22, 12, 0, tzinfo=UTC)  # Thursday 13:00 BST
 

@@ -14,12 +14,12 @@ from datetime import datetime
 from types import SimpleNamespace
 from typing import Any, Self
 
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.network import ActiveGrant, RegisteredNetwork
-from diucs.application.ports.outbound.projection import ProjectionEndReason, SourceState
-from diucs.application.tenancy import ScopeId, ScopeKind, current_scope_or_none
-from diucs.domain.errors import Conflict
-from diucs.domain.model.network import (
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.network import ActiveGrant, RegisteredNetwork
+from overwatch.application.ports.outbound.projection import ProjectionEndReason, SourceState
+from overwatch.application.tenancy import ScopeId, ScopeKind, current_scope_or_none
+from overwatch.domain.errors import Conflict
+from overwatch.domain.model.network import (
     Grant,
     GrantScope,
     GrantStatus,
@@ -30,9 +30,9 @@ from diucs.domain.model.network import (
     NetworkMembership,
     NetworkStatus,
 )
-from diucs.domain.model.network_settings import NetworkSettings
-from diucs.domain.model.tenant import Tenant
-from diucs.domain.rules.grant import may_project
+from overwatch.domain.model.network_settings import NetworkSettings
+from overwatch.domain.model.tenant import Tenant
+from overwatch.domain.rules.grant import may_project
 from tests.support.network_samples import SETTINGS
 
 _LIVE_LISTING = (ListingStatus.PENDING, ListingStatus.ADMITTED, ListingStatus.SUSPENDED)
@@ -295,7 +295,7 @@ class _Services:
     async def get(self, service_id: str) -> Any:
         found = self._unit.world.services.get((str(self._unit.unit_scope), service_id))
         if found is None:
-            from diucs.domain.errors import NotFound
+            from overwatch.domain.errors import NotFound
 
             raise NotFound("service not found")
         return found
@@ -326,7 +326,7 @@ class _Projections:
             world.sources.remove(state)
             from dataclasses import replace
 
-            from diucs.application.ports.outbound.projection import SourceStatus
+            from overwatch.application.ports.outbound.projection import SourceStatus
 
             world.sources.append(
                 replace(state, status=SourceStatus.ENDED, ended_at=at, end_reason=reason)
@@ -500,7 +500,7 @@ def staff_ref(name: str) -> str:
 
 def person(tenant: str, role: Any, name: str = "person-a") -> Any:
     """An actor of one tenant in one role (the token's subject, never a name)."""
-    from diucs.application.actor import Actor
+    from overwatch.application.actor import Actor
 
     return Actor(
         role=role,
@@ -515,7 +515,7 @@ def person(tenant: str, role: Any, name: str = "person-a") -> Any:
 def active_tenant(tenant_id: str, name: str | None = None) -> Tenant:
     from datetime import UTC
 
-    from diucs.domain.model.tenant import OrganisationType, TenantStatus
+    from overwatch.domain.model.tenant import OrganisationType, TenantStatus
 
     return Tenant(
         id=tenant_id,

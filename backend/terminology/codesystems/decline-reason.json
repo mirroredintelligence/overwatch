@@ -1,7 +1,7 @@
 {
   "resourceType": "CodeSystem",
   "id": "decline-reason",
-  "url": "https://diucs.example/CodeSystem/decline-reason",
+  "url": "https://overwatch.mirroredintelligence.com/CodeSystem/decline-reason",
   "name": "decline-reason",
   "status": "active",
   "content": "complete",

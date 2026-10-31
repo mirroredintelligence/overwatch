@@ -8,7 +8,7 @@ import { baseCookieOptions, readRequestCookie, sessionSecretKey } from '@/lib/au
 // forged post needs both the cookie and the token of this link. The cookie is HttpOnly: the
 // page gets its copy from the BFF's JSON answer, never from script reading a cookie.
 
-export const LINK_CSRF_COOKIE = 'diucs_link_csrf';
+export const LINK_CSRF_COOKIE = 'overwatch_link_csrf';
 const MAX_AGE_SECONDS = 60 * 60;
 
 export function linkCsrfPath(token: string): string {

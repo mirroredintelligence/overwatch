@@ -26,10 +26,10 @@ from collections.abc import Collection, Sequence
 from datetime import UTC, datetime
 from typing import Final
 
-from diucs.domain.codes import ReportFlagReason, ReportSource
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.service import ServiceProfile
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
+from overwatch.domain.codes import ReportFlagReason, ReportSource
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.service import ServiceProfile
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
 
 # Aliases of the default policy (TEN-064): the numbers are defined once, in tenant_policy.py.
 MANY_CHANGES_WINDOW: Final = DEFAULT_POLICY.many_changes_window

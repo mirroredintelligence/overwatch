@@ -34,31 +34,31 @@ from typing import Annotated, Any, Final, Protocol, cast
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response
 
-from diucs.adapters.inbound.fhir_rest.app import get_container
-from diucs.adapters.inbound.fhir_rest.auth import require_role
-from diucs.adapters.inbound.fhir_rest.capability import FhirJSONResponse
-from diucs.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
-from diucs.adapters.inbound.fhir_rest.mapping import service_to_fhir, validate_outbound
-from diucs.application.actor import Actor
-from diucs.application.idempotency import format_instant
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.identity import HmacPhoneHasher, normalise_uk_mobile
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.tokens import SecretStore
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.uow_idempotency import UnitOfWorkIdempotency
-from diucs.application.use_cases.change_reporter_number import (
+from overwatch.adapters.inbound.fhir_rest.app import get_container
+from overwatch.adapters.inbound.fhir_rest.auth import require_role
+from overwatch.adapters.inbound.fhir_rest.capability import FhirJSONResponse
+from overwatch.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
+from overwatch.adapters.inbound.fhir_rest.mapping import service_to_fhir, validate_outbound
+from overwatch.application.actor import Actor
+from overwatch.application.idempotency import format_instant
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.identity import HmacPhoneHasher, normalise_uk_mobile
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.tokens import SecretStore
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.uow_idempotency import UnitOfWorkIdempotency
+from overwatch.application.use_cases.change_reporter_number import (
     ChangeReporterNumber,
     ChangeReporterNumberCommand,
     CoverDuration,
 )
-from diucs.application.use_cases.setup_service_by_lead import (
+from overwatch.application.use_cases.setup_service_by_lead import (
     SetupServiceByLead,
     SetupServiceCommand,
 )
-from diucs.domain.codes import Cadence, Channel, Measure, NeedCategory, Role, ServiceCategory
-from diucs.domain.errors import NotFound, ValidationFailed
-from diucs.domain.model.service import AvailableTime
+from overwatch.domain.codes import Cadence, Channel, Measure, NeedCategory, Role, ServiceCategory
+from overwatch.domain.errors import NotFound, ValidationFailed
+from overwatch.domain.model.service import AvailableTime
 
 router = APIRouter(prefix="/fhir")
 MOBILE_REFUSAL: Final = "Enter a UK mobile number, for example 07700 900123"

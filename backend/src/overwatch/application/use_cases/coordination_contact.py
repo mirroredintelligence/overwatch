@@ -6,8 +6,8 @@ tenant's own unit of work, so another tenant's number is never returned. A tenan
 none: no number is made up (H-T15).
 """
 
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.domain.model.tenant import ContactKind
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.domain.model.tenant import ContactKind
 
 
 class ReadCoordinationPhone:

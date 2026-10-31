@@ -4,7 +4,7 @@ change of either number fails a named test and is a decision, not an edit."""
 
 from datetime import timedelta
 
-from diucs.application.use_cases.pair_wall_screen import (
+from overwatch.application.use_cases.pair_wall_screen import (
     CODE_ATTEMPTS,
     CONFIRM_FAILURE_LIMIT,
     LIMIT_WINDOW,

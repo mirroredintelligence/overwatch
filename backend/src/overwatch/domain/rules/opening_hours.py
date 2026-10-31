@@ -17,8 +17,8 @@ from datetime import date, datetime, time, timedelta
 from typing import Final
 from zoneinfo import ZoneInfo
 
-from diucs.domain.model.service import AvailableTime
-from diucs.domain.rules.london_time import LONDON, local_to_utc, require_zone, to_local
+from overwatch.domain.model.service import AvailableTime
+from overwatch.domain.rules.london_time import LONDON, local_to_utc, require_zone, to_local
 
 SEARCH_DAYS: Final = 8  # [ASSUMED] D03 prompt: next_opening searches the next 8 days
 ONE_DAY: Final = timedelta(days=1)

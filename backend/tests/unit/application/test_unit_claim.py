@@ -10,7 +10,7 @@ import asyncio
 
 import pytest
 
-from diucs.application.tenancy import (
+from overwatch.application.tenancy import (
     UNIT_OF_WORK_OPEN_MESSAGE,
     ScopeId,
     TenancyError,

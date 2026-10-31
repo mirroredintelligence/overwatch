@@ -7,7 +7,7 @@ Only the hash of the phone number is kept, never the number. At most one move pe
 from dataclasses import dataclass
 from datetime import datetime
 
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.errors import ValidationFailed
 
 
 def _text(field: str, value: object) -> None:

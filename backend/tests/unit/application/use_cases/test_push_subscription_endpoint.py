@@ -6,15 +6,15 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.actor import Actor
-from diucs.application.use_cases.push_subscription import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.actor import Actor
+from overwatch.application.use_cases.push_subscription import (
     SavePushSubscription,
     SavePushSubscriptionCommand,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import ValidationFailed
 from tests.support.actors import ACTOR_TENANT
 from tests.support.registration_rig import StubIdempotency, StubUnits, Writes
 

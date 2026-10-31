@@ -8,8 +8,8 @@ from uuid import uuid4
 import pytest
 from redis.asyncio import Redis
 
-from diucs.application.tenancy import bind_tenant
-from diucs.bootstrap.settings import Settings
+from overwatch.application.tenancy import bind_tenant
+from overwatch.bootstrap.settings import Settings
 from tests.contract.factories import make_redis_cache
 from tests.support.redis import RUN_PREFIX, run_tenant
 
@@ -25,7 +25,7 @@ def another_runs_tenant() -> str:
 async def test_a_new_harness_does_not_delete_keys_another_run_wrote() -> None:
     other = Redis.from_url(Settings().redis_url, decode_responses=True)
     tenant = another_runs_tenant()
-    key = f"diucs:{tenant}:cache:isolation-check:status"
+    key = f"overwatch:{tenant}:cache:isolation-check:status"
     try:
         await other.set(key, "accepting")
         with bind_tenant(run_tenant("iso")):
@@ -44,7 +44,7 @@ async def test_a_new_harness_does_not_delete_keys_another_run_wrote() -> None:
 async def test_closing_one_harness_does_not_delete_keys_of_another_run() -> None:
     other = Redis.from_url(Settings().redis_url, decode_responses=True)
     tenant = another_runs_tenant()
-    key = f"diucs:{tenant}:cache:svc-1:status"
+    key = f"overwatch:{tenant}:cache:svc-1:status"
     try:
         await other.set(key, "accepting")
         with bind_tenant(run_tenant("iso-a")):

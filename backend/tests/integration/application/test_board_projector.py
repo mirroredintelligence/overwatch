@@ -15,23 +15,23 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.cache import BOARD_UPDATES_CHANNEL
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.board_projector import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.cache import BOARD_UPDATES_CHANNEL
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.board_projector import (
     BOARD_CACHE_KEY,
     BoardProjector,
     board_from_dict,
 )
-from diucs.application.use_cases.query_board import Board, QueryBoard, QueryBoardQuery
-from diucs.domain.codes import Cadence, Channel, Measure, ReportSource, ReportType, Role
-from diucs.domain.codes import ServiceCategory as Category
-from diucs.domain.errors import NotAllowed
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.application.use_cases.query_board import Board, QueryBoard, QueryBoardQuery
+from overwatch.domain.codes import Cadence, Channel, Measure, ReportSource, ReportType, Role
+from overwatch.domain.codes import ServiceCategory as Category
+from overwatch.domain.errors import NotAllowed
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")

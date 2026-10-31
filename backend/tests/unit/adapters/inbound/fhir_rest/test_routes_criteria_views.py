@@ -13,9 +13,9 @@ from datetime import date
 
 import pytest
 
-from diucs.domain.codes import CriteriaStatus, NeedCategory, Role
-from diucs.domain.model.criteria import ServiceCriteria
-from diucs.domain.model.tenant import ContactKind, TenantContact
+from overwatch.domain.codes import CriteriaStatus, NeedCategory, Role
+from overwatch.domain.model.criteria import ServiceCriteria
+from overwatch.domain.model.tenant import ContactKind, TenantContact
 from tests.support.w7b_rig import (
     CLINICAL,
     OWNER,

@@ -17,11 +17,11 @@ from datetime import timedelta
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.inbound.workers.outbox_relay import OutboxRelay, RelayResult, StaticTenants
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.adapters.testing.memory_event_bus import ManualEventBus
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.adapters.inbound.workers.outbox_relay import OutboxRelay, RelayResult, StaticTenants
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.adapters.testing.memory_event_bus import ManualEventBus
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from tests.support.relay_rig import (
     NOW,
     InstrumentedFactory,
@@ -117,7 +117,7 @@ async def test_a_schedule_that_hangs_is_given_up_and_counted_too(
 
 
 async def test_the_timeout_is_shorter_than_the_lock_a_batch_holds() -> None:
-    from diucs.adapters.inbound.workers import outbox_relay
+    from overwatch.adapters.inbound.workers import outbox_relay
 
     assert outbox_relay.PUBLISH_TIMEOUT_SECONDS > 0
     assert (
@@ -210,8 +210,8 @@ async def test_a_cancel_stops_the_stored_number_and_the_orphan_is_ignored_by_sta
     """The number of the first schedule was lost in the crash, so a cancel stops only the second.
     The first still arrives, and the consumer finds the work cancelled and does nothing: the work
     is the record, the bus message only a wake-up (consumer: ScheduledWorkConsumer.handle)."""
-    from diucs.application.scheduling import cancel_work
-    from diucs.application.work import CANCELLED
+    from overwatch.application.scheduling import cancel_work
+    from overwatch.application.work import CANCELLED
 
     await add_scheduled(uow_factory, "work-1", "out-1")
     flaky = InstrumentedFactory(uow_factory, fail_mark_published={"out-1"})

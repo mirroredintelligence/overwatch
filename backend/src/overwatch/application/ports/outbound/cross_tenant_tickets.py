@@ -17,7 +17,7 @@ name.
 
 from typing import Protocol
 
-from diucs.domain.rules.support_ticket import SupportTicket, TicketState
+from overwatch.domain.rules.support_ticket import SupportTicket, TicketState
 
 
 class CrossTenantTicketStore(Protocol):

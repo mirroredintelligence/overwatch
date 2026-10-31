@@ -1,7 +1,8 @@
 """Outbound ports for terminology and FHIR validation (P11).
 
 The ODS directory, the terminology server and the FHIR validator are external providers, so each
-has a fake in diucs.adapters.testing (DEC-002, DEC-004). The real adapters come later (I12, R14).
+has a fake in overwatch.adapters.testing (DEC-002, DEC-004). The real adapters come later (I12,
+R14).
 
 An empty list from FhirValidator.validate means valid. Any issue, of any severity, is returned.
 """
@@ -9,8 +10,8 @@ An empty list from FhirValidator.validate means valid. Any issue, of any severit
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol, get_args
 
-from diucs.domain.codes import BASE_URL
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.codes import BASE_URL
+from overwatch.domain.errors import ValidationFailed
 
 Severity = Literal["fatal", "error", "warning", "information"]
 """The FHIR issue severities (OperationOutcome.issue.severity)."""

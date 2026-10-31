@@ -14,13 +14,13 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.ports.outbound.identity import TenantKeyedSecrets
-from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET, LinkTokenService
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.domain.rules.tenant_keys import derive_tenant_key
-from diucs.domain.rules.tokens import hash_token
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.ports.outbound.identity import TenantKeyedSecrets
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET, LinkTokenService
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.domain.rules.tenant_keys import derive_tenant_key
+from overwatch.domain.rules.tokens import hash_token
 from tests.support.tenancy import as_tenant
 from tests.support.uow import tenant_uow_factory
 

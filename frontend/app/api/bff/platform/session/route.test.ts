@@ -21,7 +21,7 @@ const OPERATOR = { role: 'platform-operator', accountRef: OPERATOR_ACCOUNT, expi
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', BACKEND_BASE);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', BACKEND_BASE);
   vi.stubEnv('NODE_ENV', 'production');
   resetCookieWrites();
 });
@@ -38,7 +38,7 @@ describe('GET /api/bff/platform/session', () => {
     const body = await response.json();
     expect(body).toMatchObject({ role: 'platform-operator', expiresAt: '2026-10-30T10:00:00Z', permissions: OPERATOR.permissions });
     expect(typeof body.csrfToken).toBe('string');
-    expect(cookieWrites.find((w) => w.name === 'diucs_op_csrf')?.value).toBe(body.csrfToken);
+    expect(cookieWrites.find((w) => w.name === 'overwatch_op_csrf')?.value).toBe(body.csrfToken);
   });
 
   it('never carries the back-end token, a tenant or the sealed session', async () => {
@@ -72,6 +72,6 @@ describe('DELETE /api/bff/platform/session', () => {
     expect(response.status).toBe(204);
     expect(response.headers.get('clear-site-data')).toBe('"cache", "storage"');
     const cleared = cookieWrites.filter((w) => w.value === '').map((w) => w.name).sort();
-    expect(cleared).toEqual([OPERATOR_COOKIE, 'diucs_op_csrf'].sort());
+    expect(cleared).toEqual([OPERATOR_COOKIE, 'overwatch_op_csrf'].sort());
   });
 });

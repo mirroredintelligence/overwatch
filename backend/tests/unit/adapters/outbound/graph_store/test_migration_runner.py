@@ -16,8 +16,8 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from diucs.adapters.outbound.graph_store import migrations as runner
-from diucs.adapters.outbound.graph_store.migration_types import (
+from overwatch.adapters.outbound.graph_store import migrations as runner
+from overwatch.adapters.outbound.graph_store.migration_types import (
     MAX_LOOP_ITERATIONS,
     Migration,
     MigrationFailed,

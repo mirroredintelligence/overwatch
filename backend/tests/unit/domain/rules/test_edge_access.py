@@ -11,9 +11,9 @@ from typing import Any
 
 import pytest
 
-from diucs.domain.codes import Role
-from diucs.domain.model.tenant import SuspendMode, SuspendReason, Tenant, TenantStatus
-from diucs.domain.rules.edge_access import EdgeVerdict, edge_verdict
+from overwatch.domain.codes import Role
+from overwatch.domain.model.tenant import SuspendMode, SuspendReason, Tenant, TenantStatus
+from overwatch.domain.rules.edge_access import EdgeVerdict, edge_verdict
 from tests.support.tenant_samples import make_tenant
 
 TENANT_ID = "example-icb"

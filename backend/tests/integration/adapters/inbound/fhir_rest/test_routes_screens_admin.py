@@ -19,22 +19,22 @@ from fastapi import Depends, FastAPI
 from httpx import ASGITransport, AsyncClient
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME, require_role
-from diucs.adapters.inbound.fhir_rest.routes_auth import DEVICE_PATH, ExchangeDeps
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.testing.fake_identity_verifier import FakeIdentityVerifier
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.identity import DEVICE_TOKEN_SECRET, PHONE_HASH_SECRET
-from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET
-from diucs.application.use_cases.exchange_token import ACCOUNT_REF_SECRET
-from diucs.bootstrap.container import Container, build_for_tests
-from diucs.domain.codes import Role
+from overwatch.adapters.inbound.fhir_rest.app import create_app
+from overwatch.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME, require_role
+from overwatch.adapters.inbound.fhir_rest.routes_auth import DEVICE_PATH, ExchangeDeps
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.testing.fake_identity_verifier import FakeIdentityVerifier
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.identity import DEVICE_TOKEN_SECRET, PHONE_HASH_SECRET
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET
+from overwatch.application.use_cases.exchange_token import ACCOUNT_REF_SECRET
+from overwatch.bootstrap.container import Container, build_for_tests
+from overwatch.domain.codes import Role
 from tests.support.neo4j import ThrowawayNeo4j, write_tx
 from tests.support.tenancy import as_tenant
 from tests.support.uow import ensure_audit_heads

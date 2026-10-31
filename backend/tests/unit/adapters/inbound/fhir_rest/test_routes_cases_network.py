@@ -11,8 +11,8 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.tokens import issue_test_token
-from diucs.domain.codes import Role
+from overwatch.adapters.testing.tokens import issue_test_token
+from overwatch.domain.codes import Role
 from tests.support.route_unit import EDGE_REFUSED, KEY, bearer, route_client
 
 NET = "net-sample-1"

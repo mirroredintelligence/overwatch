@@ -20,31 +20,34 @@ import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 from neo4j.exceptions import ConstraintError
 
-from diucs.adapters.inbound.workers.outbox_relay import OutboxRelay, RelayResult
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.driver import run_global_query
-from diucs.adapters.outbound.graph_store.migrations import apply_migrations
-from diucs.adapters.outbound.graph_store.migrations_tenant import REGISTRY_LABELS, TENANT_MIGRATIONS
-from diucs.adapters.outbound.graph_store.network_registry import Neo4jNetworkRegistry
-from diucs.adapters.outbound.graph_store.queries import (
+from overwatch.adapters.inbound.workers.outbox_relay import OutboxRelay, RelayResult
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.driver import run_global_query
+from overwatch.adapters.outbound.graph_store.migrations import apply_migrations
+from overwatch.adapters.outbound.graph_store.migrations_tenant import (
+    REGISTRY_LABELS,
+    TENANT_MIGRATIONS,
+)
+from overwatch.adapters.outbound.graph_store.network_registry import Neo4jNetworkRegistry
+from overwatch.adapters.outbound.graph_store.queries import (
     GLOBAL_QUERY_IDS,
     GLOBAL_WRITE_IDS,
     REGISTRY,
 )
-from diucs.adapters.outbound.graph_store.tenant_directory import (
+from overwatch.adapters.outbound.graph_store.tenant_directory import (
     Neo4jTenantDirectory,
     tenant_properties,
 )
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.adapters.testing.memory_event_bus import ManualEventBus
-from diucs.application.ports.outbound.tenants import TenantRecordInvalid, twilio_token_ref
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import bind_tenant
-from diucs.bootstrap.container import build
-from diucs.bootstrap.settings import Settings
-from diucs.domain.model.tenant import Tenant, TenantStatus
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.adapters.testing.memory_event_bus import ManualEventBus
+from overwatch.application.ports.outbound.tenants import TenantRecordInvalid, twilio_token_ref
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import bind_tenant
+from overwatch.bootstrap.container import build
+from overwatch.bootstrap.settings import Settings
+from overwatch.domain.model.tenant import Tenant, TenantStatus
 from tests.support.neo4j import ThrowawayNeo4j, read_tx, wipe_all, write_tx
 from tests.support.network_samples import (
     MEMBER_B,
@@ -615,9 +618,9 @@ async def test_start_up_applies_the_migrations_and_leaves_the_registry_readable(
     # Two tenants each get an audit head (one chain per scope, TEN-017), and the heads share the
     # id 'audit'. The shared harness schema holds the composite keys only (TEN-032), so both heads
     # exist on it, with no private container.
-    monkeypatch.setenv("DIUCS_NEO4J_URI", os.environ["NEO4J_URI"])
-    monkeypatch.setenv("DIUCS_NEO4J_USER", os.environ["NEO4J_USER"])
-    monkeypatch.setenv("DIUCS_NEO4J_PASSWORD", os.environ["NEO4J_PASSWORD"])
+    monkeypatch.setenv("OVERWATCH_NEO4J_URI", os.environ["NEO4J_URI"])
+    monkeypatch.setenv("OVERWATCH_NEO4J_USER", os.environ["NEO4J_USER"])
+    monkeypatch.setenv("OVERWATCH_NEO4J_PASSWORD", os.environ["NEO4J_PASSWORD"])
     await seed_two_tenants(neo4j_driver)
     await _run(neo4j_driver, "MATCH (m:Migration {id: '0035_default_tenant_record'}) DELETE m")
     app = build(Settings())
@@ -641,9 +644,9 @@ async def test_start_up_applies_the_migrations_and_leaves_the_registry_readable(
 async def test_a_second_start_up_changes_nothing(
     neo4j_driver: AsyncDriver, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("DIUCS_NEO4J_URI", os.environ["NEO4J_URI"])
-    monkeypatch.setenv("DIUCS_NEO4J_USER", os.environ["NEO4J_USER"])
-    monkeypatch.setenv("DIUCS_NEO4J_PASSWORD", os.environ["NEO4J_PASSWORD"])
+    monkeypatch.setenv("OVERWATCH_NEO4J_URI", os.environ["NEO4J_URI"])
+    monkeypatch.setenv("OVERWATCH_NEO4J_USER", os.environ["NEO4J_USER"])
+    monkeypatch.setenv("OVERWATCH_NEO4J_PASSWORD", os.environ["NEO4J_PASSWORD"])
     # One active tenant, so one chain head (TEN-017: a head per active tenant, none for a graph with
     # no tenant). One tenant needs no contracted schema.
     await seed_tenant(neo4j_driver, make_tenant(id=A))

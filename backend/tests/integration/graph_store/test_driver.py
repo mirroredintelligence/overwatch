@@ -13,9 +13,9 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.graph_store.driver import run_query
-from diucs.adapters.outbound.graph_store.migrations import MIGRATIONS, apply_migrations
-from diucs.adapters.outbound.graph_store.queries import NamedQuery
+from overwatch.adapters.outbound.graph_store.driver import run_query
+from overwatch.adapters.outbound.graph_store.migrations import MIGRATIONS, apply_migrations
+from overwatch.adapters.outbound.graph_store.queries import NamedQuery
 from tests.support.leaky_registry import LeakyRegistry
 from tests.support.neo4j import ThrowawayNeo4j
 from tests.support.scoped import scoped

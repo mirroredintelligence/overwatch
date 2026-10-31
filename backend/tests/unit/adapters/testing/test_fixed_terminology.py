@@ -4,13 +4,13 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_terminology import (
+from overwatch.adapters.testing.fixed_terminology import (
     FixedTerminology,
     PassThroughValidator,
     RecordingValidator,
 )
-from diucs.application.ports.outbound.terminology import OdsRecord, ValidationIssue
-from diucs.domain.errors import ValidationFailed
+from overwatch.application.ports.outbound.terminology import OdsRecord, ValidationIssue
+from overwatch.domain.errors import ValidationFailed
 
 SYSTEM = "urn:example:service-type"
 ACTIVE = OdsRecord("ZZ1001", "Example Community Team", True, "Community", "DT4 8XX")

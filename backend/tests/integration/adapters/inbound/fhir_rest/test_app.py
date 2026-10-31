@@ -13,8 +13,14 @@ from fastapi import FastAPI
 from httpx import AsyncClient
 from pydantic import BaseModel
 
-from diucs.bootstrap.container import Container
-from diucs.domain.errors import Conflict, InvalidTransition, NotAllowed, NotFound, ValidationFailed
+from overwatch.bootstrap.container import Container
+from overwatch.domain.errors import (
+    Conflict,
+    InvalidTransition,
+    NotAllowed,
+    NotFound,
+    ValidationFailed,
+)
 
 FHIR_JSON = "application/fhir+json; fhirVersion=4.3"
 SAMPLE_POSTCODE = "DT4 8XX"

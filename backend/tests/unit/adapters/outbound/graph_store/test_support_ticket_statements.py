@@ -7,9 +7,9 @@ import re
 
 import pytest
 
-import diucs.adapters.outbound.graph_store.support_ticket_repository  # noqa: F401
-from diucs.adapters.outbound.graph_store.queries import REGISTRY
-from diucs.adapters.outbound.graph_store.scenario import validate_scenario
+import overwatch.adapters.outbound.graph_store.support_ticket_repository  # noqa: F401
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY
+from overwatch.adapters.outbound.graph_store.scenario import validate_scenario
 
 TICKET_IDS = ("Q-TICKET-ADD", "Q-TICKET-GET", "Q-TICKET-APPROVE")
 _NODE = re.compile(r"\(\w*:\w+\s*\{([^{}]*)\}\)")

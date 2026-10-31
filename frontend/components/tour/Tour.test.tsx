@@ -27,8 +27,8 @@ describe('Tour: picking a role and what changes', () => {
     expect(screen.getByRole('heading', { name: 'For call advisors' })).toBeInTheDocument();
     const today = screen.getByRole('list', { name: 'Today' });
     expect(within(today).getByText('Phone several services to find space')).toBeInTheDocument();
-    const withDiucs = screen.getByRole('list', { name: 'With DIUCS' });
-    expect(within(withDiucs).getByText('Request a booking by text and move on')).toBeInTheDocument();
+    const withOverwatch = screen.getByRole('list', { name: 'With Overwatch' });
+    expect(within(withOverwatch).getByText('Request a booking by text and move on')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try a practice call' })).toBeInTheDocument();
   });
 });

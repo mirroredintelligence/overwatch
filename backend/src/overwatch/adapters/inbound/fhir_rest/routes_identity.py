@@ -48,13 +48,13 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 
-from diucs.adapters.inbound.fhir_rest.app import get_container
-from diucs.adapters.inbound.fhir_rest.auth import require_role
-from diucs.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
-from diucs.adapters.inbound.fhir_rest.errors import NOT_FOUND_TEXT, operation_outcome
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.identity import (
+from overwatch.adapters.inbound.fhir_rest.app import get_container
+from overwatch.adapters.inbound.fhir_rest.auth import require_role
+from overwatch.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
+from overwatch.adapters.inbound.fhir_rest.errors import NOT_FOUND_TEXT, operation_outcome
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.identity import (
     PHONE_HASH_SECRET,
     CodeResendRefused,
     CodeStore,
@@ -62,14 +62,14 @@ from diucs.application.ports.outbound.identity import (
     RateLimiter,
     SessionStore,
 )
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.sealing import ContentSealer
-from diucs.application.ports.outbound.tenants import TenantDirectory, TenantRecordInvalid
-from diucs.application.ports.outbound.tokens import SecretStore
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import bind_tenant, current_tenant
-from diucs.application.uow_idempotency import UnitOfWorkIdempotency
-from diucs.application.use_cases.pin import (
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.sealing import ContentSealer
+from overwatch.application.ports.outbound.tenants import TenantDirectory, TenantRecordInvalid
+from overwatch.application.ports.outbound.tokens import SecretStore
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import bind_tenant, current_tenant
+from overwatch.application.uow_idempotency import UnitOfWorkIdempotency
+from overwatch.application.use_cases.pin import (
     PIN_HMAC_SECRET,
     RATE_WINDOW,
     PinRateLimited,
@@ -78,14 +78,14 @@ from diucs.application.use_cases.pin import (
     SetPin,
     limiter_key,
 )
-from diucs.application.use_cases.push_subscription import (
+from overwatch.application.use_cases.push_subscription import (
     RemovePushSubscription,
     RemovePushSubscriptionCommand,
     SavePushSubscription,
     SavePushSubscriptionCommand,
 )
-from diucs.application.use_cases.remove_person import StartNewPhone
-from diucs.application.use_cases.reporter_identity import (
+from overwatch.application.use_cases.remove_person import StartNewPhone
+from overwatch.application.use_cases.reporter_identity import (
     PUSH_DEVICE_PREFIX,
     CheckReporterAccess,
     ConfirmDeviceByTextCode,
@@ -97,18 +97,18 @@ from diucs.application.use_cases.reporter_identity import (
     SetDevicePinCommand,
     SignInKind,
 )
-from diucs.application.use_cases.reporter_setup import CoordinationPhone
-from diucs.application.use_cases.staff_person import EnsureStaffPerson
-from diucs.application.use_cases.text_code import (
+from overwatch.application.use_cases.reporter_setup import CoordinationPhone
+from overwatch.application.use_cases.staff_person import EnsureStaffPerson
+from overwatch.application.use_cases.text_code import (
     CODE_HMAC_SECRET,
     RESEND_AFTER_SECONDS,
     RequestTextCode,
     RequestTextCodeCommand,
     VerifyTextCode,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotFound, ValidationFailed
-from diucs.domain.model.tenant import TenantStatus
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotFound, ValidationFailed
+from overwatch.domain.model.tenant import TenantStatus
 
 log = logging.getLogger(__name__)
 

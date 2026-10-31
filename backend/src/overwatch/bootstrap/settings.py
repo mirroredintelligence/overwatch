@@ -1,4 +1,4 @@
-"""Settings read from environment variables prefixed DIUCS_.
+"""Settings read from environment variables prefixed OVERWATCH_.
 
 A settings value swaps an adapter without a code change. Secrets are SecretStr and
 never appear in repr. Profiles differ only in external providers; both use Neo4j for
@@ -13,16 +13,16 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="DIUCS_")
+    model_config = SettingsConfigDict(env_prefix="OVERWATCH_")
 
     profile: Literal["test", "production"] = "test"
     minutes_per_avoided_call: int | None = None
     """Minutes one phone call takes, for the week summary's time-back estimate (U35). Unset is not
     guessed: the summary shows [x] until the owner sets it (DEC-245)."""
-    base_url: str = "https://diucs.example/"
+    base_url: str = "https://overwatch.mirroredintelligence.com/"
     neo4j_uri: str = "bolt://localhost:7687"
     neo4j_user: str = "neo4j"
-    neo4j_password: SecretStr = SecretStr("diucs-test-password")
+    neo4j_password: SecretStr = SecretStr("overwatch-test-password")
     # DEC-012 pool bounds. Values are [ASSUMED] until measured.
     neo4j_max_connection_lifetime_s: float = 1800.0
     neo4j_liveness_check_timeout_s: float = 30.0
@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     smtp_starttls: bool = True
     # I14: the VAPID subject (a mailto: address) that push services may contact about the platform's
     # key. A placeholder here; the operations inbox is set in the environment at deploy.
-    webpush_subject: str = "mailto:operations@diucs.example"
+    webpush_subject: str = "mailto:operations@overwatch.example"
     # R16: the Pathways Dx file the score picker searches. The default is the pilot sample, whose
     # codes are not real. The licensed NHS Pathways list is a configuration change to this path.
     pathways_dx_file: Path = (

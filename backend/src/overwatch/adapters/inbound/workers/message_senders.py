@@ -36,13 +36,13 @@ from typing import Final, Literal
 
 from azure.servicebus.aio import ServiceBusClient
 
-from diucs.adapters.inbound.workers.consumer import IdempotentConsumer, PermanentError
-from diucs.adapters.inbound.workers.outbox_relay import ActiveTenants
-from diucs.adapters.inbound.workers.servicebus_runner import ServiceBusRunner
-from diucs.adapters.inbound.workers.tenant_binding import Observe, TenantBoundConsumer, untraced
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.ports.outbound.messaging import (
+from overwatch.adapters.inbound.workers.consumer import IdempotentConsumer, PermanentError
+from overwatch.adapters.inbound.workers.outbox_relay import ActiveTenants
+from overwatch.adapters.inbound.workers.servicebus_runner import ServiceBusRunner
+from overwatch.adapters.inbound.workers.tenant_binding import Observe, TenantBoundConsumer, untraced
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.ports.outbound.messaging import (
     PUSH_GONE,
     Communication,
     EmailSender,
@@ -52,17 +52,17 @@ from diucs.application.ports.outbound.messaging import (
     SmsSender,
     TransientSendError,
 )
-from diucs.application.ports.outbound.sealing import ContentSealer
-from diucs.application.ports.outbound.sender_resolver import ChannelUnavailable, SenderResolver
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.domain.codes import Channel
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.messages.templates import render
-from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED
-from diucs.domain.model.people import cover_in_force, phone_contact_key, role_holder
-from diucs.domain.model.tenant import NumberStatus
-from diucs.domain.model.tenant_records import ChannelKind
+from overwatch.application.ports.outbound.sealing import ContentSealer
+from overwatch.application.ports.outbound.sender_resolver import ChannelUnavailable, SenderResolver
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.domain.codes import Channel
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.messages.templates import render
+from overwatch.domain.model.flags import SERVICE_FLAG_SUSPENDED
+from overwatch.domain.model.people import cover_in_force, phone_contact_key, role_holder
+from overwatch.domain.model.tenant import NumberStatus
+from overwatch.domain.model.tenant_records import ChannelKind
 
 logger = logging.getLogger(__name__)
 

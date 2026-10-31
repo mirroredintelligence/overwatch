@@ -3,7 +3,7 @@
 The stored answers are in tests/integration/adapters/inbound/fhir_rest/test_routes_cases_w7a.py.
 """
 
-from diucs.domain.codes import Role
+from overwatch.domain.codes import Role
 from tests.support.route_unit import KEY, assert_role_matrix, route_client
 
 CASE_ROLES = frozenset({Role.ADVISOR, Role.CLINICAL})

@@ -39,12 +39,12 @@ beforeEach(() => {
   resetLeadPosts();
   FakeEventSource.instances = [];
   vi.stubGlobal('EventSource', FakeEventSource);
-  document.cookie = 'diucs_csrf=test-csrf-token';
+  document.cookie = 'overwatch_csrf=test-csrf-token';
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
-  document.cookie = 'diucs_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+  document.cookie = 'overwatch_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT';
 });
 
 describe('LeadOverview', () => {

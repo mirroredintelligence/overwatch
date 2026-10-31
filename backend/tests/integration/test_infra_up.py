@@ -28,7 +28,7 @@ pytestmark = [pytest.mark.infra, pytest.mark.exclusive]
 
 NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
 NEO4J_USER = os.environ.get("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "diucs-test-password")
+NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "overwatch-test-password")
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 SERVICEBUS_CONNECTION = os.environ.get(
     "SERVICEBUS_CONNECTION",

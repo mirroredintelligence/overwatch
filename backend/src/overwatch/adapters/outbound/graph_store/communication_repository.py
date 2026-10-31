@@ -19,9 +19,9 @@ from typing import Any, Final, Literal
 
 from neo4j.exceptions import ClientError
 
-from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.adapters.outbound.graph_store.scenario import (
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx, run_query
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from overwatch.adapters.outbound.graph_store.scenario import (
     Expect,
     Marked,
     NodeSpec,
@@ -30,15 +30,15 @@ from diucs.adapters.outbound.graph_store.scenario import (
     SeedRel,
     TenantSeed,
 )
-from diucs.adapters.outbound.graph_store.week_scenarios import WEEK_SCENARIOS
-from diucs.application.ports.outbound.messaging import (
+from overwatch.adapters.outbound.graph_store.week_scenarios import WEEK_SCENARIOS
+from overwatch.application.ports.outbound.messaging import (
     DELIVERY_STATUSES,
     Communication,
     PromptDue,
     statuses_before,
 )
-from diucs.domain.codes import BASE_URL, Channel
-from diucs.domain.errors import Conflict, NotFound, ValidationFailed
+from overwatch.domain.codes import BASE_URL, Channel
+from overwatch.domain.errors import Conflict, NotFound, ValidationFailed
 
 MESSAGE_SYSTEM = f"{BASE_URL}CodeSystem/message-id"
 CHANNEL_SYSTEM = f"{BASE_URL}CodeSystem/channel"

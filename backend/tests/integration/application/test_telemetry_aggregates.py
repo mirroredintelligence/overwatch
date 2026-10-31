@@ -13,12 +13,12 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.aggregate_repository import Neo4jAggregateRepository
-from diucs.adapters.testing.fixture_telemetry import FixtureTelemetryQuery
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import bind_tenant
-from diucs.application.use_cases.telemetry_aggregates import BuildDailyAggregates, ReadInsights
-from diucs.domain.model.telemetry_aggregates import (
+from overwatch.adapters.outbound.graph_store.aggregate_repository import Neo4jAggregateRepository
+from overwatch.adapters.testing.fixture_telemetry import FixtureTelemetryQuery
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import bind_tenant
+from overwatch.application.use_cases.telemetry_aggregates import BuildDailyAggregates, ReadInsights
+from overwatch.domain.model.telemetry_aggregates import (
     DayAggregates,
     ElementUsageDailyRow,
     FrictionDailyRow,

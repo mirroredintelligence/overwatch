@@ -12,8 +12,8 @@ from typing import Any
 
 from hypothesis import strategies as st
 
-from diucs.domain.codes import AlertKind
-from diucs.domain.model.tenant_policy import (
+from overwatch.domain.codes import AlertKind
+from overwatch.domain.model.tenant_policy import (
     ALERT_NOT_UPDATED_CHOICES,
     DEFAULT_POLICY,
     FIELD_BOUNDS,

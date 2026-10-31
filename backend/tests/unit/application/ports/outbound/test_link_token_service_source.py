@@ -8,10 +8,10 @@ import secrets
 from datetime import UTC, datetime
 from typing import Final
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET, LinkTokenService
-from diucs.domain.rules.tokens import LinkTokenRecord, hash_token, new_link_token
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET, LinkTokenService
+from overwatch.domain.rules.tokens import LinkTokenRecord, hash_token, new_link_token
 
 SECRET: Final = b"link-token-test-secret-0123456789abcdef"
 NOW: Final = datetime(2026, 10, 29, 9, 0, tzinfo=UTC)

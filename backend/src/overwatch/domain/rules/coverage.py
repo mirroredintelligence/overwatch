@@ -12,7 +12,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Final
 
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.errors import ValidationFailed
 
 EARTH_RADIUS_KM: Final = 6371.0088
 MIN_RADIUS_KM: Final = 1

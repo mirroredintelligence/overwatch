@@ -1,7 +1,7 @@
 {
   "resourceType": "CodeSystem",
   "id": "capacity-measure",
-  "url": "https://diucs.example/CodeSystem/capacity-measure",
+  "url": "https://overwatch.mirroredintelligence.com/CodeSystem/capacity-measure",
   "name": "capacity-measure",
   "status": "active",
   "content": "complete",

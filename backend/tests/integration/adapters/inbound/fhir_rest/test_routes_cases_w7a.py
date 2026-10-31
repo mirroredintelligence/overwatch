@@ -17,11 +17,11 @@ import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient
 
-from diucs.adapters.testing.fixed_terminology import FixedTerminology
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.bootstrap.container import Container
-from diucs.domain.codes import AgeBand, NeedCategory, ReferrerType, Role, Urgency
-from diucs.domain.model.case import Case
+from overwatch.adapters.testing.fixed_terminology import FixedTerminology
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.bootstrap.container import Container
+from overwatch.domain.codes import AgeBand, NeedCategory, ReferrerType, Role, Urgency
+from overwatch.domain.model.case import Case
 from tests.integration.adapters.inbound.fhir_rest.test_routes_cases import (
     CASE_BODY,
     UCR_WEST,
@@ -35,13 +35,13 @@ __all__ = ["fresh_cases", "route_state", "seeded"]
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
-BASE = "https://diucs.example/StructureDefinition"
+BASE = "https://overwatch.mirroredintelligence.com/StructureDefinition"
 AGE_BAND = f"{BASE}/age-band"
 REFERRER = f"{BASE}/referrer-type"
 URGENCY = f"{BASE}/urgency"
 SCORE = f"{BASE}/score"
 CLOSED_AT = f"{BASE}/closed-at"
-NEED_SYSTEM = "https://diucs.example/CodeSystem/need-category"
+NEED_SYSTEM = "https://overwatch.mirroredintelligence.com/CodeSystem/need-category"
 EMPTY_CASE: dict[str, Any] = {"resourceType": "ServiceRequest"}
 B_CASE_ID = "case-of-tenant-b"
 B_REFERENCE = "7391"

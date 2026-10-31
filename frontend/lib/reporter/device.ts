@@ -6,7 +6,7 @@ import { baseCookieOptions, readRequestCookie } from '@/lib/auth/session';
 // random (128 bits, base64url), created once per phone, and kept across sign-outs (the device is
 // the same phone; the session is not).
 
-export const DEVICE_COOKIE = 'diucs_device';
+export const DEVICE_COOKIE = 'overwatch_device';
 const DEVICE_ID = /^[A-Za-z0-9_-]{22}$/;
 const DEVICE_BYTES = 16;
 /** [ASSUMED] DEC-660: a phone keeps its device id for about a year. */

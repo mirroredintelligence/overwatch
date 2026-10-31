@@ -1,7 +1,7 @@
 """Alert records (P17): what each practitioner is alerted about, and each alert raised (U33, U34).
 
 Pure value objects. A subscription is one per practitioner; an alert is one raised for one owner.
-The alert kinds and their rules are in diucs.domain.rules.alerts (D24). An alert carries no free
+The alert kinds and their rules are in overwatch.domain.rules.alerts (D24). An alert carries no free
 text (H-09).
 """
 
@@ -9,9 +9,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Final
 
-from diucs.domain.codes import AlertKind
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.alerts import AlertPreferences
+from overwatch.domain.codes import AlertKind
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.alerts import AlertPreferences
 
 # Business statuses of an alert (P17). `new` and `escalated` are open; `acknowledged` and `closed`
 # are done.

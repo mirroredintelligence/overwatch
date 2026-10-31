@@ -13,15 +13,15 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.booking_repository import (
+from overwatch.adapters.outbound.graph_store.booking_repository import (
     Neo4jBookingRepository,
     booking_to_fhir,
     read_task_fhir,
 )
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.domain.codes import BookingStatus
-from diucs.domain.errors import Conflict, NotFound
-from diucs.domain.model.booking import Booking
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.domain.codes import BookingStatus
+from overwatch.domain.errors import Conflict, NotFound
+from overwatch.domain.model.booking import Booking
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
 from tests.support.round_trip import assert_round_trip
 from tests.support.scoped import OpenTx

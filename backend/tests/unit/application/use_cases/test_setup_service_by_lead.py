@@ -9,8 +9,8 @@ from datetime import UTC, date, datetime, time
 
 import pytest
 
-from diucs.application.actor import Actor
-from diucs.application.use_cases.setup_service_by_lead import (
+from overwatch.application.actor import Actor
+from overwatch.application.use_cases.setup_service_by_lead import (
     ReporterContact,
     SetupServiceCommand,
     build_criteria,
@@ -23,7 +23,7 @@ from diucs.application.use_cases.setup_service_by_lead import (
     reporter_contact,
     setup_snapshot,
 )
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     CriteriaStatus,
@@ -33,9 +33,9 @@ from diucs.domain.codes import (
     Role,
     ServiceCategory,
 )
-from diucs.domain.errors import NotAllowed, ValidationFailed
-from diucs.domain.model.criteria import ServiceCriteria
-from diucs.domain.model.service import AvailableTime
+from overwatch.domain.errors import NotAllowed, ValidationFailed
+from overwatch.domain.model.criteria import ServiceCriteria
+from overwatch.domain.model.service import AvailableTime
 from tests.support.actors import ACTOR_TENANT
 
 NOW = datetime(2026, 10, 29, 9, 10, tzinfo=UTC)  # London is on GMT: local time equals UTC

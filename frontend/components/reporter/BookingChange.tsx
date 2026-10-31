@@ -118,7 +118,7 @@ export function BookingChange({ token, initial, initialClosed }: Props) {
   function enter(next: Step) {
     setNotice(null);
     setReason(null);
-    window.history.pushState({ ...(window.history.state as object | null), diucsStep: next }, '');
+    window.history.pushState({ ...(window.history.state as object | null), overwatchStep: next }, '');
     setStep(next);
   }
 
@@ -183,7 +183,7 @@ export function BookingChange({ token, initial, initialClosed }: Props) {
     const facts = closedFacts(closed);
     return (
       <main className={styles.page}>
-        <p className={styles.eyebrow}>DIUCS booking</p>
+        <p className={styles.eyebrow}>Overwatch booking</p>
         <h1 className={styles.title}>This link has closed</h1>
         <p className={styles.question}>This link can no longer be used.</p>
         {facts !== null ? <p className={styles.or}>{facts}</p> : null}

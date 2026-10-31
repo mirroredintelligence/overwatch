@@ -16,16 +16,18 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.driver import run_query
-from diucs.adapters.outbound.graph_store.person_repository import Neo4jPersonRepository
-from diucs.adapters.outbound.graph_store.queries import REGISTRY
-from diucs.adapters.outbound.graph_store.registration_repository import Neo4jRegistrationRepository
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.adapters.outbound.graph_store.scenario import SeedNode, SeedRel, TenantSeed
-from diucs.adapters.outbound.graph_store.scope_list_repository import Neo4jScopeListRepository
-from diucs.adapters.outbound.graph_store.service_repository import codeable_to_fhir
-from diucs.application.tenancy import bind_tenant
-from diucs.domain.codes import (
+from overwatch.adapters.outbound.graph_store.driver import run_query
+from overwatch.adapters.outbound.graph_store.person_repository import Neo4jPersonRepository
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY
+from overwatch.adapters.outbound.graph_store.registration_repository import (
+    Neo4jRegistrationRepository,
+)
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.adapters.outbound.graph_store.scenario import SeedNode, SeedRel, TenantSeed
+from overwatch.adapters.outbound.graph_store.scope_list_repository import Neo4jScopeListRepository
+from overwatch.adapters.outbound.graph_store.service_repository import codeable_to_fhir
+from overwatch.application.tenancy import bind_tenant
+from overwatch.domain.codes import (
     Channel,
     PractitionerRoleCode,
     RegistrationStatus,
@@ -33,10 +35,10 @@ from diucs.domain.codes import (
     ServiceCategory,
     coding_for,
 )
-from diucs.domain.errors import NotFound
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.model.registration import Registration, ScopeEntry
-from diucs.domain.rules.registration import ApprovalChecks
+from overwatch.domain.errors import NotFound
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.model.registration import Registration, ScopeEntry
+from overwatch.domain.rules.registration import ApprovalChecks
 from tests.support.neo4j import read_tx, run_scope_ids, write_tx
 from tests.support.tenant_seed import invariant_breaks, seed_tenant
 

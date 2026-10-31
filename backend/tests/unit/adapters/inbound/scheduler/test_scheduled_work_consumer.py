@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.inbound.scheduler.scheduled_work_consumer import (
+from overwatch.adapters.inbound.scheduler.scheduled_work_consumer import (
     CONSUMER_NAME,
     EVENT_TYPE,
     ScheduledWorkConsumer,
@@ -16,11 +16,11 @@ from diucs.adapters.inbound.scheduler.scheduled_work_consumer import (
     WorkHandler,
     build_scheduled_work_consumer,
 )
-from diucs.adapters.inbound.workers.consumer import PermanentError
-from diucs.adapters.inbound.workers.outbox_relay import StaticTenants
-from diucs.adapters.inbound.workers.tenant_binding import NO_TENANT, TenantBoundConsumer
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.work import SCHEDULED, ScheduledWork, WorkKind
+from overwatch.adapters.inbound.workers.consumer import PermanentError
+from overwatch.adapters.inbound.workers.outbox_relay import StaticTenants
+from overwatch.adapters.inbound.workers.tenant_binding import NO_TENANT, TenantBoundConsumer
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.work import SCHEDULED, ScheduledWork, WorkKind
 from tests.support.bus import message_with_tenant
 
 DUE = datetime(2026, 10, 23, 11, 0, tzinfo=UTC)

@@ -17,7 +17,7 @@ import re
 from collections.abc import Mapping
 from typing import Final
 
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.errors import ValidationFailed
 
 MAX_DISTRICT_CHOICES: Final = 12
 """[ASSUMED] How many chips the screen is given: enough to cover the neighbours of any one district,

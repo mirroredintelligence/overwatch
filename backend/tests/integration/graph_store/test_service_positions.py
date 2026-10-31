@@ -8,10 +8,10 @@ with no Location, and a Location without coordinates, is left out. Values are sy
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.application.ports.outbound.geo import LatLon
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.domain.codes import Cadence, Channel, Measure, ServiceCategory
-from diucs.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.application.ports.outbound.geo import LatLon
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.domain.codes import Cadence, Channel, Measure, ServiceCategory
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.neo4j import read_tx, write_tx
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")

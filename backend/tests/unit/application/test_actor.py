@@ -11,10 +11,10 @@ from typing import Any
 
 import pytest
 
-from diucs.application.actor import Actor, anonymous_actor, system_actor, wall_actor
-from diucs.application.tenancy import ScopeInvalid, bind_tenant, current_tenant
-from diucs.domain.codes import Role
-from diucs.domain.errors import ValidationFailed
+from overwatch.application.actor import Actor, anonymous_actor, system_actor, wall_actor
+from overwatch.application.tenancy import ScopeInvalid, bind_tenant, current_tenant
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import ValidationFailed
 
 TENANT = "tenant-a"
 OTHER = "tenant-b"

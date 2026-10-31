@@ -30,17 +30,17 @@ from tests.support.neo4j import (
 from tests.support.proc import boot_id, pid_namespace, process_start_marker
 
 ENV_NAMES = (
-    "DIUCS_NEO4J_MEMORY",
-    "DIUCS_NEO4J_HEAP",
-    "DIUCS_NEO4J_PAGECACHE",
-    "DIUCS_NEO4J_READY_TIMEOUT",
-    "DIUCS_NEO4J_LOCK_TIMEOUT",
+    "OVERWATCH_NEO4J_MEMORY",
+    "OVERWATCH_NEO4J_HEAP",
+    "OVERWATCH_NEO4J_PAGECACHE",
+    "OVERWATCH_NEO4J_READY_TIMEOUT",
+    "OVERWATCH_NEO4J_LOCK_TIMEOUT",
 )
 
 
 @pytest.fixture(autouse=True)
 def _isolated(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[None]:
-    monkeypatch.setenv("DIUCS_NEO4J_LOCK", str(tmp_path / "harness.lock"))
+    monkeypatch.setenv("OVERWATCH_NEO4J_LOCK", str(tmp_path / "harness.lock"))
     for name in ENV_NAMES:
         monkeypatch.delenv(name, raising=False)
     yield
@@ -260,7 +260,7 @@ def test_a_server_that_never_answers_fails_in_the_ready_phase_and_the_container_
 
 
 def test_the_readiness_limit_comes_from_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("DIUCS_NEO4J_READY_TIMEOUT", "30")
+    monkeypatch.setenv("OVERWATCH_NEO4J_READY_TIMEOUT", "30")
     clock = FakeClock()
     probe = ScriptedProbe(clock, [])
 
@@ -273,7 +273,7 @@ def test_the_readiness_limit_comes_from_the_environment(monkeypatch: pytest.Monk
 def test_wait_until_ready_returns_when_the_probe_says_yes_and_removes_nothing() -> None:
     clock = FakeClock()
     probe = ScriptedProbe(clock, [False, True])
-    container = ThrowawayNeo4j("diucs-test-neo4j-x", "bolt://127.0.0.1:1", "neo4j", "pw")
+    container = ThrowawayNeo4j("overwatch-test-neo4j-x", "bolt://127.0.0.1:1", "neo4j", "pw")
 
     wait_until_ready(container, probe=probe, clock=clock, sleep=clock.sleep, timeout_s=10)
 
@@ -283,16 +283,16 @@ def test_wait_until_ready_returns_when_the_probe_says_yes_and_removes_nothing() 
 def test_wait_until_ready_raises_after_its_limit_and_leaves_the_container_to_the_caller() -> None:
     clock = FakeClock()
     probe = ScriptedProbe(clock, [])
-    container = ThrowawayNeo4j("diucs-test-neo4j-x", "bolt://127.0.0.1:1", "neo4j", "pw")
+    container = ThrowawayNeo4j("overwatch-test-neo4j-x", "bolt://127.0.0.1:1", "neo4j", "pw")
 
-    with pytest.raises(Neo4jNotRunning, match="diucs-test-neo4j-x"):
+    with pytest.raises(Neo4jNotRunning, match="overwatch-test-neo4j-x"):
         wait_until_ready(container, probe=probe, clock=clock, sleep=clock.sleep, timeout_s=10)
 
     assert 10 <= probe.at[-1] - probe.at[0] <= 12
 
 
 def test_the_real_probe_says_no_at_once_when_nothing_listens() -> None:
-    container = ThrowawayNeo4j("diucs-test-neo4j-x", "bolt://127.0.0.1:1", "neo4j", "pw")
+    container = ThrowawayNeo4j("overwatch-test-neo4j-x", "bolt://127.0.0.1:1", "neo4j", "pw")
     began = time.monotonic()
 
     assert bolt_ready(container) is False
@@ -320,7 +320,7 @@ def test_the_real_probe_gives_up_on_a_server_that_accepts_a_connection_and_says_
     thread = threading.Thread(target=accept_and_stay_silent, daemon=True)
     thread.start()
     container = ThrowawayNeo4j(
-        "diucs-test-neo4j-x", f"bolt://127.0.0.1:{listener.getsockname()[1]}", "neo4j", "pw"
+        "overwatch-test-neo4j-x", f"bolt://127.0.0.1:{listener.getsockname()[1]}", "neo4j", "pw"
     )
     began = time.monotonic()
     try:
@@ -364,9 +364,9 @@ def test_the_default_limits_are_small_and_heap_and_page_cache_fit_inside_the_con
 
 
 def test_the_limits_can_be_raised_from_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("DIUCS_NEO4J_MEMORY", "2g")
-    monkeypatch.setenv("DIUCS_NEO4J_HEAP", "512m")
-    monkeypatch.setenv("DIUCS_NEO4J_PAGECACHE", "300m")
+    monkeypatch.setenv("OVERWATCH_NEO4J_MEMORY", "2g")
+    monkeypatch.setenv("OVERWATCH_NEO4J_HEAP", "512m")
+    monkeypatch.setenv("OVERWATCH_NEO4J_PAGECACHE", "300m")
     clock = FakeClock()
     docker = FakeDocker(clock)
 
@@ -380,7 +380,7 @@ def test_the_limits_can_be_raised_from_the_environment(monkeypatch: pytest.Monke
     assert "NEO4J_server_memory_pagecache_size=300m" in env
 
 
-@pytest.mark.parametrize("variable", ["DIUCS_NEO4J_MEMORY", "DIUCS_NEO4J_HEAP"])
+@pytest.mark.parametrize("variable", ["OVERWATCH_NEO4J_MEMORY", "OVERWATCH_NEO4J_HEAP"])
 def test_a_limit_that_is_not_a_size_is_refused_before_docker_is_called(
     monkeypatch: pytest.MonkeyPatch, variable: str, tmp_path: Path
 ) -> None:
@@ -404,23 +404,23 @@ def test_the_container_is_labelled_with_its_owner_process_and_start_time() -> No
     _start(docker, ScriptedProbe(clock, [True]), clock)
 
     labels = _values(docker.run_args(), "--label")
-    assert "diucs-test=true" in labels
-    assert f"diucs-test-owner-pid={os.getpid()}" in labels
+    assert "overwatch-test=true" in labels
+    assert f"overwatch-test-owner-pid={os.getpid()}" in labels
     marker = process_start_marker(os.getpid())
     assert marker is not None
-    assert f"diucs-test-owner-start={marker}" in labels
-    assert f"diucs-test-owner-host={socket.gethostname()}" in labels
-    assert f"diucs-test-owner-pidns={pid_namespace()}" in labels
-    assert f"diucs-test-owner-boot={boot_id()}" in labels
+    assert f"overwatch-test-owner-start={marker}" in labels
+    assert f"overwatch-test-owner-host={socket.gethostname()}" in labels
+    assert f"overwatch-test-owner-pidns={pid_namespace()}" in labels
+    assert f"overwatch-test-owner-boot={boot_id()}" in labels
 
 
 def test_owner_labels_name_this_process_and_this_host() -> None:
     assert owner_labels() == {
-        "diucs-test-owner-pid": str(os.getpid()),
-        "diucs-test-owner-start": process_start_marker(os.getpid()),
-        "diucs-test-owner-host": socket.gethostname(),
-        "diucs-test-owner-pidns": pid_namespace(),
-        "diucs-test-owner-boot": boot_id(),
+        "overwatch-test-owner-pid": str(os.getpid()),
+        "overwatch-test-owner-start": process_start_marker(os.getpid()),
+        "overwatch-test-owner-host": socket.gethostname(),
+        "overwatch-test-owner-pidns": pid_namespace(),
+        "overwatch-test-owner-boot": boot_id(),
     }
     assert pid_namespace() != ""  # the namespace and boot identity are labelled, not left empty
     assert boot_id() != ""
@@ -432,7 +432,7 @@ def test_a_container_name_keeps_the_prefix_the_reaper_requires() -> None:
 
     _start(docker, ScriptedProbe(clock, [True]), clock)
 
-    assert docker.container_name().startswith("diucs-test-neo4j-")
+    assert docker.container_name().startswith("overwatch-test-neo4j-")
 
 
 # ---- failures of the docker run ---------------------------------------------------------------
@@ -533,7 +533,7 @@ def test_a_lock_that_stays_taken_fails_in_the_lock_phase_naming_the_holder(
     path.write_text("31337\n", encoding="utf-8")
     other = os.open(path, os.O_RDWR)
     fcntl.flock(other, fcntl.LOCK_EX)  # another process holds it, as far as this one can tell
-    monkeypatch.setenv("DIUCS_NEO4J_LOCK_TIMEOUT", "0.3")
+    monkeypatch.setenv("OVERWATCH_NEO4J_LOCK_TIMEOUT", "0.3")
     clock = FakeClock()
     docker = FakeDocker(clock)
     try:
@@ -662,7 +662,7 @@ def test_a_proc_that_cannot_be_read_gives_no_owner_labels_instead_of_failing_the
 def test_a_memory_value_that_is_not_a_positive_size_is_refused(
     monkeypatch: pytest.MonkeyPatch, value: str
 ) -> None:
-    monkeypatch.setenv("DIUCS_NEO4J_MEMORY", value)
+    monkeypatch.setenv("OVERWATCH_NEO4J_MEMORY", value)
 
     with pytest.raises(HarnessStartError) as excinfo:
         harness._memory_limits()
@@ -674,13 +674,13 @@ def test_a_memory_value_that_is_not_a_positive_size_is_refused(
 def test_a_memory_value_that_is_a_size_is_accepted(
     monkeypatch: pytest.MonkeyPatch, value: str
 ) -> None:
-    monkeypatch.setenv("DIUCS_NEO4J_MEMORY", value)
+    monkeypatch.setenv("OVERWATCH_NEO4J_MEMORY", value)
 
     assert harness._memory_limits()[0] == value
 
 
 def test_an_empty_size_variable_means_the_default(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("DIUCS_NEO4J_MEMORY", "")
+    monkeypatch.setenv("OVERWATCH_NEO4J_MEMORY", "")
 
     assert harness._memory_limits()[0] == harness.DEFAULT_CONTAINER_MEMORY
 
@@ -689,7 +689,7 @@ def test_an_empty_size_variable_means_the_default(monkeypatch: pytest.MonkeyPatc
 def test_a_readiness_timeout_that_is_not_positive_is_refused(
     monkeypatch: pytest.MonkeyPatch, value: str
 ) -> None:
-    monkeypatch.setenv("DIUCS_NEO4J_READY_TIMEOUT", value)
+    monkeypatch.setenv("OVERWATCH_NEO4J_READY_TIMEOUT", value)
 
     with pytest.raises(HarnessStartError) as excinfo:
         harness.ready_timeout_s()

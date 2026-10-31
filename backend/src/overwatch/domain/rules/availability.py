@@ -12,8 +12,8 @@ policy, so a tenant's thresholds never change how bookings reduce availability.
 from collections.abc import Iterable, Sequence
 from datetime import datetime
 
-from diucs.domain.codes import BookingStatus, Measure
-from diucs.domain.model.capacity import CapacityReport
+from overwatch.domain.codes import BookingStatus, Measure
+from overwatch.domain.model.capacity import CapacityReport
 
 
 def _confirmed_since(report: CapacityReport, confirmed_at: Sequence[datetime]) -> int:

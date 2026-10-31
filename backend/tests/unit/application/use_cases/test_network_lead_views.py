@@ -7,25 +7,25 @@ and a pressure state (never a task or a push), and the service line each organis
 
 import pytest
 
-from diucs.application.actor import Actor
-from diucs.application.use_cases.network_lead_views import (
+from overwatch.application.actor import Actor
+from overwatch.application.use_cases.network_lead_views import (
     STATUS_KEYS,
     UNAVAILABLE_KEY,
     QueryPhones,
     QuerySystemNow,
     status_counts,
 )
-from diucs.application.use_cases.query_network_board import NetworkBoardView
-from diucs.application.use_cases.query_network_directory import (
+from overwatch.application.use_cases.query_network_board import NetworkBoardView
+from overwatch.application.use_cases.query_network_directory import (
     NetworkDirectoryEntry,
     NetworkDirectoryView,
 )
-from diucs.domain.codes import Role, ServiceCategory, Status
-from diucs.domain.errors import NotAllowed, NotFound
-from diucs.domain.model.network import DirectorySource
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY
-from diucs.domain.rules.listing import ListingPresentation
-from diucs.domain.rules.pressure import Pressure
+from overwatch.domain.codes import Role, ServiceCategory, Status
+from overwatch.domain.errors import NotAllowed, NotFound
+from overwatch.domain.model.network import DirectorySource
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY
+from overwatch.domain.rules.listing import ListingPresentation
+from overwatch.domain.rules.pressure import Pressure
 from tests.support.network_board_samples import BOARD_AT, board_entry, board_of
 
 NET = "net-pilot"
@@ -217,7 +217,7 @@ async def test_phones_are_refused_as_the_board_is() -> None:
 async def test_a_phone_row_has_only_the_organisations_service_line() -> None:
     fields = set(NetworkDirectoryEntry.__dataclass_fields__)
     assert not {"reporter", "phone_hash", "cover", "tenant_id", "source_tenant_id"} & fields
-    from diucs.application.use_cases.network_lead_views import NetworkPhone
+    from overwatch.application.use_cases.network_lead_views import NetworkPhone
 
     assert set(NetworkPhone.__dataclass_fields__) == {
         "row_ref",

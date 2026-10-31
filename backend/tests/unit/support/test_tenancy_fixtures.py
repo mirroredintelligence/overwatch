@@ -18,7 +18,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from diucs.application.tenancy import (
+from overwatch.application.tenancy import (
     _SCOPE,
     ScopeId,
     ScopeInvalid,
@@ -422,9 +422,9 @@ def test_the_run_fixtures_are_the_identity_of_this_session(
     assert other_tenant_id == tenant_id + "-b"
     assert network_id.startswith("net-")
     assert network_id == run_identity.network_id
-    assert os.environ["DIUCS_TEST_TENANT"] == tenant_id
-    assert os.environ["DIUCS_TEST_OTHER_TENANT"] == other_tenant_id
-    assert os.environ["DIUCS_TEST_NETWORK"] == network_id
+    assert os.environ["OVERWATCH_TEST_TENANT"] == tenant_id
+    assert os.environ["OVERWATCH_TEST_OTHER_TENANT"] == other_tenant_id
+    assert os.environ["OVERWATCH_TEST_NETWORK"] == network_id
     _SEEN.append((run_identity, tenant_id, other_tenant_id, network_id))
 
 
@@ -454,7 +454,7 @@ def _sandbox(pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch, **files
     # An unreachable Docker: nothing here may need a container. The conftest of the sandbox
     # exports the run's tenant ids into os.environ; monkeypatch puts the real ones back afterwards.
     monkeypatch.setenv("DOCKER_HOST", "tcp://127.0.0.1:1")
-    for name in ("DIUCS_TEST_TENANT", "DIUCS_TEST_OTHER_TENANT", "DIUCS_TEST_NETWORK"):
+    for name in ("OVERWATCH_TEST_TENANT", "OVERWATCH_TEST_OTHER_TENANT", "OVERWATCH_TEST_NETWORK"):
         monkeypatch.setenv(name, os.environ.get(name, "restore"))
     source = (Path(__file__).parents[2] / "conftest.py").read_text(encoding="utf-8")
     pytester.makeini(_INI)
@@ -473,16 +473,16 @@ def _run(pytester: pytest.Pytester) -> pytest.RunResult:
 
 _SEES_THE_RUN_TENANT = (
     "import os\n"
-    "from diucs.application.tenancy import current_tenant\n"
+    "from overwatch.application.tenancy import current_tenant\n"
     "async def test_async(request):\n"
-    "    assert current_tenant() == os.environ['DIUCS_TEST_TENANT']\n"
+    "    assert current_tenant() == os.environ['OVERWATCH_TEST_TENANT']\n"
     "    assert 'bound_tenant' in request.fixturenames\n"
     "def test_sync(request):\n"
-    "    assert current_tenant() == os.environ['DIUCS_TEST_TENANT']\n"
+    "    assert current_tenant() == os.environ['OVERWATCH_TEST_TENANT']\n"
     "    assert 'bound_tenant' in request.fixturenames\n"
     "class TestGroup:\n"
     "    async def test_in_a_class(self):\n"
-    "        assert current_tenant() == os.environ['DIUCS_TEST_TENANT']\n"
+    "        assert current_tenant() == os.environ['OVERWATCH_TEST_TENANT']\n"
 )
 
 
@@ -495,7 +495,7 @@ def test_the_hook_binds_the_run_tenant_for_every_integration_test_and_only_for_t
         **{
             "tests/integration/test_bound": _SEES_THE_RUN_TENANT,
             "tests/unit/test_not_bound": (
-                "from diucs.application.tenancy import current_scope_or_none\n"
+                "from overwatch.application.tenancy import current_scope_or_none\n"
                 "def test_probe(request):\n"
                 "    assert current_scope_or_none() is None\n"
                 "    assert 'bound_tenant' not in request.fixturenames\n"
@@ -514,13 +514,13 @@ def test_the_hook_fails_an_async_integration_test_that_leaves_another_tenant_bou
         monkeypatch,
         **{
             "tests/integration/test_leak": (
-                "from diucs.application.tenancy import _SCOPE, ScopeId\n"
+                "from overwatch.application.tenancy import _SCOPE, ScopeId\n"
                 "async def test_leaks():\n"
                 "    _SCOPE.set(ScopeId.tenant('zz-leak'))\n"
                 "async def test_next_one_is_clean():\n"
                 "    import os\n"
-                "    from diucs.application.tenancy import current_tenant\n"
-                "    assert current_tenant() == os.environ['DIUCS_TEST_TENANT']\n"
+                "    from overwatch.application.tenancy import current_tenant\n"
+                "    assert current_tenant() == os.environ['OVERWATCH_TEST_TENANT']\n"
             )
         },
     )
@@ -537,13 +537,13 @@ def test_the_hook_fails_a_sync_integration_test_that_leaves_another_tenant_bound
         monkeypatch,
         **{
             "tests/integration/test_leak": (
-                "from diucs.application.tenancy import _SCOPE, ScopeId\n"
+                "from overwatch.application.tenancy import _SCOPE, ScopeId\n"
                 "def test_leaks():\n"
                 "    _SCOPE.set(ScopeId.tenant('zz-leak'))\n"
                 "def test_next_one_is_clean():\n"
                 "    import os\n"
-                "    from diucs.application.tenancy import current_tenant\n"
-                "    assert current_tenant() == os.environ['DIUCS_TEST_TENANT']\n"
+                "    from overwatch.application.tenancy import current_tenant\n"
+                "    assert current_tenant() == os.environ['OVERWATCH_TEST_TENANT']\n"
             )
         },
     )
@@ -560,7 +560,7 @@ def test_the_hook_does_not_let_the_guard_hide_the_tests_own_failure(
         monkeypatch,
         **{
             "tests/integration/test_fail": (
-                "from diucs.application.tenancy import _SCOPE, ScopeId\n"
+                "from overwatch.application.tenancy import _SCOPE, ScopeId\n"
                 "async def test_fails_and_leaks():\n"
                 "    _SCOPE.set(ScopeId.tenant('zz-leak'))\n"
                 "    raise ValueError('the real failure')\n"
@@ -582,7 +582,7 @@ def test_a_test_marked_no_tenant_runs_unbound_and_is_guarded_to_stay_unbound(
         **{
             "tests/integration/test_unbound": (
                 "import pytest\n"
-                "from diucs.application.tenancy import _SCOPE, ScopeId, current_scope_or_none\n"
+                "from overwatch.application.tenancy import _SCOPE, ScopeId, current_scope_or_none\n"
                 "@pytest.mark.no_tenant\n"
                 "async def test_unbound(request):\n"
                 "    assert current_scope_or_none() is None\n"

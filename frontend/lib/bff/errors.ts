@@ -2,7 +2,7 @@ import { FhirError } from '@/lib/fhir/client';
 
 // Turns any error thrown by a route handler into the response the browser
 // sees. The body holds a code and a fixed message only: never the back end's
-// diagnostics, a URL, or an error's own text (DIUCS privacy rules).
+// diagnostics, a URL, or an error's own text (Overwatch privacy rules).
 //
 // Another tenant's record reads as NotFound (DEC-130 item 7), never Forbidden: on a route that takes
 // an id (`idScoped`), a 403 and a 404 from the back end are the same 404 with the same words, so a

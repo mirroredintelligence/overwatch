@@ -27,23 +27,23 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 
-from diucs.adapters.inbound.fhir_rest.app import get_container
-from diucs.adapters.inbound.fhir_rest.auth import current_actor, require_role
-from diucs.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
-from diucs.adapters.inbound.fhir_rest.errors import operation_outcome
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.identity import secret_is_configured
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.telemetry_query import (
+from overwatch.adapters.inbound.fhir_rest.app import get_container
+from overwatch.adapters.inbound.fhir_rest.auth import current_actor, require_role
+from overwatch.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
+from overwatch.adapters.inbound.fhir_rest.errors import operation_outcome
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.identity import secret_is_configured
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.telemetry_query import (
     SessionFilters,
     TelemetryQuery,
     TelemetryUnavailable,
     as_utc,
 )
-from diucs.application.ports.outbound.tokens import SecretStore
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.support_access import (
+from overwatch.application.ports.outbound.tokens import SecretStore
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.support_access import (
     OPEN_REFUSED,
     CreateSupportCode,
     CreateSupportCodeCommand,
@@ -53,7 +53,7 @@ from diucs.application.use_cases.support_access import (
     StopSharing,
     StopSharingCommand,
 )
-from diucs.application.use_cases.support_console import (
+from overwatch.application.use_cases.support_console import (
     EVENTS_REFUSED,
     ApproveSupportTicket,
     EndSupportAccess,
@@ -63,9 +63,9 @@ from diucs.application.use_cases.support_console import (
     RequestSupportTicket,
     SearchSessions,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotAllowed, ValidationFailed
-from diucs.domain.rules.support import SUPPORT_CODE_SECRET
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotAllowed, ValidationFailed
+from overwatch.domain.rules.support import SUPPORT_CODE_SECRET
 
 router = APIRouter(prefix="/support")
 

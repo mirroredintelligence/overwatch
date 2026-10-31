@@ -33,31 +33,31 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Final
 
-from diucs.application.actor import system_actor
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.network import ActiveGrant, NetworkRegistry
-from diucs.application.ports.outbound.projection import (
+from overwatch.application.actor import system_actor
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.network import ActiveGrant, NetworkRegistry
+from overwatch.application.ports.outbound.projection import (
     GrantRef,
     ProjectionNotifier,
     SourceStatus,
 )
-from diucs.application.ports.outbound.unit_of_work import (
+from overwatch.application.ports.outbound.unit_of_work import (
     NetworkUnitOfWork,
     NetworkUnitOfWorkFactory,
 )
-from diucs.application.projection import Projection, from_body
-from diucs.application.tenancy import ScopeKind, current_scope_or_none
-from diucs.domain.errors import DomainError, ValidationFailed
-from diucs.domain.events import (
+from overwatch.application.projection import Projection, from_body
+from overwatch.application.tenancy import ScopeKind, current_scope_or_none
+from overwatch.domain.errors import DomainError, ValidationFailed
+from overwatch.domain.events import (
     ProjectionApplied,
     ProjectionRejected,
     ProjectionRejectReason,
     ProjectionRequested,
 )
-from diucs.domain.model.network import Grant
-from diucs.domain.rules.listing import may_project_listing
-from diucs.domain.rules.projection import (
+from overwatch.domain.model.network import Grant
+from overwatch.domain.rules.listing import may_project_listing
+from overwatch.domain.rules.projection import (
     PROJECTION_ALLOWLIST_VERSION,
     CapacityProjection,
     CriteriaProjection,

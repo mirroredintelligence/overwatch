@@ -1,7 +1,7 @@
 {
   "resourceType": "CodeSystem",
   "id": "acuity-method",
-  "url": "https://diucs.example/CodeSystem/acuity-method",
+  "url": "https://overwatch.mirroredintelligence.com/CodeSystem/acuity-method",
   "name": "acuity-method",
   "status": "active",
   "content": "complete",

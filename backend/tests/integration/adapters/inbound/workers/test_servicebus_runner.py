@@ -7,13 +7,13 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.inbound.workers.consumer import IdempotentConsumer
-from diucs.adapters.inbound.workers.outbox_relay import StaticTenants
-from diucs.adapters.inbound.workers.servicebus_runner import ServiceBusRunner
-from diucs.adapters.inbound.workers.tenant_binding import TenantBoundConsumer
-from diucs.adapters.outbound.bus_servicebus.service_bus import to_service_bus_message
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.adapters.inbound.workers.consumer import IdempotentConsumer
+from overwatch.adapters.inbound.workers.outbox_relay import StaticTenants
+from overwatch.adapters.inbound.workers.servicebus_runner import ServiceBusRunner
+from overwatch.adapters.inbound.workers.tenant_binding import TenantBoundConsumer
+from overwatch.adapters.outbound.bus_servicebus.service_bus import to_service_bus_message
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
 from tests.support.neo4j import count_nodes
 from tests.support.servicebus import client, take_emulator_lock
 

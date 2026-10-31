@@ -8,16 +8,16 @@ from datetime import UTC, datetime
 
 import pytest
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import AuditEntry, AuditRecord
-from diucs.application.use_cases.advisor_phoned import phoned_figure
-from diucs.application.use_cases.record_decline import (
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import AuditEntry, AuditRecord
+from overwatch.application.use_cases.advisor_phoned import phoned_figure
+from overwatch.application.use_cases.record_decline import (
     DeclineRecord,
     declines_from,
     number_seen,
 )
-from diucs.domain.codes import DeclineReason, Role
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.codes import DeclineReason, Role
+from overwatch.domain.errors import ValidationFailed
 from tests.support.actors import ACTOR_TENANT
 
 ADVISOR = Actor(

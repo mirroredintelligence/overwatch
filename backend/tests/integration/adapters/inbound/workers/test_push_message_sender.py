@@ -11,19 +11,19 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.adapters.inbound.workers.message_senders import (
+from overwatch.adapters.inbound.workers.message_senders import (
     MESSAGES_TOPIC,
     SEND_MESSAGE_EVENT,
     PushMessageSender,
 )
-from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.recording_senders import RecordingPushSender
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.ports.outbound.messaging import Communication, PushSubscription
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.domain.codes import Channel
+from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.recording_senders import RecordingPushSender
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.ports.outbound.messaging import Communication, PushSubscription
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.domain.codes import Channel
 from tests.support.ladder_rig import reporter, seed_people, virtual_ward
 from tests.support.uow import ensure_audit_heads
 
@@ -32,7 +32,7 @@ pytestmark = pytest.mark.asyncio(loop_scope="session")
 SECRET = b"link-token-test-secret-0123456789abcdef"
 SEALER = AesGcmContentSealer(FixedSecretStore({"link-token": SECRET}))
 NOW = datetime(2026, 10, 25, 13, 12, tzinfo=UTC)
-APP_URL = "https://diucs.example/reporter"
+APP_URL = "https://overwatch.mirroredintelligence.com/reporter"
 ROLE = "role-1"
 OUTBOX_ID = "outbox-push-1"
 COMM_ID = "comm-push-1"

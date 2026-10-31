@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     AlertKind,
     Cadence,
     Channel,
@@ -27,14 +27,14 @@ from diucs.domain.codes import (
     ServiceCategory,
     Status,
 )
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.service import AvailableTime, ServiceProfile
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY
-from diucs.domain.rules.alerts import Alert, AlertPreferences, should_notify
-from diucs.domain.rules.freshness import assess_freshness
-from diucs.domain.rules.london_time import LONDON
-from diucs.domain.rules.schedule import current_due, due_times_on, next_due
-from diucs.domain.rules.status import compute_status
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY
+from overwatch.domain.rules.alerts import Alert, AlertPreferences, should_notify
+from overwatch.domain.rules.freshness import assess_freshness
+from overwatch.domain.rules.london_time import LONDON
+from overwatch.domain.rules.schedule import current_due, due_times_on, next_due
+from overwatch.domain.rules.status import compute_status
 
 NEW_YORK = ZoneInfo("America/New_York")
 TOKYO = ZoneInfo("Asia/Tokyo")
@@ -143,7 +143,7 @@ def test_the_opening_hours_in_the_status_follow_the_zone() -> None:
 
 
 def test_quiet_hours_are_the_tenants_night() -> None:
-    from diucs.domain.rules.alerts import QUIET_END, QUIET_START
+    from overwatch.domain.rules.alerts import QUIET_END, QUIET_START
 
     prefs = AlertPreferences(
         kinds=frozenset(AlertKind),
@@ -174,7 +174,7 @@ ZONE_POSITION: Final = {
     "format_hhmm": 1,
     "format_stamp": 1,
 }
-SOURCE_ROOT: Final = Path(__file__).resolve().parents[4] / "src" / "diucs"
+SOURCE_ROOT: Final = Path(__file__).resolve().parents[4] / "src" / "overwatch"
 
 # Callers that do not yet pass the tenant's zone, each with the task that does (the builder's
 # reading of the tenancy plan: TEN-026 gives the use cases the configuration read port that carries

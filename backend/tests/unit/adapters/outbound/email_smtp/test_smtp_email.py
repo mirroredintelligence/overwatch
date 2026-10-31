@@ -16,30 +16,30 @@ import pytest
 from aiosmtpd.controller import Controller
 from pydantic import SecretStr
 
-from diucs.adapters.outbound.email_smtp.smtp_email import (
+from overwatch.adapters.outbound.email_smtp.smtp_email import (
     SmtpEmail,
     SmtpIdentity,
     SmtpRelay,
     build_message,
     text_to_html,
 )
-from diucs.application.ports.outbound.messaging import (
+from overwatch.application.ports.outbound.messaging import (
     SendFailedError,
     SendReceipt,
     TransientSendError,
 )
-from diucs.domain.codes import Channel
-from diucs.domain.messages.templates import MessageId, render
+from overwatch.domain.codes import Channel
+from overwatch.domain.messages.templates import MessageId, render
 
-FROM = "DIUCS Capacity <capacity@diucs.example>"
-TO = "role.inbox-7731@diucs.example"
+FROM = "Overwatch <capacity@overwatch.example>"
+TO = "role.inbox-7731@overwatch.example"
 SUBJECT = "UCR West: confirm or update by 10:30"
-TEXT = "DIUCS: UCR West. Confirm or update: https://diucs.example/l/Qk3-x9_Tz0aBc12345abc"
-HTML = "<p>DIUCS: UCR West.</p>"
-LINK = "https://diucs.example/l/Qk3-x9_Tz0aBc12345abc"
-MSG_ID = "<7f1c2a84-9d3e-4b6a-8c21-5e0f4d9a7b33@diucs.example>"
+TEXT = "Overwatch: UCR West. Confirm or update: https://overwatch.mirroredintelligence.com/l/Qk3-x9_Tz0aBc12345abc"
+HTML = "<p>Overwatch: UCR West.</p>"
+LINK = "https://overwatch.mirroredintelligence.com/l/Qk3-x9_Tz0aBc12345abc"
+MSG_ID = "<7f1c2a84-9d3e-4b6a-8c21-5e0f4d9a7b33@overwatch.example>"
 MARKER_BODY = "marker-body-7731"
-MARKER_ADDRESS = "role.marker-7731@diucs.example"
+MARKER_ADDRESS = "role.marker-7731@overwatch.example"
 
 
 class RecordingHandler:
@@ -89,7 +89,7 @@ def smtp_server() -> Any:
         controller.stop()
 
 
-IDENTITY = SmtpIdentity(from_address="capacity@diucs.example", display_name="DIUCS Capacity")
+IDENTITY = SmtpIdentity(from_address="capacity@overwatch.example", display_name="Overwatch")
 
 
 def relay_for(port: int) -> SmtpRelay:
@@ -151,7 +151,7 @@ async def test_send_delivers_one_message_with_both_parts(smtp_server: Any) -> No
     receipt = await SmtpEmail(relay_for(port), IDENTITY).send(TO, SUBJECT, TEXT, HTML)
 
     assert receipt.accepted is True
-    assert re.fullmatch(r"<[0-9a-f-]{36}@diucs\.example>", receipt.provider_message_id)
+    assert re.fullmatch(r"<[0-9a-f-]{36}@overwatch\.example>", receipt.provider_message_id)
     assert len(handler.messages) == 1
     recipients, raw = handler.messages[0]
     assert recipients == [TO]
@@ -419,7 +419,7 @@ async def test_the_message_id_is_in_the_domain_of_the_senders_own_address(
 
     assert re.fullmatch(r"<[0-9a-f-]{36}@alpha\.example\.test>", first.provider_message_id)
     assert re.fullmatch(r"<[0-9a-f-]{36}@bravo\.example\.test>", second.provider_message_id)
-    assert "diucs.example" not in first.provider_message_id
+    assert "overwatch.example" not in first.provider_message_id
 
 
 async def test_the_credentials_are_the_identitys_own_and_none_means_no_login(

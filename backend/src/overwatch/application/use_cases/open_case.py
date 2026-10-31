@@ -18,18 +18,18 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Any, Final
 
-from diucs.application.actor import Actor
-from diucs.application.idempotency import IdempotencyStore
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.terminology import Terminology
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope_or_none
-from diucs.domain.codes import AgeBand, NeedCategory, ReferrerType, Role, Urgency
-from diucs.domain.errors import Conflict, NotAllowed, NotFound, StaleVersion, ValidationFailed
-from diucs.domain.model.case import Case
-from diucs.domain.model.scores import (
+from overwatch.application.actor import Actor
+from overwatch.application.idempotency import IdempotencyStore
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.terminology import Terminology
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope_or_none
+from overwatch.domain.codes import AgeBand, NeedCategory, ReferrerType, Role, Urgency
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound, StaleVersion, ValidationFailed
+from overwatch.domain.model.case import Case
+from overwatch.domain.model.scores import (
     AmbulanceCategory,
     ClinicalFrailty,
     ManchesterTriage,
@@ -40,8 +40,12 @@ from diucs.domain.model.scores import (
     merge_scores,
     score_record,
 )
-from diucs.domain.rules.booking_rules import REFERENCE_ATTEMPTS, new_reference
-from diucs.domain.rules.postcode import normalise_district, normalise_postcode, postcode_district
+from overwatch.domain.rules.booking_rules import REFERENCE_ATTEMPTS, new_reference
+from overwatch.domain.rules.postcode import (
+    normalise_district,
+    normalise_postcode,
+    postcode_district,
+)
 
 OPEN_CASE: Final = "OpenCase"
 UPDATE_CASE: Final = "UpdateCase"

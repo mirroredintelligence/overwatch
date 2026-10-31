@@ -28,9 +28,9 @@ from typing import Any, Final
 
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.migration_loop import run_loop
-from diucs.adapters.outbound.graph_store.migration_types import MAX_LOOP_ITERATIONS, Migration
-from diucs.application.tenancy import DEFAULT_TENANT_ID
+from overwatch.adapters.outbound.graph_store.migration_loop import run_loop
+from overwatch.adapters.outbound.graph_store.migration_types import MAX_LOOP_ITERATIONS, Migration
+from overwatch.application.tenancy import DEFAULT_TENANT_ID
 
 # Labels of registry nodes: they carry no `tenantId` (the migration record, and the tenant and
 # network registry of DEC-132). Everything else is a tenant's.

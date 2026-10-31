@@ -27,9 +27,9 @@ from uuid import uuid4
 from neo4j import AsyncDriver, AsyncManagedTransaction
 from neo4j.exceptions import ConstraintError
 
-from diucs.adapters.outbound.graph_store.driver import ScopedTx, Tx, run_query
-from diucs.adapters.outbound.graph_store.queries import BOTH_KINDS, REGISTRY, NamedQuery
-from diucs.adapters.outbound.graph_store.scenario import (
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx, Tx, run_query
+from overwatch.adapters.outbound.graph_store.queries import BOTH_KINDS, REGISTRY, NamedQuery
+from overwatch.adapters.outbound.graph_store.scenario import (
     Expect,
     Marked,
     NodeSpec,
@@ -38,15 +38,15 @@ from diucs.adapters.outbound.graph_store.scenario import (
     SeedRel,
     TenantSeed,
 )
-from diucs.application.idempotency import (
+from overwatch.application.idempotency import (
     DATETIME_TAG,
     decode_result,
     encode_result,
     format_instant,
     parse_instant,
 )
-from diucs.application.tenancy import scope_for_new_unit
-from diucs.domain.errors import Conflict
+from overwatch.application.tenancy import scope_for_new_unit
+from overwatch.domain.errors import Conflict
 
 # The scenario of the one converted statement (DEC-142 item 5, DEC-150). A marker's key is composite
 # with the tenant (migration 0031), so both tenants hold the same marker, and the scenario marks a

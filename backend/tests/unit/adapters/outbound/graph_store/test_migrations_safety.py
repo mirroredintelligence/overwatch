@@ -2,8 +2,8 @@
 idempotent schema statement, assembled after the protected store's migrations.
 """
 
-from diucs.adapters.outbound.graph_store.migrations import MIGRATIONS
-from diucs.adapters.outbound.graph_store.migrations_safety import SAFETY_MIGRATIONS
+from overwatch.adapters.outbound.graph_store.migrations import MIGRATIONS
+from overwatch.adapters.outbound.graph_store.migrations_safety import SAFETY_MIGRATIONS
 
 COUNTER_ID = "0070_safety_counter_id"
 COUNTER_STATEMENT = (

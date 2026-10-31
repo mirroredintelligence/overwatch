@@ -8,8 +8,8 @@ value.
 
 import pytest
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.people import Practitioner
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.people import Practitioner
 
 
 def _fullwidth(digits: str) -> str:

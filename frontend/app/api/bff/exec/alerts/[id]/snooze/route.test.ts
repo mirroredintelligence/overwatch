@@ -19,7 +19,7 @@ const CSRF = await csrfTokenFor({ tenantId: 'trust-a', host: 'app.test', sub: 'u
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', EXEC_BACKEND);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', EXEC_BACKEND);
   vi.stubEnv('NODE_ENV', 'production');
   resetExecBackend();
   server.use(...execBackendHandlers);
@@ -32,7 +32,7 @@ describe('POST /api/bff/exec/alerts/[id]/snooze', () => {
     const s: Session = { role: 'exec', tenantId: 'trust-a', host: 'app.test', services: [], sub: 'user-1', backendToken: TOKEN_ORG_A, expiresAt: new Date(Date.now() + 3_600_000).toISOString() };
     const request = requestWithCookies('https://app.test/api/bff/exec/alerts/al-1/snooze', {
       [SESSION_COOKIE]: await sealSession(s),
-      diucs_csrf: CSRF,
+      overwatch_csrf: CSRF,
     }, { method: 'POST', headers: { 'X-CSRF-Token': CSRF } });
     const response = await POST(request, { params: Promise.resolve({ id: 'al-1' }) });
     expect(response.status).toBe(200);

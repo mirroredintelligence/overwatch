@@ -10,14 +10,14 @@ from datetime import timedelta
 from types import SimpleNamespace
 from typing import Any
 
-from diucs.adapters.inbound.fhir_rest.auth import forget_tenant
-from diucs.adapters.inbound.fhir_rest.tenant_gate import TenantGate
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.domain.codes import Role
-from diucs.domain.model.tenant import SuspendMode, SuspendReason
-from diucs.domain.rules.bff_token import BffClaims
-from diucs.domain.rules.edge_access import EdgeVerdict
-from diucs.domain.rules.tenant_lifecycle import suspend_tenant
+from overwatch.adapters.inbound.fhir_rest.auth import forget_tenant
+from overwatch.adapters.inbound.fhir_rest.tenant_gate import TenantGate
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.domain.codes import Role
+from overwatch.domain.model.tenant import SuspendMode, SuspendReason
+from overwatch.domain.rules.bff_token import BffClaims
+from overwatch.domain.rules.edge_access import EdgeVerdict
+from overwatch.domain.rules.tenant_lifecycle import suspend_tenant
 from tests.support.provisioning_fakes import NOW, OTHER, TENANT, FakePlatform, provisioning_tenant
 from tests.support.tenant_samples import make_tenant
 

@@ -9,7 +9,7 @@ copy exists only to be run. The integration test then shows the generated test f
 import re
 from typing import Final
 
-from diucs.adapters.outbound.graph_store.queries import NamedQuery
+from overwatch.adapters.outbound.graph_store.queries import NamedQuery
 from tests.support.leaky_registry import LeakyRegistry
 
 PREDICATE: Final = "tenantId: $tenant"

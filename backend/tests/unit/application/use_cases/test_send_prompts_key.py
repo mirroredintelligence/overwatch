@@ -7,7 +7,7 @@ when they run. The job that runs them builds its key the same way, so the form i
 from datetime import UTC, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from diucs.application.use_cases.send_prompts import prompt_key
+from overwatch.application.use_cases.send_prompts import prompt_key
 
 DUE = datetime(2026, 10, 23, 9, 0, tzinfo=UTC)
 

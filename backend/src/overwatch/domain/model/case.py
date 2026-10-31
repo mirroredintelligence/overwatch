@@ -8,7 +8,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from typing import Final
 
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     AcuityMethod,
     AgeBand,
     BestFitNotUsedReason,
@@ -17,8 +17,8 @@ from diucs.domain.codes import (
     ReferrerType,
     Urgency,
 )
-from diucs.domain.errors import InvalidTransition, ValidationFailed
-from diucs.domain.model.scores import Score, method_of
+from overwatch.domain.errors import InvalidTransition, ValidationFailed
+from overwatch.domain.model.scores import Score, method_of
 
 PRIORITY_URGENT: Final = "urgent"
 PRIORITY_ROUTINE: Final = "routine"

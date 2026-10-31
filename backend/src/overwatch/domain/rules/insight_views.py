@@ -19,16 +19,16 @@ from datetime import date, datetime, timedelta
 from math import floor
 from typing import Final
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.insight import MeasureRow, PipelineRow, ReleaseRow
-from diucs.domain.model.telemetry_aggregates import (
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.insight import MeasureRow, PipelineRow, ReleaseRow
+from overwatch.domain.model.telemetry_aggregates import (
     ElementUsageDailyRow,
     FrictionDailyRow,
     FunnelDailyRow,
     QueryStatDailyRow,
     RouteDailyRow,
 )
-from diucs.domain.rules.browser_insight import (
+from overwatch.domain.rules.browser_insight import (
     BROWSER_FUNNEL_LABELS,
     BROWSER_FUNNELS,
     BUDGETS,
@@ -37,7 +37,7 @@ from diucs.domain.rules.browser_insight import (
     PAGE_ELEMENT_ID,
     percentile,
 )
-from diucs.domain.rules.telemetry_insights import for_review, is_suppressed
+from overwatch.domain.rules.telemetry_insights import for_review, is_suppressed
 
 # Days (UTC, today included) of each range. The counters are daily, so "24 hours" is yesterday and
 # today: the two days that hold the last 24 hours.

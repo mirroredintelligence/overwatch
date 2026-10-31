@@ -14,10 +14,10 @@ from pathlib import Path
 
 import pytest
 
-import diucs.adapters.outbound.audit_neo4j as audit_package
-import diucs.adapters.outbound.graph_store as graph_store_package
-from diucs.adapters.outbound.graph_store import queries as queries_module
-from diucs.adapters.outbound.graph_store.queries import (
+import overwatch.adapters.outbound.audit_neo4j as audit_package
+import overwatch.adapters.outbound.graph_store as graph_store_package
+from overwatch.adapters.outbound.graph_store import queries as queries_module
+from overwatch.adapters.outbound.graph_store.queries import (
     GLOBAL_QUERY_IDS,
     PLATFORM_QUERY_IDS,
     REGISTRY,

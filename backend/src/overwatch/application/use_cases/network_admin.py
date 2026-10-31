@@ -30,25 +30,25 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Final
 
-from diucs.application.actor import Actor, require_actor_in_bound_tenant, tenant_scope_of_unit
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.network import NetworkRegistry, RegisteredNetwork
-from diucs.application.ports.outbound.outbox import outbox_message_for
-from diucs.application.ports.outbound.projection import ProjectionEndReason, SourceStatus
-from diucs.application.ports.outbound.tenants import TenantDirectory
-from diucs.application.ports.outbound.unit_of_work import (
+from overwatch.application.actor import Actor, require_actor_in_bound_tenant, tenant_scope_of_unit
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.network import NetworkRegistry, RegisteredNetwork
+from overwatch.application.ports.outbound.outbox import outbox_message_for
+from overwatch.application.ports.outbound.projection import ProjectionEndReason, SourceStatus
+from overwatch.application.ports.outbound.tenants import TenantDirectory
+from overwatch.application.ports.outbound.unit_of_work import (
     NetworkUnitOfWorkFactory,
     UnitOfWorkFactory,
 )
-from diucs.application.provisioning import ScopeProvisioner
-from diucs.application.tenancy import bind_network, current_tenant
-from diucs.application.use_cases.tenant_admin import check_operator
-from diucs.domain.codes import Role
-from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.events import AgreementRecorded, DomainEvent, NetworkCreated
-from diucs.domain.model.network import (
+from overwatch.application.provisioning import ScopeProvisioner
+from overwatch.application.tenancy import bind_network, current_tenant
+from overwatch.application.use_cases.tenant_admin import check_operator
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.events import AgreementRecorded, DomainEvent, NetworkCreated
+from overwatch.domain.model.network import (
     ACCOUNT_REF_PATTERN,
     Agreement,
     GrantScope,
@@ -62,10 +62,10 @@ from diucs.domain.model.network import (
     is_agreement_behind,
     owner_membership,
 )
-from diucs.domain.model.network_settings import NetworkSettings
-from diucs.domain.model.tenant import DEFAULT_TIME_ZONE, TenantStatus
-from diucs.domain.model.tenant_records import DIRECTORY_ID_PATTERN, MappingStatus, RoleMapping
-from diucs.domain.rules.tenant_settings import is_named_ref
+from overwatch.domain.model.network_settings import NetworkSettings
+from overwatch.domain.model.tenant import DEFAULT_TIME_ZONE, TenantStatus
+from overwatch.domain.model.tenant_records import DIRECTORY_ID_PATTERN, MappingStatus, RoleMapping
+from overwatch.domain.rules.tenant_settings import is_named_ref
 
 AUDIT_CREATE: Final = "C"
 AUDIT_UPDATE: Final = "U"

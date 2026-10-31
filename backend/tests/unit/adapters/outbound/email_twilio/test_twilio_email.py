@@ -14,13 +14,13 @@ import logging
 import httpx
 import pytest
 
-from diucs.adapters.outbound.email_twilio.twilio_email import (
+from overwatch.adapters.outbound.email_twilio.twilio_email import (
     EMAILS_URL,
     OPERATION_URL,
     TwilioEmail,
     map_operation,
 )
-from diucs.application.ports.outbound.messaging import (
+from overwatch.application.ports.outbound.messaging import (
     DeliveryUpdate,
     SendFailedError,
     SendReceipt,
@@ -33,7 +33,7 @@ FROM = "capacity@example-icb.test"
 NAME = "Example capacity"
 TO = "west-ucr@example-icb.test"
 SUBJECT = "Capacity: please confirm"
-TEXT = "Confirm or update: https://diucs.example/l/abc\n\nReplies to this address are not read."
+TEXT = "Confirm or update: https://overwatch.mirroredintelligence.com/l/abc\n\nReplies to this address are not read."  # noqa: E501
 HTML = "<p>Confirm</p>"
 OPERATION = "op_0123456789abcdef"
 
@@ -208,7 +208,7 @@ async def test_nothing_that_identifies_a_person_or_a_secret_is_logged(
                 await _email(client).send(TO, SUBJECT, TEXT, HTML)
 
     logged = caplog.text
-    for secret in (TO, TOKEN, TEXT, SUBJECT, "diucs.example/l/abc", ACCOUNT):
+    for secret in (TO, TOKEN, TEXT, SUBJECT, "overwatch.example/l/abc", ACCOUNT):
         assert secret not in logged
     assert OPERATION in logged  # the provider id of the one accepted send
 

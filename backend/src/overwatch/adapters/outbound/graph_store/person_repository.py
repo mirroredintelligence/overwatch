@@ -29,11 +29,11 @@ from collections.abc import Iterable
 from datetime import UTC, datetime
 from typing import Any, Final
 
-from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
-from diucs.adapters.outbound.graph_store.extensions import EXTENSIONS, by_short_name
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.adapters.outbound.graph_store.scenario import (
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx, run_query
+from overwatch.adapters.outbound.graph_store.extensions import EXTENSIONS, by_short_name
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.adapters.outbound.graph_store.scenario import (
     Expect,
     Marked,
     NodeSpec,
@@ -42,13 +42,13 @@ from diucs.adapters.outbound.graph_store.scenario import (
     SeedRel,
     TenantSeed,
 )
-from diucs.adapters.outbound.graph_store.service_repository import (
+from overwatch.adapters.outbound.graph_store.service_repository import (
     codeable_from_fhir,
     codeable_to_fhir,
 )
-from diucs.domain.codes import Channel, PractitionerRoleCode, coding_for, parse_code
-from diucs.domain.errors import Conflict, NotFound, ValidationFailed
-from diucs.domain.model.people import (
+from overwatch.domain.codes import Channel, PractitionerRoleCode, coding_for, parse_code
+from overwatch.domain.errors import Conflict, NotFound, ValidationFailed
+from overwatch.domain.model.people import (
     REPORTER_ROLE_CODES,
     Practitioner,
     PractitionerRole,

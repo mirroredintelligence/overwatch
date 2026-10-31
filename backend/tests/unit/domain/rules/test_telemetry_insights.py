@@ -6,14 +6,14 @@ from datetime import date
 
 import pytest
 
-from diucs.domain.model.telemetry_aggregates import (
+from overwatch.domain.model.telemetry_aggregates import (
     ElementUsageDailyRow,
     FrictionDailyRow,
     FunnelDailyRow,
     QueryStatDailyRow,
     RouteDailyRow,
 )
-from diucs.domain.rules.telemetry_insights import (
+from overwatch.domain.rules.telemetry_insights import (
     FRICTION_REVIEW_RATE,
     FUNNELS,
     RATE_WINDOW_DAYS,

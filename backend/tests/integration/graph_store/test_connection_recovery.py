@@ -21,14 +21,14 @@ import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction, AsyncSession
 from neo4j.exceptions import DriverError, Neo4jError
 
-from diucs.adapters.outbound.graph_store.connection import (
+from overwatch.adapters.outbound.graph_store.connection import (
     Neo4jConnection,
     Neo4jConnectionError,
     Neo4jPoolOptions,
 )
-from diucs.adapters.outbound.graph_store.health import HealthStatus, neo4j_health
-from diucs.bootstrap.container import build
-from diucs.bootstrap.settings import Settings
+from overwatch.adapters.outbound.graph_store.health import HealthStatus, neo4j_health
+from overwatch.bootstrap.container import build
+from overwatch.bootstrap.settings import Settings
 from tests.support.neo4j import ThrowawayNeo4j, start_container, stop_container
 
 # Every test here runs on the session loop, because the harness driver and container
@@ -351,9 +351,9 @@ async def test_container_startup_opens_the_connection_and_shutdown_closes_it(
     harness_driver: AsyncDriver, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     uri, user, password = _harness_settings()
-    monkeypatch.setenv("DIUCS_NEO4J_URI", uri)
-    monkeypatch.setenv("DIUCS_NEO4J_USER", user)
-    monkeypatch.setenv("DIUCS_NEO4J_PASSWORD", password)
+    monkeypatch.setenv("OVERWATCH_NEO4J_URI", uri)
+    monkeypatch.setenv("OVERWATCH_NEO4J_USER", user)
+    monkeypatch.setenv("OVERWATCH_NEO4J_PASSWORD", password)
     container = build(Settings())
 
     await container.startup()
@@ -368,9 +368,9 @@ async def test_container_startup_refuses_to_start_when_neo4j_is_wrong(
     harness_driver: AsyncDriver, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     uri, user, _ = _harness_settings()
-    monkeypatch.setenv("DIUCS_NEO4J_URI", uri)
-    monkeypatch.setenv("DIUCS_NEO4J_USER", user)
-    monkeypatch.setenv("DIUCS_NEO4J_PASSWORD", WRONG_PASSWORD)
+    monkeypatch.setenv("OVERWATCH_NEO4J_URI", uri)
+    monkeypatch.setenv("OVERWATCH_NEO4J_USER", user)
+    monkeypatch.setenv("OVERWATCH_NEO4J_PASSWORD", WRONG_PASSWORD)
     container = build(Settings())
 
     with pytest.raises(Neo4jConnectionError) as failure:
@@ -383,13 +383,13 @@ async def test_non_default_neo4j_settings_reach_the_built_driver(
     harness_driver: AsyncDriver, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     uri, user, password = _harness_settings()
-    monkeypatch.setenv("DIUCS_NEO4J_URI", uri)
-    monkeypatch.setenv("DIUCS_NEO4J_USER", user)
-    monkeypatch.setenv("DIUCS_NEO4J_PASSWORD", password)
-    monkeypatch.setenv("DIUCS_NEO4J_MAX_CONNECTION_LIFETIME_S", "600")
-    monkeypatch.setenv("DIUCS_NEO4J_LIVENESS_CHECK_TIMEOUT_S", "5")
-    monkeypatch.setenv("DIUCS_NEO4J_CONNECTION_ACQUISITION_TIMEOUT_S", "2")
-    monkeypatch.setenv("DIUCS_NEO4J_MAX_CONNECTION_POOL_SIZE", "7")
+    monkeypatch.setenv("OVERWATCH_NEO4J_URI", uri)
+    monkeypatch.setenv("OVERWATCH_NEO4J_USER", user)
+    monkeypatch.setenv("OVERWATCH_NEO4J_PASSWORD", password)
+    monkeypatch.setenv("OVERWATCH_NEO4J_MAX_CONNECTION_LIFETIME_S", "600")
+    monkeypatch.setenv("OVERWATCH_NEO4J_LIVENESS_CHECK_TIMEOUT_S", "5")
+    monkeypatch.setenv("OVERWATCH_NEO4J_CONNECTION_ACQUISITION_TIMEOUT_S", "2")
+    monkeypatch.setenv("OVERWATCH_NEO4J_MAX_CONNECTION_POOL_SIZE", "7")
     container = build(Settings())
     await container.startup()
     try:

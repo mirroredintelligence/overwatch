@@ -3,8 +3,8 @@ idempotent schema statement. No database is needed; the statements are read back
 
 import re
 
-from diucs.adapters.outbound.graph_store.migrations import MIGRATIONS
-from diucs.adapters.outbound.graph_store.migrations_support import SUPPORT_MIGRATIONS
+from overwatch.adapters.outbound.graph_store.migrations import MIGRATIONS
+from overwatch.adapters.outbound.graph_store.migrations_support import SUPPORT_MIGRATIONS
 
 EXPECTED = {
     "0045_support_session_id": (

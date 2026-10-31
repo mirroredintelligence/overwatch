@@ -41,19 +41,19 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Final
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.tenant_export import (
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.tenant_export import (
     ExportedNode,
     ExportStorage,
     TenantDataReader,
 )
-from diucs.application.ports.outbound.tenant_registry import TenantRegistry
-from diucs.application.ports.outbound.tenants import TenantDirectory
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.membership import LeaveAllNetworks
-from diucs.application.use_cases.tenant_admin import (
+from overwatch.application.ports.outbound.tenant_registry import TenantRegistry
+from overwatch.application.ports.outbound.tenants import TenantDirectory
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.membership import LeaveAllNetworks
+from overwatch.application.use_cases.tenant_admin import (
     AUDIT_UPDATE,
     MOVED,
     NO_TENANT,
@@ -61,15 +61,15 @@ from diucs.application.use_cases.tenant_admin import (
     _audit,
     _unit_scope,
 )
-from diucs.application.use_cases.tenant_offboarding import (
+from overwatch.application.use_cases.tenant_offboarding import (
     CONFIRM_MESSAGE,
     StartOffboardingCommand,
     StartOffboardingResult,
     StartTenantOffboarding,
 )
-from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.model.tenant import NumberStatus, TenantStatus
-from diucs.domain.rules.tenant_export import (
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.model.tenant import NumberStatus, TenantStatus
+from overwatch.domain.rules.tenant_export import (
     MANIFEST_FILE,
     RELATIONSHIPS_FILE,
     ExportClass,
@@ -81,7 +81,7 @@ from diucs.domain.rules.tenant_export import (
     manifest_bytes,
     sha256_hex,
 )
-from diucs.domain.rules.tenant_lifecycle import (
+from overwatch.domain.rules.tenant_lifecycle import (
     complete_offboarding,
     number_quarantine_until,
     offboarding_may_complete_at,

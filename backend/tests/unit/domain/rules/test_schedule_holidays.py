@@ -6,10 +6,10 @@ test_schedule.py. Instants are UTC; London is on GMT in January and BST in April
 
 from datetime import UTC, date, datetime, time
 
-from diucs.domain.codes import Cadence, Channel, Measure, ServiceCategory
-from diucs.domain.model.service import AvailableTime, ServiceProfile
-from diucs.domain.rules.holidays import ClosurePeriod, closed_on
-from diucs.domain.rules.schedule import current_due, due_times_on, next_due
+from overwatch.domain.codes import Cadence, Channel, Measure, ServiceCategory
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.rules.holidays import ClosurePeriod, closed_on
+from overwatch.domain.rules.schedule import current_due, due_times_on, next_due
 
 ENGLAND_AND_WALES = "england-and-wales"
 SCOTLAND = "scotland"

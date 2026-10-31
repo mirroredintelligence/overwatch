@@ -12,13 +12,13 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.inbound.workers.network_projector import (
+from overwatch.adapters.inbound.workers.network_projector import (
     NETWORK_SUBSCRIPTION,
     NetworkApplyConsumer,
     network_runners,
 )
-from diucs.application.ports.outbound.event_bus import QUEUES, TOPICS
-from diucs.domain.events import PROJECTION_WORK
+from overwatch.application.ports.outbound.event_bus import QUEUES, TOPICS
+from overwatch.domain.events import PROJECTION_WORK
 
 
 class _Apply(NetworkApplyConsumer):
@@ -115,7 +115,7 @@ def test_the_readme_names_the_queue_and_the_subscription() -> None:
 def test_the_network_board_projector_has_its_own_subscription_on_the_network_events_topic() -> None:
     """TEN-058: the board rebuilds on the governance events, and the subscription is its own so a
     slow reconciliation sweep never holds the board back."""
-    from diucs.adapters.inbound.workers.network_board_consumer import NETWORK_BOARD_SUBSCRIPTION
+    from overwatch.adapters.inbound.workers.network_board_consumer import NETWORK_BOARD_SUBSCRIPTION
 
     properties = _subscriptions("network.events")[NETWORK_BOARD_SUBSCRIPTION]
     assert properties["RequiresSession"] is False

@@ -18,11 +18,11 @@ Decisions: DEC-148 items 2, 17 and 20.
 from datetime import UTC, datetime, timedelta
 from typing import Final
 
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork
-from diucs.domain.codes import ReportType
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.rules.freshness import STALE_WARNING_AFTER
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork
+from overwatch.domain.codes import ReportType
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.rules.freshness import STALE_WARNING_AFTER
 
 CONFIRMABLE_FIGURE_AGE: Final = STALE_WARNING_AFTER
 """A Y confirms a figure only if it was no older than this when the prompt named it (DEC-148)."""

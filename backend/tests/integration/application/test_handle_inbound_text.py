@@ -16,23 +16,23 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
-from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import canonical_entry_json
-from diucs.application.ports.outbound.messaging import Communication
-from diucs.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.confirm_capacity import (
+from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from overwatch.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import canonical_entry_json
+from overwatch.application.ports.outbound.messaging import Communication
+from overwatch.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.confirm_capacity import (
     ConfirmCapacity,
     ConfirmCapacityCommand,
     ConfirmCapacityResult,
 )
-from diucs.application.use_cases.handle_inbound_text import (
+from overwatch.application.use_cases.handle_inbound_text import (
     BOOKING_NOT_HANDLED,
     CONFIRM_LIMIT,
     CONFIRM_PROCESSING_LIMIT,
@@ -48,13 +48,13 @@ from diucs.application.use_cases.handle_inbound_text import (
     HandleInboundTextCommand,
     HandleInboundTextResult,
 )
-from diucs.application.use_cases.report_capacity import (
+from overwatch.application.use_cases.report_capacity import (
     ReportCapacity,
     ReportCapacityCommand,
     ReportCapacityResult,
 )
-from diucs.application.use_cases.send_prompts import SendPromptCommand, SendPrompts
-from diucs.domain.codes import (
+from overwatch.application.use_cases.send_prompts import SendPromptCommand, SendPrompts
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     Measure,
@@ -65,12 +65,17 @@ from diucs.domain.codes import (
     Role,
     ServiceCategory,
 )
-from diucs.domain.errors import ConfirmLimitReached, Conflict, NothingToConfirm, ValidationFailed
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.messages.templates import render
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.errors import (
+    ConfirmLimitReached,
+    Conflict,
+    NothingToConfirm,
+    ValidationFailed,
+)
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.messages.templates import render
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, read_tx, run_nodes
 
@@ -212,7 +217,7 @@ async def _seed_prompt(
     role_id: str = "role-west",
     service_id: str = "ucr-west",
     prompt_id: str = "prompt-seeded",
-    text: str = "DIUCS: UCR West. We have 3 referrals in the next 2 hrs (as of 23 Oct 08:15).",
+    text: str = "Overwatch: UCR West. We have 3 referrals in the next 2 hrs (as of 23 Oct 08:15).",
 ) -> None:
     """A stored prompt, for tests that need a send time or a message that U03 would not make."""
     async with factory() as uow:
@@ -246,7 +251,7 @@ async def _send_c1(
         SequentialIds("prompt"),
         DriverIdempotencyStore(driver),
         tokens,
-        "diucs.example",
+        "overwatch.example",
         AesGcmContentSealer(FixedSecretStore({"link-token": LINK_SECRET})),
         ACTOR_TENANT,
     )
@@ -755,7 +760,7 @@ async def test_a_y_on_a_figure_from_the_day_before_is_not_recorded_as_current(
     [refusal] = await _replies(neo4j_driver)
     assert refusal["messageId"] == "C12"
     assert refusal["text"] == (
-        "DIUCS: UCR West. The figure on record, 3 referrals in the next 2 hrs, is out of date "
+        "Overwatch: UCR West. The figure on record, 3 referrals in the next 2 hrs, is out of date "
         "(as of 22 Oct 08:15), so Y was not used. Send a number (0 = closed). By 12:35."
     )
     assert refusal["role"] == "role-west"
@@ -883,7 +888,7 @@ async def test_a_y_is_refused_when_a_number_was_reported_after_the_prompt(
     [refusal] = await _replies(neo4j_driver)
     assert refusal["messageId"] == "C12"
     assert refusal["text"] == (
-        "DIUCS: UCR West. The figure on record, 5 referrals in the next 2 hrs, is out of date "
+        "Overwatch: UCR West. The figure on record, 5 referrals in the next 2 hrs, is out of date "
         "(as of 23 Oct 12:03), so Y was not used. Send a number (0 = closed). By 12:35."
     )
 
@@ -1354,7 +1359,7 @@ async def test_a_late_number_for_a_service_with_no_figure_is_asked_for_with_c2(
     [refusal] = await _replies(neo4j_driver, "prompt-seeded")
     assert refusal["messageId"] == "C2"
     assert refusal["text"] == (
-        "DIUCS: UCR West. How many referrals can you take in the next 2 hrs? "
+        "Overwatch: UCR West. How many referrals can you take in the next 2 hrs? "
         "Send a number (0 = closed). By 09:11."
     )
     assert await _reports(uow_factory) == []
@@ -1533,7 +1538,7 @@ async def test_a_grouped_y_confirms_the_fresh_service_and_refuses_the_stale_one_
     rows = {r["messageId"]: r for r in await _replies(neo4j_driver)}
     assert rows["C10"]["text"] == "Thanks. B) UCR West updated to 3."
     assert rows["C12"]["text"] == (
-        "DIUCS: UCR East. The figure on record, 1 referrals in the next 2 hrs, is out of date "
+        "Overwatch: UCR East. The figure on record, 1 referrals in the next 2 hrs, is out of date "
         "(as of 22 Oct 08:15), so Y was not used. Send A and a number (0 = closed). By 10:35."
     )
     assert rows["C12"]["role"] == "role-east"

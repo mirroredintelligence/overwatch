@@ -17,15 +17,15 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from diucs.application.tenancy import NETWORK_PREFIX, ScopeId, ScopeInvalid
-from diucs.domain.errors import (
+from overwatch.application.tenancy import NETWORK_PREFIX, ScopeId, ScopeInvalid
+from overwatch.domain.errors import (
     Conflict,
     DomainError,
     InvalidTransition,
     NotAllowed,
     ValidationFailed,
 )
-from diucs.domain.model.network import (
+from overwatch.domain.model.network import (
     NETWORK_ID_PREFIX,
     Agreement,
     Approval,
@@ -808,9 +808,9 @@ def test_records_are_frozen(record: object) -> None:
 # ---------------------------------------------------------------- purity and imports
 
 DOMAIN_RULE_FILES = [
-    Path(__file__).resolve().parents[4] / "src/diucs/domain/model/network.py",
-    Path(__file__).resolve().parents[4] / "src/diucs/domain/rules/grant.py",
-    Path(__file__).resolve().parents[4] / "src/diucs/domain/rules/listing.py",
+    Path(__file__).resolve().parents[4] / "src/overwatch/domain/model/network.py",
+    Path(__file__).resolve().parents[4] / "src/overwatch/domain/rules/grant.py",
+    Path(__file__).resolve().parents[4] / "src/overwatch/domain/rules/listing.py",
 ]
 FORBIDDEN_IN_SOURCE = ("datetime.now", "utcnow", "time.time", "os.environ")
 
@@ -825,7 +825,7 @@ def test_no_module_reads_the_clock_or_the_environment(path: Path) -> None:
 @pytest.mark.parametrize("path", DOMAIN_RULE_FILES, ids=lambda p: p.name)
 def test_imports_are_standard_library_or_domain_only(path: Path) -> None:
     tree = ast.parse(path.read_text(encoding="utf-8"))
-    allowed_roots = set(sys.stdlib_module_names) | {"diucs", "fhir"}
+    allowed_roots = set(sys.stdlib_module_names) | {"overwatch", "fhir"}
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             names = [alias.name for alias in node.names]
@@ -838,8 +838,8 @@ def test_imports_are_standard_library_or_domain_only(path: Path) -> None:
         for name in names:
             root = name.split(".")[0]
             assert root in allowed_roots, f"{path.name} imports {name}"
-            if root == "diucs":
-                assert name == "diucs.domain" or name.startswith("diucs.domain."), name
+            if root == "overwatch":
+                assert name == "overwatch.domain" or name.startswith("overwatch.domain."), name
 
 
 def test_a_grant_scope_value_outside_the_list_does_not_exist() -> None:

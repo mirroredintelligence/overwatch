@@ -13,9 +13,9 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.graph_store.driver import run_global_query, run_query
-from diucs.adapters.outbound.graph_store.queries import NamedQuery, QueryRegistry, Scenario
-from diucs.application.tenancy import (
+from overwatch.adapters.outbound.graph_store.driver import run_global_query, run_query
+from overwatch.adapters.outbound.graph_store.queries import NamedQuery, QueryRegistry, Scenario
+from overwatch.application.tenancy import (
     QueryNotRegistered,
     RawTransactionRefused,
     TenantNotBound,

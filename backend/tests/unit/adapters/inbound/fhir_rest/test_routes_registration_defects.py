@@ -6,13 +6,13 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.inbound.fhir_rest.routes_registration import (
+from overwatch.adapters.inbound.fhir_rest.routes_registration import (
     _issues,
     callback_command,
     parse_draft,
 )
-from diucs.application.actor import Actor
-from diucs.application.use_cases.registration_draft import (
+from overwatch.application.actor import Actor
+from overwatch.application.use_cases.registration_draft import (
     ApiStep,
     FieldError,
     LocationStep,
@@ -20,9 +20,9 @@ from diucs.application.use_cases.registration_draft import (
     ReportingStep,
     validate_step,
 )
-from diucs.domain.codes import Measure, Role
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.registration import CallBackResult
+from overwatch.domain.codes import Measure, Role
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.registration import CallBackResult
 from tests.support.actors import ACTOR_TENANT
 
 LEAD = Actor(Role.LEAD, "prac-lead", None, "web", frozenset(), tenant_id=ACTOR_TENANT)

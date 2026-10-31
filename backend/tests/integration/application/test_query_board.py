@@ -14,15 +14,15 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.query_board import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.query_board import (
     BoardEntry,
     QueryBoard,
     QueryBoardQuery,
 )
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     BookingStatus,
     Cadence,
     Channel,
@@ -33,12 +33,12 @@ from diucs.domain.codes import (
     ServiceCategory,
     Status,
 )
-from diucs.domain.errors import NotAllowed
-from diucs.domain.model.booking import Booking
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
-from diucs.domain.model.service import AvailableTime, ServiceProfile
-from diucs.domain.rules.pressure import Pressure
+from overwatch.domain.errors import NotAllowed
+from overwatch.domain.model.booking import Booking
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.rules.pressure import Pressure
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import read_tx, run_nodes
 

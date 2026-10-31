@@ -22,8 +22,8 @@ import pytest_asyncio
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from diucs.application import tenancy
-from diucs.application.tenancy import (
+from overwatch.application import tenancy
+from overwatch.application.tenancy import (
     DEFAULT_TENANT_ID,
     GLOBAL_STATEMENT_MESSAGE,
     NETWORK_ID_PATTERN,
@@ -50,7 +50,7 @@ from diucs.application.tenancy import (
     current_tenant,
     is_valid_tenant_id,
 )
-from diucs.domain.errors import DomainError
+from overwatch.domain.errors import DomainError
 
 # The reference patterns, written out again here so a change to the module's patterns shows up
 # as a test failure instead of silently moving both sides.
@@ -505,7 +505,7 @@ def test_the_kernel_imports_only_the_standard_library() -> None:
             imported.add((node.module or "").split(".")[0])
     assert imported, "no imports found: the scan is not looking at the module"
     assert imported <= set(sys.stdlib_module_names), sorted(imported - set(sys.stdlib_module_names))
-    assert "diucs" not in imported
+    assert "overwatch" not in imported
 
 
 # The tenant-id validator that TEN-006, TEN-019 and TEN-020 use instead of copying the pattern.

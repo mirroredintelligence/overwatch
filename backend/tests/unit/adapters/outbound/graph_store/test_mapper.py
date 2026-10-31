@@ -13,9 +13,9 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from diucs.adapters.outbound.graph_store import mapper as mapper_module
-from diucs.adapters.outbound.graph_store.extensions import TENANT_OWNED_NAMES
-from diucs.adapters.outbound.graph_store.mapper import (
+from overwatch.adapters.outbound.graph_store import mapper as mapper_module
+from overwatch.adapters.outbound.graph_store.extensions import TENANT_OWNED_NAMES
+from overwatch.adapters.outbound.graph_store.mapper import (
     GraphFragment,
     InvalidReference,
     NodeSpec,
@@ -25,8 +25,8 @@ from diucs.adapters.outbound.graph_store.mapper import (
     to_graph,
     upper_snake,
 )
-from diucs.domain.codes import BASE_URL
-from diucs.domain.errors import DomainError, NotFound, ValidationFailed
+from overwatch.domain.codes import BASE_URL
+from overwatch.domain.errors import DomainError, NotFound, ValidationFailed
 
 ORG_ID = "6b1f0c2e-3a4d-4e5f-8a9b-0c1d2e3f4a5b"
 LOC_ID = "7c2a1d3f-4b5e-4f60-9b0c-1d2e3f4a5b6c"
@@ -271,7 +271,8 @@ def test_samples_hold_no_map_no_list_of_maps_and_no_json_string(resource: dict[s
 
 def test_mapper_module_imports_nothing_from_neo4j() -> None:
     source = (
-        Path(__file__).resolve().parents[5] / "src/diucs/adapters/outbound/graph_store/mapper.py"
+        Path(__file__).resolve().parents[5]
+        / "src/overwatch/adapters/outbound/graph_store/mapper.py"
     ).read_text(encoding="utf-8")
     imported: set[str] = set()
     for node in ast.walk(ast.parse(source)):
@@ -517,7 +518,11 @@ def test_the_tenant_owned_names_are_exactly_tenant_id_and_source_tenant_id() -> 
         True,
         ["tenant-b"],
         {"reference": "Organization/o1"},
-        {"coding": [{"system": "https://diucs.example/CodeSystem/x", "code": "y"}]},
+        {
+            "coding": [
+                {"system": "https://overwatch.mirroredintelligence.com/CodeSystem/x", "code": "y"}
+            ]
+        },
         {"start": "2026-10-25T09:00:00Z"},
         {"value": 3, "unit": "referral"},
         {"nested": {"tenantId": "tenant-b"}},
@@ -574,7 +579,11 @@ def test_a_resource_that_would_use_a_reserved_name_via_a_configured_copy_is_refu
     resource = {
         "resourceType": "Observation",
         "id": "obs-1",
-        "code": {"coding": [{"system": "https://diucs.example/CodeSystem/m", "code": "c"}]},
+        "code": {
+            "coding": [
+                {"system": "https://overwatch.mirroredintelligence.com/CodeSystem/m", "code": "c"}
+            ]
+        },
     }
 
     with pytest.raises(ValidationFailed) as raised:

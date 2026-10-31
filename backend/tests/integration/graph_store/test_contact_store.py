@@ -13,10 +13,10 @@ from neo4j import AsyncDriver, AsyncManagedTransaction
 from neo4j.exceptions import ConstraintError
 from neo4j.time import DateTime
 
-from diucs.adapters.outbound.graph_store.contact_store import Neo4jContactStore
-from diucs.adapters.outbound.graph_store.migrations import apply_migrations
-from diucs.application.tenancy import current_tenant
-from diucs.domain.errors import Conflict, ValidationFailed
+from overwatch.adapters.outbound.graph_store.contact_store import Neo4jContactStore
+from overwatch.adapters.outbound.graph_store.migrations import apply_migrations
+from overwatch.application.tenancy import current_tenant
+from overwatch.domain.errors import Conflict, ValidationFailed
 from tests.support.neo4j import count_nodes, node_props, read_tx, run_nodes, write_tx
 from tests.support.scoped import scoped
 

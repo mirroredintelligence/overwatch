@@ -6,14 +6,14 @@ import dataclasses
 
 import pytest
 
-from diucs.application.actor import Actor
-from diucs.application.use_cases.advisor_work_phone import (
+from overwatch.application.actor import Actor
+from overwatch.application.use_cases.advisor_work_phone import (
     ALLOWED_ROLES,
     check_may_record,
     checked_work_phone,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotAllowed, ValidationFailed
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotAllowed, ValidationFailed
 from tests.support.actors import ACTOR_TENANT
 
 ADMIN = Actor(

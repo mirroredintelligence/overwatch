@@ -16,10 +16,10 @@ import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 from neo4j.exceptions import ClientError
 
-from diucs.adapters.outbound.graph_store.link_token_repository import Neo4jLinkTokenRepository
-from diucs.application.tenancy import RawTransactionRefused
-from diucs.domain.errors import Conflict, ValidationFailed
-from diucs.domain.rules.tokens import LinkTokenRecord, hash_token, new_link_token
+from overwatch.adapters.outbound.graph_store.link_token_repository import Neo4jLinkTokenRepository
+from overwatch.application.tenancy import RawTransactionRefused
+from overwatch.domain.errors import Conflict, ValidationFailed
+from overwatch.domain.rules.tokens import LinkTokenRecord, hash_token, new_link_token
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
 from tests.support.round_trip import assert_round_trip
 from tests.support.tenancy import as_tenant

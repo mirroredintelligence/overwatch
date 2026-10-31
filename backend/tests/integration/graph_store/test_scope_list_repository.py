@@ -13,13 +13,13 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.adapters.outbound.graph_store.scope_list_repository import Neo4jScopeListRepository
-from diucs.adapters.outbound.graph_store.service_repository import codeable_to_fhir
-from diucs.application.tenancy import current_tenant
-from diucs.domain.codes import ScopeFlag, ServiceCategory
-from diucs.domain.errors import Conflict, ValidationFailed
-from diucs.domain.model.registration import ScopeEntry
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.adapters.outbound.graph_store.scope_list_repository import Neo4jScopeListRepository
+from overwatch.adapters.outbound.graph_store.service_repository import codeable_to_fhir
+from overwatch.application.tenancy import current_tenant
+from overwatch.domain.codes import ScopeFlag, ServiceCategory
+from overwatch.domain.errors import Conflict, ValidationFailed
+from overwatch.domain.model.registration import ScopeEntry
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
 from tests.support.round_trip import assert_round_trip
 from tests.support.scoped import scoped

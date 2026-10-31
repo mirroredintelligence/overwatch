@@ -27,7 +27,7 @@ const seen: Seen[] = [];
 beforeEach(() => {
   seen.length = 0;
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', BACKEND_BASE);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', BACKEND_BASE);
   vi.stubEnv('NODE_ENV', 'production');
   server.use(
     http.get(SR_URL, ({ request }) => {
@@ -148,8 +148,8 @@ describe('PUT /api/bff/cases/[ref] (W11)', () => {
       id: 'case-1',
       priority: 'urgent',
       reasonCode: [
-        { coding: [{ system: 'https://diucs.example/CodeSystem/need-category', code: 'fall-no-injury' }] },
-        { coding: [{ system: 'https://diucs.example/CodeSystem/need-category', code: 'frailty' }] },
+        { coding: [{ system: 'https://overwatch.mirroredintelligence.com/CodeSystem/need-category', code: 'fall-no-injury' }] },
+        { coding: [{ system: 'https://overwatch.mirroredintelligence.com/CodeSystem/need-category', code: 'frailty' }] },
       ],
     });
   });
@@ -158,7 +158,7 @@ describe('PUT /api/bff/cases/[ref] (W11)', () => {
     await put('advisor', { ...VALID, urgency: 'planned' }, { key: 'save-key-0002' });
 
     const extensions = (seen[0]?.body as { extension: { url: string; valueCode?: string }[] }).extension;
-    expect(extensions).toContainEqual({ url: 'https://diucs.example/StructureDefinition/urgency', valueCode: 'planned' });
+    expect(extensions).toContainEqual({ url: 'https://overwatch.mirroredintelligence.com/StructureDefinition/urgency', valueCode: 'planned' });
     expect((seen[0]?.body as { priority: string }).priority).toBe('routine');
   });
 
@@ -219,7 +219,7 @@ describe('PUT /api/bff/cases/[ref] (W11)', () => {
             ...CASE_FULL,
             extension: [
               ...(CASE_FULL.extension as object[]),
-              { url: 'https://diucs.example/StructureDefinition/score-corrections', valueInteger: 1 },
+              { url: 'https://overwatch.mirroredintelligence.com/StructureDefinition/score-corrections', valueInteger: 1 },
             ],
           },
           { headers: { ETag: 'W/"5"' } },

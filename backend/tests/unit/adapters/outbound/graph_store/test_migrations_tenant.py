@@ -9,10 +9,10 @@ each one back and compare it with its row.
 import re
 from typing import Final
 
-from diucs.adapters.outbound.graph_store import migrations_tenant as tenant
-from diucs.adapters.outbound.graph_store.migrations import CORE_MIGRATIONS
-from diucs.adapters.outbound.graph_store.migrations_network import NETWORK_MIGRATIONS
-from diucs.application.tenancy import DEFAULT_TENANT_ID
+from overwatch.adapters.outbound.graph_store import migrations_tenant as tenant
+from overwatch.adapters.outbound.graph_store.migrations import CORE_MIGRATIONS
+from overwatch.adapters.outbound.graph_store.migrations_network import NETWORK_MIGRATIONS
+from overwatch.application.tenancy import DEFAULT_TENANT_ID
 from tests.support.tenant_seed import (
     SUPERSEDED_CONSTRAINT_NAMES,
     SUPERSEDED_INDEX_NAMES,

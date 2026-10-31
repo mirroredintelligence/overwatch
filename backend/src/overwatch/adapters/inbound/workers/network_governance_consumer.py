@@ -22,14 +22,14 @@ from typing import Any, Final, Protocol
 
 from azure.servicebus.aio import ServiceBusClient
 
-from diucs.adapters.inbound.workers.consumer import Outcome
-from diucs.adapters.inbound.workers.outbox_relay import ActiveTenants
-from diucs.adapters.inbound.workers.servicebus_runner import ServiceBusRunner
-from diucs.adapters.inbound.workers.tenant_binding import Observe, TenantBoundConsumer, untraced
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.tenancy import current_scope_or_none
-from diucs.application.use_cases.network_governance import GovernanceOutcome
-from diucs.domain.errors import NotAllowed, NotFound, ValidationFailed
+from overwatch.adapters.inbound.workers.consumer import Outcome
+from overwatch.adapters.inbound.workers.outbox_relay import ActiveTenants
+from overwatch.adapters.inbound.workers.servicebus_runner import ServiceBusRunner
+from overwatch.adapters.inbound.workers.tenant_binding import Observe, TenantBoundConsumer, untraced
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.tenancy import current_scope_or_none
+from overwatch.application.use_cases.network_governance import GovernanceOutcome
+from overwatch.domain.errors import NotAllowed, NotFound, ValidationFailed
 
 logger = logging.getLogger(__name__)
 

@@ -14,7 +14,7 @@ No template holds a patient name, NHS number or postcode, and no field may add o
 The words that differ between organisations are fields, never text in a template (TEN-022): the
 system name (I2), the referral system name (B1 and B2) and the coordination team name (K4) are
 validated by check_tenant_text, and the confirm limit (C6) is 1, 2 or 3. No field has a default,
-so a message that needs a tenant's words never prints a guess. "DIUCS" stays in the text.
+so a message that needs a tenant's words never prints a guess. "Overwatch" stays in the text.
 """
 
 import re
@@ -23,12 +23,12 @@ from dataclasses import dataclass
 from html import escape
 from typing import Final, cast
 
-from diucs.domain.codes import AgeBand, Channel
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.messages.catalogue import TENANT_TEXT_FIELD_NAMES, MessageId
-from diucs.domain.messages.privacy_guard import find_patient_data
-from diucs.domain.rules.need_words import is_need_words
-from diucs.domain.rules.tenant_settings import check_tenant_text
+from overwatch.domain.codes import AgeBand, Channel
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.messages.catalogue import TENANT_TEXT_FIELD_NAMES, MessageId
+from overwatch.domain.messages.privacy_guard import find_patient_data
+from overwatch.domain.rules.need_words import is_need_words
+from overwatch.domain.rules.tenant_settings import check_tenant_text
 
 FOOTER: Final = (
     "The link works once, needs no login, and expires at {reply_by}. "
@@ -137,26 +137,26 @@ _OPTIONAL_FIELDS: Final[Mapping[MessageId, frozenset[str]]] = {
 }
 
 _C1_TEXT: Final = (
-    "DIUCS: {service}. We have {value} {unit} (as of {as_of}). "
+    "Overwatch: {service}. We have {value} {unit} (as of {as_of}). "
     "Confirm or update: {link} Or reply Y, or a new number. By {reply_by}."
 )
 _C2_TEXT: Final = (
-    "DIUCS: {service}. How many {unit} can you take {window}? "
+    "Overwatch: {service}. How many {unit} can you take {window}? "
     "Send {send_a_number} (0 = closed). By {reply_by}."
 )
 _C8_TEXT: Final = (
-    "DIUCS reminder: {service} has not updated. Confirm or update: {link} By {reply_by}."
+    "Overwatch reminder: {service} has not updated. Confirm or update: {link} By {reply_by}."
 )
 _EMAIL_SUBJECT: Final = "{service}: confirm or update by {reply_by}"
 _PUSH_SUBJECT: Final = "{service}: confirm or update"
 
 _C12_TEXT: Final = (
-    "DIUCS: {service}. The figure on record, {value} {unit}, is out of date (as of {as_of}), "
+    "Overwatch: {service}. The figure on record, {value} {unit}, is out of date (as of {as_of}), "
     "so Y was not used. Send {reply_with} (0 = closed). By {reply_by}."
 )
 
 _B1_TEXT: Final = (
-    "DIUCS REQUEST {reference}: {service}. Age {age_band}, {need}, {urgency}. "
+    "Overwatch REQUEST {reference}: {service}. Age {age_band}, {need}, {urgency}. "
     "Referral details follow in {referral_system_name}. Reply CONFIRMED or DECLINE, "
     "or open {link} by {reply_by}."
 )
@@ -191,7 +191,7 @@ _B5_ACK_TEXT: Final = "Noted: {reference} declined."
 _B6_TEXT: Final = "Booking {reference} was cancelled at {cancelled_at}. No action needed."
 # [ASSUMED] (W7B): the test message. It carries no link and asks for nothing, so it can never be
 # answered with a number.
-_T1_TEXT: Final = "DIUCS test: {service}. This is a test message. There is nothing to reply to."
+_T1_TEXT: Final = "Overwatch test: {service}. This is a test message. There is nothing to reply to."
 _T1_PUSH_TEXT: Final = "This is a test notification. There is nothing to do."
 
 _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
@@ -202,7 +202,7 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
         text=f"{_C1_TEXT}\n\n{FOOTER}",
         subject=_EMAIL_SUBJECT,
         html=(
-            "<p>DIUCS: {service}. We have {value} {unit} (as of {as_of}).</p>\n"
+            "<p>Overwatch: {service}. We have {value} {unit} (as of {as_of}).</p>\n"
             f'<p><a href="{{link}}" style="{BUTTON_STYLE}">Confirm or update</a> '
             "Or reply Y, or a new number. By {reply_by}.</p>\n"
             f"<p>{FOOTER}</p>"
@@ -222,7 +222,7 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
         text=f"{_C2_TEXT}\n\nConfirm or update: {{link}}\n\n{FOOTER}",
         subject=_EMAIL_SUBJECT,
         html=(
-            "<p>DIUCS: {service}. How many {unit} can you take {window}? "
+            "<p>Overwatch: {service}. How many {unit} can you take {window}? "
             "Send a number (0 = closed). By {reply_by}.</p>\n"
             f'<p><a href="{{link}}" style="{BUTTON_STYLE}">Confirm or update</a></p>\n'
             f"<p>{FOOTER}</p>"
@@ -266,7 +266,7 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
         text=f"{_C8_TEXT}\n\n{FOOTER}",
         subject=_EMAIL_SUBJECT,
         html=(
-            "<p>DIUCS reminder: {service} has not updated.</p>\n"
+            "<p>Overwatch reminder: {service} has not updated.</p>\n"
             f'<p><a href="{{link}}" style="{BUTTON_STYLE}">Confirm or update</a> '
             "By {reply_by}.</p>\n"
             f"<p>{FOOTER}</p>"
@@ -281,7 +281,7 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
     (MessageId.C9, Channel.TEXT): _Template(
         required=_FIELDS[MessageId.C9],
         text=(
-            "DIUCS: {count} services need an update by {reply_by}. {items_text}. "
+            "Overwatch: {count} services need an update by {reply_by}. {items_text}. "
             "Reply Y if {both_or_all} right, or {first_reply}, or {second_reply}."
         ),
     ),
@@ -292,7 +292,7 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
     (MessageId.C11, Channel.TEXT): _Template(
         required=_FIELDS[MessageId.C11],
         text=(
-            "DIUCS: reply Y if the figure is right, or send a number (0 = closed). "
+            "Overwatch: reply Y if the figure is right, or send a number (0 = closed). "
             "For a booking, reply CONFIRMED or DECLINE."
         ),
     ),
@@ -366,7 +366,7 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
     (MessageId.I1, Channel.TEXT): _Template(
         required=_FIELDS[MessageId.I1],
         text=(
-            "DIUCS: You are invited to report capacity for {service}. "
+            "Overwatch: You are invited to report capacity for {service}. "
             "Set up takes about 3 minutes: {link} Valid for 48 hrs."
         ),
     ),
@@ -374,19 +374,19 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
     (MessageId.I2, Channel.TEXT): _Template(
         required=_FIELDS[MessageId.I2],
         text=(
-            "DIUCS: You are invited to see {system_name} on your phone. "
+            "Overwatch: You are invited to see {system_name} on your phone. "
             "Set up takes about 3 minutes: {link} Valid for 48 hrs."
         ),
     ),
     # [ASSUMED] wording (DEC-037 item 4).
     (MessageId.I3, Channel.TEXT): _Template(
         required=_FIELDS[MessageId.I3],
-        text="DIUCS test: {service}. Reply Y to show you receive prompts.",
+        text="Overwatch test: {service}. Reply Y to show you receive prompts.",
     ),
     # [ASSUMED] wording (DEC-037 item 4).
     (MessageId.K1, Channel.TEXT): _Template(
         required=_FIELDS[MessageId.K1],
-        text="DIUCS code: {code}. It works for 10 minutes. Do not share it.",
+        text="Overwatch code: {code}. It works for 10 minutes. Do not share it.",
     ),
     # IG-pending (DEC-037 item 3): K2 email and push wording, awaiting IG approval.
     (MessageId.K2, Channel.EMAIL): _Template(
@@ -405,7 +405,7 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
         required=_FIELDS[MessageId.T1],
         text=_T1_TEXT,
         subject="{service}: test message",
-        html="<p>DIUCS test: {service}. This is a test message. There is nothing to reply to.</p>",
+        html="<p>Overwatch test: {service}. This is a test message. There is nothing to reply to.</p>",  # noqa: E501
     ),
     (MessageId.T1, Channel.PUSH): _Template(
         required=_FIELDS[MessageId.T1],
@@ -421,7 +421,7 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
     (MessageId.K4, Channel.TEXT): _Template(
         required=_FIELDS[MessageId.K4],
         text=(
-            "DIUCS: {service} is suspended. Prompts have stopped. "
+            "Overwatch: {service} is suspended. Prompts have stopped. "
             "{coordination_team_name} will phone you."
         ),
     ),

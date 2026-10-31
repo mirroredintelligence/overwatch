@@ -144,7 +144,7 @@ describe('common attributes', () => {
     const [chip] = events;
     expect(chip?.attributes['user.role']).toBe('advisor');
     expect(chip?.attributes.release).toBe('1.4.2');
-    expect(chip?.attributes['session.id']).toBe(sessionStorage.getItem('diucs.session.id'));
+    expect(chip?.attributes['session.id']).toBe(sessionStorage.getItem('overwatch.session.id'));
     expect(String(chip?.attributes['session.id'])).toMatch(/^[A-Za-z0-9-]{16,64}$/);
     expect(chip?.attributes['device.type']).toBe('desktop');
   });

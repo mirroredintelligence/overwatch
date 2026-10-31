@@ -19,7 +19,7 @@ beforeEach(() => {
   resetSeenAdvisorRequests();
   resetBookingRequests();
   push.mockReset();
-  document.cookie = 'diucs_csrf=csrf-value-for-the-list; path=/';
+  document.cookie = 'overwatch_csrf=csrf-value-for-the-list; path=/';
 });
 
 describe('OptionsList (W13)', () => {

@@ -11,16 +11,16 @@ from typing import Self
 
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
-from diucs.adapters.outbound.graph_store.unit_of_work import (
+from overwatch.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
+from overwatch.adapters.outbound.graph_store.unit_of_work import (
     DEFAULT_FACTORIES,
     Neo4jUnitOfWork,
     RepositoryFactory,
     neo4j_uow_factory,
 )
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import ScopeId, bind_scope
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeId, bind_scope
 from tests.support.tenancy import tenant_scope
 
 

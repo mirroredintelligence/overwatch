@@ -11,13 +11,13 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
-from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.scope_list import (
+from overwatch.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
+from overwatch.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.scope_list import (
     AddScopeEntry,
     AddScopeEntryCommand,
     AddScopeEntryResult,
@@ -26,9 +26,9 @@ from diucs.application.use_cases.scope_list import (
     SetScopeFlag,
     SetScopeFlagCommand,
 )
-from diucs.domain.codes import RegistrationStatus, Role, ScopeFlag, ServiceCategory
-from diucs.domain.errors import NotAllowed, ValidationFailed
-from diucs.domain.model.registration import Registration
+from overwatch.domain.codes import RegistrationStatus, Role, ScopeFlag, ServiceCategory
+from overwatch.domain.errors import NotAllowed, ValidationFailed
+from overwatch.domain.model.registration import Registration
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, node_props, read_tx
 

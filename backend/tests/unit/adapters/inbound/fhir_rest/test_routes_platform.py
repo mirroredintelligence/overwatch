@@ -18,11 +18,11 @@ from typing import Any
 import pytest
 from httpx import AsyncClient
 
-from diucs.adapters.inbound.fhir_rest.routes_platform import PERMISSIONS
-from diucs.domain.codes import Role
-from diucs.domain.model.tenant import TenantStatus
-from diucs.domain.rules import bff_token
-from diucs.domain.rules.support_ticket import TicketState
+from overwatch.adapters.inbound.fhir_rest.routes_platform import PERMISSIONS
+from overwatch.domain.codes import Role
+from overwatch.domain.model.tenant import TenantStatus
+from overwatch.domain.rules import bff_token
+from overwatch.domain.rules.support_ticket import TicketState
 from tests.support.platform_routes_rig import (
     JSON,
     NOW,
@@ -204,16 +204,16 @@ async def test_every_claim_of_an_operator_token_is_checked(token: str) -> None:
         {
             "sub": OPERATOR_REF,
             "role": "platform-operator",
-            "aud": "diucs-ops",
+            "aud": "overwatch-ops",
             "exp": int((NOW + timedelta(hours=1)).timestamp()),
         },
         b"another-signing-secret-that-is-long-enough-xyz",
     )
     expired = int((NOW - timedelta(seconds=1)).timestamp())
     tokens = {
-        "claim: audience of the tenant door": _forged(aud="diucs-api"),
+        "claim: audience of the tenant door": _forged(aud="overwatch-api"),
         "claim: no audience": _forged(aud=...),
-        "claim: an audience that is a list": _forged(aud=["diucs-ops"]),
+        "claim: an audience that is a list": _forged(aud=["overwatch-ops"]),
         "claim: a tenant (a tenant claim belongs to the other door)": _forged(tenant="tenant-a"),
         "claim: an epoch": _forged(epoch=1),
         "claim: services": _forged(services=[]),
@@ -243,7 +243,7 @@ async def test_a_well_formed_token_is_accepted_and_the_refusals_are_all_one_body
         ok = await client.get("/platform/session", headers=ops())
         refused = [
             await client.get("/platform/session", headers={"Authorization": f"Bearer {bad}"})
-            for bad in ("x", _forged(aud="diucs-api"), _forged(exp=1))
+            for bad in ("x", _forged(aud="overwatch-api"), _forged(exp=1))
         ]
 
     assert ok.status_code == 200
@@ -512,7 +512,7 @@ async def test_a_value_another_tenant_holds_is_a_409_and_the_step_is_not_recorde
 
 async def test_the_directory_the_tenant_bound_is_verified_by_the_operator() -> None:
     async with routes() as (r, client):
-        from diucs.domain.model.tenant_records import BindingStatus, EntraBinding
+        from overwatch.domain.model.tenant_records import BindingStatus, EntraBinding
 
         r.world.config.binding_list = [EntraBinding(DIRECTORY_ID, BindingStatus.PENDING)]
         response = await send(
@@ -657,7 +657,7 @@ async def test_one_operator_step_never_touches_another_tenant() -> None:
 async def test_the_platform_chain_is_read_a_page_at_a_time_and_verified() -> None:
     from datetime import UTC, datetime
 
-    from diucs.application.ports.outbound.platform_audit import PlatformAuditRecord
+    from overwatch.application.ports.outbound.platform_audit import PlatformAuditRecord
 
     async with routes() as (r, client):
         r.reader.records = [

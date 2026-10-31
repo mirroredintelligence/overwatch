@@ -8,8 +8,8 @@ service's configuration, never a case's.
 
 import pytest
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.district_choice import MAX_DISTRICT_CHOICES, candidate_districts
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.district_choice import MAX_DISTRICT_CHOICES, candidate_districts
 
 # Dorset-shaped sample places (lat, lon). Distances matter only in order.
 PLACES = {

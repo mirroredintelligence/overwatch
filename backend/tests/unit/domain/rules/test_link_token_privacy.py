@@ -17,11 +17,11 @@ from typing import Final
 
 import pytest
 
-from diucs.domain.codes import Channel
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.messages.privacy_guard import find_patient_data
-from diucs.domain.messages.templates import render
-from diucs.domain.rules.tokens import (
+from overwatch.domain.codes import Channel
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.messages.privacy_guard import find_patient_data
+from overwatch.domain.messages.templates import render
+from overwatch.domain.rules.tokens import (
     SUPPORT_CODE_ALPHABET,
     format_pairing_code,
     new_link_token,
@@ -31,7 +31,7 @@ from diucs.domain.rules.tokens import (
 
 SEED: Final = 20261029
 SAMPLE_SIZE: Final = 300_000
-LINK_BASE: Final = "diucs.example"
+LINK_BASE: Final = "overwatch.example"
 
 # Tokens as they were before the fix, for the reproduction only.
 _NHS_SHAPE: Final = re.compile(r"[0-9 -]+")

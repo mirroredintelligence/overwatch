@@ -13,9 +13,9 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.tenancy import ScopeId
-from diucs.application.use_cases.link_access import (
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.tenancy import ScopeId
+from overwatch.application.use_cases.link_access import (
     ACTIONS,
     BAD_ATTEMPT_WINDOW,
     BAD_ATTEMPTS_PER_ADDRESS,
@@ -42,7 +42,7 @@ from diucs.application.use_cases.link_access import (
     judge,
     prompt_state,
 )
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     Measure,
@@ -51,10 +51,10 @@ from diucs.domain.codes import (
     ReportType,
     ServiceCategory,
 )
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.service import AvailableTime, ServiceProfile
-from diucs.domain.rules.reply_policy import (
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.rules.reply_policy import (
     AskRecheck,
     NeedNumber,
     RecordConfirm,
@@ -62,7 +62,7 @@ from diucs.domain.rules.reply_policy import (
     RejectConfirmLimit,
     RejectLate,
 )
-from diucs.domain.rules.tokens import LinkTokenRecord
+from overwatch.domain.rules.tokens import LinkTokenRecord
 
 NOW = datetime(2026, 10, 23, 9, 5, tzinfo=UTC)
 PROMPT_AT = datetime(2026, 10, 23, 9, 0, tzinfo=UTC)

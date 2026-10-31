@@ -2,7 +2,7 @@
 message sent.
 
 The senders stand in for external providers (Twilio for SMS, DEC-002; SMTP; Web Push). Their
-recording fakes live in diucs.adapters.testing. The record store is Neo4j and has no fake
+recording fakes live in overwatch.adapters.testing. The record store is Neo4j and has no fake
 (DEC-004, contracts.md "Testing and persistence").
 """
 
@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Final, Protocol
 
-from diucs.domain.codes import Channel
+from overwatch.domain.codes import Channel
 
 GROUPED_STATUS: Final = "grouped"
 """One C9 text covers every service of a grouped prompt (U04). It is recorded as one Communication

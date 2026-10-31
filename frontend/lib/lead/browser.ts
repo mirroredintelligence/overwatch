@@ -2,7 +2,7 @@
 // the CSRF token from the cookie the BFF set, and one Idempotency-Key per submit, so a repeat of the
 // same submit is a replay, not a second change (DEC-653).
 
-export const CSRF_COOKIE = 'diucs_csrf';
+export const CSRF_COOKIE = 'overwatch_csrf';
 
 /** The CSRF token the BFF set for this browser, or undefined when there is none. */
 export function csrfToken(): string | undefined {

@@ -24,21 +24,21 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Final
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.use_cases.change_reporter_number import COVER_KEY_PREFIX
-from diucs.application.use_cases.missed_report_ladder import LADDER_OFFSETS
-from diucs.application.use_cases.query_board import BoardEntry, QueryBoard, QueryBoardQuery
-from diucs.application.use_cases.registration_draft import read_draft
-from diucs.application.work import DONE, ScheduledWork, WorkKind
-from diucs.domain.codes import Role, Status
-from diucs.domain.errors import NotAllowed, NotFound
-from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED
-from diucs.domain.model.people import PractitionerRole, role_holder
-from diucs.domain.model.registration import Invitation
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY
-from diucs.domain.rules.london_time import to_london
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.use_cases.change_reporter_number import COVER_KEY_PREFIX
+from overwatch.application.use_cases.missed_report_ladder import LADDER_OFFSETS
+from overwatch.application.use_cases.query_board import BoardEntry, QueryBoard, QueryBoardQuery
+from overwatch.application.use_cases.registration_draft import read_draft
+from overwatch.application.work import DONE, ScheduledWork, WorkKind
+from overwatch.domain.codes import Role, Status
+from overwatch.domain.errors import NotAllowed, NotFound
+from overwatch.domain.model.flags import SERVICE_FLAG_SUSPENDED
+from overwatch.domain.model.people import PractitionerRole, role_holder
+from overwatch.domain.model.registration import Invitation
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY
+from overwatch.domain.rules.london_time import to_london
 
 STEP_PROMPT: Final = "prompt"
 LADDER: Final = (

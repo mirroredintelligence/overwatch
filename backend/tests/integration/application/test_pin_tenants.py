@@ -15,10 +15,10 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.pin import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.pin import (
     PIN_HMAC_SECRET,
     PinSignIn,
     PinSignInCommand,
@@ -27,7 +27,7 @@ from diucs.application.use_cases.pin import (
     SetPin,
     SetPinCommand,
 )
-from diucs.domain.model.people import Practitioner
+from overwatch.domain.model.people import Practitioner
 from tests.support.registration_rig import StubLimiter
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory
 

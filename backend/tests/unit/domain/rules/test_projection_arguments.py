@@ -7,16 +7,16 @@ from typing import Any
 
 import pytest
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.messages.privacy_guard import find_forbidden_keys, scan_value
-from diucs.domain.model.network import GrantScope, ListingStatus
-from diucs.domain.rules.network_board import (
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.messages.privacy_guard import find_forbidden_keys, scan_value
+from overwatch.domain.model.network import GrantScope, ListingStatus
+from overwatch.domain.rules.network_board import (
     NetworkServiceInput,
     assemble_network_board,
     compute_network_state,
     status_inputs,
 )
-from diucs.domain.rules.projection import (
+from overwatch.domain.rules.projection import (
     LocationInputs,
     LocationProjection,
     ServiceContactInputs,

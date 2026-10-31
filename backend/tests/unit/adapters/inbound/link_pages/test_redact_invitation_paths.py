@@ -6,7 +6,7 @@ import logging
 
 import pytest
 
-from diucs.adapters.inbound.link_pages.capacity_links import RedactLinkTokens
+from overwatch.adapters.inbound.link_pages.capacity_links import RedactLinkTokens
 
 TOKEN = "AbCdEfGhIjKlMnOpQrStUvW"
 

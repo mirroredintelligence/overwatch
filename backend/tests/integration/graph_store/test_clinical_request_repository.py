@@ -10,12 +10,12 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.clinical_request_repository import (
+from overwatch.adapters.outbound.graph_store.clinical_request_repository import (
     Neo4jClinicalRequestRepository,
 )
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.domain.model.clinical import ClinicalAdvice, ClinicalRequestRecord
-from diucs.domain.rules.clinical_queue import ClinicalRequest, give_advice, return_if_idle, take
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.domain.model.clinical import ClinicalAdvice, ClinicalRequestRecord
+from overwatch.domain.rules.clinical_queue import ClinicalRequest, give_advice, return_if_idle, take
 from tests.support.neo4j import node_props, read_tx, write_tx
 from tests.support.round_trip import assert_round_trip
 

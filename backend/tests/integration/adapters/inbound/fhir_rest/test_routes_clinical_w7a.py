@@ -17,8 +17,8 @@ import pytest
 import pytest_asyncio
 from httpx import AsyncClient
 
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.domain.codes import (
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.domain.codes import (
     AgeBand,
     NeedCategory,
     PractitionerRoleCode,
@@ -27,11 +27,11 @@ from diucs.domain.codes import (
     Urgency,
     code_system_url,
 )
-from diucs.domain.model.case import Case
-from diucs.domain.model.clinical import ClinicalAdvice, ClinicalRequestRecord
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.model.scores import News2
-from diucs.domain.rules.clinical_queue import ClinicalRequest
+from overwatch.domain.model.case import Case
+from overwatch.domain.model.clinical import ClinicalAdvice, ClinicalRequestRecord
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.model.scores import News2
+from overwatch.domain.rules.clinical_queue import ClinicalRequest
 from tests.integration.adapters.inbound.fhir_rest.test_routes_clinical import (
     clinical_world,
     test_container,

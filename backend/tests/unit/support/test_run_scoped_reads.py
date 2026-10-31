@@ -16,7 +16,9 @@ IDS = ("tt-a1-b2-0001", "tt-a1-b2-0001-b", "net-a1-b2-0001")
 @pytest.fixture
 def run_ids(monkeypatch: pytest.MonkeyPatch) -> tuple[str, str, str]:
     for name, value in zip(
-        ("DIUCS_TEST_TENANT", "DIUCS_TEST_OTHER_TENANT", "DIUCS_TEST_NETWORK"), IDS, strict=True
+        ("OVERWATCH_TEST_TENANT", "OVERWATCH_TEST_OTHER_TENANT", "OVERWATCH_TEST_NETWORK"),
+        IDS,
+        strict=True,
     ):
         monkeypatch.setenv(name, value)
     return IDS
@@ -26,7 +28,7 @@ def test_the_scope_ids_are_the_three_the_conftest_exported(run_ids: tuple[str, s
     assert run_scope_ids() == list(run_ids)
 
 
-@pytest.mark.parametrize("missing", ["DIUCS_TEST_TENANT", "DIUCS_TEST_OTHER_TENANT"])
+@pytest.mark.parametrize("missing", ["OVERWATCH_TEST_TENANT", "OVERWATCH_TEST_OTHER_TENANT"])
 def test_a_missing_scope_id_stops_the_scan_rather_than_reading_everything(
     run_ids: tuple[str, str, str], monkeypatch: pytest.MonkeyPatch, missing: str
 ) -> None:
@@ -64,7 +66,7 @@ async def test_run_relationships_start_at_a_node_of_the_run(run_ids: tuple[str, 
 
 
 async def test_raw_cypher_in_a_test_gets_the_bound_tenant_as_a_parameter() -> None:
-    from diucs.application.tenancy import bind_tenant
+    from overwatch.application.tenancy import bind_tenant
     from tests.support.scoped import scoped
 
     log: list[tuple[str, dict[str, object]]] = []
@@ -81,7 +83,7 @@ async def test_raw_cypher_in_a_test_gets_the_bound_tenant_as_a_parameter() -> No
 
 
 async def test_a_tenant_the_caller_names_is_kept_so_another_tenants_nodes_can_be_read() -> None:
-    from diucs.application.tenancy import bind_tenant
+    from overwatch.application.tenancy import bind_tenant
     from tests.support.scoped import scoped
 
     log: list[tuple[str, dict[str, object]]] = []

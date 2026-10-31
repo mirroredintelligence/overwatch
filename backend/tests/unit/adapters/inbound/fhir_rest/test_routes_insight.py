@@ -6,7 +6,7 @@ reads. The stored answers and the tenant boundary are in tests/integration/.
 
 import pytest
 
-from diucs.adapters.inbound.fhir_rest.routes_insight import (
+from overwatch.adapters.inbound.fhir_rest.routes_insight import (
     TABS,
     friction_json,
     funnels_json,
@@ -14,9 +14,9 @@ from diucs.adapters.inbound.fhir_rest.routes_insight import (
     performance_json,
     releases_json,
 )
-from diucs.application.use_cases.browser_insight import ReleasesView
-from diucs.domain.codes import Role
-from diucs.domain.rules.insight_views import (
+from overwatch.application.use_cases.browser_insight import ReleasesView
+from overwatch.domain.codes import Role
+from overwatch.domain.rules.insight_views import (
     FrictionTable,
     FrictionView,
     FunnelView,

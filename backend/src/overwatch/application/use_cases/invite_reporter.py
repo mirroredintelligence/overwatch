@@ -18,27 +18,33 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Final
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.identity import PhoneHasher, normalise_uk_mobile
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.messaging import Communication
-from diucs.application.ports.outbound.outbox import OutboxMessage, outbox_message_for
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound
-from diucs.application.tenant_settings import resolve_link_base
-from diucs.application.use_cases.send_prompts import LinkTokenServiceFactory
-from diucs.application.use_cases.setup_service_by_lead import check_role_name, international
-from diucs.application.use_cases.text_code import INVITATION_PURPOSE
-from diucs.domain.codes import Channel, PractitionerRoleCode, RegistrationStatus, Role, ScopeFlag
-from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.events import ReporterInvited
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.messages.templates import RenderedMessage, render
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.model.registration import Invitation, Registration
-from diucs.domain.rules.registration import INVITATION_VALID_FOR, can_invite
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.identity import PhoneHasher, normalise_uk_mobile
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.messaging import Communication
+from overwatch.application.ports.outbound.outbox import OutboxMessage, outbox_message_for
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound
+from overwatch.application.tenant_settings import resolve_link_base
+from overwatch.application.use_cases.send_prompts import LinkTokenServiceFactory
+from overwatch.application.use_cases.setup_service_by_lead import check_role_name, international
+from overwatch.application.use_cases.text_code import INVITATION_PURPOSE
+from overwatch.domain.codes import (
+    Channel,
+    PractitionerRoleCode,
+    RegistrationStatus,
+    Role,
+    ScopeFlag,
+)
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.events import ReporterInvited
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.messages.templates import RenderedMessage, render
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.model.registration import Invitation, Registration
+from overwatch.domain.rules.registration import INVITATION_VALID_FOR, can_invite
 
 LinkBaseUrlFor = Callable[[ScopeId], str | Awaitable[str]]
 """Text or an awaitable of text (`resolve_link_base`): the serving process's source is async."""

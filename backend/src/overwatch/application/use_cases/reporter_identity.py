@@ -25,12 +25,12 @@ from datetime import timedelta
 from enum import StrEnum
 from typing import Final, Protocol
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.identity import SessionEpochChanged, SessionStore
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.tenancy import ScopeKind, TenantNotBound
-from diucs.application.use_cases.pin import (
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.identity import SessionEpochChanged, SessionStore
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeKind, TenantNotBound
+from overwatch.application.use_cases.pin import (
     VERIFIED_PURPOSES,
     PinSignIn,
     PinSignInCommand,
@@ -40,16 +40,16 @@ from diucs.application.use_cases.pin import (
     SetPin,
     SetPinCommand,
 )
-from diucs.application.use_cases.remove_person import (
+from overwatch.application.use_cases.remove_person import (
     NEW_DEVICE_PURPOSE,
     StartNewPhoneCommand,
     StartNewPhoneResult,
 )
-from diucs.application.use_cases.text_code import VerifyTextCodeCommand, VerifyTextCodeResult
-from diucs.domain.codes import Role
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY
-from diucs.domain.rules.identity_policy import needs_reverification
+from overwatch.application.use_cases.text_code import VerifyTextCodeCommand, VerifyTextCodeResult
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY
+from overwatch.domain.rules.identity_policy import needs_reverification
 
 UNKNOWN_PREFIX: Final = "unknown-"
 PUSH_DEVICE_PREFIX: Final = "app-"

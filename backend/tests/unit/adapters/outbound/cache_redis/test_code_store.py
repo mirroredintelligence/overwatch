@@ -6,11 +6,15 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.outbound.cache_redis.code_store import RedisCodeStore, decode_code, encode_code
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.tenancy import TenantNotBound, bind_tenant
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.identity_policy import CodeOutcome, CodeState
+from overwatch.adapters.outbound.cache_redis.code_store import (
+    RedisCodeStore,
+    decode_code,
+    encode_code,
+)
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.tenancy import TenantNotBound, bind_tenant
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.identity_policy import CodeOutcome, CodeState
 
 NO_CLIENT: Any = object()
 NOW = datetime(2026, 10, 25, 9, 0, tzinfo=UTC)

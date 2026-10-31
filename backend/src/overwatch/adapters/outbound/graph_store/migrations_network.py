@@ -25,7 +25,7 @@ expand only again.
 from dataclasses import dataclass
 from typing import Final
 
-from diucs.adapters.outbound.graph_store.migration_types import Migration
+from overwatch.adapters.outbound.graph_store.migration_types import Migration
 
 
 @dataclass(frozen=True, slots=True)

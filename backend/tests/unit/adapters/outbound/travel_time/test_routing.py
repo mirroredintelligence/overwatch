@@ -14,7 +14,7 @@ from typing import Any
 import httpx
 import pytest
 
-from diucs.adapters.outbound.travel_time.routing import (
+from overwatch.adapters.outbound.travel_time.routing import (
     HttpxRouteClient,
     RoutingFailed,
     RoutingReplyMalformed,
@@ -23,11 +23,11 @@ from diucs.adapters.outbound.travel_time.routing import (
     range_from_duration,
     route_url,
 )
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_geo import FixedTravelTime
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.application.ports.outbound.geo import LatLon, TravelRange
-from diucs.application.tenancy import TenantNotBound, bind_tenant
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_geo import FixedTravelTime
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.application.ports.outbound.geo import LatLon, TravelRange
+from overwatch.application.tenancy import TenantNotBound, bind_tenant
 
 NOW = datetime(2026, 10, 25, 9, 0, tzinfo=UTC)
 EXTRACT = "2026-10-01"

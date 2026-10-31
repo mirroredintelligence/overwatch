@@ -10,9 +10,10 @@ refused. The epoch is the tenant record's counter when the token was issued: the
 token whose epoch the record has moved past, so a suspend takes effect before `exp` (H-T23).
 
 A token is for one audience (TEN-043, DEC-522). The back end issues every token, and the BFF holds
-no signing secret (DEC-134 item 2). A tenant token (staff, reporter, wall) is for `diucs-api` and
+no signing secret (DEC-134 item 2). A tenant token (staff, reporter, wall) is for `overwatch-api`
+and
 names a tenant and its epoch; an operator token (an operator or a support person of the operator's
-own directory) is for `diucs-ops` and names no tenant, epoch, service or device. Each decoder
+own directory) is for `overwatch-ops` and names no tenant, epoch, service or device. Each decoder
 refuses the other's token and refuses a token with no audience or with any other: a signature that
 verifies is not enough.
 
@@ -29,10 +30,10 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Final
 
-from diucs.domain.codes import Role
-from diucs.domain.errors import DomainError, ValidationFailed
-from diucs.domain.model.network import check_network_id
-from diucs.domain.model.tenant import check_tenant_id
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import DomainError, ValidationFailed
+from overwatch.domain.model.network import check_network_id
+from overwatch.domain.model.tenant import check_tenant_id
 
 BFF_TOKEN_ALGORITHM: Final = "HS256"
 BFF_SECRET_MIN_BYTES: Final = 32  # 256 bits, the output size of HMAC-SHA256 (DEC-094 item 3)
@@ -40,8 +41,8 @@ BFF_TOKEN_MAX_LENGTH: Final = (
     8192  # characters; a longer token is refused before it is parsed (DEC-094 item 2)
 )
 
-STAFF_AUDIENCE: Final = "diucs-api"
-OPERATOR_AUDIENCE: Final = "diucs-ops"
+STAFF_AUDIENCE: Final = "overwatch-api"
+OPERATOR_AUDIENCE: Final = "overwatch-ops"
 # The roles an operator token may carry: tenant lifecycle and support, never a tenant's own role.
 OPERATOR_ROLES: Final = frozenset({Role.PLATFORM_OPERATOR, Role.SUPPORT})
 

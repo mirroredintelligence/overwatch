@@ -6,10 +6,10 @@ nothing and is reported as already final. The decline reason can arrive later. S
 
 import pytest
 
-from diucs.domain.codes import BookingStatus, Role
-from diucs.domain.errors import Conflict, InvalidTransition, ValidationFailed
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.rules.booking_response import (
+from overwatch.domain.codes import BookingStatus, Role
+from overwatch.domain.errors import Conflict, InvalidTransition, ValidationFailed
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.rules.booking_response import (
     advisor_may_cancel,
     cancel_target,
     echo_message,

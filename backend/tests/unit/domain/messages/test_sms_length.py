@@ -1,4 +1,4 @@
-"""Tests for diucs.domain.messages.sms_length: SMS segment counting (D15).
+"""Tests for overwatch.domain.messages.sms_length: SMS segment counting (D15).
 
 GSM-7 basic set: 160 characters for one segment, 153 per segment after that. Extension
 characters ^ { } \\ [ ~ ] | and the euro sign count as two. Any character outside GSM-7 switches
@@ -11,7 +11,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from diucs.domain.messages.sms_length import sms_segments
+from overwatch.domain.messages.sms_length import sms_segments
 
 
 @pytest.mark.parametrize(

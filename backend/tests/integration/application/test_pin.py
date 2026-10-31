@@ -12,11 +12,11 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.pin import (
+from overwatch.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.pin import (
     PIN_HMAC_SECRET,
     PinSignIn,
     PinSignInCommand,
@@ -25,9 +25,9 @@ from diucs.application.use_cases.pin import (
     SetPin,
     SetPinCommand,
 )
-from diucs.domain.codes import PractitionerRoleCode, Role, ServiceCategory
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.codes import PractitionerRoleCode, Role, ServiceCategory
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.people import Practitioner, PractitionerRole
 from tests.support.neo4j import count_nodes, node_props, read_tx
 from tests.support.registration_rig import StubLimiter
 
@@ -91,8 +91,8 @@ async def rig(uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, clean_g
 def _entry(service_id: str, name: str) -> Any:
     from datetime import date
 
-    from diucs.domain.codes import ScopeFlag
-    from diucs.domain.model.registration import ScopeEntry
+    from overwatch.domain.codes import ScopeFlag
+    from overwatch.domain.model.registration import ScopeEntry
 
     return ScopeEntry(
         service_id=service_id,

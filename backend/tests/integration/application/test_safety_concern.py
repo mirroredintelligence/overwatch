@@ -12,19 +12,19 @@ import json
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.safety_concern import (
+from overwatch.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.safety_concern import (
     ReportProblem,
     ReportProblemCommand,
     ReportSafetyConcern,
     ReportSafetyConcernCommand,
     ReportSafetyConcernResult,
 )
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.safety_report import ProblemCategory, SafetyConcernCategory
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.safety_report import ProblemCategory, SafetyConcernCategory
 from tests.support.booking_rig import ADVISOR, at, sealer, seed_world
 from tests.support.neo4j import count_nodes, node_props, run_scope_ids
 

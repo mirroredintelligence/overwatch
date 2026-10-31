@@ -1,4 +1,4 @@
-"""Tests for diucs.domain.rules.schedule: report due times and the missed-report ladder (D04).
+"""Tests for overwatch.domain.rules.schedule: report due times and the missed-report ladder (D04).
 
 Rules from docs/spec/domain-rules.md 1.4 and 1.5 and the D04 prompt. Times are London local
 (see AvailableTime). Windows that end before they start are overnight and belong to the day they
@@ -13,12 +13,12 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from diucs.domain.codes import Cadence, Channel, Measure, ServiceCategory
-from diucs.domain.model.service import AvailableTime, ServiceProfile
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
-from diucs.domain.rules import schedule as schedule_rules
-from diucs.domain.rules.london_time import london_to_utc, to_london
-from diucs.domain.rules.schedule import (
+from overwatch.domain.codes import Cadence, Channel, Measure, ServiceCategory
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
+from overwatch.domain.rules import schedule as schedule_rules
+from overwatch.domain.rules.london_time import london_to_utc, to_london
+from overwatch.domain.rules.schedule import (
     ESCALATE_AFTER,
     PHONE_TASK_AFTER,
     REMINDER_AFTER,

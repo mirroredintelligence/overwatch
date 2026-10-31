@@ -7,22 +7,22 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.inbound.workers.alert_consumers import (
+from overwatch.adapters.inbound.workers.alert_consumers import (
     ALERT_EVALUATOR_SUBSCRIPTION,
     NOTIFIER_SUBSCRIPTION,
     AlertEvaluationConsumer,
     EscalationNotifyConsumer,
     alert_runners,
 )
-from diucs.adapters.inbound.workers.consumer import Outcome
-from diucs.adapters.inbound.workers.outbox_relay import StaticTenants
-from diucs.adapters.inbound.workers.tenant_binding import TenantBoundConsumer
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.tenancy import current_scope_or_none
-from diucs.application.use_cases.alerts import EvaluationResult, StatusChangedCommand
-from diucs.application.use_cases.notify_escalations import NotifyLeadsCommand, NotifyLeadsResult
-from diucs.domain.codes import Status
-from diucs.domain.errors import NotFound, ValidationFailed
+from overwatch.adapters.inbound.workers.consumer import Outcome
+from overwatch.adapters.inbound.workers.outbox_relay import StaticTenants
+from overwatch.adapters.inbound.workers.tenant_binding import TenantBoundConsumer
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.tenancy import current_scope_or_none
+from overwatch.application.use_cases.alerts import EvaluationResult, StatusChangedCommand
+from overwatch.application.use_cases.notify_escalations import NotifyLeadsCommand, NotifyLeadsResult
+from overwatch.domain.codes import Status
+from overwatch.domain.errors import NotFound, ValidationFailed
 
 
 class _Evaluator:

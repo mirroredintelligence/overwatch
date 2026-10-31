@@ -8,13 +8,13 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.actor import Actor
-from diucs.application.tenancy import bind_tenant
-from diucs.application.use_cases.report_capacity import ReportCapacity, ReportCapacityCommand
-from diucs.application.use_cases.report_flags import raise_report_flags
-from diucs.domain.codes import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.actor import Actor
+from overwatch.application.tenancy import bind_tenant
+from overwatch.application.use_cases.report_capacity import ReportCapacity, ReportCapacityCommand
+from overwatch.application.use_cases.report_flags import raise_report_flags
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     Measure,
@@ -25,9 +25,9 @@ from diucs.domain.codes import (
     ServiceCategory,
     Status,
 )
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
 
 NOW = datetime(2026, 10, 23, 13, 12, tzinfo=UTC)

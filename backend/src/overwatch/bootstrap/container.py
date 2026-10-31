@@ -25,52 +25,56 @@ from pathlib import Path
 import httpx
 from redis.asyncio import Redis
 
-from diucs.adapters.inbound.scheduler.scheduled_work_consumer import (
+from overwatch.adapters.inbound.scheduler.scheduled_work_consumer import (
     ScheduledWorkDispatcher,
     WorkHandler,
 )
-from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
-from diucs.adapters.outbound.cache_redis.code_store import RedisCodeStore
-from diucs.adapters.outbound.cache_redis.redis_cache import RedisCache
-from diucs.adapters.outbound.cache_redis.sessions import RedisRateLimiter, RedisSessionStore
-from diucs.adapters.outbound.clock_system.system_clock import SystemClock
-from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
-from diucs.adapters.outbound.fhir_validator.validator import ProfileValidator
-from diucs.adapters.outbound.geocoder_os_places.os_places import (
+from overwatch.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
+from overwatch.adapters.outbound.cache_redis.code_store import RedisCodeStore
+from overwatch.adapters.outbound.cache_redis.redis_cache import RedisCache
+from overwatch.adapters.outbound.cache_redis.sessions import RedisRateLimiter, RedisSessionStore
+from overwatch.adapters.outbound.clock_system.system_clock import SystemClock
+from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from overwatch.adapters.outbound.fhir_validator.validator import ProfileValidator
+from overwatch.adapters.outbound.geocoder_os_places.os_places import (
     REQUEST_TIMEOUT_SECONDS,
     OsPlacesGeocoder,
 )
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection, Neo4jPoolOptions
-from diucs.adapters.outbound.graph_store.invariants import Neo4jTenantInvariants
-from diucs.adapters.outbound.graph_store.migrations import apply_migrations
-from diucs.adapters.outbound.graph_store.platform_audit import Neo4jPlatformAudit
-from diucs.adapters.outbound.graph_store.support_ticket_store import Neo4jSupportTickets
-from diucs.adapters.outbound.graph_store.tenant_directory import Neo4jTenantDirectory
-from diucs.adapters.outbound.graph_store.tenant_registry import Neo4jTenantRegistry
-from diucs.adapters.outbound.graph_store.unit_of_work import neo4j_uow_factory
-from diucs.adapters.outbound.ids_uuid.uuid_ids import UuidGenerator
-from diucs.adapters.outbound.postcodes_local.centroids import CsvPostcodeLocator
-from diucs.adapters.outbound.telemetry.azure_monitor_query import (
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection, Neo4jPoolOptions
+from overwatch.adapters.outbound.graph_store.invariants import Neo4jTenantInvariants
+from overwatch.adapters.outbound.graph_store.migrations import apply_migrations
+from overwatch.adapters.outbound.graph_store.platform_audit import Neo4jPlatformAudit
+from overwatch.adapters.outbound.graph_store.support_ticket_store import Neo4jSupportTickets
+from overwatch.adapters.outbound.graph_store.tenant_directory import Neo4jTenantDirectory
+from overwatch.adapters.outbound.graph_store.tenant_registry import Neo4jTenantRegistry
+from overwatch.adapters.outbound.graph_store.unit_of_work import neo4j_uow_factory
+from overwatch.adapters.outbound.ids_uuid.uuid_ids import UuidGenerator
+from overwatch.adapters.outbound.postcodes_local.centroids import CsvPostcodeLocator
+from overwatch.adapters.outbound.telemetry.azure_monitor_query import (
     AzureMonitorTelemetryQuery,
     LogsQueryClient,
 )
-from diucs.adapters.outbound.telemetry.result_attributes import result_attributes
-from diucs.adapters.outbound.terminology.local_terminology import LocalTerminology
-from diucs.adapters.outbound.travel_time.routing import HttpxRouteClient, RoutingTravelTime
-from diucs.adapters.outbound.travel_time.straight_line import StraightLineTravelTime
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_geo import FixedGeocoder, FixedPostcodeLocator, FixedTravelTime
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.fixed_terminology import FixedTerminology
-from diucs.adapters.testing.fixture_telemetry import FixtureTelemetryQuery
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.application.actor import system_actor
-from diucs.application.cross_tenant_guard import CrossTenantGuard
-from diucs.application.ports.outbound.cache import Cache, PlatformSlots
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.cross_tenant_tickets import CrossTenantTicketStore
-from diucs.application.ports.outbound.geo import (
+from overwatch.adapters.outbound.telemetry.result_attributes import result_attributes
+from overwatch.adapters.outbound.terminology.local_terminology import LocalTerminology
+from overwatch.adapters.outbound.travel_time.routing import HttpxRouteClient, RoutingTravelTime
+from overwatch.adapters.outbound.travel_time.straight_line import StraightLineTravelTime
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_geo import (
+    FixedGeocoder,
+    FixedPostcodeLocator,
+    FixedTravelTime,
+)
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.fixed_terminology import FixedTerminology
+from overwatch.adapters.testing.fixture_telemetry import FixtureTelemetryQuery
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.application.actor import system_actor
+from overwatch.application.cross_tenant_guard import CrossTenantGuard
+from overwatch.application.ports.outbound.cache import Cache, PlatformSlots
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.cross_tenant_tickets import CrossTenantTicketStore
+from overwatch.application.ports.outbound.geo import (
     AddressCandidate,
     Geocoder,
     LatLon,
@@ -79,20 +83,20 @@ from diucs.application.ports.outbound.geo import (
     TravelRange,
     TravelTime,
 )
-from diucs.application.ports.outbound.identity import (
+from overwatch.application.ports.outbound.identity import (
     CodeStore,
     RateLimiter,
     SessionStore,
     TenantKeyedSecrets,
 )
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.invariants import (
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.invariants import (
     TenantInvariants,
     TenantInvariantViolated,
 )
-from diucs.application.ports.outbound.platform_audit import PlatformAuditLog
-from diucs.application.ports.outbound.sealing import ContentSealer
-from diucs.application.ports.outbound.telemetry_query import (
+from overwatch.application.ports.outbound.platform_audit import PlatformAuditLog
+from overwatch.application.ports.outbound.sealing import ContentSealer
+from overwatch.application.ports.outbound.telemetry_query import (
     SessionFilters,
     SessionSummary,
     SpanRecord,
@@ -100,75 +104,75 @@ from diucs.application.ports.outbound.telemetry_query import (
     TelemetryUnavailable,
     TimelineEvent,
 )
-from diucs.application.ports.outbound.tenant_registry import TenantRegistry
-from diucs.application.ports.outbound.tenants import TenantDirectory
-from diucs.application.ports.outbound.terminology import FhirValidator, Terminology
-from diucs.application.ports.outbound.tokens import (
+from overwatch.application.ports.outbound.tenant_registry import TenantRegistry
+from overwatch.application.ports.outbound.tenants import TenantDirectory
+from overwatch.application.ports.outbound.terminology import FhirValidator, Terminology
+from overwatch.application.ports.outbound.tokens import (
     LinkTokenRepository,
     LinkTokenService,
     SecretStore,
 )
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import ScopeId, bind_tenant, current_tenant
-from diucs.application.tenant_settings import (
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeId, bind_tenant, current_tenant
+from overwatch.application.tenant_settings import (
     DirectoryLinkBase,
     DirectoryZones,
     LinkBases,
     TenantZones,
     require_tenant_link_bases,
 )
-from diucs.application.tenant_wording import ConfiguredWording
-from diucs.application.uow_idempotency import UnitOfWorkIdempotency
-from diucs.application.use_cases.alerts import (
+from overwatch.application.tenant_wording import ConfiguredWording
+from overwatch.application.uow_idempotency import UnitOfWorkIdempotency
+from overwatch.application.use_cases.alerts import (
     EscalateAlert,
     EscalateAlertCommand,
     NotUpdatedCheck,
     NotUpdatedCheckCommand,
 )
-from diucs.application.use_cases.booking_timers import (
+from overwatch.application.use_cases.booking_timers import (
     BookingPhonePrompt,
     ExpireBooking,
     booking_timer_handlers,
 )
-from diucs.application.use_cases.criteria_reviews import (
+from overwatch.application.use_cases.criteria_reviews import (
     RunCriteriaReviews,
     RunCriteriaReviewsCommand,
     ensure_daily_schedule,
 )
-from diucs.application.use_cases.missed_report_ladder import (
+from overwatch.application.use_cases.missed_report_ladder import (
     LADDER_KINDS,
     LadderStepCommand,
     MissedReportLadder,
 )
-from diucs.application.use_cases.request_booking import LinkBaseUrlFor
-from diucs.application.use_cases.review_registration import AreaDistrictsFor
-from diucs.application.use_cases.send_prompts import SendPromptCommand, SendPrompts, prompt_key
-from diucs.application.use_cases.suspend_service import WordingFor
-from diucs.application.use_cases.tenant_config import ReadTenantConfig
-from diucs.application.use_cases.tenant_invariants import (
+from overwatch.application.use_cases.request_booking import LinkBaseUrlFor
+from overwatch.application.use_cases.review_registration import AreaDistrictsFor
+from overwatch.application.use_cases.send_prompts import SendPromptCommand, SendPrompts, prompt_key
+from overwatch.application.use_cases.suspend_service import WordingFor
+from overwatch.application.use_cases.tenant_config import ReadTenantConfig
+from overwatch.application.use_cases.tenant_invariants import (
     InvariantMonitor,
     RunInvariantCheck,
     RunInvariantCheckCommand,
     ensure_invariant_schedule,
 )
-from diucs.application.use_cases.withdraw_booking import (
+from overwatch.application.use_cases.withdraw_booking import (
     EscalateWithdrawal,
     EscalateWithdrawalCommand,
 )
-from diucs.application.work import ScheduledWork, WorkKind
-from diucs.bootstrap.areas import area_districts_for
-from diucs.bootstrap.settings import Settings
-from diucs.domain.errors import NotFound
-from diucs.domain.model.telemetry_aggregates import DayAggregates
-from diucs.domain.model.tenant import TenantWording
-from diucs.domain.rules.tenant_keys import check_key_version
+from overwatch.application.work import ScheduledWork, WorkKind
+from overwatch.bootstrap.areas import area_districts_for
+from overwatch.bootstrap.settings import Settings
+from overwatch.domain.errors import NotFound
+from overwatch.domain.model.telemetry_aggregates import DayAggregates
+from overwatch.domain.model.tenant import TenantWording
+from overwatch.domain.rules.tenant_keys import check_key_version
 
 TEST_NOW = datetime(2026, 10, 23, 13, 0, tzinfo=UTC)
 # The sample telemetry the test container serves (O07). Sample values only.
 TELEMETRY_FIXTURE = (
     Path(__file__).resolve().parents[3] / "tests" / "fixtures" / "telemetry" / "s-7f3a.json"
 )
-TEST_LINK_BASE_URL = "https://diucs.example"
+TEST_LINK_BASE_URL = "https://overwatch.example"
 TEST_RNG_SEED = 20261023
 
 SCHEDULER_CHANNEL = "scheduler"

@@ -16,21 +16,21 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.tenancy import bind_tenant, current_scope_or_none
-from diucs.application.use_cases.network_governance import GovernanceOutcome, NetworkGovernance
-from diucs.application.use_cases.network_leave import EndResult
-from diucs.application.use_cases.project_network import ProjectionRun
-from diucs.application.work import WorkKind
-from diucs.domain.errors import NotAllowed, NotFound, ValidationFailed
-from diucs.domain.events import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.tenancy import bind_tenant, current_scope_or_none
+from overwatch.application.use_cases.network_governance import GovernanceOutcome, NetworkGovernance
+from overwatch.application.use_cases.network_leave import EndResult
+from overwatch.application.use_cases.project_network import ProjectionRun
+from overwatch.application.work import WorkKind
+from overwatch.domain.errors import NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.events import (
     GrantEffective,
     GrantEnded,
     GrantProposed,
     MemberAdded,
     MemberRemoved,
 )
-from diucs.domain.model.network import GrantEndReason, GrantScope, MembershipEndReason
+from overwatch.domain.model.network import GrantEndReason, GrantScope, MembershipEndReason
 from tests.support.network_admin_fakes import Ids, MemoryRegistry, UnitFactories, UnitWorld
 from tests.support.network_samples import (
     MEMBER_B,

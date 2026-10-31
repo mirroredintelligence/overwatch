@@ -1,4 +1,4 @@
-"""Tests for diucs.domain.model.case: the advisor case, its scores and its outcome (D18).
+"""Tests for overwatch.domain.model.case: the advisor case, its scores and its outcome (D18).
 
 Rules from docs/spec/domain-rules.md section 4 and the D18 prompt. On close the postcode and
 needs are cleared; the audit summary keeps what is needed for audit and is taken before close.
@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     AgeBand,
     BestFitNotUsedReason,
     NeedCategory,
@@ -17,9 +17,9 @@ from diucs.domain.codes import (
     ReferrerType,
     Urgency,
 )
-from diucs.domain.errors import InvalidTransition, ValidationFailed
-from diucs.domain.model.case import Case, audit_summary, priority_for
-from diucs.domain.model.scores import (
+from overwatch.domain.errors import InvalidTransition, ValidationFailed
+from overwatch.domain.model.case import Case, audit_summary, priority_for
+from overwatch.domain.model.scores import (
     AmbulanceCategory,
     ClinicalFrailty,
     ManchesterTriage,

@@ -18,11 +18,11 @@ tenant on every node it matches or creates, and carries a scenario (DEC-142).
 from datetime import UTC, datetime, time
 from typing import Any, Final
 
-from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
-from diucs.adapters.outbound.graph_store.extensions import by_short_name
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.adapters.outbound.graph_store.scenario import (
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx, run_query
+from overwatch.adapters.outbound.graph_store.extensions import by_short_name
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.adapters.outbound.graph_store.scenario import (
     Expect,
     Marked,
     NodeSpec,
@@ -31,10 +31,10 @@ from diucs.adapters.outbound.graph_store.scenario import (
     SeedRel,
     TenantSeed,
 )
-from diucs.domain.codes import AlertKind, code_system_url, parse_code
-from diucs.domain.errors import NotFound, ValidationFailed
-from diucs.domain.model.alerts import ALERT_STATUSES, AlertRecord, AlertSubscription
-from diucs.domain.rules.alerts import AlertPreferences
+from overwatch.domain.codes import AlertKind, code_system_url, parse_code
+from overwatch.domain.errors import NotFound, ValidationFailed
+from overwatch.domain.model.alerts import ALERT_STATUSES, AlertRecord, AlertSubscription
+from overwatch.domain.rules.alerts import AlertPreferences
 
 TASK: Final = "Task"
 SERVICE: Final = "HealthcareService"

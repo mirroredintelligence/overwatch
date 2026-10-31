@@ -6,7 +6,7 @@ from datetime import UTC, date, datetime
 
 import pytest
 
-from diucs.application.use_cases.criteria import (
+from overwatch.application.use_cases.criteria import (
     CriteriaValues,
     approved_versions,
     check_may_approve,
@@ -14,10 +14,10 @@ from diucs.application.use_cases.criteria import (
     confirmed_review_by,
     pending_version,
 )
-from diucs.domain.codes import Channel, CriteriaStatus, NeedCategory, PractitionerRoleCode
-from diucs.domain.errors import InvalidTransition, NotAllowed, ValidationFailed
-from diucs.domain.model.criteria import ServiceCriteria
-from diucs.domain.model.people import PractitionerRole
+from overwatch.domain.codes import Channel, CriteriaStatus, NeedCategory, PractitionerRoleCode
+from overwatch.domain.errors import InvalidTransition, NotAllowed, ValidationFailed
+from overwatch.domain.model.criteria import ServiceCriteria
+from overwatch.domain.model.people import PractitionerRole
 
 NOW = datetime(2026, 10, 23, 13, 0, tzinfo=UTC)
 TODAY = date(2026, 10, 23)
@@ -321,7 +321,7 @@ def test_confirming_refuses_a_period_other_than_three_six_or_twelve():
 def test_the_status_enum_is_not_matched_by_value_alone():
     # CriteriaStatus.DRAFT and RegistrationStatus.DRAFT are both "draft" (lesson L38): a
     # registration status must not pass as a criteria status in a version.
-    from diucs.domain.codes import RegistrationStatus
+    from overwatch.domain.codes import RegistrationStatus
 
     assert CriteriaStatus.DRAFT == RegistrationStatus.DRAFT
     with pytest.raises(ValidationFailed):

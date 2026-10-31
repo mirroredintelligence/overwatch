@@ -37,14 +37,14 @@ from typing import Any, Final
 from neo4j.time import Date, DateTime
 from neo4j.time import Time as Neo4jTime
 
-from diucs.adapters.outbound.graph_store.driver import Tx, run_query
-from diucs.adapters.outbound.graph_store.projection_scenarios import PROJECTION_SCENARIOS
-from diucs.adapters.outbound.graph_store.queries import (
+from overwatch.adapters.outbound.graph_store.driver import Tx, run_query
+from overwatch.adapters.outbound.graph_store.projection_scenarios import PROJECTION_SCENARIOS
+from overwatch.adapters.outbound.graph_store.queries import (
     NETWORK_KINDS,
     REGISTRY,
     NamedQuery,
 )
-from diucs.application.ports.outbound.projection import (
+from overwatch.application.ports.outbound.projection import (
     GrantRef,
     ProjectedRow,
     ProjectionEndReason,
@@ -52,11 +52,11 @@ from diucs.application.ports.outbound.projection import (
     SourceState,
     SourceStatus,
 )
-from diucs.application.projection import to_rows
-from diucs.domain.codes import Cadence, Measure, NeedCategory, ServiceCategory
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.network import DirectorySource, GrantScope
-from diucs.domain.rules.projection import (
+from overwatch.application.projection import to_rows
+from overwatch.domain.codes import Cadence, Measure, NeedCategory, ServiceCategory
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.network import DirectorySource, GrantScope
+from overwatch.domain.rules.projection import (
     CapacityProjection,
     CriteriaProjection,
     LocationProjection,

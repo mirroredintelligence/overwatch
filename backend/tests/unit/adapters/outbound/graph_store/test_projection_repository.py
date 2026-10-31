@@ -15,25 +15,25 @@ import pytest
 from neo4j.time import Date, DateTime
 from neo4j.time import Time as Neo4jTime
 
-from diucs.adapters.outbound.graph_store.driver import ScopedTx
-from diucs.adapters.outbound.graph_store.projection_repository import Neo4jProjectionRepository
-from diucs.adapters.outbound.graph_store.queries import REGISTRY
-from diucs.application.ports.outbound.projection import (
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx
+from overwatch.adapters.outbound.graph_store.projection_repository import Neo4jProjectionRepository
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY
+from overwatch.application.ports.outbound.projection import (
     GrantRef,
     ProjectionEndReason,
     ProjectionRecordInvalid,
     SourceStatus,
 )
-from diucs.application.projection import to_rows
-from diucs.application.tenancy import (
+from overwatch.application.projection import to_rows
+from overwatch.application.tenancy import (
     ReadOnlyUnitWrite,
     ScopeId,
     ScopeKindMismatch,
     SourceTenantRefused,
 )
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.network import GrantScope
-from diucs.domain.rules.projection import OpeningHourProjection
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.network import GrantScope
+from overwatch.domain.rules.projection import OpeningHourProjection
 from tests.support.network_connection import NetworkTx
 from tests.support.projection_samples import (
     sample_capacity_projection,

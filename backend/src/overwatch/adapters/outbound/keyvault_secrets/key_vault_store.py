@@ -9,12 +9,13 @@ Names. `vault_secret_name` maps a reference to the vault's alphabet. A reference
 is `NotFound` and the vault is not called.
 
 Cache (in memory, one per process, safe for threads):
-- a good value is held for `cache_seconds` (default 600, `DIUCS_SECRET_CACHE_SECONDS`), so a
+- a good value is held for `cache_seconds` (default 600, `OVERWATCH_SECRET_CACHE_SECONDS`), so a
   rotation reaches a running process within ten minutes, and the vault is called at most once for
   a name in that time;
 - only a success is cached: a miss, a refused name and an outage are never held;
 - stale-if-error: when a refresh fails and a good value is held, that value is served for up to
-  `stale_seconds` past its expiry (default 3600, `DIUCS_SECRET_STALE_SECONDS`), with a warning that
+  `stale_seconds` past its expiry (default 3600, `OVERWATCH_SECRET_STALE_SECONDS`), with a warning
+  that
   names the secret and the type of the failure. The value is already in the process's memory, so
   this exposes nothing more, and an outage does not stop a clinical service within ten
   minutes. While
@@ -46,9 +47,9 @@ from typing import Any, Final, Protocol
 
 from azure.core.exceptions import ResourceNotFoundError
 
-from diucs.application.ports.outbound.tokens import SecretStoreUnavailable
-from diucs.domain.errors import NotFound
-from diucs.domain.rules.secret_names import vault_secret_name
+from overwatch.application.ports.outbound.tokens import SecretStoreUnavailable
+from overwatch.domain.errors import NotFound
+from overwatch.domain.rules.secret_names import vault_secret_name
 
 log = logging.getLogger(__name__)
 

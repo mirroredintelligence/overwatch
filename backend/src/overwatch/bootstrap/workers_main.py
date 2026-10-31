@@ -1,4 +1,4 @@
-"""Process entry for the inbound queue workers (I08): `python -m diucs.bootstrap.workers_main`.
+"""Process entry for the inbound queue workers (I08): `python -m overwatch.bootstrap.workers_main`.
 
 It is in bootstrap, the one layer that may name both an inbound worker and the outbound adapters.
 It builds the Neo4j connection and the units of work from the container, the cache from Redis and
@@ -28,103 +28,103 @@ import httpx
 from azure.servicebus.aio import ServiceBusClient
 from opentelemetry import trace as otel_trace
 
-from diucs.adapters.inbound.scheduler.scheduled_work_consumer import (
+from overwatch.adapters.inbound.scheduler.scheduled_work_consumer import (
     WorkHandler,
     build_scheduled_work_consumer,
 )
-from diucs.adapters.inbound.workers.alert_consumers import (
+from overwatch.adapters.inbound.workers.alert_consumers import (
     EscalationNotifier,
     StatusEvaluator,
     alert_runners,
 )
-from diucs.adapters.inbound.workers.board_consumer import BoardRebuilder, board_runners
-from diucs.adapters.inbound.workers.code_sender import code_runner
-from diucs.adapters.inbound.workers.delivery_tracker import receipt_consumer
-from diucs.adapters.inbound.workers.message_senders import push_runner, sender_runners
-from diucs.adapters.inbound.workers.network_board_consumer import (
+from overwatch.adapters.inbound.workers.board_consumer import BoardRebuilder, board_runners
+from overwatch.adapters.inbound.workers.code_sender import code_runner
+from overwatch.adapters.inbound.workers.delivery_tracker import receipt_consumer
+from overwatch.adapters.inbound.workers.message_senders import push_runner, sender_runners
+from overwatch.adapters.inbound.workers.network_board_consumer import (
     NetworkBoardRebuilder,
     network_board_runners,
 )
-from diucs.adapters.inbound.workers.network_governance_consumer import (
+from overwatch.adapters.inbound.workers.network_governance_consumer import (
     GovernanceHandler,
     network_governance_runners,
 )
-from diucs.adapters.inbound.workers.network_projector import (
+from overwatch.adapters.inbound.workers.network_projector import (
     NetworkApplyConsumer,
     network_runners,
 )
-from diucs.adapters.inbound.workers.outbox_relay import ActiveTenants
-from diucs.adapters.inbound.workers.reply_processor import HandlesInboundText, reply_consumer
-from diucs.adapters.inbound.workers.servicebus_runner import ServiceBusRunner
-from diucs.adapters.outbound.bus_servicebus.service_bus import ServiceBusEventBus
-from diucs.adapters.outbound.cache_redis.redis_cache import RedisCache
-from diucs.adapters.outbound.clock_system.system_clock import SystemClock
-from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
-from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
-from diucs.adapters.outbound.graph_store.network_registry import Neo4jNetworkRegistry
-from diucs.adapters.outbound.graph_store.unit_of_work import (
+from overwatch.adapters.inbound.workers.outbox_relay import ActiveTenants
+from overwatch.adapters.inbound.workers.reply_processor import HandlesInboundText, reply_consumer
+from overwatch.adapters.inbound.workers.servicebus_runner import ServiceBusRunner
+from overwatch.adapters.outbound.bus_servicebus.service_bus import ServiceBusEventBus
+from overwatch.adapters.outbound.cache_redis.redis_cache import RedisCache
+from overwatch.adapters.outbound.clock_system.system_clock import SystemClock
+from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from overwatch.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
+from overwatch.adapters.outbound.graph_store.network_registry import Neo4jNetworkRegistry
+from overwatch.adapters.outbound.graph_store.unit_of_work import (
     neo4j_network_uow_factory,
     neo4j_uow_factory,
 )
-from diucs.adapters.outbound.projection_queue import BusProjectionPublisher
-from diucs.adapters.outbound.push_webpush.web_push import (
+from overwatch.adapters.outbound.projection_queue import BusProjectionPublisher
+from overwatch.adapters.outbound.push_webpush.web_push import (
     VAPID_PRIVATE_KEY_SECRET,
     configured_push_sender,
 )
-from diucs.adapters.outbound.telemetry.attributes import INSTRUMENTATION_NAME
-from diucs.adapters.outbound.telemetry.consumer import consumer_observer
-from diucs.application.network_access import NetworkAccess
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.messaging import PushSender
-from diucs.application.ports.outbound.sealing import ContentSealer
-from diucs.application.ports.outbound.sender_resolver import SenderResolver
-from diucs.application.ports.outbound.tokens import (
+from overwatch.adapters.outbound.telemetry.attributes import INSTRUMENTATION_NAME
+from overwatch.adapters.outbound.telemetry.consumer import consumer_observer
+from overwatch.application.network_access import NetworkAccess
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.messaging import PushSender
+from overwatch.application.ports.outbound.sealing import ContentSealer
+from overwatch.application.ports.outbound.sender_resolver import SenderResolver
+from overwatch.application.ports.outbound.tokens import (
     LINK_TOKEN_SECRET,
     SecretStore,
     SecretStoreUnavailable,
 )
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenant_settings import DirectoryZones
-from diucs.application.use_cases.alerts import AlertEvaluator
-from diucs.application.use_cases.apply_projection import ApplyProjection
-from diucs.application.use_cases.board_projector import BoardProjector
-from diucs.application.use_cases.confirm_capacity import ConfirmCapacity
-from diucs.application.use_cases.grants import SupersedeDueGrants
-from diucs.application.use_cases.handle_inbound_text import HandleInboundText
-from diucs.application.use_cases.network_admin import GovernanceRecorder
-from diucs.application.use_cases.network_board_projector import NetworkBoardProjector
-from diucs.application.use_cases.network_governance import NetworkGovernance
-from diucs.application.use_cases.network_leave import EndProjections
-from diucs.application.use_cases.network_samples import RecordNetworkSample
-from diucs.application.use_cases.notify_escalations import NotifyShiftLeads
-from diucs.application.use_cases.project_network import ProjectNetwork
-from diucs.application.use_cases.projection_boundaries import (
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenant_settings import DirectoryZones
+from overwatch.application.use_cases.alerts import AlertEvaluator
+from overwatch.application.use_cases.apply_projection import ApplyProjection
+from overwatch.application.use_cases.board_projector import BoardProjector
+from overwatch.application.use_cases.confirm_capacity import ConfirmCapacity
+from overwatch.application.use_cases.grants import SupersedeDueGrants
+from overwatch.application.use_cases.handle_inbound_text import HandleInboundText
+from overwatch.application.use_cases.network_admin import GovernanceRecorder
+from overwatch.application.use_cases.network_board_projector import NetworkBoardProjector
+from overwatch.application.use_cases.network_governance import NetworkGovernance
+from overwatch.application.use_cases.network_leave import EndProjections
+from overwatch.application.use_cases.network_samples import RecordNetworkSample
+from overwatch.application.use_cases.notify_escalations import NotifyShiftLeads
+from overwatch.application.use_cases.project_network import ProjectNetwork
+from overwatch.application.use_cases.projection_boundaries import (
     RunProjectionHeartbeat,
     RunProjectionHeartbeatCommand,
 )
-from diucs.application.use_cases.projection_reconcile import ReconcileProjection
-from diucs.application.use_cases.query_board import QueryBoard
-from diucs.application.use_cases.query_network_board import QueryNetworkBoard
-from diucs.application.use_cases.report_capacity import ReportCapacity
-from diucs.application.use_cases.respond_to_booking import RespondToBooking, SetDeclineReason
-from diucs.application.work import ScheduledWork, WorkKind
-from diucs.bootstrap.container import build
-from diucs.bootstrap.secret_store import (
+from overwatch.application.use_cases.projection_reconcile import ReconcileProjection
+from overwatch.application.use_cases.query_board import QueryBoard
+from overwatch.application.use_cases.query_network_board import QueryNetworkBoard
+from overwatch.application.use_cases.report_capacity import ReportCapacity
+from overwatch.application.use_cases.respond_to_booking import RespondToBooking, SetDeclineReason
+from overwatch.application.work import ScheduledWork, WorkKind
+from overwatch.bootstrap.container import build
+from overwatch.bootstrap.secret_store import (
     SecretConfigError,
     close_store,
     load_secret_store,
     settings_from_vault,
 )
-from diucs.bootstrap.settings import Settings
-from diucs.bootstrap.telemetry import start_telemetry
-from diucs.bootstrap.tenant_senders import TenantSenderResolver, status_callback_url
-from diucs.domain.errors import NotFound
+from overwatch.bootstrap.settings import Settings
+from overwatch.bootstrap.telemetry import start_telemetry
+from overwatch.bootstrap.tenant_senders import TenantSenderResolver, status_callback_url
+from overwatch.domain.errors import NotFound
 
 log = logging.getLogger(__name__)
 
-SERVICE_BUS_MISSING = "DIUCS_SERVICEBUS_CONNECTION must be set for the queue workers"
+SERVICE_BUS_MISSING = "OVERWATCH_SERVICEBUS_CONNECTION must be set for the queue workers"
 SECRET_STORE_MISSING: Final = (
-    "no secret store is configured for the queue workers: set DIUCS_KEY_VAULT_URL (Azure Key "
+    "no secret store is configured for the queue workers: set OVERWATCH_KEY_VAULT_URL (Azure Key "
     "Vault); they will not run in the production profile with every secret missing"
 )
 MIN_SECRET_BYTES: Final = 32

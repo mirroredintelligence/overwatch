@@ -22,8 +22,8 @@ from enum import StrEnum
 from types import MappingProxyType
 from typing import Final
 
-from diucs.domain.errors import InvalidTransition, NotAllowed, ValidationFailed
-from diucs.domain.model.tenant import (
+from overwatch.domain.errors import InvalidTransition, NotAllowed, ValidationFailed
+from overwatch.domain.model.tenant import (
     ALLOWED_TIME_ZONES,
     REQUIRED_RETENTION_CLASSES,
     ConfigStatus,
@@ -35,7 +35,7 @@ from diucs.domain.model.tenant import (
     Tenant,
     TenantStatus,
 )
-from diucs.domain.rules.tenant_settings import is_named_ref
+from overwatch.domain.rules.tenant_settings import is_named_ref
 
 # DEC-136 item 10.
 OFFBOARDING_NOTICE: Final = timedelta(days=30)

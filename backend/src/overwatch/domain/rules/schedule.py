@@ -20,10 +20,10 @@ from enum import StrEnum
 from typing import Final
 from zoneinfo import ZoneInfo
 
-from diucs.domain.codes import Cadence
-from diucs.domain.model.service import AvailableTime, ServiceProfile
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
-from diucs.domain.rules.london_time import LONDON, local_to_utc, require_zone, to_local
+from overwatch.domain.codes import Cadence
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
+from overwatch.domain.rules.london_time import LONDON, local_to_utc, require_zone, to_local
 
 # Aliases of the default policy (TEN-021): the numbers are defined once, in tenant_policy.py.
 REPLY_WINDOW: Final = DEFAULT_POLICY.reply_window

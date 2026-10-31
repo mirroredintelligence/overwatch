@@ -9,18 +9,18 @@ import { exchangeOperatorToken } from './exchange';
 
 // The operator's sign-in, last step (TEN-083, DEC-1000, DEC-1005): the verified ID token of the OPERATOR
 // directory goes to `POST /auth/operator-token`, which answers `{token, expiresAt, role}` with a token of
-// the audience `diucs-ops` that names no tenant. Anything else is not an operator's token and is not kept.
+// the audience `overwatch-ops` that names no tenant. Anything else is not an operator's token and is not kept.
 
 const NOW = new Date('2026-10-30T09:00:00Z');
 const SECONDS = Math.floor(NOW.getTime() / 1000);
 const HOST = 'console.example.test';
-const ID_TOKEN = standInToken({ tid: '44444444-4444-4444-8444-444444444444', oid: 'aaaaaaaa-0000-4000-8000-000000000009', roles: ['DIUCS.PlatformOperator'] });
+const ID_TOKEN = standInToken({ tid: '44444444-4444-4444-8444-444444444444', oid: 'aaaaaaaa-0000-4000-8000-000000000009', roles: ['Overwatch.PlatformOperator'] });
 
 type Seen = { host: string | null; authorization: string | null; body: unknown };
 const seen: Seen[] = [];
 
 function answer(over: Record<string, unknown> = {}, claims: Record<string, unknown> = {}, status = 200) {
-  const token = standInToken({ sub: 'ops-0123456789abcdef0123456789abcdef', role: 'platform-operator', aud: 'diucs-ops', iat: SECONDS, exp: SECONDS + 3600, ...claims });
+  const token = standInToken({ sub: 'ops-0123456789abcdef0123456789abcdef', role: 'platform-operator', aud: 'overwatch-ops', iat: SECONDS, exp: SECONDS + 3600, ...claims });
   server.use(
     http.post(`${BACKEND_ROOT}/auth/operator-token`, async ({ request }) => {
       seen.push({ host: request.headers.get('host'), authorization: request.headers.get('authorization'), body: await request.json().catch(() => undefined) });
@@ -43,7 +43,7 @@ async function reasonOf(promise: Promise<unknown>): Promise<string> {
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(NOW);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
   seen.length = 0;
 });
 afterEach(() => {
@@ -85,7 +85,7 @@ describe('exchangeOperatorToken', () => {
   );
 
   it.each([
-    ['a token for the staff audience', { aud: 'diucs-api' }],
+    ['a token for the staff audience', { aud: 'overwatch-api' }],
     ['a token with no audience', { aud: undefined }],
     ['a token that names a tenant', { tenant: 'trust-a' }],
     ['a token that carries an epoch', { epoch: 1 }],
@@ -99,7 +99,7 @@ describe('exchangeOperatorToken', () => {
     server.use(
       http.post(`${BACKEND_ROOT}/auth/operator-token`, () =>
         HttpResponse.json({
-          token: standInToken({ sub: 'ops-0123456789abcdef0123456789abcdef', role: 'platform-operator', aud: 'diucs-ops', iat: SECONDS, exp: SECONDS + 3600, ...claims }),
+          token: standInToken({ sub: 'ops-0123456789abcdef0123456789abcdef', role: 'platform-operator', aud: 'overwatch-ops', iat: SECONDS, exp: SECONDS + 3600, ...claims }),
           expiresAt: '2026-10-30T10:00:00Z',
           role: 'platform-operator',
         }),

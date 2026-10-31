@@ -1,8 +1,8 @@
 """The process start-up for telemetry (O01): nothing is wired without an endpoint."""
 
-from diucs.adapters.outbound.graph_store import driver
-from diucs.bootstrap.settings import Settings
-from diucs.bootstrap.telemetry import start_telemetry
+from overwatch.adapters.outbound.graph_store import driver
+from overwatch.bootstrap.settings import Settings
+from overwatch.bootstrap.telemetry import start_telemetry
 
 
 def test_without_an_endpoint_no_provider_and_no_query_observer() -> None:
@@ -13,7 +13,7 @@ def test_without_an_endpoint_no_provider_and_no_query_observer() -> None:
 
 
 def test_the_app_hook_is_none_when_the_setting_is_off() -> None:
-    from diucs.bootstrap.telemetry import api_instrumentation
+    from overwatch.bootstrap.telemetry import api_instrumentation
 
     assert api_instrumentation(Settings(otel_instrument_http=False), None) is None
 
@@ -23,8 +23,8 @@ def test_the_app_hook_instruments_the_app_when_the_setting_is_on() -> None:
     from fastapi.testclient import TestClient
     from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-    from diucs.adapters.outbound.telemetry.otel import build_provider
-    from diucs.bootstrap.telemetry import api_instrumentation
+    from overwatch.adapters.outbound.telemetry.otel import build_provider
+    from overwatch.bootstrap.telemetry import api_instrumentation
 
     exporter = InMemorySpanExporter()
     provider = build_provider(service_name="t", release="t", exporter=exporter)

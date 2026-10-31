@@ -24,19 +24,19 @@ from fhir.resources.R4B.observation import Observation
 from httpx import AsyncClient, Response
 from neo4j import AsyncDriver
 
-from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
-from diucs.adapters.inbound.fhir_rest.mapping import report_to_fhir
-from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
-from diucs.adapters.outbound.graph_store.capacity_repository import Neo4jCapacityRepository
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.uow_idempotency import UnitOfWorkIdempotency
-from diucs.bootstrap.container import Container
-from diucs.domain.codes import (
+from overwatch.adapters.inbound.fhir_rest.app import create_app
+from overwatch.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from overwatch.adapters.inbound.fhir_rest.mapping import report_to_fhir
+from overwatch.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
+from overwatch.adapters.outbound.graph_store.capacity_repository import Neo4jCapacityRepository
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.uow_idempotency import UnitOfWorkIdempotency
+from overwatch.bootstrap.container import Container
+from overwatch.domain.codes import (
     Measure,
     ReportFlagReason,
     ReportSource,
@@ -47,9 +47,9 @@ from diucs.domain.codes import (
     Status,
     code_system_url,
 )
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.registration import ScopeEntry
-from diucs.domain.model.service import ServiceProfile
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.registration import ScopeEntry
+from overwatch.domain.model.service import ServiceProfile
 from tests.integration.adapters.inbound.fhir_rest.test_routes_board import WARD_A
 from tests.integration.application.test_query_board import WEST
 from tests.support.neo4j import count_nodes

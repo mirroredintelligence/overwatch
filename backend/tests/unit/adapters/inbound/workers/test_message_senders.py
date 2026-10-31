@@ -12,8 +12,8 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.inbound.workers.consumer import PermanentError
-from diucs.adapters.inbound.workers.message_senders import (
+from overwatch.adapters.inbound.workers.consumer import PermanentError
+from overwatch.adapters.inbound.workers.message_senders import (
     BAD_CHANNEL,
     BAD_CONTENT,
     BAD_PAYLOAD,
@@ -31,12 +31,12 @@ from diucs.adapters.inbound.workers.message_senders import (
     is_handled,
     parse_outbound,
 )
-from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.ports.outbound.messaging import Communication
-from diucs.domain.codes import Channel
+from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.ports.outbound.messaging import Communication
+from overwatch.domain.codes import Channel
 from tests.support.bus import message_with_tenant
 
 CLOCK = FixedClock(datetime(2026, 10, 23, 13, 0, tzinfo=UTC))
@@ -46,7 +46,7 @@ TENANT = "tenant-a"
 ROLE = "role-1"
 OUTBOX_ID = "outbox-1"
 TEXT = "How many referrals can you take in the next 2 hrs? Reply with a number. UCR West"
-SUBJECT = "DIUCS Dorset: capacity question for UCR West"
+SUBJECT = "Overwatch Dorset: capacity question for UCR West"
 HTML = "<p>How many referrals can you take in the next 2 hrs?</p>"
 BODY_SENTINEL = "SENTINEL-BODY-TEXT-do-not-echo"
 

@@ -1,4 +1,4 @@
-"""Tests for diucs.domain.rules.identity_policy: text codes, PINs and re-verification (D27).
+"""Tests for overwatch.domain.rules.identity_policy: text codes, PINs and re-verification (D27).
 
 Rules: docs/spec/domain-rules.md section 7 and the D27 prompt. Times are UTC unless a test says
 otherwise. The London-zoned tests cross the autumn clock change on 2026-10-25, where the same
@@ -14,8 +14,8 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from diucs.domain.errors import DomainError, ValidationFailed
-from diucs.domain.rules.identity_policy import (
+from overwatch.domain.errors import DomainError, ValidationFailed
+from overwatch.domain.rules.identity_policy import (
     CODE_MAX_TRIES,
     CODE_RESEND_AFTER,
     CODE_VALID_FOR,

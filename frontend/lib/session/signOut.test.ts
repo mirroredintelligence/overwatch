@@ -23,7 +23,7 @@ type Calls = { fetches: { url: string; init?: RequestInit }[]; replaced: string[
 
 function makeEnv(overrides: Partial<BrowserEnv> = {}, answers: { get?: Response | Error; del?: Response | Error } = {}) {
   const calls: Calls = { fetches: [], replaced: [], unsubscribed: 0, deletedCaches: [] };
-  const localStorage = storageWith({ 'diucs:v1:tenant-a.example.test:tour.seen': 'true', unrelated: 'x' });
+  const localStorage = storageWith({ 'overwatch:v1:tenant-a.example.test:tour.seen': 'true', unrelated: 'x' });
   const sessionStorage = storageWith({ 'telemetry.session': 'abc' });
   const env: BrowserEnv = {
     fetch: vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
@@ -32,7 +32,7 @@ function makeEnv(overrides: Partial<BrowserEnv> = {}, answers: { get?: Response 
       if (answer instanceof Error) throw answer;
       return answer.clone();
     }) as unknown as typeof fetch,
-    cookie: 'other=1; diucs_csrf=cookie-token; more=2',
+    cookie: 'other=1; overwatch_csrf=cookie-token; more=2',
     localStorage,
     sessionStorage,
     caches: {

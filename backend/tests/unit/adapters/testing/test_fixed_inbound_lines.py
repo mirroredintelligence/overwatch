@@ -3,8 +3,8 @@ match, and a receipt is found by its account alone."""
 
 import pytest
 
-from diucs.adapters.testing.fixed_inbound_lines import FixedInboundLines
-from diucs.application.ports.outbound.tenant_lines import InboundLine
+from overwatch.adapters.testing.fixed_inbound_lines import FixedInboundLines
+from overwatch.application.ports.outbound.tenant_lines import InboundLine
 
 LINE_A = InboundLine("tenant-a", "twilio/tenant-a")
 LINE_B = InboundLine("tenant-b", "twilio/tenant-b")

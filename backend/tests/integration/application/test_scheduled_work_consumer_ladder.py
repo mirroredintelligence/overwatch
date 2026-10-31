@@ -12,14 +12,16 @@ from collections.abc import Awaitable, Callable
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.inbound.scheduler.scheduled_work_consumer import build_scheduled_work_consumer
-from diucs.adapters.inbound.workers.consumer import Outcome
-from diucs.adapters.inbound.workers.outbox_relay import StaticTenants
-from diucs.adapters.inbound.workers.tenant_binding import TenantBoundConsumer
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.work import CANCELLED, DONE, WorkKind
-from diucs.bootstrap.container import ladder_handlers
+from overwatch.adapters.inbound.scheduler.scheduled_work_consumer import (
+    build_scheduled_work_consumer,
+)
+from overwatch.adapters.inbound.workers.consumer import Outcome
+from overwatch.adapters.inbound.workers.outbox_relay import StaticTenants
+from overwatch.adapters.inbound.workers.tenant_binding import TenantBoundConsumer
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.work import CANCELLED, DONE, WorkKind
+from overwatch.bootstrap.container import ladder_handlers
 from tests.support.ladder_rig import (
     PHONE_HASH_1,
     Rig,

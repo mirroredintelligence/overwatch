@@ -14,11 +14,11 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.person_repository import Neo4jPersonRepository
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.domain.codes import Channel, PractitionerRoleCode
-from diucs.domain.errors import Conflict, NotFound
-from diucs.domain.model.people import Practitioner, PractitionerRole, role_holder
+from overwatch.adapters.outbound.graph_store.person_repository import Neo4jPersonRepository
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.domain.codes import Channel, PractitionerRoleCode
+from overwatch.domain.errors import Conflict, NotFound
+from overwatch.domain.model.people import Practitioner, PractitionerRole, role_holder
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
 from tests.support.races import ReadBarrier, write_once
 from tests.support.round_trip import assert_round_trip

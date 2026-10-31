@@ -19,12 +19,12 @@ from enum import StrEnum
 from typing import Final
 from zoneinfo import ZoneInfo
 
-from diucs.domain.codes import Channel
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.service import ServiceProfile
-from diucs.domain.model.tenant_policy import TenantPolicy
-from diucs.domain.rules.london_time import local_to_utc, require_zone, to_local
-from diucs.domain.rules.schedule import current_due, next_due, reply_by
+from overwatch.domain.codes import Channel
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.service import ServiceProfile
+from overwatch.domain.model.tenant_policy import TenantPolicy
+from overwatch.domain.rules.london_time import local_to_utc, require_zone, to_local
+from overwatch.domain.rules.schedule import current_due, next_due, reply_by
 
 MASKED_NOTHING: Final = "xxxxx xxxxxx"
 """What a value that is not a UK mobile is shown as: no digit of it."""

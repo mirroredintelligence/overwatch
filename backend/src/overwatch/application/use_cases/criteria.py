@@ -17,21 +17,21 @@ from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
 from typing import Literal
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.outbox import outbox_message_for
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.tenancy import ScopeId
-from diucs.domain.codes import CriteriaStatus, NeedCategory, PractitionerRoleCode, Role
-from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.events import CriteriaApproved
-from diucs.domain.model.criteria import ServiceCriteria
-from diucs.domain.model.flags import SERVICE_FLAG_CRITERIA_OVERDUE, ServiceFlag
-from diucs.domain.model.people import PractitionerRole
-from diucs.domain.rules.criteria_workflow import approve, next_review_by, transition_criteria
-from diucs.domain.rules.london_time import to_london
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.outbox import outbox_message_for
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeId
+from overwatch.domain.codes import CriteriaStatus, NeedCategory, PractitionerRoleCode, Role
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.events import CriteriaApproved
+from overwatch.domain.model.criteria import ServiceCriteria
+from overwatch.domain.model.flags import SERVICE_FLAG_CRITERIA_OVERDUE, ServiceFlag
+from overwatch.domain.model.people import PractitionerRole
+from overwatch.domain.rules.criteria_workflow import approve, next_review_by, transition_criteria
+from overwatch.domain.rules.london_time import to_london
 
 AUDIT_CHANGE: str = "C"
 AUDIT_UPDATE: str = "U"

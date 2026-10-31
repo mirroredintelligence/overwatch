@@ -16,7 +16,7 @@ This module is pure data: no Neo4j, no tenant, no Cypher.
 from datetime import UTC, datetime
 from typing import Final
 
-from diucs.adapters.outbound.graph_store.scenario import (
+from overwatch.adapters.outbound.graph_store.scenario import (
     Expect,
     Marked,
     NodeSpec,

@@ -6,17 +6,17 @@ from datetime import UTC, datetime
 
 import pytest
 
-from diucs.application.use_cases.request_booking import (
+from overwatch.application.use_cases.request_booking import (
     command_key,
     message_for_channel,
     need_text,
     urgency_wording,
 )
-from diucs.domain.codes import AgeBand, Channel, NeedCategory, ReferrerType, Urgency
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.messages.templates import render
-from diucs.domain.model.case import Case
+from overwatch.domain.codes import AgeBand, Channel, NeedCategory, ReferrerType, Urgency
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.messages.templates import render
+from overwatch.domain.model.case import Case
 
 OPENED = datetime(2026, 10, 29, 14, 0, tzinfo=UTC)
 
@@ -99,7 +99,7 @@ def test_the_text_request_accepts_the_plain_words_of_two_needs_joined_with_and()
         "age_band": "80+",
         "need": "fall, no injury and frailty",
         "urgency": "within 2 hrs",
-        "link": "https://dorset.diucs.example/l/abcdef",
+        "link": "https://dorset.overwatch.example/l/abcdef",
         "reply_by": "14:26",
         "referral_system_name": "the referral system",
     }
@@ -116,7 +116,7 @@ def test_the_text_request_refuses_a_raw_need_code() -> None:
         "age_band": "80+",
         "need": "fall-no-injury and frailty",
         "urgency": "within 2 hrs",
-        "link": "https://dorset.diucs.example/l/abcdef",
+        "link": "https://dorset.overwatch.example/l/abcdef",
         "reply_by": "14:26",
         "referral_system_name": "the referral system",
     }
@@ -131,7 +131,7 @@ def test_a_joined_need_with_a_word_that_is_no_code_is_still_refused() -> None:
         "age_band": "80+",
         "need": "fall and frailty",
         "urgency": "within 2 hrs",
-        "link": "https://dorset.diucs.example/l/abcdef",
+        "link": "https://dorset.overwatch.example/l/abcdef",
         "reply_by": "14:26",
     }
     with pytest.raises(ValidationFailed):

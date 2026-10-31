@@ -23,12 +23,12 @@ const BODY = { sessionId: SESSION, deviceType: 'phone', appMode: 'browser', rele
 
 async function cookies(role: Role) {
   const s: Session = { role, tenantId: 'trust-a', host: 'app.test', services: [], sub: 'user-1', backendToken: TOKEN_ORG_A, expiresAt: new Date(Date.now() + 3_600_000).toISOString() };
-  return { [SESSION_COOKIE]: await sealSession(s), diucs_csrf: CSRF };
+  return { [SESSION_COOKIE]: await sealSession(s), overwatch_csrf: CSRF };
 }
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', EXEC_BACKEND);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', EXEC_BACKEND);
   vi.stubEnv('NODE_ENV', 'production');
   resetSupportBackend();
   server.use(...supportBackendHandlers);

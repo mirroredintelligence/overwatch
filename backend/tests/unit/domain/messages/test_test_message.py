@@ -6,10 +6,10 @@ back to it would be a report). [ASSUMED] wording, awaiting the owner's and IG's 
 
 import pytest
 
-from diucs.domain.codes import Channel
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.messages.templates import render
+from overwatch.domain.codes import Channel
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.messages.templates import render
 
 
 @pytest.mark.parametrize("channel", [Channel.TEXT, Channel.EMAIL, Channel.PUSH])

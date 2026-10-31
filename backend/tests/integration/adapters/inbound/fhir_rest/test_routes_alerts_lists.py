@@ -12,9 +12,9 @@ import pytest
 import pytest_asyncio
 from httpx import AsyncClient
 
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.domain.codes import AlertKind, Role, code_system_url
-from diucs.domain.model.alerts import AlertRecord
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.domain.codes import AlertKind, Role, code_system_url
+from overwatch.domain.model.alerts import AlertRecord
 from tests.integration.adapters.inbound.fhir_rest.test_routes_alerts import (
     LEAD,
     NOW,

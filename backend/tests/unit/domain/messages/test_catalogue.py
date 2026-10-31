@@ -1,9 +1,9 @@
-"""Tests for diucs.domain.messages.catalogue: the message ids (D15).
+"""Tests for overwatch.domain.messages.catalogue: the message ids (D15).
 
 Source: docs/spec/domain-rules.md section 9 (catalogue id table).
 """
 
-from diucs.domain.messages.catalogue import MessageId
+from overwatch.domain.messages.catalogue import MessageId
 
 
 def test_catalogue_has_every_id_from_the_rule_book() -> None:

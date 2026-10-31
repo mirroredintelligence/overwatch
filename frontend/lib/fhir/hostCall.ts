@@ -13,14 +13,14 @@ import { getSecret, SecretConfigurationError, SecretNotFoundError, vaultConfigur
 // - Locally and in tests the back end is reached directly, so the Host header carries it.
 // - Behind the platform ingress (Azure Container Apps) the back end is addressed by its own internal
 //   name: ingress routes on Host, so a Host naming the tenant would reach the wrong app. When
-//   there is an `edge-origin` secret (Key Vault on the pilot, DEC-1304; DIUCS_EDGE_ORIGIN_SECRET when
+//   there is an `edge-origin` secret (Key Vault on the pilot, DEC-1304; OVERWATCH_EDGE_ORIGIN_SECRET when
 //   there is no vault, as in local runs and tests) the tenant host goes in X-Forwarded-Host with the secret in X-Edge-Auth, which the back end's edge
 //   middleware accepts only with the matching secret, and the visitor's address in CF-Connecting-IP.
 //
 // It never sends an Authorization header, a tenant header, a scope or a network: a call that needs a
 // bearer token goes through `fhirFetch`.
 
-const BASE_URL_VARIABLE = 'DIUCS_FHIR_BASE_URL';
+const BASE_URL_VARIABLE = 'OVERWATCH_FHIR_BASE_URL';
 const EDGE_SECRET = 'edge-origin';
 const HEADER_SAFE = /^[\x21-\x7e]+$/;
 const EDGE_HEADERS = ['x-forwarded-host', 'x-edge-auth', 'cf-connecting-ip'];

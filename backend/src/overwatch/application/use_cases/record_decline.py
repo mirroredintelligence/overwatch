@@ -17,22 +17,22 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Final
 
-from diucs.application.actor import Actor
-from diucs.application.idempotency import IdempotencyStore
-from diucs.application.ports.outbound.audit import AuditEntry, AuditRecord
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.outbox import OutboxMessage
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import current_scope_or_none
-from diucs.application.use_cases.open_case import (
+from overwatch.application.actor import Actor
+from overwatch.application.idempotency import IdempotencyStore
+from overwatch.application.ports.outbound.audit import AuditEntry, AuditRecord
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.outbox import OutboxMessage
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import current_scope_or_none
+from overwatch.application.use_cases.open_case import (
     check_role,
     replay_key,
     tenant_scope,
 )
-from diucs.application.use_cases.query_board import BoardEntry, QueryBoard, QueryBoardQuery
-from diucs.domain.codes import DeclineReason, Status
-from diucs.domain.errors import Conflict, NotFound
+from overwatch.application.use_cases.query_board import BoardEntry, QueryBoard, QueryBoardQuery
+from overwatch.domain.codes import DeclineReason, Status
+from overwatch.domain.errors import Conflict, NotFound
 
 DECLINE_USE_CASE: Final = "RecordDecline"
 END_OF_TIME: Final = datetime(9999, 12, 31, tzinfo=UTC)

@@ -42,8 +42,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Final
 
-from diucs.application.actor import Actor, require_actor_in_bound_tenant
-from diucs.application.cross_tenant_guard import (
+from overwatch.application.actor import Actor, require_actor_in_bound_tenant
+from overwatch.application.cross_tenant_guard import (
     AuthoriseCommand,
     CrossTenantDenied,
     CrossTenantGuard,
@@ -58,14 +58,14 @@ from diucs.application.cross_tenant_guard import (
     WithdrawCodeCommand,
     check_issuer,
 )
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.cross_tenant_tickets import CrossTenantTicketStore
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.tenants import TenantDirectory
-from diucs.application.tenancy import is_valid_tenant_id
-from diucs.domain.errors import Conflict, InvalidTransition, NotFound
-from diucs.domain.model.tenant import Tenant, TenantStatus
-from diucs.domain.rules.support_ticket import (
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.cross_tenant_tickets import CrossTenantTicketStore
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.tenants import TenantDirectory
+from overwatch.application.tenancy import is_valid_tenant_id
+from overwatch.domain.errors import Conflict, InvalidTransition, NotFound
+from overwatch.domain.model.tenant import Tenant, TenantStatus
+from overwatch.domain.rules.support_ticket import (
     LIVE_STATES,
     EndedBy,
     ReasonCode,

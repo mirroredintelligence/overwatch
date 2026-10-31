@@ -36,12 +36,12 @@ test('sets the session cookie HttpOnly and SameSite Strict, and leaves no transa
   await expect(page).toHaveURL(/\/advisor$/);
 
   const cookies = await page.context().cookies();
-  const session = cookies.find((c) => c.name === 'diucs_session');
+  const session = cookies.find((c) => c.name === 'overwatch_session');
   expect(session).toMatchObject({ httpOnly: true, sameSite: 'Strict', path: '/' });
   expect(session!.expires).toBeGreaterThan(Date.now() / 1000 + 7 * 3600);
-  expect(cookies.find((c) => c.name === 'diucs_oidc')).toBeUndefined();
+  expect(cookies.find((c) => c.name === 'overwatch_oidc')).toBeUndefined();
   // Not readable by the page.
-  expect(await page.evaluate(() => document.cookie)).not.toContain('diucs_session');
+  expect(await page.evaluate(() => document.cookie)).not.toContain('overwatch_session');
 });
 
 test('asks the provider with PKCE and sends no tenant, and the browser never holds a token', async ({ page, request }) => {
@@ -96,7 +96,7 @@ test('goes back to the page asked for after signing in', async ({ page }) => {
   expect(await sessionRole(page)).toBe('lead');
 });
 
-test('shows the access message and sets no session when the account has no DIUCS role', async ({ page }) => {
+test('shows the access message and sets no session when the account has no Overwatch role', async ({ page }) => {
   await signInAs(page, 'no-role');
 
   await expect(page).toHaveURL(/\/sign-in\?error=no-access$/);
@@ -167,7 +167,7 @@ test('sends a signed-out visitor to sign-in, and does so again after sign-out', 
 test('sends an expired or removed session cookie to sign-in', async ({ page }) => {
   await signInAs(page, 'advisor');
   await expect(page).toHaveURL(/\/advisor$/);
-  await page.context().clearCookies({ name: 'diucs_session' });
+  await page.context().clearCookies({ name: 'overwatch_session' });
 
   await page.goto('/advisor');
 

@@ -7,15 +7,15 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from diucs.adapters.testing import memory_cache
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.application.ports.outbound.cache import (
+from overwatch.adapters.testing import memory_cache
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.application.ports.outbound.cache import (
     BOARD_UPDATES_CHANNEL,
     CacheScopeMismatch,
     Lock,
 )
-from diucs.application.tenancy import TenantNotBound, bind_tenant
+from overwatch.application.tenancy import TenantNotBound, bind_tenant
 
 START = datetime(2026, 10, 24, 10, 0, 0, tzinfo=UTC)
 LONDON = ZoneInfo("Europe/London")

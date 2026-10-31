@@ -19,15 +19,15 @@ from typing import Final
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET, SecretStore
-from diucs.domain.errors import ValidationFailed
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET, SecretStore
+from overwatch.domain.errors import ValidationFailed
 
 SEAL_VERSION: Final = "v2."
 NONCE_BYTES: Final = 12
 TAG_BYTES: Final = 16
 KEY_BYTES: Final = 32
 MIN_SECRET_BYTES: Final = 32
-_KEY_LABEL: Final = b"diucs:prompt-content:v2"
+_KEY_LABEL: Final = b"overwatch:prompt-content:v2"
 _NOT_SEALED: Final = "is not a sealed prompt"
 
 

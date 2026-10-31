@@ -29,18 +29,18 @@ from datetime import UTC, datetime, timedelta
 from types import MappingProxyType
 from typing import Final
 
-from diucs.application.actor import Actor, tenant_scope_of_unit
-from diucs.application.idempotency import format_instant
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.messaging import Communication
-from diucs.application.ports.outbound.outbox import OutboxMessage, outbox_message_for
-from diucs.application.ports.outbound.sealing import ContentSealer
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.scheduling import cancel_work
-from diucs.application.tenancy import ScopeId
-from diucs.application.tenant_settings import (
+from overwatch.application.actor import Actor, tenant_scope_of_unit
+from overwatch.application.idempotency import format_instant
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.messaging import Communication
+from overwatch.application.ports.outbound.outbox import OutboxMessage, outbox_message_for
+from overwatch.application.ports.outbound.sealing import ContentSealer
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.scheduling import cancel_work
+from overwatch.application.tenancy import ScopeId
+from overwatch.application.tenant_settings import (
     LinkBases,
     TenantSettings,
     TenantZones,
@@ -48,7 +48,7 @@ from diucs.application.tenant_settings import (
     as_zones,
     read_settings,
 )
-from diucs.application.use_cases.send_prompts import (
+from overwatch.application.use_cases.send_prompts import (
     LINK_PLACEHOLDER,
     LINK_PURPOSE,
     MESSAGES_TOPIC,
@@ -57,25 +57,25 @@ from diucs.application.use_cases.send_prompts import (
     _phone_hash,
     _send_payload,
 )
-from diucs.application.work import DONE, SCHEDULED, ScheduledWork, WorkKind
-from diucs.domain.codes import Status
-from diucs.domain.errors import Conflict, NotFound, ValidationFailed
-from diucs.domain.events import PhoneTaskRaised, ReportEscalated, StatusChanged
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.messages.templates import render
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED
-from diucs.domain.model.service import ServiceProfile
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
-from diucs.domain.rules.freshness import ONE_MICROSECOND
-from diucs.domain.rules.london_time import format_hhmm
-from diucs.domain.rules.schedule import (
+from overwatch.application.work import DONE, SCHEDULED, ScheduledWork, WorkKind
+from overwatch.domain.codes import Status
+from overwatch.domain.errors import Conflict, NotFound, ValidationFailed
+from overwatch.domain.events import PhoneTaskRaised, ReportEscalated, StatusChanged
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.messages.templates import render
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.flags import SERVICE_FLAG_SUSPENDED
+from overwatch.domain.model.service import ServiceProfile
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
+from overwatch.domain.rules.freshness import ONE_MICROSECOND
+from overwatch.domain.rules.london_time import format_hhmm
+from overwatch.domain.rules.schedule import (
     ESCALATE_AFTER,
     PHONE_TASK_AFTER,
     REMINDER_AFTER,
     reply_by,
 )
-from diucs.domain.rules.status import compute_status
+from overwatch.domain.rules.status import compute_status
 
 REMINDED: Final = "reminded"
 PHONE_TASK_RAISED: Final = "phone-task"

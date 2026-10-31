@@ -59,7 +59,7 @@ export class FhirError extends Error {
 const FHIR_MEDIA_TYPE = 'application/fhir+json; fhirVersion=4.3';
 /** The methods whose body type the back end checks, whether or not they send a body. */
 const BODY_METHODS: ReadonlySet<string> = new Set(['POST', 'PUT']);
-const BASE_URL_VARIABLE = 'DIUCS_FHIR_BASE_URL';
+const BASE_URL_VARIABLE = 'OVERWATCH_FHIR_BASE_URL';
 
 /** A call made with no usable token. A fault in the caller, never an answer to show a person. */
 export class TokenRequired extends Error {

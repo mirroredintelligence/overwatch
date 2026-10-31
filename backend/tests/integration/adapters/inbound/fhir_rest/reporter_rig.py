@@ -19,21 +19,25 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from neo4j import AsyncDriver
 
-from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
-from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
-from diucs.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
-from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET, LinkTokenService
-from diucs.application.tenancy import bind_tenant
-from diucs.application.use_cases.pin import PIN_HMAC_SECRET
-from diucs.application.use_cases.text_code import CODE_HMAC_SECRET, INVITATION_PURPOSE, code_hash
-from diucs.bootstrap.container import Container, build_for_tests
-from diucs.domain.codes import (
+from overwatch.adapters.inbound.fhir_rest.app import create_app
+from overwatch.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from overwatch.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
+from overwatch.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET, LinkTokenService
+from overwatch.application.tenancy import bind_tenant
+from overwatch.application.use_cases.pin import PIN_HMAC_SECRET
+from overwatch.application.use_cases.text_code import (
+    CODE_HMAC_SECRET,
+    INVITATION_PURPOSE,
+    code_hash,
+)
+from overwatch.bootstrap.container import Container, build_for_tests
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     Measure,
@@ -44,11 +48,11 @@ from diucs.domain.codes import (
     Role,
     ServiceCategory,
 )
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.model.registration import Invitation, Registration
-from diucs.domain.model.service import AvailableTime, ServiceProfile
-from diucs.domain.rules.identity_policy import CodeState
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.model.registration import Invitation, Registration
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.rules.identity_policy import CodeState
 from tests.integration.adapters.inbound.link_pages.conftest import seed_tenant_host
 from tests.support.neo4j import ThrowawayNeo4j
 from tests.support.redis import flush_prefix
@@ -134,12 +138,12 @@ async def open_container(
         clock=clock, ids=SequentialIds(), neo4j=connection, secrets=FixedSecretStore(SECRETS)
     )
     for tenant in tenants:
-        await flush_prefix(container.redis, f"diucs:{tenant}:")
+        await flush_prefix(container.redis, f"overwatch:{tenant}:")
     try:
         yield container
     finally:
         for tenant in tenants:
-            await flush_prefix(container.redis, f"diucs:{tenant}:")
+            await flush_prefix(container.redis, f"overwatch:{tenant}:")
         await container.redis.aclose()
         await connection.close()
 

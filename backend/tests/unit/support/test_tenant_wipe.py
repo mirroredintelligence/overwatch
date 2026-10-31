@@ -11,7 +11,7 @@ from typing import Any
 
 import pytest
 
-from diucs.application.tenancy import (
+from overwatch.application.tenancy import (
     ScopeId,
     ScopeInvalid,
     TenantNotBound,

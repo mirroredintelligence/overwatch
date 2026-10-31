@@ -10,20 +10,20 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request
 
-from diucs.adapters.inbound.fhir_rest import capability
-from diucs.adapters.inbound.fhir_rest.auth import current_actor, ensure_screen_live
-from diucs.adapters.inbound.fhir_rest.capability import FhirJSONResponse
-from diucs.adapters.inbound.fhir_rest.validation import issue_outcome, json_body
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.terminology import ValidationIssue, profile_url
-from diucs.domain.errors import ValidationFailed
+from overwatch.adapters.inbound.fhir_rest import capability
+from overwatch.adapters.inbound.fhir_rest.auth import current_actor, ensure_screen_live
+from overwatch.adapters.inbound.fhir_rest.capability import FhirJSONResponse
+from overwatch.adapters.inbound.fhir_rest.validation import issue_outcome, json_body
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.terminology import ValidationIssue, profile_url
+from overwatch.domain.errors import ValidationFailed
 
 router = APIRouter(prefix="/fhir")
 
 # The profiles of the types this API serves, advertised in the CapabilityStatement (R14).
 _SERVED_PROFILES: tuple[tuple[str, str], ...] = (
-    ("Observation", "DiucsCapacityReport"),
-    ("HealthcareService", "DiucsHealthcareService"),
+    ("Observation", "OverwatchCapacityReport"),
+    ("HealthcareService", "OverwatchHealthcareService"),
 )
 
 

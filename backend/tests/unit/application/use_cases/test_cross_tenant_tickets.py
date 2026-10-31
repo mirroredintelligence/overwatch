@@ -12,24 +12,24 @@ from datetime import timedelta
 
 import pytest
 
-from diucs.application.cross_tenant_guard import (
+from overwatch.application.cross_tenant_guard import (
     AuthoriseCommand,
     CrossTenantDenied,
     EndAccessCommand,
 )
-from diucs.application.tenancy import bind_tenant, current_scope_or_none
-from diucs.application.use_cases.cross_tenant_tickets import (
+from overwatch.application.tenancy import bind_tenant, current_scope_or_none
+from overwatch.application.use_cases.cross_tenant_tickets import (
     CancelTicketCommand,
     DecideTicketCommand,
     OpenTicketCommand,
     RequestTicketCommand,
     UseTicketCommand,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import Conflict, InvalidTransition, NotFound, ValidationFailed
-from diucs.domain.model.tenant import SuspendMode, SuspendReason, TenantStatus
-from diucs.domain.rules.support import SUPPORT_ACCESS_VALID_FOR, SUPPORT_CODE_VALID_FOR
-from diucs.domain.rules.support_ticket import PENDING_VALID_FOR, ReasonCode, TicketState
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import Conflict, InvalidTransition, NotFound, ValidationFailed
+from overwatch.domain.model.tenant import SuspendMode, SuspendReason, TenantStatus
+from overwatch.domain.rules.support import SUPPORT_ACCESS_VALID_FOR, SUPPORT_CODE_VALID_FOR
+from overwatch.domain.rules.support_ticket import PENDING_VALID_FOR, ReasonCode, TicketState
 from tests.support.tenant_samples import make_tenant
 from tests.support.ticket_rig import (
     NOW,

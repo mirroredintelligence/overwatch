@@ -21,11 +21,11 @@ from dataclasses import dataclass
 from typing import Final, Protocol
 from zoneinfo import ZoneInfo
 
-from diucs.application.ports.outbound.tenants import TenantDirectory, TenantRecordInvalid
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork
-from diucs.application.tenancy import DEFAULT_TENANT_ID, ScopeId, ScopeKind, TenantNotBound
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
-from diucs.domain.rules.london_time import LONDON, zone_named
+from overwatch.application.ports.outbound.tenants import TenantDirectory, TenantRecordInvalid
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork
+from overwatch.application.tenancy import DEFAULT_TENANT_ID, ScopeId, ScopeKind, TenantNotBound
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
+from overwatch.domain.rules.london_time import LONDON, zone_named
 
 # The capacity link pages are served at `/l/<token>` on the tenant's own host (L01, DEC-167). The
 # adapter has its own copy of both constants; a test keeps the two equal.

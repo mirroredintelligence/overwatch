@@ -29,7 +29,7 @@ const REPORT_PATH = '/reporter/services/s1/report';
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND}/fhir`);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', `${BACKEND}/fhir`);
   vi.stubEnv('NODE_ENV', 'production');
   resetCookieWrites();
   cookiesMock.mockClear();

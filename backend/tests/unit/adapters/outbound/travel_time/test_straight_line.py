@@ -11,14 +11,14 @@ import socket
 
 import pytest
 
-from diucs.adapters.outbound.travel_time.straight_line import (
+from overwatch.adapters.outbound.travel_time.straight_line import (
     EARTH_RADIUS_KM,
     SOURCE,
     StraightLineTravelTime,
     haversine_km,
 )
-from diucs.application.ports.outbound.geo import LatLon
-from diucs.domain.errors import ValidationFailed
+from overwatch.application.ports.outbound.geo import LatLon
+from overwatch.domain.errors import ValidationFailed
 
 WHOLE_LONDON = LatLon(51.5074, -0.1278)
 NEW_YORK = LatLon(40.7128, -74.0060)

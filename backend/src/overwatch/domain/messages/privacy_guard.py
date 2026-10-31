@@ -11,7 +11,7 @@ import re
 from collections.abc import Mapping
 from typing import Final
 
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.errors import ValidationFailed
 
 # The names that belonged to the first deployment (TEN-022). Used on raw template text only.
 DEPLOYMENT_TERMS: Final[tuple[str, ...]] = (

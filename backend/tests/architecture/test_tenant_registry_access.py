@@ -2,7 +2,8 @@
 
 The registry nodes (`Tenant`, `TenantNumber`) carry no tenant, so a statement that matches them
 needs no scope. That is safe only while one module owns every such statement and runs it on the
-global path. These rules scan the real source under backend/src/diucs; the scanners are also run on
+global path. These rules scan the real source under backend/src/overwatch; the scanners are also
+run on
 small strings, so a scanner that stops seeing what it should fails here and does not pass vacuously.
 """
 
@@ -15,7 +16,7 @@ from pathlib import Path
 import pytest
 
 BACKEND = Path(__file__).resolve().parents[2]
-PACKAGE_ROOT = BACKEND / "src" / "diucs"
+PACKAGE_ROOT = BACKEND / "src" / "overwatch"
 GRAPH_STORE = "adapters/outbound/graph_store"
 DIRECTORY = f"{GRAPH_STORE}/tenant_directory.py"
 REGISTRY_WRITES = f"{GRAPH_STORE}/tenant_registry.py"
@@ -46,7 +47,9 @@ _REGISTRY_LABEL = re.compile(r"\(\s*\w*\s*:\s*`?(?:Tenant|TenantNumber)`?\b")
 
 def _files() -> list[Path]:
     files = sorted(PACKAGE_ROOT.rglob("*.py"))
-    assert len(files) > 50, "the scan found too few files: it is not looking at backend/src/diucs"
+    assert len(files) > 50, (
+        "the scan found too few files: it is not looking at backend/src/overwatch"
+    )
     return files
 
 

@@ -18,21 +18,21 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.cache_redis.redis_cache import RedisCache
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.unit_of_work import neo4j_network_uow_factory
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.actor import Actor
-from diucs.application.network_access import NetworkAccess
-from diucs.application.tenancy import bind_network, bind_tenant
-from diucs.application.use_cases.network_board_projector import (
+from overwatch.adapters.outbound.cache_redis.redis_cache import RedisCache
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.unit_of_work import neo4j_network_uow_factory
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.actor import Actor
+from overwatch.application.network_access import NetworkAccess
+from overwatch.application.tenancy import bind_network, bind_tenant
+from overwatch.application.use_cases.network_board_projector import (
     NETWORK_BOARD_CACHE_KEY,
     NetworkBoardProjector,
 )
-from diucs.application.use_cases.query_network_board import QueryNetworkBoard
-from diucs.domain.codes import Role
-from diucs.domain.errors import NotFound
-from diucs.domain.model.network import GrantScope
+from overwatch.application.use_cases.query_network_board import QueryNetworkBoard
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import NotFound
+from overwatch.domain.model.network import GrantScope
 from tests.support.network_world import NOW, NetworkWorld, world_ids
 from tests.support.tenancy import RunIdentity
 

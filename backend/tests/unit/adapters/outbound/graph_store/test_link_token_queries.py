@@ -5,8 +5,8 @@ Only the hash reaches the database. A query that took a `token` parameter could 
 
 import re
 
-from diucs.adapters.outbound.graph_store import link_token_repository  # registers the queries
-from diucs.adapters.outbound.graph_store.queries import REGISTRY
+from overwatch.adapters.outbound.graph_store import link_token_repository  # registers the queries
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY
 
 LINK_IDS = [
     "Q-LINK-ADD",

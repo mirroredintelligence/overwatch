@@ -15,15 +15,15 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.criteria_repository import (
+from overwatch.adapters.outbound.graph_store.criteria_repository import (
     Neo4jCriteriaRepository,
     criteria_to_fhir,
 )
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.adapters.outbound.graph_store.service_repository import Neo4jServiceRepository
-from diucs.domain.codes import CriteriaStatus
-from diucs.domain.errors import Conflict, NotFound, ValidationFailed
-from diucs.domain.model.criteria import ServiceCriteria
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.adapters.outbound.graph_store.service_repository import Neo4jServiceRepository
+from overwatch.domain.codes import CriteriaStatus
+from overwatch.domain.errors import Conflict, NotFound, ValidationFailed
+from overwatch.domain.model.criteria import ServiceCriteria
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
 from tests.support.round_trip import assert_round_trip
 from tests.support.scoped import scoped

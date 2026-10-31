@@ -28,8 +28,8 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Final, Literal
 
-from diucs.adapters.outbound.graph_store.scenario import Scenario
-from diucs.adapters.outbound.graph_store.scope_labels import (
+from overwatch.adapters.outbound.graph_store.scenario import Scenario
+from overwatch.adapters.outbound.graph_store.scope_labels import (
     NETWORK_ONLY_LABELS,
     REGISTRY_NODE_LABELS,
     SCOPE_GENERIC_LABELS,

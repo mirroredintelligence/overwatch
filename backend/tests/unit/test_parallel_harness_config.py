@@ -1,7 +1,7 @@
 """The configuration that makes the integration tests run in parallel on one shared Neo4j, and the
 words of the briefs that tell agents how to run them (TEN-035, DEC-130 item 9).
 
-The old rule, "Neo4j tests run one at a time: flock /tmp/diucs-neo4j-tests.lock", was true while
+The old rule, "Neo4j tests run one at a time: flock /tmp/overwatch-neo4j-tests.lock", was true while
 every run wiped the whole database. It is not true now, and a brief that still says it makes
 agents queue for nothing, so the rule is removed from every live instruction and replaced by the
 real one.
@@ -15,8 +15,8 @@ import pytest
 
 BACKEND = Path(__file__).resolve().parents[2]
 REPO = BACKEND.parent
-SKILL = REPO / ".claude" / "skills" / "diucs-delivery"
-LOCK_NAME = "diucs-neo4j-tests.lock"
+SKILL = REPO / ".claude" / "skills" / "overwatch-delivery"
+LOCK_NAME = "overwatch-neo4j-tests.lock"
 
 # Files an agent reads as instructions. The ledger, the evidence files and decisions.md are
 # history and are not edited; plan prompts of tasks that are already delivered are history too.
@@ -188,7 +188,7 @@ def test_the_e2e_site_port_is_not_fixed_at_3000_so_two_runs_do_not_share_a_dev_s
 
     assert "3000" not in config
     assert "SITE_PORT" in config
-    assert "DIUCS_E2E_PORT" in env
+    assert "OVERWATCH_E2E_PORT" in env
     assert "process.pid" in env, "the derived port must differ between two runs"
 
 

@@ -13,7 +13,7 @@ import re
 import string
 from typing import Final
 
-from diucs.domain.rules.tokens import (
+from overwatch.domain.rules.tokens import (
     LINK_TOKEN_ALPHABET,
     LINK_TOKEN_BYTES,
     LINK_TOKEN_LENGTH,

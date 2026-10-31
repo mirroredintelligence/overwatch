@@ -10,10 +10,14 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from diucs.domain.codes import AgeBand, CriteriaStatus, NeedCategory
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.criteria import ServiceCriteria
-from diucs.domain.rules.criteria_filter import AGE_BAND_BOUNDS, FilterResult, check_hard_criteria
+from overwatch.domain.codes import AgeBand, CriteriaStatus, NeedCategory
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.criteria import ServiceCriteria
+from overwatch.domain.rules.criteria_filter import (
+    AGE_BAND_BOUNDS,
+    FilterResult,
+    check_hard_criteria,
+)
 from tests.unit.domain.model.test_criteria import ucr_west
 
 AGE_OVERLAP_WARNING = "Check age: band overlaps the service's age limits"

@@ -16,13 +16,13 @@ from typing import Annotated, Any, Protocol, cast
 
 from fastapi import Depends, Request
 
-from diucs.adapters.inbound.fhir_rest.host_tenant import bind_host_tenant
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.tokens import SecretStore
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenant_resolution import EntryRefused, PreSessionResolver
-from diucs.domain.model.device import Device
-from diucs.domain.model.tenant import Tenant
+from overwatch.adapters.inbound.fhir_rest.host_tenant import bind_host_tenant
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.tokens import SecretStore
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenant_resolution import EntryRefused, PreSessionResolver
+from overwatch.domain.model.device import Device
+from overwatch.domain.model.tenant import Tenant
 
 
 class _Container(Protocol):

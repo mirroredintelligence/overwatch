@@ -21,17 +21,17 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Final
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.open_case import check_role
-from diucs.application.use_cases.query_board import QueryBoard, QueryBoardQuery
-from diucs.application.use_cases.record_outcome import build_summary
-from diucs.domain.codes import BookingStatus
-from diucs.domain.errors import Conflict, NotFound
-from diucs.domain.model.booking import Booking
-from diucs.domain.rules.freshness import data_age_text
-from diucs.domain.rules.london_time import to_london
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.open_case import check_role
+from overwatch.application.use_cases.query_board import QueryBoard, QueryBoardQuery
+from overwatch.application.use_cases.record_outcome import build_summary
+from overwatch.domain.codes import BookingStatus
+from overwatch.domain.errors import Conflict, NotFound
+from overwatch.domain.model.booking import Booking
+from overwatch.domain.rules.freshness import data_age_text
+from overwatch.domain.rules.london_time import to_london
 
 NO_FIGURE: Final = "No figure reported"
 _HOLDING: Final = frozenset(

@@ -7,12 +7,12 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.inbound.link_pages import capacity_links as pages
-from diucs.adapters.inbound.link_pages.capacity_links import (
+from overwatch.adapters.inbound.link_pages import capacity_links as pages
+from overwatch.adapters.inbound.link_pages.capacity_links import (
     RedactLinkTokens,
     install_log_redaction,
 )
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.errors import ValidationFailed
 
 TOKEN = "AbCdEfGhIjKlMnOpQrStUvW"
 

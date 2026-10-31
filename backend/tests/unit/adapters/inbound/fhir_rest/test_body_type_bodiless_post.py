@@ -10,7 +10,7 @@ from starlette.requests import Request
 from starlette.responses import PlainTextResponse
 from starlette.routing import Route
 
-from diucs.adapters.inbound.fhir_rest.errors import BodyTypeMiddleware
+from overwatch.adapters.inbound.fhir_rest.errors import BodyTypeMiddleware
 
 
 async def _ok(request: Request) -> PlainTextResponse:

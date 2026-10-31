@@ -1,7 +1,7 @@
 {
   "resourceType": "CodeSystem",
   "id": "not-reached-reason",
-  "url": "https://diucs.example/CodeSystem/not-reached-reason",
+  "url": "https://overwatch.mirroredintelligence.com/CodeSystem/not-reached-reason",
   "name": "not-reached-reason",
   "status": "active",
   "content": "complete",

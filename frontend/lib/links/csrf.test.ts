@@ -73,7 +73,7 @@ describe('the link CSRF is separate from the staff CSRF (TEN-046)', () => {
 
   it('has its own cookie name, not the staff one', async () => {
     expect(LINK_CSRF_COOKIE).not.toBe(CSRF_COOKIE);
-    expect(LINK_CSRF_COOKIE).toBe('diucs_link_csrf');
+    expect(LINK_CSRF_COOKIE).toBe('overwatch_link_csrf');
   });
 
   it('writes the link cookie and no other cookie when a link is opened, so the staff token is never rotated', async () => {

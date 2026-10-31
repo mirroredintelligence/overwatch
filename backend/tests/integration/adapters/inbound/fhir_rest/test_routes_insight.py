@@ -11,16 +11,16 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from neo4j import AsyncDriver
 
-from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET
-from diucs.bootstrap.container import build_for_tests
-from diucs.domain.codes import Role
-from diucs.domain.rules.browser_insight import MARKER_SECRET
+from overwatch.adapters.inbound.fhir_rest.app import create_app
+from overwatch.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.adapters.testing.tokens import TEST_BFF_SECRET
+from overwatch.bootstrap.container import build_for_tests
+from overwatch.domain.codes import Role
+from overwatch.domain.rules.browser_insight import MARKER_SECRET
 from tests.support.api import R01_TEST_NOW, seed_edge_tenants, token_headers
 from tests.support.neo4j import ThrowawayNeo4j
 from tests.support.tenancy import RunIdentity

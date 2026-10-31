@@ -11,7 +11,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from diucs.application.ports.outbound.tenants import (
+from overwatch.application.ports.outbound.tenants import (
     TenantLine,
     check_secret_ref,
     normalise_account_sid,
@@ -21,7 +21,7 @@ from diucs.application.ports.outbound.tenants import (
     secret_ref,
     twilio_token_ref,
 )
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.errors import ValidationFailed
 from tests.support.tenant_samples import make_tenant
 
 TENANT = "example-icb"

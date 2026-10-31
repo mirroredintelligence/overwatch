@@ -8,9 +8,9 @@ RecordingValidator returns preset issues and keeps each call, so a test can see 
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from diucs.application.ports.outbound.terminology import OdsRecord, ValidationIssue
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.code_search import search_codes
+from overwatch.application.ports.outbound.terminology import OdsRecord, ValidationIssue
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.code_search import search_codes
 
 
 def _ods_key(code: str) -> str:

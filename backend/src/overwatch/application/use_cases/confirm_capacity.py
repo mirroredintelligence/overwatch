@@ -23,28 +23,28 @@ import hashlib
 from dataclasses import dataclass, replace
 from datetime import datetime
 
-from diucs.application.actor import Actor, require_actor_in_bound_tenant, tenant_scope_of_unit
-from diucs.application.idempotency import IdempotencyStore
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenant_settings import TenantZones, as_zones, read_settings
-from diucs.application.use_cases.report_capacity import (
+from overwatch.application.actor import Actor, require_actor_in_bound_tenant, tenant_scope_of_unit
+from overwatch.application.idempotency import IdempotencyStore
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenant_settings import TenantZones, as_zones, read_settings
+from overwatch.application.use_cases.report_capacity import (
     check_may_report,
     check_performer,
     record_report,
 )
-from diucs.domain.codes import ReportSource, ReportType, Status
-from diucs.domain.errors import (
+from overwatch.domain.codes import ReportSource, ReportType, Status
+from overwatch.domain.errors import (
     ConfirmLimitReached,
     Conflict,
     LatestReportChanged,
     NotFound,
     NothingToConfirm,
 )
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.tenant_policy import TenantPolicy
-from diucs.domain.rules.effective_time import default_effective_at
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.tenant_policy import TenantPolicy
+from overwatch.domain.rules.effective_time import default_effective_at
 
 USE_CASE = "ConfirmCapacity"
 

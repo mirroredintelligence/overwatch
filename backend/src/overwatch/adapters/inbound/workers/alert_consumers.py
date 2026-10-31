@@ -19,15 +19,15 @@ from typing import Final, Protocol
 
 from azure.servicebus.aio import ServiceBusClient
 
-from diucs.adapters.inbound.workers.consumer import Outcome
-from diucs.adapters.inbound.workers.outbox_relay import ActiveTenants
-from diucs.adapters.inbound.workers.servicebus_runner import ServiceBusRunner
-from diucs.adapters.inbound.workers.tenant_binding import Observe, TenantBoundConsumer, untraced
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.use_cases.alerts import EvaluationResult, StatusChangedCommand
-from diucs.application.use_cases.notify_escalations import NotifyLeadsCommand, NotifyLeadsResult
-from diucs.domain.errors import NotFound, ValidationFailed
-from diucs.domain.events import StatusChanged
+from overwatch.adapters.inbound.workers.consumer import Outcome
+from overwatch.adapters.inbound.workers.outbox_relay import ActiveTenants
+from overwatch.adapters.inbound.workers.servicebus_runner import ServiceBusRunner
+from overwatch.adapters.inbound.workers.tenant_binding import Observe, TenantBoundConsumer, untraced
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.use_cases.alerts import EvaluationResult, StatusChangedCommand
+from overwatch.application.use_cases.notify_escalations import NotifyLeadsCommand, NotifyLeadsResult
+from overwatch.domain.errors import NotFound, ValidationFailed
+from overwatch.domain.events import StatusChanged
 
 logger = logging.getLogger(__name__)
 

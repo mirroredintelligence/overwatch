@@ -13,12 +13,12 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.scheduled_work_repository import (
+from overwatch.adapters.outbound.graph_store.scheduled_work_repository import (
     Neo4jScheduledWorkRepository,
 )
-from diucs.application.tenancy import bind_tenant
-from diucs.application.work import ScheduledWork, WorkKind
-from diucs.domain.errors import Conflict, NotFound, ValidationFailed
+from overwatch.application.tenancy import bind_tenant
+from overwatch.application.work import ScheduledWork, WorkKind
+from overwatch.domain.errors import Conflict, NotFound, ValidationFailed
 from tests.support.neo4j import count_nodes, node_props, read_tx, run_scope_ids, write_tx
 from tests.support.round_trip import assert_round_trip
 

@@ -4,8 +4,8 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.device import (
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.device import (
     SCREEN_LABEL_MAX,
     BoardScope,
     Device,

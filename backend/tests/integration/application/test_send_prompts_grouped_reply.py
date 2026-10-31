@@ -11,20 +11,20 @@ from datetime import UTC, datetime
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.confirm_capacity import ConfirmCapacity
-from diucs.application.use_cases.handle_inbound_text import (
+from overwatch.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.confirm_capacity import ConfirmCapacity
+from overwatch.application.use_cases.handle_inbound_text import (
     CONFIRMED,
     RECORDED,
     HandleInboundText,
     HandleInboundTextCommand,
     HandleInboundTextResult,
 )
-from diucs.application.use_cases.report_capacity import ReportCapacity
+from overwatch.application.use_cases.report_capacity import ReportCapacity
 from tests.integration.application.test_send_prompts_grouped import (
     EAST,
     PHONE,

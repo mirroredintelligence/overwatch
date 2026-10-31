@@ -9,10 +9,10 @@ from collections.abc import Awaitable, Callable
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.domain.model.flags import ServiceFlag
-from diucs.domain.model.service import ServiceProfile
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.domain.model.flags import ServiceFlag
+from overwatch.domain.model.service import ServiceProfile
 from tests.support.api import edge_tenants, test_container
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory
 

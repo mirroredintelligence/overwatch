@@ -13,12 +13,12 @@ from typing import Final, cast
 
 from redis.asyncio import Redis
 
-from diucs.adapters.outbound.cache_redis.redis_cache import ROOT
-from diucs.adapters.outbound.cache_redis.tenant_keys import millis, tenant_prefix
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.identity import CodeResendRefused
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.identity_policy import (
+from overwatch.adapters.outbound.cache_redis.redis_cache import ROOT
+from overwatch.adapters.outbound.cache_redis.tenant_keys import millis, tenant_prefix
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.identity import CodeResendRefused
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.identity_policy import (
     CODE_VALID_FOR,
     CodeOutcome,
     CodeState,

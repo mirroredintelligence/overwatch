@@ -8,8 +8,8 @@ from datetime import UTC, datetime
 
 import pytest
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.tokens import LinkTokenRecord
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.tokens import LinkTokenRecord
 
 EXPIRES = datetime(2026, 10, 25, 12, 30, tzinfo=UTC)
 GOOD_HASH = "ab" * 32

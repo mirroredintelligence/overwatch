@@ -15,9 +15,9 @@ import stat
 from pathlib import Path
 from typing import Final
 
-from diucs.application.ports.outbound.tokens import SecretStoreUnavailable
-from diucs.domain.errors import NotFound
-from diucs.domain.rules.secret_names import vault_secret_name
+from overwatch.application.ports.outbound.tokens import SecretStoreUnavailable
+from overwatch.domain.errors import NotFound
+from overwatch.domain.rules.secret_names import vault_secret_name
 
 MAX_SECRET_BYTES: Final = 65_536
 _OTHERS: Final = 0o077

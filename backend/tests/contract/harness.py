@@ -18,7 +18,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from diucs.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.ports.outbound.event_bus import BusMessage
 
 
 @dataclass(frozen=True, slots=True)

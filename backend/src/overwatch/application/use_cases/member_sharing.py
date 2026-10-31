@@ -18,17 +18,17 @@ from dataclasses import dataclass
 from datetime import datetime
 from types import MappingProxyType
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.network import NetworkRegistry
-from diucs.application.ports.outbound.projection import ProjectionEndReason, SourceStatus
-from diucs.application.ports.outbound.unit_of_work import NetworkUnitOfWorkFactory
-from diucs.application.projection import body_keys
-from diucs.application.tenancy import bind_network
-from diucs.application.use_cases.network_admin import require_role
-from diucs.domain.codes import Role
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.network import GrantScope, MembershipStatus, is_agreement_behind
-from diucs.domain.rules.projection import PROJECTION_ALLOWLIST_VERSION
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.network import NetworkRegistry
+from overwatch.application.ports.outbound.projection import ProjectionEndReason, SourceStatus
+from overwatch.application.ports.outbound.unit_of_work import NetworkUnitOfWorkFactory
+from overwatch.application.projection import body_keys
+from overwatch.application.tenancy import bind_network
+from overwatch.application.use_cases.network_admin import require_role
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.network import GrantScope, MembershipStatus, is_agreement_behind
+from overwatch.domain.rules.projection import PROJECTION_ALLOWLIST_VERSION
 
 
 @dataclass(frozen=True, slots=True)

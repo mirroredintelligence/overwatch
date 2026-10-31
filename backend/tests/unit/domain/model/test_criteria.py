@@ -8,9 +8,9 @@ from enum import StrEnum
 
 import pytest
 
-from diucs.domain.codes import CriteriaStatus, NeedCategory
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.criteria import ServiceCriteria
+from overwatch.domain.codes import CriteriaStatus, NeedCategory
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.criteria import ServiceCriteria
 
 
 class _OtherCodes(StrEnum):

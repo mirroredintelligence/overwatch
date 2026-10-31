@@ -40,7 +40,7 @@ vi.mock('@/lib/auth/session', async (importOriginal) => ({
 const as = (role: Role) => vi.mocked(getSession).mockResolvedValue(sessionFor(TENANTS.A, role, { sub: 'u', backendToken: TOKEN_ORG_A }) as Session);
 
 beforeEach(() => {
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', BACKEND_BASE);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', BACKEND_BASE);
   server.use(...networkBffHandlers);
 });
 afterEach(() => {

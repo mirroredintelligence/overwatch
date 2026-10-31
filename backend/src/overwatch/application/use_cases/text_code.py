@@ -19,19 +19,23 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Final
 
-from diucs.application.actor import anonymous_actor
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.identity import CodeStore, PhoneHasher, normalise_uk_mobile
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.outbox import OutboxMessage
-from diucs.application.ports.outbound.sealing import ContentSealer
-from diucs.application.ports.outbound.tokens import SecretStore
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound
-from diucs.application.use_cases.setup_service_by_lead import international
-from diucs.domain.errors import Conflict, ValidationFailed
-from diucs.domain.rules.identity_policy import (
+from overwatch.application.actor import anonymous_actor
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.identity import (
+    CodeStore,
+    PhoneHasher,
+    normalise_uk_mobile,
+)
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.outbox import OutboxMessage
+from overwatch.application.ports.outbound.sealing import ContentSealer
+from overwatch.application.ports.outbound.tokens import SecretStore
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound
+from overwatch.application.use_cases.setup_service_by_lead import international
+from overwatch.domain.errors import Conflict, ValidationFailed
+from overwatch.domain.rules.identity_policy import (
     CODE_MAX_TRIES,
     CODE_RESEND_AFTER,
     CodeOutcome,

@@ -1,9 +1,9 @@
-# Continuous integration for the DIUCS capacity app.
+# Continuous integration for the Overwatch app.
 # Runs all checks when started by hand (it was every push and pull request until the owner disabled it). Nothing here deploys anything.
 #
 # The back-end integration tests run on one shared Neo4j (TEN-034, TEN-035): the job starts a Neo4j
 # service container and a Redis service container, and the harness attaches to the Neo4j through
-# DIUCS_TEST_NEO4J_URI, each pytest worker working in tenants of its own. The job does not start
+# OVERWATCH_TEST_NEO4J_URI, each pytest worker working in tenants of its own. The job does not start
 # infra/docker-compose.yml. The schema and lifecycle tests start private containers on the Docker
 # daemon that GitHub-hosted ubuntu runners provide. The Service Bus emulator and the compose stack
 # are not available here, so the tests marked servicebus and infra are left out of the second phase
@@ -63,9 +63,9 @@ jobs:
     env:
       UV_PYTHON: "3.14"
       # The harness attaches to the Neo4j service below (never to a port-7687 stack by accident).
-      DIUCS_TEST_NEO4J_URI: bolt://localhost:7690
-      DIUCS_TEST_NEO4J_USER: neo4j
-      DIUCS_TEST_NEO4J_PASSWORD: ci-${{ github.run_id }}-${{ github.run_attempt }}
+      OVERWATCH_TEST_NEO4J_URI: bolt://localhost:7690
+      OVERWATCH_TEST_NEO4J_USER: neo4j
+      OVERWATCH_TEST_NEO4J_PASSWORD: ci-${{ github.run_id }}-${{ github.run_attempt }}
     services:
       neo4j:
         image: neo4j:5.26.32-community

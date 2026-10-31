@@ -13,10 +13,10 @@ from datetime import date, datetime
 from enum import StrEnum
 from typing import Any, Final
 
-from diucs.domain.codes import RegistrationStatus, ScopeFlag, ServiceCategory, code_system_url
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.people import check_staff_text
-from diucs.domain.rules.registration import ApprovalChecks
+from overwatch.domain.codes import RegistrationStatus, ScopeFlag, ServiceCategory, code_system_url
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.people import check_staff_text
+from overwatch.domain.rules.registration import ApprovalChecks
 
 DISTRICT_TYPE_CODE: Final = "postcode-district"
 """The Location type of an area a visiting service covers (fhir-data-model.md, Location)."""

@@ -23,22 +23,22 @@ from typing import Any
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
-from diucs.application.platform_services import (
+from overwatch.adapters.inbound.fhir_rest.app import create_app
+from overwatch.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
+from overwatch.application.platform_services import (
     PlatformRecorder,
     PlatformServices,
     SupportTicketServices,
     TenantAdminServices,
 )
-from diucs.application.ports.outbound.platform_audit import PlatformAuditRecord
-from diucs.application.use_cases.platform_tenants import ListPlatformTenants, ReadPlatformTenant
-from diucs.application.use_cases.tenant_admin import (
+from overwatch.application.ports.outbound.platform_audit import PlatformAuditRecord
+from overwatch.application.use_cases.platform_tenants import ListPlatformTenants, ReadPlatformTenant
+from overwatch.application.use_cases.tenant_admin import (
     ActivateTenant,
     CreateTenant,
     MarkNumberTested,
@@ -47,12 +47,12 @@ from diucs.application.use_cases.tenant_admin import (
     SetTenantHost,
     VerifyEntraBinding,
 )
-from diucs.application.use_cases.tenant_offboarding import StartTenantOffboarding
-from diucs.application.use_cases.tenant_suspend import SuspendTenant
-from diucs.domain.codes import Role
-from diucs.domain.model.tenant import TenantStatus
-from diucs.domain.rules import bff_token
-from diucs.domain.rules.bff_token import OperatorClaims, encode_operator_token
+from overwatch.application.use_cases.tenant_offboarding import StartTenantOffboarding
+from overwatch.application.use_cases.tenant_suspend import SuspendTenant
+from overwatch.domain.codes import Role
+from overwatch.domain.model.tenant import TenantStatus
+from overwatch.domain.rules import bff_token
+from overwatch.domain.rules.bff_token import OperatorClaims, encode_operator_token
 from tests.support.provisioning_fakes import (
     NOW,
     FakeHeads,

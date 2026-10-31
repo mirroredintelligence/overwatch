@@ -20,20 +20,20 @@ from zoneinfo import ZoneInfo
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
-from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
-from diucs.adapters.outbound.graph_store.link_token_repository import Neo4jLinkTokenRepository
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.outbox import MAX_ATTEMPTS, OutboxMessage
-from diucs.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.scheduling import cancel_work, schedule_work
-from diucs.application.tenancy import TenantMismatch
-from diucs.application.use_cases import send_prompts as send_prompts_module
-from diucs.application.use_cases.send_prompts import (
+from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from overwatch.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
+from overwatch.adapters.outbound.graph_store.link_token_repository import Neo4jLinkTokenRepository
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.outbox import MAX_ATTEMPTS, OutboxMessage
+from overwatch.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.scheduling import cancel_work, schedule_work
+from overwatch.application.tenancy import TenantMismatch
+from overwatch.application.use_cases import send_prompts as send_prompts_module
+from overwatch.application.use_cases.send_prompts import (
     SKIP_INACTIVE,
     SKIP_NO_REPORTER,
     SKIP_NO_WINDOW,
@@ -43,8 +43,8 @@ from diucs.application.use_cases.send_prompts import (
     SendPromptCommand,
     SendPrompts,
 )
-from diucs.application.work import CANCELLED, SCHEDULED, ScheduledWork, WorkKind
-from diucs.domain.codes import (
+from overwatch.application.work import CANCELLED, SCHEDULED, ScheduledWork, WorkKind
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     Measure,
@@ -54,12 +54,12 @@ from diucs.domain.codes import (
     Role,
     ServiceCategory,
 )
-from diucs.domain.errors import Conflict, DomainError, NotFound, ValidationFailed
-from diucs.domain.messages.privacy_guard import find_patient_data
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.errors import Conflict, DomainError, NotFound, ValidationFailed
+from overwatch.domain.messages.privacy_guard import find_patient_data
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, read_tx, run_nodes
 
@@ -69,7 +69,7 @@ pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 SECRET = b"link-token-test-secret-0123456789abcdef"
 TENANT = ACTOR_TENANT  # the run's tenant: the units bind it and the sealed content names it
-LINK_BASE = "diucs.example"
+LINK_BASE = "overwatch.example"
 DUE = datetime(2026, 10, 23, 9, 0, tzinfo=UTC)  # 10:00 BST
 PHONE_HASH_1 = "ab" * 32
 PHONE_HASH_2 = "cd" * 32
@@ -373,12 +373,12 @@ async def test_c1_text_carries_the_dated_figure_the_deadline_and_a_one_time_link
     # K: the figure carries its full date and time, so a figure from another day cannot read as
     # the current one. The stored record holds the same words with the link replaced.
     assert row["text"] == (
-        "DIUCS: UCR West. We have 3 referrals in the next 2 hrs (as of 23 Oct 08:15). "
+        "Overwatch: UCR West. We have 3 referrals in the next 2 hrs (as of 23 Oct 08:15). "
         "Confirm or update: [link] Or reply Y, or a new number. By 10:30."
     )
     [message] = _sent(await _outbox(uow_factory))
     assert _opened(message)["text"].startswith(
-        "DIUCS: UCR West. We have 3 referrals in the next 2 hrs (as of 23 Oct 08:15)."
+        "Overwatch: UCR West. We have 3 referrals in the next 2 hrs (as of 23 Oct 08:15)."
     )
     token = _token_of(message)
     record = await _resolve(neo4j_driver, DUE, token)
@@ -418,7 +418,7 @@ async def test_with_no_earlier_report_the_first_prompt_c2_is_sent(
     assert row["messageId"] == "C2"
     [message] = _sent(await _outbox(uow_factory))
     assert _opened(message)["text"] == (
-        "DIUCS: UCR West. How many referrals can you take in the next 2 hrs? "
+        "Overwatch: UCR West. How many referrals can you take in the next 2 hrs? "
         "Send a number (0 = closed). By 10:30."
     )
 

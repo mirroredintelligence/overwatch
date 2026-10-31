@@ -5,9 +5,9 @@ a member of another enum refused even when its value matches (lesson L3).
 
 import pytest
 
-from diucs.domain.codes import BookingStatus, NotReachedReason, WithdrawReason
-from diucs.domain.errors import InvalidTransition, ValidationFailed
-from diucs.domain.rules.booking_exceptions import (
+from overwatch.domain.codes import BookingStatus, NotReachedReason, WithdrawReason
+from overwatch.domain.errors import InvalidTransition, ValidationFailed
+from overwatch.domain.rules.booking_exceptions import (
     checked_not_reached_reason,
     checked_withdraw_reason,
     not_reached_target,

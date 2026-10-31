@@ -18,15 +18,15 @@ in DEC-292 and is not decided here.
 from dataclasses import dataclass
 from typing import Final, Literal
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.report_capacity import (
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.report_capacity import (
     ReportCapacity,
     ReportCapacityCommand,
     ReportCapacityResult,
 )
-from diucs.domain.codes import ReportSource
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.codes import ReportSource
+from overwatch.domain.errors import ValidationFailed
 
 PhonedAnswer = Literal["accepting", "limited", "not-accepting"]
 ACCEPTING: Final = "accepting"

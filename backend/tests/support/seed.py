@@ -7,12 +7,12 @@ from datetime import datetime, time
 
 from neo4j import AsyncDriver
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.messaging import Communication
-from diucs.application.tenancy import ScopeId
-from diucs.bootstrap.container import TEST_NOW
-from diucs.domain.codes import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.messaging import Communication
+from overwatch.application.tenancy import ScopeId
+from overwatch.bootstrap.container import TEST_NOW
+from overwatch.domain.codes import (
     BestFitNotUsedReason,
     BookingStatus,
     Cadence,
@@ -26,11 +26,11 @@ from diucs.domain.codes import (
     ServiceCategory,
     Urgency,
 )
-from diucs.domain.model.booking import Booking
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.case import Case
-from diucs.domain.model.scores import News2
-from diucs.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.model.booking import Booking
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.case import Case
+from overwatch.domain.model.scores import News2
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory
 
 

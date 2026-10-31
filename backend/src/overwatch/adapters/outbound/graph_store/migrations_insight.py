@@ -15,7 +15,7 @@ Each statement is one schema statement (lesson L8) and idempotent (IF NOT EXISTS
 
 from typing import Final
 
-from diucs.adapters.outbound.graph_store.migration_types import Migration
+from overwatch.adapters.outbound.graph_store.migration_types import Migration
 
 INSIGHT_MIGRATIONS: Final[tuple[Migration, ...]] = (
     Migration(

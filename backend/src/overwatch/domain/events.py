@@ -15,8 +15,9 @@ Exception to the ids, counts and codes rule. `ProjectionRequested` is the only m
 module whose payload carries more than identifiers, counts and codes: its `body` holds the
 allowlisted projection fields (service name, category, location district, opening hours,
 service-level contact, capacity figures, criteria). The allowlist is
-`diucs.domain.rules.projection.ALLOWLIST`; this module checks the shape of the body (a floor,
-whatever the allowlist says), `diucs.application.projection` checks its keys against the allowlist
+`overwatch.domain.rules.projection.ALLOWLIST`; this module checks the shape of the body (a floor,
+whatever the allowlist says), `overwatch.application.projection` checks its keys against the
+allowlist
 before the message is published and again before it is applied. It is not a domain event: it is
 outside `DomainEvent` and `from_payload`.
 """
@@ -30,7 +31,7 @@ from enum import StrEnum
 from types import MappingProxyType
 from typing import Any, ClassVar, Final, Self
 
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     AdviceChoice,
     AlertKind,
     BookingStatus,
@@ -42,13 +43,13 @@ from diucs.domain.codes import (
     WithdrawReason,
     parse_code,
 )
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.messages.privacy_guard import (
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.messages.privacy_guard import (
     FORBIDDEN_KEY_FORMS,
     find_patient_data,
     normalise_key,
 )
-from diucs.domain.model.network import (
+from overwatch.domain.model.network import (
     AGREEMENT_REFERENCE_PATTERN,
     DirectorySource,
     GrantApprover,

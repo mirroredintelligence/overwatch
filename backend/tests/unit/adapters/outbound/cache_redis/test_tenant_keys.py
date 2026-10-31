@@ -5,28 +5,28 @@ from datetime import timedelta
 
 import pytest
 
-from diucs.adapters.outbound.cache_redis.tenant_keys import millis, tenant_prefix
-from diucs.application.tenancy import ScopeId, TenantNotBound, bind_scope, bind_tenant
+from overwatch.adapters.outbound.cache_redis.tenant_keys import millis, tenant_prefix
+from overwatch.application.tenancy import ScopeId, TenantNotBound, bind_scope, bind_tenant
 
 
 def test_the_prefix_carries_the_bound_tenant() -> None:
     with bind_tenant("tenant-alpha"):
-        assert tenant_prefix("diucs:") == "diucs:tenant-alpha:"
+        assert tenant_prefix("overwatch:") == "overwatch:tenant-alpha:"
 
 
 def test_a_missing_tenant_is_an_error_never_a_default() -> None:
     with pytest.raises(TenantNotBound):
-        tenant_prefix("diucs:")
+        tenant_prefix("overwatch:")
 
 
 def test_a_network_scope_is_not_a_tenant_for_these_keys() -> None:
     with bind_scope(ScopeId.network("net-dorset")), pytest.raises(TenantNotBound):
-        tenant_prefix("diucs:")
+        tenant_prefix("overwatch:")
 
 
 def test_a_run_prefix_is_kept_in_front_of_the_tenant() -> None:
     with bind_tenant("tenant-alpha"):
-        assert tenant_prefix("diucs-test-7:") == "diucs-test-7:tenant-alpha:"
+        assert tenant_prefix("overwatch-test-7:") == "overwatch-test-7:tenant-alpha:"
 
 
 @pytest.mark.parametrize(

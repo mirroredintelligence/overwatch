@@ -18,19 +18,19 @@ import pytest_asyncio
 from httpx import AsyncClient
 from neo4j import AsyncDriver
 
-from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.telemetry.redaction import clean_attributes
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.fixture_telemetry import FixtureTelemetryQuery
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
-from diucs.bootstrap.container import build_for_tests
-from diucs.domain.codes import PractitionerRoleCode, Role
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.rules.support import SUPPORT_CODE_SECRET
+from overwatch.adapters.inbound.fhir_rest.app import create_app
+from overwatch.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.telemetry.redaction import clean_attributes
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.fixture_telemetry import FixtureTelemetryQuery
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
+from overwatch.bootstrap.container import build_for_tests
+from overwatch.domain.codes import PractitionerRoleCode, Role
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.rules.support import SUPPORT_CODE_SECRET
 from tests.support.api import seed_edge_tenants
 from tests.support.neo4j import ThrowawayNeo4j
 from tests.support.uow import ensure_audit_heads

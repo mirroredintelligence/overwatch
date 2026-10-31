@@ -12,9 +12,9 @@ import { createOperatorSession } from './session';
 // directory) and complete (the browser comes back with a code). The same authorisation code flow with PKCE
 // as the staff sign-in, with these differences, each of which keeps the operator door apart from a tenant's:
 //
-//   - its own app registration and directory (`OPERATOR_ENTRA_*`, `DIUCS_OPERATOR_PUBLIC_URL`); it falls
+//   - its own app registration and directory (`OPERATOR_ENTRA_*`, `OVERWATCH_OPERATOR_PUBLIC_URL`); it falls
 //     back to none of the staff sign-in's settings, and a missing one fails the request that needs it;
-//   - it serves only on the console's own host (the host of `DIUCS_OPERATOR_PUBLIC_URL`): a request on a
+//   - it serves only on the console's own host (the host of `OVERWATCH_OPERATOR_PUBLIC_URL`): a request on a
 //     tenant's host makes no transaction and no session;
 //   - a transaction cookie of its own (name, path, sealing purpose), so one sign-in cannot complete the other;
 //   - the result is an OPERATOR session: the role and account reference the back end's operator exchange
@@ -22,9 +22,9 @@ import { createOperatorSession } from './session';
 //
 // Nothing here logs a token, code or claim; a refusal is a fixed word.
 
-export const OPERATOR_TRANSACTION_COOKIE = 'diucs_op_oidc';
+export const OPERATOR_TRANSACTION_COOKIE = 'overwatch_op_oidc';
 const TRANSACTION_PATH = '/api/bff/platform/auth';
-const PURPOSE = 'diucs-operator-sign-in';
+const PURPOSE = 'overwatch-operator-sign-in';
 const FAILED = '/operator/sign-in?error=failed';
 const NO_ACCESS = '/operator/sign-in?error=no-access';
 const CODE_MAX_LENGTH = 2048;

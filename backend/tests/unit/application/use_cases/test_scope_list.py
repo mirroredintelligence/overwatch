@@ -6,8 +6,8 @@ from datetime import UTC, date, datetime
 
 import pytest
 
-from diucs.application.actor import Actor
-from diucs.application.use_cases.scope_list import (
+from overwatch.application.actor import Actor
+from overwatch.application.use_cases.scope_list import (
     ScopeRow,
     check_reason,
     london_date,
@@ -15,8 +15,8 @@ from diucs.application.use_cases.scope_list import (
     same_name,
     scope_sort_key,
 )
-from diucs.domain.codes import Role, ScopeFlag, ServiceCategory
-from diucs.domain.errors import NotAllowed, ValidationFailed
+from overwatch.domain.codes import Role, ScopeFlag, ServiceCategory
+from overwatch.domain.errors import NotAllowed, ValidationFailed
 from tests.support.actors import ACTOR_TENANT
 
 

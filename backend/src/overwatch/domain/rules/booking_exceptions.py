@@ -7,9 +7,9 @@ enum with the same value is refused (lesson L3).
 
 from typing import Final
 
-from diucs.domain.codes import BookingStatus, NotReachedReason, WithdrawReason
-from diucs.domain.errors import InvalidTransition, ValidationFailed
-from diucs.domain.rules.booking_state import transition
+from overwatch.domain.codes import BookingStatus, NotReachedReason, WithdrawReason
+from overwatch.domain.errors import InvalidTransition, ValidationFailed
+from overwatch.domain.rules.booking_state import transition
 
 _FROM: Final = BookingStatus.CONFIRMED
 

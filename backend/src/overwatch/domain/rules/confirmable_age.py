@@ -15,9 +15,9 @@ two gaps of the default times (08:00 and 14:00: 6 and 18 hours).
 from datetime import timedelta
 from typing import Final
 
-from diucs.domain.codes import Cadence
-from diucs.domain.model.service import ServiceProfile
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
+from overwatch.domain.codes import Cadence
+from overwatch.domain.model.service import ServiceProfile
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
 
 REPORTING_INTERVAL: Final[dict[Cadence, timedelta]] = {
     Cadence.EVERY_2_HRS: timedelta(hours=2),

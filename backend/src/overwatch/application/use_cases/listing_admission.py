@@ -25,13 +25,13 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Final
 
-from diucs.application.actor import Actor, require_actor_in_bound_tenant
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.network import NetworkRegistry
-from diucs.application.ports.outbound.tenants import TenantDirectory
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.network_admin import (
+from overwatch.application.actor import Actor, require_actor_in_bound_tenant
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.network import NetworkRegistry
+from overwatch.application.ports.outbound.tenants import TenantDirectory
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.network_admin import (
     GovernanceRecorder,
     Record,
     account_ref_of,
@@ -39,16 +39,16 @@ from diucs.application.use_cases.network_admin import (
     require_owner_of,
     require_role,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import InvalidTransition, NotFound, ValidationFailed
-from diucs.domain.model.network import (
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import InvalidTransition, NotFound, ValidationFailed
+from overwatch.domain.model.network import (
     Listing,
     ListingReason,
     ListingStatus,
     check_network_id,
     check_tenant_field,
 )
-from diucs.domain.rules.listing import (
+from overwatch.domain.rules.listing import (
     admit_listing,
     decline_listing,
     reinstate_listing,

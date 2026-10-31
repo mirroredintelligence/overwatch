@@ -15,20 +15,20 @@ from typing import Any
 import pytest
 from fastapi import FastAPI
 
-from diucs.adapters.inbound.fhir_rest import routes_events
-from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
-from diucs.application.ports.outbound.cache import BOARD_UPDATES_CHANNEL
-from diucs.application.use_cases.board_projector import BoardProjector
-from diucs.application.use_cases.query_board import QueryBoard
-from diucs.bootstrap.container import Container
-from diucs.domain.codes import Cadence, Channel, Measure, ReportSource, ReportType, Role
-from diucs.domain.codes import ServiceCategory as Category
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.adapters.inbound.fhir_rest import routes_events
+from overwatch.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
+from overwatch.application.ports.outbound.cache import BOARD_UPDATES_CHANNEL
+from overwatch.application.use_cases.board_projector import BoardProjector
+from overwatch.application.use_cases.query_board import QueryBoard
+from overwatch.bootstrap.container import Container
+from overwatch.domain.codes import Cadence, Channel, Measure, ReportSource, ReportType, Role
+from overwatch.domain.codes import ServiceCategory as Category
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.api import R01_TEST_NOW
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")

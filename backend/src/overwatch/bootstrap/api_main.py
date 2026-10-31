@@ -1,5 +1,5 @@
-"""Process entry for the HTTP API (B1, N3): `python -m diucs.bootstrap.api_main`, or
-`uvicorn diucs.bootstrap.api_main:app_factory --factory`.
+"""Process entry for the HTTP API (B1, N3): `python -m overwatch.bootstrap.api_main`, or
+`uvicorn overwatch.bootstrap.api_main:app_factory --factory`.
 
 Until this module nothing called `create_app`, so no process served the FHIR routes, the platform
 and tenant routes, the network routes, the token exchange, the link pages or the Twilio webhook. It
@@ -33,10 +33,12 @@ request comes from Cloudflare (`adapters/inbound/edge_proxy/cloudflare.py`, depl
 access log hides link tokens (`RedactLinkTokens`).
 
 The secrets come from the process's secret store (`bootstrap/secret_store.py`, DEC-1304): Azure Key
-Vault behind the app's managed identity when `DIUCS_KEY_VAULT_URL` is set (the Neo4j password, the
+Vault behind the app's managed identity when `OVERWATCH_KEY_VAULT_URL` is set (the Neo4j password,
+the
 Redis URL and the Service Bus connection are then read from it too, and the process refuses to start
 when one of them is also in the plain environment), or on a development machine the file store of
-`DIUCS_SECRETS_DIR` (refused in production). The address lookup key (`os-places-api-key`) is read
+`OVERWATCH_SECRETS_DIR` (refused in production). The address lookup key (`os-places-api-key`) is
+read
 from the store too, and is optional. With neither, the process exits at start-up with a
 message. `check_secrets` reads every required name at start-up, which also warms the cache, and an
 outage or a missing name stops the process naming the secret.
@@ -58,52 +60,52 @@ from azure.servicebus.aio import ServiceBusClient
 from fastapi import FastAPI
 from opentelemetry.sdk.trace import TracerProvider
 
-from diucs.adapters.inbound.edge_proxy.cloudflare import (
+from overwatch.adapters.inbound.edge_proxy.cloudflare import (
     CLOUDFLARE_RANGES,
     CloudflareEdge,
     CloudflareEdgeMiddleware,
     IPNetwork,
     parse_ranges,
 )
-from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.inbound.fhir_rest.routes_auth import ExchangeDeps
-from diucs.adapters.inbound.fhir_rest.routes_reporter_setup import VAPID_PUBLIC_KEY_SECRET
-from diucs.adapters.inbound.link_pages.capacity_links import (
+from overwatch.adapters.inbound.fhir_rest.app import create_app
+from overwatch.adapters.inbound.fhir_rest.routes_auth import ExchangeDeps
+from overwatch.adapters.inbound.fhir_rest.routes_reporter_setup import VAPID_PUBLIC_KEY_SECRET
+from overwatch.adapters.inbound.link_pages.capacity_links import (
     LinkPagesDeps,
     install_log_redaction,
 )
-from diucs.adapters.inbound.sms_webhook.routes import SmsWebhookDeps
-from diucs.adapters.outbound.bus_servicebus.service_bus import ServiceBusEventBus
-from diucs.adapters.outbound.entra_identity.verifier import EntraConfig, EntraIdentityVerifier
-from diucs.adapters.outbound.push_webpush.web_push import VAPID_PRIVATE_KEY_SECRET
-from diucs.adapters.outbound.telemetry.azure_monitor_query import LogsQueryClient
-from diucs.adapters.outbound.telemetry.otel import configure_telemetry
-from diucs.application.ports.outbound.event_bus import EventBus
-from diucs.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
-from diucs.application.ports.outbound.identity_verifier import (
+from overwatch.adapters.inbound.sms_webhook.routes import SmsWebhookDeps
+from overwatch.adapters.outbound.bus_servicebus.service_bus import ServiceBusEventBus
+from overwatch.adapters.outbound.entra_identity.verifier import EntraConfig, EntraIdentityVerifier
+from overwatch.adapters.outbound.push_webpush.web_push import VAPID_PRIVATE_KEY_SECRET
+from overwatch.adapters.outbound.telemetry.azure_monitor_query import LogsQueryClient
+from overwatch.adapters.outbound.telemetry.otel import configure_telemetry
+from overwatch.application.ports.outbound.event_bus import EventBus
+from overwatch.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
+from overwatch.application.ports.outbound.identity_verifier import (
     Audience,
     IdentityRejected,
     IdentityVerifier,
     VerifiedIdentity,
 )
-from diucs.application.ports.outbound.tenants import normalise_directory_id
-from diucs.application.ports.outbound.tokens import SecretStore, SecretStoreUnavailable
-from diucs.application.tenant_resolution import DirectoryInboundLines
-from diucs.application.use_cases.exchange_token import ACCOUNT_REF_SECRET, SIGNING_SECRET
-from diucs.bootstrap.container import (
+from overwatch.application.ports.outbound.tenants import normalise_directory_id
+from overwatch.application.ports.outbound.tokens import SecretStore, SecretStoreUnavailable
+from overwatch.application.tenant_resolution import DirectoryInboundLines
+from overwatch.application.use_cases.exchange_token import ACCOUNT_REF_SECRET, SIGNING_SECRET
+from overwatch.bootstrap.container import (
     Container,
     NoGeocoder,
     NoPostcodes,
     NoTelemetry,
     build,
 )
-from diucs.bootstrap.network_services import (
+from overwatch.bootstrap.network_services import (
     build_network_admin_services,
     build_network_ownership,
     build_network_services,
 )
-from diucs.bootstrap.platform_services import install_platform_routes
-from diucs.bootstrap.secret_store import (
+from overwatch.bootstrap.platform_services import install_platform_routes
+from overwatch.bootstrap.secret_store import (
     OS_PLACES_API_KEY_SECRET,
     SecretConfigError,
     address_key_from_store,
@@ -111,11 +113,11 @@ from diucs.bootstrap.secret_store import (
     load_secret_store,
     settings_from_vault,
 )
-from diucs.bootstrap.settings import Settings
-from diucs.bootstrap.telemetry import api_instrumentation
-from diucs.domain.errors import NotFound
-from diucs.domain.rules.browser_insight import MARKER_SECRET
-from diucs.domain.rules.tenant_keys import PER_TENANT_KEY_NAMES
+from overwatch.bootstrap.settings import Settings
+from overwatch.bootstrap.telemetry import api_instrumentation
+from overwatch.domain.errors import NotFound
+from overwatch.domain.rules.browser_insight import MARKER_SECRET
+from overwatch.domain.rules.tenant_keys import PER_TENANT_KEY_NAMES
 
 log = logging.getLogger(__name__)
 
@@ -149,10 +151,10 @@ _OPTIONAL_EFFECT: Final = {
 }
 
 MIN_SECRET_BYTES: Final = 32
-SERVICE_BUS_MISSING: Final = "DIUCS_SERVICEBUS_CONNECTION must be set for the API"
+SERVICE_BUS_MISSING: Final = "OVERWATCH_SERVICEBUS_CONNECTION must be set for the API"
 SECRET_STORE_MISSING: Final = (
-    "no secret store is configured for the API: set DIUCS_KEY_VAULT_URL (Azure Key Vault), or "
-    "for development DIUCS_SECRETS_DIR; the process will not start without the secrets it reads"
+    "no secret store is configured for the API: set OVERWATCH_KEY_VAULT_URL (Azure Key Vault), or "
+    "for development OVERWATCH_SECRETS_DIR; the process will not start without the secrets it reads"
 )
 
 
@@ -239,21 +241,21 @@ def check_settings(settings: Settings) -> None:
     """The settings that would make a running process wrong without it knowing."""
     if settings.profile == "production":
         url = settings.base_url
-        placeholder = "diucs.example" in url
+        placeholder = "overwatch.example" in url
         if not url.startswith("https://") or placeholder:
             raise ApiConfigError(
-                "DIUCS_BASE_URL must be the public https URL of the API: Twilio's signature of "
+                "OVERWATCH_BASE_URL must be the public https URL of the API: Twilio's signature of "
                 "an inbound text is checked against it"
             )
     if settings.synthetic_enabled:
         raise ApiConfigError(
-            "DIUCS_SYNTHETIC_ENABLED is set but no synthetic link issuer is built: the hook "
+            "OVERWATCH_SYNTHETIC_ENABLED is set but no synthetic link issuer is built: the hook "
             "would answer 404 to every check"
         )
     if settings.operator_directory_id is not None and (
         normalise_directory_id(settings.operator_directory_id) is None
     ):
-        raise ApiConfigError("DIUCS_OPERATOR_DIRECTORY_ID must be a directory id (a GUID)")
+        raise ApiConfigError("OVERWATCH_OPERATOR_DIRECTORY_ID must be a directory id (a GUID)")
 
 
 def _ranges_from_file(path: Path) -> tuple[IPNetwork, ...]:
@@ -266,7 +268,7 @@ def _ranges_from_file(path: Path) -> tuple[IPNetwork, ...]:
         return parse_ranges(lines)
     except OSError, UnicodeDecodeError, ValueError:
         raise ApiConfigError(
-            "DIUCS_EDGE_CLOUDFLARE_RANGES_FILE cannot be read as one network range for each line"
+            "OVERWATCH_EDGE_CLOUDFLARE_RANGES_FILE cannot be read as one network range for each line"  # noqa: E501
         ) from None
 
 
@@ -281,7 +283,7 @@ def edge_for(settings: Settings, secrets: SecretStore) -> CloudflareEdge:
         extra = parse_ranges(settings.edge_trusted_peers)
     except ValueError:
         raise ApiConfigError(
-            "DIUCS_EDGE_TRUSTED_PEERS holds a value that is not a network"
+            "OVERWATCH_EDGE_TRUSTED_PEERS holds a value that is not a network"
         ) from None
     origin: bytes | None
     try:
@@ -305,20 +307,22 @@ def startup_warnings(settings: Settings, container: Container, parts: ApiParts) 
     found: list[str] = []
     if isinstance(container.postcodes, NoPostcodes):
         found.append(
-            "no postcode centroid file (DIUCS_POSTCODE_CENTROIDS_PATH): no position is located"
+            "no postcode centroid file (OVERWATCH_POSTCODE_CENTROIDS_PATH): no position is located"
         )
     if isinstance(container.geocoder, NoGeocoder):
         found.append(
-            "no address lookup key (DIUCS_OS_PLACES_API_KEY): registration offers no address"
+            "no address lookup key (OVERWATCH_OS_PLACES_API_KEY): registration offers no address"
         )
     if isinstance(container.telemetry, NoTelemetry):
         found.append("no telemetry workspace or client: the support console shows no telemetry")
     if settings.operator_directory_id is None:
-        found.append("no operator directory (DIUCS_OPERATOR_DIRECTORY_ID): no operator signs in")
+        found.append(
+            "no operator directory (OVERWATCH_OPERATOR_DIRECTORY_ID): no operator signs in"
+        )
     if isinstance(parts.verifier, RefusingIdentityVerifier):
         found.append("no identity verifier is built: every staff and operator sign-in is refused")
     if settings.edge == "none":
-        found.append("DIUCS_EDGE is none: forwarded client addresses and hosts are ignored")
+        found.append("OVERWATCH_EDGE is none: forwarded client addresses and hosts are ignored")
     return found
 
 
@@ -485,8 +489,10 @@ def app_factory() -> FastAPI:
 
 
 def main() -> None:
-    # The application's own log lines (a refused token exchange names its reason; nothing logs a value) are INFO,
-    # and Python's root logger is WARNING until it is configured: without this they never reach the container log.
+    # The application's own log lines (a refused token exchange names its reason; nothing logs a
+    # value) are INFO,
+    # and Python's root logger is WARNING until it is configured: without this they never reach the
+    # container log.
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     try:
         settings, parts = prepare_process(Settings())

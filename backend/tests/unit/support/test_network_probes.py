@@ -9,14 +9,14 @@ import re
 
 import pytest
 
-from diucs.adapters.outbound.graph_store.queries import (
+from overwatch.adapters.outbound.graph_store.queries import (
     BOTH_KINDS,
     NETWORK_KINDS,
     REGISTRY,
     TENANT_KINDS,
 )
-from diucs.application.tenancy import ScopeKind, is_valid_tenant_id
-from diucs.domain.model.network import check_network_id
+from overwatch.application.tenancy import ScopeKind, is_valid_tenant_id
+from overwatch.domain.model.network import check_network_id
 from tests.support import query_probes
 from tests.support.network_world import (
     NETWORK_INVARIANTS,

@@ -12,9 +12,9 @@ entry records the gap.
 from datetime import UTC, datetime
 from typing import Any, Final, Literal
 
-from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.adapters.outbound.graph_store.scenario import (
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx, run_query
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from overwatch.adapters.outbound.graph_store.scenario import (
     Expect,
     Marked,
     NodeSpec,
@@ -23,7 +23,7 @@ from diucs.adapters.outbound.graph_store.scenario import (
     SeedRel,
     TenantSeed,
 )
-from diucs.application.ports.outbound.support_tickets import SupportTicketRecord
+from overwatch.application.ports.outbound.support_tickets import SupportTicketRecord
 
 _NOW: Final = datetime(2026, 10, 29, 9, 0, tzinfo=UTC)
 

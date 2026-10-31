@@ -21,13 +21,13 @@ change the registry run the same end directly, so reconciliation is the safety n
 
 from dataclasses import dataclass
 
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.network import NetworkRegistry
-from diucs.application.ports.outbound.projection import SourceStatus
-from diucs.application.ports.outbound.unit_of_work import NetworkUnitOfWorkFactory
-from diucs.application.tenancy import bind_network
-from diucs.application.use_cases.network_leave import EndProjections
-from diucs.domain.model.network import (
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.network import NetworkRegistry
+from overwatch.application.ports.outbound.projection import SourceStatus
+from overwatch.application.ports.outbound.unit_of_work import NetworkUnitOfWorkFactory
+from overwatch.application.tenancy import bind_network
+from overwatch.application.use_cases.network_leave import EndProjections
+from overwatch.domain.model.network import (
     GrantEndReason,
     GrantScope,
     NetworkStatus,

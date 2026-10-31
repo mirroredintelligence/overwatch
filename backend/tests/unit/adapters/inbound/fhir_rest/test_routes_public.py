@@ -13,16 +13,16 @@ from typing import Any
 import httpx
 import pytest
 
-from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.inbound.fhir_rest.errors import NOT_FOUND_TEXT
-from diucs.adapters.inbound.fhir_rest.routes_public import PROFILE_PATH
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.application.ports.outbound.tenants import TenantRecordInvalid
-from diucs.application.rate_limits import PUBLIC_REQUESTS_PER_ADDRESS
-from diucs.application.tenancy import current_scope, current_scope_or_none
-from diucs.domain.model.tenant import (
+from overwatch.adapters.inbound.fhir_rest.app import create_app
+from overwatch.adapters.inbound.fhir_rest.errors import NOT_FOUND_TEXT
+from overwatch.adapters.inbound.fhir_rest.routes_public import PROFILE_PATH
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.application.ports.outbound.tenants import TenantRecordInvalid
+from overwatch.application.rate_limits import PUBLIC_REQUESTS_PER_ADDRESS
+from overwatch.application.tenancy import current_scope, current_scope_or_none
+from overwatch.domain.model.tenant import (
     ConfigStatus,
     ContactKind,
     TenantConfig,

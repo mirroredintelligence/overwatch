@@ -14,10 +14,10 @@ import pytest
 from httpx import AsyncClient
 from neo4j import AsyncDriver
 
-from diucs.adapters.testing.tokens import issue_test_token
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.domain.codes import Role
-from diucs.domain.model.people import Practitioner
+from overwatch.adapters.testing.tokens import issue_test_token
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.domain.codes import Role
+from overwatch.domain.model.people import Practitioner
 from tests.integration.adapters.inbound.fhir_rest.test_routes_support import (
     CODE_PATTERN,
     NOW,

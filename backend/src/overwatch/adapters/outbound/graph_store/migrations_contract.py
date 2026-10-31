@@ -21,8 +21,8 @@ migration, so a database that applied the expand step applies this one alone.
 
 from typing import Final
 
-from diucs.adapters.outbound.graph_store.migration_types import Migration
-from diucs.adapters.outbound.graph_store.migrations_tenant import COMPOSITE_CONSTRAINTS
+from overwatch.adapters.outbound.graph_store.migration_types import Migration
+from overwatch.adapters.outbound.graph_store.migrations_tenant import COMPOSITE_CONSTRAINTS
 
 CONTRACT_MIGRATION_ID: Final = "0105_drop_superseded_keys"
 

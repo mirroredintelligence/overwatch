@@ -9,8 +9,8 @@ from datetime import UTC, datetime
 
 import pytest
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.registration_record import RECORD_STEP, registration_steps
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.registration_record import RECORD_STEP, registration_steps
 
 
 def at(hour: int, minute: int) -> datetime:

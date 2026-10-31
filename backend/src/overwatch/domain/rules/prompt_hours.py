@@ -13,9 +13,9 @@ from datetime import datetime, timedelta
 from typing import Final
 from zoneinfo import ZoneInfo
 
-from diucs.domain.model.service import AvailableTime
-from diucs.domain.rules.london_time import LONDON
-from diucs.domain.rules.opening_hours import is_in_hours
+from overwatch.domain.model.service import AvailableTime
+from overwatch.domain.rules.london_time import LONDON
+from overwatch.domain.rules.opening_hours import is_in_hours
 
 ONE_TICK: Final = timedelta(microseconds=1)
 

@@ -17,7 +17,7 @@ const B = TENANTS.B;
 const C = TENANTS.C;
 
 beforeEach(() => {
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
   resetProfileCache();
   resetProfileRequests();
 });
@@ -160,7 +160,7 @@ describe('readTenantProfile: what comes back', () => {
   });
 
   it('is null, never an error, when the back end address is not configured', async () => {
-    vi.stubEnv('DIUCS_FHIR_BASE_URL', '');
+    vi.stubEnv('OVERWATCH_FHIR_BASE_URL', '');
     expect(await readTenantProfile(A.host)).toBeNull();
   });
 });

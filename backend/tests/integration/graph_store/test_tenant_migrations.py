@@ -18,18 +18,18 @@ import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 from neo4j.exceptions import ConstraintError
 
-from diucs.adapters.outbound.graph_store.migration_types import MigrationFailed
-from diucs.adapters.outbound.graph_store.migrations import (
+from overwatch.adapters.outbound.graph_store.migration_types import MigrationFailed
+from overwatch.adapters.outbound.graph_store.migrations import (
     CORE_MIGRATIONS,
     MIGRATIONS,
     apply_migrations,
 )
-from diucs.adapters.outbound.graph_store.migrations_contract import CONTRACT_MIGRATIONS
-from diucs.adapters.outbound.graph_store.migrations_network import NETWORK_MIGRATIONS
-from diucs.adapters.outbound.graph_store.migrations_protected import PROTECTED_MIGRATIONS
-from diucs.adapters.outbound.graph_store.migrations_safety import SAFETY_MIGRATIONS
-from diucs.adapters.outbound.graph_store.migrations_support import SUPPORT_MIGRATIONS
-from diucs.adapters.outbound.graph_store.migrations_tenant import (
+from overwatch.adapters.outbound.graph_store.migrations_contract import CONTRACT_MIGRATIONS
+from overwatch.adapters.outbound.graph_store.migrations_network import NETWORK_MIGRATIONS
+from overwatch.adapters.outbound.graph_store.migrations_protected import PROTECTED_MIGRATIONS
+from overwatch.adapters.outbound.graph_store.migrations_safety import SAFETY_MIGRATIONS
+from overwatch.adapters.outbound.graph_store.migrations_support import SUPPORT_MIGRATIONS
+from overwatch.adapters.outbound.graph_store.migrations_tenant import (
     COMPOSITE_CONSTRAINTS,
     COMPOSITE_INDEXES,
     OPEN_REFERENCE_BACKFILL,
@@ -41,8 +41,10 @@ from diucs.adapters.outbound.graph_store.migrations_tenant import (
     backfill_default_tenant,
     invariant_violations,
 )
-from diucs.adapters.outbound.graph_store.migrations_tenant_config import TENANT_CONFIG_MIGRATIONS
-from diucs.application.tenancy import DEFAULT_TENANT_ID
+from overwatch.adapters.outbound.graph_store.migrations_tenant_config import (
+    TENANT_CONFIG_MIGRATIONS,
+)
+from overwatch.application.tenancy import DEFAULT_TENANT_ID
 from tests.support.neo4j import read_tx, throwaway_driver, wipe_all, write_tx
 from tests.support.tenant_seed import (
     SUPERSEDED_CONSTRAINT_NAMES,

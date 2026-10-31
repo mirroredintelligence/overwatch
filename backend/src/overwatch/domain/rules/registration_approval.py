@@ -5,9 +5,9 @@ the send-back note (U29). Pure: no I/O and no clock.
 import re
 from typing import Final
 
-from diucs.domain.codes import RegistrationStatus
-from diucs.domain.errors import InvalidTransition, NotAllowed, ValidationFailed
-from diucs.domain.rules.registration import transition_registration
+from overwatch.domain.codes import RegistrationStatus
+from overwatch.domain.errors import InvalidTransition, NotAllowed, ValidationFailed
+from overwatch.domain.rules.registration import transition_registration
 
 MAX_NOTE_LENGTH: Final = 280
 # A run of nine or more digits can be an NHS number or a phone number: a note must not carry one.

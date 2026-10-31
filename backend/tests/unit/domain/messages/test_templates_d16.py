@@ -1,4 +1,5 @@
-"""Tests for diucs.domain.messages.templates: booking, invitation, code and alert messages (D16).
+"""Tests for overwatch.domain.messages.templates: booking, invitation, code and alert messages
+(D16).
 
 Wording: docs/spec/domain-rules.md section 9 and the D16 prompt (exact text). Where the prompt is
 silent or marks a text [ASSUMED], DEC-037 records the choice. ui-screens.md is the screen wording
@@ -13,11 +14,11 @@ from typing import Final
 
 import pytest
 
-from diucs.domain.codes import Channel
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.messages.sms_length import sms_segments
-from diucs.domain.messages.templates import RenderedMessage, render
+from overwatch.domain.codes import Channel
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.messages.sms_length import sms_segments
+from overwatch.domain.messages.templates import RenderedMessage, render
 
 UK_POSTCODE = re.compile(r"\b[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}\b")
 
@@ -32,7 +33,7 @@ B1_FIELDS: dict[str, object] = {
     "age_band": "80+",
     "need": "frailty",
     "urgency": "within 2 hrs",
-    "link": "diucs.example/b4821",
+    "link": "overwatch.example/b4821",
     "reply_by": "14:26",
     "referral_system_name": DEFAULT_REFERRAL_SYSTEM_NAME,
 }
@@ -47,8 +48,8 @@ BOOKING_FIELDS: dict[MessageId, dict[str, object]] = {
     MessageId.B7: {"references": ["4821", "4830"]},
     MessageId.B8: {},
     MessageId.B9: {},
-    MessageId.I1: {"service": "UCR West", "link": "diucs.example/i/Qx82"},
-    MessageId.I2: {"link": "diucs.example/i/Ab41", "system_name": DEFAULT_SYSTEM_NAME},
+    MessageId.I1: {"service": "UCR West", "link": "overwatch.example/i/Qx82"},
+    MessageId.I2: {"link": "overwatch.example/i/Ab41", "system_name": DEFAULT_SYSTEM_NAME},
     MessageId.I3: {"service": "UCR West"},
     MessageId.K1: {"code": "582913"},
     MessageId.K2: {"service": "UCR West", "review_by": "12 Dec"},
@@ -63,9 +64,9 @@ BOOKING_FIELDS: dict[MessageId, dict[str, object]] = {
 def test_b1_renders_the_need_code_pending_owner_wording() -> None:
     rendered = render(MessageId.B1, Channel.TEXT, **B1_FIELDS)
     assert rendered.text == (
-        "DIUCS REQUEST 4821: UCR West. Age 80+, frailty, within 2 hrs. "
+        "Overwatch REQUEST 4821: UCR West. Age 80+, frailty, within 2 hrs. "
         "Referral details follow in SystmOne. Reply CONFIRMED or DECLINE, "
-        "or open diucs.example/b4821 by 14:26."
+        "or open overwatch.example/b4821 by 14:26."
     )
     assert rendered.subject is None
     assert rendered.html is None
@@ -120,12 +121,12 @@ def test_b2_email_subject_and_labelled_review_link() -> None:
         "Referral details follow in SystmOne.",
         "Please review and reply by 14:26.",
     ]
-    assert "Review request: diucs.example/b4821" in rendered.text
+    assert "Review request: overwatch.example/b4821" in rendered.text
     assert "Opening the link does not book anything." in rendered.text
     assert "The link works once and needs no login." in rendered.text
     assert rendered.html is not None
     assert ">Review request</a>" in rendered.html
-    assert 'href="diucs.example/b4821"' in rendered.html
+    assert 'href="overwatch.example/b4821"' in rendered.html
 
 
 def test_b2_email_html_escapes_the_service_name() -> None:
@@ -145,10 +146,12 @@ def test_b3_push_title_and_text() -> None:
 
 
 def test_i1_invitation_for_a_service_matches_the_rule_book() -> None:
-    rendered = render(MessageId.I1, Channel.TEXT, service="UCR West", link="diucs.example/i/Qx82")
+    rendered = render(
+        MessageId.I1, Channel.TEXT, service="UCR West", link="overwatch.example/i/Qx82"
+    )
     assert rendered.text == (
-        "DIUCS: You are invited to report capacity for UCR West. "
-        "Set up takes about 3 minutes: diucs.example/i/Qx82 Valid for 48 hrs."
+        "Overwatch: You are invited to report capacity for UCR West. "
+        "Set up takes about 3 minutes: overwatch.example/i/Qx82 Valid for 48 hrs."
     )
 
 
@@ -156,18 +159,18 @@ def test_i2_invitation_for_the_exec_view() -> None:
     rendered = render(
         MessageId.I2,
         Channel.TEXT,
-        link="diucs.example/i/Ab41",
+        link="overwatch.example/i/Ab41",
         system_name=DEFAULT_SYSTEM_NAME,
     )
     assert rendered.text == (
-        "DIUCS: You are invited to see Dorset urgent care capacity on your phone. "
-        "Set up takes about 3 minutes: diucs.example/i/Ab41 Valid for 48 hrs."
+        "Overwatch: You are invited to see Dorset urgent care capacity on your phone. "
+        "Set up takes about 3 minutes: overwatch.example/i/Ab41 Valid for 48 hrs."
     )
 
 
 def test_i3_test_prompt_wording() -> None:
     rendered = render(MessageId.I3, Channel.TEXT, service="UCR West")
-    assert rendered.text == "DIUCS test: UCR West. Reply Y to show you receive prompts."
+    assert rendered.text == "Overwatch test: UCR West. Reply Y to show you receive prompts."
 
 
 # Codes and alerts (K1 to K4)
@@ -175,7 +178,7 @@ def test_i3_test_prompt_wording() -> None:
 
 def test_k1_text_code_wording() -> None:
     rendered = render(MessageId.K1, Channel.TEXT, code="582913")
-    assert rendered.text == "DIUCS code: 582913. It works for 10 minutes. Do not share it."
+    assert rendered.text == "Overwatch code: 582913. It works for 10 minutes. Do not share it."
 
 
 def test_k2_email_subject_and_body_carry_the_review_text() -> None:
@@ -209,7 +212,7 @@ def test_k4_suspended_notice_wording() -> None:
         coordination_team_name=DEFAULT_COORDINATION_TEAM_NAME,
     )
     assert rendered.text == (
-        "DIUCS: UCR East is suspended. Prompts have stopped. The SPOA shift lead will phone you."
+        "Overwatch: UCR East is suspended. Prompts have stopped. The SPOA shift lead will phone you."  # noqa: E501
     )
 
 
@@ -314,17 +317,17 @@ def _rendered_parts(rendered: RenderedMessage) -> str:
 
 def test_default_tenant_values_give_the_rule_book_text_for_i2_b1_and_k4() -> None:
     i2 = render(
-        MessageId.I2, Channel.TEXT, link="diucs.example/i/Qx82", system_name=DEFAULT_SYSTEM_NAME
+        MessageId.I2, Channel.TEXT, link="overwatch.example/i/Qx82", system_name=DEFAULT_SYSTEM_NAME
     )
     assert i2.text == (
-        "DIUCS: You are invited to see Dorset urgent care capacity on your phone. "
-        "Set up takes about 3 minutes: diucs.example/i/Qx82 Valid for 48 hrs."
+        "Overwatch: You are invited to see Dorset urgent care capacity on your phone. "
+        "Set up takes about 3 minutes: overwatch.example/i/Qx82 Valid for 48 hrs."
     )
     b1 = render(MessageId.B1, Channel.TEXT, **B1_FIELDS)
     assert b1.text == (
-        "DIUCS REQUEST 4821: UCR West. Age 80+, frailty, within 2 hrs. "
+        "Overwatch REQUEST 4821: UCR West. Age 80+, frailty, within 2 hrs. "
         "Referral details follow in SystmOne. Reply CONFIRMED or DECLINE, "
-        "or open diucs.example/b4821 by 14:26."
+        "or open overwatch.example/b4821 by 14:26."
     )
     k4 = render(
         MessageId.K4,
@@ -333,7 +336,7 @@ def test_default_tenant_values_give_the_rule_book_text_for_i2_b1_and_k4() -> Non
         coordination_team_name=DEFAULT_COORDINATION_TEAM_NAME,
     )
     assert k4.text == (
-        "DIUCS: UCR West is suspended. Prompts have stopped. The SPOA shift lead will phone you."
+        "Overwatch: UCR West is suspended. Prompts have stopped. The SPOA shift lead will phone you."  # noqa: E501
     )
 
 
@@ -342,7 +345,7 @@ def test_default_tenant_values_give_the_rule_book_text_for_i2_b1_and_k4() -> Non
 
 def test_another_tenants_words_replace_the_first_deployments_in_every_message() -> None:
     i2 = render(
-        MessageId.I2, Channel.TEXT, link="diucs.example/i/Qx82", system_name=ANOTHER_SYSTEM_NAME
+        MessageId.I2, Channel.TEXT, link="overwatch.example/i/Qx82", system_name=ANOTHER_SYSTEM_NAME
     )
     b1 = render(
         MessageId.B1,
@@ -376,7 +379,7 @@ def test_another_tenants_words_replace_the_first_deployments_in_every_message() 
 @pytest.mark.parametrize(
     ("message_id", "channel", "fields", "missing"),
     [
-        (MessageId.I2, Channel.TEXT, {"link": "diucs.example/i/Qx82"}, "system_name"),
+        (MessageId.I2, Channel.TEXT, {"link": "overwatch.example/i/Qx82"}, "system_name"),
         (
             MessageId.B1,
             Channel.TEXT,
@@ -415,10 +418,10 @@ LONGEST_B1_SEGMENTS: Final = 2
 
 def test_i2_and_b1_segment_counts_for_the_default_and_the_longest_allowed_values() -> None:
     default_i2 = render(
-        MessageId.I2, Channel.TEXT, link="diucs.example/i/Qx82", system_name=DEFAULT_SYSTEM_NAME
+        MessageId.I2, Channel.TEXT, link="overwatch.example/i/Qx82", system_name=DEFAULT_SYSTEM_NAME
     )
     longest_i2 = render(
-        MessageId.I2, Channel.TEXT, link="diucs.example/i/Qx82", system_name=LONGEST_SYSTEM_NAME
+        MessageId.I2, Channel.TEXT, link="overwatch.example/i/Qx82", system_name=LONGEST_SYSTEM_NAME
     )
     default_b1 = render(MessageId.B1, Channel.TEXT, **B1_FIELDS)
     longest_b1 = render(

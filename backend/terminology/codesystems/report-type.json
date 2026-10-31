@@ -1,7 +1,7 @@
 {
   "resourceType": "CodeSystem",
   "id": "report-type",
-  "url": "https://diucs.example/CodeSystem/report-type",
+  "url": "https://overwatch.mirroredintelligence.com/CodeSystem/report-type",
   "name": "report-type",
   "status": "active",
   "content": "complete",

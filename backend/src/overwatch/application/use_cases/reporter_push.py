@@ -15,20 +15,20 @@ written (there is no role for one to be about), and the audit holds the message 
 
 from typing import Final
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.outbox import OutboxMessage
-from diucs.application.ports.outbound.sealing import ContentSealer
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.sealed_send import MESSAGES_TOPIC, SEND_MESSAGE, queue_message
-from diucs.application.tenancy import ScopeKind, TenantNotBound
-from diucs.application.use_cases.reporter_app import held_services
-from diucs.domain.codes import Channel, Role
-from diucs.domain.errors import DomainError, NotAllowed, NotFound
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.messages.templates import render
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.outbox import OutboxMessage
+from overwatch.application.ports.outbound.sealing import ContentSealer
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.sealed_send import MESSAGES_TOPIC, SEND_MESSAGE, queue_message
+from overwatch.application.tenancy import ScopeKind, TenantNotBound
+from overwatch.application.use_cases.reporter_app import held_services
+from overwatch.domain.codes import Channel, Role
+from overwatch.domain.errors import DomainError, NotAllowed, NotFound
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.messages.templates import render
 
 TEST_TITLE: Final = "Test notification"
 TEST_BODY: Final = "Capacity notifications are working on this phone."

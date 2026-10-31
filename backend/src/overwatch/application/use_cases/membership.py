@@ -24,12 +24,12 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Final
 
-from diucs.application.actor import Actor, require_actor_in_bound_tenant
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.network import NetworkRegistry
-from diucs.application.ports.outbound.tenants import TenantDirectory
-from diucs.application.use_cases.network_admin import (
+from overwatch.application.actor import Actor, require_actor_in_bound_tenant
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.network import NetworkRegistry
+from overwatch.application.ports.outbound.tenants import TenantDirectory
+from overwatch.application.use_cases.network_admin import (
     GovernanceRecorder,
     Record,
     account_ref_of,
@@ -37,11 +37,11 @@ from diucs.application.use_cases.network_admin import (
     require_owner_of,
     require_role,
 )
-from diucs.application.use_cases.network_leave import EndProjections
-from diucs.domain.codes import Role
-from diucs.domain.errors import Conflict, NotFound
-from diucs.domain.events import MemberAdded, MemberRemoved
-from diucs.domain.model.network import (
+from overwatch.application.use_cases.network_leave import EndProjections
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import Conflict, NotFound
+from overwatch.domain.events import MemberAdded, MemberRemoved
+from overwatch.domain.model.network import (
     MembershipEndReason,
     MembershipRole,
     MembershipStatus,
@@ -54,9 +54,9 @@ from diucs.domain.model.network import (
     end_membership,
     invite_member,
 )
-from diucs.domain.model.tenant import TenantStatus
-from diucs.domain.rules.grant import lapse_grants_for_member
-from diucs.domain.rules.listing import withdraw_for_leave
+from overwatch.domain.model.tenant import TenantStatus
+from overwatch.domain.rules.grant import lapse_grants_for_member
+from overwatch.domain.rules.listing import withdraw_for_leave
 
 logger = logging.getLogger(__name__)
 

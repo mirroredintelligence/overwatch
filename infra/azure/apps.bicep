@@ -1,6 +1,6 @@
 // The pilot Container Apps: api, workers, collector and web. Each runs its own managed identity, pulls from the
 // registry with that identity (AcrPull), and gets non-secret settings only. Secrets are not in this file: the code
-// reads them from Key Vault at run time with the same identity (DIUCS_KEY_VAULT_URL, AZURE_CLIENT_ID).
+// reads them from Key Vault at run time with the same identity (OVERWATCH_KEY_VAULT_URL, AZURE_CLIENT_ID).
 //
 // The images are the hello-world placeholder until the real images are pushed. Changing the image later is one
 // parameter (or az containerapp update --image), and the settings stay as they are.
@@ -74,15 +74,15 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
           name: 'api'
           image: '${registryServer}/diucs-backend:${backendImage}'
           env: [
-            { name: 'DIUCS_KEY_VAULT_URL', value: keyVaultUrl }
+            { name: 'OVERWATCH_KEY_VAULT_URL', value: keyVaultUrl }
             { name: 'AZURE_CLIENT_ID', value: apiIdentity.properties.clientId }
-            { name: 'DIUCS_BASE_URL', value: baseUrl }
-            { name: 'DIUCS_NEO4J_URI', value: neo4jUri }
-            { name: 'DIUCS_NEO4J_USER', value: neo4jUser }
-            { name: 'DIUCS_EDGE', value: 'none' }
-            { name: 'DIUCS_ENTRA_STAFF_CLIENT_ID', value: entraStaffClientId }
-            { name: 'DIUCS_ENTRA_OPERATOR_CLIENT_ID', value: entraOperatorClientId }
-            { name: 'DIUCS_OPERATOR_DIRECTORY_ID', value: operatorDirectoryId }
+            { name: 'OVERWATCH_BASE_URL', value: baseUrl }
+            { name: 'OVERWATCH_NEO4J_URI', value: neo4jUri }
+            { name: 'OVERWATCH_NEO4J_USER', value: neo4jUser }
+            { name: 'OVERWATCH_EDGE', value: 'none' }
+            { name: 'OVERWATCH_ENTRA_STAFF_CLIENT_ID', value: entraStaffClientId }
+            { name: 'OVERWATCH_ENTRA_OPERATOR_CLIENT_ID', value: entraOperatorClientId }
+            { name: 'OVERWATCH_OPERATOR_DIRECTORY_ID', value: operatorDirectoryId }
           ]
           resources: {
             cpu: json('0.25')
@@ -125,10 +125,10 @@ resource workers 'Microsoft.App/containerApps@2024-03-01' = {
           image: '${registryServer}/diucs-backend:${backendImage}'
           command: ['python', '-m', 'diucs.bootstrap.workers_main']
           env: [
-            { name: 'DIUCS_KEY_VAULT_URL', value: keyVaultUrl }
+            { name: 'OVERWATCH_KEY_VAULT_URL', value: keyVaultUrl }
             { name: 'AZURE_CLIENT_ID', value: workersIdentity.properties.clientId }
-            { name: 'DIUCS_NEO4J_URI', value: neo4jUri }
-            { name: 'DIUCS_NEO4J_USER', value: neo4jUser }
+            { name: 'OVERWATCH_NEO4J_URI', value: neo4jUri }
+            { name: 'OVERWATCH_NEO4J_USER', value: neo4jUser }
           ]
           resources: {
             cpu: json('0.25')
@@ -235,14 +235,14 @@ resource web 'Microsoft.App/containerApps@2024-03-01' = {
           name: 'web'
           image: '${registryServer}/diucs-web:${webImage}'
           env: [
-            { name: 'DIUCS_KEY_VAULT_URL', value: keyVaultUrl }
+            { name: 'OVERWATCH_KEY_VAULT_URL', value: keyVaultUrl }
             { name: 'AZURE_CLIENT_ID', value: webIdentity.properties.clientId }
-            { name: 'DIUCS_FHIR_BASE_URL', value: fhirBaseUrl }
+            { name: 'OVERWATCH_FHIR_BASE_URL', value: fhirBaseUrl }
             { name: 'ENTRA_CLIENT_ID', value: entraStaffClientId }
-            { name: 'DIUCS_PUBLIC_URL', value: baseUrl }
+            { name: 'OVERWATCH_PUBLIC_URL', value: baseUrl }
             { name: 'OPERATOR_ENTRA_CLIENT_ID', value: entraOperatorClientId }
             { name: 'OPERATOR_ENTRA_DIRECTORY_ID', value: operatorDirectoryId }
-            { name: 'DIUCS_OPERATOR_PUBLIC_URL', value: operatorBaseUrl }
+            { name: 'OVERWATCH_OPERATOR_PUBLIC_URL', value: operatorBaseUrl }
           ]
           resources: {
             cpu: json('0.25')

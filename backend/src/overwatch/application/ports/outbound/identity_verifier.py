@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Final, Protocol
 
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.errors import ValidationFailed
 
 IDENTITY_REJECTED_MESSAGE: Final = "the sign-in could not be verified"
 WRONG_TYPE_MESSAGE: Final = "has the wrong type"

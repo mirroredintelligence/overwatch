@@ -11,24 +11,24 @@ from typing import Any, cast
 
 import pytest
 
-from diucs.adapters.outbound.audit_neo4j.audit_log import (
+from overwatch.adapters.outbound.audit_neo4j.audit_log import (
     Neo4jAuditLog,
     _parse_entry,
     ensure_audit_head,
 )
-from diucs.adapters.outbound.graph_store.driver import ScopedTx
-from diucs.adapters.outbound.graph_store.queries import REGISTRY
-from diucs.adapters.outbound.graph_store.scenario import validate_scenario
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import (
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY
+from overwatch.adapters.outbound.graph_store.scenario import validate_scenario
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import (
     GENESIS_HASH,
     AuditEntry,
     canonical_entry_json,
     genesis_hash_for,
 )
-from diucs.application.tenancy import RawTransactionRefused, TenantNotBound, bind_tenant
-from diucs.domain.codes import Role
-from diucs.domain.errors import ValidationFailed
+from overwatch.application.tenancy import RawTransactionRefused, TenantNotBound, bind_tenant
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import ValidationFailed
 from tests.support.scoped import scoped_stub
 
 AUDIT_QUERY_IDS = {"Q-AUDIT-APPEND", "Q-AUDIT-LIST", "Q-PROV-APPEND"}

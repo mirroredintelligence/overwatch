@@ -13,7 +13,7 @@ from collections.abc import Sequence
 from datetime import date
 from typing import Protocol
 
-from diucs.domain.model.insight import (
+from overwatch.domain.model.insight import (
     FrictionAdd,
     FunnelAdd,
     FunnelMark,

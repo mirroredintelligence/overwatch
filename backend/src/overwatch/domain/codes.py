@@ -9,9 +9,9 @@ from dataclasses import dataclass
 from enum import StrEnum
 from types import MappingProxyType
 
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.errors import ValidationFailed
 
-BASE_URL = "https://diucs.example/"
+BASE_URL = "https://overwatch.mirroredintelligence.com/"
 """Placeholder. Identifiers cannot change once minted, so this stays in this one constant."""
 
 

@@ -15,21 +15,21 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.setup_service_by_lead import (
+from overwatch.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.setup_service_by_lead import (
     SetupServiceByLead,
     SetupServiceCommand,
     SetupServiceResult,
     build_profile,
 )
-from diucs.application.work import WorkKind
-from diucs.domain.codes import (
+from overwatch.application.work import WorkKind
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     CriteriaStatus,
@@ -39,9 +39,9 @@ from diucs.domain.codes import (
     Role,
     ServiceCategory,
 )
-from diucs.domain.errors import NotAllowed, NotFound, ValidationFailed
-from diucs.domain.model.people import Practitioner
-from diucs.domain.model.service import AvailableTime
+from overwatch.domain.errors import NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.model.people import Practitioner
+from overwatch.domain.model.service import AvailableTime
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, read_tx, run_nodes
 from tests.support.uow import ensure_audit_heads

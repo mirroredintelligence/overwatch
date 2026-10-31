@@ -4,7 +4,7 @@ so a test can show that an export that did not arrive whole is not acknowledged.
 
 import hashlib
 
-from diucs.domain.rules.tenant_export import MANIFEST_FILE
+from overwatch.domain.rules.tenant_export import MANIFEST_FILE
 
 
 class MemoryExportStorage:

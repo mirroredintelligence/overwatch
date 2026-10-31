@@ -14,15 +14,15 @@ import pytest
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
-from diucs.domain.codes import AlertKind
-from diucs.domain.errors import NotAllowed, ValidationFailed
-from diucs.domain.model.tenant_policy import (
+from overwatch.domain.codes import AlertKind
+from overwatch.domain.errors import NotAllowed, ValidationFailed
+from overwatch.domain.model.tenant_policy import (
     DEFAULT_POLICY,
     FIELD_BOUNDS,
     TenantPolicy,
     require_policy,
 )
-from diucs.domain.rules import (
+from overwatch.domain.rules import (
     alerts,
     booking_rules,
     clinical_queue,
@@ -35,7 +35,7 @@ from diucs.domain.rules import (
     report_flags,
     schedule,
 )
-from diucs.domain.rules.tenant_settings import (
+from overwatch.domain.rules.tenant_settings import (
     SETTING_SPECS,
     SafetyClass,
     SettingKind,

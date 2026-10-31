@@ -16,7 +16,7 @@ export const ROLE_CHOICES: Record<TourRole, string> = {
 export type RoleScreen = {
   heading: string;
   today: readonly string[];
-  withDiucs: readonly string[];
+  withOverwatch: readonly string[];
   action: string;
   /** A closing line for the role, when the artboard has one. */
   closing?: string;
@@ -30,7 +30,7 @@ export const ROLE_SCREENS: Record<TourRole, RoleScreen> = {
       'Whiteboards and emails at set times',
       'Chased when a report is late',
     ],
-    withDiucs: ['We ask. You tap. About 10 seconds.', 'The board is current, so fewer calls', 'Nobody chases you'],
+    withOverwatch: ['We ask. You tap. About 10 seconds.', 'The board is current, so fewer calls', 'Nobody chases you'],
     action: 'Try a practice update',
     closing: 'A phone call today takes [x] minutes. We measure it in the pilot.',
   },
@@ -41,7 +41,7 @@ export const ROLE_SCREENS: Record<TourRole, RoleScreen> = {
       'Check whiteboards and emails that may be hours old',
       'Key the same details into each referral',
     ],
-    withDiucs: [
+    withOverwatch: [
       'See what is open, and how old each figure is',
       'Request a booking by text and move on',
       'Copy one summary into SystmOne',
@@ -51,7 +51,7 @@ export const ROLE_SCREENS: Record<TourRole, RoleScreen> = {
   lead: {
     heading: 'For shift leads',
     today: ['Chase late reporters by phone', 'Keep a list of who covers whom', 'Hold catch-up meetings to find the picture'],
-    withDiucs: [
+    withOverwatch: [
       'See who has not reported and chase in one tap',
       'Change a cover number in seconds',
       'Everyone sees the same board, so fewer huddles',
@@ -61,13 +61,13 @@ export const ROLE_SCREENS: Record<TourRole, RoleScreen> = {
   clinical: {
     heading: 'For clinical advisors',
     today: ['Interrupted by calls with no case ready', 'Asked the same questions again'],
-    withDiucs: ['Requests arrive with the case and what the advisor saw', 'Advise on one screen and it is logged'],
+    withOverwatch: ['Requests arrive with the case and what the advisor saw', 'Advise on one screen and it is logged'],
     action: 'Go on duty',
   },
   exec: {
     heading: 'For COOs and ICB leads',
     today: ['Ask for updates by phone and in meetings', 'Hear about pressure late', 'Cannot see unused capacity'],
-    withDiucs: ['The system picture in your pocket', 'Alerts only for what you choose', 'A weekly summary replaces a meeting'],
+    withOverwatch: ['The system picture in your pocket', 'Alerts only for what you choose', 'A weekly summary replaces a meeting'],
     action: 'Choose my alerts',
   },
 };

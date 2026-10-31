@@ -14,13 +14,13 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.tenant_config_repository import (
+from overwatch.adapters.outbound.graph_store.tenant_config_repository import (
     Neo4jTenantConfigRepository,
 )
-from diucs.application.ports.outbound.tenants import TenantRecordInvalid
-from diucs.domain.codes import Role
-from diucs.domain.errors import Conflict, InvalidTransition, ValidationFailed
-from diucs.domain.model.tenant import (
+from overwatch.application.ports.outbound.tenants import TenantRecordInvalid
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import Conflict, InvalidTransition, ValidationFailed
+from overwatch.domain.model.tenant import (
     ConfigStatus,
     ContactKind,
     NumberStatus,
@@ -28,7 +28,7 @@ from diucs.domain.model.tenant import (
     TenantConfig,
     TenantContact,
 )
-from diucs.domain.model.tenant_records import (
+from overwatch.domain.model.tenant_records import (
     BindingStatus,
     ChannelKind,
     ChannelProvider,

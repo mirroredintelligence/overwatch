@@ -33,17 +33,17 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Final
 
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.network import NetworkRegistry
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.scheduling import schedule_work
-from diucs.application.tenancy import ScopeKind, TenantNotBound, current_scope, current_tenant
-from diucs.application.use_cases.project_network import ProjectNetwork
-from diucs.application.use_cases.projection_reconcile import ReconcileProjection
-from diucs.application.work import SCHEDULED, WorkKind
-from diucs.domain.errors import Conflict
-from diucs.domain.model.network import GrantStatus, MembershipStatus
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.network import NetworkRegistry
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.scheduling import schedule_work
+from overwatch.application.tenancy import ScopeKind, TenantNotBound, current_scope, current_tenant
+from overwatch.application.use_cases.project_network import ProjectNetwork
+from overwatch.application.use_cases.projection_reconcile import ReconcileProjection
+from overwatch.application.work import SCHEDULED, WorkKind
+from overwatch.domain.errors import Conflict
+from overwatch.domain.model.network import GrantStatus, MembershipStatus
 
 HEARTBEAT_INTERVAL: Final = timedelta(minutes=5)
 MIN_GAP: Final = timedelta(minutes=1)

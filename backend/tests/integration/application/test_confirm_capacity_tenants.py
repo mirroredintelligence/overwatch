@@ -29,21 +29,21 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import TenantMismatch
-from diucs.application.use_cases.confirm_capacity import ConfirmCapacity, ConfirmCapacityCommand
-from diucs.application.use_cases.report_capacity import PERFORMER_NOT_FOUND
-from diucs.application.use_cases.tenant_config import (
+from overwatch.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import TenantMismatch
+from overwatch.application.use_cases.confirm_capacity import ConfirmCapacity, ConfirmCapacityCommand
+from overwatch.application.use_cases.report_capacity import PERFORMER_NOT_FOUND
+from overwatch.application.use_cases.tenant_config import (
     ApproveConfigCommand,
     ApproveTenantConfig,
     DraftConfigCommand,
     DraftTenantConfig,
 )
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     Measure,
@@ -53,10 +53,10 @@ from diucs.domain.codes import (
     Role,
     ServiceCategory,
 )
-from diucs.domain.errors import ConfirmLimitReached, Conflict, NotFound
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.errors import ConfirmLimitReached, Conflict, NotFound
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.neo4j import read_tx, run_scope_ids
 from tests.support.tenancy import as_tenant
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory

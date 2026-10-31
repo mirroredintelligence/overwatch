@@ -7,14 +7,14 @@ with no default: a tenant with no area fails every address check (DEC-317).
 
 import pytest
 
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.application.tenancy import ScopeId
-from diucs.application.use_cases.registration_draft import SubmitRegistration
-from diucs.application.use_cases.registration_submit import PersistRegistration
-from diucs.bootstrap.areas import area_districts_for, parse_area
-from diucs.bootstrap.container import build_for_tests
-from diucs.bootstrap.settings import Settings
-from diucs.bootstrap.wiring import submit_registration
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.application.tenancy import ScopeId
+from overwatch.application.use_cases.registration_draft import SubmitRegistration
+from overwatch.application.use_cases.registration_submit import PersistRegistration
+from overwatch.bootstrap.areas import area_districts_for, parse_area
+from overwatch.bootstrap.container import build_for_tests
+from overwatch.bootstrap.settings import Settings
+from overwatch.bootstrap.wiring import submit_registration
 
 
 def test_an_area_is_a_list_of_districts_and_runs() -> None:
@@ -44,7 +44,7 @@ def test_a_network_scope_has_no_area() -> None:
 
 def test_the_settings_carry_the_areas_and_default_to_none(monkeypatch: pytest.MonkeyPatch) -> None:
     assert Settings().tenant_areas == {}
-    monkeypatch.setenv("DIUCS_TENANT_AREAS", '{"tenant-a": "DT1-DT11"}')
+    monkeypatch.setenv("OVERWATCH_TENANT_AREAS", '{"tenant-a": "DT1-DT11"}')
     assert Settings().tenant_areas == {"tenant-a": "DT1-DT11"}
 
 

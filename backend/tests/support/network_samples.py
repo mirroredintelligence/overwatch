@@ -9,7 +9,7 @@ import os
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
-from diucs.domain.model.network import (
+from overwatch.domain.model.network import (
     Agreement,
     Grant,
     GrantApprover,
@@ -26,17 +26,17 @@ from diucs.domain.model.network import (
     invite_member,
     owner_membership,
 )
-from diucs.domain.model.network_settings import NetworkSettings
-from diucs.domain.rules.grant import approve_grant, propose_grant
-from diucs.domain.rules.listing import admit_listing, request_listing
+from overwatch.domain.model.network_settings import NetworkSettings
+from overwatch.domain.rules.grant import approve_grant, propose_grant
+from overwatch.domain.rules.listing import admit_listing, request_listing
 
 T0 = datetime(2026, 10, 1, 9, 0, tzinfo=UTC)
 NOW = T0 + timedelta(days=30)
 # Under pytest the ids are derived from the run (the conftest exports the run's tenant and network
 # scope), so two runs on one shared Neo4j never meet in the registry, which carries no tenant:
 # `net-pilot` and `tenant-a` are the readable names of a process with no run.
-_RUN_TENANT = os.environ.get("DIUCS_TEST_TENANT")
-_RUN_NETWORK = os.environ.get("DIUCS_TEST_NETWORK")
+_RUN_TENANT = os.environ.get("OVERWATCH_TEST_TENANT")
+_RUN_NETWORK = os.environ.get("OVERWATCH_TEST_NETWORK")
 NETWORK_ID = _RUN_NETWORK or "net-pilot"
 OTHER_NETWORK_ID = f"{_RUN_NETWORK}-b" if _RUN_NETWORK else "net-other"
 OWNER = f"{_RUN_TENANT}-o" if _RUN_TENANT else "tenant-a"

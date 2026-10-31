@@ -3,7 +3,8 @@
 
 The text reply (HandleInboundText) and the link reply (link_access) both judge hazard H-32 (a number
 written since the prompt was sent). They each had a copy; the copies could drift. They now share
-`diucs.application.prompt_judgement`. RenewLink imported the private `_render` and `_send_payload`
+`overwatch.application.prompt_judgement`. RenewLink imported the private `_render` and
+`_send_payload`
 of send_prompts; the names it reuses are public now.
 """
 
@@ -15,10 +16,10 @@ from typing import Any
 
 import pytest
 
-from diucs.application import prompt_judgement
-from diucs.application.use_cases import handle_inbound_text, link_access, send_prompts
-from diucs.domain.codes import Measure, ReportSource, ReportType
-from diucs.domain.model.capacity import CapacityReport
+from overwatch.application import prompt_judgement
+from overwatch.application.use_cases import handle_inbound_text, link_access, send_prompts
+from overwatch.domain.codes import Measure, ReportSource, ReportType
+from overwatch.domain.model.capacity import CapacityReport
 
 PROMPT = datetime(2026, 10, 23, 9, 0, 30, 400000, tzinfo=UTC)
 

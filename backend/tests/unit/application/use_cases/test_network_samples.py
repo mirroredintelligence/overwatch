@@ -12,15 +12,15 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.application.actor import Actor
-from diucs.application.tenancy import ScopeKind, bind_network, current_scope_or_none
-from diucs.application.use_cases.network_board_projector import NetworkBoardProjector
-from diucs.application.use_cases.network_samples import RecordNetworkSample
-from diucs.application.use_cases.query_network_board import NetworkBoardView
-from diucs.domain.codes import Role, Status
-from diucs.domain.rules.network_sample import NetworkSample
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.application.actor import Actor
+from overwatch.application.tenancy import ScopeKind, bind_network, current_scope_or_none
+from overwatch.application.use_cases.network_board_projector import NetworkBoardProjector
+from overwatch.application.use_cases.network_samples import RecordNetworkSample
+from overwatch.application.use_cases.query_network_board import NetworkBoardView
+from overwatch.domain.codes import Role, Status
+from overwatch.domain.rules.network_sample import NetworkSample
 from tests.support.network_board_samples import BOARD_AT, board_entry, board_of
 
 NET = "net-pilot"

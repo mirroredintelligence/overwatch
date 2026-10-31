@@ -8,8 +8,8 @@ from datetime import date, timedelta
 
 import pytest
 
-from diucs.application.ports.outbound.geo import LatLon, TravelRange
-from diucs.application.use_cases.filter_options import (
+from overwatch.application.ports.outbound.geo import LatLon, TravelRange
+from overwatch.application.use_cases.filter_options import (
     CRITERIA_NOT_REVIEWED_WARNING,
     LIMITED_WARNING,
     OLD_DATA_WARNING,
@@ -24,8 +24,8 @@ from diucs.application.use_cases.filter_options import (
     status_warnings,
     travel_legs,
 )
-from diucs.domain.codes import CriteriaStatus, NeedCategory, Status
-from diucs.domain.model.criteria import ServiceCriteria
+from overwatch.domain.codes import CriteriaStatus, NeedCategory, Status
+from overwatch.domain.model.criteria import ServiceCriteria
 
 TODAY = date(2026, 10, 29)
 
@@ -161,9 +161,9 @@ def test_a_district_the_locator_cannot_place_is_left_out_and_none_placed_gives_n
 def test_a_snapshot_row_keeps_the_name_the_advisor_saw() -> None:
     from datetime import datetime, timedelta
 
-    from diucs.application.use_cases.filter_options import _snapshot_row
-    from diucs.application.use_cases.query_board import BoardEntry
-    from diucs.domain.codes import ServiceCategory
+    from overwatch.application.use_cases.filter_options import _snapshot_row
+    from overwatch.application.use_cases.query_board import BoardEntry
+    from overwatch.domain.codes import ServiceCategory
 
     entry = BoardEntry(
         service_id="svc-1",
@@ -191,9 +191,9 @@ def test_a_snapshot_row_keeps_the_name_the_advisor_saw() -> None:
 def test_a_snapshot_row_keeps_the_shown_position_and_a_service_not_suitable_has_none() -> None:
     from datetime import datetime, timedelta
 
-    from diucs.application.use_cases.filter_options import _snapshot_row
-    from diucs.application.use_cases.query_board import BoardEntry
-    from diucs.domain.codes import ServiceCategory
+    from overwatch.application.use_cases.filter_options import _snapshot_row
+    from overwatch.application.use_cases.query_board import BoardEntry
+    from overwatch.domain.codes import ServiceCategory
 
     entry = BoardEntry(
         service_id="svc-1",

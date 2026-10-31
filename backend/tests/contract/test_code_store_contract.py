@@ -10,9 +10,9 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from diucs.application.ports.outbound.identity import CodeResendRefused, CodeStore
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.identity_policy import (
+from overwatch.application.ports.outbound.identity import CodeResendRefused, CodeStore
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.identity_policy import (
     CODE_MAX_TRIES,
     CODE_RESEND_AFTER,
     CODE_VALID_FOR,

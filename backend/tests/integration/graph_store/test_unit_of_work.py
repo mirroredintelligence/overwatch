@@ -15,27 +15,35 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver, AsyncSession
 
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.driver import run_query
-from diucs.adapters.outbound.graph_store.health import HealthStatus, neo4j_health
-from diucs.adapters.outbound.graph_store.migrations import apply_migrations
-from diucs.adapters.outbound.graph_store.queries import (
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.driver import run_query
+from overwatch.adapters.outbound.graph_store.health import HealthStatus, neo4j_health
+from overwatch.adapters.outbound.graph_store.migrations import apply_migrations
+from overwatch.adapters.outbound.graph_store.queries import (
     REGISTRY,
     NamedQuery,
     QueryRegistry,
     Scenario,
 )
-from diucs.adapters.outbound.graph_store.unit_of_work import DEFAULT_FACTORIES, neo4j_uow_factory
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.outbox import OutboxMessage, outbox_message_for
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import ScopeId, TenantNotBound, UnitOfWorkAlreadyOpen, bind_tenant
-from diucs.application.work import ScheduledWork, WorkKind
-from diucs.bootstrap.container import build_for_tests
-from diucs.domain.codes import ReportSource, Role
-from diucs.domain.errors import Conflict
-from diucs.domain.events import CapacityReported
+from overwatch.adapters.outbound.graph_store.unit_of_work import (
+    DEFAULT_FACTORIES,
+    neo4j_uow_factory,
+)
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.outbox import OutboxMessage, outbox_message_for
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import (
+    ScopeId,
+    TenantNotBound,
+    UnitOfWorkAlreadyOpen,
+    bind_tenant,
+)
+from overwatch.application.work import ScheduledWork, WorkKind
+from overwatch.bootstrap.container import build_for_tests
+from overwatch.domain.codes import ReportSource, Role
+from overwatch.domain.errors import Conflict
+from overwatch.domain.events import CapacityReported
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import ThrowawayNeo4j, count_nodes
 from tests.unit.adapters.outbound.graph_store.test_service_repository import UCR_WEST

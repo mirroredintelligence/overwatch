@@ -2,9 +2,13 @@
 
 import pytest
 
-from diucs.adapters.testing.fixed_geo import FixedGeocoder, FixedPostcodeLocator, FixedTravelTime
-from diucs.application.ports.outbound.geo import AddressCandidate, LatLon, Located, TravelRange
-from diucs.domain.errors import ValidationFailed
+from overwatch.adapters.testing.fixed_geo import (
+    FixedGeocoder,
+    FixedPostcodeLocator,
+    FixedTravelTime,
+)
+from overwatch.application.ports.outbound.geo import AddressCandidate, LatLon, Located, TravelRange
+from overwatch.domain.errors import ValidationFailed
 
 DT4_8XX = LatLon(50.61, -2.46)
 DT4_CENTRE = LatLon(50.62, -2.47)

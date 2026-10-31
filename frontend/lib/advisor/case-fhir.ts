@@ -13,7 +13,7 @@ import {
 // no I/O, so both directions are unit-tested against the JSON the back end's own mapping writes
 // (case_mapping.py; test/fixtures/backend-shapes.ts).
 
-export const BASE = 'https://diucs.example/';
+export const BASE = 'https://overwatch.mirroredintelligence.com/';
 export const AGE_BAND_EXTENSION = `${BASE}StructureDefinition/age-band`;
 export const REFERRER_EXTENSION = `${BASE}StructureDefinition/referrer-type`;
 export const URGENCY_EXTENSION = `${BASE}StructureDefinition/urgency`;

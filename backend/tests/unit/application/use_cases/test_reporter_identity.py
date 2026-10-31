@@ -10,10 +10,10 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.actor import Actor
-from diucs.application.use_cases.pin import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.actor import Actor
+from overwatch.application.use_cases.pin import (
     PIN_HMAC_SECRET,
     PinRateLimited,
     PinSignIn,
@@ -23,8 +23,8 @@ from diucs.application.use_cases.pin import (
     SetPin,
     pin_hash,
 )
-from diucs.application.use_cases.remove_person import StartNewPhoneCommand, StartNewPhoneResult
-from diucs.application.use_cases.reporter_identity import (
+from overwatch.application.use_cases.remove_person import StartNewPhoneCommand, StartNewPhoneResult
+from overwatch.application.use_cases.reporter_identity import (
     UNKNOWN_PREFIX,
     CheckReporterAccess,
     ConfirmDeviceByTextCode,
@@ -37,11 +37,11 @@ from diucs.application.use_cases.reporter_identity import (
     SignInKind,
     unknown_person,
 )
-from diucs.application.use_cases.text_code import VerifyTextCodeCommand, VerifyTextCodeResult
-from diucs.domain.codes import PractitionerRoleCode, Role
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.rules.identity_policy import PinState
+from overwatch.application.use_cases.text_code import VerifyTextCodeCommand, VerifyTextCodeResult
+from overwatch.domain.codes import PractitionerRoleCode, Role
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.rules.identity_policy import PinState
 from tests.support.actors import ACTOR_TENANT
 from tests.support.registration_rig import StubLimiter, StubUnits
 from tests.support.session_rig import StubSessions

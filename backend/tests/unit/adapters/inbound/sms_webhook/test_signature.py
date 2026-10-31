@@ -9,9 +9,9 @@ import hmac
 from hypothesis import given
 from hypothesis import strategies as st
 
-from diucs.adapters.inbound.sms_webhook.routes import twilio_signature
+from overwatch.adapters.inbound.sms_webhook.routes import twilio_signature
 
-URL = "https://diucs.example/webhooks/sms/twilio"
+URL = "https://overwatch.mirroredintelligence.com/webhooks/sms/twilio"
 TOKEN = "i07-test-token"
 PARAMS = {
     "To": "+447700900001",
@@ -33,7 +33,7 @@ def test_it_matches_a_value_computed_independently_with_hmac_and_hashlib() -> No
 
 
 def test_it_matches_a_literal_computed_once_with_openssl() -> None:
-    # printf '%s' 'https://diucs.example/webhooks/sms/twilioAccountSidAC1Body4From+447700900123'\
+    # printf '%s' 'https://overwatch.mirroredintelligence.com/webhooks/sms/twilioAccountSidAC1Body4From+447700900123'\
     #   'MessageSidSM1To+447700900001' | openssl dgst -sha1 -hmac i07-test-token -binary | base64
     assert twilio_signature(URL, PARAMS, TOKEN) == "JRXb5JswbCZN3KZyZZtf+OZVo6Y="
 

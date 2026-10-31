@@ -11,25 +11,25 @@ from typing import Any
 
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
-from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
-from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET, LinkTokenService
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import ScopeId
-from diucs.application.use_cases.query_board import QueryBoard
-from diucs.application.use_cases.request_booking import (
+from overwatch.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
+from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from overwatch.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET, LinkTokenService
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeId
+from overwatch.application.use_cases.query_board import QueryBoard
+from overwatch.application.use_cases.request_booking import (
     RequestBooking,
     RequestBookingCommand,
     RequestBookingResult,
 )
-from diucs.domain.codes import AgeBand, Channel, NeedCategory, ReferrerType, Role, Urgency
-from diucs.domain.model.case import Case
-from diucs.domain.model.tenant import TenantWording
+from overwatch.domain.codes import AgeBand, Channel, NeedCategory, ReferrerType, Role, Urgency
+from overwatch.domain.model.case import Case
+from overwatch.domain.model.tenant import TenantWording
 from tests.support.actors import ACTOR_TENANT
 from tests.support.ladder_rig import PHONE_HASH_1, reporter, seed_people, seed_report
 from tests.support.link_rig import ucr_west
@@ -38,7 +38,7 @@ SERVICE_ID = "ucr-west"
 SERVICE_NAME = "UCR West"
 CASE_ID = "case-1001"
 REQUESTED_AT = datetime(2026, 10, 29, 14, 16, tzinfo=UTC)
-LINK_HOST = "https://dorset.diucs.example"
+LINK_HOST = "https://dorset.overwatch.example"
 SECRETS = FixedSecretStore({LINK_TOKEN_SECRET: b"link-token-test-secret-0123456789abcdef"})
 
 ADVISOR = Actor(

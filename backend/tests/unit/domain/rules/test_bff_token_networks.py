@@ -17,8 +17,8 @@ from typing import Any
 
 import pytest
 
-from diucs.domain.codes import Role
-from diucs.domain.rules.bff_token import (
+from overwatch.domain.codes import Role
+from overwatch.domain.rules.bff_token import (
     NETWORKS_MAX,
     BffClaims,
     TokenRejected,
@@ -50,7 +50,7 @@ def _token(**changes: Any) -> str:
         "services": [],
         "tenant": "tenant-a",
         "epoch": 1,
-        "aud": "diucs-api",
+        "aud": "overwatch-api",
         "exp": int(EXPIRES.timestamp()),
     }
     body.update(changes)

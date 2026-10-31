@@ -7,8 +7,8 @@ tenant's zone; the zone now reaches `_echo_text`, and a source of zones reaches 
 from datetime import UTC, datetime, time
 from zoneinfo import ZoneInfo
 
-from diucs.application.use_cases.report_capacity import _echo_text
-from diucs.domain.codes import (
+from overwatch.application.use_cases.report_capacity import _echo_text
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     Measure,
@@ -16,9 +16,9 @@ from diucs.domain.codes import (
     ReportType,
     ServiceCategory,
 )
-from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.messages.catalogue import MessageId
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
 
 NEW_YORK = ZoneInfo("America/New_York")
 PROFILE = ServiceProfile(

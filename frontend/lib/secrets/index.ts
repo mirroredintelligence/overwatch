@@ -17,7 +17,7 @@ export function getSecret(name: string): Promise<string> {
   return secrets().getSecret(name);
 }
 
-/** True when the secrets come from Key Vault (DIUCS_KEY_VAULT_URL is set). */
+/** True when the secrets come from Key Vault (OVERWATCH_KEY_VAULT_URL is set). */
 export function vaultConfigured(): boolean {
   return secrets().vaultConfigured();
 }

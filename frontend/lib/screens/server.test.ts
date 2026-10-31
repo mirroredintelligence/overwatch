@@ -12,8 +12,8 @@ import { claimPairing, connectScreen, exchangeDeviceToken, ScreenApiError, start
 // (TEN-043, DEC-526). The tenant is the host the browser came to and nothing else.
 
 const NOW = new Date('2026-10-30T09:00:00Z');
-const LEAD_TOKEN = standInToken({ sub: 'stf-1', role: 'lead', aud: 'diucs-api', exp: Math.floor(NOW.getTime() / 1000) + 3600 });
-const ADVISOR_TOKEN = standInToken({ sub: 'stf-2', role: 'advisor', aud: 'diucs-api', exp: Math.floor(NOW.getTime() / 1000) + 3600 });
+const LEAD_TOKEN = standInToken({ sub: 'stf-1', role: 'lead', aud: 'overwatch-api', exp: Math.floor(NOW.getTime() / 1000) + 3600 });
+const ADVISOR_TOKEN = standInToken({ sub: 'stf-2', role: 'advisor', aud: 'overwatch-api', exp: Math.floor(NOW.getTime() / 1000) + 3600 });
 
 async function kindOf(promise: Promise<unknown>): Promise<string> {
   try {
@@ -28,7 +28,7 @@ async function kindOf(promise: Promise<unknown>): Promise<string> {
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(NOW);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
   pairingBackend.reset();
   resetExchanges();
   server.use(...screenHandlers, ...authHandlers);
@@ -183,7 +183,7 @@ describe('exchangeDeviceToken', () => {
     ['an expiry in the past', { expiresAt: '2026-10-30T08:00:00Z' }, { exp: 1 }],
     ['an expiry more than twelve hours on', { expiresAt: '2026-10-31T09:30:00Z' }, { exp: 4_000_000_000 }],
   ])('is a bad answer when it holds %s', async (_name, change, claims) => {
-    const token = standInToken({ sub: 'dev-screen-one', role: 'wall', aud: 'diucs-api', exp: Math.floor(NOW.getTime() / 1000) + 3600, ...claims });
+    const token = standInToken({ sub: 'dev-screen-one', role: 'wall', aud: 'overwatch-api', exp: Math.floor(NOW.getTime() / 1000) + 3600, ...claims });
     server.use(
       http.post(`${BACKEND_ROOT}/auth/device-token`, () =>
         HttpResponse.json({ token, expiresAt: '2026-10-30T10:00:00Z', role: 'wall', ...change }),

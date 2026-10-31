@@ -217,7 +217,7 @@ async function call(c: Case, role: OperatorRole | null, options: { csrf?: boolea
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', BACKEND_BASE);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', BACKEND_BASE);
   vi.stubEnv('NODE_ENV', 'production');
   seen = [];
 });
@@ -270,7 +270,7 @@ describe.each(CASES)('$verb $url ($name)', (c) => {
     expect(one.path).toBe(c.backend.path);
     expect(one.authorization).toMatch(/^Bearer [A-Za-z0-9._-]+$/);
     const claims = JSON.parse(Buffer.from((one.authorization ?? '').split('.')[1] ?? '', 'base64url').toString()) as Record<string, unknown>;
-    expect(claims.aud).toBe('diucs-ops');
+    expect(claims.aud).toBe('overwatch-ops');
     expect(claims).not.toHaveProperty('tenant');
     for (const name of one.headers.keys()) expect(name).not.toMatch(/tenant|scope|network/i);
     if (UNSAFE(c.verb) && c.verb !== 'DELETE') {

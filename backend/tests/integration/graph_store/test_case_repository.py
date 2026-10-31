@@ -15,15 +15,15 @@ import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 from neo4j.exceptions import ClientError
 
-from diucs.adapters.outbound.graph_store import case_repository
-from diucs.adapters.outbound.graph_store.case_repository import Neo4jCaseRepository
-from diucs.adapters.outbound.graph_store.queries import NamedQuery
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.application.tenancy import current_tenant
-from diucs.domain.codes import AgeBand, NeedCategory, Outcome, ReferrerType, Urgency
-from diucs.domain.errors import Conflict, InvalidTransition, NotFound, ValidationFailed
-from diucs.domain.model.case import Case
-from diucs.domain.model.scores import ClinicalFrailty, ManchesterTriage, News2, PathwaysDx
+from overwatch.adapters.outbound.graph_store import case_repository
+from overwatch.adapters.outbound.graph_store.case_repository import Neo4jCaseRepository
+from overwatch.adapters.outbound.graph_store.queries import NamedQuery
+from overwatch.adapters.outbound.graph_store.resource_store import ResourceStore
+from overwatch.application.tenancy import current_tenant
+from overwatch.domain.codes import AgeBand, NeedCategory, Outcome, ReferrerType, Urgency
+from overwatch.domain.errors import Conflict, InvalidTransition, NotFound, ValidationFailed
+from overwatch.domain.model.case import Case
+from overwatch.domain.model.scores import ClinicalFrailty, ManchesterTriage, News2, PathwaysDx
 from tests.support.neo4j import count_nodes, read_tx, write_tx
 from tests.support.round_trip import assert_round_trip
 

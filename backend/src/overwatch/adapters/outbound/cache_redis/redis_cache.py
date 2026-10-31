@@ -1,8 +1,9 @@
 """Redis adapter for the cache port (I01, DEC-003, DEC-058, DEC-092, TEN-019).
 
 Redis holds only transient data: losing every key loses no fact (DEC-001). Every key, lock holder,
-fencing counter and pub/sub channel is `diucs:<scope>:<family>:<name>`, where the scope is the
-tenant or the network the unit of work is bound to (`diucs:_net-<id>:...` for a network). The names
+fencing counter and pub/sub channel is `overwatch:<scope>:<family>:<name>`, where the scope is the
+tenant or the network the unit of work is bound to (`overwatch:_net-<id>:...` for a network). The
+names
 come from the port's `scoped_names()` only. It is read once, first, in every method, so a call uses
 the scope it began with even if the binding moves during it. Values are text. The client must decode
 responses (from_url does), so replies are str.
@@ -16,18 +17,18 @@ from typing import Final, Self, cast
 
 from redis.asyncio import Redis
 
-from diucs.application.ports.outbound.cache import (
+from overwatch.application.ports.outbound.cache import (
     CacheScopeMismatch,
     Lock,
     platform_names,
     scope_segment,
     scoped_names,
 )
-from diucs.application.tenancy import ScopeId
+from overwatch.application.tenancy import ScopeId
 
 # Every name the cache holds sits under this root. Isolation between test runs is by a unique tenant
 # per run, not by a second root (TEN-019, audit C 4.4).
-ROOT: Final = "diucs:"
+ROOT: Final = "overwatch:"
 
 # DEC-091: the token is the larger of the next INCR value and the host clock in microseconds, and
 # the counter is set to it. A lost counter restarts above every token issued before the loss.

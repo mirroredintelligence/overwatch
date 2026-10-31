@@ -14,17 +14,17 @@ row is its listing id.
 from dataclasses import dataclass
 from datetime import date, datetime
 
-from diucs.application.actor import Actor
-from diucs.application.network_access import NetworkAccess, NetworkMemberAccess
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.projection import ProjectionEndReason
-from diucs.application.ports.outbound.unit_of_work import NetworkUnitOfWorkFactory
-from diucs.application.tenancy import bind_network
-from diucs.application.use_cases.query_network_board import NetworkReadUnitNotReadOnly
-from diucs.domain.codes import NeedCategory, ServiceCategory
-from diucs.domain.model.network import DirectorySource, GrantScope
-from diucs.domain.rules.listing import ListingPresentation, listing_presentation
-from diucs.domain.rules.projection import LocationProjection, OpeningHourProjection
+from overwatch.application.actor import Actor
+from overwatch.application.network_access import NetworkAccess, NetworkMemberAccess
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.projection import ProjectionEndReason
+from overwatch.application.ports.outbound.unit_of_work import NetworkUnitOfWorkFactory
+from overwatch.application.tenancy import bind_network
+from overwatch.application.use_cases.query_network_board import NetworkReadUnitNotReadOnly
+from overwatch.domain.codes import NeedCategory, ServiceCategory
+from overwatch.domain.model.network import DirectorySource, GrantScope
+from overwatch.domain.rules.listing import ListingPresentation, listing_presentation
+from overwatch.domain.rules.projection import LocationProjection, OpeningHourProjection
 
 
 @dataclass(frozen=True, slots=True)

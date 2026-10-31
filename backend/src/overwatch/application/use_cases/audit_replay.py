@@ -24,13 +24,13 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, Final
 
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import AuditEntry, AuditRecord
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.domain.codes import Role, Status
-from diucs.domain.errors import NotAllowed, NotFound
-from diucs.domain.rules.freshness import data_age_text
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import AuditEntry, AuditRecord
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.domain.codes import Role, Status
+from overwatch.domain.errors import NotAllowed, NotFound
+from overwatch.domain.rules.freshness import data_age_text
 
 REPLAY_USE_CASE: Final = "AuditReplay"
 READ_ACTION: Final = "R"

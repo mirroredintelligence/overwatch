@@ -9,9 +9,9 @@ from pathlib import Path
 from types import TracebackType
 from typing import Any
 
-from diucs.application.uow_idempotency import UnitOfWorkIdempotency
+from overwatch.application.uow_idempotency import UnitOfWorkIdempotency
 
-PACKAGE_ROOT = Path(__file__).resolve().parents[3] / "src" / "diucs"
+PACKAGE_ROOT = Path(__file__).resolve().parents[3] / "src" / "overwatch"
 
 
 class _Store:
@@ -79,9 +79,9 @@ def test_there_is_one_class_of_that_name_in_the_source() -> None:
 
 
 def test_the_routes_the_link_pages_and_the_container_use_the_same_class() -> None:
-    from diucs.adapters.inbound.fhir_rest import routes_board, routes_services
-    from diucs.adapters.inbound.link_pages import capacity_links
-    from diucs.bootstrap import container
+    from overwatch.adapters.inbound.fhir_rest import routes_board, routes_services
+    from overwatch.adapters.inbound.link_pages import capacity_links
+    from overwatch.bootstrap import container
 
     assert routes_services.UnitOfWorkIdempotency is UnitOfWorkIdempotency
     assert routes_board.UnitOfWorkIdempotency is UnitOfWorkIdempotency

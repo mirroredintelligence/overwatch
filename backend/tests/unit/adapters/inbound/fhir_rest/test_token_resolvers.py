@@ -14,20 +14,20 @@ import httpx
 import pytest
 from fastapi import Depends, FastAPI
 
-from diucs.adapters.inbound.fhir_rest.errors import install_exception_handlers
-from diucs.adapters.inbound.fhir_rest.token_resolvers import (
+from overwatch.adapters.inbound.fhir_rest.errors import install_exception_handlers
+from overwatch.adapters.inbound.fhir_rest.token_resolvers import (
     bearer_token,
     resolve_active_device,
 )
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.ports.outbound.identity import DEVICE_TOKEN_SECRET
-from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET
-from diucs.application.tenancy import current_scope_or_none, current_tenant
-from diucs.application.tenant_resolution import EntryRefused
-from diucs.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
-from diucs.domain.model.tenant import Tenant, TenantStatus
-from diucs.domain.rules.tokens import hash_token
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.application.ports.outbound.identity import DEVICE_TOKEN_SECRET
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET
+from overwatch.application.tenancy import current_scope_or_none, current_tenant
+from overwatch.application.tenant_resolution import EntryRefused
+from overwatch.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
+from overwatch.domain.model.tenant import Tenant, TenantStatus
+from overwatch.domain.rules.tokens import hash_token
 from tests.support.edge import EDGE_NOW
 from tests.support.pre_session import Devices, Links, Uow
 from tests.support.tenant_samples import make_tenant

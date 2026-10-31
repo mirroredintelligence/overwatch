@@ -8,7 +8,7 @@ The ids 0070 to 0074 are the build wave W2D's block.
 
 from typing import Final
 
-from diucs.adapters.outbound.graph_store.migration_types import Migration
+from overwatch.adapters.outbound.graph_store.migration_types import Migration
 
 SAFETY_MIGRATIONS: Final[tuple[Migration, ...]] = (
     Migration(

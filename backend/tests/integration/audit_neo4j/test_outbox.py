@@ -10,9 +10,9 @@ import pytest
 from neo4j import AsyncDriver
 from neo4j.time import DateTime
 
-from diucs.application.ports.outbound.outbox import MAX_ATTEMPTS, OutboxMessage
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.domain.errors import Conflict, NotFound, ValidationFailed
+from overwatch.application.ports.outbound.outbox import MAX_ATTEMPTS, OutboxMessage
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.domain.errors import Conflict, NotFound, ValidationFailed
 from tests.support.neo4j import count_nodes, node_props
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")

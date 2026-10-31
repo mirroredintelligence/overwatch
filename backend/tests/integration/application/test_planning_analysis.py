@@ -14,26 +14,26 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.planning_analysis import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.planning_analysis import (
     HiddenCount,
     PlanningQuery,
     PlanningResult,
     RunPlanningAnalysis,
     RunPlanningCommand,
 )
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     Cadence,
     Channel,
     Measure,
     Role,
     ServiceCategory,
 )
-from diucs.domain.errors import NotAllowed
-from diucs.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.errors import NotAllowed
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory

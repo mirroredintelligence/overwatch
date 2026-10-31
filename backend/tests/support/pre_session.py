@@ -7,9 +7,9 @@ holds only what the test hands it.
 from types import TracebackType
 from typing import Self
 
-from diucs.application.tenancy import ScopeId
-from diucs.domain.model.device import Device
-from diucs.domain.rules.tokens import LinkTokenRecord
+from overwatch.application.tenancy import ScopeId
+from overwatch.domain.model.device import Device
+from overwatch.domain.rules.tokens import LinkTokenRecord
 
 
 class Links:

@@ -77,13 +77,13 @@ test.describe('reporter set-up and sign-in against the back end’s shapes', () 
     // Neither the PIN session nor a token is ever in an answer the browser reads.
     expect(seen.join('\n')).not.toMatch(/e2e-pin-session|eyJ/);
     const cookies = await page.context().cookies();
-    expect(cookies.find((c) => c.name === 'diucs_session')?.httpOnly).toBe(true);
+    expect(cookies.find((c) => c.name === 'overwatch_session')?.httpOnly).toBe(true);
   });
 
   test('a wrong PIN says how many tries are left and signs nobody in', async ({ page }) => {
     await page.goto(`${SITE_URL}/app/pin`);
     for (const digit of '111111') await page.getByRole('button', { name: digit, exact: true }).click();
     await expect(page.getByText('That PIN is not right. 4 tries left.')).toBeVisible();
-    expect((await page.context().cookies()).some((c) => c.name === 'diucs_session')).toBe(false);
+    expect((await page.context().cookies()).some((c) => c.name === 'overwatch_session')).toBe(false);
   });
 });

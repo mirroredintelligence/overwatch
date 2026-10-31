@@ -9,8 +9,8 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from diucs.domain.errors import InvalidTransition, NotAllowed
-from diucs.domain.rules.alert_workflow import (
+from overwatch.domain.errors import InvalidTransition, NotAllowed
+from overwatch.domain.rules.alert_workflow import (
     SNOOZE_BY,
     may_acknowledge,
     may_snooze,

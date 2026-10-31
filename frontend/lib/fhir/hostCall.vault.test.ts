@@ -32,7 +32,7 @@ function listen() {
 
 beforeEach(() => {
   vi.unstubAllEnvs();
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
   secrets.vault = true;
   secrets.read.mockReset();
   secrets.read.mockResolvedValue(EDGE);

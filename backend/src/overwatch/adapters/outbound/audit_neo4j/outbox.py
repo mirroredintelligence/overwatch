@@ -14,9 +14,9 @@ from typing import Any, Final, Literal
 from neo4j.exceptions import ConstraintError
 from neo4j.time import DateTime
 
-from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.adapters.outbound.graph_store.scenario import (
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx, run_query
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from overwatch.adapters.outbound.graph_store.scenario import (
     Expect,
     Marked,
     NodeSpec,
@@ -24,14 +24,14 @@ from diucs.adapters.outbound.graph_store.scenario import (
     SeedNode,
     TenantSeed,
 )
-from diucs.application.ports.outbound.outbox import (
+from overwatch.application.ports.outbound.outbox import (
     DEAD,
     MAX_ATTEMPTS,
     PENDING,
     PUBLISHED,
     OutboxMessage,
 )
-from diucs.domain.errors import Conflict, NotFound, ValidationFailed
+from overwatch.domain.errors import Conflict, NotFound, ValidationFailed
 
 _PAYLOAD_PREFIX = "payload_"
 _NULLS = "payloadNulls"

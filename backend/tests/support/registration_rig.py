@@ -12,16 +12,16 @@ from datetime import datetime, timedelta
 from types import TracebackType
 from typing import Any, Self
 
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.messaging import Communication, PushSubscription
-from diucs.application.ports.outbound.outbox import OutboxMessage
-from diucs.application.tenancy import ScopeId
-from diucs.domain.codes import PractitionerRoleCode, Role
-from diucs.domain.model.flags import ServiceFlag
-from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.model.registration import Invitation, Registration, ScopeEntry
-from diucs.domain.rules.identity_policy import PinState
-from diucs.domain.rules.tokens import LinkTokenRecord
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.messaging import Communication, PushSubscription
+from overwatch.application.ports.outbound.outbox import OutboxMessage
+from overwatch.application.tenancy import ScopeId
+from overwatch.domain.codes import PractitionerRoleCode, Role
+from overwatch.domain.model.flags import ServiceFlag
+from overwatch.domain.model.people import Practitioner, PractitionerRole
+from overwatch.domain.model.registration import Invitation, Registration, ScopeEntry
+from overwatch.domain.rules.identity_policy import PinState
+from overwatch.domain.rules.tokens import LinkTokenRecord
 
 
 @dataclass

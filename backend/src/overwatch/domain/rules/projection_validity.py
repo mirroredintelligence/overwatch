@@ -23,12 +23,12 @@ are arguments (TEN-021, TEN-065). The oracle in the tests is `compute_status` it
 from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
-from diucs.domain.model.service import ServiceProfile
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
-from diucs.domain.rules.freshness import assess_freshness
-from diucs.domain.rules.london_time import LONDON, require_zone
-from diucs.domain.rules.opening_hours import next_hours_change
-from diucs.domain.rules.schedule import current_due, next_due
+from overwatch.domain.model.service import ServiceProfile
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
+from overwatch.domain.rules.freshness import assess_freshness
+from overwatch.domain.rules.london_time import LONDON, require_zone
+from overwatch.domain.rules.opening_hours import next_hours_change
+from overwatch.domain.rules.schedule import current_due, next_due
 
 
 def _utc(value: datetime, name: str) -> datetime:

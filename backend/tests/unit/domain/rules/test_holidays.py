@@ -10,8 +10,8 @@ from typing import Final
 
 import pytest
 
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.holidays import REGIONS, ClosurePeriod, bank_holidays, closed_on
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.holidays import REGIONS, ClosurePeriod, bank_holidays, closed_on
 
 ENGLAND_AND_WALES: Final = "england-and-wales"
 SCOTLAND: Final = "scotland"

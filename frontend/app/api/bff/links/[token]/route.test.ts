@@ -35,7 +35,7 @@ function post(token: string, body: unknown, cookie: string | null, header: strin
 }
 
 beforeEach(() => {
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
   resetLinkRequests();
   resetCookieWrites();

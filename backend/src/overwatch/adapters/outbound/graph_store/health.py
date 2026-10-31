@@ -6,10 +6,10 @@ from enum import StrEnum
 
 from neo4j import AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.driver import run_global_query
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.application.use_cases.tenant_invariants import InvariantMonitor
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.driver import run_global_query
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from overwatch.application.use_cases.tenant_invariants import InvariantMonitor
 
 PING_QUERY_ID = "Q-NEO4J-PING"
 # A global statement (DEC-130 item 3): it answers RETURN 1 before any tenant is known, so it runs

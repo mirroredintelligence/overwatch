@@ -8,9 +8,9 @@ cannot be built, so it cannot reach the filter.
 from dataclasses import dataclass
 from datetime import date, datetime
 
-from diucs.domain.codes import CriteriaStatus, NeedCategory
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.postcode import normalise_district
+from overwatch.domain.codes import CriteriaStatus, NeedCategory
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.postcode import normalise_district
 
 REVIEW_CHOICES_MONTHS: frozenset[int] = frozenset({3, 6, 12})
 """The review periods an owner may choose (domain-rules 4.2). Kept here, not imported from the

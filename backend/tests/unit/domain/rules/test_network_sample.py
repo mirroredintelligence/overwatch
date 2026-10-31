@@ -6,9 +6,9 @@ from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 
-from diucs.domain.codes import Status
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.network_sample import (
+from overwatch.domain.codes import Status
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.network_sample import (
     MIN_ORGANISATIONS,
     READINGS,
     SMALL_GROUP,
@@ -19,7 +19,7 @@ from diucs.domain.rules.network_sample import (
     sample_of,
     week_of_samples,
 )
-from diucs.domain.rules.pressure import Pressure
+from overwatch.domain.rules.pressure import Pressure
 from tests.support.network_board_samples import BOARD_AT, board_entry, board_of
 
 WEEK_START = datetime(2026, 10, 26, 0, 0, tzinfo=UTC)  # a Monday, in UTC (the clocks changed)

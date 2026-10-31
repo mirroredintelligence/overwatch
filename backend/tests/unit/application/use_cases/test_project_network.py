@@ -14,28 +14,28 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.ports.outbound.network import ActiveGrant, RegisteredNetwork
-from diucs.application.projection import to_body
-from diucs.application.tenancy import TenantNotBound, bind_network, bind_tenant
-from diucs.application.use_cases.project_network import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.ports.outbound.network import ActiveGrant, RegisteredNetwork
+from overwatch.application.projection import to_body
+from overwatch.application.tenancy import TenantNotBound, bind_network, bind_tenant
+from overwatch.application.use_cases.project_network import (
     ProducerUnitNotReadOnly,
     ProjectionRun,
     ProjectNetwork,
 )
-from diucs.domain.events import ProjectionRequested
-from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED
-from diucs.domain.model.network import GrantScope, ListingReason, MembershipStatus
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY
-from diucs.domain.rules import projection as allowlist
-from diucs.domain.rules.listing import suspend_listing, withdraw_listing
-from diucs.domain.rules.projection import (
+from overwatch.domain.events import ProjectionRequested
+from overwatch.domain.model.flags import SERVICE_FLAG_SUSPENDED
+from overwatch.domain.model.network import GrantScope, ListingReason, MembershipStatus
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY
+from overwatch.domain.rules import projection as allowlist
+from overwatch.domain.rules.listing import suspend_listing, withdraw_listing
+from overwatch.domain.rules.projection import (
     PROJECTION_ALLOWLIST_VERSION,
     build_capacity_projection,
     build_criteria_projection,
     build_service_projection,
 )
-from diucs.domain.rules.projection_validity import next_status_change
+from overwatch.domain.rules.projection_validity import next_status_change
 from tests.support.network_samples import (
     ACCOUNT_B,
     ACCOUNT_OWNER,
@@ -498,7 +498,7 @@ async def test_the_boundary_is_read_in_the_tenants_own_zone() -> None:
     class _Zones:
         async def zone_of(self, scope: Any) -> Any:
             asked.append(scope)
-            from diucs.domain.rules.london_time import LONDON
+            from overwatch.domain.rules.london_time import LONDON
 
             return LONDON
 

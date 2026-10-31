@@ -7,7 +7,7 @@ its own account, and an account belongs to one tenant.
 
 from collections.abc import Iterable
 
-from diucs.application.ports.outbound.tenant_lines import InboundLine
+from overwatch.application.ports.outbound.tenant_lines import InboundLine
 
 
 class FixedInboundLines:

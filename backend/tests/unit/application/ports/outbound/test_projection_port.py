@@ -5,7 +5,7 @@ import typing
 
 import pytest
 
-from diucs.application.ports.outbound.projection import (
+from overwatch.application.ports.outbound.projection import (
     GrantRef,
     NetworkView,
     ProjectedRow,

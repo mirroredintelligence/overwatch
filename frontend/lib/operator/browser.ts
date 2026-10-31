@@ -7,7 +7,7 @@ import { adminSend, useAdminRead, type Read } from '@/lib/tenantAdmin/browser';
 // The operator console's calls to its BFF routes (TEN-083). The same helpers as the tenant administration's,
 // with the console's own CSRF cookie and session route: an operator's token is never a tenant person's.
 
-export const OPERATOR_CSRF: CsrfChannel = { cookie: 'diucs_op_csrf', sessionUrl: '/api/bff/platform/session' };
+export const OPERATOR_CSRF: CsrfChannel = { cookie: 'overwatch_op_csrf', sessionUrl: '/api/bff/platform/session' };
 export const OPERATOR_SIGN_IN = '/operator/sign-in';
 
 export type { Read };

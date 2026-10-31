@@ -7,14 +7,14 @@ from typing import Any
 
 import pytest
 
-from diucs.application.tracing import (
+from overwatch.application.tracing import (
     NoopTracer,
     annotate_usecase,
     get_tracer,
     set_tracer,
     traced_use_case,
 )
-from diucs.domain.errors import Conflict
+from overwatch.domain.errors import Conflict
 
 
 class RecordedSpan:

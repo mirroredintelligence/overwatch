@@ -10,13 +10,13 @@ from types import MappingProxyType
 
 import pytest
 
-from diucs.adapters.outbound.graph_store import migrations
-from diucs.adapters.outbound.graph_store import scenario as scenario_module
-from diucs.adapters.outbound.graph_store.queries import Scenario as ScenarioFromQueries
-from diucs.adapters.outbound.graph_store.scenario import (
+from overwatch.adapters.outbound.graph_store import migrations
+from overwatch.adapters.outbound.graph_store import scenario as scenario_module
+from overwatch.adapters.outbound.graph_store.queries import Scenario as ScenarioFromQueries
+from overwatch.adapters.outbound.graph_store.scenario import (
     SINGLE_PROPERTY_UNIQUE as PRODUCTION_TABLE,
 )
-from diucs.adapters.outbound.graph_store.scenario import (
+from overwatch.adapters.outbound.graph_store.scenario import (
     Expect,
     Marked,
     NodeSpec,

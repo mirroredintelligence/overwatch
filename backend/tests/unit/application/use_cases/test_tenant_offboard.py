@@ -14,35 +14,35 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.memory_export_storage import MemoryExportStorage
-from diucs.application.ports.outbound.tenant_export import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.memory_export_storage import MemoryExportStorage
+from overwatch.application.ports.outbound.tenant_export import (
     AuditHeadState,
     ExportedNode,
     ExportedRelationship,
     LabelCount,
 )
-from diucs.application.ports.outbound.tenant_registry import TenantNumberRecord
-from diucs.application.tenancy import TenantMismatch, bind_tenant
-from diucs.application.use_cases.membership import LeaveAllNetworks
-from diucs.application.use_cases.network_admin import GovernanceRecorder
-from diucs.application.use_cases.network_leave import EndResult
-from diucs.application.use_cases.tenant_offboard import (
+from overwatch.application.ports.outbound.tenant_registry import TenantNumberRecord
+from overwatch.application.tenancy import TenantMismatch, bind_tenant
+from overwatch.application.use_cases.membership import LeaveAllNetworks
+from overwatch.application.use_cases.network_admin import GovernanceRecorder
+from overwatch.application.use_cases.network_leave import EndResult
+from overwatch.application.use_cases.tenant_offboard import (
     CompleteOffboarding,
     CompleteOffboardingCommand,
     ExportTenant,
     ExportTenantCommand,
     OffboardTenant,
 )
-from diucs.application.use_cases.tenant_offboarding import (
+from overwatch.application.use_cases.tenant_offboarding import (
     StartOffboardingCommand,
     StartTenantOffboarding,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import Conflict, InvalidTransition, NotAllowed, ValidationFailed
-from diucs.domain.model.network import MembershipStatus
-from diucs.domain.model.tenant import NumberStatus, TenantStatus
-from diucs.domain.rules.tenant_export import UnclassifiedData, sha256_hex
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import Conflict, InvalidTransition, NotAllowed, ValidationFailed
+from overwatch.domain.model.network import MembershipStatus
+from overwatch.domain.model.tenant import NumberStatus, TenantStatus
+from overwatch.domain.rules.tenant_export import UnclassifiedData, sha256_hex
 from tests.support.network_admin_fakes import (
     Ids,
     MemoryRegistry,
@@ -356,7 +356,7 @@ async def test_a_kind_of_data_with_no_class_refuses_the_export_and_writes_nothin
 
 
 async def test_the_export_pages_through_a_long_label_set(monkeypatch: pytest.MonkeyPatch) -> None:
-    import diucs.application.use_cases.tenant_offboard as module
+    import overwatch.application.use_cases.tenant_offboard as module
 
     monkeypatch.setattr(module, "PAGE_SIZE", 2)
     rig = _Rig(TenantStatus.OFFBOARDING)
@@ -375,7 +375,7 @@ async def test_the_export_pages_through_a_long_label_set(monkeypatch: pytest.Mon
 async def test_only_a_tenant_that_is_being_offboarded_is_exported(status: TenantStatus) -> None:
     fields: dict[str, Any] = {"activated_at": NOW}
     if status is TenantStatus.SUSPENDED:
-        from diucs.domain.model.tenant import SuspendMode, SuspendReason
+        from overwatch.domain.model.tenant import SuspendMode, SuspendReason
 
         fields.update(
             suspended_at=NOW,

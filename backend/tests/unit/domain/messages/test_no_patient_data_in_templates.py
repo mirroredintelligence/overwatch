@@ -1,4 +1,5 @@
-"""Tests for diucs.domain.messages.privacy_guard and the build-time sweep over every template (D17).
+"""Tests for overwatch.domain.messages.privacy_guard and the build-time sweep over every template
+(D17).
 
 Rules: docs/spec/domain-rules.md section 9 and 10; hazard H-09; DEC-047 for the choices the
 prompt leaves open. Every sample value here is synthetic: rule-book samples (UCR West, 4821,
@@ -14,16 +15,16 @@ import pytest
 from hypothesis import assume, given
 from hypothesis import strategies as st
 
-from diucs.domain.codes import Channel, NeedCategory
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.messages import templates as templates_module
-from diucs.domain.messages.catalogue import (
+from overwatch.domain.codes import Channel, NeedCategory
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.messages import templates as templates_module
+from overwatch.domain.messages.catalogue import (
     TENANT_TEXT_FIELD_NAMES,
     TENANT_TEXT_FIELDS,
     MessageId,
     tenant_text_fields_for,
 )
-from diucs.domain.messages.privacy_guard import (
+from overwatch.domain.messages.privacy_guard import (
     DEPLOYMENT_TERMS,
     FORBIDDEN_FIELDS,
     FORBIDDEN_KEY_FORMS,
@@ -33,9 +34,9 @@ from diucs.domain.messages.privacy_guard import (
     normalise_key,
     scan_value,
 )
-from diucs.domain.messages.templates import RenderedMessage, render
-from diucs.domain.rules.need_words import NEED_WORDS
-from diucs.domain.rules.tenant_settings import check_tenant_text
+from overwatch.domain.messages.templates import RenderedMessage, render
+from overwatch.domain.rules.need_words import NEED_WORDS
+from overwatch.domain.rules.tenant_settings import check_tenant_text
 
 TEXT, EMAIL, PUSH = Channel.TEXT, Channel.EMAIL, Channel.PUSH
 
@@ -72,8 +73,8 @@ EXPECTED_CHANNELS: dict[MessageId, frozenset[Channel]] = {
     MessageId.T1: frozenset({TEXT, EMAIL, PUSH}),
 }
 
-_CAPACITY_LINK = "diucs.example/k3F9a"
-_BOOKING_LINK = "diucs.example/b4821"
+_CAPACITY_LINK = "overwatch.example/k3F9a"
+_BOOKING_LINK = "overwatch.example/b4821"
 
 # One synthetic, non-patient sample per id. Every field the id takes is given, so the sweep
 # renders the full template. Shapes must avoid postcodes and NHS-number shapes.
@@ -162,8 +163,11 @@ SAMPLE_FIELDS: dict[MessageId, dict[str, object]] = {
     MessageId.B7: {"references": ["4821", "4830"]},
     MessageId.B8: {},
     MessageId.B9: {},
-    MessageId.I1: {"service": "UCR West", "link": "diucs.example/i/Qx82"},
-    MessageId.I2: {"link": "diucs.example/i/Ab41", "system_name": "Dorset urgent care capacity"},
+    MessageId.I1: {"service": "UCR West", "link": "overwatch.example/i/Qx82"},
+    MessageId.I2: {
+        "link": "overwatch.example/i/Ab41",
+        "system_name": "Dorset urgent care capacity",
+    },
     MessageId.I3: {"service": "UCR West"},
     MessageId.K1: {"code": "482917"},
     MessageId.K2: {"service": "UCR West", "review_by": "30 Oct"},
@@ -221,8 +225,8 @@ def test_postcode_shapes_are_found_whatever_the_case_or_spacing(text: str) -> No
     [
         "DT4",
         "UCR West, 2 referrals",
-        "diucs.example/b4821",
-        "diucs.example/i/Qx82",
+        "overwatch.example/b4821",
+        "overwatch.example/i/Qx82",
         "14:26 on 2026-10-25",
         "Call 0800 123 4567",
     ],
@@ -592,7 +596,7 @@ def test_find_deployment_terms_matches_whole_words_case_insensitively_in_order()
     assert find_deployment_terms("Dorsetshire") == []
     assert find_deployment_terms("Poolenthal") == []
     assert find_deployment_terms("UCR West") == []
-    assert find_deployment_terms("DIUCS") == []
+    assert find_deployment_terms("Overwatch") == []
 
 
 def test_the_deployment_terms_are_the_first_deployments_names() -> None:
@@ -636,7 +640,7 @@ def test_no_raw_template_names_a_deployment_term(key: object, template: object) 
 
 # Proper-noun sweep (test 11): a backstop for names that are not in the list.
 
-ALLOWED_CAPITALISED: Final = frozenset({"DIUCS", "REQUEST", "CONFIRMED", "DECLINE"})
+ALLOWED_CAPITALISED: Final = frozenset({"Overwatch", "REQUEST", "CONFIRMED", "DECLINE"})
 
 
 def _sentences(raw: str) -> list[str]:
@@ -773,7 +777,7 @@ def test_the_mapping_keys_and_names_and_the_render_fields_agree() -> None:
 
 
 def test_the_projection_sweep_finds_nothing_in_a_dto_of_each_kind() -> None:
-    from diucs.application.projection import to_body, to_rows
+    from overwatch.application.projection import to_body, to_rows
     from tests.support.projection_samples import (
         sample_capacity_projection,
         sample_criteria_projection,

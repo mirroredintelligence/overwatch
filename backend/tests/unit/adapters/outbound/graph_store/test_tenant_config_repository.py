@@ -13,9 +13,9 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.outbound.graph_store.queries import _NODE_PATTERN, REGISTRY
-from diucs.adapters.outbound.graph_store.scenario import validate_scenario
-from diucs.adapters.outbound.graph_store.tenant_config_repository import (
+from overwatch.adapters.outbound.graph_store.queries import _NODE_PATTERN, REGISTRY
+from overwatch.adapters.outbound.graph_store.scenario import validate_scenario
+from overwatch.adapters.outbound.graph_store.tenant_config_repository import (
     CONFIG_QUERY_IDS,
     binding_from_props,
     binding_params,
@@ -32,10 +32,10 @@ from diucs.adapters.outbound.graph_store.tenant_config_repository import (
     version_from_props,
     version_props,
 )
-from diucs.application.ports.outbound.tenants import TenantRecordInvalid
-from diucs.domain.codes import Role
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.tenant import (
+from overwatch.application.ports.outbound.tenants import TenantRecordInvalid
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.tenant import (
     ConfigStatus,
     ContactKind,
     NumberStatus,
@@ -43,7 +43,7 @@ from diucs.domain.model.tenant import (
     TenantConfig,
     TenantContact,
 )
-from diucs.domain.model.tenant_records import (
+from overwatch.domain.model.tenant_records import (
     BindingStatus,
     ChannelKind,
     ChannelProvider,

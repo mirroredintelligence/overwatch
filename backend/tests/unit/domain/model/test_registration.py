@@ -9,9 +9,9 @@ from typing import Any
 
 import pytest
 
-from diucs.domain.codes import CriteriaStatus, RegistrationStatus, ScopeFlag, ServiceCategory
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.registration import Registration, ScopeEntry
+from overwatch.domain.codes import CriteriaStatus, RegistrationStatus, ScopeFlag, ServiceCategory
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.registration import Registration, ScopeEntry
 
 CREATED = datetime(2026, 10, 25, 12, 50, tzinfo=UTC)
 SUBMITTED = datetime(2026, 10, 25, 13, 5, tzinfo=UTC)
@@ -124,7 +124,7 @@ def test_a_scope_date_given_as_text_is_refused() -> None:
 
 
 def _invitation(**overrides: Any) -> Any:
-    from diucs.domain.model.registration import Invitation
+    from overwatch.domain.model.registration import Invitation
 
     values: dict[str, Any] = {
         "id": "inv-1",

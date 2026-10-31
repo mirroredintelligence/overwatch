@@ -24,25 +24,25 @@ from azure.servicebus.aio import ServiceBusClient
 from azure.servicebus.exceptions import OperationTimeoutError
 from redis.asyncio import Redis
 
-from diucs.adapters.outbound.bus_servicebus.service_bus import ServiceBusEventBus
-from diucs.adapters.outbound.cache_redis.code_store import RedisCodeStore
-from diucs.adapters.outbound.cache_redis.redis_cache import RedisCache
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.adapters.testing.memory_code_store import InMemoryCodeStore
-from diucs.adapters.testing.memory_event_bus import ManualEventBus
-from diucs.application.ports.outbound.cache import Cache
-from diucs.application.ports.outbound.event_bus import (
+from overwatch.adapters.outbound.bus_servicebus.service_bus import ServiceBusEventBus
+from overwatch.adapters.outbound.cache_redis.code_store import RedisCodeStore
+from overwatch.adapters.outbound.cache_redis.redis_cache import RedisCache
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.adapters.testing.memory_code_store import InMemoryCodeStore
+from overwatch.adapters.testing.memory_event_bus import ManualEventBus
+from overwatch.application.ports.outbound.cache import Cache
+from overwatch.application.ports.outbound.event_bus import (
     QUEUES,
     TOPICS,
     BusMessage,
     EventBus,
     from_wire,
 )
-from diucs.application.ports.outbound.identity import CodeStore
-from diucs.application.tenancy import bind_tenant
-from diucs.bootstrap.settings import Settings
-from diucs.domain.rules.identity_policy import CodeState
+from overwatch.application.ports.outbound.identity import CodeStore
+from overwatch.application.tenancy import bind_tenant
+from overwatch.bootstrap.settings import Settings
+from overwatch.domain.rules.identity_policy import CodeState
 from tests.contract.harness import Harness
 from tests.support.redis import flush_prefix, flush_run
 from tests.support.servicebus import client as servicebus_client
@@ -184,7 +184,7 @@ async def make_redis_code_store() -> Harness[CodeStore]:
     uses, and bound to CONTRACT_TENANT for each call. The store reads an offset clock, so advance()
     moves the validity window without a real wait; Redis's own key expiry is real time."""
     url = Settings().redis_url
-    prefix = f"diucs-contract-{uuid4().hex}:"
+    prefix = f"overwatch-contract-{uuid4().hex}:"
     cleaner = Redis.from_url(url, decode_responses=True)
     client = Redis.from_url(url, decode_responses=True)
     clock = _OffsetClock()

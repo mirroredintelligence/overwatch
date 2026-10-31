@@ -12,29 +12,29 @@ from datetime import datetime
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.application.ports.outbound.messaging import Communication
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.booking_timers import ExpireBooking, ExpireBookingCommand
-from diucs.application.use_cases.confirm_capacity import ConfirmCapacity
-from diucs.application.use_cases.handle_inbound_text import (
+from overwatch.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.application.ports.outbound.messaging import Communication
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.booking_timers import ExpireBooking, ExpireBookingCommand
+from overwatch.application.use_cases.confirm_capacity import ConfirmCapacity
+from overwatch.application.use_cases.handle_inbound_text import (
     HandleInboundText,
     HandleInboundTextCommand,
     HandleInboundTextResult,
 )
-from diucs.application.use_cases.report_capacity import ReportCapacity
-from diucs.application.use_cases.request_booking import RequestBookingCommand
-from diucs.application.use_cases.respond_to_booking import (
+from overwatch.application.use_cases.report_capacity import ReportCapacity
+from overwatch.application.use_cases.request_booking import RequestBookingCommand
+from overwatch.application.use_cases.respond_to_booking import (
     RespondToBooking,
     SetDeclineReason,
 )
-from diucs.application.work import WorkKind
-from diucs.domain.codes import BookingStatus, Channel, DeclineReason
-from diucs.domain.model.booking import Booking
-from diucs.domain.model.people import PractitionerRole
+from overwatch.application.work import WorkKind
+from overwatch.domain.codes import BookingStatus, Channel, DeclineReason
+from overwatch.domain.model.booking import Booking
+from overwatch.domain.model.people import PractitionerRole
 from tests.support.booking_rig import (
     ADVISOR,
     REQUESTED_AT,
@@ -212,7 +212,7 @@ async def test_decline_then_a_two_after_fifteen_minutes_is_a_capacity_figure(
                 channel=Channel.TEXT,
                 recipient_role_id=PROMPT_ROLE_WEST,
                 about_id=SERVICE_ID,
-                payload_text="DIUCS: UCR West. We have 4 referrals in the next 2 hrs.",
+                payload_text="Overwatch: UCR West. We have 4 referrals in the next 2 hrs.",
                 sent_at=at(14, 30),
                 delivery_status="sent",
             )

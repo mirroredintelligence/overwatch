@@ -15,19 +15,19 @@ from typing import Any, Self
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.tenancy import ScopeId, bind_tenant, current_scope_or_none
-from diucs.application.use_cases.network_admin import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.tenancy import ScopeId, bind_tenant, current_scope_or_none
+from overwatch.application.use_cases.network_admin import (
     MapNetworkAdminGroup,
     MapNetworkAdminGroupCommand,
     RegistryNetworkOwnership,
     owns_active_network,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.model.network import MembershipEndReason, MembershipStatus, NetworkStatus
-from diucs.domain.model.tenant_records import MappingStatus, RoleMapping
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.model.network import MembershipEndReason, MembershipStatus, NetworkStatus
+from overwatch.domain.model.tenant_records import MappingStatus, RoleMapping
 from tests.support.network_admin_fakes import MemoryRegistry, person
 from tests.support.network_samples import (
     MEMBER_B,

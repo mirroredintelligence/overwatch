@@ -8,17 +8,17 @@ the CancelWork message the relay (I03) delivers.
 from datetime import datetime
 from typing import Final
 
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.sealing import ContentSealer
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork
-from diucs.application.scheduling import cancel_work
-from diucs.application.sealed_send import queue_message
-from diucs.application.tenancy import ScopeId
-from diucs.application.work import SCHEDULED, WorkKind
-from diucs.domain.codes import BookingStatus, Channel
-from diucs.domain.messages.templates import RenderedMessage
-from diucs.domain.model.booking import Booking
-from diucs.domain.model.people import PractitionerRole
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.sealing import ContentSealer
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork
+from overwatch.application.scheduling import cancel_work
+from overwatch.application.sealed_send import queue_message
+from overwatch.application.tenancy import ScopeId
+from overwatch.application.work import SCHEDULED, WorkKind
+from overwatch.domain.codes import BookingStatus, Channel
+from overwatch.domain.messages.templates import RenderedMessage
+from overwatch.domain.model.booking import Booking
+from overwatch.domain.model.people import PractitionerRole
 
 BOOKING_TIMER_KINDS: Final = frozenset({WorkKind.BOOKING_PHONE_PROMPT, WorkKind.BOOKING_EXPIRE})
 

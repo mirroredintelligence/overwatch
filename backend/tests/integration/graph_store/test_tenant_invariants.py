@@ -20,17 +20,17 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.driver import set_query_observer
-from diucs.adapters.outbound.graph_store.invariants import Neo4jTenantInvariants
-from diucs.adapters.outbound.graph_store.migrations_tenant import REGISTRY_LABELS
-from diucs.application.ports.outbound.invariants import (
+from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
+from overwatch.adapters.outbound.graph_store.driver import set_query_observer
+from overwatch.adapters.outbound.graph_store.invariants import Neo4jTenantInvariants
+from overwatch.adapters.outbound.graph_store.migrations_tenant import REGISTRY_LABELS
+from overwatch.application.ports.outbound.invariants import (
     CrossScope,
     TenantInvariantViolated,
     UnstampedNodes,
 )
-from diucs.application.tenancy import bind_tenant
-from diucs.bootstrap.container import build_for_tests
+from overwatch.application.tenancy import bind_tenant
+from overwatch.bootstrap.container import build_for_tests
 from tests.support.neo4j import ThrowawayNeo4j, count_nodes_all, wipe_all, write_tx
 
 pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.schema]

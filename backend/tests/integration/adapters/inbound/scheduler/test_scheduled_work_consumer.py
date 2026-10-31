@@ -19,21 +19,21 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.inbound.scheduler.scheduled_work_consumer import (
+from overwatch.adapters.inbound.scheduler.scheduled_work_consumer import (
     WorkHandler,
     build_scheduled_work_consumer,
 )
-from diucs.adapters.inbound.workers.consumer import Outcome
-from diucs.adapters.inbound.workers.outbox_relay import StaticTenants
-from diucs.adapters.inbound.workers.tenant_binding import NO_TENANT, UNKNOWN_TENANT
-from diucs.adapters.outbound.graph_store.unit_of_work import neo4j_uow_factory
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.ports.outbound.event_bus import BusMessage
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import current_scope_or_none
-from diucs.application.work import CANCELLED, DONE, SCHEDULED, ScheduledWork, WorkKind
-from diucs.bootstrap.container import TEST_NOW
-from diucs.domain.errors import NotFound, ValidationFailed
+from overwatch.adapters.inbound.workers.consumer import Outcome
+from overwatch.adapters.inbound.workers.outbox_relay import StaticTenants
+from overwatch.adapters.inbound.workers.tenant_binding import NO_TENANT, UNKNOWN_TENANT
+from overwatch.adapters.outbound.graph_store.unit_of_work import neo4j_uow_factory
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import current_scope_or_none
+from overwatch.application.work import CANCELLED, DONE, SCHEDULED, ScheduledWork, WorkKind
+from overwatch.bootstrap.container import TEST_NOW
+from overwatch.domain.errors import NotFound, ValidationFailed
 from tests.support.bus import message_with_tenant
 from tests.support.neo4j import count_nodes
 from tests.support.tenancy import tenant_scope

@@ -11,20 +11,20 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.actor import Actor
-from diucs.application.tenancy import ScopeId, TenantNotBound
-from diucs.application.tenant_settings import FixedLinkBase, LondonZones
-from diucs.application.use_cases.missed_report_ladder import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.application.actor import Actor
+from overwatch.application.tenancy import ScopeId, TenantNotBound
+from overwatch.application.tenant_settings import FixedLinkBase, LondonZones
+from overwatch.application.use_cases.missed_report_ladder import (
     LadderStepCommand,
     MissedReportLadder,
     ladder_due,
     ladder_offsets,
 )
-from diucs.application.work import SCHEDULED, ScheduledWork, WorkKind
-from diucs.domain.codes import Role
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY
+from overwatch.application.work import SCHEDULED, ScheduledWork, WorkKind
+from overwatch.domain.codes import Role
+from overwatch.domain.model.tenant_policy import DEFAULT_POLICY
 from tests.support.actors import ACTOR_TENANT
 
 DUE = datetime(2026, 10, 23, 11, 0, tzinfo=UTC)
@@ -101,7 +101,7 @@ def _use_case(scope: ScopeId | None) -> MissedReportLadder:
         FixedClock(DUE),
         SequentialIds(),
         lambda repo: None,  # type: ignore[arg-type, return-value]
-        FixedLinkBase("diucs.example"),
+        FixedLinkBase("overwatch.example"),
         None,  # type: ignore[arg-type]
         zones=LondonZones(),
     )
@@ -152,7 +152,7 @@ def _uow(works: list[ScheduledWork]) -> Any:
 
 
 async def test_a_report_stops_the_step_of_the_tenants_own_offset() -> None:
-    from diucs.application.use_cases.missed_report_ladder import stop_answered_ladders
+    from overwatch.application.use_cases.missed_report_ladder import stop_answered_ladders
 
     step = ScheduledWork(
         id="w-1", kind=WorkKind.REMINDER, due_at=DUE + timedelta(minutes=45),

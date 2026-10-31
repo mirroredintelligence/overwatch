@@ -15,9 +15,9 @@ properties (a known issue of U41).
 from datetime import UTC, datetime
 from typing import Any, Final
 
-from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.adapters.outbound.graph_store.scenario import (
+from overwatch.adapters.outbound.graph_store.driver import ScopedTx, run_query
+from overwatch.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from overwatch.adapters.outbound.graph_store.scenario import (
     Expect,
     Marked,
     NodeSpec,
@@ -25,9 +25,9 @@ from diucs.adapters.outbound.graph_store.scenario import (
     SeedNode,
     TenantSeed,
 )
-from diucs.domain.errors import Conflict
-from diucs.domain.model.safety import SafetyReport
-from diucs.domain.rules.safety_report import SAFETY_CONCERN_CODE, safety_reference
+from overwatch.domain.errors import Conflict
+from overwatch.domain.model.safety import SafetyReport
+from overwatch.domain.rules.safety_report import SAFETY_CONCERN_CODE, safety_reference
 
 COUNTER_ID: Final = SAFETY_CONCERN_CODE
 _CREATED: Final = datetime(2026, 10, 29, 14, 20, tzinfo=UTC)

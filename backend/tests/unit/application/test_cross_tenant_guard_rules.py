@@ -14,8 +14,8 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from diucs.application.actor import Actor
-from diucs.application.cross_tenant_guard import (
+from overwatch.application.actor import Actor
+from overwatch.application.cross_tenant_guard import (
     ACCESS_VALID_FOR,
     CODE_VALID_FOR,
     CrossTenantDenied,
@@ -31,9 +31,9 @@ from diucs.application.cross_tenant_guard import (
     encode_elevation,
     encode_grant,
 )
-from diucs.domain.codes import Role
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.bff_token import OperatorClaims
+from overwatch.domain.codes import Role
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.rules.bff_token import OperatorClaims
 
 NOW = datetime(2026, 10, 30, 9, 0, tzinfo=UTC)
 REF = "ref-support-person-0123456789"

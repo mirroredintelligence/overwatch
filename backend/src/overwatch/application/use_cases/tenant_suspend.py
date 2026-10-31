@@ -39,18 +39,18 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Final
 
-from diucs.application.actor import Actor
-from diucs.application.idempotency import format_instant
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.outbox import outbox_message_for
-from diucs.application.ports.outbound.tenant_registry import TenantRegistry
-from diucs.application.ports.outbound.tenants import TenantDirectory
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.scheduling import cancel_work, schedule_work
-from diucs.application.tenancy import ScopeId
-from diucs.application.tenant_settings import TenantZones, as_zones, read_settings
-from diucs.application.use_cases.tenant_admin import (
+from overwatch.application.actor import Actor
+from overwatch.application.idempotency import format_instant
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.outbox import outbox_message_for
+from overwatch.application.ports.outbound.tenant_registry import TenantRegistry
+from overwatch.application.ports.outbound.tenants import TenantDirectory
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.scheduling import cancel_work, schedule_work
+from overwatch.application.tenancy import ScopeId
+from overwatch.application.tenant_settings import TenantZones, as_zones, read_settings
+from overwatch.application.use_cases.tenant_admin import (
     AUDIT_UPDATE,
     MOVED,
     NO_TENANT,
@@ -58,15 +58,15 @@ from diucs.application.use_cases.tenant_admin import (
     _audit,
     _unit_scope,
 )
-from diucs.application.work import SCHEDULED, WorkKind
-from diucs.domain.codes import Status
-from diucs.domain.errors import Conflict, DomainError, NotFound
-from diucs.domain.events import StatusChanged
-from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED
-from diucs.domain.model.tenant import SuspendMode, SuspendReason, TenantStatus
-from diucs.domain.rules.schedule import next_due
-from diucs.domain.rules.status import compute_status
-from diucs.domain.rules.tenant_lifecycle import resume_tenant, suspend_tenant
+from overwatch.application.work import SCHEDULED, WorkKind
+from overwatch.domain.codes import Status
+from overwatch.domain.errors import Conflict, DomainError, NotFound
+from overwatch.domain.events import StatusChanged
+from overwatch.domain.model.flags import SERVICE_FLAG_SUSPENDED
+from overwatch.domain.model.tenant import SuspendMode, SuspendReason, TenantStatus
+from overwatch.domain.rules.schedule import next_due
+from overwatch.domain.rules.status import compute_status
+from overwatch.domain.rules.tenant_lifecycle import resume_tenant, suspend_tenant
 
 TenantChanged = Callable[[str], None]
 """Told the tenant's id after its record changed, so the serving process can drop what it cached

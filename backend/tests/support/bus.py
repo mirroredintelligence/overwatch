@@ -7,7 +7,7 @@ built message, so their tests build one with a tenant the constructor would refu
 
 from typing import Any
 
-from diucs.application.ports.outbound.event_bus import BusMessage
+from overwatch.application.ports.outbound.event_bus import BusMessage
 
 _PLACEHOLDER_TENANT = "placeholder-tenant"
 

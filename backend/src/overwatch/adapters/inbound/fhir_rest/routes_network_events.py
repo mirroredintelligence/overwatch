@@ -24,19 +24,19 @@ from typing import Annotated, Final
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
-from diucs.adapters.inbound.fhir_rest import routes_events
-from diucs.adapters.inbound.fhir_rest.auth import require_role
-from diucs.adapters.inbound.fhir_rest.routes_network import (
+from overwatch.adapters.inbound.fhir_rest import routes_events
+from overwatch.adapters.inbound.fhir_rest.auth import require_role
+from overwatch.adapters.inbound.fhir_rest.routes_network import (
     NetworkId,
     ensure_in_claim,
     network_services,
 )
-from diucs.application.actor import Actor
-from diucs.application.network_access import NETWORK_VIEW_ROLES, NetworkAccess
-from diucs.application.ports.outbound.cache import NETWORK_BOARD_UPDATES_CHANNEL, Cache
-from diucs.application.tenancy import bind_network
-from diucs.application.use_cases.network_board_projector import NETWORK_BOARD_CHANGED
-from diucs.domain.errors import NotAllowed, NotFound
+from overwatch.application.actor import Actor
+from overwatch.application.network_access import NETWORK_VIEW_ROLES, NetworkAccess
+from overwatch.application.ports.outbound.cache import NETWORK_BOARD_UPDATES_CHANNEL, Cache
+from overwatch.application.tenancy import bind_network
+from overwatch.application.use_cases.network_board_projector import NETWORK_BOARD_CHANGED
+from overwatch.domain.errors import NotAllowed, NotFound
 
 KEEPALIVE_INTERVAL_SECONDS: float = routes_events.KEEPALIVE_INTERVAL_SECONDS
 KEEPALIVE_LINE: Final = routes_events.KEEPALIVE_LINE

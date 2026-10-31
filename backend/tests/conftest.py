@@ -3,8 +3,10 @@
 The Neo4j harness (F10, DEC-008, TEN-034): an integration session runs on one of three databases,
 chosen by `tests/support/harness_mode.py`: the machine's shared container (the default, found or
 created once, every run in its own tenants), a private container the session starts and removes
-(`DIUCS_TEST_NEO4J=owned`), or an instance named by `DIUCS_TEST_NEO4J_URI`. The harness never reads
-`NEO4J_URI` and refuses the compose stack of the owner (port 7687), so no test can wipe diucs-local.
+(`OVERWATCH_TEST_NEO4J=owned`), or an instance named by `OVERWATCH_TEST_NEO4J_URI`. The harness
+never reads
+`NEO4J_URI` and refuses the compose stack of the owner (port 7687), so no test can wipe
+overwatch-local.
 A test that must change or assert the whole schema, or stop a container, takes `own_neo4j`.
 
 The tenant per run (TEN-003, DEC-147): each pytest session has one run identity, from which a run
@@ -23,11 +25,11 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import ScopeId, bind_tenant
-from diucs.bootstrap.container import TEST_NOW
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import ScopeId, bind_tenant
+from overwatch.bootstrap.container import TEST_NOW
 from tests.support.harness_mode import (
     ExclusiveUnderParallel,
     Mode,
@@ -130,7 +132,7 @@ def _refuse_exclusive_on_a_worker(item: pytest.Item) -> None:
 
 @pytest.hookimpl(wrapper=True)
 def pytest_runtest_setup(item: pytest.Item) -> Iterator[None]:
-    """Fail a test whose fixture set-up runs past DIUCS_TEST_SETUP_TIMEOUT seconds (default 900,
+    """Fail a test whose fixture set-up runs past OVERWATCH_TEST_SETUP_TIMEOUT seconds (default 900,
     0 turns it off). The harness pauses this clock for its lock wait and image pull (F10b)."""
     _refuse_exclusive_on_a_worker(item)
     with time_limit(
@@ -141,7 +143,7 @@ def pytest_runtest_setup(item: pytest.Item) -> Iterator[None]:
 
 @pytest.hookimpl(wrapper=True)
 def pytest_runtest_call(item: pytest.Item) -> Iterator[None]:
-    """Fail a test that runs past DIUCS_TEST_TIMEOUT seconds (default 300, 0 turns it off), so a
+    """Fail a test that runs past OVERWATCH_TEST_TIMEOUT seconds (default 300, 0 turns it off), so a
     hang ends in minutes with a stack, not never (F10b, lesson L67)."""
     with time_limit(configured_timeout_s(), item.nodeid, release_capture=_capture_release(item)):
         return (yield)

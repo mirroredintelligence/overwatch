@@ -20,11 +20,11 @@ from typing import Any, Final, NoReturn
 from fhir.resources.R4B import get_fhir_model_class
 from pydantic import ValidationError
 
-from diucs.application.actor import Actor
-from diucs.application.idempotency import format_instant
-from diucs.application.use_cases.query_board import Board, BoardEntry
-from diucs.application.use_cases.report_capacity import ReportCapacityCommand
-from diucs.domain.codes import (
+from overwatch.application.actor import Actor
+from overwatch.application.idempotency import format_instant
+from overwatch.application.use_cases.query_board import Board, BoardEntry
+from overwatch.application.use_cases.report_capacity import ReportCapacityCommand
+from overwatch.domain.codes import (
     BASE_URL,
     CODE_SYSTEM_NAMES,
     Measure,
@@ -33,9 +33,9 @@ from diucs.domain.codes import (
     coding_for,
     parse_code,
 )
-from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.service import AvailableTime, ServiceProfile
+from overwatch.domain.errors import ValidationFailed
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.service import AvailableTime, ServiceProfile
 
 _UCUM_SYSTEM: Final = "http://unitsofmeasure.org"
 _UCUM_UNITS: Final[dict[Measure, str]] = {

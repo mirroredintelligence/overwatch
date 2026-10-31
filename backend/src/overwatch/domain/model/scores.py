@@ -9,8 +9,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, Final
 
-from diucs.domain.codes import AcuityMethod
-from diucs.domain.errors import ValidationFailed
+from overwatch.domain.codes import AcuityMethod
+from overwatch.domain.errors import ValidationFailed
 
 NEWS2_MIN: Final = 0
 NEWS2_MAX: Final = 20

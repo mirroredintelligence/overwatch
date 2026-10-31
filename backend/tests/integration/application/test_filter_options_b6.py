@@ -12,18 +12,18 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.travel_time.routing import RoutingTravelTime
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_geo import FixedPostcodeLocator, FixedTravelTime
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.application.ports.outbound.geo import LatLon, TravelRange, TravelTime
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.filter_options import (
+from overwatch.adapters.outbound.travel_time.routing import RoutingTravelTime
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_geo import FixedPostcodeLocator, FixedTravelTime
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.application.ports.outbound.geo import LatLon, TravelRange, TravelTime
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.filter_options import (
     FilterOptions,
     FilterOptionsCommand,
     FilterOptionsResult,
 )
-from diucs.application.use_cases.query_board import QueryBoard
+from overwatch.application.use_cases.query_board import QueryBoard
 from tests.integration.application.test_filter_options import (
     ACTOR,
     CASE_ID,

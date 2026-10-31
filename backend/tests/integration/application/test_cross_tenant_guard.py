@@ -20,13 +20,13 @@ from datetime import timedelta
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.adapters.testing.recording_platform_audit import RecordingPlatformAudit
-from diucs.application.actor import Actor
-from diucs.application.cross_tenant_guard import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.adapters.testing.recording_platform_audit import RecordingPlatformAudit
+from overwatch.application.actor import Actor
+from overwatch.application.cross_tenant_guard import (
     AuthoriseCommand,
     CrossTenantDenied,
     CrossTenantGuard,
@@ -35,13 +35,13 @@ from diucs.application.cross_tenant_guard import (
     OpenAccessCommand,
     PlatformPrincipal,
 )
-from diucs.application.ports.outbound.identity import TenantKeyedSecrets
-from diucs.application.ports.outbound.tenants import TenantDirectory
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import bind_tenant
-from diucs.bootstrap.container import TEST_NOW, Container
-from diucs.domain.codes import Role
-from diucs.domain.rules.support import SUPPORT_CODE_SECRET
+from overwatch.application.ports.outbound.identity import TenantKeyedSecrets
+from overwatch.application.ports.outbound.tenants import TenantDirectory
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import bind_tenant
+from overwatch.bootstrap.container import TEST_NOW, Container
+from overwatch.domain.codes import Role
+from overwatch.domain.rules.support import SUPPORT_CODE_SECRET
 from tests.support.api import seed_edge_tenants
 from tests.support.neo4j import write_tx
 from tests.support.tenancy import as_tenant

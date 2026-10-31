@@ -13,19 +13,19 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, replace
 from typing import Final
 
-from diucs.application.actor import timer_actor
-from diucs.application.booking_effects import cancel_booking_timers, expired
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.outbox import outbox_message_for
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
-from diucs.application.tenancy import current_tenant
-from diucs.application.work import DONE, SCHEDULED, ScheduledWork, WorkKind
-from diucs.domain.codes import BookingStatus
-from diucs.domain.errors import NotFound
-from diucs.domain.events import BookingExpired
-from diucs.domain.events import BookingPhonePrompt as PhonePromptEvent
-from diucs.domain.rules.booking_timers import TimerEffect, expiry_effect, phone_prompt_effect
+from overwatch.application.actor import timer_actor
+from overwatch.application.booking_effects import cancel_booking_timers, expired
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.outbox import outbox_message_for
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.tenancy import current_tenant
+from overwatch.application.work import DONE, SCHEDULED, ScheduledWork, WorkKind
+from overwatch.domain.codes import BookingStatus
+from overwatch.domain.errors import NotFound
+from overwatch.domain.events import BookingExpired
+from overwatch.domain.events import BookingPhonePrompt as PhonePromptEvent
+from overwatch.domain.rules.booking_timers import TimerEffect, expiry_effect, phone_prompt_effect
 
 AUDIT_ACTION: Final = "U"
 EXPIRE_USE_CASE: Final = "ExpireBooking"

@@ -1,7 +1,7 @@
 {
   "resourceType": "CodeSystem",
   "id": "channel",
-  "url": "https://diucs.example/CodeSystem/channel",
+  "url": "https://overwatch.mirroredintelligence.com/CodeSystem/channel",
   "name": "channel",
   "status": "active",
   "content": "complete",

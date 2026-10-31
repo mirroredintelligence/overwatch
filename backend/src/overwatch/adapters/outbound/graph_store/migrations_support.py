@@ -15,7 +15,7 @@ new one is added (lesson L68).
 
 from typing import Final
 
-from diucs.adapters.outbound.graph_store.migration_types import Migration
+from overwatch.adapters.outbound.graph_store.migration_types import Migration
 
 SUPPORT_MIGRATIONS: Final[tuple[Migration, ...]] = (
     Migration(

@@ -29,7 +29,7 @@ from pathlib import Path
 
 BACKEND = Path(__file__).resolve().parents[1]
 SRC = BACKEND / "src"
-GRAPH = "diucs/adapters/outbound/graph_store"
+GRAPH = "overwatch/adapters/outbound/graph_store"
 
 UNIT = "tests/unit/adapters/outbound/graph_store"
 
@@ -131,7 +131,7 @@ MUTANTS: tuple[Mutant, ...] = (
     Mutant(
         "M10",
         "a unit of work, or any code that opens its own transaction, refuses to open with no scope",
-        "diucs/application/tenancy.py",
+        "overwatch/application/tenancy.py",
         "    return current_scope()\n",
         "    return current_scope_or_none()  # type: ignore[return-value]\n",
         (
@@ -142,7 +142,7 @@ MUTANTS: tuple[Mutant, ...] = (
     Mutant(
         "M11",
         "the audit chain refuses a transaction that carries no scope",
-        "diucs/adapters/outbound/audit_neo4j/audit_log.py",
+        "overwatch/adapters/outbound/audit_neo4j/audit_log.py",
         "    if not isinstance(tx, ScopedTx):\n        raise RawTransactionRefused\n    return tx.scope",
         "    return tx.scope",
         (
@@ -185,7 +185,7 @@ MUTANTS: tuple[Mutant, ...] = (
     Mutant(
         "M15",
         "the process does not start while a node has no tenantId",
-        "diucs/bootstrap/container.py",
+        "overwatch/bootstrap/container.py",
         "            if not report.ok:\n                raise TenantInvariantViolated(report)\n",
         "",
         (

@@ -6,17 +6,17 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.application.tenancy import bind_tenant
-from diucs.application.use_cases.board_projector import (
+from overwatch.adapters.testing.fixed_clock import FixedClock
+from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.application.tenancy import bind_tenant
+from overwatch.application.use_cases.board_projector import (
     BoardProjector,
     board_from_dict,
     board_to_dict,
 )
-from diucs.application.use_cases.query_board import Board, BoardEntry, QueryBoardQuery
-from diucs.domain.codes import Role, ServiceCategory, Status
-from diucs.domain.rules.pressure import Pressure
+from overwatch.application.use_cases.query_board import Board, BoardEntry, QueryBoardQuery
+from overwatch.domain.codes import Role, ServiceCategory, Status
+from overwatch.domain.rules.pressure import Pressure
 
 AT = datetime(2026, 10, 23, 13, 12, tzinfo=UTC)
 

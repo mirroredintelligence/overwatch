@@ -18,17 +18,17 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Final
 
-from diucs.application.actor import Actor
-from diucs.application.idempotency import IdempotencyStore
-from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import current_scope_or_none
-from diucs.application.use_cases.open_case import check_role, replay_key, tenant_scope
-from diucs.domain.codes import BestFitNotUsedReason, Outcome, display
-from diucs.domain.errors import Conflict, NotFound, StaleVersion, ValidationFailed
-from diucs.domain.model.case import Case
-from diucs.domain.model.scores import (
+from overwatch.application.actor import Actor
+from overwatch.application.idempotency import IdempotencyStore
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.tenancy import current_scope_or_none
+from overwatch.application.use_cases.open_case import check_role, replay_key, tenant_scope
+from overwatch.domain.codes import BestFitNotUsedReason, Outcome, display
+from overwatch.domain.errors import Conflict, NotFound, StaleVersion, ValidationFailed
+from overwatch.domain.model.case import Case
+from overwatch.domain.model.scores import (
     AmbulanceCategory,
     ClinicalFrailty,
     ManchesterTriage,
@@ -37,7 +37,7 @@ from diucs.domain.model.scores import (
     Score,
     score_record,
 )
-from diucs.domain.rules.need_words import need_words
+from overwatch.domain.rules.need_words import need_words
 
 RECORD_OUTCOME: Final = "RecordOutcome"
 CLOSE_ACTION: Final = "U"

@@ -5,12 +5,12 @@ import { isSecretName } from './names';
 // The secrets of the web tier (DEC-1304): `session-secret`, `edge-origin`, `entra-staff-client-secret` and
 // `entra-operator-client-secret`, read from Key Vault at run time, cached in memory per process. No secret is in `process.env` when the vault is in use.
 //
-// - TTL 600 s (DIUCS_SECRET_CACHE_SECONDS). Only a good read is kept; a miss, a refusal or an outage is
+// - TTL 600 s (OVERWATCH_SECRET_CACHE_SECONDS). Only a good read is kept; a miss, a refusal or an outage is
 //   never kept, so the next call asks again (callers that arrive together share one request).
 // - Stale-if-error: when a refresh fails and an earlier good value is held, that value is served for up
-//   to 3600 s past its expiry (DIUCS_SECRET_STALE_SECONDS), with a warning that names the secret only.
+//   to 3600 s past its expiry (OVERWATCH_SECRET_STALE_SECONDS), with a warning that names the secret only.
 //   After that the read fails closed. A secret that was never read has nothing to serve.
-// - Without DIUCS_KEY_VAULT_URL (local runs and tests) the plain variables work as they always did. With
+// - Without OVERWATCH_KEY_VAULT_URL (local runs and tests) the plain variables work as they always did. With
 //   it, a process that also has any of the four plain variables set refuses to serve: a secret in plain
 //   configuration is an error, not a fallback.
 // - A value is never logged, put in an error, a prop, a response or a trace. Warnings name the secret.
@@ -24,14 +24,14 @@ export type { VaultClient } from './client';
 /** The web tier's secrets and the variable each one comes from when there is no vault. */
 const PLAIN_VARIABLES: Readonly<Record<string, string>> = {
   'session-secret': 'SESSION_SECRET',
-  'edge-origin': 'DIUCS_EDGE_ORIGIN_SECRET',
+  'edge-origin': 'OVERWATCH_EDGE_ORIGIN_SECRET',
   'entra-staff-client-secret': 'ENTRA_CLIENT_SECRET',
   'entra-operator-client-secret': 'OPERATOR_ENTRA_CLIENT_SECRET',
 };
 
-const URL_VARIABLE = 'DIUCS_KEY_VAULT_URL';
-const CACHE_VARIABLE = 'DIUCS_SECRET_CACHE_SECONDS';
-const STALE_VARIABLE = 'DIUCS_SECRET_STALE_SECONDS';
+const URL_VARIABLE = 'OVERWATCH_KEY_VAULT_URL';
+const CACHE_VARIABLE = 'OVERWATCH_SECRET_CACHE_SECONDS';
+const STALE_VARIABLE = 'OVERWATCH_SECRET_STALE_SECONDS';
 const DEFAULT_CACHE_SECONDS = 600;
 const DEFAULT_STALE_SECONDS = 3600;
 const MAX_SECONDS = 86_400;
@@ -41,7 +41,7 @@ type Env = Record<string, string | undefined>;
 export type SecretsOptions = {
   /** Read at each call, so a change shows. Defaults to `process.env`. */
   env?: Env;
-  /** A client to use instead of building one from DIUCS_KEY_VAULT_URL. */
+  /** A client to use instead of building one from OVERWATCH_KEY_VAULT_URL. */
   client?: VaultClient;
   /** How a client is built from the vault URL. Defaults to the Azure SDK with the default credential. */
   createClient?: (url: string) => Promise<VaultClient>;
@@ -54,7 +54,7 @@ export type SecretsOptions = {
 export type Secrets = {
   /** The value of a secret. Rejects with SecretNotFoundError or SecretConfigurationError. */
   getSecret(name: string): Promise<string>;
-  /** True when DIUCS_KEY_VAULT_URL is set: the secrets then come from the vault and from nowhere else. */
+  /** True when OVERWATCH_KEY_VAULT_URL is set: the secrets then come from the vault and from nowhere else. */
   vaultConfigured(): boolean;
 };
 

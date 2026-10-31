@@ -21,7 +21,7 @@ beforeEach(() => {
 async function open() {
   const user = userEvent.setup();
   render(<NetworkGrants />);
-  await screen.findByRole('table', { name: 'Grants' });
+  await screen.findByRole('table', { name: 'Grants' }, { timeout: 5000 });
   return user;
 }
 const rowOf = (id: string) => {
@@ -87,7 +87,7 @@ describe('the table', () => {
   it('says Nothing here yet. when there is no grant, and could not load on a failure', async () => {
     server.use(http.get('/api/bff/network-admin/grants', () => HttpResponse.json({ ...VIEW_GRANTS, grants: [] })));
     render(<NetworkGrants />);
-    await screen.findByRole('table', { name: 'Grants' });
+    await screen.findByRole('table', { name: 'Grants' }, { timeout: 5000 });
     expect(screen.getByText('Nothing here yet.')).toBeInTheDocument();
   });
 

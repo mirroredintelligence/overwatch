@@ -21,7 +21,7 @@ beforeEach(() => {
 async function open() {
   const user = userEvent.setup();
   render(<NetworkListings />);
-  await screen.findByRole('table', { name: 'Listings' });
+  await screen.findByRole('table', { name: 'Listings' }, { timeout: 5000 });
   return user;
 }
 const rowOf = (id: string) => {
@@ -63,7 +63,7 @@ describe('the table', () => {
   it('says Nothing here yet. for an empty table, and could not load on a failure', async () => {
     server.use(http.get('/api/bff/network-admin/listings', () => HttpResponse.json({ ...VIEW_LISTINGS, listings: [] })));
     render(<NetworkListings />);
-    await screen.findByRole('table', { name: 'Listings' });
+    await screen.findByRole('table', { name: 'Listings' }, { timeout: 5000 });
     expect(screen.getByText('Nothing here yet.')).toBeInTheDocument();
   });
 

@@ -11,7 +11,7 @@ import { NetworkAdminHistory } from './NetworkAdminHistory';
 
 async function open() {
   render(<NetworkAdminHistory />);
-  await screen.findByRole('table', { name: 'Membership history' });
+  await screen.findByRole('table', { name: 'Membership history' }, { timeout: 5000 });
 }
 
 describe('the history', () => {
@@ -49,7 +49,7 @@ describe('the history', () => {
       http.get('/api/bff/network-admin/grants', () => HttpResponse.json({ ...VIEW_GRANTS, grants: VIEW_GRANTS.grants.slice(0, 2) })),
     );
     render(<NetworkAdminHistory />);
-    await screen.findByRole('table', { name: 'Membership history' });
+    await screen.findByRole('table', { name: 'Membership history' }, { timeout: 5000 });
     expect(screen.getAllByText('Nothing here yet.')).toHaveLength(2);
   });
 

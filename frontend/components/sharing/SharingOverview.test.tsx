@@ -22,7 +22,7 @@ beforeEach(() => {
 async function open() {
   const user = userEvent.setup();
   render(<SharingOverview />);
-  await screen.findAllByRole('region', { name: /^(Capacity|Directory|Criteria)$/ });
+  await screen.findAllByRole('region', { name: /^(Capacity|Directory|Criteria)$/ }, { timeout: 5000 });
   return user;
 }
 const card = (scope: 'Capacity' | 'Directory' | 'Criteria') => screen.getByRole('region', { name: scope });

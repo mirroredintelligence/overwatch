@@ -481,6 +481,7 @@ Grants
 Waiting for the network owner
 [btn] Approve (el: NADM-GRANT-APPROVE-BTN)
 [btn] Decline (el: NADM-GRANT-DECLINE-BTN)
+[btn] Decline, in the dialog Decline this grant? (el: NADM-GRANT-DECLINE-CONFIRM-BTN)
 Nothing here yet.
 ```
 
@@ -497,6 +498,7 @@ Listings
 [btn] Reinstate (el: NADM-LISTING-REINSTATE-BTN)
 [select Reason] (el: NADM-LISTING-REASON-SELECT)
 Options: Outside the area, Outside the pilot, Duplicate listing, Data quality, Safety concern, Agreement, Other
+[btn] Decline or Pause, in the dialog that asks for the reason (el: NADM-LISTING-CONFIRM-BTN)
 Nothing here yet.
 ```
 
@@ -540,6 +542,7 @@ Sharing is read only. Other organisations see only the fields listed here. No pa
 [list] Fields: the labels of the field table below (el: SHARE-FIELDS-LIST)
 [btn] Approve (el: SHARE-APPROVE-BTN)
 [btn] Decline (el: SHARE-DECLINE-BTN)
+[btn] Decline, in the dialog Decline sharing {scope}? (el: SHARE-DECLINE-CONFIRM-BTN)
 [btn] End sharing (el: SHARE-END-BTN)
 [btn] Propose sharing (el: SHARE-PROPOSE-BTN)
 [btn] Leave network (el: SHARE-LEAVE-BTN)

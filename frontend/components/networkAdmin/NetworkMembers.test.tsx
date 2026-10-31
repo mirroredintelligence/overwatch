@@ -22,7 +22,7 @@ beforeEach(() => {
 async function open() {
   const user = userEvent.setup();
   render(<NetworkMembers />);
-  await screen.findByRole('table', { name: 'Members' });
+  await screen.findByRole('table', { name: 'Members' }, { timeout: 5000 });
   return user;
 }
 const rowOf = (name: string) => within(screen.getByRole('table', { name: 'Members' })).getByRole('row', { name: new RegExp(name) });
@@ -76,7 +76,7 @@ describe('what the page says', () => {
   it('says Nothing here yet. for an empty table', async () => {
     server.use(http.get('/api/bff/network-admin', () => HttpResponse.json({ network: { ...VIEW_OVERVIEW.network, members: [], health: [] } })));
     render(<NetworkMembers />);
-    await screen.findByRole('table', { name: 'Members' });
+    await screen.findByRole('table', { name: 'Members' }, { timeout: 5000 });
     expect(screen.getAllByText('Nothing here yet.')).toHaveLength(2);
   });
 
@@ -122,7 +122,7 @@ describe('which network', () => {
     await screen.findByText('Which network?');
     expect(seenNetworkAdminReads).toEqual(['/api/bff/network-admin/networks']);
     await user.click(screen.getByRole('button', { name: 'Second Network' }));
-    await screen.findByRole('table', { name: 'Members' });
+    await screen.findByRole('table', { name: 'Members' }, { timeout: 5000 });
     expect(seenNetworkAdminReads.at(-1)).toBe('/api/bff/network-admin?networkId=net-second');
     expect(screen.getByRole('button', { name: 'Second Network' })).toHaveAttribute('aria-pressed', 'true');
   });

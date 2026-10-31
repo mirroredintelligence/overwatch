@@ -326,6 +326,8 @@ def clinical_record_to_fhir(record: ClinicalRequestRecord) -> dict[str, Any]:
     }
     if record.snapshot_ref is not None:
         resource["extension"].append(_extension("snapshotRef", record.snapshot_ref))
+    if record.service_id is not None:
+        resource["extension"].append(_extension("consideredService", record.service_id))
     if request.taken_by is not None and request.taken_at is not None:
         resource["owner"] = {"reference": f"{PRACTITIONER}/{request.taken_by}"}
         resource["extension"].append(_extension("takenAt", _iso(request.taken_at)))
@@ -379,6 +381,7 @@ def clinical_record_from_fhir(
             at=advised_at,
         )
     snapshot = _extension_value(resource, "snapshotRef")
+    considered = _extension_value(resource, "consideredService")
     return ClinicalRequestRecord(
         request=request,
         requester_id=_reference_id(
@@ -387,6 +390,7 @@ def clinical_record_from_fhir(
         why=str(_extension_value(resource, "why")),
         snapshot_ref=snapshot,
         advice=advice,
+        service_id=considered,
     )
 
 

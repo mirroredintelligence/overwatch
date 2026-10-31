@@ -21,11 +21,15 @@ from diucs.adapters.inbound.link_pages.booking_links import (
 )
 from diucs.application.use_cases.link_access import closed_body
 from diucs.application.ports.outbound.geo import LatLon, TravelRange
+from diucs.adapters.inbound.fhir_rest.case_mapping import summary_to_fhir
+from diucs.application.use_cases.case_summary import CaseSummary
 from diucs.application.use_cases.criteria import CriteriaVersionView
 from diucs.application.use_cases.filter_options import (
+    Coverage,
     FilterOptionsResult,
     NotSuitable,
     Option,
+    TravelLeg,
 )
 from diucs.domain.codes import (
     AgeBand,
@@ -70,11 +74,26 @@ options = FilterOptionsResult(
             travel=TravelRange(15, 25, "road estimate"), fits=("Falls without injury", "Frailty"),
             warnings=("Limited: phone to confirm",), criteria_id="cr-1", criteria_version=3,
             category=ServiceCategory.URGENT_COMMUNITY_RESPONSE, position=LatLon(50.71, -2.45),
+            phone="01305 900100",
+            legs=(TravelLeg("Patient to UCR West, by road", 15, 25, "Typical weekday afternoon.", "road estimate"),),
         ),
         Option(
             service_id="svc-2", name="Weymouth Beds", status=Status.OVER_CAPACITY, effective_available=None,
             over_by=1, unit_label="beds", data_age=None, travel=None, fits=(), warnings=(),
             criteria_id="cr-2", criteria_version=1, category=None, position=None,
+        ),
+        Option(
+            service_id="svc-4", name="Visiting Nurses", status=Status.ACCEPTING, effective_available=2,
+            over_by=None, unit_label="visits today", data_age=timedelta(minutes=20), travel=None, fits=(),
+            warnings=(), criteria_id="cr-4", criteria_version=2, category=None, position=None,
+            coverage=Coverage(50.71, -2.44, 15), phone="01305 900200",
+        ),
+        Option(
+            service_id="net-1", name="Neighbour UCR", status=Status.ACCEPTING, effective_available=1,
+            over_by=None, unit_label="referrals in the next 2 hrs", data_age=timedelta(minutes=5),
+            travel=TravelRange(30, 40, "straight-line estimate"), fits=(), warnings=(), criteria_id="",
+            criteria_version=1, category=None, position=LatLon(50.8, -2.5), phone="01305 900300",
+            organisation="Neighbouring Trust", organisation_source="Entered by the organisation",
         ),
     ),
     not_suitable=(NotSuitable("svc-3", "Dorchester SDEC", "Not accepting"),),
@@ -134,6 +153,25 @@ shapes = {
     "caseClosed": case_to_fhir(closed),
     "options": filter_result_to_fhir(options),
     "optionsNoPostcode": filter_result_to_fhir(no_postcode),
+    "summaryWithDestination": summary_to_fhir(
+        CaseSummary(
+            "4821",
+            (
+                ("Referrer", "Ambulance crew"),
+                ("Age band", "80+"),
+                ("Postcode", "DT4"),
+                ("Needs", "Fall with no injury, frailty"),
+                ("Urgency", "Within 2 hrs"),
+                ("Scores", "NEWS2 2 · Frailty scale 6"),
+                ("Destination", "UCR West"),
+                ("Booked", "Confirmed 14:03"),
+                ("Data age", "9 min ago"),
+            ),
+        )
+    ),
+    "summaryNoDestination": summary_to_fhir(
+        CaseSummary("4821", (("Referrer", "Ambulance crew"), ("Age band", "80+"), ("Postcode", "DT4"))),
+    ),
     "criteriaHistory": {
         "resourceType": "Bundle", "type": "searchset", "total": 1,
         "entry": [{"resource": _view_basic(criteria, "svc-1")}],

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { bffFetch } from '@/lib/advisor/browser';
 import { AGE_BANDS, labelOf, NEEDS, URGENCIES, type CaseView } from '@/lib/advisor/codes';
-import { AskClinicalDialog, type CaseSummary } from './AskClinicalDialog';
+import { AskClinicalDialog, type CaseSummary, type ServiceAsked } from './AskClinicalDialog';
 
 // "Ask a clinical advisor" from a case screen (W45): reads the case itself and opens the dialog with a
 // summary of it. The options list, the no-fit state and the map's postcode states all open this, so none of
@@ -24,7 +24,17 @@ export function summaryOfCase(view: CaseView): CaseSummary {
   };
 }
 
-export function AskClinicalPanel({ caseRef, optionsShown, onClose }: { caseRef: string; optionsShown: number; onClose: () => void }) {
+export function AskClinicalPanel({
+  caseRef,
+  optionsShown,
+  service = null,
+  onClose,
+}: {
+  caseRef: string;
+  optionsShown: number;
+  service?: ServiceAsked | null;
+  onClose: () => void;
+}) {
   // undefined: not read yet; null: could not be read.
   const [summary, setSummary] = useState<CaseSummary | null | undefined>(undefined);
 
@@ -39,5 +49,5 @@ export function AskClinicalPanel({ caseRef, optionsShown, onClose }: { caseRef: 
   }, [caseRef]);
 
   if (summary === undefined) return <p role="status">Opening.</p>;
-  return <AskClinicalDialog caseRef={caseRef} summary={summary} optionsShown={optionsShown} onClose={onClose} />;
+  return <AskClinicalDialog caseRef={caseRef} summary={summary} optionsShown={optionsShown} service={service} onClose={onClose} />;
 }

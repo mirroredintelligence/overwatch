@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { Button } from '@/components/ui/Button';
 import { OptionButton } from '@/components/ui/OptionButton';
-import { ADVICE_LABELS, REASON_LABELS } from '@/lib/clinical/advice';
+import { adviceText, REASON_LABELS } from '@/lib/clinical/advice';
 import { bffRequest } from '@/lib/bff/browser';
 import styles from '@/components/exec/Exec.module.css';
 
@@ -28,7 +28,10 @@ export type CaseSummary = {
 type Urgency = 'now' | 'within-15-min';
 type Why = 'borderline-criteria' | 'unsure-of-urgency' | 'other';
 type Phase = 'ask' | 'waiting' | 'taken' | 'advised';
-type Answer = { state: 'waiting' | 'taken' | 'advised'; returnsAt?: string; advice?: string; reason?: string; note?: string; advisedAt?: string };
+type Answer = { state: 'waiting' | 'taken' | 'advised'; returnsAt?: string; advice?: string; reason?: string; note?: string; advisedAt?: string; service?: string };
+
+/** The service the advisor is asking about, when they ask from one service's card (KI-768). */
+export type ServiceAsked = { id: string; name: string };
 
 export const POLL_MS = 5_000;
 export const READ_FAILED = 'The answer could not be read. Check again, or use the escalation route under local protocol.';
@@ -37,7 +40,6 @@ export const NONE_AVAILABLE = 'No clinical advisor is available now. Use the esc
 const URGENCY_LABELS: Readonly<Record<Urgency, string>> = { now: 'Now', 'within-15-min': 'Within 15 min' };
 const WHY_LABELS: Readonly<Record<Why, string>> = { 'borderline-criteria': 'Borderline criteria', 'unsure-of-urgency': 'Unsure of urgency', other: 'Other' };
 const WHY_CHOICES: readonly Why[] = ['borderline-criteria', 'unsure-of-urgency', 'other'];
-const ADVICE_CHOICE_LABEL = (advice: string) => (advice in ADVICE_LABELS ? ADVICE_LABELS[advice as keyof typeof ADVICE_LABELS] : advice);
 // The reason reads inside a sentence, so its first letter is lower case ("Reason: within criteria on my judgement.").
 const REASON_TEXT = (reason: string) => {
   const label = reason in REASON_LABELS ? REASON_LABELS[reason as keyof typeof REASON_LABELS] : reason;
@@ -68,11 +70,13 @@ export function AskClinicalDialog({
   caseRef,
   summary,
   optionsShown,
+  service = null,
   onClose,
 }: {
   caseRef: string;
   summary: CaseSummary | null;
   optionsShown: number;
+  service?: ServiceAsked | null;
   onClose: () => void;
 }) {
   const [urgency, setUrgency] = useState<Urgency>('now');
@@ -146,7 +150,7 @@ export function AskClinicalDialog({
     setError(null);
     const result = await bffRequest<{ requestId: string }>(`/api/bff/cases/${encodeURIComponent(caseRef)}/clinical-requests`, {
       method: 'POST',
-      body: { urgency, why },
+      body: service === null ? { urgency, why } : { urgency, why, service: service.id },
     });
     setBusy(false);
     if (!result.ok) {
@@ -195,6 +199,7 @@ export function AskClinicalDialog({
             </>
           )}
           {summary === null ? <p>{`Options shown: ${optionsShown}`}</p> : null}
+          {service === null ? null : <p>{`About: ${service.name}`}</p>}
         </section>
 
         {phase === 'ask' ? (
@@ -257,7 +262,7 @@ export function AskClinicalDialog({
         ) : null}
         {phase === 'advised' && answer?.advice !== undefined ? (
           <>
-            <p role="status">{`Advice: ${ADVICE_CHOICE_LABEL(answer.advice)}.${answer.reason === undefined ? '' : ` Reason: ${REASON_TEXT(answer.reason)}.`}`}</p>
+            <p role="status">{`Advice: ${adviceText(answer.advice, answer.service ?? null)}.${answer.reason === undefined ? '' : ` Reason: ${REASON_TEXT(answer.reason)}.`}`}</p>
             {answer.note !== undefined ? <p>{`Note from the clinical advisor: ${answer.note}`}</p> : null}
             <div className={styles.actions}>
               <Button variant="primary" onClick={onClose} dataEl="ADV-CLIN-CLOSE-BTN">Close</Button>

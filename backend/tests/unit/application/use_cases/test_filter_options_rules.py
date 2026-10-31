@@ -8,16 +8,21 @@ from datetime import date, timedelta
 
 import pytest
 
+from diucs.application.ports.outbound.geo import LatLon, TravelRange
 from diucs.application.use_cases.filter_options import (
     CRITERIA_NOT_REVIEWED_WARNING,
     LIMITED_WARNING,
     OLD_DATA_WARNING,
     OVER_CAPACITY_WARNING,
+    Coverage,
+    TravelLeg,
+    coverage_of,
     criteria_warnings,
     data_age_warnings,
     fits_for,
     status_reason,
     status_warnings,
+    travel_legs,
 )
 from diucs.domain.codes import CriteriaStatus, NeedCategory, Status
 from diucs.domain.model.criteria import ServiceCriteria
@@ -101,3 +106,114 @@ def test_the_fit_names_the_postcode_and_the_needs_the_service_takes() -> None:
 
 def test_a_case_with_no_need_still_fits_on_the_postcode() -> None:
     assert fits_for(_criteria(date(2026, 11, 30)), ()) == ("Covers this postcode",)
+
+
+# KI-626, KI-627, KI-801: the travel leg and the coverage circle.
+
+
+def test_a_routed_range_is_one_leg_by_road_with_the_traffic_note_and_the_engines_source() -> None:
+    legs = travel_legs("Ward B", TravelRange(35, 50, "Routing data, updated 2026-10-01"))
+
+    assert legs == (
+        TravelLeg(
+            label="Patient to Ward B, by road",
+            low_minutes=35,
+            high_minutes=50,
+            how="Typical weekday afternoon. The spread is from traffic.",
+            source="Routing data, updated 2026-10-01",
+        ),
+    )
+
+
+def test_a_straight_line_estimate_is_never_called_a_road_route() -> None:
+    (leg,) = travel_legs("Ward B", TravelRange(30, 55, "straight-line estimate"))
+
+    assert "road" not in leg.label
+    assert "by road" not in leg.how
+    assert leg.label == "Patient to Ward B, in a straight line"
+    assert leg.source == "straight-line estimate"
+
+
+def test_no_range_gives_no_leg() -> None:
+    assert travel_legs("Ward B", None) == ()
+
+
+def test_the_coverage_of_a_visiting_service_is_the_circle_of_the_districts_it_covers() -> None:
+    places = {"DT1": LatLon(50.0, -2.0), "DT2": LatLon(50.2, -2.0)}
+
+    found = coverage_of(["DT1", "DT2"], places.get)
+
+    assert found is not None
+    assert found.radius_km >= 11
+    assert round(found.lat, 3) == 50.1
+
+
+def test_a_district_the_locator_cannot_place_is_left_out_and_none_placed_gives_no_coverage() -> (
+    None
+):
+    places = {"DT1": LatLon(50.0, -2.0)}
+
+    assert coverage_of(["DT1", "ZZ9"], places.get) == Coverage(lat=50.0, lon=-2.0, radius_km=1)
+    assert coverage_of(["ZZ9"], places.get) is None
+    assert coverage_of([], places.get) is None
+
+
+def test_a_snapshot_row_keeps_the_name_the_advisor_saw() -> None:
+    from datetime import datetime, timedelta
+
+    from diucs.application.use_cases.filter_options import _snapshot_row
+    from diucs.application.use_cases.query_board import BoardEntry
+    from diucs.domain.codes import ServiceCategory
+
+    entry = BoardEntry(
+        service_id="svc-1",
+        name="UCR West",
+        category=ServiceCategory.URGENT_COMMUNITY_RESPONSE,
+        status=Status.OVER_CAPACITY,
+        effective_available=0,
+        over_by=2,
+        used=14,
+        established=12,
+        pending=0,
+        unit_label="patients",
+        comment="",
+        reported_at=datetime(2026, 10, 29, 9, 0),
+        next_due_at=None,
+        was_due_at=None,
+    )
+
+    row = _snapshot_row(entry, 14, timedelta(minutes=9), None, "option")
+
+    assert row["name"] == "UCR West"
+    assert row["over_by"] == 2
+
+
+def test_a_snapshot_row_keeps_the_shown_position_and_a_service_not_suitable_has_none() -> None:
+    from datetime import datetime, timedelta
+
+    from diucs.application.use_cases.filter_options import _snapshot_row
+    from diucs.application.use_cases.query_board import BoardEntry
+    from diucs.domain.codes import ServiceCategory
+
+    entry = BoardEntry(
+        service_id="svc-1",
+        name="UCR West",
+        category=ServiceCategory.URGENT_COMMUNITY_RESPONSE,
+        status=Status.ACCEPTING,
+        effective_available=4,
+        over_by=None,
+        used=4,
+        established=8,
+        pending=0,
+        unit_label="referrals",
+        comment="",
+        reported_at=datetime(2026, 10, 29, 9, 0),
+        next_due_at=None,
+        was_due_at=None,
+    )
+
+    shown = _snapshot_row(entry, 4, timedelta(minutes=9), None, "option", order=2)
+    refused = _snapshot_row(entry, 4, timedelta(minutes=9), None, "not-suitable", "not accepting")
+
+    assert shown["order"] == 2
+    assert "order" not in refused

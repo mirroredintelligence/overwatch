@@ -1,8 +1,9 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetCsrfCache } from '@/lib/advisor/browser';
+import { runAxe } from '@/test/a11y';
 import { byEl } from '@/test/el';
 import { BLANK_CASE, resetSeenAdvisorRequests, seenCasePuts } from '@/test/msw/handlers/advisor';
 import { server } from '@/test/msw/server';
@@ -100,20 +101,152 @@ describe('the postcode the back end keeps as its district (DEC-398)', () => {
   });
 });
 
-describe('scores the back end keeps once (U11: recorded scores cannot change)', () => {
-  it('shows the recorded scores as text, offers no way to change them, and saves them as they are', async () => {
+describe('recorded scores are changed only as a correction with a reason (Q7, KI-815)', () => {
+  const REASON_LABELS = ['I entered it wrongly', 'The referrer gave a corrected score', 'The patient was scored again'];
+
+  it('shows the recorded scores as text, offers a way to correct them, and saves them as they are with no reason', async () => {
     caseIs(RECORDED);
     const user = userEvent.setup();
     render(<NeedsForm caseId="case-1" />);
     await screen.findByRole('group', { name: 'Who is calling?' });
 
-    expect(screen.getByText('Recorded as the referrer gave them: NEWS2 2. They cannot be changed.')).toBeInTheDocument();
+    expect(screen.getByText('Recorded as the referrer gave them: NEWS2 2.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Correct a score' })).toBeInTheDocument();
     expect(document.querySelector('[data-el="ADV-SCORE-NEWS2-CHIP"]')).toBeNull();
 
     await user.click(byEl('ADV-NEEDS-CONTINUE-BTN'));
 
     await waitFor(() => expect(seenCasePuts).toHaveLength(1));
-    expect((seenCasePuts[0]?.body as { scores: unknown }).scores).toEqual([{ method: 'news2', value: 2 }]);
+    const body = seenCasePuts[0]?.body as Record<string, unknown>;
+    expect(body.scores).toEqual([{ method: 'news2', value: 2 }]);
+    expect(Object.keys(body)).not.toContain('scoreCorrectionReason');
+  });
+
+  it('shows the pickers with the recorded scores when the advisor corrects, and asks why', async () => {
+    caseIs(RECORDED);
+    const user = userEvent.setup();
+    render(<NeedsForm caseId="case-1" />);
+    await screen.findByRole('group', { name: 'Who is calling?' });
+
+    await user.click(screen.getByRole('button', { name: 'Correct a score' }));
+
+    expect(byEl('ADV-SCORE-NEWS2-CHIP')).toHaveAttribute('aria-pressed', 'true');
+    expect(byEl('ADV-SCORE-NEWS2-INPUT')).toHaveValue('2');
+    const reasons = screen.getByRole('group', { name: 'Why is the score being corrected?' });
+    for (const label of REASON_LABELS) expect(within(reasons).getByRole('radio', { name: label })).toBeInTheDocument();
+  });
+
+  it('will not save a changed score until a reason is chosen, then sends the new score with the reason', async () => {
+    caseIs(RECORDED);
+    const user = userEvent.setup();
+    render(<NeedsForm caseId="case-1" />);
+    await screen.findByRole('group', { name: 'Who is calling?' });
+    await user.click(screen.getByRole('button', { name: 'Correct a score' }));
+
+    await user.clear(byEl('ADV-SCORE-NEWS2-INPUT'));
+    await user.type(byEl('ADV-SCORE-NEWS2-INPUT'), '5');
+
+    expect(byEl('ADV-NEEDS-CONTINUE-BTN')).toBeDisabled();
+    await user.click(screen.getByRole('radio', { name: 'I entered it wrongly' }));
+    expect(byEl('ADV-NEEDS-CONTINUE-BTN')).toBeEnabled();
+    await user.click(byEl('ADV-NEEDS-CONTINUE-BTN'));
+
+    await waitFor(() => expect(seenCasePuts).toHaveLength(1));
+    const body = seenCasePuts[0]?.body as Record<string, unknown>;
+    expect(body.scores).toEqual([{ method: 'news2', value: 5 }]);
+    expect(body.scoreCorrectionReason).toBe('typing-error');
+  });
+
+  it('sends no reason when the scores were opened for correction and left as they were', async () => {
+    caseIs(RECORDED);
+    const user = userEvent.setup();
+    render(<NeedsForm caseId="case-1" />);
+    await screen.findByRole('group', { name: 'Who is calling?' });
+    await user.click(screen.getByRole('button', { name: 'Correct a score' }));
+    await user.click(screen.getByRole('radio', { name: 'The patient was scored again' }));
+
+    await user.click(byEl('ADV-NEEDS-CONTINUE-BTN'));
+
+    await waitFor(() => expect(seenCasePuts).toHaveLength(1));
+    expect(Object.keys(seenCasePuts[0]?.body as object)).not.toContain('scoreCorrectionReason');
+  });
+
+  it('can add a score of another method to a recorded one with no reason', async () => {
+    caseIs(RECORDED);
+    const user = userEvent.setup();
+    render(<NeedsForm caseId="case-1" />);
+    await screen.findByRole('group', { name: 'Who is calling?' });
+    await user.click(screen.getByRole('button', { name: 'Correct a score' }));
+    await user.click(byEl('ADV-SCORE-CFS-CHIP'));
+    await user.click(byEl('ADV-SCORE-CFS-4'));
+
+    expect(byEl('ADV-NEEDS-CONTINUE-BTN')).toBeEnabled();
+    await user.click(byEl('ADV-NEEDS-CONTINUE-BTN'));
+
+    await waitFor(() => expect(seenCasePuts).toHaveLength(1));
+    const body = seenCasePuts[0]?.body as { scores: unknown; scoreCorrectionReason?: unknown };
+    expect(body.scores).toEqual([
+      { method: 'news2', value: 2 },
+      { method: 'cfs', value: 4 },
+    ]);
+    expect(body.scoreCorrectionReason).toBeUndefined();
+  });
+
+  it('says how many times the scores were corrected and that the first is kept', async () => {
+    caseIs({ ...RECORDED, scoreCorrections: 1 });
+    render(<NeedsForm caseId="case-1" />);
+
+    expect(await screen.findByText('Corrected 1 time. The score first recorded is kept in the record.')).toBeInTheDocument();
+  });
+
+  it('says it in the plural for more than one', async () => {
+    caseIs({ ...RECORDED, scoreCorrections: 2 });
+    render(<NeedsForm caseId="case-1" />);
+
+    expect(await screen.findByText('Corrected 2 times. The score first recorded is kept in the record.')).toBeInTheDocument();
+  });
+
+  it('has no axe violations while a score is being corrected, with the reasons shown and one chosen', async () => {
+    caseIs({ ...RECORDED, scoreCorrections: 1 });
+    const user = userEvent.setup();
+    const { container } = render(<NeedsForm caseId="case-1" />);
+    await screen.findByRole('group', { name: 'Who is calling?' });
+    await user.click(screen.getByRole('button', { name: 'Correct a score' }));
+    await user.click(screen.getByRole('radio', { name: 'I entered it wrongly' }));
+
+    expect((await runAxe(container)).violations).toEqual([]);
+  });
+
+  it('keeps a recorded method pressed and not clearable, and offers no "Not given", while correcting', async () => {
+    caseIs(RECORDED);
+    const user = userEvent.setup();
+    render(<NeedsForm caseId="case-1" />);
+    await screen.findByRole('group', { name: 'Who is calling?' });
+    await user.click(screen.getByRole('button', { name: 'Correct a score' }));
+
+    expect(byEl('ADV-SCORE-NEWS2-CHIP')).toBeDisabled();
+    expect(byEl('ADV-SCORE-NEWS2-CHIP')).toHaveAttribute('aria-pressed', 'true');
+    expect(document.querySelector('[data-el="ADV-SCORE-NONE-CHIP"]')).toBeNull();
+  });
+
+  it('will not save while a recorded score is left as an invalid entry: it is not sent as the old value', async () => {
+    caseIs(RECORDED);
+    const user = userEvent.setup();
+    render(<NeedsForm caseId="case-1" />);
+    await screen.findByRole('group', { name: 'Who is calling?' });
+    await user.click(screen.getByRole('button', { name: 'Correct a score' }));
+
+    await user.clear(byEl('ADV-SCORE-NEWS2-INPUT'));
+
+    expect(byEl('ADV-NEEDS-CONTINUE-BTN')).toBeDisabled();
+  });
+
+  it('says nothing about a correction for a case never corrected', async () => {
+    caseIs(RECORDED);
+    render(<NeedsForm caseId="case-1" />);
+    await screen.findByRole('group', { name: 'Who is calling?' });
+
+    expect(screen.queryByText(/Corrected \d/)).toBeNull();
   });
 
   it('still offers the score pickers while no score is recorded', async () => {
@@ -122,6 +255,43 @@ describe('scores the back end keeps once (U11: recorded scores cannot change)', 
     await screen.findByRole('group', { name: 'Who is calling?' });
 
     expect(byEl('ADV-SCORE-NEWS2-CHIP')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Correct a score' })).toBeNull();
+  });
+});
+
+describe('a case changed by someone else (H-192)', () => {
+  it('says so, and reading the case again shows the latest and clears the message', async () => {
+    let reads = 0;
+    server.use(
+      http.get('/api/bff/cases/:ref', () => {
+        reads += 1;
+        return HttpResponse.json(reads === 1 ? RECORDED : { ...RECORDED, urgency: 'today', etag: 'W/"4"' });
+      }),
+      http.put('/api/bff/cases/:ref', () => HttpResponse.json({ code: 'conflict' }, { status: 412 })),
+    );
+    const user = userEvent.setup();
+    render(<NeedsForm caseId="case-1" />);
+    await screen.findByRole('group', { name: 'Who is calling?' });
+
+    await user.click(byEl('ADV-NEEDS-CONTINUE-BTN'));
+    expect(await screen.findByText('Someone changed this case since you opened it. Nothing of yours was saved.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Read the case again' }));
+
+    await waitFor(() => expect(reads).toBe(2));
+    await waitFor(() => expect(screen.queryByText(/Someone changed this case/)).toBeNull());
+    expect(screen.getByRole('button', { name: /Today/ })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('sends the version it read as If-Match, and the new version after a save is the next one it sends', async () => {
+    caseIs({ ...RECORDED, etag: 'W/"7"' });
+    const user = userEvent.setup();
+    render(<NeedsForm caseId="case-1" />);
+    await screen.findByRole('group', { name: 'Who is calling?' });
+
+    await user.click(byEl('ADV-NEEDS-CONTINUE-BTN'));
+
+    await waitFor(() => expect(seenCasePuts).toHaveLength(1));
+    expect(seenCasePuts[0]?.ifMatch).toBe('W/"7"');
   });
 });
 

@@ -35,6 +35,8 @@ from diucs.domain.codes import DeclineReason, Status
 from diucs.domain.errors import Conflict, NotFound
 
 DECLINE_USE_CASE: Final = "RecordDecline"
+END_OF_TIME: Final = datetime(9999, 12, 31, tzinfo=UTC)
+"""The upper end of an open-ended window: a read "since" a time has no end."""
 DECLINE_ACTION: Final = "C"
 CAPACITY_TOPIC: Final = "capacity.events"
 DECLINED_EVENT: Final = "DeclinedDespiteCapacity"
@@ -238,8 +240,10 @@ class ListDeclinesSince:
         self._uow_factory = uow_factory
 
     async def execute(self, since: datetime) -> list[DeclineRecord]:
-        # The audit port cannot filter by use case, so every record of the tenant's chain is read
-        # and the declines picked out (known issue U13-1).
+        # Only the entries of RecordDecline from `since` on are read (KI-352): the window query of
+        # the audit port filters by use case and time, so the tenant's whole chain is not.
         async with self._uow_factory() as uow:
-            records = await uow.audit.records()
+            records = await uow.audit.records_between(
+                since, END_OF_TIME, frozenset({DECLINE_USE_CASE})
+            )
         return declines_from(records, since)

@@ -15,6 +15,15 @@ export const ADVICE_LABELS: Readonly<Record<(typeof ADVICE_CHOICES)[number], str
   'emergency-route': 'Send to the emergency route under local protocol',
 };
 
+/**
+ * The advice as a sentence. "Go ahead" names the service the request recorded (KI-768): advice about one
+ * service is read as about that one. With none recorded, or for any other choice, it is the general label.
+ */
+export function adviceText(choice: string, serviceName: string | null): string {
+  if (choice === 'go-ahead' && serviceName !== null) return `Go ahead with ${serviceName}`;
+  return choice in ADVICE_LABELS ? ADVICE_LABELS[choice as keyof typeof ADVICE_LABELS] : choice;
+}
+
 export const REASON_LABELS: Readonly<Record<(typeof ADVICE_REASONS)[number], string>> = {
   'within-criteria-on-judgement': 'Within criteria on my judgement',
   'safer-alternative': 'Safer alternative',

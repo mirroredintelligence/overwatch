@@ -27,8 +27,21 @@ _SERVICE_POSITIONS: Final = NamedQuery(
     scenario=SCENARIOS["Q-SVC-POSITIONS"],
 )
 
-if _SERVICE_POSITIONS.id not in REGISTRY.ids():
-    REGISTRY.register(_SERVICE_POSITIONS)
+_SERVICE_COVERAGE: Final = NamedQuery(
+    id="Q-SVC-COVERAGE",
+    cypher=(
+        "MATCH (s:HealthcareService {tenantId: $tenant})-[:COVERAGE_AREA]->"
+        "(l:Location {tenantId: $tenant}) "
+        "WHERE s.id IN $ids AND l.name IS NOT NULL "
+        "RETURN s.id AS id, l.name AS district ORDER BY s.id, l.name"
+    ),
+    mode="read",
+    scenario=SCENARIOS["Q-SVC-COVERAGE"],
+)
+
+for _query in (_SERVICE_POSITIONS, _SERVICE_COVERAGE):
+    if _query.id not in REGISTRY.ids():
+        REGISTRY.register(_query)
 
 
 class Neo4jServicePositions:
@@ -47,3 +60,12 @@ class Neo4jServicePositions:
             if service_id not in positions:
                 positions[service_id] = LatLon(lat=float(row["lat"]), lon=float(row["lon"]))
         return positions
+
+    async def coverage_districts(self, service_ids: Sequence[str]) -> dict[str, tuple[str, ...]]:
+        if not service_ids:
+            return {}
+        rows = await run_query(self._tx, REGISTRY.get("Q-SVC-COVERAGE"), ids=list(service_ids))
+        found: dict[str, list[str]] = {}
+        for row in rows:
+            found.setdefault(str(row["id"]), []).append(str(row["district"]))
+        return {service: tuple(districts) for service, districts in found.items()}

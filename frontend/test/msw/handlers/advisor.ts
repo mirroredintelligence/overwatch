@@ -19,6 +19,7 @@ export const BLANK_CASE = {
   needs: [],
   urgency: null,
   scores: [],
+  scoreCorrections: 0,
   reference: '4821',
   openedAt: '2026-10-30T10:00:00.000Z',
   closed: false,
@@ -55,8 +56,8 @@ const caseHandlers = [
 
 // The Pathways Dx lookup (R16 through the BFF). Codes are fixture values, not clinical text.
 export const PATHWAYS_RESULTS = [
-  { code: 'PD-101', display: 'Sample Dx one' },
-  { code: 'PD-102', display: 'Sample Dx two' },
+  { code: 'Dx101', display: 'Sample Dx one' },
+  { code: 'Dx102', display: 'Sample Dx two' },
 ];
 /** The query of every BFF lookup this file saw, in order. */
 export const PATHWAYS_BACKEND_CALLS: string[] = [];

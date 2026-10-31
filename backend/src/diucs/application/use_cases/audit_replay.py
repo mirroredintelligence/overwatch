@@ -8,8 +8,11 @@ recorded. The chain is verified and reported as chain_ok.
 
 Roles: lead and audit only (DEC-390). Read-only apart from the replay's own audit entry. The
 snapshot of a display holds ids, status, number, data age and criteria version; it holds no
-postcode, no district and no needs, and the replay adds none. Service names are the current names
-(the snapshot does not hold them, DEC-391).
+postcode, no district and no needs, and the replay adds none. Service names are the names the
+advisor saw, kept in the snapshot (KI-474, DEC-1177); a display written before that shows the
+current name and says so. The figure is what the service could take, "+n" for how far over capacity
+it was, and none for a service that offered none: never the used count (H-190, KI-475). The options
+are in the order they were shown, nearest first (H-193).
 
 Decisions: DEC-390 (roles, the chosen display, the timeline), DEC-391 (names, the over-capacity
 figure and what the snapshot holds). Rules: domain/rules/freshness (data_age_text).
@@ -65,6 +68,9 @@ class ReplayRow:
     value_text: str
     data_age_text: str
     criteria_version: int | None
+    name_as_shown: bool = False
+    """True when the name is the one the advisor saw (the snapshot keeps it, KI-474); False for a
+    display written before names were kept, whose name is the service's name now."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,19 +108,64 @@ def age_words(seconds: int | None) -> str:
     return f"{text.removesuffix(' ago')} old"
 
 
+def _count(value: object) -> int | None:
+    """A whole count of zero or more; a bool, a float or a negative number is not one."""
+    if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+        return value
+    return None
+
+
+def figure_text(status: Status, number: object, over_by: object) -> str | None:
+    """What the service could take, or how far over capacity it was, and nothing otherwise. The
+    number a snapshot holds for an over-capacity service is the used count (DEC-391): it is not a
+    figure, so an over-capacity service shows its `over_by` or none. A service that is not
+    accepting, not updated or out of hours shows none: its figure is not what it could take
+    (H-190, KI-475)."""
+    if status in (Status.ACCEPTING, Status.LIMITED):
+        count = _count(number)
+        return None if count is None else str(count)
+    if status is Status.OVER_CAPACITY:
+        over = _count(over_by)
+        return None if over is None or over == 0 else f"+{over}"
+    return None
+
+
+def shown_order(rows: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+    """The rows of a display in the order the advisor saw them (H-193, KI-476): the options by the
+    position they were shown at (nearest first), then the services that were not suitable in the
+    order written. A display in which any option has no position (written before positions were
+    kept) stays in the order written."""
+    options = [row for row in rows if row.get("shown_as") == SHOWN_AS_OPTION]
+    if any(_count(row.get("order")) is None for row in options):
+        return list(rows)
+    rest = [row for row in rows if row.get("shown_as") != SHOWN_AS_OPTION]
+    return [*sorted(options, key=lambda row: int(row["order"])), *rest]
+
+
+def _shown_name(row: Mapping[str, Any], names: Mapping[str, str]) -> tuple[str, bool]:
+    """The name of a row, and whether it is the name the advisor saw. The snapshot's own name wins
+    (a service renamed since is still shown as it was); an older row has the current name."""
+    kept = row.get("name")
+    if isinstance(kept, str) and kept.strip():
+        return kept, True
+    return names.get(row["id"], row["id"]), False
+
+
 def replay_rows(
     snapshot_rows: Sequence[Mapping[str, Any]], names: Mapping[str, str]
 ) -> tuple[ReplayRow, ...]:
     rows: list[ReplayRow] = []
-    for row in snapshot_rows:
-        number = row["number"]
+    for row in shown_order(snapshot_rows):
+        name, as_shown = _shown_name(row, names)
+        figure = figure_text(Status(row["status"]), row["number"], row.get("over_by"))
         rows.append(
             ReplayRow(
-                service_name=names.get(row["id"], row["id"]),
+                service_name=name,
                 status=status_word(Status(row["status"])),
-                value_text=NO_FIGURE if number is None else str(number),
+                value_text=NO_FIGURE if figure is None else figure,
                 data_age_text=age_words(row["data_age_seconds"]),
                 criteria_version=row["criteria_version"],
+                name_as_shown=as_shown,
             )
         )
     return tuple(rows)

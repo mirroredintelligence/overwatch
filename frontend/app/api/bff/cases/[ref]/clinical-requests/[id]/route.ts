@@ -21,10 +21,14 @@ const get = withBff<Context>(
     if (!ID.test(ref) || !ID.test(id)) return notFound();
     const found = await readRequest(session, id);
     if (found.caseId !== ref) return notFound();
+    // The name of the service the advisor asked about, when they named one (KI-768): the advice reads as
+    // about it ("Go ahead with UCR West"). Never an id.
+    const service = found.service === null ? {} : { service: found.service };
     if (found.advice !== null) {
       return Response.json(
         {
           state: 'advised',
+          ...service,
           advice: found.advice.choice,
           ...(found.advice.reason === null ? {} : { reason: found.advice.reason }),
           ...(found.advice.note === null ? {} : { note: found.advice.note }),
@@ -34,9 +38,9 @@ const get = withBff<Context>(
       );
     }
     if (found.status === 'in-progress') {
-      return Response.json({ state: 'taken', ...(found.returnsAt === null ? {} : { returnsAt: found.returnsAt }) }, { headers: NO_STORE });
+      return Response.json({ state: 'taken', ...service, ...(found.returnsAt === null ? {} : { returnsAt: found.returnsAt }) }, { headers: NO_STORE });
     }
-    return Response.json({ state: 'waiting' }, { headers: NO_STORE });
+    return Response.json({ state: 'waiting', ...service }, { headers: NO_STORE });
   },
   { roles: ROLES, idScoped: true },
 );

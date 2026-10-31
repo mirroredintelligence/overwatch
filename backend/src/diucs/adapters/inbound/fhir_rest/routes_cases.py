@@ -5,8 +5,12 @@ POST /fhir/ServiceRequest                       open a case (OpenCase, U11, then
 GET  /fhir/ServiceRequest/{id}                  read one case, open or closed (W7A)
 PUT  /fhir/ServiceRequest/{id}                  update referrer, age band, postcode, needs, urgency
                                                 and scores (If-Match)
+GET  /fhir/ServiceRequest/{id}/$summary         the summary to copy, with the destination, booking
+                                                and data age of the service named (BuildCaseSummary)
 POST /fhir/ServiceRequest/{id}/$close           close with an outcome (RecordOutcome, U14)
-POST /fhir/HealthcareService/$filter-options    the options for a case (FilterOptions, U12)
+POST /fhir/HealthcareService/$filter-options    the options for a case (FilterOptions, U12); with a
+                                                `network` part, the other organisations' services
+                                                of that network, read only (FilterNetworkOptions)
 POST /fhir/HealthcareService/{id}/$advisor-phoned   "I phoned" (RecordAdvisorPhoned, U13)
 POST /fhir/HealthcareService/{id}/$declined     declined despite capacity (RecordDecline, U13)
 
@@ -18,14 +22,17 @@ The only stored patient data is the postcode district and an age band (DEC-398).
 name, identifier, birth date or telecom is refused with 400 invalid before anything is read or
 written; the message never echoes the value.
 
-Decisions: DEC-397 (the open is two use cases in two units), DEC-398 (no case version: If-Match is
-required but its value is not compared; the answers are the stored shape), DEC-770 (an empty open,
+Decisions: DEC-1172 (the open is one unit; the case version is the ServiceRequest's version: a
+PUT must send the ETag it read as If-Match and a case at another version is 412, H-192; this
+replaces DEC-397's two units and DEC-398's unchecked If-Match), DEC-398 (the answers are the stored
+shape), DEC-770 (an empty open,
 the referrer optional until the case is complete), DEC-773 (planned is kept as planned; scores are
 stored), DEC-779 (the options carry category, place and the map flags), DEC-781 (the close time).
 The ServiceRequest shape is in case_mapping.py.
 """
 
 import json
+import re
 from dataclasses import replace
 from typing import Annotated, Any, Final, cast
 
@@ -42,9 +49,20 @@ from diucs.adapters.inbound.fhir_rest.case_mapping import (
     filter_result_to_fhir,
     parse_case_details,
     refuse_patient_details,
+    summary_to_fhir,
 )
-from diucs.adapters.inbound.fhir_rest.concurrency import idempotency_key, require_if_match
+from diucs.adapters.inbound.fhir_rest.concurrency import (
+    etag_for,
+    idempotency_key,
+    parse_if_match,
+    require_if_match,
+)
 from diucs.adapters.inbound.fhir_rest.mapping import validate_outbound
+from diucs.adapters.inbound.fhir_rest.routes_network import (
+    NETWORK_ID_PATTERN,
+    ensure_in_claim,
+    network_services,
+)
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.tenant_settings import DirectoryZones
@@ -54,6 +72,10 @@ from diucs.application.use_cases.advisor_phoned import (
     PhonedAnswer,
     RecordAdvisorPhoned,
     RecordAdvisorPhonedCommand,
+)
+from diucs.application.use_cases.case_summary import BuildCaseSummary, BuildCaseSummaryQuery
+from diucs.application.use_cases.filter_network_options import (
+    FilterNetworkOptionsCommand,
 )
 from diucs.application.use_cases.filter_options import (
     FilterOptions,
@@ -81,13 +103,22 @@ from diucs.domain.model.case import Case
 
 CASE_ROLES: Final = (Role.ADVISOR, Role.CLINICAL)
 NO_SUCH_CASE: Final = "no case with this id"
-ETAG_OPEN: Final = 'W/"1"'
 
 router = APIRouter(prefix="/fhir")
 capability.register_resource(
     "ServiceRequest",
     ("read", "create", "update"),
-    (f"{BASE_URL}OperationDefinition/close",),
+    (f"{BASE_URL}OperationDefinition/close", f"{BASE_URL}OperationDefinition/summary"),
+)
+# The HealthcareService operations of the advisor's call (KI-399), added to the type the service
+# routes register: the options, "I phoned" and "they declined".
+capability.advertise_operations(
+    "HealthcareService",
+    (
+        f"{BASE_URL}OperationDefinition/filter-options",
+        f"{BASE_URL}OperationDefinition/advisor-phoned",
+        f"{BASE_URL}OperationDefinition/declined",
+    ),
 )
 
 
@@ -131,16 +162,17 @@ async def _json(request: Request) -> Any:
         raise ValidationFailed("body", "is not valid JSON") from None
 
 
-async def _case_or_404(factory: UnitOfWorkFactory, case_id: str) -> Case:
+async def _case_or_404(factory: UnitOfWorkFactory, case_id: str) -> tuple[Case, int]:
+    """The case and its version, the one the ETag of the answer names (H-192, DEC-1172)."""
     async with factory() as uow:
-        case = await uow.cases.get(case_id)
-    if case is None:
+        found = await uow.cases.get_versioned(case_id)
+    if found is None:
         raise NotFound(NO_SUCH_CASE)
-    return case
+    return found
 
 
 def _update_command(
-    key: str, actor: Actor, case_id: str, details: CaseDetails
+    key: str, actor: Actor, case_id: str, details: CaseDetails, expected_version: int | None = None
 ) -> UpdateCaseCommand:
     return UpdateCaseCommand(
         idempotency_key=key,
@@ -153,6 +185,8 @@ def _update_command(
         urgency=details.urgency,
         scores=details.scores,
         district=details.district,
+        score_correction_reason=details.score_correction_reason,
+        expected_version=expected_version,
     )
 
 
@@ -171,27 +205,32 @@ async def open_case(
     actor: Annotated[Actor, Depends(require_role(*CASE_ROLES))],
 ) -> Response:
     """Open a case. The body may be empty of details: the call screen opens the case before
-    anything is known (DEC-770), and every detail comes by a later PUT."""
+    anything is known (DEC-770), and every detail comes by a later PUT. A body with details opens
+    and fills the case in one unit of work (KI-400, DEC-1172): a refusal leaves no case."""
     key = idempotency_key(request)
     _, details = await _service_request(request)
     container = get_container(request)
+    rest = replace(details, referrer_type=None)
     opened = await OpenCase(
         container.uow_factory,
         container.clock,
         container.ids,
         UnitOfWorkIdempotency(container.uow_factory),
         container.rng,
-    ).execute(OpenCaseCommand(key, actor, details.referrer_type))
-    rest = replace(details, referrer_type=None)
-    if not rest.is_empty:
-        await UpdateCase(
-            container.uow_factory, container.clock, UnitOfWorkIdempotency(container.uow_factory)
-        ).execute(_update_command(f"{key}:details", actor, opened.case_id, rest))
-    case = await _case_or_404(container.uow_factory, opened.case_id)
+        container.terminology,
+    ).execute(
+        OpenCaseCommand(
+            key,
+            actor,
+            details.referrer_type,
+            None if rest.is_empty else _update_command(key, actor, "", rest),
+        )
+    )
+    case, version = await _case_or_404(container.uow_factory, opened.case_id)
     return FhirJSONResponse(
         content=validate_outbound(case_to_fhir(case)),
         status_code=201,
-        headers={"Location": f"/fhir/ServiceRequest/{case.id}", "ETag": ETAG_OPEN},
+        headers={"Location": f"/fhir/ServiceRequest/{case.id}", "ETag": etag_for(version)},
     )
 
 
@@ -201,11 +240,12 @@ async def read_case(
     request: Request,
     actor: Annotated[Actor, Depends(require_role(*CASE_ROLES))],
 ) -> Response:
-    """One case, open or closed. Another tenant's id is the same 404 as an unknown id."""
-    case = await _case_or_404(get_container(request).uow_factory, case_id)
+    """One case, open or closed. Another tenant's id is the same 404 as an unknown id. The ETag is
+    the version to send back as If-Match on a PUT (H-192)."""
+    case, version = await _case_or_404(get_container(request).uow_factory, case_id)
     return FhirJSONResponse(
         content=validate_outbound(case_to_fhir(case)),
-        headers={"ETag": ETAG_OPEN, "Cache-Control": "no-store"},
+        headers={"ETag": etag_for(version), "Cache-Control": "no-store"},
     )
 
 
@@ -215,19 +255,44 @@ async def update_case(
     request: Request,
     actor: Annotated[Actor, Depends(require_role(*CASE_ROLES))],
 ) -> Response:
+    """Update an open case. If-Match is the version the caller read: a case at another version is
+    412 and nothing is written (H-192, DEC-1172), so two advisors editing one case cannot
+    silently overwrite each other."""
     key = idempotency_key(request)
-    require_if_match(request)
+    expected = require_if_match(request)
     _, details = await _service_request(request)
     container = get_container(request)
     await UpdateCase(
-        container.uow_factory, container.clock, UnitOfWorkIdempotency(container.uow_factory)
-    ).execute(_update_command(key, actor, case_id, details))
-    case = await _case_or_404(container.uow_factory, case_id)
+        container.uow_factory,
+        container.clock,
+        UnitOfWorkIdempotency(container.uow_factory),
+        container.terminology,
+    ).execute(_update_command(key, actor, case_id, details, expected))
+    case, version = await _case_or_404(container.uow_factory, case_id)
     return FhirJSONResponse(
         content=validate_outbound(case_to_fhir(case)),
         status_code=200,
-        headers={"ETag": ETAG_OPEN},
+        headers={"ETag": etag_for(version)},
     )
+
+
+@router.get("/ServiceRequest/{case_id}/$summary")
+async def case_summary(
+    case_id: str,
+    request: Request,
+    actor: Annotated[Actor, Depends(require_role(*CASE_ROLES))],
+    destination: str | None = None,
+) -> Response:
+    """The summary to copy into the referral, for an open case (H-322). `destination` is the
+    service the advisor is referring to; without it the destination, booking and data age rows are
+    left out. A closed case has no summary (409)."""
+    container = get_container(request)
+    summary = await BuildCaseSummary(
+        container.uow_factory,
+        container.clock,
+        QueryBoard(container.uow_factory, container.clock),
+    ).execute(BuildCaseSummaryQuery(actor, case_id, destination))
+    return FhirJSONResponse(content=summary_to_fhir(summary), headers={"Cache-Control": "no-store"})
 
 
 @router.post("/ServiceRequest/{case_id}/$close")
@@ -237,6 +302,10 @@ async def close_case(
     actor: Annotated[Actor, Depends(require_role(*CASE_ROLES))],
 ) -> Response:
     key = idempotency_key(request)
+    # The version is optional on a close: one that names it is checked (a case another advisor
+    # changed since is 412); one that does not closes whatever is stored (DEC-1172).
+    named = request.headers.get("if-match")
+    expected = None if named is None else parse_if_match(named)
     grouped = _parameters(await _json(request))
     try:
         outcome = Outcome(_code(_one(grouped, "outcome"), "outcome"))
@@ -266,10 +335,15 @@ async def close_case(
             outcome=outcome,
             destination_service_id=destination_id,
             best_fit_not_used=best_fit,
+            expected_version=expected,
         )
     )
-    case = await _case_or_404(container.uow_factory, case_id)
-    return FhirJSONResponse(content=validate_outbound(case_to_fhir(case)), status_code=200)
+    case, version = await _case_or_404(container.uow_factory, case_id)
+    return FhirJSONResponse(
+        content=validate_outbound(case_to_fhir(case)),
+        status_code=200,
+        headers={"ETag": etag_for(version)},
+    )
 
 
 @router.post("/HealthcareService/$filter-options")
@@ -281,6 +355,19 @@ async def filter_options(
     grouped = _parameters(await _json(request))
     case_id = _reference_id(_one(grouped, "case"), "case", "ServiceRequest")
     container = get_container(request)
+    network = _one(grouped, "network")
+    if network is not None:
+        # The network variant (KI-349): the other organisations' services, read only. The claim
+        # routes and the registry decides; every refusal is the one 404.
+        network_id = network.get("valueString")
+        if not isinstance(network_id, str) or re.fullmatch(NETWORK_ID_PATTERN, network_id) is None:
+            raise ValidationFailed("network", "must be a network id")
+        ensure_in_claim(actor, network_id)
+        options = network_services(request).options
+        if options is None:
+            raise RuntimeError("no network options are configured")
+        shown = await options.execute(FilterNetworkOptionsCommand(actor, case_id, network_id))
+        return FhirJSONResponse(content=filter_result_to_fhir(shown), status_code=200)
     result = await FilterOptions(
         container.uow_factory,
         container.clock,

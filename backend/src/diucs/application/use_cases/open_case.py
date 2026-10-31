@@ -23,10 +23,11 @@ from diucs.application.idempotency import IdempotencyStore
 from diucs.application.ports.outbound.audit import AuditEntry
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.ids import IdGenerator
+from diucs.application.ports.outbound.terminology import Terminology
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
 from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope_or_none
 from diucs.domain.codes import AgeBand, NeedCategory, ReferrerType, Role, Urgency
-from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
+from diucs.domain.errors import Conflict, NotAllowed, NotFound, StaleVersion, ValidationFailed
 from diucs.domain.model.case import Case
 from diucs.domain.model.scores import (
     AmbulanceCategory,
@@ -35,6 +36,9 @@ from diucs.domain.model.scores import (
     News2,
     PathwaysDx,
     Score,
+    ScoreCorrectionReason,
+    merge_scores,
+    score_record,
 )
 from diucs.domain.rules.booking_rules import REFERENCE_ATTEMPTS, new_reference
 from diucs.domain.rules.postcode import normalise_district, normalise_postcode, postcode_district
@@ -52,6 +56,10 @@ class OpenCaseCommand:
     idempotency_key: str
     actor: Actor
     referrer_type: ReferrerType | None = None
+    details: UpdateCaseCommand | None = None
+    """What the same write also sets: a case opened with its details is opened and filled in one
+    unit of work, so a failure leaves no case with no details (KI-400). Only its fields are used:
+    its case id and its idempotency key are not."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,6 +84,13 @@ class UpdateCaseCommand:
     the options screen offers when the postcode was not found or is out of area. It is the only way
     a district alone is kept; `postcode` still takes a full postcode and nothing less. Not with a
     `postcode`."""
+    score_correction_reason: ScoreCorrectionReason | None = None
+    """Why a recorded score is changed (Q7, DEC-1100, DEC-1171). Required when `scores` gives a
+    recorded method another value; refused when nothing is corrected."""
+    expected_version: int | None = None
+    """The version of the case the caller read (H-192, DEC-1172). A case at another version raises
+    StaleVersion and nothing is written, so two advisors editing one open case cannot overwrite
+    each other. Not part of the command's fingerprint: it says what was read, not what is asked."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -192,7 +207,9 @@ def apply_update(case: Case, command: UpdateCaseCommand) -> Case:
             raise ValidationFailed("urgency", "must be an urgency")
         changes["urgency"] = command.urgency
     if command.scores is not None:
-        changes["scores"] = _scores(case, command.scores)
+        changes.update(_scores(case, command.scores, command.score_correction_reason))
+    elif command.score_correction_reason is not None:
+        raise ValidationFailed("score_correction_reason", "a reason needs the corrected scores")
     return replace(case, **changes)
 
 
@@ -207,17 +224,61 @@ def _needs(needs: object) -> tuple[NeedCategory, ...]:
     return checked
 
 
-def _scores(case: Case, scores: object) -> tuple[Score, ...]:
-    """Scores are recorded once and then never change (the CaseRepository port). Repeating the
-    recorded scores unchanged is accepted."""
+def _scores(case: Case, scores: object, reason: object) -> dict[str, Any]:
+    """The scores of a write merged into the recorded ones (DEC-1171). A method not yet recorded is
+    added. A recorded method given another value is a correction: it needs one of the listed
+    reasons, and the case counts it (the original and the reason go to the audit). A reason with
+    nothing to correct is refused, so a reason on record always belongs to a real correction."""
     if not isinstance(scores, tuple):
         raise ValidationFailed("scores", "must be a tuple of scores")
     checked = tuple(item for item in scores if isinstance(item, _SCORE_TYPES))
     if len(checked) != len(scores):
         raise ValidationFailed("scores", "must be listed score values")
-    if case.scores and checked != case.scores:
-        raise ValidationFailed("scores", "recorded scores cannot change")
-    return checked
+    if reason is not None and not isinstance(reason, ScoreCorrectionReason):
+        raise ValidationFailed("score_correction_reason", "must be a listed reason")
+    if case.scores and not checked:
+        raise ValidationFailed("scores", "recorded scores are not cleared")
+    merged = merge_scores(case.scores, checked)
+    if merged.corrected:
+        if reason is None:
+            raise ValidationFailed(
+                "score_correction_reason", "a recorded score changes only with a reason"
+            )
+        return {"scores": merged.scores, "score_corrections": case.score_corrections + 1}
+    if reason is not None and not case.scores:
+        raise ValidationFailed("score_correction_reason", "no recorded score is being corrected")
+    # A reason with the recorded scores repeated (or a method only added) corrects nothing: it is
+    # left out, so a retry after a correction that already went through is not an error.
+    return {"scores": merged.scores}
+
+
+async def check_pathways_listed(
+    terminology: Terminology, scores: tuple[Score, ...] | None, recorded: tuple[Score, ...]
+) -> None:
+    """A Pathways Dx code is written only when it is on the list (H-85, KI-247). A code already
+    recorded unchanged is not asked again, so a list that changed later blocks no edit of the case.
+    The refusal names the field and never the code."""
+    for score in scores or ():
+        if (
+            isinstance(score, PathwaysDx)
+            and score not in recorded
+            and not await terminology.pathways_dx_listed(score.code)
+        ):
+            raise ValidationFailed("scores", "a Pathways Dx code must be one on the list")
+
+
+def score_correction_snapshot(
+    recorded: tuple[Score, ...], now: tuple[Score, ...], reason: ScoreCorrectionReason
+) -> dict[str, Any]:
+    """What the audit keeps of a correction: the reason and, per method changed, the original and
+    the new score. The original is kept here and nowhere else once the score is replaced."""
+    merged = merge_scores(recorded, now)
+    return {
+        "reason": reason.value,
+        "corrected": [
+            {"was": score_record(was), "now": score_record(new)} for was, new in merged.corrected
+        ],
+    }
 
 
 def snapshot_of(case: Case) -> dict[str, Any]:
@@ -255,6 +316,7 @@ def open_fingerprint(command: OpenCaseCommand) -> str:
             command.actor.role.value,
             command.actor.practitioner_id,
             None if command.referrer_type is None else command.referrer_type.value,
+            None if command.details is None else update_fingerprint(command.details),
         )
     )
     return hashlib.sha256(body.encode("utf-8")).hexdigest()
@@ -273,6 +335,9 @@ def update_fingerprint(command: UpdateCaseCommand) -> str:
             command.urgency,
             command.scores,
             command.district,
+            None
+            if command.score_correction_reason is None
+            else str(command.score_correction_reason),
         )
     )
     return hashlib.sha256(body.encode("utf-8")).hexdigest()
@@ -295,12 +360,14 @@ class OpenCase:
         ids: IdGenerator,
         idempotency: IdempotencyStore,
         rng: random.Random,
+        terminology: Terminology,
     ) -> None:
         self._uow_factory = uow_factory
         self._clock = clock
         self._ids = ids
         self._idempotency = idempotency
         self._rng = rng
+        self._terminology = terminology
 
     async def execute(self, command: OpenCaseCommand) -> OpenCaseResult:
         check_role(command.actor)
@@ -310,6 +377,8 @@ class OpenCase:
         if isinstance(early, _StoredOpen):
             _same_command(early.fingerprint, fingerprint)
             return early.result
+        if command.details is not None:
+            await check_pathways_listed(self._terminology, command.details.scores, ())
 
         async with self._uow_factory() as uow:
             key = replay_key(OPEN_CASE, tenant_scope(uow.unit_scope), command.idempotency_key)
@@ -321,6 +390,9 @@ class OpenCase:
             now = self._clock.now()
             reference = await free_reference(self._rng, lambda held: _holds_reference(uow, held))
             case = new_open_case(self._ids.new_id(), reference, command.referrer_type, now)
+            if command.details is not None:
+                # Every value is checked before the case is stored: a refusal stores nothing.
+                case = apply_update(case, replace(command.details, case_id=case.id))
             await uow.cases.add(case)
             await uow.audit.append(
                 AuditEntry(
@@ -344,10 +416,12 @@ class UpdateCase:
         uow_factory: UnitOfWorkFactory,
         clock: Clock,
         idempotency: IdempotencyStore,
+        terminology: Terminology,
     ) -> None:
         self._uow_factory = uow_factory
         self._clock = clock
         self._idempotency = idempotency
+        self._terminology = terminology
 
     async def execute(self, command: UpdateCaseCommand) -> UpdateCaseResult:
         check_role(command.actor)
@@ -365,20 +439,35 @@ class UpdateCase:
                 _same_command(stored.fingerprint, fingerprint)
                 return stored.result
 
-            case = await uow.cases.get(command.case_id)
-            if case is None:
+            found = await uow.cases.get_versioned(command.case_id)
+            if found is None:
                 raise NotFound("no case with this id")
+            case, version = found
+            if case.closed_at is not None:
+                raise Conflict("the case is closed and cannot change")
+            if command.expected_version is not None and command.expected_version != version:
+                raise StaleVersion
+            # The list is in memory, not a store, so asking it inside the unit holds nothing open.
+            await check_pathways_listed(self._terminology, command.scores, case.scores)
             updated = apply_update(case, command)
-            await uow.cases.save(updated)
+            await uow.cases.save(updated, expected_version=command.expected_version)
             now = self._clock.now()
             missing = missing_fields(updated)
+            snapshot = snapshot_of(updated)
+            if updated.score_corrections != case.score_corrections:
+                reason = command.score_correction_reason
+                if reason is None:  # apply_update refuses a correction with no reason
+                    raise RuntimeError("a score was corrected with no reason")
+                snapshot["score_correction"] = score_correction_snapshot(
+                    case.scores, updated.scores, reason
+                )
             await uow.audit.append(
                 AuditEntry(
                     action=UPDATE_ACTION,
                     use_case=UPDATE_CASE,
                     actor=command.actor,
                     entity_ids=(updated.id,),
-                    snapshot=snapshot_of(updated),
+                    snapshot=snapshot,
                     at=now,
                 )
             )

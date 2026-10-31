@@ -78,11 +78,14 @@ def test_the_candidate_statement_uses_the_age_band_bounds_and_the_district() -> 
     assert "$district IN c.postcodeDistricts" in cypher
 
 
-def test_the_history_statement_walks_the_chain_both_ways_from_the_current_version() -> None:
+def test_the_history_statement_reads_every_version_of_the_service_by_its_subject() -> None:
+    # KI-180: every version whose subject is the service (a draft, a pending version, an old one),
+    # with no need for a current version, newest first. It does not walk the SUPERSEDES chain.
     cypher = _statement("Q-CRIT-HISTORY").cypher
-    assert "(c)-[:SUPERSEDES*0..]->(v)" in cypher  # the older versions
-    assert "(v)-[:SUPERSEDES*0..]->(c)" in cypher  # a pending version newer than the current one
-    assert "MATCH (v:ServiceCriteria {tenantId: $tenant})" in cypher
+    assert "MATCH (v:ServiceCriteria {tenantId: $tenant})-[:SUBJECT]->" in cypher
+    assert "(:HealthcareService {id: $serviceId, tenantId: $tenant})" in cypher
+    assert "SUPERSEDES" not in cypher
+    assert "status:" not in cypher
     assert "ORDER BY v.version DESC" in cypher
 
 

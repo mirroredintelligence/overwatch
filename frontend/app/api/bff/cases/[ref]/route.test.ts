@@ -92,6 +92,7 @@ describe('GET /api/bff/cases/[ref] (W11)', () => {
       needs: ['fall-no-injury', 'frailty'],
       urgency: 'within-2-hrs',
       scores: [{ method: 'news2', value: 2 }],
+      scoreCorrections: 0,
       openedAt: '2026-10-30T14:00:00Z',
       closed: false,
       closedAt: null,
@@ -192,6 +193,44 @@ describe('PUT /api/bff/cases/[ref] (W11)', () => {
       ),
     );
     expect((await put('advisor', VALID)).status).toBe(400);
+  });
+
+  it('sends the reason of a correction as the back end\'s extension, and refuses a reason that is not listed (Q7)', async () => {
+    const corrected = await put('advisor', {
+      ...VALID,
+      scores: [{ method: 'news2', value: 5 }],
+      scoreCorrectionReason: 'rescored',
+    });
+    const sent = seen.find((item) => item.method === 'PUT')?.body as { extension: { url: string; valueCode?: string }[] };
+    expect(corrected.status).toBe(200);
+    expect(sent.extension.find((item) => item.url.endsWith('/score-correction-reason'))?.valueCode).toBe('rescored');
+
+    seen.length = 0;
+    const refused = await put('advisor', { ...VALID, scoreCorrectionReason: 'my own words' });
+    expect(refused.status).toBe(400);
+    expect(seen).toHaveLength(0);
+  });
+
+  it('answers how many times the scores were corrected, from the back end\'s extension (Q7)', async () => {
+    server.use(
+      http.get(SR_URL, () =>
+        HttpResponse.json(
+          {
+            ...CASE_FULL,
+            extension: [
+              ...(CASE_FULL.extension as object[]),
+              { url: 'https://diucs.example/StructureDefinition/score-corrections', valueInteger: 1 },
+            ],
+          },
+          { headers: { ETag: 'W/"5"' } },
+        ),
+      ),
+    );
+
+    const body = (await (await get('advisor')).json()) as { scoreCorrections: number; etag: string };
+
+    expect(body.scoreCorrections).toBe(1);
+    expect(body.etag).toBe('W/"5"');
   });
 
   it('refuses a save with no If-Match, before any back-end call', async () => {

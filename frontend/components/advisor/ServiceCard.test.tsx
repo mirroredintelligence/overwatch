@@ -90,7 +90,35 @@ describe('ServiceCard (W13)', () => {
     expect(within(card).queryByRole('button', { name: 'Request booking' })).toBeNull();
     expect(within(card).queryByRole('button', { name: 'I phoned' })).toBeNull();
     expect(within(card).queryByRole('button', { name: 'They declined' })).toBeNull();
-    expect(within(card).getByRole('button', { name: 'Criteria' })).toBeInTheDocument();
+    // Its criteria are another organisation's: the own-service read would not find them (KI-794).
+    expect(within(card).queryByRole('button', { name: 'Criteria' })).toBeNull();
+  });
+
+  it('shows the service phone as a link to phone it, for a service of the viewer and for a network service (Q5, KI-626)', () => {
+    renderCard({ ...UCR_WEST, phone: '01305 900100' });
+    expect(within(screen.getByRole('article', { name: 'UCR West' })).getByRole('link', { name: 'Phone 01305 900100' })).toHaveAttribute(
+      'href',
+      'tel:01305 900100',
+    );
+  });
+
+  it('a network service has its phone as the one thing to do with it', () => {
+    renderCard({
+      ...UCR_WEST,
+      phone: '01305 900300',
+      network: { organisation: 'Neighbouring', source: 'Entered by the organisation' },
+    });
+    const card = screen.getByRole('article', { name: 'UCR West' });
+
+    expect(within(card).getByRole('link', { name: 'Phone 01305 900300' })).toHaveAttribute('href', 'tel:01305 900300');
+  });
+
+  it('says no number is held, and invents none, when the service has none', () => {
+    renderCard({ ...UCR_WEST, phone: null });
+    const card = screen.getByRole('article', { name: 'UCR West' });
+
+    expect(within(card).queryByRole('link', { name: /^Phone/ })).toBeNull();
+    expect(within(card).getByText('No phone number is held for this service. Find it in your service directory.')).toBeInTheDocument();
   });
 
   it('has no rank, no "best" and no score', () => {

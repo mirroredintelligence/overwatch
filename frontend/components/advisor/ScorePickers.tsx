@@ -36,9 +36,14 @@ const METHOD_CHIPS: readonly { method: AcuityMethod; label: string; id: string }
 export type ScorePickersProps = {
   value: Score[];
   onChange: (scores: Score[]) => void;
+  /**
+   * The methods already recorded on the case (Q7). Their chips stay pressed and cannot be cleared, and
+   * "Not given" is not offered: a recorded score is changed to another value, never removed.
+   */
+  recordedMethods?: readonly AcuityMethod[];
 };
 
-export function ScorePickers({ value, onChange }: ScorePickersProps) {
+export function ScorePickers({ value, onChange, recordedMethods = [] }: ScorePickersProps) {
   const [methods, setMethods] = useState<AcuityMethod[]>(() => [...new Set(value.map((score) => score.method))]);
   const [notGiven, setNotGiven] = useState(false);
 
@@ -76,14 +81,17 @@ export function ScorePickers({ value, onChange }: ScorePickersProps) {
             key={chip.method}
             pressed={methods.includes(chip.method)}
             onPressedChange={(on) => toggleMethod(chip.method, on)}
+            disabled={recordedMethods.includes(chip.method)}
             dataEl={`ADV-SCORE-${chip.id}-CHIP`}
           >
             {chip.label}
           </Chip>
         ))}
-        <Chip pressed={notGiven} onPressedChange={(on) => (on ? giveNone() : setNotGiven(false))} dataEl="ADV-SCORE-NONE-CHIP">
-          Not given
-        </Chip>
+        {recordedMethods.length > 0 ? null : (
+          <Chip pressed={notGiven} onPressedChange={(on) => (on ? giveNone() : setNotGiven(false))} dataEl="ADV-SCORE-NONE-CHIP">
+            Not given
+          </Chip>
+        )}
       </div>
 
       {methods.includes('pathways-dx') ? (

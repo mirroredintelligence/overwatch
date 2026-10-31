@@ -6,11 +6,13 @@ export type ChipProps = {
   onPressedChange: (next: boolean) => void;
   children: ReactNode;
   dataEl?: string;
+  /** A chip that is shown but cannot be changed (a recorded score's method is not removed). */
+  disabled?: boolean;
   /** Further `data-*` attributes (an opaque reference to tell repeated chips apart). */
   data?: Record<`data-${string}`, string>;
 };
 
-export function Chip({ pressed, onPressedChange, children, dataEl, data }: ChipProps) {
+export function Chip({ pressed, onPressedChange, children, dataEl, disabled, data }: ChipProps) {
   return (
     <button
       type="button"
@@ -18,6 +20,7 @@ export function Chip({ pressed, onPressedChange, children, dataEl, data }: ChipP
       aria-pressed={pressed}
       onClick={() => onPressedChange(!pressed)}
       data-el={dataEl}
+      disabled={disabled}
       {...data}
     >
       {children}

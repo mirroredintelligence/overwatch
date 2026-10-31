@@ -109,8 +109,17 @@ def _criteria(service_id: str) -> ServiceCriteria:
     )
 
 
-def _row(service_id: str, status: Status, number: int | None, age: int | None) -> dict[str, object]:
-    return {
+def _row(
+    service_id: str,
+    status: Status,
+    number: int | None,
+    age: int | None,
+    *,
+    name: str | None = None,
+    over_by: int | None = None,
+    order: int | None = None,
+) -> dict[str, object]:
+    row: dict[str, object] = {
         "id": service_id,
         "status": status.value,
         "number": number,
@@ -118,16 +127,31 @@ def _row(service_id: str, status: Status, number: int | None, age: int | None) -
         "criteria_version": 3,
         "shown_as": "option",
     }
+    if name is not None:
+        row["name"] = name
+    if over_by is not None:
+        row["over_by"] = over_by
+    if order is not None:
+        row["order"] = order
+    return row
 
 
 SHOWN_ROWS: dict[str, object] = {
     "reference": REFERENCE,
     "services": [
-        _row(UCR_WEST, Status.ACCEPTING, 4, 9 * 60),
+        _row(UCR_WEST, Status.ACCEPTING, 4, 9 * 60, name="UCR West", order=1),
         # The snapshot holds the used count for an occupied-patients service (DEC-033), not the
-        # over-capacity figure: see DEC-391.
-        _row(HOME, Status.OVER_CAPACITY, 14, 14 * 60),
-        _row(WARD_B, Status.ACCEPTING, 5, 2 * 3600 + 10 * 60),
+        # over-capacity figure (DEC-391): the figure is `over_by` (H-190, KI-475).
+        _row(
+            HOME,
+            Status.OVER_CAPACITY,
+            14,
+            14 * 60,
+            name="Hospital at home (as shown)",
+            over_by=2,
+            order=2,
+        ),
+        _row(WARD_B, Status.ACCEPTING, 5, 2 * 3600 + 10 * 60, order=3),
     ],
 }
 
@@ -256,11 +280,21 @@ async def test_the_rows_are_what_the_advisor_saw(seed_trail: Seed, replay: GetAu
         for r in result.rows
     ] == [
         ("UCR West", "Accepting", "4", "9 min old", 3),
-        ("Hospital at home", "Over capacity", "14", "14 min old", 3),
+        # The name the advisor saw, not the name now; how far over, not the used count.
+        ("Hospital at home (as shown)", "Over capacity", "+2", "14 min old", 3),
+        # A row written before names were kept shows the current name.
         ("Community hospital · Ward B", "Accepting", "5", "2 hrs 10 min old", 3),
     ]
     assert result.shown_at == SHOWN
     assert result.chain_ok is True
+
+
+async def test_a_row_says_whether_its_name_is_the_one_the_advisor_saw(
+    seed_trail: Seed, replay: GetAuditReplay
+) -> None:
+    await seed_trail()
+    result = await replay.execute(GetAuditReplayCommand(ACTOR, REFERENCE))
+    assert [r.name_as_shown for r in result.rows] == [True, True, False]
 
 
 async def test_the_timeline_is_in_time_order_with_the_options_count(

@@ -26,6 +26,7 @@ from fastapi.responses import JSONResponse
 from diucs.adapters.inbound.fhir_rest.auth import require_role
 from diucs.application.actor import Actor
 from diucs.application.network_access import NETWORK_VIEW_ROLES, NetworkAccess
+from diucs.application.use_cases.filter_network_options import FilterNetworkOptions
 from diucs.application.use_cases.network_board_projector import (
     NetworkBoardProjector,
     network_board_to_dict,
@@ -61,6 +62,10 @@ class NetworkServices:
     # The week summary reads the samples with its own read-only unit (TEN-082); a process that does
     # not wire it answers the route with a 500, never an empty week.
     weeks: GetNetworkWeekSummary | None = None
+    # The network variant of the advisor's options (KI-349), asked through `$filter-options` with a
+    # `network` part; a process that does not wire it answers that request with a 500, never an
+    # empty list.
+    options: FilterNetworkOptions | None = None
 
 
 def network_services(request: Request) -> NetworkServices:

@@ -78,6 +78,10 @@ RELATIONSHIPS: Final = (
     _shared("CHANNEL"),
     _shared("CODE"),
     _local("CONTACT", "an alert subscription checks its practitioner (NotFound) before it writes"),
+    _local(
+        "COVERAGE_AREA",
+        "a read of the places a service visits: the service and each place are tenant-matched",
+    ),
     _checked("COVERED_BY", "person.save_role.cover"),
     _local("CURRENT_CRITERIA", "a criteria version checks its service (NotFound) before it writes"),
     _local("DRAFT_OF"),
@@ -126,7 +130,13 @@ RELATIONSHIPS: Final = (
     _local("SHARED_BY"),
     _local("SHARED_VIA"),
     _checked("SUBJECT", "flag.set_service_flag.service"),
-    _local("SUPERSEDES", "a criteria version checks the version it supersedes (NotFound)"),
+    Relationship(
+        "SUPERSEDES",
+        Handling.TENANT_LOCAL,
+        literal=False,
+        note="a criteria version checks the version it supersedes (NotFound); derived from the "
+        "supersedes reference, no longer named by a statement since the history reads by SUBJECT",
+    ),
     _shared("TOPIC"),
     _shared("TYPE"),
     _checked("USED_BY", "push.save.practitioner"),

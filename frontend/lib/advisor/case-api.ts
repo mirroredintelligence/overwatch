@@ -69,6 +69,52 @@ export async function filterOptions(token: string, caseId: string, idempotencyKe
   return data;
 }
 
+/**
+ * The summary to copy into the referral, built by the back end for an open case (GET $summary, H-322).
+ * `destination` is the id of the service the call went to; without it the destination, booking and data
+ * age rows are left out. A closed case answers 409 (FhirError), which the route maps.
+ */
+export async function readSummary(token: string, caseId: string, destination: string | null): Promise<unknown> {
+  const query = destination === null ? '' : `?destination=${encodeURIComponent(destination)}`;
+  const { data } = await fhirFetch<unknown>(`/ServiceRequest/${encodeURIComponent(caseId)}/$summary${query}`, { token });
+  return data;
+}
+
+/**
+ * The networks the session's organisation is in (GET /networks, at the back end's root). The answer is
+ * ids and names only; the caller reads nothing else from it.
+ */
+export async function listNetworks(token: string): Promise<unknown> {
+  const { data } = await fhirFetch<unknown>('/networks', { token, root: true });
+  return data;
+}
+
+/**
+ * The other organisations' services of one network that could take the case, read only (KI-349): the
+ * `$filter-options` call with a `network` part. The back end audits it under its own name, apart from
+ * the viewer's own display.
+ */
+export async function filterNetworkOptions(
+  token: string,
+  caseId: string,
+  networkId: string,
+  idempotencyKey: string,
+): Promise<unknown> {
+  const { data } = await fhirFetch<unknown>('/HealthcareService/$filter-options', {
+    method: 'POST',
+    token,
+    idempotencyKey,
+    body: {
+      resourceType: 'Parameters',
+      parameter: [
+        { name: 'case', valueReference: { reference: `ServiceRequest/${caseId}` } },
+        { name: 'network', valueString: networkId },
+      ],
+    },
+  });
+  return data;
+}
+
 /** Closes a case with its outcome (R07 $close). The answer is the closed ServiceRequest, which carries the close time (DEC-781). */
 export async function closeCase(
   token: string,

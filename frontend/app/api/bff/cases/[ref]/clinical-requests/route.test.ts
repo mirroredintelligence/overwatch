@@ -52,6 +52,26 @@ describe('POST /api/bff/cases/[ref]/clinical-requests', () => {
     expect(sent.extension.find((e) => e.url.endsWith('/task-input/why'))?.valueCode).toBe('borderline-criteria');
   });
 
+  it('sends the service under consideration as an input of the request, by its id (KI-768)', async () => {
+    const response = await post({ urgency: 'now', why: 'other', service: 'svc-ucr-west' });
+
+    expect(response.status).toBe(201);
+    const sent = requestBodies[0] as { extension: { url: string; valueString?: string }[] };
+    expect(sent.extension.find((e) => e.url.endsWith('/task-input/service'))?.valueString).toBe('svc-ucr-west');
+  });
+
+  it('sends no service input when none is named', async () => {
+    await post({ urgency: 'now', why: 'other' });
+
+    const sent = requestBodies[0] as { extension: { url: string }[] };
+    expect(sent.extension.some((e) => e.url.endsWith('/task-input/service'))).toBe(false);
+  });
+
+  it.each(['a b', '', 'x'.repeat(65), 7, ['svc']])('refuses a service that cannot be a service id (%j), with no back-end call', async (service) => {
+    expect((await post({ urgency: 'now', why: 'other', service })).status).toBe(400);
+    expect(requestBodies).toHaveLength(0);
+  });
+
   it('refuses an urgency the back end does not take, and a missing reason, with no back-end call', async () => {
     expect((await post({ urgency: 'soon', why: 'other' })).status).toBe(400);
     expect((await post({ urgency: 'now' })).status).toBe(400);

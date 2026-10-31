@@ -34,6 +34,8 @@ export type ClinicalRequest = {
   /** When a held request returns to the queue; null when nobody holds it. */
   returnsAt: string | null;
   advice: GivenAdvice | null;
+  /** The name of the service the advisor was asking about (KI-768); null when they asked about the case. */
+  service: string | null;
 };
 
 const TASK_INPUT = 'task-input';
@@ -96,6 +98,11 @@ function adviceOf(task: Record<string, unknown>): GivenAdvice | null {
   };
 }
 
+function serviceOf(task: Record<string, unknown>): string | null {
+  const name = text(task, 'service');
+  return name === null || name.trim() === '' ? null : name;
+}
+
 export function clinicalRequestFromTask(task: unknown): ClinicalRequest {
   if (typeof task !== 'object' || task === null) throw new Error('a clinical request must be a Task');
   const record = task as Record<string, unknown>;
@@ -120,5 +127,6 @@ export function clinicalRequestFromTask(task: unknown): ClinicalRequest {
     glance: glanceOf(record),
     returnsAt: instant(record, 'returns-at'),
     advice: adviceOf(record),
+    service: serviceOf(record),
   };
 }

@@ -8,6 +8,7 @@ import { layoutOf, PICTURE, percentOf, radiusPx } from '@/lib/map/layout';
 import { type OptionView } from '@/lib/advisor/options';
 import { durationText } from '@/lib/board/format';
 import { OptionBooking } from './OptionBooking';
+import { ServicePhone } from './ServicePhone';
 import { TravelDetails } from './TravelDetails';
 import styles from './map.module.css';
 
@@ -147,11 +148,14 @@ function PinCard({
       {free === null ? null : <p className={styles.line}>{free}</p>}
       <p className={styles.line}>{travelLine(option)}</p>
       {age === null ? null : <p className={styles.line}>{age}</p>}
+      <ServicePhone phone={option.phone} />
       {network === null ? <OptionBooking caseId={caseId} option={option} /> : null}
       <div className={styles.actions}>
-        <Button variant="secondary" dataEl="ADV-OPT-CRITERIA-BTN" onClick={() => onCriteria?.(option.serviceId)}>
-          Criteria
-        </Button>
+        {network === null ? (
+          <Button variant="secondary" dataEl="ADV-OPT-CRITERIA-BTN" onClick={() => onCriteria?.(option.serviceId)}>
+            Criteria
+          </Button>
+        ) : null}
         <Button variant="secondary" dataEl="ADV-MAP-TRAVEL-BTN" onClick={() => setTravelOpen((open) => !open)}>
           Travel details
         </Button>

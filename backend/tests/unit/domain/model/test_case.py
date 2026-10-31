@@ -173,3 +173,20 @@ def test_priority_for_maps_urgency_to_service_request_priority(
 def test_priority_for_refuses_an_unknown_urgency_rather_than_routine() -> None:
     with pytest.raises(ValidationFailed):
         priority_for("someday")  # type: ignore[arg-type]
+
+
+def test_a_case_starts_with_no_score_corrections() -> None:
+    assert _case().score_corrections == 0
+
+
+@pytest.mark.parametrize("count", [-1, True, 1.5, "1"])
+def test_the_number_of_score_corrections_is_a_whole_number_from_zero(count: object) -> None:
+    with pytest.raises(ValidationFailed) as refused:
+        _case(score_corrections=count)
+
+    assert refused.value.field == "score_corrections"
+
+
+def test_a_correction_needs_a_recorded_score_to_have_corrected() -> None:
+    with pytest.raises(ValidationFailed):
+        _case(scores=(), score_corrections=1)

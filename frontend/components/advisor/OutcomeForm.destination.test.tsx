@@ -85,3 +85,30 @@ describe('the destination of an outcome (W15)', () => {
     expect(await screen.findByRole('button', { name: 'UCR West' })).toBeInTheDocument();
   });
 });
+
+describe('the services offered as the destination (KI-349)', () => {
+  it('asks the back end for the viewer\'s own services only, and never offers a network service', async () => {
+    const seenQueries: string[] = [];
+    server.use(
+      http.get('/api/bff/cases/:ref/options', ({ request }) => {
+        seenQueries.push(new URL(request.url).search);
+        return HttpResponse.json({
+          shownAt: '2026-10-30T14:00:00Z',
+          options: [
+            { serviceId: 'svc-own', name: 'Own unit', network: null },
+            { serviceId: 'net-1', name: 'Neighbour unit', network: { organisation: 'Neighbouring', source: 'x' } },
+          ],
+          notSuitable: [],
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    render(<OutcomeForm caseId="case-1" preselect={null} onClosed={vi.fn()} />);
+
+    await user.click(byEl('ADV-FIN-OUTCOME-ACCEPTED'));
+
+    expect(await screen.findByRole('button', { name: 'Own unit' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Neighbour unit' })).toBeNull();
+    expect(seenQueries).toEqual(['?only=own']);
+  });
+});

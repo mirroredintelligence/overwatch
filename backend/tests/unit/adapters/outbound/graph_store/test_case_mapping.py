@@ -299,3 +299,41 @@ def test_a_case_with_scores_lists_one_supporting_reference_per_score_in_order() 
         {"reference": "Observation/sc-case-1-2"},
     ]
     assert [resource["id"] for resource in scores] == ["sc-case-1-1", "sc-case-1-2"]
+
+
+# Q7 (KI-815): a corrected score is a new Observation under a new revision; the original stays in
+# the graph, unlisted, and the audit holds the pair.
+
+
+CORRECTED = replace(OPEN_CASE, scores=(News2(5), ClinicalFrailty(6)), score_corrections=1)
+
+
+def test_a_corrected_case_names_its_score_observations_by_revision() -> None:
+    _, request, scores = case_to_fhir(CORRECTED)
+
+    assert [resource["id"] for resource in scores] == ["sc-case-1-1-r1", "sc-case-1-2-r1"]
+    assert request["supportingInfo"] == [
+        {"reference": "Observation/sc-case-1-1-r1"},
+        {"reference": "Observation/sc-case-1-2-r1"},
+    ]
+
+
+def test_the_number_of_corrections_is_an_extension_of_the_request_and_round_trips() -> None:
+    patient, request, scores = case_to_fhir(CORRECTED)
+
+    extensions = {item["url"].rsplit("/", 1)[-1]: item for item in request["extension"]}
+    assert extensions["scoreCorrections"]["valueInteger"] == 1
+    assert case_from_fhir(patient, request, scores) == CORRECTED
+
+
+def test_a_case_never_corrected_has_no_corrections_extension_and_keeps_its_old_ids() -> None:
+    _, request, scores = case_to_fhir(OPEN_CASE)
+
+    assert all(not item["url"].endswith("scoreCorrections") for item in request["extension"])
+    assert [resource["id"] for resource in scores] == ["sc-case-1-1", "sc-case-1-2"]
+
+
+def test_a_closed_corrected_case_keeps_its_correction_count() -> None:
+    closed = CORRECTED.close(Outcome.CALLER_CANCELLED, CLOSED)
+
+    assert case_from_fhir(*case_to_fhir(closed)).score_corrections == 1

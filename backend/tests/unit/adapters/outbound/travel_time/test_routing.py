@@ -307,3 +307,70 @@ async def test_the_httpx_client_turns_a_transport_error_into_a_routing_failure()
                 BASE + "/route/-2.44,50.71", timedelta(seconds=1)
             )
     assert "50.71" not in str(caught.value)
+
+
+# KI-202 and KI-203: a cache that fails does not fail the options list, and its key does not repeat
+# the tenant the cache already puts in every name.
+
+
+class _FailingCache(InMemoryCache):
+    def __init__(
+        self, clock: FixedClock, *, fail_get: bool = False, fail_set: bool = False
+    ) -> None:
+        super().__init__(clock)
+        self.fail_get = fail_get
+        self.fail_set = fail_set
+        self.names: list[str] = []
+
+    async def get(self, key: str) -> str | None:
+        self.names.append(key)
+        if self.fail_get:
+            raise ConnectionError("cache down")
+        return await super().get(key)
+
+    async def set(self, key: str, value: str, ttl: timedelta | None = None) -> None:
+        self.names.append(key)
+        if self.fail_set:
+            raise ConnectionError("cache down")
+        await super().set(key, value, ttl)
+
+
+def _adapter_over(cache: InMemoryCache, client: RecordingRouteClient) -> RoutingTravelTime:
+    return RoutingTravelTime(client, BASE, EXTRACT, cache, FixedTravelTime(FALLBACK_RANGE))
+
+
+async def test_a_cache_that_cannot_be_read_falls_back_to_the_estimate_and_asks_no_engine() -> None:
+    cache = _FailingCache(FixedClock(NOW), fail_get=True)
+    client = RecordingRouteClient((200, ROUTE_1800))
+    with bind_tenant("tenant-alpha"):
+        found = await _adapter_over(cache, client).estimate(PATIENT, SITE)
+
+    assert found == FALLBACK_RANGE
+    assert client.urls == []
+
+
+async def test_a_cache_that_cannot_be_written_still_answers_the_routed_range() -> None:
+    cache = _FailingCache(FixedClock(NOW), fail_set=True)
+    client = RecordingRouteClient((200, ROUTE_1800))
+    with bind_tenant("tenant-alpha"):
+        found = await _adapter_over(cache, client).estimate(PATIENT, SITE)
+
+    assert found != FALLBACK_RANGE
+    assert found.source == f"Routing data, updated {EXTRACT}"
+    assert len(client.urls) == 1
+
+
+async def test_the_key_names_the_pair_and_not_the_tenant() -> None:
+    cache = _FailingCache(FixedClock(NOW))
+    with bind_tenant("tenant-alpha"):
+        await _adapter_over(cache, RecordingRouteClient((200, ROUTE_1800))).estimate(PATIENT, SITE)
+
+    assert cache.names
+    assert all("tenant-alpha" not in name for name in cache.names)
+    assert all(name.startswith("travel:") for name in cache.names)
+
+
+async def test_a_missing_tenant_still_stops_the_estimate_even_with_a_failing_cache() -> None:
+    cache = _FailingCache(FixedClock(NOW), fail_get=True)
+    with pytest.raises(TenantNotBound):
+        await _adapter_over(cache, RecordingRouteClient((200, ROUTE_1800))).estimate(PATIENT, SITE)

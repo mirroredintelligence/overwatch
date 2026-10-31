@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from typing import Any, Final
 
 from diucs.application.idempotency import format_instant
+from diucs.application.use_cases.case_summary import CaseSummary
 from diucs.application.use_cases.filter_options import FilterOptionsResult, Option
 from diucs.domain.codes import (
     BASE_URL,
@@ -41,6 +42,7 @@ from diucs.domain.model.scores import (
     News2,
     PathwaysDx,
     Score,
+    ScoreCorrectionReason,
     method_of,
 )
 
@@ -49,6 +51,12 @@ AGE_BAND_EXTENSION: Final = f"{STRUCTURE}age-band"
 REFERRER_EXTENSION: Final = f"{STRUCTURE}referrer-type"
 URGENCY_EXTENSION: Final = f"{STRUCTURE}urgency"
 SCORE_EXTENSION: Final = f"{STRUCTURE}score"
+SCORE_REASON_EXTENSION: Final = f"{STRUCTURE}score-correction-reason"
+"""Why a recorded score is changed, on the request of a PUT (Q7, DEC-1171): one of the codes of
+`ScoreCorrectionReason`. Sent with the scores it corrects, and refused when nothing is corrected."""
+SCORE_CORRECTIONS_EXTENSION: Final = f"{STRUCTURE}score-corrections"
+"""How many times a recorded score was corrected (valueInteger), on the answer, only when above
+zero. The screen says "corrected" from it; the original score and the reason are in the audit."""
 CLOSED_AT_EXTENSION: Final = f"{STRUCTURE}closed-at"
 OUTCOME_EXTENSION: Final = f"{STRUCTURE}outcome"
 DISTRICT_EXTENSION: Final = f"{STRUCTURE}postcode-district"
@@ -73,6 +81,7 @@ class CaseDetails:
     urgency: Urgency | None
     scores: tuple[Score, ...] | None
     district: str | None = None
+    score_correction_reason: ScoreCorrectionReason | None = None
 
     @property
     def is_empty(self) -> bool:
@@ -84,6 +93,7 @@ class CaseDetails:
             and self.urgency is None
             and self.scores is None
             and self.district is None
+            and self.score_correction_reason is None
         )
 
 
@@ -217,6 +227,18 @@ def _scores(service_request: dict[str, Any]) -> tuple[Score, ...] | None:
     return scores
 
 
+def _correction_reason(service_request: dict[str, Any]) -> ScoreCorrectionReason | None:
+    code = _extension_code(service_request, SCORE_REASON_EXTENSION, "score-correction-reason")
+    if code is None:
+        return None
+    try:
+        return ScoreCorrectionReason(code)
+    except ValueError:
+        raise ValidationFailed(
+            "score-correction-reason", "is not a listed reason for a correction"
+        ) from None
+
+
 def parse_case_details(service_request: dict[str, Any]) -> CaseDetails:
     return CaseDetails(
         referrer_type=_referrer(service_request),
@@ -226,6 +248,7 @@ def parse_case_details(service_request: dict[str, Any]) -> CaseDetails:
         urgency=_urgency(service_request),
         scores=_scores(service_request),
         district=_extension_code(_patient(service_request), DISTRICT_EXTENSION, "district"),
+        score_correction_reason=_correction_reason(service_request),
     )
 
 
@@ -270,6 +293,10 @@ def case_to_fhir(case: Case) -> dict[str, Any]:
         request["priority"] = priority_for(case.urgency)
         extensions.append({"url": URGENCY_EXTENSION, "valueCode": case.urgency.value})
     extensions.extend(_score_extension(score) for score in case.scores)
+    if case.score_corrections:
+        extensions.append(
+            {"url": SCORE_CORRECTIONS_EXTENSION, "valueInteger": case.score_corrections}
+        )
     if case.closed_at is not None:
         extensions.append(
             {"url": CLOSED_AT_EXTENSION, "valueDateTime": format_instant(case.closed_at)}
@@ -307,10 +334,37 @@ def _option_part(option: Option) -> dict[str, Any]:
     if option.position is not None:
         parts.append(_decimal("lat", option.position.lat))
         parts.append(_decimal("lon", option.position.lon))
+    elif option.coverage is not None:
+        # A visiting service has no site: the circle's centre goes as its place and the radius
+        # says it is a circle (the screen draws a coverage area, not a pin).
+        parts.append(_decimal("lat", option.coverage.lat))
+        parts.append(_decimal("lon", option.coverage.lon))
+        parts.append(_decimal("coverageRadiusKm", float(option.coverage.radius_km)))
+    if option.phone is not None:
+        parts.append({"name": "phone", "valueString": option.phone})
+    if option.organisation is not None:
+        # A network option (KI-349): read only. The organisation is its name from the registry and
+        # never a tenant id; the screen shows a card with no booking or phoned action.
+        parts.append({"name": "organisation", "valueString": option.organisation})
+        if option.organisation_source is not None:
+            parts.append({"name": "organisationSource", "valueString": option.organisation_source})
     if option.travel is not None:
         parts.append({"name": "travelLow", "valueInteger": option.travel.low_minutes})
         parts.append({"name": "travelHigh", "valueInteger": option.travel.high_minutes})
         parts.append({"name": "travelSource", "valueString": option.travel.source})
+    parts.extend(
+        {
+            "name": "leg",
+            "part": [
+                {"name": "label", "valueString": leg.label},
+                {"name": "low", "valueInteger": leg.low_minutes},
+                {"name": "high", "valueInteger": leg.high_minutes},
+                {"name": "how", "valueString": leg.how},
+                {"name": "source", "valueString": leg.source},
+            ],
+        }
+        for leg in option.legs
+    )
     if option.data_age is not None:
         parts.append(
             {"name": "dataAgeSeconds", "valueInteger": int(option.data_age.total_seconds())}
@@ -318,6 +372,23 @@ def _option_part(option: Option) -> dict[str, Any]:
     parts.extend({"name": "fits", "valueString": fit} for fit in option.fits)
     parts.extend({"name": "checks", "valueString": check} for check in option.warnings)
     return {"name": "option", "part": parts}
+
+
+def summary_to_fhir(summary: CaseSummary) -> dict[str, Any]:
+    """The summary as Parameters: the case reference, then one `row` part per row, in order, each
+    with its label and its value. Plain display text; no code and no id."""
+    parameters: list[dict[str, Any]] = [{"name": "reference", "valueString": summary.reference}]
+    parameters.extend(
+        {
+            "name": "row",
+            "part": [
+                {"name": "label", "valueString": label},
+                {"name": "value", "valueString": value},
+            ],
+        }
+        for label, value in summary.rows
+    )
+    return {"resourceType": "Parameters", "parameter": parameters}
 
 
 def filter_result_to_fhir(result: FilterOptionsResult) -> dict[str, Any]:

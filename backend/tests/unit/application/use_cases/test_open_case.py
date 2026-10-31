@@ -356,13 +356,14 @@ def test_recorded_scores_can_be_repeated_unchanged() -> None:
     assert again.scores == (News2(2),)
 
 
-def test_recorded_scores_cannot_be_changed() -> None:
+def test_recorded_scores_cannot_be_changed_without_a_reason() -> None:
+    # A change is a correction with a reason (Q7, DEC-1171): tests/unit/.../test_score_rules.py.
     recorded = apply_update(opened_case(), update(scores=(News2(2),)))
 
     with pytest.raises(ValidationFailed) as refused:
         apply_update(recorded, update(scores=(News2(3),)))
 
-    assert refused.value.field == "scores"
+    assert refused.value.field == "score_correction_reason"
 
 
 def test_recorded_scores_cannot_be_cleared() -> None:

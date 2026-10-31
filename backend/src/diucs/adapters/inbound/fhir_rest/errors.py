@@ -17,7 +17,14 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from diucs.adapters.inbound.fhir_rest.capability import FhirJSONResponse
 from diucs.adapters.inbound.fhir_rest.validation import ProfileRejected, issue_outcome
-from diucs.domain.errors import Conflict, InvalidTransition, NotAllowed, NotFound, ValidationFailed
+from diucs.domain.errors import (
+    Conflict,
+    InvalidTransition,
+    NotAllowed,
+    NotFound,
+    StaleVersion,
+    ValidationFailed,
+)
 
 log = logging.getLogger(__name__)
 
@@ -190,6 +197,8 @@ def install_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(RequestValidationError, _request_invalid)
     app.add_exception_handler(StarletteHTTPException, _http_error)
     app.add_exception_handler(PreconditionFailed, _precondition_failed)
+    # A use case that finds the record at a newer version than the caller read (H-192).
+    app.add_exception_handler(StaleVersion, _precondition_failed)
     app.add_exception_handler(PreconditionRequired, _precondition_required)
     app.add_exception_handler(HeaderRefused, _header_refused)
     app.add_exception_handler(RateLimited, _rate_limited)

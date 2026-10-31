@@ -7,9 +7,11 @@ is under 10. Only aggregates leave the tenant: no case id, reference, postcode o
 returned (DEC-393).
 
 Cohort (DEC-393): age 65-79 or 80+, urgency within 2 hrs, referrer ambulance crew or care home, and
-(for a need group) a need in that group. Best fit: the first option in the display's snapshot
-[ASSUMED, DEC-393]; the snapshot keeps board order, not travel order, so this is the first option
-listed, which may not be the nearest. Best fit unavailable: its status is not-accepting,
+(for a need group) a need in that group. Best fit: the option the advisor was shown first, which is
+the nearest by travel (the position each option was shown at is in its snapshot row, H-193,
+KI-476, DEC-1177) [ASSUMED, DEC-393]. A display written before positions were kept has no order
+and its best fit is the first option listed, which was board order and may not be the nearest.
+Best fit unavailable: its status is not-accepting,
 over-capacity or not-updated, or its number is 0.
 
 Pure: no I/O and no clock. Times are aware instants; weekdays and bands are London wall-clock.
@@ -26,6 +28,7 @@ from diucs.application.actor import Actor
 from diucs.application.ports.outbound.audit import AuditEntry, AuditRecord
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.use_cases.audit_replay import shown_order
 from diucs.domain.codes import Role
 from diucs.domain.errors import NotAllowed, ValidationFailed
 from diucs.domain.rules.london_time import to_london
@@ -142,7 +145,9 @@ def decision_for(fact: OutcomeFact, displays: Sequence[DisplayFact]) -> DisplayF
 
 
 def best_fit(rows: Sequence[Mapping[str, Any]]) -> Mapping[str, Any] | None:
-    for row in rows:
+    """The option shown first: by the position it was shown at when every option has one, else the
+    first option written (a display from before positions were kept)."""
+    for row in shown_order(rows):
         if row.get("shown_as") == SHOWN_AS_OPTION:
             return row
     return None
@@ -252,6 +257,24 @@ def build_planning(
     )
 
 
+def windows(start: datetime, end: datetime, days: int) -> list[tuple[datetime, datetime]]:
+    """[start, end] cut into contiguous pieces of at most `days` days, so the audit window is read
+    piece by piece and no piece holds a whole year of entries (KI-477)."""
+    pieces: list[tuple[datetime, datetime]] = []
+    low = start
+    while low < end:
+        high = min(low + timedelta(days=days), end)
+        pieces.append((low, high))
+        low = high
+    return pieces
+
+
+CHUNK_DAYS: Final = 30
+CASE_BATCH: Final = 200
+"""The window is read in pieces of this many days and the displays of the closed cases in batches
+of this many cases, each reduced to what the analysis keeps before the next is read (KI-477)."""
+
+
 @dataclass(frozen=True, slots=True)
 class RunPlanningCommand:
     actor: Actor
@@ -292,34 +315,57 @@ class RunPlanningAnalysis:
         now = self._clock.now()
         start = now - timedelta(days=command.query.period_days)
         async with self._uow_factory() as uow:
-            window = await uow.audit.records_between(
-                start, now, frozenset({OUTCOME_USE_CASE, DECLINE_USE_CASE})
-            )
-            outcome_records = [r for r in window if r.entry.use_case == OUTCOME_USE_CASE]
-            decline_records = [r for r in window if r.entry.use_case == DECLINE_USE_CASE]
-            case_ids = list(dict.fromkeys(r.entry.entity_ids[0] for r in outcome_records))
-            opened = await uow.audit.records_for_many(case_ids, OPEN_USE_CASE)
-            referrers = {
-                r.entry.entity_ids[0]: (r.entry.snapshot or {}).get("referrer_type") for r in opened
-            }
-            shown = await uow.audit.records_for_many(case_ids, DISPLAY_USE_CASE)
-
-            outcomes = [
-                _outcome_fact(r, _text_or_none(referrers.get(r.entry.entity_ids[0])))
-                for r in outcome_records
-            ]
-            displays = [
-                DisplayFact(
-                    case_key=r.entry.entity_ids[0],
-                    at=r.entry.at,
-                    rows=tuple((r.entry.snapshot or {}).get("services", [])),
+            outcomes: list[OutcomeFact] = []
+            declines: list[DeclineFact] = []
+            seen: set[str] = set()
+            for low, high in windows(start, now, CHUNK_DAYS):
+                piece = await uow.audit.records_between(
+                    low, high, frozenset({OUTCOME_USE_CASE, DECLINE_USE_CASE})
                 )
-                for r in shown
-            ]
-            declines = [
-                DeclineFact(service_id=str((r.entry.snapshot or {})["service_id"]), at=r.entry.at)
-                for r in decline_records
-            ]
+                outcome_records = [
+                    r for r in piece if r.entry.use_case == OUTCOME_USE_CASE and r.id not in seen
+                ]
+                case_ids = list(dict.fromkeys(r.entry.entity_ids[0] for r in outcome_records))
+                referrers: dict[str, object] = {}
+                for batch in _batches(case_ids, CASE_BATCH):
+                    opened = await uow.audit.records_for_many(batch, OPEN_USE_CASE)
+                    referrers.update(
+                        {
+                            r.entry.entity_ids[0]: (r.entry.snapshot or {}).get("referrer_type")
+                            for r in opened
+                        }
+                    )
+                outcomes.extend(
+                    _outcome_fact(r, _text_or_none(referrers.get(r.entry.entity_ids[0])))
+                    for r in outcome_records
+                )
+                declines.extend(
+                    DeclineFact(
+                        service_id=str((r.entry.snapshot or {})["service_id"]), at=r.entry.at
+                    )
+                    for r in piece
+                    if r.entry.use_case == DECLINE_USE_CASE and r.id not in seen
+                )
+                seen.update(r.id for r in piece)
+
+            # One display per case is kept: the one its decision was made on (the last at or before
+            # its outcome). The rest are dropped as each batch is read.
+            displays: list[DisplayFact] = []
+            by_key = {fact.case_key: fact for fact in outcomes}
+            for batch in _batches(list(by_key), CASE_BATCH):
+                shown = await uow.audit.records_for_many(batch, DISPLAY_USE_CASE)
+                facts = [
+                    DisplayFact(
+                        case_key=r.entry.entity_ids[0],
+                        at=r.entry.at,
+                        rows=tuple((r.entry.snapshot or {}).get("services", [])),
+                    )
+                    for r in shown
+                ]
+                for key in batch:
+                    decision = decision_for(by_key[key], facts)
+                    if decision is not None:
+                        displays.append(decision)
             names: dict[str, str] = {}
             ids = {row["id"] for d in displays for row in d.rows}
             ids |= {d.service_id for d in declines}
@@ -345,6 +391,10 @@ class RunPlanningAnalysis:
             )
             await uow.commit()
         return result
+
+
+def _batches(items: Sequence[str], size: int) -> list[list[str]]:
+    return [list(items[start : start + size]) for start in range(0, len(items), size)]
 
 
 def _text_or_none(value: object) -> str | None:

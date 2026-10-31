@@ -37,6 +37,7 @@ from diucs.domain.codes import (
     DeclineReason,
     Measure,
     NeedCategory,
+    Outcome,
     ReferrerType,
     ReportSource,
     ReportType,
@@ -45,7 +46,7 @@ from diucs.domain.codes import (
     Status,
     Urgency,
 )
-from diucs.domain.errors import NotAllowed, NotFound, ValidationFailed
+from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.case import Case
 from diucs.domain.model.service import AvailableTime, ServiceProfile
@@ -286,6 +287,46 @@ async def test_an_unknown_case_is_not_found_and_nothing_is_written(
         )
 
     assert await count_nodes(neo4j_driver, "Observation") == before
+
+
+async def test_a_closed_case_is_a_conflict_and_nothing_is_written(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    # KI-354: the case is checked in the report's own unit, so a case closed before the report is
+    # written is not accepted.
+    await _seed(uow_factory, seed_service)
+    async with uow_factory() as uow:
+        case = await uow.cases.get(CASE_ID)
+        assert case is not None
+        await uow.cases.save(case.close(Outcome.DECLINED, NOW))
+        await uow.commit()
+    before = await count_nodes(neo4j_driver, "Observation")
+
+    with pytest.raises(Conflict):
+        await _phoned(uow_factory, neo4j_driver).execute(
+            RecordAdvisorPhonedCommand("phoned-closed", ADVISOR, WEST, "accepting", 3, CASE_ID)
+        )
+
+    assert await count_nodes(neo4j_driver, "Observation") == before
+    assert await _latest(uow_factory) is None
+
+
+async def test_the_case_check_and_the_report_are_one_unit_of_work(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    # One unit opens for the call, not one for the case and another for the report.
+    await _seed(uow_factory, seed_service)
+    opened: list[int] = []
+
+    def counting() -> Any:
+        opened.append(1)
+        return uow_factory()
+
+    await _phoned(counting, neo4j_driver).execute(  # type: ignore[arg-type]
+        RecordAdvisorPhonedCommand("phoned-one", ADVISOR, WEST, "accepting", 3, CASE_ID)
+    )
+
+    assert len(opened) == 1
 
 
 async def test_tenant_b_cannot_phone_or_decline_a_service_it_does_not_hold(

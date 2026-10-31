@@ -138,3 +138,24 @@ def test_every_clinical_statement_names_its_tenant_and_carries_a_valid_scenario(
 def test_the_queue_statement_orders_nothing_it_does_not_need_to() -> None:
     # The queue order is applied in Python by queue_order (D23): the statement returns ids only.
     assert "note" not in REGISTRY.get("Q-CLIN-WAITING").cypher.lower()
+
+
+def test_the_service_under_consideration_is_kept_on_the_task_and_round_trips() -> None:
+    record = ClinicalRequestRecord(
+        request=WAITING.request,
+        requester_id="adv-1",
+        why="borderline criteria",
+        snapshot_ref="audit-1",
+        service_id="svc-ucr-west",
+    )
+
+    resource = clinical_record_to_fhir(record)
+
+    assert any(item["url"].endswith("/consideredService") for item in resource["extension"])
+    assert clinical_record_from_fhir(resource, _props_of(record)) == record
+
+
+def test_a_request_with_no_service_has_no_such_extension() -> None:
+    resource = clinical_record_to_fhir(WAITING)
+
+    assert all(not item["url"].endswith("/consideredService") for item in resource["extension"])

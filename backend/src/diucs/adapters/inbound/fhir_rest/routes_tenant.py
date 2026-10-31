@@ -47,10 +47,15 @@ from fastapi import APIRouter, Depends, Path, Query, Request
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 
+from diucs.adapters.inbound.fhir_rest.app import get_container
 from diucs.adapters.inbound.fhir_rest.auth import require_role
 from diucs.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
 from diucs.application.actor import Actor
 from diucs.application.platform_services import TenantAdminServices
+from diucs.application.use_cases.advisor_work_phone import (
+    RecordAdvisorWorkPhone,
+    RecordAdvisorWorkPhoneCommand,
+)
 from diucs.application.use_cases.cross_tenant_tickets import DecideTicketCommand, TicketView
 from diucs.application.use_cases.tenant_admin_views import (
     AccessLogEntry,
@@ -122,6 +127,10 @@ class ContactBody(_Body):
     kind: ContactKind
     label: str = Field(min_length=1, max_length=120)
     value: str = Field(min_length=1, max_length=320)
+
+
+class WorkPhoneBody(_Body):
+    phone: str = Field(min_length=1, max_length=40)
 
 
 class ChannelBody(_Body):
@@ -440,6 +449,27 @@ async def put_contact(body: ContactBody, request: Request, actor: Admin) -> Resp
     async def run() -> Response:
         await _services(request).contact.execute(
             RecordContactCommand(actor, body.kind, body.label, body.value)
+        )
+        return _empty()
+
+    return await replay_or_run(request, actor, key, run)
+
+
+@router.put("/staff/{practitioner_id}/work-phone")
+async def put_work_phone(
+    practitioner_id: Annotated[str, Path(pattern=r"^[A-Za-z0-9_-]{1,64}$")],
+    body: WorkPhoneBody,
+    request: Request,
+    actor: Admin,
+) -> Response:
+    """Record the number a clinician phones an advisor on (W44, DEC-1034, DEC-1178). The number is
+    not in the answer, the audit entry or any log; another tenant's person is the one 404."""
+    key = idempotency_key(request)
+
+    async def run() -> Response:
+        container = get_container(request)
+        await RecordAdvisorWorkPhone(container.uow_factory, container.clock).execute(
+            RecordAdvisorWorkPhoneCommand(actor, practitioner_id, body.phone)
         )
         return _empty()
 

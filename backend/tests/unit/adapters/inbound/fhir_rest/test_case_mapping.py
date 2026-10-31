@@ -19,7 +19,9 @@ from diucs.adapters.inbound.fhir_rest.case_mapping import (
     DISTRICT_EXTENSION,
     OUTCOME_EXTENSION,
     REFERRER_EXTENSION,
+    SCORE_CORRECTIONS_EXTENSION,
     SCORE_EXTENSION,
+    SCORE_REASON_EXTENSION,
     URGENCY_EXTENSION,
     CaseDetails,
     case_to_fhir,
@@ -42,6 +44,7 @@ from diucs.domain.model.scores import (
     ManchesterTriage,
     News2,
     PathwaysDx,
+    ScoreCorrectionReason,
 )
 
 OPENED = datetime(2026, 10, 29, 9, 30, tzinfo=UTC)
@@ -355,3 +358,61 @@ def test_what_a_case_answers_is_what_an_update_reads_back() -> None:
         urgency=Urgency.PLANNED,
         scores=(News2(3), ManchesterTriage("urgent")),
     )
+
+
+# Q7 (KI-815): the reason for a correction goes in, and the count of corrections comes out.
+
+
+@pytest.mark.parametrize("reason", list(ScoreCorrectionReason))
+def test_the_reason_for_a_correction_is_read_from_its_extension(
+    reason: ScoreCorrectionReason,
+) -> None:
+    details = parse_case_details(
+        body(
+            extension=[
+                score_extension("news2", "valueInteger", 5),
+                {"url": SCORE_REASON_EXTENSION, "valueCode": reason.value},
+            ]
+        )
+    )
+
+    assert details.score_correction_reason is reason
+    assert details.scores == (News2(5),)
+
+
+def test_a_reason_alone_is_not_an_empty_body_so_the_use_case_can_refuse_it() -> None:
+    details = parse_case_details(
+        body(extension=[{"url": SCORE_REASON_EXTENSION, "valueCode": "typing-error"}])
+    )
+
+    assert not details.is_empty
+
+
+def test_a_reason_that_is_not_listed_is_refused_without_echoing_it() -> None:
+    with pytest.raises(ValidationFailed) as refused:
+        parse_case_details(
+            body(extension=[{"url": SCORE_REASON_EXTENSION, "valueCode": "my own words"}])
+        )
+
+    assert refused.value.field == "score-correction-reason"
+    assert "my own words" not in str(refused.value)
+
+
+def test_two_reasons_are_refused() -> None:
+    with pytest.raises(ValidationFailed):
+        parse_case_details(
+            body(
+                extension=[
+                    {"url": SCORE_REASON_EXTENSION, "valueCode": "typing-error"},
+                    {"url": SCORE_REASON_EXTENSION, "valueCode": "rescored"},
+                ]
+            )
+        )
+
+
+def test_a_corrected_case_answers_how_many_times_and_a_case_never_corrected_answers_none() -> None:
+    corrected = case_to_fhir(open_case(scores=(News2(5),), score_corrections=2))
+    plain = case_to_fhir(open_case(scores=(News2(5),)))
+
+    assert {"url": SCORE_CORRECTIONS_EXTENSION, "valueInteger": 2} in corrected["extension"]
+    assert all(item["url"] != SCORE_CORRECTIONS_EXTENSION for item in plain.get("extension", []))

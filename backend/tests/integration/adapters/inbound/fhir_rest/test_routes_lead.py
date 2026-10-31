@@ -237,10 +237,9 @@ async def test_an_invalid_mobile_is_refused_and_the_input_is_not_echoed(
         headers={"Idempotency-Key": "setup-0005", **token_headers(tenant_id, Role.LEAD)},
     )
     assert response.status_code == 400
-    # The refusal text is the prompt's example number, "07700 900123", which contains the
-    # characters "0770". So the check is on the input as a quoted value: the refusal must not
-    # repeat the number that was sent.
-    assert '"0770"' not in response.text
+    # The refusal text names the example number "07700 900123", which contains the characters
+    # "0770" (KI-312). With that fixed example taken out, nothing of the input may be left.
+    assert "0770" not in response.text.replace("07700 900123", "")
 
 
 async def test_a_number_change_for_today_reports_the_last_four_digits(

@@ -49,6 +49,11 @@ class ServiceRepository(Protocol):
         the service is not there. The number the shift lead phones to check a service (W7B C)."""
         ...
 
+    async def work_phones(self, service_ids: Sequence[str]) -> dict[str, str]:
+        """The work phone of each of these services that has one; a service with none, or not
+        there, is left out (Q5, DEC-1100). The numbers the options list offers to phone."""
+        ...
+
     async def set_active(self, service_id: str) -> None:
         """Make a registered service active (U29): HealthcareService.active, its Location.status and
         its Organization.active, each as a new resource version. Only those flags change, so the
@@ -250,6 +255,10 @@ class CaseRepository(Protocol):
         """The stored case, open or closed, or None."""
         ...
 
+    async def get_versioned(self, case_id: str) -> tuple[Case, int] | None:
+        """The stored case and its version, or None (H-192). The version moves with every save."""
+        ...
+
     async def get_by_reference(self, reference: str) -> Case | None:
         """The case with this reference, or None."""
         ...
@@ -258,10 +267,11 @@ class CaseRepository(Protocol):
         """Cases opened at or after `start` and before `end` (U35), oldest first."""
         ...
 
-    async def save(self, case: Case) -> None:
-        """Replace the stored case. An unknown id raises NotFound. A change to the scores or the
-        reference raises ValidationFailed, and reopening a closed case raises InvalidTransition.
-        All of these are checked before anything is written."""
+    async def save(self, case: Case, *, expected_version: int | None = None) -> None:
+        """Replace the stored case. An unknown id raises NotFound. A change to the scores other
+        than a counted correction, or to the reference, raises ValidationFailed, and reopening a
+        closed case raises InvalidTransition. With `expected_version`, a case at another version
+        raises StaleVersion. All of these are checked before anything is written."""
         ...
 
 

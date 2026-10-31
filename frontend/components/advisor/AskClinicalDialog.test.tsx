@@ -213,3 +213,57 @@ describe('AskClinicalDialog while waiting', () => {
     expect(await runAxe(container)).toHaveNoViolations();
   });
 });
+
+describe('the service under consideration (KI-768)', () => {
+  const SERVICE = { id: 'svc-ucr-west', name: 'UCR West' };
+
+  it('names the service the advisor is asking about, and sends its id with the request', async () => {
+    calls = [];
+    server.use(...handlers());
+    const user = userEvent.setup();
+    render(<AskClinicalDialog caseRef={CASE} summary={SUMMARY} optionsShown={3} service={SERVICE} onClose={vi.fn()} />);
+
+    expect(screen.getByText('About: UCR West')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Other' }));
+    await user.click(screen.getByRole('button', { name: 'Call clinical advisor' }));
+
+    await waitFor(() => expect(calls.find((call) => call.method === 'POST')?.body).toEqual({ urgency: 'now', why: 'other', service: 'svc-ucr-west' }));
+  });
+
+  it('with no service it says nothing of one and sends none', async () => {
+    calls = [];
+    server.use(...handlers());
+    const user = userEvent.setup();
+    render(<AskClinicalDialog caseRef={CASE} summary={SUMMARY} optionsShown={3} onClose={vi.fn()} />);
+
+    expect(screen.queryByText(/^About:/)).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Other' }));
+    await user.click(screen.getByRole('button', { name: 'Call clinical advisor' }));
+
+    await waitFor(() => expect(calls.find((call) => call.method === 'POST')?.body).toEqual({ urgency: 'now', why: 'other' }));
+  });
+
+  it('shows "Go ahead with" the service by name, from the request the back end reads, not the general label', async () => {
+    server.use(
+      http.get('/api/bff/clinical/summary', () => HttpResponse.json({ available: 2 })),
+      http.post(`/api/bff/cases/${CASE}/clinical-requests`, () => HttpResponse.json({ requestId: 'req-9001' }, { status: 201 })),
+      http.get(`/api/bff/cases/${CASE}/clinical-requests/req-9001`, () =>
+        HttpResponse.json({ state: 'advised', advice: 'go-ahead', service: 'UCR West', advisedAt: '2026-10-23T13:15:00Z' }),
+      ),
+    );
+    const user = userEvent.setup();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      render(<AskClinicalDialog caseRef={CASE} summary={SUMMARY} optionsShown={3} service={SERVICE} onClose={vi.fn()} />);
+      await user.click(screen.getByRole('button', { name: 'Other' }));
+      await user.click(screen.getByRole('button', { name: 'Call clinical advisor' }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5_000);
+      });
+
+      expect(await screen.findByText('Advice: Go ahead with UCR West.')).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

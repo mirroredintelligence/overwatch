@@ -68,7 +68,21 @@ export type OptionsParts = {
    * (W50, W9H DEC-1045): the ones the services cover, in the order to show them. Empty otherwise.
    */
   districts: string[];
+  /**
+   * What the BFF says of the other organisations' services (B6): none (no network), shown (read and
+   * added after the viewer's own, each with its organisation), or unavailable (they could not be read:
+   * the screen says so). Set by the BFF, never by the back end's answer.
+   */
+  network?: NetworkRead;
 };
+
+export type NetworkRead = 'none' | 'shown' | 'unavailable';
+
+/**
+ * A number the screen offers to phone: digits with spaces, brackets and dashes, and an optional leading
+ * plus, five to twenty-five characters. Anything else is not offered (it would become a phone link).
+ */
+export const PHONE_PATTERN = /^\+?[0-9][0-9 ()-]{4,24}$/;
 
 /** A postcode district as the back end keeps it: one or two capital letters, a digit, then a digit or a capital. */
 export const DISTRICT_PATTERN = /^[A-Z]{1,2}[0-9][A-Z0-9]?$/;
@@ -146,6 +160,11 @@ function travelText(low: number | null, high: number | null): string | null {
   return low === high ? `about ${low} min` : `about ${low} to ${high} min`;
 }
 
+/** The service's number when it is shaped like one, else none: never a guess, never text of another kind. */
+function phoneOf(value: string | null): string | null {
+  return value !== null && PHONE_PATTERN.test(value) ? value : null;
+}
+
 function optionOf(parts: Part[]): OptionView | null {
   const serviceId = text(parts, 'serviceId');
   const name = text(parts, 'name');
@@ -177,7 +196,7 @@ function optionOf(parts: Part[]): OptionView | null {
     criteriaVersion: whole(parts, 'criteriaVersion'),
     fits: list(parts, 'fits'),
     checks: list(parts, 'checks'),
-    phone: null,
+    phone: phoneOf(text(parts, 'phone')),
     network:
       organisation === null ? null : { organisation, source: text(parts, 'organisationSource') ?? '' },
     position: coverage === null ? place : null,

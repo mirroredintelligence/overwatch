@@ -49,6 +49,12 @@ class Terminology(Protocol):
         order, at most `limit`. Text under two characters, once trimmed, finds nothing (R16)."""
         ...
 
+    async def pathways_dx_listed(self, code: str) -> bool:
+        """Is this exact code on the Pathways Dx list (H-85)? The code as the list holds it: case
+        counts and nothing is trimmed. A value that is not text, and any code when the list is
+        empty, is not listed, so a missing list refuses every code rather than accepting any."""
+        ...
+
 
 def profile_url(name: str) -> str:
     """The canonical URL of a published profile: `{BASE_URL}StructureDefinition/<Name>` (R14)."""

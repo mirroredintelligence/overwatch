@@ -22,6 +22,7 @@ from neo4j import AsyncDriver, AsyncManagedTransaction
 from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
+from diucs.adapters.testing.fixed_terminology import FixedTerminology
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.audit import AuditRecord
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
@@ -49,6 +50,7 @@ NOW = datetime(2026, 10, 29, 9, 30, tzinfo=UTC)
 LATER = NOW + timedelta(minutes=40)
 CLOSED_AT = NOW + timedelta(hours=1)
 REFERENCE = re.compile(r"[1-9][0-9]{3}")
+LISTED_DX = FixedTerminology({}, {}, [("DxSAMPLE01", "Sample (not a real code)")])
 
 ADVISOR = Actor(
     role=Role.ADVISOR,
@@ -116,7 +118,7 @@ def _clock(at: datetime = NOW) -> FixedClock:
 
 
 def _opener(factory: UnitOfWorkFactory, tenant: str, rng: ScriptedRng) -> OpenCase:
-    return OpenCase(factory, _clock(), SequentialIds.scoped(tenant), _idempotency(), rng)
+    return OpenCase(factory, _clock(), SequentialIds.scoped(tenant), _idempotency(), rng, LISTED_DX)
 
 
 async def _read(factory: UnitOfWorkFactory, case_id: str) -> Case | None:
@@ -156,7 +158,7 @@ async def _open(
 async def _update(
     factory: UnitOfWorkFactory, case_id: str, *, key: str = "update-1", **changes: Any
 ) -> UpdateCaseResult:
-    return await UpdateCase(factory, _clock(LATER), _idempotency()).execute(
+    return await UpdateCase(factory, _clock(LATER), _idempotency(), LISTED_DX).execute(
         UpdateCaseCommand(key, ADVISOR, case_id, **changes)
     )
 
@@ -304,7 +306,7 @@ async def test_recorded_scores_can_be_recorded_once_and_cannot_change(
     with pytest.raises(ValidationFailed) as refused:
         await _update(uow_factory, opened.case_id, key="update-2", scores=(News2(3),))
 
-    assert refused.value.field == "scores"
+    assert refused.value.field == "score_correction_reason"
     assert await _read(uow_factory, opened.case_id) == before
 
 
@@ -320,7 +322,7 @@ async def test_a_role_other_than_advisor_or_clinical_may_not_open_or_update_a_ca
     opened = await _open(uow_factory, tenant_id)
 
     with pytest.raises(NotAllowed):
-        await UpdateCase(uow_factory, _clock(LATER), _idempotency()).execute(
+        await UpdateCase(uow_factory, _clock(LATER), _idempotency(), LISTED_DX).execute(
             UpdateCaseCommand("update-x", other, opened.case_id, **FILL)
         )
     assert await count_nodes(neo4j_driver, "ServiceRequest") == 1
@@ -333,7 +335,7 @@ async def test_a_clinical_advisor_may_open_and_update_a_case(
         OpenCaseCommand("open-c", CLINICAL, ReferrerType.GP)
     )
 
-    result = await UpdateCase(uow_factory, _clock(LATER), _idempotency()).execute(
+    result = await UpdateCase(uow_factory, _clock(LATER), _idempotency(), LISTED_DX).execute(
         UpdateCaseCommand("update-c", CLINICAL, opened.case_id, **FILL)
     )
 

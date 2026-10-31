@@ -21,22 +21,31 @@ export function FinishScreen({ caseId, preselect }: Props) {
   const [closed, setClosed] = useState(false);
   // The case number is kept when the summary is forgotten: it is the one thing the closed screen names.
   const [reference, setReference] = useState<string | null>(null);
+  // The service the call went to, once the advisor chooses it: the summary is read again naming it, so the
+  // referral that is copied says where the patient went, how it was booked and how old the figure was.
+  const [destination, setDestination] = useState<string | null>(null);
 
   useEffect(() => {
     let live = true;
-    bffFetch<SummaryView>(`/api/bff/cases/${encodeURIComponent(caseId)}/summary`).then((reply) => {
+    const query = destination === null ? '' : `?destination=${encodeURIComponent(destination)}`;
+    bffFetch<SummaryView>(`/api/bff/cases/${encodeURIComponent(caseId)}/summary${query}`).then((reply) => {
       if (!live) return;
       if (reply.ok) {
+        setFailed(false);
         setSummary(reply.body);
         setReference(reply.body.reference);
       }
       else if (reply.status === 409 && reply.code === 'closed') setClosed(true);
-      else setFailed(true);
+      else {
+        // A summary that could not be read again is not left on screen: it would lack the destination.
+        setSummary(null);
+        setFailed(true);
+      }
     });
     return () => {
       live = false;
     };
-  }, [caseId]);
+  }, [caseId, destination]);
 
   if (closed) return <CallClosed reference={reference} />;
 
@@ -48,6 +57,7 @@ export function FinishScreen({ caseId, preselect }: Props) {
         <OutcomeForm
           caseId={caseId}
           preselect={preselect}
+          onDestinationChange={setDestination}
           onClosed={() => {
             setSummary(null);
             setClosed(true);

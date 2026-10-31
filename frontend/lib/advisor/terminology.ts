@@ -1,4 +1,4 @@
-import { PATHWAYS_RESULTS_MAX } from './scores';
+import { PATHWAYS_CODE, PATHWAYS_RESULTS_MAX } from './scores';
 import { FhirError, fhirFetch } from '@/lib/fhir/client';
 import type { OperationOutcome } from '@/lib/fhir/types';
 
@@ -25,7 +25,8 @@ export async function searchPathwaysDx(token: string, text: string): Promise<Pat
   for (const item of data) {
     if (typeof item !== 'object' || item === null) continue;
     const { code, display } = item as { code?: unknown; display?: unknown };
-    if (typeof code === 'string' && typeof display === 'string') codes.push({ code, display });
+    // A code the back end would refuse to record is not offered: it could be chosen and then lost.
+    if (typeof code === 'string' && typeof display === 'string' && PATHWAYS_CODE.test(code)) codes.push({ code, display });
   }
   return codes.slice(0, PATHWAYS_RESULTS_MAX);
 }

@@ -442,3 +442,209 @@ async def test_the_advice_audit_names_the_display_that_was_pinned(
     given = [r for r in records if r.entry.use_case == "GiveClinicalAdvice"]
     assert given and given[-1].entry.snapshot is not None
     assert given[-1].entry.snapshot["snapshot_ref"] == pinned
+
+
+# KI-233: a lapsed lock is released in the store when the queue is read, not only in the answer.
+
+LAPSED = TAKEN_AT + timedelta(minutes=11)  # past the ten-minute lock
+NOT_LAPSED = TAKEN_AT + timedelta(minutes=9)
+
+
+async def _taken_request(factory: UnitOfWorkFactory) -> str:
+    cache = InMemoryCache(FixedClock(REQUESTED_AT))
+    await _set_available(cache, CLIN_1)
+    await _request(factory, cache, REQUESTED_AT).execute(
+        RequestClinicalAdviceCommand(ADVISOR, CASE_ID, "now", "other")
+    )
+    request_id = await _open_request_id(factory)
+    await _take(factory, request_id, TAKEN_AT)
+    return request_id
+
+
+async def _stored(factory: UnitOfWorkFactory, request_id: str) -> Any:
+    async with factory() as uow:
+        return await uow.clinical_requests.get(request_id)
+
+
+async def _returns(factory: UnitOfWorkFactory) -> list[Any]:
+    async with factory() as uow:
+        return [
+            r.entry for r in await uow.audit.records() if r.entry.use_case == "ReturnIdleRequest"
+        ]
+
+
+async def test_reading_the_waiting_queue_releases_a_lapsed_lock_in_the_store(
+    seeded: None, uow_factory: UnitOfWorkFactory
+) -> None:
+    from diucs.application.use_cases.clinical_advice import ListClinicalRequests
+
+    request_id = await _taken_request(uow_factory)
+
+    shown = await ListClinicalRequests(uow_factory, FixedClock(LAPSED)).execute(
+        CLINICIAN_2, "waiting"
+    )
+
+    assert [v.record.request.id for v in shown] == [request_id]
+    stored = await _stored(uow_factory, request_id)
+    assert stored.request.taken_by is None and stored.request.taken_at is None
+    returns = await _returns(uow_factory)
+    assert len(returns) == 1
+    assert returns[0].entity_ids == (request_id,)
+    assert returns[0].actor.practitioner_id is None  # the system, as the return timer is
+
+
+async def test_reading_the_queue_with_the_queue_use_case_releases_it_too(
+    seeded: None, uow_factory: UnitOfWorkFactory
+) -> None:
+    request_id = await _taken_request(uow_factory)
+
+    await _queue(uow_factory, LAPSED)
+
+    assert (await _stored(uow_factory, request_id)).request.taken_by is None
+
+
+async def test_the_holders_own_list_drops_a_lapsed_lock_and_releases_it_in_the_store(
+    seeded: None, uow_factory: UnitOfWorkFactory
+) -> None:
+    from diucs.application.use_cases.clinical_advice import ListClinicalRequests
+
+    request_id = await _taken_request(uow_factory)
+
+    mine = await ListClinicalRequests(uow_factory, FixedClock(LAPSED)).execute(CLINICIAN_1, "mine")
+
+    assert mine == []
+    assert (await _stored(uow_factory, request_id)).request.taken_by is None
+
+
+async def test_a_lock_that_has_not_lapsed_is_left_alone_and_writes_nothing(
+    seeded: None, uow_factory: UnitOfWorkFactory
+) -> None:
+    from diucs.application.use_cases.clinical_advice import ListClinicalRequests
+
+    request_id = await _taken_request(uow_factory)
+
+    await ListClinicalRequests(uow_factory, FixedClock(NOT_LAPSED)).execute(CLINICIAN_2, "waiting")
+
+    assert (await _stored(uow_factory, request_id)).request.taken_by == CLIN_1
+    assert await _returns(uow_factory) == []
+
+
+async def test_reading_twice_releases_once(seeded: None, uow_factory: UnitOfWorkFactory) -> None:
+    request_id = await _taken_request(uow_factory)
+
+    await _queue(uow_factory, LAPSED)
+    await _queue(uow_factory, LAPSED)
+
+    assert len(await _returns(uow_factory)) == 1
+    assert (await _stored(uow_factory, request_id)).request.taken_by is None
+
+
+async def test_the_clinician_whose_lock_lapsed_cannot_advise_until_they_take_it_again(
+    seeded: None, uow_factory: UnitOfWorkFactory
+) -> None:
+    request_id = await _taken_request(uow_factory)
+    await _queue(uow_factory, LAPSED)
+
+    with pytest.raises(NotAllowed):
+        await GiveClinicalAdvice(uow_factory, SequentialIds(), FixedClock(LAPSED)).execute(
+            GiveClinicalAdviceCommand(CLINICIAN_1, request_id, "go-ahead")
+        )
+
+
+# KI-473: the presence lives for 120 seconds and then reads as not available.
+
+
+async def test_presence_lapses_after_its_lifetime_and_the_count_drops(
+    seeded: None, uow_factory: UnitOfWorkFactory
+) -> None:
+    clock = FixedClock(REQUESTED_AT)
+    cache = InMemoryCache(clock)
+    await SetPresence(uow_factory, cache, clock).execute(
+        SetPresenceCommand(CLINICIAN_1, Presence.AVAILABLE)
+    )
+
+    inside = await AvailableClinicians(uow_factory, cache, FixedClock(REQUESTED_AT)).execute()
+    clock.set(REQUESTED_AT + timedelta(seconds=119))
+    just_inside = await AvailableClinicians(uow_factory, cache, clock).execute()
+    clock.set(REQUESTED_AT + timedelta(seconds=120))
+    after = await AvailableClinicians(uow_factory, cache, clock).execute()
+
+    assert (inside, just_inside, after) == (1, 1, 0)
+
+
+async def test_a_refreshed_presence_lives_another_120_seconds(
+    seeded: None, uow_factory: UnitOfWorkFactory
+) -> None:
+    clock = FixedClock(REQUESTED_AT)
+    cache = InMemoryCache(clock)
+    set_presence = SetPresence(uow_factory, cache, clock)
+    await set_presence.execute(SetPresenceCommand(CLINICIAN_1, Presence.AVAILABLE))
+    clock.set(REQUESTED_AT + timedelta(seconds=100))
+    await set_presence.execute(SetPresenceCommand(CLINICIAN_1, Presence.AVAILABLE))
+
+    clock.set(REQUESTED_AT + timedelta(seconds=200))
+
+    assert await AvailableClinicians(uow_factory, cache, clock).execute() == 1
+
+
+# KI-768: the request records the service the advisor was considering.
+
+
+async def test_a_request_keeps_the_service_the_advisor_was_considering(
+    seeded: None, uow_factory: UnitOfWorkFactory, seed_service: Any
+) -> None:
+    from diucs.application.use_cases.clinical_advice import ReadClinicalRequest
+    from tests.integration.application.test_filter_options import _profile
+
+    await seed_service(_profile("svc-ucr-west", "UCR West"))
+    cache = InMemoryCache(FixedClock(REQUESTED_AT))
+    await _set_available(cache, CLIN_1)
+    await _request(uow_factory, cache, REQUESTED_AT).execute(
+        RequestClinicalAdviceCommand(ADVISOR, CASE_ID, "now", "other", "svc-ucr-west")
+    )
+    request_id = await _open_request_id(uow_factory)
+
+    view = await ReadClinicalRequest(uow_factory, FixedClock(REQUESTED_AT)).execute(
+        CLINICIAN_1, request_id
+    )
+
+    assert view is not None
+    assert view.record.service_id == "svc-ucr-west"
+    assert view.service_name == "UCR West"
+
+
+async def test_a_service_that_is_unknown_or_another_tenants_is_not_found_and_no_request_is_made(
+    seeded: None,
+    uow_factory: UnitOfWorkFactory,
+    uow_factory_b: UnitOfWorkFactory,
+    neo4j_driver: AsyncDriver,
+    other_tenant_id: str,
+) -> None:
+    from tests.integration.application.test_filter_options import _profile
+
+    await ensure_audit_heads(neo4j_driver, other_tenant_id)
+    async with uow_factory_b() as uow:
+        await uow.services.save(_profile("svc-b-only", "Org B Service"))
+        await uow.commit()
+    cache = InMemoryCache(FixedClock(REQUESTED_AT))
+
+    for service in ("svc-nowhere", "svc-b-only"):
+        with pytest.raises(NotFound):
+            await _request(uow_factory, cache, REQUESTED_AT).execute(
+                RequestClinicalAdviceCommand(ADVISOR, CASE_ID, "now", "other", service)
+            )
+
+    async with uow_factory() as uow:
+        assert await uow.clinical_requests.open_requests() == []
+
+
+async def test_a_request_with_no_service_has_none(
+    seeded: None, uow_factory: UnitOfWorkFactory
+) -> None:
+    cache = InMemoryCache(FixedClock(REQUESTED_AT))
+    await _request(uow_factory, cache, REQUESTED_AT).execute(
+        RequestClinicalAdviceCommand(ADVISOR, CASE_ID, "now", "other")
+    )
+
+    stored = await _stored(uow_factory, await _open_request_id(uow_factory))
+    assert stored.service_id is None

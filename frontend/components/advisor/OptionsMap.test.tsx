@@ -118,6 +118,24 @@ describe('OptionsMap (W50)', () => {
 
     expect(within(card).getByText('Neighbouring')).toBeInTheDocument();
     expect(within(card).queryByRole('button', { name: 'Request booking' })).toBeNull();
+    expect(within(card).queryByRole('button', { name: 'Criteria' })).toBeNull();
+  });
+
+  it('a pin card with a service phone offers it as a link; one with none says so (Q5)', () => {
+    const [first] = MAP_OPTIONS;
+    render(
+      <OptionsMap
+        caseId="4821"
+        postcode="DT4 8XX"
+        patientArea={MAP_VIEW.patientArea}
+        options={[{ ...first, phone: '01305 900100' }]}
+        selectedId={first.serviceId}
+        onSelect={vi.fn()}
+        onCriteria={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('link', { name: 'Phone 01305 900100' })).toHaveAttribute('href', 'tel:01305 900100');
   });
 
   it('has no axe violations', async () => {

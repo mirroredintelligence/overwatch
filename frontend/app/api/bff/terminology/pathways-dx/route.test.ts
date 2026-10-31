@@ -45,7 +45,7 @@ beforeEach(() => {
       const url = new URL(request.url);
       seen.push({ path: url.pathname, query: url.searchParams.get('q'), token: request.headers.get('authorization') });
       return HttpResponse.json(
-        Array.from({ length: 21 }, (_, index) => ({ code: `PD-${index}`, display: `Sample ${index}` })),
+        Array.from({ length: 21 }, (_, index) => ({ code: `Dx${index}0`, display: `Sample ${index}` })),
       );
     }),
   );
@@ -67,8 +67,27 @@ describe('GET /api/bff/terminology/pathways-dx (W12)', () => {
 
   it('answers at most 20 items, each with a code and a display', async () => {
     const body = (await (await get('advisor', 'fa')).json()) as { code: string; display: string }[];
-    expect(body[0]).toEqual({ code: 'PD-0', display: 'Sample 0' });
+    expect(body[0]).toEqual({ code: 'Dx00', display: 'Sample 0' });
     expect(body.every((item) => typeof item.code === 'string' && typeof item.display === 'string')).toBe(true);
+  });
+
+  it('leaves out a code the back end would refuse to record, so the picker never offers one (KI-625)', async () => {
+    server.use(
+      http.get(`${ORIGIN}/terminology/pathways-dx`, () =>
+        HttpResponse.json([
+          { code: 'Dx02', display: 'Fits' },
+          { code: 'PD-101', display: 'Has a hyphen' },
+          { code: 'D', display: 'Too short' },
+          { code: 'Dx01234567890', display: 'Too long' },
+          { code: 'dx 03', display: 'Has a space' },
+          { code: 'DX0121', display: 'Fits too' },
+        ]),
+      ),
+    );
+
+    const body = (await (await get('advisor', 'fa')).json()) as { code: string }[];
+
+    expect(body.map((item) => item.code)).toEqual(['Dx02', 'DX0121']);
   });
 
   it('answers 403 for a clinical or reporter session, without a search', async () => {
@@ -88,7 +107,7 @@ describe('GET /api/bff/terminology/pathways-dx (W12)', () => {
   });
 
   it('answers 502 when the back end sends something other than a list', async () => {
-    server.use(http.get(`${ORIGIN}/terminology/pathways-dx`, () => HttpResponse.json({ code: 'PD-1' })));
+    server.use(http.get(`${ORIGIN}/terminology/pathways-dx`, () => HttpResponse.json({ code: 'Dx1' })));
 
     expect((await get('advisor', 'fa')).status).toBe(502);
   });

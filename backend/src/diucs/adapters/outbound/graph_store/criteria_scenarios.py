@@ -155,7 +155,7 @@ CLEAR_CURRENT_SCENARIO: Final = Scenario(
 
 
 # G11: the advisor's hard pre-filter (Q-CRIT-FILTER, domain-rules 4.1) and the criteria history
-# (Q-CRIT-HISTORY, the SUPERSEDES walk both ways from the current version). Both tenants hold the
+# (Q-CRIT-HISTORY, every version whose subject is the service). Both tenants hold the
 # same service and criteria keys; the ids that differ are Marked.
 _NEED_SYSTEM: Final = code_system_url("need-category")
 _FILTER_SERVICE: Final = SeedNode(
@@ -235,12 +235,23 @@ _HISTORY_SEED: Final = TenantSeed(
                 "version": 3,
             },
         ),
+        SeedNode(
+            "v4",
+            ("Resource", "Basic", "ServiceCriteria"),
+            {
+                "id": Marked("crit-4"),
+                "key": "Basic/crit-4",
+                "status": "draft",
+                "version": 4,
+            },
+        ),
     ),
     rels=(
         SeedRel("service", "CURRENT_CRITERIA", "v2"),
         SeedRel("v1", "SUBJECT", "service"),
         SeedRel("v2", "SUBJECT", "service"),
         SeedRel("v3", "SUBJECT", "service"),
+        SeedRel("v4", "SUBJECT", "service"),
         SeedRel("v2", "SUPERSEDES", "v1"),
         SeedRel("v3", "SUPERSEDES", "v2"),
     ),
@@ -254,14 +265,18 @@ FILTER_SCENARIO: Final = Scenario(
     expect=Expect(rows=({"serviceId": Marked("svc-1"), "id": Marked("crit-1")},)),
 )
 HISTORY_SCENARIO: Final = Scenario(
-    "the criteria versions of one of the tenant's services, reached from the current one "
-    "by SUPERSEDES in both directions (a pending version newer than the current one is listed), "
-    "newest first",
+    "every criteria version of one of the tenant's services, newest first: the current, the "
+    "superseded, a pending version and a draft that supersedes nothing",
     seed=_HISTORY_SEED,
     params={"serviceId": "svc-1"},
     lookup=("serviceId",),
     expect=Expect(
-        rows=({"id": Marked("crit-3")}, {"id": Marked("crit-2")}, {"id": Marked("crit-1")})
+        rows=(
+            {"id": Marked("crit-4")},
+            {"id": Marked("crit-3")},
+            {"id": Marked("crit-2")},
+            {"id": Marked("crit-1")},
+        )
     ),
 )
 

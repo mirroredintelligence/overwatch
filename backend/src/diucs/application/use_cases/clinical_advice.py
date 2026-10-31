@@ -166,6 +166,9 @@ class RequestClinicalAdviceCommand:
     case_id: str
     urgency: str
     why: str
+    service_id: str | None = None
+    """The service the advisor was considering (KI-768): a service of this tenant that is active.
+    Another tenant's service and an unknown one are the same not found."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -201,6 +204,10 @@ class RequestClinicalAdvice:
                 raise NotFound("no case with this id")
             if case.closed_at is not None:
                 raise Conflict(NOT_CLOSED_FOR_REQUEST)
+            if command.service_id is not None:
+                considered = await uow.services.get(command.service_id)
+                if considered is None or not considered.active:
+                    raise NotFound("no active service with this id")
             now = self._clock.now()
             request_id = self._ids.new_id()
             # The display of the options this advisor had when they asked is kept with the request,
@@ -217,6 +224,7 @@ class RequestClinicalAdvice:
                     requester_id=requester,
                     why=command.why,
                     snapshot_ref=None if display is None else display.id,
+                    service_id=command.service_id,
                 )
             )
             age = "not recorded" if case.age_band is None else case.age_band.value
@@ -449,6 +457,7 @@ class GiveClinicalAdvice:
                     why=record.why,
                     snapshot_ref=record.snapshot_ref,
                     advice=advice,
+                    service_id=record.service_id,
                 )
             )
             for work in await uow.scheduled_work.for_about(
@@ -489,7 +498,9 @@ class ListClinicalQueue:
             raise NotAllowed("only a clinical advisor may see the clinical queue")
         async with self.uow_factory() as uow:
             open_records = await uow.clinical_requests.open_requests()
-        return queue_now(open_records, self.clock.now())
+        now = self.clock.now()
+        await persist_returns(self.uow_factory, self.clock, _lapsed(open_records, now))
+        return queue_now(open_records, now)
 
 
 @dataclass(frozen=True, slots=True)
@@ -525,6 +536,9 @@ class ClinicalRequestView:
     case: CaseGlance | None
     note: str | None
     returns_at: datetime | None
+    service_name: str | None = None
+    """The name now of the service the advisor was considering (KI-768); None when none was named
+    or the service is no longer listed."""
 
 
 def _lock_ends(record: ClinicalRequestRecord) -> datetime | None:
@@ -541,6 +555,67 @@ async def _glances(uow: UnitOfWork, case_ids: Sequence[str]) -> dict[str, CaseGl
         if case is not None:
             found[case_id] = glance_of(case)
     return found
+
+
+async def _service_names(
+    uow: UnitOfWork, records: Sequence[ClinicalRequestRecord]
+) -> dict[str, str]:
+    """The name now of each service a request was about; one no longer listed has none."""
+    found: dict[str, str] = {}
+    for service_id in dict.fromkeys(r.service_id for r in records if r.service_id is not None):
+        profile = await uow.services.get(service_id)
+        if profile is not None:
+            found[service_id] = profile.name
+    return found
+
+
+async def persist_returns(
+    uow_factory: UnitOfWorkFactory, clock: Clock, request_ids: Sequence[str]
+) -> None:
+    """Release the locks that have lapsed among these requests in the store (KI-233), so what is
+    stored is what the queue shows. Its own unit of work, run after the read that found them, and
+    it reads each request afresh: a read never fails because another read got there first, and a
+    request that is no longer idle, or is advised, is left as it is. Written as the system, in
+    the tenant (the same entry the return timer writes)."""
+    if not request_ids:
+        return
+    try:
+        async with uow_factory() as uow:
+            now = clock.now()
+            released = 0
+            for request_id in request_ids:
+                record = await uow.clinical_requests.get(request_id)
+                if record is None:
+                    continue
+                returned = return_if_idle(record.request, now, DEFAULT_POLICY)
+                if returned == record.request:
+                    continue
+                await uow.clinical_requests.save(replace(record, request=returned))
+                for work in await uow.scheduled_work.for_about(
+                    request_id, WorkKind.CLINICAL_RETURN
+                ):
+                    await cancel_work(uow, work, now)
+                await uow.audit.append(
+                    AuditEntry(
+                        action=UPDATE,
+                        use_case=RETURN_USE_CASE,
+                        actor=timer_actor(_tenant(uow.unit_scope).value),
+                        entity_ids=(request_id,),
+                        snapshot=None,
+                        at=now,
+                    )
+                )
+                released += 1
+            if released:
+                await uow.commit()
+    except Conflict:
+        return  # another reader released it first: what is stored is what the queue shows
+
+
+def _lapsed(records: Sequence[ClinicalRequestRecord], now: datetime) -> list[str]:
+    return [
+        r.request.id for r in records if return_if_idle(r.request, now, DEFAULT_POLICY) != r.request
+    ]
 
 
 @dataclass(frozen=True, slots=True)
@@ -573,11 +648,13 @@ class ReadClinicalRequest:
                 if advice is None or advice.note_handle is None
                 else await uow.protected_text.get(advice.note_handle)
             )
+            names = await _service_names(uow, [record])
         return ClinicalRequestView(
             record=released,
             case=None if case is None else glance_of(case),
             note=note,
             returns_at=_lock_ends(released),
+            service_name=None if record.service_id is None else names.get(record.service_id),
         )
 
 
@@ -598,16 +675,18 @@ class ListClinicalRequests:
         clinician = _practitioner(actor) if which != LIST_WAITING else None
         now = self.clock.now()
         async with self.uow_factory() as uow:
+            stored: list[ClinicalRequestRecord] = []
             if which == LIST_WAITING:
-                records = queue_now(await uow.clinical_requests.open_requests(), now)
+                stored = await uow.clinical_requests.open_requests()
+                records = queue_now(stored, now)
             elif which == LIST_MINE:
                 assert clinician is not None
-                taken = await uow.clinical_requests.taken_by(clinician)
+                stored = await uow.clinical_requests.taken_by(clinician)
                 records = [
                     held
                     for held in (
                         replace(r, request=return_if_idle(r.request, now, DEFAULT_POLICY))
-                        for r in taken
+                        for r in stored
                     )
                     if held.request.taken_by == clinician
                 ]
@@ -615,12 +694,16 @@ class ListClinicalRequests:
                 assert clinician is not None
                 records = await uow.clinical_requests.advised_by(clinician, DONE_LIMIT)
             glances = await _glances(uow, [r.request.case_id for r in records])
+            names = await _service_names(uow, records)
+        # What a list drops, or shows as released, is released in the store too (KI-233).
+        await persist_returns(self.uow_factory, self.clock, _lapsed(stored, now))
         return [
             ClinicalRequestView(
                 record=record,
                 case=glances.get(record.request.case_id),
                 note=None,
                 returns_at=_lock_ends(record),
+                service_name=None if record.service_id is None else names.get(record.service_id),
             )
             for record in records
         ]

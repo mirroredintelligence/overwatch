@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { CASE_BLANK, CASE_CLOSED, CASE_FULL } from '@/test/fixtures/backend-shapes';
 import type { CaseInput } from './codes';
-import { fromServiceRequest, SCORE_EXTENSION, toServiceRequest, URGENCY_EXTENSION } from './case-fhir';
+import {
+  fromServiceRequest,
+  SCORE_CORRECTIONS_EXTENSION,
+  SCORE_EXTENSION,
+  SCORE_REASON_EXTENSION,
+  toServiceRequest,
+  URGENCY_EXTENSION,
+} from './case-fhir';
 
 // The mapping between the browser's coded case and the back end's ServiceRequest. The back-end side of
 // every test is JSON the back end's own mapping produced (test/fixtures/backend-shapes.ts), so a
@@ -18,7 +25,7 @@ const INPUT: CaseInput = {
     { method: 'cfs', value: 6 },
     { method: 'ambulance-category', value: 2 },
     { method: 'manchester', value: 'very-urgent' },
-    { method: 'pathways-dx', value: 'PD-101' },
+    { method: 'pathways-dx', value: 'Dx101' },
   ],
 };
 
@@ -95,6 +102,7 @@ describe('the case the back end answers (W10, W11)', () => {
       needs: ['fall-no-injury', 'frailty'],
       urgency: 'within-2-hrs',
       scores: [{ method: 'news2', value: 2 }],
+      scoreCorrections: 0,
       openedAt: '2026-10-30T14:00:00Z',
       closed: false,
       closedAt: null,
@@ -144,5 +152,44 @@ describe('what a save writes (W11)', () => {
     const request = toServiceRequest('case-1', { ...INPUT, postcode: null });
     expect(JSON.stringify(request)).not.toContain('postalCode');
     expect(JSON.stringify(request)).not.toContain('"address"');
+  });
+});
+
+
+describe('a correction on the ServiceRequest (Q7, KI-815)', () => {
+  it('writes the reason of a correction as the back end\'s extension, and nothing when there is none', () => {
+    const corrected = toServiceRequest('case-1', { ...INPUT, scoreCorrectionReason: 'typing-error' });
+    const plain = toServiceRequest('case-1', INPUT);
+    const none = toServiceRequest('case-1', { ...INPUT, scoreCorrectionReason: null });
+
+    expect(extensionsOf(corrected).find((item) => item.url === SCORE_REASON_EXTENSION)).toEqual({
+      url: 'https://diucs.example/StructureDefinition/score-correction-reason',
+      valueCode: 'typing-error',
+    });
+    expect(extensionsOf(plain).some((item) => item.url === SCORE_REASON_EXTENSION)).toBe(false);
+    expect(extensionsOf(none).some((item) => item.url === SCORE_REASON_EXTENSION)).toBe(false);
+  });
+
+  it('reads how many times the scores were corrected, and none for a case never corrected', () => {
+    const request = toServiceRequest('case-1', INPUT);
+    const corrected = {
+      ...request,
+      extension: [
+        ...(request.extension as object[]),
+        { url: SCORE_CORRECTIONS_EXTENSION, valueInteger: 2 },
+      ],
+    };
+
+    expect(fromServiceRequest(corrected, 'W/"4"')?.scoreCorrections).toBe(2);
+    expect(fromServiceRequest(request, 'W/"1"')?.scoreCorrections).toBe(0);
+    expect(SCORE_CORRECTIONS_EXTENSION).toBe('https://diucs.example/StructureDefinition/score-corrections');
+  });
+
+  it('takes a count that is not a whole number from zero as none, never as a guess', () => {
+    const request = toServiceRequest('case-1', INPUT);
+    for (const valueInteger of [-1, 1.5, 'two', null]) {
+      const odd = { ...request, extension: [...(request.extension as object[]), { url: SCORE_CORRECTIONS_EXTENSION, valueInteger }] };
+      expect(fromServiceRequest(odd, 'W/"1"')?.scoreCorrections).toBe(0);
+    }
   });
 });

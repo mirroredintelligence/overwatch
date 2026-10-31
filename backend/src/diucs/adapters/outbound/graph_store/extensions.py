@@ -125,6 +125,10 @@ register_extension(ExtensionDef(f"{BASE_URL}StructureDefinition/outcome", "outco
 register_extension(
     ExtensionDef(f"{BASE_URL}StructureDefinition/bestFitNotUsed", "bestFitNotUsed", "string")
 )
+# KI-815 (Q7): how many times a recorded score was corrected, on the ServiceRequest.
+register_extension(
+    ExtensionDef(f"{BASE_URL}StructureDefinition/scoreCorrections", "scoreCorrections", "integer")
+)
 # P13: a registration's four approval checks (domain-rules 6.2). checkScope holds the scope flag
 # and is left out until the scope is decided.
 register_extension(
@@ -151,5 +155,9 @@ register_extension(
 register_extension(ExtensionDef(f"{BASE_URL}StructureDefinition/why", "why", "string"))
 register_extension(
     ExtensionDef(f"{BASE_URL}StructureDefinition/snapshotRef", "snapshotRef", "string")
+)
+# KI-768: the service the advisor was considering when they asked for clinical advice.
+register_extension(
+    ExtensionDef(f"{BASE_URL}StructureDefinition/consideredService", "consideredService", "string")
 )
 register_extension(ExtensionDef(f"{BASE_URL}StructureDefinition/takenAt", "takenAt", "dateTime"))

@@ -93,3 +93,27 @@ function clinicalTaskBase() {
     ],
   };
 }
+
+describe('the service under consideration on the read (KI-768)', () => {
+  it('answers the name of the service the advisor asked about, on a waiting, taken and advised request', async () => {
+    const withService = (status: string, more: unknown[] = []) => {
+      const base = clinicalTask(status);
+      return { ...base, extension: [...(base.extension as unknown[]), { url: 'https://diucs.example/CodeSystem/task-input/service', valueString: 'UCR West' }, ...more] };
+    };
+    for (const [status, more] of [
+      ['requested', []],
+      ['in-progress', []],
+      ['completed', [{ url: 'https://diucs.example/CodeSystem/task-input/advice-choice', valueCode: 'go-ahead' }]],
+    ] as const) {
+      server.use(http.get(`${EXEC_BACKEND}/Task/req-9001`, (() => HttpResponse.json(withService(status, [...more]))) as HttpResponseResolver));
+      const body = (await (await get('case-4821', 'req-9001')).json()) as { service?: string };
+      expect(body.service).toBe('UCR West');
+    }
+  });
+
+  it('answers no service when the request names none', async () => {
+    server.use(http.get(`${EXEC_BACKEND}/Task/req-9001`, (() => HttpResponse.json(clinicalTask('requested'))) as HttpResponseResolver));
+
+    expect(await (await get('case-4821', 'req-9001')).json()).toEqual({ state: 'waiting' });
+  });
+});

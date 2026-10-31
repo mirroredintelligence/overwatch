@@ -189,7 +189,7 @@ describe('NeedsForm (W11)', () => {
 
     await user.click(byEl('ADV-NEEDS-CONTINUE-BTN'));
 
-    expect(await screen.findByText('This case changed in another window. Reload to see the latest.')).toBeInTheDocument();
+    expect(await screen.findByText('Someone changed this case since you opened it. Nothing of yours was saved.')).toBeInTheDocument();
     expect(push).not.toHaveBeenCalled();
   });
 

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { bffFetch } from '@/lib/advisor/browser';
 import { chooseDistrict } from '@/lib/advisor/district';
 import type { OptionsParts } from '@/lib/advisor/options';
+import type { ServiceAsked } from './AskClinicalDialog';
 import { AskClinicalPanel } from './AskClinicalPanel';
 import { CriteriaDialog } from './CriteriaDialog';
 import { DeclinedDialog } from './DeclinedDialog';
@@ -31,6 +32,8 @@ export type OptionsListProps = {
 
 type Load = { kind: 'loading' } | { kind: 'ready'; parts: OptionsParts } | { kind: 'failed' };
 
+const NETWORK_UNAVAILABLE =
+  "The other organisations' services could not be read, so only your own are shown. Phone to check if you need them.";
 const READ_ONLY_BODY = 'You cannot book or change these services from here. Phone the service to check.';
 
 function headingFor(count: number): string {
@@ -42,7 +45,8 @@ type Open = { kind: 'criteria' | 'phoned' | 'declined'; serviceId: string; servi
 export function OptionsList({ caseId, onCriteria, onPhoned, onAskClinical }: OptionsListProps) {
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
   const [open, setOpen] = useState<Open | null>(null);
-  const [asking, setAsking] = useState(false);
+  // Asking a clinical advisor: about the case (null) or about one service, from its card (KI-768).
+  const [asking, setAsking] = useState<{ service: ServiceAsked | null } | null>(null);
   const requested = useRef<string | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
 
@@ -73,10 +77,12 @@ export function OptionsList({ caseId, onCriteria, onPhoned, onAskClinical }: Opt
   const hasNetwork = options.some((option) => option.network !== null);
   const close = () => setOpen(null);
   // "Ask a clinical advisor" (W45): this list owns the dialog, so the button and the no-fit state share it.
-  const askClinical = () => {
-    setAsking(true);
+  const ask = (service: ServiceAsked | null) => {
+    setAsking({ service });
     onAskClinical?.();
   };
+  const askClinical = () => ask(null);
+  const askAbout = (option: { serviceId: string; name: string }) => ask({ id: option.serviceId, name: option.name });
   const opener = (kind: Open['kind']) => (serviceId: string) => {
     const name = options.find((option) => option.serviceId === serviceId)?.name ?? '';
     setOpen({ kind, serviceId, serviceName: name });
@@ -98,6 +104,7 @@ export function OptionsList({ caseId, onCriteria, onPhoned, onAskClinical }: Opt
           </h2>
           <p className={styles.sub}>Sorted by travel time. Not ranked.</p>
           {hasNetwork ? <Banner tone="info" title="Read only">{READ_ONLY_BODY}</Banner> : null}
+          {load.parts.network === 'unavailable' ? <Banner tone="info" title="Other organisations">{NETWORK_UNAVAILABLE}</Banner> : null}
           <div className={styles.cards}>
             {options.map((option) => (
               <ServiceCard
@@ -105,7 +112,7 @@ export function OptionsList({ caseId, onCriteria, onPhoned, onAskClinical }: Opt
                 caseId={caseId}
                 option={option}
                 onSeeOptions={() => heading.current?.focus()}
-                onAskClinical={askClinical}
+                onAskClinical={() => askAbout(option)}
                 onCriteria={(id) => {
                   opener('criteria')(id);
                   onCriteria?.(id);
@@ -143,7 +150,9 @@ export function OptionsList({ caseId, onCriteria, onPhoned, onAskClinical }: Opt
         />
       ) : null}
 
-      {asking ? <AskClinicalPanel caseRef={caseId} optionsShown={options.length} onClose={() => setAsking(false)} /> : null}
+      {asking !== null ? (
+        <AskClinicalPanel caseRef={caseId} optionsShown={options.length} service={asking.service} onClose={() => setAsking(null)} />
+      ) : null}
 
       <NotSuitableList items={notSuitable} />
 
@@ -151,7 +160,7 @@ export function OptionsList({ caseId, onCriteria, onPhoned, onAskClinical }: Opt
         <footer className={styles.footer}>
           <p className={styles.note}>No patient name is stored. Postcode and needs are cleared after the call record closes.</p>
           <div className={styles.actions}>
-            <Button variant="secondary" dataEl="ADV-OPT-CLINICAL-BTN" onClick={askClinical}>
+            <Button variant="secondary" dataEl="ADV-OPT-CLINICAL-BTN" onClick={() => askClinical()}>
               Ask clinical advisor
             </Button>
             <Button variant="neutral" href={`/advisor/case/${encodeURIComponent(caseId)}/finish`}>

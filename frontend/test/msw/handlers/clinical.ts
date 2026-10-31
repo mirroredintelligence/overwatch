@@ -230,6 +230,7 @@ const item = (id: string, caseId: string, reference: string, news2: number, extr
   glance: { caseReference: reference, ...GLANCE, news2 },
   returnsAt: null,
   advice: null,
+  service: null,
   ...extra,
 });
 

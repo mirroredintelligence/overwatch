@@ -66,10 +66,11 @@ def district_body(district: str, **patient: Any) -> dict[str, Any]:
 
 
 async def put(client: AsyncClient, case_id: str, body: dict[str, Any], key: str, role: Role) -> Any:
+    read = await client.get(f"/fhir/ServiceRequest/{case_id}", headers=token_headers(role=role))
     return await client.put(
         f"/fhir/ServiceRequest/{case_id}",
         json=body,
-        headers=headers(key, role, **{"If-Match": 'W/"1"'}),
+        headers=headers(key, role, **{"If-Match": read.headers.get("etag", 'W/"999"')}),
     )
 
 

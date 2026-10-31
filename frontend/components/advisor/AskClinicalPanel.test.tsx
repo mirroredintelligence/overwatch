@@ -21,6 +21,7 @@ const CASE: CaseView = {
     { method: 'news2', value: 2 },
     { method: 'cfs', value: 6 },
   ],
+  scoreCorrections: 0,
   openedAt: null,
   etag: null,
 };

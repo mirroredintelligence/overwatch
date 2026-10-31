@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CFS_LABELS, parseNews2, parseScores } from './scores';
+import { CFS_LABELS, PATHWAYS_CODE, parseNews2, parseScores } from './scores';
 
 describe('parseNews2 (W12)', () => {
   it('an empty box is no score; whole numbers 0 to 20 are accepted', () => {
@@ -29,7 +29,7 @@ describe('parseScores (W12)', () => {
     { method: 'cfs', value: 6 },
     { method: 'ambulance-category', value: 2 },
     { method: 'manchester', value: 'very-urgent' },
-    { method: 'pathways-dx', value: 'PD-101' },
+    { method: 'pathways-dx', value: 'Dx0101' },
   ];
 
   it('accepts one score per method, as recorded', () => {
@@ -50,6 +50,9 @@ describe('parseScores (W12)', () => {
     ['a Manchester word not on the list', { method: 'manchester', value: 'urgent-ish' }],
     ['an empty Pathways code', { method: 'pathways-dx', value: '' }],
     ['a Pathways code with a space', { method: 'pathways-dx', value: 'PD 101' }],
+    ['a Pathways code with a hyphen, which the back end refuses', { method: 'pathways-dx', value: 'PD-101' }],
+    ['a Pathways code of one character', { method: 'pathways-dx', value: 'D' }],
+    ['a Pathways code of thirteen characters', { method: 'pathways-dx', value: 'Dx01234567890' }],
     ['an unknown method', { method: 'apgar', value: 7 }],
   ])('refuses %s', (_label, score) => {
     expect(parseScores([score])).toBeNull();
@@ -58,5 +61,16 @@ describe('parseScores (W12)', () => {
   it('refuses anything that is not a list', () => {
     expect(parseScores({ method: 'news2', value: 2 })).toBeNull();
     expect(parseScores(null)).toBeNull();
+  });
+});
+
+
+describe('the Pathways Dx code shape (KI-625, KI-816)', () => {
+  it('is the back end\'s own shape: letters of either case and digits, two to twelve (domain/model/scores.py)', () => {
+    expect(PATHWAYS_CODE.source).toBe('^[A-Za-z0-9]{2,12}$');
+  });
+
+  it.each(['Dx02', 'DX0121', 'dx0121', 'DxSAMPLE01', 'AB', 'Dx0123456789'])('%j is a code the picker may send', (code) => {
+    expect(parseScores([{ method: 'pathways-dx', value: code }])).toEqual([{ method: 'pathways-dx', value: code }]);
   });
 });

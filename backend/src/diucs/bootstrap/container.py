@@ -19,7 +19,7 @@ process that serves, and without one every secret reads as not found (fail close
 import random
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -56,6 +56,7 @@ from diucs.adapters.outbound.telemetry.azure_monitor_query import (
 )
 from diucs.adapters.outbound.telemetry.result_attributes import result_attributes
 from diucs.adapters.outbound.terminology.local_terminology import LocalTerminology
+from diucs.adapters.outbound.travel_time.routing import HttpxRouteClient, RoutingTravelTime
 from diucs.adapters.outbound.travel_time.straight_line import StraightLineTravelTime
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_geo import FixedGeocoder, FixedPostcodeLocator, FixedTravelTime
@@ -520,6 +521,27 @@ class NoSecrets:
         raise NotFound(f"secret {name}")
 
 
+def travel_time_for(settings: Settings, cache: Cache, http: httpx.AsyncClient | None) -> TravelTime:
+    """The travel-time estimate of a process (KI-200): the routing engine when one is configured,
+    with the straight-line estimate behind it for any failure; the straight line alone otherwise.
+    An engine with no extract date is refused at start-up, because the source of every range names
+    the date of the map data, and one with no client has no way to reach it."""
+    if settings.routing_base_url is None:
+        return StraightLineTravelTime()
+    if settings.routing_extract_date is None:
+        raise ValueError("routing_extract_date is needed with routing_base_url")
+    if http is None:
+        raise ValueError("a routing engine needs an http client")
+    return RoutingTravelTime(
+        HttpxRouteClient(http),
+        settings.routing_base_url,
+        settings.routing_extract_date,
+        cache,
+        StraightLineTravelTime(),
+        timedelta(seconds=settings.routing_timeout_s),
+    )
+
+
 def _redis_client(url: str) -> Redis:
     return Redis.from_url(url, decode_responses=True)
 
@@ -539,7 +561,8 @@ def build(
     clock = SystemClock()
     redis = _redis_client(settings.redis_url)
     key = settings.os_places_api_key
-    http = None if key is None else httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS)
+    wants_http = key is not None or settings.routing_base_url is not None
+    http = httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS) if wants_http else None
     ids = UuidGenerator()
     # Every hash and token key is the bound tenant's own (TEN-023, DEC-350): the process's store is
     # seen through TenantKeyedSecrets, and nothing outside it holds the platform key.
@@ -573,7 +596,7 @@ def build(
             if settings.postcode_centroids_path is None
             else CsvPostcodeLocator(settings.postcode_centroids_path)
         ),
-        travel=StraightLineTravelTime(),
+        travel=travel_time_for(settings, redis_cache, http),
         geocoder=NoGeocoder()
         if http is None or key is None
         else OsPlacesGeocoder(http, key.get_secret_value()),

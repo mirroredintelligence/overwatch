@@ -19,7 +19,17 @@ describe('the network pages', () => {
     },
   );
 
-  it('does not guard /network-admin by this prefix (its own task)', () => {
-    expect(rolesFor('/network-admin')).toBeNull();
+  it('are not for the administrators: the network administrator has its own pages (TEN-080)', () => {
+    for (const role of ['tenant-admin', 'network-admin'] as const) {
+      expect(canAccess(role, '/network/board'), role).toBe(false);
+    }
+  });
+
+  it('keeps /network-admin apart from /network: the first segment decides, so each has its own guard', () => {
+    expect(rolesFor('/network-admin')).toEqual(['network-admin']);
+    expect(rolesFor('/network')).not.toContain('network-admin');
+    for (const path of ['/network-admin', '/network-admin/grants', '/Network-Admin/listings', '/x/../network-admin']) {
+      for (const role of ROLES) expect(canAccess(role, path), `${role} ${path}`).toBe(role === 'network-admin');
+    }
   });
 });

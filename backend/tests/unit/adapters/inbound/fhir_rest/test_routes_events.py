@@ -56,10 +56,58 @@ def test_a_projector_message_becomes_an_event_without_a_kind() -> None:
     )
 
 
-def test_a_projector_message_with_no_service_id_is_dropped() -> None:
+def test_a_projector_message_with_no_service_id_is_a_whole_board_event() -> None:
+    # KI-55: a change that belongs to no one service (the pressure banner, an approved criteria
+    # set) reaches the open page at once, as its own named event with the time and nothing else.
     message = {"type": "board-changed", "service_id": None, "at": CHANGED_AT}
 
-    assert to_sse(message) is None
+    assert to_sse(message) == 'event: board-whole\ndata: {"changedAt":"2026-10-23T13:12:00Z"}\n\n'
+
+
+def test_a_projector_message_with_no_service_id_key_is_dropped() -> None:
+    # Only an explicit null is a whole-board change; a message that lacks the key is malformed.
+    assert to_sse({"type": "board-changed", "at": CHANGED_AT}) is None
+
+
+@pytest.mark.parametrize("changed_at", ["13:12", "2026-10-23T13:12:00", "2026-13-45T99:99:00Z", 7, None])
+def test_a_whole_board_message_with_a_bad_time_is_dropped(changed_at: object) -> None:
+    assert to_sse({"type": "board-changed", "service_id": None, "at": changed_at}) is None
+
+
+def test_a_whole_board_message_sent_in_the_task_shape_is_still_dropped() -> None:
+    # The task shape names a service; without one it is not a board message (R06).
+    assert to_sse({"serviceId": None, "changedAt": CHANGED_AT}) is None
+
+
+def test_the_heartbeat_is_a_named_event_with_the_time_only() -> None:
+    # KI-54: a comment line cannot be read by the page; a named event can, so the page can tell
+    # an open stream from a dead one.
+    from datetime import UTC, datetime
+
+    from diucs.adapters.inbound.fhir_rest.routes_events import heartbeat_sse
+
+    assert heartbeat_sse(datetime(2026, 10, 23, 13, 12, tzinfo=UTC)) == (
+        'event: heartbeat\ndata: {"changedAt":"2026-10-23T13:12:00Z"}\n\n'
+    )
+
+
+def test_the_heartbeat_time_is_written_in_utc_whatever_the_zone_of_the_clock() -> None:
+    from datetime import datetime, timedelta, timezone
+
+    from diucs.adapters.inbound.fhir_rest.routes_events import heartbeat_sse
+
+    bst = timezone(timedelta(hours=1))
+
+    assert heartbeat_sse(datetime(2026, 10, 23, 14, 12, tzinfo=bst)) == (
+        'event: heartbeat\ndata: {"changedAt":"2026-10-23T13:12:00Z"}\n\n'
+    )
+
+
+def test_the_heartbeat_interval_is_well_inside_the_pages_silence_limit() -> None:
+    # The page treats three missed beats as a dead stream; the interval is the shared constant.
+    from diucs.adapters.inbound.fhir_rest.routes_events import KEEPALIVE_INTERVAL_SECONDS
+
+    assert KEEPALIVE_INTERVAL_SECONDS <= 15
 
 
 @pytest.mark.parametrize("message_type", ["board", "capacity-changed", "BOARD-CHANGED", ""])

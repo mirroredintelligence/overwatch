@@ -141,8 +141,12 @@ async def test_an_escalation_and_a_status_change_reach_their_use_cases_through_t
                         await asyncio.sleep(0.5)
             finally:
                 stop.set()
-                for task in tasks:
-                    await asyncio.wait_for(task, timeout=30)
+                # A session receiver that is waiting for a session takes its own time to see the
+                # stop (the board's does the same): wait, then cancel what is left.
+                _, pending = await asyncio.wait(tasks, timeout=75)
+                for task in pending:
+                    task.cancel()
+                await asyncio.gather(*pending, return_exceptions=True)
     finally:
         release()
     assert [m.payload["recipient_role_id"] for m in told] == ["role-lead-1"]

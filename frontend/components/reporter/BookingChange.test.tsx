@@ -2,8 +2,8 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runAxe } from '@/test/a11y';
-import { csrfFor, LINK } from '@/test/fixtures/links';
-import { resetLinkRequests, seenBffPosts } from '@/test/msw/handlers/links';
+import { BOOKING_CHANGE_VIEW, csrfFor, LINK } from '@/test/fixtures/links';
+import { resetLinkRequests, seenBffPosts, seenBffReads } from '@/test/msw/handlers/links';
 import { BookingChange } from './BookingChange';
 
 const { replace } = vi.hoisted(() => ({ replace: vi.fn() }));
@@ -104,10 +104,11 @@ describe('BookingChange: patient not reached', () => {
 });
 
 describe('BookingChange: a booking the coordination team cancelled', () => {
-  it('shows the cancelled view with no action needed, and posts nothing', async () => {
+  it('shows the cancelled view with its reference, when it was cancelled and the number, and posts nothing', async () => {
     const { container } = render(<BookingChange token={LINK.bookingCancelled} />);
     expect(await screen.findByRole('heading', { level: 1, name: 'Cancelled by the coordination team' })).toBeInTheDocument();
-    expect(screen.getByText('The booking was cancelled by the coordination team. No action needed.')).toBeInTheDocument();
+    expect(screen.getByText('Booking 4821 was cancelled at 14:40. No action needed.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '0300 123 4567' })).toHaveAttribute('href', 'tel:0300 123 4567');
     expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
     expect(seenBffPosts).toHaveLength(0);
     expect(await runAxe(container)).toHaveNoViolations();
@@ -132,5 +133,49 @@ describe('BookingChange: close', () => {
     render(<BookingChange token={LINK.bookingChange} />);
     await userEvent.click(await screen.findByRole('button', { name: 'Close' }));
     expect(screen.getByText('You can close this page.')).toBeInTheDocument();
+  });
+});
+
+
+describe('BookingChange: the times (KI-648, KI-664, KI-665)', () => {
+  it('says when the booking was confirmed', async () => {
+    render(<BookingChange token={LINK.bookingChange} />);
+    expect(await screen.findByText('Confirmed at 14:19.')).toBeInTheDocument();
+  });
+
+  it('says when a withdrawal was recorded', async () => {
+    render(<BookingChange token={LINK.bookingChange} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'We cannot take this patient now' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Staffing' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Withdraw booking' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Withdrawn' })).toBeInTheDocument();
+    expect(screen.getByText('Withdrawn at 14:41.')).toBeInTheDocument();
+  });
+
+  it('says when a not-reached report was recorded', async () => {
+    render(<BookingChange token={LINK.bookingChange} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Patient not found or not there' }));
+    await userEvent.click(screen.getByRole('button', { name: 'No answer at the door' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Thank you' })).toBeInTheDocument();
+    expect(screen.getByText('Recorded at 14:41.')).toBeInTheDocument();
+  });
+
+  it('shows a withdrawn booking opened again with its reference and the number', async () => {
+    render(<BookingChange token={LINK.bookingChangeTaken} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'We cannot take this patient now' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Other' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Withdraw booking' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Withdrawn' })).toBeInTheDocument();
+    expect(screen.getByText('Withdrawn at 14:41.')).toBeInTheDocument();
+  });
+});
+
+describe('BookingChange: a link read once (KI-651)', () => {
+  it('shows a view it is given without reading the link again', async () => {
+    render(<BookingChange token={LINK.bookingChange} initial={{ ...BOOKING_CHANGE_VIEW, csrfToken: csrfFor(LINK.bookingChange), replyBy: null }} />);
+    expect(await screen.findByRole('heading', { level: 1, name: 'UCR West' })).toBeInTheDocument();
+    expect(seenBffReads).toEqual([]);
+    expect(replace).not.toHaveBeenCalled();
   });
 });

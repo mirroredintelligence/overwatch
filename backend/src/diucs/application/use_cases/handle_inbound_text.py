@@ -33,6 +33,11 @@ from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.messaging import Communication
 from diucs.application.ports.outbound.outbox import OutboxMessage
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from diucs.application.prompt_judgement import (
+    answered_since_prompt,
+    figure_is_out_of_date,
+    number_after_prompt,
+)
 from diucs.application.tenancy import current_tenant
 from diucs.application.use_cases.confirm_capacity import (
     ConfirmCapacityCommand,
@@ -53,7 +58,6 @@ from diucs.domain.codes import (
     Channel,
     ReportFlagReason,
     ReportSource,
-    ReportType,
     Role,
 )
 from diucs.domain.errors import (
@@ -80,7 +84,7 @@ from diucs.domain.rules.booking_reply_text import (
     plan_booking_text,
 )
 from diucs.domain.rules.booking_rules import OpenBookingRef
-from diucs.domain.rules.freshness import STALE_WARNING_AFTER
+from diucs.domain.rules.confirmable_age import confirmable_age
 from diucs.domain.rules.london_time import format_hhmm, format_stamp
 from diucs.domain.rules.multi_service import letters_for
 from diucs.domain.rules.reply_parser import (
@@ -132,9 +136,6 @@ _OUTCOME_ORDER: Final = (
     HELP,
 )
 
-CONFIRMABLE_FIGURE_AGE: Final = STALE_WARNING_AFTER
-"""A Y confirms a figure only if it was no older than this when the prompt named it (DEC-148)."""
-
 CONFIRM_PROCESSING_LIMIT: Final = timedelta(minutes=10)
 """A Y is recorded only if it is processed within this long of being received (DEC-148 item 19)."""
 
@@ -150,6 +151,15 @@ PROMPT_MESSAGES: Final = frozenset(
     )
 )
 """The messages that ask for a reply: the open prompt is the latest of these (DEC-148 item 3)."""
+
+REFUSAL_PROMPTS: Final = frozenset(
+    message.value for message in (MessageId.C2, MessageId.C5, MessageId.C12)
+)
+"""The refusals that ask again (a number is needed, a late reply, a stale figure). On a grouped
+prompt each is a reply to the group's C9 (`in_response_to`) and must not end the group (KI-26)."""
+
+PROCESSED_CONSUMER: Final = "inbound-text-handled"
+"""The name under which a message is marked handled in its last unit (KI-141)."""
 
 MESSAGES_TOPIC: Final = "messages.outbound"
 SEND_MESSAGE: Final = "SendMessage"
@@ -210,39 +220,17 @@ def _instant(name: str, value: datetime) -> datetime:
     return value.astimezone(UTC)
 
 
-def figure_is_out_of_date(figure_as_of: datetime, prompt_sent_at: datetime) -> bool:
-    """True when the figure was older than the window at the moment the prompt named it.
-
-    Both are compared as UTC instants, so a London clock change cannot move the line (lesson L4).
-    Exactly the window is still inside it, as D05's stale warning (strictly more than 2 hours). A
-    figure reported after the prompt has a negative age and is never out of date.
-    """
-    as_of = _instant("as_of", figure_as_of)
-    sent_at = _instant("sent_at", prompt_sent_at)
-    return sent_at - as_of > CONFIRMABLE_FIGURE_AGE
-
-
-def recorded_since_prompt(report: CapacityReport, prompt_sent_at: datetime) -> bool:
-    """True when the store wrote the report at or after the whole second the prompt was sent in.
-
-    This is the record order, not the effective time: a lead may record a figure that was true at
-    an earlier time (DEC-140), so a report written after the prompt can carry an effective time
-    before it, or exactly at it. The store stamps whole seconds (lesson L65), so the prompt's time
-    is cut to the whole second too and a tie counts as since: a figure written in the same second
-    as the prompt cannot be told from one written just after it, and the Y fails closed. A report
-    with no write time cannot be shown to predate the prompt and counts as since. Both are UTC
-    instants, so a London clock change cannot move the line (lesson L4).
-    """
-    sent = _instant("sent_at", prompt_sent_at).replace(microsecond=0)
-    if report.written_at is None:
-        return True
-    return _instant("written_at", report.written_at) >= sent
-
-
 def recheck_key(phone_hash: str, service_id: str) -> str:
     """The cache key of an out-of-range figure waiting to be sent again. The cache adds the tenant
     prefix, so this is the key the specification names (U05)."""
     return f"recheck:{phone_hash}:{service_id}"
+
+
+def recheck_owner_key(phone_hash: str, service_id: str) -> str:
+    """The cache key that names the message that wrote the recheck key. The recheck key is written
+    before the message is committed (KI-33), so a redelivery of that same message must be able to
+    tell its own first attempt from a repeat of the figure sent in another message."""
+    return f"recheck-from:{phone_hash}:{service_id}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -253,6 +241,10 @@ class _Target:
     profile: ServiceProfile
     role_id: str
     letter: str | None
+    prompt_at: datetime
+    """When the latest prompt that asked this service for a figure was sent: the group's C9, or a
+    later refusal of this service that asked again (KI-26). Its reply-by, the figure it named
+    (H-31) and the numbers written since it (H-32) are all judged from this time."""
 
     @property
     def service_id(self) -> str:
@@ -342,6 +334,11 @@ def _text(message_id: MessageId, **fields: object) -> str:
     return render(message_id, Channel.TEXT, **fields).text
 
 
+def _letter(target: _Target) -> dict[str, str]:
+    """The service's letter for a refusal's wording, when the prompt was grouped (KI-26)."""
+    return {} if target.letter is None else {"letter": target.letter}
+
+
 def _help(role_id: str, service_id: str) -> _Reply:
     return _Reply(MessageId.C11, role_id, service_id, _text(MessageId.C11))
 
@@ -358,6 +355,7 @@ def _need_number(target: _Target, now: datetime) -> _Reply:
         unit=unit,
         window=window,
         reply_by=format_hhmm(reply_by(now)),
+        **_letter(target),
     )
     return _Reply(MessageId.C2, target.role_id, target.service_id, text)
 
@@ -380,6 +378,7 @@ def _too_late(
         value=latest.value,
         unit=target.profile.unit_label,
         reply_by=format_hhmm(new_reply_by),
+        **_letter(target),
     )
     return _Reply(MessageId.C5, target.role_id, target.service_id, text)
 
@@ -391,13 +390,21 @@ def _confirm_limit(target: _Target) -> _Reply:
         MessageId.C6,
         service=target.profile.name,
         confirm_limit=DEFAULT_POLICY.max_consecutive_confirms,
+        **_letter(target),
     )
     return _Reply(MessageId.C6, target.role_id, target.service_id, text)
 
 
 def _ask_again(target: _Target, value: int) -> _Reply:
     low, high = target.profile.usual_range
-    text = _text(MessageId.C7, service=target.profile.name, value=value, low=low, high=high)
+    text = _text(
+        MessageId.C7,
+        service=target.profile.name,
+        value=value,
+        low=low,
+        high=high,
+        **_letter(target),
+    )
     return _Reply(MessageId.C7, target.role_id, target.service_id, text)
 
 
@@ -497,13 +504,19 @@ class HandleInboundText:
             return planned
         plan = planned
 
+        # The figures asked about again are kept before anything is committed (KI-33): a cache
+        # that fails stops the message with nothing written, and the redelivery asks again. A
+        # failed commit leaves the keys behind; they name this message, so its redelivery is not
+        # taken for the repeat that records the figure.
+        for item in plan.items:
+            await self._remember(command, item)
         for item in plan.items:
             await self._write(command, plan, item, now)
         result = await self._record(command, plan, fingerprint, now)
         if result.replayed:
             return result
         for item in plan.items:
-            await self._tidy_cache(command, item)
+            await self._forget(command, item)
         return result
 
     # -- booking replies (U22) -----------------------------------------------------------
@@ -518,8 +531,13 @@ class HandleInboundText:
         parsed = parse_reply(command.text)
         if not any(isinstance(item, BookingConfirm | BookingDecline | Number) for item in parsed):
             return None
+        named = tuple(
+            item.reference
+            for item in parsed
+            if isinstance(item, BookingConfirm | BookingDecline) and item.reference is not None
+        )
         async with self._uow_factory() as uow:
-            read = await self._read_bookings(uow, command, now)
+            read = await self._read_bookings(uow, command, now, named)
         if isinstance(read, HandleInboundTextResult):
             return read
         plan = plan_booking_text(
@@ -534,10 +552,16 @@ class HandleInboundText:
         return await self._act_on_booking(command, read, plan, now)
 
     async def _read_bookings(
-        self, uow: UnitOfWork, command: HandleInboundTextCommand, now: datetime
+        self,
+        uow: UnitOfWork,
+        command: HandleInboundTextCommand,
+        now: datetime,
+        named: Sequence[str] = (),
     ) -> _BookingRead | HandleInboundTextResult:
         """The phone's reporter services and their bookings. An unknown phone, or one with no
-        reporter role, is dropped with no reply (as for a capacity text)."""
+        reporter role, is dropped with no reply (as for a capacity text). A booking the text names
+        by its reference is read too when it is one of these services' own, so an old expired
+        request is told it expired even when the service has a newer booking (KI-453)."""
         practitioner = await uow.people.find_by_phone_hash(command.from_phone_hash)
         if practitioner is None:
             return HandleInboundTextResult(DROPPED, ())
@@ -555,7 +579,15 @@ class HandleInboundText:
             for service_id in service_ids
             for booking in open_by_service[service_id]
         )
-        latest = tuple(await uow.bookings.latest_for_services(service_ids))
+        latest = list(await uow.bookings.latest_for_services(service_ids))
+        for reference in dict.fromkeys(named):
+            found = await uow.bookings.get_by_reference(reference)
+            if (
+                found is not None
+                and found.service_id in role_ids
+                and all(found.id != seen.id for seen in latest)
+            ):
+                latest.append(found)
         actor = Actor(
             role=Role.REPORTER,
             practitioner_id=practitioner.id,
@@ -564,7 +596,7 @@ class HandleInboundText:
             service_ids=frozenset(service_ids),
             tenant_id=current_tenant(),
         )
-        return _BookingRead(actor, service_ids, role_ids, open_refs, latest)
+        return _BookingRead(actor, service_ids, role_ids, open_refs, tuple(latest))
 
     async def _act_on_booking(
         self,
@@ -651,9 +683,9 @@ class HandleInboundText:
             None, read.actor, read.service_ids, read.role_ids[service_id], now
         )
         async with self._uow_factory() as uow:
-            stored = await uow.idempotency.get(command.idempotency_key)
-            if stored is not None:
-                return _replay(stored, fingerprint)
+            replayed = await self._claim(uow, command, fingerprint)
+            if replayed is not None:
+                return replayed
             communication_ids: list[str] = []
             for reply in replies:
                 communication_ids.append(await self._send(uow, carrier, reply, now))
@@ -710,9 +742,13 @@ class HandleInboundText:
             service_ids=frozenset(roles),
             tenant_id=current_tenant(),
         )
-        prompt = await uow.communications.latest_prompt_for_phone(
+        latest_prompt = await uow.communications.latest_prompt_for_phone(
             {role.id for role, _ in holdings}, PROMPT_MESSAGES
         )
+        # A refusal that asked one service of a group again is a reply to the group's C9: the group
+        # is still the prompt, so a lettered reply for another of its services is understood
+        # (KI-26). Any other latest prompt is its own prompt.
+        prompt = await self._group_prompt(uow, latest_prompt)
         about = None if prompt is None else prompt.about_id
         if prompt is None or about is None or about not in roles:
             first = next(iter(roles))
@@ -721,7 +757,8 @@ class HandleInboundText:
         members: dict[str, tuple[str | None, str]] | None = {
             about: (None, prompt.recipient_role_id or roles[about][0].id)
         }
-        if prompt.message_id == MessageId.C9.value:
+        grouped_prompt = prompt.message_id == MessageId.C9.value
+        if grouped_prompt:
             members = await self._group(uow, prompt, roles, names)
         if members is None:
             return self._help_plan(prompt, actor, (about,), roles[about][0].id, now)
@@ -731,7 +768,12 @@ class HandleInboundText:
             profile = await uow.services.get(service_id)
             if profile is None or not profile.active:
                 return HandleInboundTextResult(DROPPED, ())
-            targets.append(_Target(profile, role_id, letter))
+            prompt_at = (
+                await self._prompt_time(uow, prompt, roles[service_id])
+                if grouped_prompt
+                else prompt.sent_at
+            )
+            targets.append(_Target(profile, role_id, letter, prompt_at))
         assigned = _assign(parsed, targets)
         service_ids = tuple(target.service_id for target in targets)
         if assigned is None:
@@ -751,6 +793,56 @@ class HandleInboundText:
         if plan.grouped:
             plan.waiting = await self._waiting(uow, plan, targets, assigned)
         return plan
+
+    async def _pending(self, command: HandleInboundTextCommand, service_id: str) -> str | None:
+        """The out-of-range figure waiting to be sent again for this service, or None. A figure this
+        very message left there on an earlier attempt that did not finish is not waiting: the
+        redelivery must decide as the first attempt did, not read its own mark as a repeat."""
+        raw = await self._cache.get(recheck_key(command.from_phone_hash, service_id))
+        if raw is None:
+            return None
+        owner = await self._cache.get(recheck_owner_key(command.from_phone_hash, service_id))
+        return None if owner == command.idempotency_key else raw
+
+    @staticmethod
+    async def _group_prompt(uow: UnitOfWork, latest: Communication | None) -> Communication | None:
+        """The prompt a reply is read against: the latest prompt, or the group's C9 when the latest
+        is a refusal that asked one service of that group again."""
+        if (
+            latest is None
+            or latest.message_id not in REFUSAL_PROMPTS
+            or latest.in_response_to is None
+        ):
+            return latest
+        parent = await uow.communications.get(latest.in_response_to)
+        if parent is not None and parent.message_id == MessageId.C9.value:
+            return parent
+        return latest
+
+    @staticmethod
+    async def _prompt_time(
+        uow: UnitOfWork, group_prompt: Communication, service_roles: list[PractitionerRole]
+    ) -> datetime:
+        """When the latest prompt that asked this service of the group for a figure was sent: the
+        group's C9, or a later refusal of the service that is a reply to that C9. A refusal opens a
+        window of its own for its service only, so the other services of the group keep the C9's."""
+        latest = await uow.communications.latest_prompt_for_phone(
+            {role.id for role in service_roles}, PROMPT_MESSAGES
+        )
+        if (
+            latest is not None
+            and latest.message_id in REFUSAL_PROMPTS
+            and latest.in_response_to is not None
+            and latest.sent_at > group_prompt.sent_at
+        ):
+            parent = await uow.communications.get(latest.in_response_to)
+            if (
+                parent is not None
+                and parent.message_id == MessageId.C9.value
+                and parent.sent_at == group_prompt.sent_at
+            ):
+                return latest.sent_at
+        return group_prompt.sent_at
 
     def _help_plan(
         self,
@@ -831,8 +923,8 @@ class HandleInboundText:
             return _Item(target, latest, done, recorded_value=latest.value)
 
         trailing = await uow.capacity.trailing_confirmations(service_id)
-        pending = await self._cache.get(recheck_key(command.from_phone_hash, service_id))
-        prompt_reply_by = reply_by(plan.prompt_sent_at)
+        pending = await self._pending(command, service_id)
+        prompt_reply_by = reply_by(target.prompt_at)
         state = PromptState(
             service_id=service_id,
             reply_by=prompt_reply_by,
@@ -857,13 +949,13 @@ class HandleInboundText:
             item.reply = _ask_again(target, int(pending))
         elif isinstance(decision, RecordConfirm):
             # Hazard H-32: has a number been reported since the prompt named the figure?
-            newer = await self._number_after_prompt(uow, service_id, latest, plan.prompt_sent_at)
+            newer = await number_after_prompt(uow, service_id, latest, target.prompt_at)
             self._judge_confirm(item, plan, latest, newer)
         elif isinstance(decision, RejectLate):
             rejected = str(reply.value) if isinstance(reply, Number) else "Y"
             item.outcome = LATE
             item.reply = _too_late(
-                target, latest, rejected, plan.prompt_sent_at, decision.new_reply_by, now
+                target, latest, rejected, target.prompt_at, decision.new_reply_by, now
             )
         elif isinstance(decision, RejectConfirmLimit):
             item.outcome = CONFIRM_LIMIT
@@ -886,30 +978,6 @@ class HandleInboundText:
         return item
 
     @staticmethod
-    async def _number_after_prompt(
-        uow: UnitOfWork,
-        service_id: str,
-        latest: CapacityReport | None,
-        prompt_sent_at: datetime,
-    ) -> bool:
-        """True when a number was written for the service since the prompt was sent. A Y is an
-        answer to the figure the prompt named; a number that came in since is a figure the
-        reporter was never shown, whatever effective time it was given (a lead may record a figure
-        for an earlier time, DEC-140): the test is the record order (`recorded_since_prompt`), not
-        the effective time. The reports looked at are the latest one and those effective from the
-        prompt on; a number written since with an earlier effective time than the latest report
-        does not change which figure is current, so the figure the prompt named still is. A
-        confirmation repeats a figure and does not count, so the second of two Ys to one prompt is
-        still a Y to that figure (hazard H-32, DEC-148 items 17 and 20)."""
-        since = await uow.capacity.reports_since(service_id, prompt_sent_at)
-        candidates = since if latest is None else [*since, latest]
-        return any(
-            report.report_type is ReportType.NUMBER
-            and recorded_since_prompt(report, prompt_sent_at)
-            for report in candidates
-        )
-
-    @staticmethod
     def _judge_confirm(
         item: _Item, plan: _Plan, latest: CapacityReport | None, number_after_prompt: bool
     ) -> None:
@@ -920,7 +988,11 @@ class HandleInboundText:
         processing, because the confirmation is stamped now and would make the figure current now
         (H-32). Otherwise the judged report is the one ConfirmCapacity must find (DEC-148)."""
         if latest is not None and (
-            figure_is_out_of_date(latest.effective_at, plan.prompt_sent_at)
+            figure_is_out_of_date(
+                latest.effective_at,
+                item.target.prompt_at,
+                confirmable_age(item.target.profile, DEFAULT_POLICY),
+            )
             or number_after_prompt
             or plan.processing_delay > CONFIRM_PROCESSING_LIMIT
         ):
@@ -944,8 +1016,10 @@ class HandleInboundText:
         for target in targets:
             if target.service_id in mentioned:
                 continue
+            # Answered means a report was written since the prompt, in the record order: a figure
+            # a lead recorded after the prompt for an earlier time answers it too (KI-30).
             latest = await uow.capacity.latest(target.service_id)
-            if latest is None or latest.effective_at <= plan.prompt_sent_at:
+            if not await answered_since_prompt(uow, target.service_id, latest, target.prompt_at):
                 waiting.append((str(target.letter), target.profile.name))
         return waiting
 
@@ -1015,9 +1089,9 @@ class HandleInboundText:
             outcome, service_ids = HELP, plan.service_ids
         result = HandleInboundTextResult(outcome, service_ids)
         async with self._uow_factory() as uow:
-            stored = await uow.idempotency.get(command.idempotency_key)
-            if stored is not None:
-                return _replay(stored, fingerprint)
+            replayed = await self._claim(uow, command, fingerprint)
+            if replayed is not None:
+                return replayed
             communication_ids: list[str] = []
             for reply in replies:
                 communication_ids.append(await self._send(uow, plan, reply, now))
@@ -1038,6 +1112,22 @@ class HandleInboundText:
             await uow.idempotency.put(command.idempotency_key, _StoredInbound(fingerprint, result))
             await uow.commit()
         return result
+
+    @staticmethod
+    async def _claim(
+        uow: UnitOfWork, command: HandleInboundTextCommand, fingerprint: str
+    ) -> HandleInboundTextResult | None:
+        """Take the message for this unit of work, or return the result it already has. The marker
+        is a unique key, so two deliveries that reach this point at the same moment cannot both
+        write their reply and audit entry: the second is refused as a Conflict, or finds the first's
+        result (KI-141). None means this unit may write."""
+        marked = await uow.processed.mark_if_new(command.idempotency_key, PROCESSED_CONSUMER)
+        stored = await uow.idempotency.get(command.idempotency_key)
+        if stored is not None:
+            return _replay(stored, fingerprint)
+        if not marked:
+            raise Conflict("this message is being handled by another delivery")
+        return None
 
     def _replies(self, plan: _Plan) -> list[_Reply]:
         """The messages to send: the help text, each refusal, and, for a grouped prompt, one C10 for
@@ -1094,12 +1184,24 @@ class HandleInboundText:
         )
         return communication.id
 
-    async def _tidy_cache(self, command: HandleInboundTextCommand, item: _Item) -> None:
-        """After the record is committed: keep the out-of-range figure just asked about, and forget
-        one that a recorded figure or a Y has settled. Done last, so a retry of a failed message
-        does not read its own first attempt as a repeat."""
-        key = recheck_key(command.from_phone_hash, item.target.service_id)
-        if item.recheck is not None:
-            await self._cache.set(key, item.recheck[1], item.recheck[2])
-        elif item.outcome in (RECORDED, CONFIRMED):
-            await self._cache.delete(key)
+    async def _remember(self, command: HandleInboundTextCommand, item: _Item) -> None:
+        """Before the message is committed: keep the out-of-range figure just asked about, under
+        the message that asked. The owner is written first, so a failure between the two writes
+        leaves no figure that this message does not own."""
+        if item.recheck is None:
+            return
+        key, value, ttl = item.recheck
+        service_id = item.target.service_id
+        await self._cache.set(
+            recheck_owner_key(command.from_phone_hash, service_id), command.idempotency_key, ttl
+        )
+        await self._cache.set(key, value, ttl)
+
+    async def _forget(self, command: HandleInboundTextCommand, item: _Item) -> None:
+        """After the record is committed: forget a pending figure that a recorded figure or a Y has
+        settled. Done last, so a retry of a failed message does not read its own first attempt as a
+        repeat."""
+        if item.recheck is None and item.outcome in (RECORDED, CONFIRMED):
+            service_id = item.target.service_id
+            await self._cache.delete(recheck_key(command.from_phone_hash, service_id))
+            await self._cache.delete(recheck_owner_key(command.from_phone_hash, service_id))

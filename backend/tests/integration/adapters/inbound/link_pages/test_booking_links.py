@@ -24,6 +24,7 @@ from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.use_cases.request_booking import RequestBookingCommand
 from diucs.bootstrap.container import Container
 from diucs.domain.codes import BookingStatus
+from diucs.domain.model.tenant import ContactKind, TenantContact
 from tests.support.booking_rig import (
     ADVISOR,
     CASE_ID,
@@ -37,6 +38,8 @@ from tests.support.link_rig import HOST_A  # noqa: F401  (the host the link clie
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
+
+COORDINATION_PHONE = "01234 567890"
 
 
 @pytest_asyncio.fixture(loop_scope="session")
@@ -53,6 +56,11 @@ async def booked(
     await ensure_audit_heads(neo4j_driver, tenant_id, other_tenant_id)
     factory = tenant_uow_factory(neo4j_driver, tenant_id, link_container.clock)
     await seed_world(factory, neo4j_driver)
+    async with factory() as uow:
+        await uow.tenant_config.put_contact(
+            TenantContact(ContactKind.COORDINATION_PHONE, "Coordination", COORDINATION_PHONE)
+        )
+        await uow.commit()
     yield factory
 
 
@@ -77,6 +85,13 @@ async def _link_for(factory: UnitOfWorkFactory, container: Container, booking_id
         )
         await uow.commit()
     return token
+
+
+async def _reference(factory: UnitOfWorkFactory, booking_id: str) -> str:
+    async with factory() as uow:
+        booking = await uow.bookings.get(booking_id)
+    assert booking is not None
+    return booking.reference
 
 
 async def _status(factory: UnitOfWorkFactory, booking_id: str) -> BookingStatus:
@@ -104,7 +119,7 @@ async def test_a_request_link_shows_the_booking_and_changes_nothing(
     assert page["state"] == "ok" and page["purpose"] == REQUEST_PURPOSE
     assert page["serviceName"] == "UCR West"
     assert page["ageBand"] == "80+"
-    assert page["need"] == "fall-no-injury and frailty"
+    assert page["need"] == "fall, no injury and frailty"
     assert page["urgency"] == "within 2 hrs"
     assert "14:26" in page["replyBy"]
     assert page["bookingStatus"] == "requested"
@@ -127,11 +142,20 @@ async def test_a_confirm_records_the_booking_and_gives_a_change_link_once(
     body = response.json()
     assert body["bookingStatus"] == "confirmed"
     assert body["changeToken"]
+    assert body["confirmedAt"] == "2026-10-29T14:16:00Z"
     assert await _status(booked, booking_id) is BookingStatus.CONFIRMED
     again = await link_client.post(
         f"/links/{token}", json={"action": "confirm"}, headers=_csrf(page)
     )
-    assert again.status_code == 410 and again.json() == {"state": "used"}
+    assert again.status_code == 410
+    assert again.json() == {
+        "state": "used",
+        "kind": "booking",
+        "reference": await _reference(booked, booking_id),
+        "closedAt": "2026-10-29T14:16:00Z",
+        "confirmedAt": "2026-10-29T14:16:00Z",
+        "coordinationPhone": COORDINATION_PHONE,
+    }
 
 
 async def test_a_decline_records_its_reason(
@@ -166,7 +190,14 @@ async def test_a_closed_booking_shows_expired_and_refuses_an_answer(
     token = await _link_for(booked, link_container, booking_id)
     link_container.clock.set(at(14, 30))
     response = await link_client.get(f"/links/{token}")
-    assert response.status_code == 410 and response.json() == {"state": "expired"}
+    assert response.status_code == 410
+    assert response.json() == {
+        "state": "expired",
+        "kind": "booking",
+        "reference": await _reference(booked, booking_id),
+        "closedAt": "2026-10-29T14:26:00Z",
+        "coordinationPhone": COORDINATION_PHONE,
+    }
     answer = await link_client.post(
         f"/links/{token}", json={"action": "confirm"}, headers={"X-CSRF-Token": "x"}
     )
@@ -216,3 +247,97 @@ async def test_the_request_page_body_holds_no_service_request_patient_or_postcod
     assert "Patient" not in text
     assert "DT4" not in text
     assert CASE_ID not in text
+
+
+async def _confirmed_change_link(
+    link_client: AsyncClient,
+    booked: UnitOfWorkFactory,
+    container: Container,
+    driver: AsyncDriver,
+    key: str,
+) -> tuple[str, str]:
+    """A confirmed booking and its change token, through the request link."""
+    booking_id = await _request(booked, driver, container, key)
+    token = await _link_for(booked, container, booking_id)
+    page = (await link_client.get(f"/links/{token}")).json()
+    answered = await link_client.post(
+        f"/links/{token}", json={"action": "confirm"}, headers=_csrf(page)
+    )
+    return booking_id, answered.json()["changeToken"]
+
+
+async def test_the_change_page_says_when_the_booking_was_confirmed(
+    link_client: AsyncClient,
+    booked: UnitOfWorkFactory,
+    link_container: Container,
+    neo4j_driver: AsyncDriver,
+) -> None:
+    _, change = await _confirmed_change_link(
+        link_client, booked, link_container, neo4j_driver, "wb4-confirmed-at"
+    )
+    page = (await link_client.get(f"/links/{change}")).json()
+    assert page["confirmedAt"] == "2026-10-29T14:16:00Z"
+    assert page["coordinationPhone"] == COORDINATION_PHONE
+    assert page["need"] == "fall, no injury and frailty"
+
+
+async def test_a_change_link_of_a_cancelled_booking_says_when_it_was_confirmed_and_cancelled(
+    link_client: AsyncClient,
+    booked: UnitOfWorkFactory,
+    link_container: Container,
+    neo4j_driver: AsyncDriver,
+) -> None:
+    booking_id, change = await _confirmed_change_link(
+        link_client, booked, link_container, neo4j_driver, "wb4-cancelled"
+    )
+    link_container.clock.set(at(14, 40))
+    async with booked() as uow:
+        booking = await uow.bookings.get(booking_id)
+        assert booking is not None
+        await uow.bookings.save(booking.with_status(BookingStatus.CANCELLED_AFTER, at(14, 40)))
+        await uow.commit()
+    response = await link_client.get(f"/links/{change}")
+    assert response.status_code == 410
+    assert response.json() == {
+        "state": "cancelled",
+        "kind": "booking",
+        "reference": await _reference(booked, booking_id),
+        "closedAt": "2026-10-29T14:40:00Z",
+        "confirmedAt": "2026-10-29T14:16:00Z",
+        "cancelledAt": "2026-10-29T14:40:00Z",
+        "coordinationPhone": COORDINATION_PHONE,
+    }
+
+
+async def test_a_withdrawal_answers_with_the_state_and_the_time_it_was_recorded(
+    link_client: AsyncClient,
+    booked: UnitOfWorkFactory,
+    link_container: Container,
+    neo4j_driver: AsyncDriver,
+) -> None:
+    _, change = await _confirmed_change_link(
+        link_client, booked, link_container, neo4j_driver, "wb4-withdraw-time"
+    )
+    link_container.clock.set(at(14, 22))
+    page = (await link_client.get(f"/links/{change}")).json()
+    answered = await link_client.post(
+        f"/links/{change}", json={"action": "withdraw", "reason": "staffing"}, headers=_csrf(page)
+    )
+    assert answered.status_code == 200
+    assert answered.json() == {"bookingStatus": "withdrawn", "respondedAt": "2026-10-29T14:22:00Z"}
+
+
+async def test_an_unknown_link_and_another_tenants_link_say_nothing_but_the_state_word(
+    link_client: AsyncClient,
+    other_client: AsyncClient,
+    booked: UnitOfWorkFactory,
+    link_container: Container,
+    neo4j_driver: AsyncDriver,
+) -> None:
+    """No number, no time and no kind: nothing tells which links exist, or whose they are."""
+    booking_id = await _request(booked, neo4j_driver, link_container, "wb4-other-tenant")
+    token = await _link_for(booked, link_container, booking_id)
+    unknown = await link_client.get("/links/NoSuchLinkTokenAbcdefghijklmnopq")
+    foreign = await other_client.get(f"/links/{token}")
+    assert (unknown.status_code, unknown.json()) == (410, {"state": "expired"})
+    assert (foreign.status_code, foreign.json()) == (410, {"state": "expired"})

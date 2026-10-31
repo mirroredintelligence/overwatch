@@ -25,6 +25,6 @@ const TOKEN_SHAPE = /^[A-Za-z0-9_-]{1,64}$/;
 export default async function LinkPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   // A token that cannot be a link is an unknown link: the same message, with no request made.
-  if (!TOKEN_SHAPE.test(token)) return <LinkExpired token={token} />;
+  if (!TOKEN_SHAPE.test(token)) return <LinkExpired token={token} csrfToken={null} />;
   return <LinkLoader token={token} />;
 }

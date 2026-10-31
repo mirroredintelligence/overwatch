@@ -525,7 +525,7 @@ def test_a_text_channel_takes_the_twilio_provider_and_the_id_it_is_given() -> No
     assert channel.kind is ChannelKind.SMS
 
 
-def test_an_email_channel_takes_the_smtp_provider() -> None:
+def test_an_email_channel_takes_the_twilio_provider() -> None:
     channel = plan_channel(
         channel_command(
             kind=ChannelKind.EMAIL,
@@ -537,7 +537,7 @@ def test_an_email_channel_takes_the_smtp_provider() -> None:
         "example-icb",
     )
 
-    assert channel.provider is ChannelProvider.SMTP
+    assert channel.provider is ChannelProvider.TWILIO
 
 
 def test_a_channel_may_not_point_at_another_tenants_secret() -> None:

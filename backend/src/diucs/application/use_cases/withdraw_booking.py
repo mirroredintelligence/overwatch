@@ -36,12 +36,12 @@ from diucs.application.tenancy import (
     current_scope,
     current_tenant,
 )
+from diucs.application.tenant_settings import read_policy
 from diucs.application.work import DONE, SCHEDULED, ScheduledWork, WorkKind
 from diucs.domain.codes import BookingStatus, NotReachedReason, Role, WithdrawReason
 from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
 from diucs.domain.events import BookingNotReached, BookingWithdrawn, WithdrawalEscalated
 from diucs.domain.model.booking import Booking
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY
 from diucs.domain.rules.booking_exceptions import (
     checked_not_reached_reason,
     checked_withdraw_reason,
@@ -58,7 +58,8 @@ ESCALATE_USE_CASE: Final = "EscalateWithdrawal"
 NO_BOOKING: Final = "no booking with this id"
 NO_TIMER: Final = "no escalation of this kind for this booking"
 NOT_YOUR_BOOKING: Final = "this booking is not for your service"
-NOT_WITHDRAWN: Final = "only a withdrawn booking can be acknowledged"
+NOT_WITHDRAWN: Final = "only a withdrawn or not-reached booking can be acknowledged"
+ACKNOWLEDGEABLE: Final = frozenset({BookingStatus.WITHDRAWN, BookingStatus.NOT_REACHED})
 RESPONDERS: Final = frozenset({Role.REPORTER, Role.ANONYMOUS_LINK})
 
 
@@ -190,7 +191,7 @@ class WithdrawBooking:
             booking = await _booking_for_responder(uow, command.actor, command.booking_id)
             target = withdraw_target(booking.status)
             now = self._clock.now()
-            due = now + DEFAULT_POLICY.withdrawal_escalate_after
+            due = now + (await read_policy(uow)).withdrawal_escalate_after
             await uow.bookings.save(booking.with_status(target, now, reason.value))
             await uow.outbox.add(
                 outbox_message_for(
@@ -320,7 +321,7 @@ class AcknowledgeWithdrawal:
             booking = await uow.bookings.get(command.booking_id)
             if booking is None:
                 raise NotFound(NO_BOOKING)
-            if booking.status is not BookingStatus.WITHDRAWN:
+            if booking.status not in ACKNOWLEDGEABLE:
                 raise ValidationFailed("booking", NOT_WITHDRAWN)
             now = self._clock.now()
             cancelled = False
@@ -331,7 +332,17 @@ class AcknowledgeWithdrawal:
                     await cancel_work(uow, work, now)
                     cancelled = True
             # R17: a repeat acknowledgement (a new key) changes nothing and is not audited again.
-            if not await _already_acknowledged(uow, booking.id):
+            # The first one is kept on the booking, with who and when (KI-451); an earlier one that
+            # only the audit log holds counts too.
+            first = booking.acknowledged_at is None and not await _already_acknowledged(
+                uow, booking.id
+            )
+            if booking.acknowledged_at is None:
+                practitioner = command.actor.practitioner_id
+                if practitioner is None:
+                    raise NotAllowed("an acknowledgement needs the acknowledging practitioner")
+                await uow.bookings.save(booking.with_acknowledgement(practitioner, now))
+            if first:
                 await uow.audit.append(
                     AuditEntry(
                         action=AUDIT_ACTION,

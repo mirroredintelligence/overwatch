@@ -4,7 +4,10 @@ the ScheduleWork and CancelWork ones into scheduled Service Bus messages.
 At least once. A message is published first and marked published in a new unit of work afterwards,
 so a crash in between publishes the same id again; Service Bus duplicate detection and the
 idempotent consumers (I04) absorb that. A message is never marked published before the bus call
-returns.
+returns. A bus call that hangs is given up after PUBLISH_TIMEOUT_SECONDS and counted as a failed
+attempt. A scheduled message that the bus took before a crash is scheduled again, with the same
+message id, so the scheduled-work consumer (which marks an id processed once) absorbs the second
+(KI-88).
 
 The relay is a worker, so it has no request and no token. It takes the tenants from a directory
 (DEC-134 item 9: it iterates tenants and is not a global statement), and for each one in turn binds
@@ -54,6 +57,9 @@ LOCK_TTL: Final = timedelta(seconds=30)
 LOCK_MARGIN: Final = timedelta(seconds=5)
 BATCH_SIZE: Final = 100
 POLL_INTERVAL_SECONDS: Final = 1.0
+PUBLISH_TIMEOUT_SECONDS: Final = 10.0
+"""The longest one bus call may take. A call that hangs is given up and counted as a failed attempt
+(`TimeoutError`), and the batch goes on (KI-103). It is well under the lock a batch holds."""
 BACKOFF_START_SECONDS: Final = 1.0
 BACKOFF_CAP_SECONDS: Final = 60.0
 SCHEDULED_WORK_DUE: Final = "ScheduledWorkDue"
@@ -136,6 +142,7 @@ class OutboxRelay:
         *,
         poll_interval_s: float = POLL_INTERVAL_SECONDS,
         backoff_start_s: float = BACKOFF_START_SECONDS,
+        publish_timeout_s: float = PUBLISH_TIMEOUT_SECONDS,
     ) -> None:
         self._uow_factory = uow_factory
         self._bus = bus
@@ -145,6 +152,7 @@ class OutboxRelay:
         self._batch_size = batch_size
         self._poll_interval_s = poll_interval_s
         self._backoff_start_s = backoff_start_s
+        self._publish_timeout_s = publish_timeout_s
         self._waits: dict[str, _Wait] = {}
         self._last_token: dict[str, int] = {}
         self._invalid_seen: set[str] = set()
@@ -242,6 +250,7 @@ class OutboxRelay:
         async with self._uow_factory() as uow:
             pending = await uow.outbox.pending(self._batch_size)
         published = failed = 0
+        store_down = False
         for message in pending:
             if self._clock.now() - started >= LOCK_TTL - LOCK_MARGIN:
                 break
@@ -251,14 +260,21 @@ class OutboxRelay:
                 continue
             failed += 1
             if outcome is _Outcome.STORE_DOWN:
+                store_down = True
                 break
-        return _TenantRound(published=published, failed=failed, trouble=failed > 0)
+        # The tenant waits when the store is down or when its round published nothing at all (the
+        # bus is down). A round that published some and failed one row has a row of its own that
+        # fails: that row counts its attempts and the tenant's other rows are not held back by it
+        # (KI-103).
+        trouble = store_down or (failed > 0 and published == 0)
+        return _TenantRound(published=published, failed=failed, trouble=trouble)
 
     # One message
 
     async def _relay_one(self, tenant: str, message: OutboxMessage) -> _Outcome:
         try:
-            sequence = await self._send(tenant, message)
+            async with asyncio.timeout(self._publish_timeout_s):
+                sequence = await self._send(tenant, message)
         except Exception as error:
             return await self._record_failure(tenant, message, error)
         try:

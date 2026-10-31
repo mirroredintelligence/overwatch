@@ -22,13 +22,14 @@ from typing import Final
 from diucs.application.actor import anonymous_actor
 from diucs.application.ports.outbound.audit import AuditEntry
 from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.identity import CodeStore, PhoneHasher
+from diucs.application.ports.outbound.identity import CodeStore, PhoneHasher, normalise_uk_mobile
 from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.outbox import OutboxMessage
 from diucs.application.ports.outbound.sealing import ContentSealer
 from diucs.application.ports.outbound.tokens import SecretStore
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
 from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound
+from diucs.application.use_cases.setup_service_by_lead import international
 from diucs.domain.errors import Conflict, ValidationFailed
 from diucs.domain.rules.identity_policy import (
     CODE_MAX_TRIES,
@@ -47,7 +48,10 @@ CODE_CHOICES: Final = 10
 RESEND_AFTER_SECONDS: Final = int(CODE_RESEND_AFTER.total_seconds())
 CODES_TOPIC: Final = "codes.dispatch"
 SEND_CODE: Final = "SendCode"
-"""The outbox event of a code for a known number: the sender opens the sealed code and texts it."""
+"""The outbox event of a code for a known number: the sender opens the sealed code and number and
+texts the code (KI-270). The payload is `sealed_code`, `sealed_phone` (both sealed to the message,
+the tenant and `recipient_key`), `recipient_key` (`code:<phone hash>:<purpose>`), `purpose` and
+`issued_at` (ISO time with a zone). No number and no code is in the clear."""
 DISCARD_CODE: Final = "DiscardCode"
 """The outbox event of a code for an unknown number: written so both paths make the same calls, and
 never sent. The sender sends SendCode only."""
@@ -222,12 +226,27 @@ class RequestTextCode:
             sealed = self._sealer.seal(
                 code, message_id=message_id, tenant_id=scope.value, recipient_role_id=key
             )
+            # The sender finds the number here and nowhere else: sealed under the same message,
+            # tenant and key as the code, so neither can be moved to another message (KI-270). A
+            # known and an unknown number are sealed alike (H-96).
+            sealed_phone = self._sealer.seal(
+                international(normalise_uk_mobile(command.phone)),
+                message_id=message_id,
+                tenant_id=scope.value,
+                recipient_role_id=key,
+            )
             await uow.outbox.add(
                 OutboxMessage(
                     id=message_id,
                     topic=CODES_TOPIC,
                     event_type=SEND_CODE if known else DISCARD_CODE,
-                    payload={"sealed_code": sealed, "purpose": purpose},
+                    payload={
+                        "sealed_code": sealed,
+                        "sealed_phone": sealed_phone,
+                        "recipient_key": key,
+                        "purpose": purpose,
+                        "issued_at": now.isoformat(),
+                    },
                     created_at=now,
                 )
             )

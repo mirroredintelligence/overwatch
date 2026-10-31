@@ -105,6 +105,12 @@ def test_the_pilot_reads_the_alert_evaluator_and_the_notifier() -> None:
     assert ("alerts.events", "notifier") in pairs
 
 
+def test_the_code_sender_reads_codes_dispatch() -> None:
+    """KI-270: the topic every text code is published to has its reader."""
+    assert ("codes.dispatch", "code-sender") in _read()
+    assert ("codes.dispatch", "code-sender") in _declared()
+
+
 def test_the_subscriptions_that_were_deleted_are_gone_from_the_topology() -> None:
     assert not DELETED & _declared()
 

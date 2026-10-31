@@ -117,6 +117,7 @@ from diucs.application.tenant_settings import (
     require_tenant_link_bases,
 )
 from diucs.application.tenant_wording import ConfiguredWording
+from diucs.application.uow_idempotency import UnitOfWorkIdempotency
 from diucs.application.use_cases.alerts import (
     EscalateAlert,
     EscalateAlertCommand,
@@ -133,7 +134,6 @@ from diucs.application.use_cases.criteria_reviews import (
     RunCriteriaReviewsCommand,
     ensure_daily_schedule,
 )
-from diucs.application.use_cases.link_access import UnitOfWorkIdempotency
 from diucs.application.use_cases.missed_report_ladder import (
     LADDER_KINDS,
     LadderStepCommand,

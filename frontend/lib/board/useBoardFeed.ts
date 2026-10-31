@@ -3,6 +3,7 @@ import { BoardFetchError, fetchWallBoard, REFUSED_STATUSES, type FetchedBoard } 
 import {
   assessBoard,
   FETCH_TIMEOUT_MS,
+  HEARTBEAT_SILENCE_MS,
   MAX_FUTURE_SKEW_MS,
   POLL_INTERVAL_MS,
   STREAM_RETRY_MS,
@@ -31,6 +32,11 @@ import type { Board } from './types';
 //    opened again for the new scope, and what failed for the old scope does not count against the new. A
 //    network board is never shown as last known of another scope, and a fall back to the own board is
 //    reported with the flag so the screen says so.
+//  - A heartbeat arrives every 15 s on an open stream. An open stream that has said nothing for
+//    three beats is taken for dead (a proxy that holds the connection but passes nothing): it is
+//    closed and opened again, and meanwhile the wall shows the stream as paused (KI-54). (A network's
+//    stream has no named heartbeat, only comments the browser does not deliver, so it is not watched
+//    this way: its 60-second read covers a silent one.)
 //  - It looks at the clock every second, so a board that stops refreshing for any
 //    reason (the stream says it is open, a request hangs, the machine slept) turns
 //    to Last known when it is too old.
@@ -69,9 +75,12 @@ export type BoardFeed = {
 };
 
 /** The events that mean the board changed. `board` is what the back end sends (R06). */
-export const REFRESH_EVENTS = ['board', 'board.updated'] as const;
+export const REFRESH_EVENTS = ['board', 'board.updated', 'board-whole'] as const;
 /** The events of a network's stream: the board changed, or the screen may no longer read it (the read says which). */
 export const NETWORK_REFRESH_EVENTS = ['network-board', 'scope-ended'] as const;
+
+/** The back end's named heartbeat (KI-54): proof the stream is alive, not a change. */
+export const HEARTBEAT_EVENT = 'heartbeat';
 
 const TICK_MS = 1_000;
 const EVENT_SOURCE_CLOSED = 2;
@@ -133,6 +142,32 @@ export function useBoardFeed(options: BoardFeedOptions): BoardFeed {
     let source: StreamSource | null = null;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
     let unpairedSignalled = false;
+    // The local clock at the last sign of life of the open stream: its opening, a heartbeat or an event.
+    let lastSignal: number | null = null;
+
+    function silenceCheck() {
+      if (source === null || lastSignal === null || health.streamDownSince !== null) return;
+      if (now() - lastSignal <= HEARTBEAT_SILENCE_MS) return;
+      // Open, and silent for three beats: dead. Down since the last sign of life, then reconnect.
+      health.streamDownSince = lastSignal + HEARTBEAT_SILENCE_MS;
+      lastSignal = null;
+      source.close();
+      source = null;
+      if (retryTimer === null && !stopped) {
+        retryTimer = setTimeout(() => {
+          retryTimer = null;
+          connect();
+        }, STREAM_RETRY_MS);
+      }
+    }
+
+    function alive() {
+      lastSignal = now();
+      if (health.streamDownSince !== null && source !== null && source.readyState === 1) {
+        health.streamDownSince = null;
+        evaluate();
+      }
+    }
 
     function evaluate() {
       if (stopped) return;
@@ -241,6 +276,7 @@ export function useBoardFeed(options: BoardFeedOptions): BoardFeed {
       retryTimer = null;
       source?.close();
       source = null;
+      lastSignal = null;
       health.streamDownSince = null;
       connect();
     }
@@ -262,6 +298,8 @@ export function useBoardFeed(options: BoardFeedOptions): BoardFeed {
       }
       const current = opened;
       current.onopen = () => {
+        // Only the board's own stream has a heartbeat to watch (see above).
+        lastSignal = scope.boardScope === 'network' ? null : now();
         health.streamDownSince = null;
         evaluate();
         // Everything that changed while it was away: refetch the whole board.
@@ -281,14 +319,28 @@ export function useBoardFeed(options: BoardFeedOptions): BoardFeed {
         }
         evaluate();
       };
-      for (const name of scope.boardScope === 'network' ? NETWORK_REFRESH_EVENTS : REFRESH_EVENTS) current.addEventListener(name, refetch);
+      if (scope.boardScope === 'network') {
+        // The network's own channel: a change, or "the screen may no longer read it". The read says which.
+        for (const name of NETWORK_REFRESH_EVENTS) current.addEventListener(name, refetch);
+      } else {
+        for (const name of REFRESH_EVENTS) {
+          current.addEventListener(name, () => {
+            alive();
+            refetch();
+          });
+        }
+        current.addEventListener(HEARTBEAT_EVENT, alive);
+      }
     }
 
     // The clock may differ from the one the page was drawn with.
     evaluate();
     connect();
     const poll = setInterval(refetch, POLL_INTERVAL_MS);
-    const tick = setInterval(evaluate, TICK_MS);
+    const tick = setInterval(() => {
+      silenceCheck();
+      evaluate();
+    }, TICK_MS);
 
     return () => {
       stopped = true;

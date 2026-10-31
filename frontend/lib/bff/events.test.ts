@@ -15,7 +15,7 @@ const SERVICE = '{"serviceId":"svc-ucr-west","changedAt":"2026-10-23T13:12:00Z"}
 
 describe('relayEvents: which events', () => {
   it('relays exactly board (the back end event), board.updated and booking.updated', () => {
-    expect([...RELAYED_EVENTS].sort()).toEqual(['board', 'board.updated', 'booking.updated']);
+    expect([...RELAYED_EVENTS].sort()).toEqual(['board', 'board-whole', 'board.updated', 'booking.updated', 'heartbeat']);
   });
 
   it.each(['board', 'board.updated', 'booking.updated'])('forwards a %s event', async (name) => {
@@ -92,6 +92,17 @@ describe('relayEvents: what is in an event', () => {
 
     expect(text).toBe(': keep-alive\n\n');
     expect(text).not.toContain('secret');
+  });
+
+  it('forwards the heartbeat and the whole-board event with the time only (KI-54, KI-55)', async () => {
+    const data = JSON.stringify({ changedAt: '2026-10-23T13:12:00Z', serviceId: 'svc-1', note: 'Jane Smith' });
+
+    expect(await relay(frame('heartbeat', data))).toBe('event: heartbeat\ndata: {"changedAt":"2026-10-23T13:12:00Z"}\n\n');
+    expect(await relay(frame('board-whole', data))).toBe('event: board-whole\ndata: {"changedAt":"2026-10-23T13:12:00Z"}\n\n');
+  });
+
+  it('forwards a heartbeat whose data is bad as an empty one, so the page still hears the beat', async () => {
+    expect(await relay(frame('heartbeat', 'not json'))).toBe('event: heartbeat\ndata: {}\n\n');
   });
 
   it('survives text in a dropped field that is not ASCII', async () => {

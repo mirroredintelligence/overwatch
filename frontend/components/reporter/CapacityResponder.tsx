@@ -6,7 +6,7 @@ import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { NumberStepper } from '@/components/ui/NumberStepper';
 import { sendAnswer, type AnswerOutcome } from '@/lib/links/browser';
-import { londonHm, type LinkAnswer, type LinkView, splitUnitLabel, thanksQuery } from '@/lib/links/model';
+import { londonHm, type LinkAnswer, type LinkView, splitUnitLabel } from '@/lib/links/model';
 import { LinkExpired } from './LinkExpired';
 import styles from './Reporter.module.css';
 
@@ -38,9 +38,10 @@ export function CapacityResponder({ token, view }: Props) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [flagged, setFlagged] = useState<number | null>(null);
-  const [expired, setExpired] = useState(false);
+  // Set when the link has closed since the page loaded: the renewal token its answer carried, or null.
+  const [expired, setExpired] = useState<{ csrfToken: string | null } | null>(null);
 
-  if (expired) return <LinkExpired token={token} />;
+  if (expired !== null) return <LinkExpired token={token} csrfToken={expired.csrfToken} />;
 
   const recorded = view.recordedValue !== null;
   const asOf = view.asOf === null ? null : londonHm(view.asOf);
@@ -54,7 +55,8 @@ export function CapacityResponder({ token, view }: Props) {
     switch (outcome.kind) {
       case 'recorded':
         // Keep busy while the thank-you page opens, so nothing posts twice.
-        router.push(`/l/${token}/thanks?${thanksQuery(outcome.answered).toString()}`);
+        // The address holds no link token (the link is spent) and only the sealed detail (KI-179).
+        router.push(outcome.thanks === null ? '/l/thanks' : `/l/thanks?d=${encodeURIComponent(outcome.thanks)}`);
         return;
       case 'out-of-range':
         setBusy(false);
@@ -63,7 +65,7 @@ export function CapacityResponder({ token, view }: Props) {
         return;
       case 'gone':
         setBusy(false);
-        setExpired(true);
+        setExpired({ csrfToken: outcome.csrfToken });
         return;
       default:
         setBusy(false);

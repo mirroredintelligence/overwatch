@@ -60,9 +60,19 @@ class MappingStatus(StrEnum):
     RETIRED = "retired"
 
 
-# The provider each kind of channel uses (audit F 2.3).
+# The provider a NEW channel of each kind takes (audit F 2.3, DEC-1130): text and email both go
+# through Twilio, from one subaccount for each tenant.
 CHANNEL_PROVIDER: Final = MappingProxyType(
-    {ChannelKind.SMS: ChannelProvider.TWILIO, ChannelKind.EMAIL: ChannelProvider.SMTP}
+    {ChannelKind.SMS: ChannelProvider.TWILIO, ChannelKind.EMAIL: ChannelProvider.TWILIO}
+)
+
+# The providers a stored channel may name. An email channel recorded before DEC-1130 names the SMTP
+# relay and stays readable and usable (expand-only); no new one is made.
+ALLOWED_PROVIDERS: Final = MappingProxyType(
+    {
+        ChannelKind.SMS: frozenset({ChannelProvider.TWILIO}),
+        ChannelKind.EMAIL: frozenset({ChannelProvider.TWILIO, ChannelProvider.SMTP}),
+    }
 )
 
 # The roles a directory group may be mapped to: the staff roles. A wall screen, an anonymous link
@@ -168,7 +178,7 @@ class TenantChannel:
         _enum("kind", self.kind, ChannelKind)
         _enum("provider", self.provider, ChannelProvider)
         _enum("status", self.status, NumberStatus)
-        if self.provider is not CHANNEL_PROVIDER[self.kind]:
+        if self.provider not in ALLOWED_PROVIDERS[self.kind]:
             raise ValidationFailed("provider", TOGETHER_MESSAGE)
         _text("sender_label", self.sender_label, SENDER_LABEL_MAX_LENGTH)
         if self.secret_ref is not None:
@@ -191,6 +201,9 @@ class TenantChannel:
         _text("from_address", self.from_address, ADDRESS_MAX_LENGTH)
         _matches("from_address", self.from_address, EMAIL_PATTERN)
         _optional_text("from_display_name", self.from_display_name, DISPLAY_NAME_MAX_LENGTH)
+        if self.provider is ChannelProvider.TWILIO and self.secret_ref is not None:
+            # Twilio email sends with the tenant's text subaccount: no credential of its own.
+            raise ValidationFailed("secret_ref", TOGETHER_MESSAGE)
 
 
 # ---------------------------------------------------------------- retention

@@ -46,7 +46,6 @@ from diucs.adapters.inbound.fhir_rest.concurrency import (
     require_if_match,
     versioned_response,
 )
-from diucs.adapters.inbound.fhir_rest.routes_services import UnitOfWorkIdempotency
 from diucs.adapters.inbound.fhir_rest.subscription_mapping import (
     LISTED_STATUSES,
     alert_to_task,
@@ -60,6 +59,7 @@ from diucs.application.idempotency import format_instant
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.uow_idempotency import UnitOfWorkIdempotency
 from diucs.application.use_cases.alerts import (
     AcknowledgeAlert,
     AcknowledgeAlertCommand,

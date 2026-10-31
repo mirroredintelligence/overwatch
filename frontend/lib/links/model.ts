@@ -44,6 +44,8 @@ export type BookingView = {
   bookingStatus: string;
   /** The coordination team's phone from the tenant's configuration, or null when none is set. */
   coordinationPhone: string | null;
+  /** When the booking was confirmed (a confirmed booking's change page), or null. */
+  confirmedAt: string | null;
 };
 
 /** The page a link opens: a capacity link, or a booking link, by the purpose the back end names. */
@@ -74,6 +76,52 @@ export function parseBookingView(value: unknown): BookingView {
     replyBy: body.replyBy === undefined ? null : instantOrNull(body.replyBy),
     bookingStatus: text(body.bookingStatus, MAX_TOKEN_TEXT),
     coordinationPhone: nullableText(body.coordinationPhone, MAX_TOKEN_TEXT),
+    confirmedAt: body.confirmedAt === undefined ? null : instantOrNull(body.confirmedAt),
+  };
+}
+
+/** The words a closed link may say (L01, L02): why it is closed. Anything else the back end sends is `expired`. */
+export const CLOSED_STATES = ['expired', 'used', 'declined', 'cancelled', 'withdrawn', 'not-reached'] as const;
+export type ClosedState = (typeof CLOSED_STATES)[number];
+
+/**
+ * What a closed link says (KI-169, KI-648, KI-649, KI-664, KI-665): why, and for a booking link its
+ * reference, when it closed, was confirmed and was cancelled, and the coordination number. An unknown
+ * or another tenant's link says only `expired`, so every field but the state is null.
+ */
+export type ClosedLink = {
+  state: ClosedState;
+  kind: 'booking' | null;
+  reference: string | null;
+  closedAt: string | null;
+  confirmedAt: string | null;
+  cancelledAt: string | null;
+  coordinationPhone: string | null;
+};
+
+const REFERENCE = /^[0-9]{4}$/;
+const PHONE = /^[0-9+() -]{3,30}$/;
+
+function timeOrNull(value: unknown): string | null {
+  return typeof value === 'string' && value.length <= 40 && !Number.isNaN(Date.parse(value)) ? value : null;
+}
+
+/**
+ * A closed link's body. It never refuses: a field that is not what it should be reads as absent, so a
+ * closed page always shows, and no field is shown that was not checked. Anything it does not read is dropped.
+ */
+export function parseClosed(value: unknown): ClosedLink {
+  const body = typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+  const state = CLOSED_STATES.find((known) => known === body.state) ?? 'expired';
+  const phone = typeof body.coordinationPhone === 'string' && PHONE.test(body.coordinationPhone) ? body.coordinationPhone : null;
+  return {
+    state,
+    kind: body.kind === 'booking' ? 'booking' : null,
+    reference: typeof body.reference === 'string' && REFERENCE.test(body.reference) ? body.reference : null,
+    closedAt: timeOrNull(body.closedAt),
+    confirmedAt: timeOrNull(body.confirmedAt),
+    cancelledAt: timeOrNull(body.cancelledAt),
+    coordinationPhone: phone,
   };
 }
 
@@ -98,8 +146,6 @@ export type LinkAnswer =
   | { action: 'confirm' }
   | { action: 'number'; value: number; confirmOutOfRange?: boolean }
   | { action: 'closed' };
-
-export type ThanksDetail = LinkAnswered;
 
 const MAX_FIGURE = 999;
 const MAX_NAME_LENGTH = 120;
@@ -175,42 +221,4 @@ export function splitUnitLabel(unitLabel: string): { noun: string; window: strin
 /** An instant as London local time, "HH:MM". */
 export function londonHm(instant: string): string {
   return londonTime(instant);
-}
-
-const THANKS = {
-  service: 'serviceName',
-  value: 'value',
-  unit: 'unit',
-  at: 'at',
-  next: 'next',
-} as const;
-
-/** The thank-you address carries the answer the page shows. It is never the token. */
-export function thanksQuery(answered: LinkAnswered): URLSearchParams {
-  const query = new URLSearchParams({
-    [THANKS.service]: answered.serviceName,
-    [THANKS.value]: String(answered.value),
-    [THANKS.unit]: answered.unitLabel,
-    [THANKS.at]: answered.recordedAt,
-  });
-  if (answered.nextDue !== null) query.set(THANKS.next, answered.nextDue);
-  return query;
-}
-
-/** The answer the thank-you page shows, or null when the address does not carry a whole one. */
-export function parseThanks(params: URLSearchParams): ThanksDetail | null {
-  try {
-    const value = params.get(THANKS.value);
-    if (value === null || !/^\d{1,3}$/.test(value)) return null;
-    const next = params.get(THANKS.next);
-    return parseLinkAnswered({
-      serviceName: params.get(THANKS.service),
-      value: Number(value),
-      unitLabel: params.get(THANKS.unit),
-      recordedAt: params.get(THANKS.at),
-      nextDue: next === null ? null : next,
-    });
-  } catch {
-    return null;
-  }
 }

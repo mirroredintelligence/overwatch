@@ -50,7 +50,6 @@ from diucs.adapters.inbound.fhir_rest.parameters import (
     single,
     whole,
 )
-from diucs.adapters.inbound.fhir_rest.routes_services import UnitOfWorkIdempotency
 from diucs.application.actor import Actor
 from diucs.application.idempotency import format_instant
 from diucs.application.ports.outbound.clock import Clock
@@ -61,8 +60,12 @@ from diucs.application.ports.outbound.identity import (
 )
 from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.sealing import ContentSealer
+from diucs.application.ports.outbound.tenants import TenantDirectory
 from diucs.application.ports.outbound.tokens import SecretStore
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.tenant_settings import DirectoryZones
+from diucs.application.uow_idempotency import UnitOfWorkIdempotency
+from diucs.application.use_cases.advisor_phoned import RecordAdvisorPhoned
 from diucs.application.use_cases.audit_replay import (
     ExportAuditReplay,
     GetAuditReplay,
@@ -116,6 +119,8 @@ FLAG_OUTCOMES: Final[dict[str, Literal["checked", "accepted", "phoned"]]] = {
 class _Container(Protocol):
     @property
     def clock(self) -> Clock: ...
+    @property
+    def tenants(self) -> TenantDirectory: ...
     @property
     def ids(self) -> IdGenerator: ...
     @property
@@ -457,11 +462,15 @@ async def resolve_report_flag(
     async def run() -> Response:
         result = await ResolveReportFlag(
             container.uow_factory,
-            ReportCapacity(
+            RecordAdvisorPhoned(
+                ReportCapacity(
+                    container.uow_factory,
+                    container.clock,
+                    container.ids,
+                    UnitOfWorkIdempotency(container.uow_factory),
+                    zones=DirectoryZones(container.tenants),
+                ),
                 container.uow_factory,
-                container.clock,
-                container.ids,
-                UnitOfWorkIdempotency(container.uow_factory),
             ),
             container.clock,
         ).execute(

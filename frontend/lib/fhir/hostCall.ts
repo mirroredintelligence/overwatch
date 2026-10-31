@@ -74,6 +74,10 @@ export async function callBackend(call: BackendCall): Promise<BackendReply> {
   if (payload !== undefined) {
     headers['Content-Type'] = 'application/json';
     headers['Content-Length'] = Buffer.byteLength(payload);
+  } else if (call.method === 'POST') {
+    // A POST with no body still names its body type: the back end answers 415 to one that does not (WB4).
+    headers['Content-Type'] = 'application/json';
+    headers['Content-Length'] = 0;
   }
   if (call.csrf !== undefined) headers['X-CSRF-Token'] = call.csrf;
   // Applied last, but never over the host that names the tenant or the length of the body.

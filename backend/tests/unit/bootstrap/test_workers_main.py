@@ -166,9 +166,14 @@ def test_with_a_sender_resolver_the_two_sender_runners_are_added_and_each_binds_
         ("scheduled.work", None),
         ("messages.outbound", "text-sender"),
         ("messages.outbound", "email-sender"),
+        ("codes.dispatch", "code-sender"),
     ]
     assert all(isinstance(r._consumer, TenantBoundConsumer) for r in runners)
-    assert [r._consumer._inner.name for r in runners[3:]] == ["sender-sms", "sender-email"]
+    assert [r._consumer._inner.name for r in runners[3:]] == [
+        "sender-sms",
+        "sender-email",
+        "sender-code",
+    ]
 
 
 def test_without_a_sender_resolver_only_the_three_inbound_runners_are_built() -> None:

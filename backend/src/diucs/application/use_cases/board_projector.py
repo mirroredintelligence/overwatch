@@ -155,16 +155,23 @@ class BoardProjector:
         """Rebuild and publish for an event the board shows. Return False for any other event."""
         if event_type not in REBUILD_EVENTS:
             return False
+        before = await self._read_cached()
         board = await self._query_board.execute(QueryBoardQuery(actor=wall_actor(current_tenant())))
         # Store before publishing: a page that refetches on the message must find the new board.
         await self._cache.set(BOARD_CACHE_KEY, json.dumps(board_to_dict(board)), BOARD_CACHE_TTL)
         service_id = payload.get("service_id")
+        at = _utc_text(self._clock.now())
         message = {
             "type": BOARD_CHANGED,
             "service_id": service_id if isinstance(service_id, str) else None,
-            "at": _utc_text(self._clock.now()),
+            "at": at,
         }
         await self._cache.publish(BOARD_UPDATES_CHANNEL, json.dumps(message))
+        if before is not None and before.pressure is not board.pressure and message["service_id"]:
+            # The banner belongs to no one service (KI-55): a change of pressure is also published
+            # as a whole-board message, so a page that patches by service still redraws it.
+            whole = {"type": BOARD_CHANGED, "service_id": None, "at": at}
+            await self._cache.publish(BOARD_UPDATES_CHANNEL, json.dumps(whole))
         return True
 
     async def get_board(self, actor: Actor) -> Board:

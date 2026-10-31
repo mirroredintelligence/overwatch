@@ -2,11 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   londonHm,
   LinkShapeError,
+  parseClosed,
   parseLinkAnswered,
   parseLinkView,
-  parseThanks,
   splitUnitLabel,
-  thanksQuery,
 } from './model';
 
 const VIEW = {
@@ -91,33 +90,92 @@ describe('parseLinkAnswered', () => {
   });
 });
 
-describe('thanks address', () => {
-  const ANSWER = {
-    serviceName: 'UCR West',
-    value: 4,
-    unitLabel: 'referrals in the next 2 hrs',
-    recordedAt: '2026-10-23T09:12:00Z',
-    nextDue: '2026-10-23T11:00:00Z',
-  };
-
-  it('carries the answer to the thank-you page and reads it back', () => {
-    const query = thanksQuery(ANSWER);
-    expect(parseThanks(new URLSearchParams(query.toString()))).toEqual({
-      serviceName: 'UCR West',
-      value: 4,
-      unitLabel: 'referrals in the next 2 hrs',
-      recordedAt: '2026-10-23T09:12:00Z',
-      nextDue: '2026-10-23T11:00:00Z',
+describe('parseClosed: what a closed link says (KI-169, KI-648, KI-649, KI-664, KI-665)', () => {
+  it('reads a closed booking link: its kind, reference, times and the coordination number', () => {
+    expect(
+      parseClosed({
+        state: 'cancelled',
+        kind: 'booking',
+        reference: '4821',
+        closedAt: '2026-10-23T13:40:00Z',
+        confirmedAt: '2026-10-23T13:19:00Z',
+        cancelledAt: '2026-10-23T13:40:00Z',
+        coordinationPhone: '0300 123 4567',
+      }),
+    ).toEqual({
+      state: 'cancelled',
+      kind: 'booking',
+      reference: '4821',
+      closedAt: '2026-10-23T13:40:00Z',
+      confirmedAt: '2026-10-23T13:19:00Z',
+      cancelledAt: '2026-10-23T13:40:00Z',
+      coordinationPhone: '0300 123 4567',
     });
   });
 
-  it('reads nothing from an address that does not carry a whole, valid answer', () => {
-    expect(parseThanks(new URLSearchParams())).toBeNull();
-    expect(parseThanks(new URLSearchParams('value=1000&serviceName=A&unit=b&at=2026-10-23T09:12:00Z'))).toBeNull();
-    expect(parseThanks(new URLSearchParams('value=4&serviceName=A&unit=b&at=not-a-time'))).toBeNull();
+  it('reads the back end’s own closed bodies', async () => {
+    const shapes = await import('@/test/fixtures/backend-shapes');
+    expect(parseClosed(shapes.LINK_CLOSED_CANCELLED)).toMatchObject({
+      state: 'cancelled',
+      kind: 'booking',
+      reference: '4821',
+      cancelledAt: '2026-10-30T14:04:00Z',
+      coordinationPhone: '0300 123 4567',
+    });
+    expect(parseClosed(shapes.LINK_CLOSED_EXPIRED)).toMatchObject({ state: 'expired', kind: 'booking', cancelledAt: null });
+    expect(parseClosed(shapes.LINK_CLOSED_UNKNOWN)).toEqual({
+      state: 'expired',
+      kind: null,
+      reference: null,
+      closedAt: null,
+      confirmedAt: null,
+      cancelledAt: null,
+      coordinationPhone: null,
+    });
   });
 
-  it('refuses a service name that is too long to be a name', () => {
-    expect(parseThanks(new URLSearchParams(`value=4&serviceName=${'A'.repeat(121)}&unit=b&at=2026-10-23T09:12:00Z`))).toBeNull();
+  it('reads a bare state word as a closed link that says nothing more', () => {
+    expect(parseClosed({ state: 'used' })).toEqual({
+      state: 'used',
+      kind: null,
+      reference: null,
+      closedAt: null,
+      confirmedAt: null,
+      cancelledAt: null,
+      coordinationPhone: null,
+    });
+  });
+
+  it('reads a state it does not know as expired, and anything that is not a body as expired', () => {
+    expect(parseClosed({ state: 'something-else' }).state).toBe('expired');
+    expect(parseClosed(null).state).toBe('expired');
+    expect(parseClosed('expired').state).toBe('expired');
+    expect(parseClosed([]).state).toBe('expired');
+  });
+
+  it('drops a time that is not a time, a number that is not a number and a kind it does not know, without refusing the page', () => {
+    const closed = parseClosed({
+      state: 'expired',
+      kind: 'capacity',
+      reference: 'not a reference',
+      closedAt: 'yesterday',
+      confirmedAt: 17,
+      cancelledAt: null,
+      coordinationPhone: 'call <b>me</b>',
+    });
+    expect(closed).toEqual({
+      state: 'expired',
+      kind: null,
+      reference: null,
+      closedAt: null,
+      confirmedAt: null,
+      cancelledAt: null,
+      coordinationPhone: null,
+    });
+  });
+
+  it('drops every field it does not read', () => {
+    const closed = parseClosed({ state: 'expired', postcode: 'DT4 8XX', name: 'Sample Patient', caseId: 'case-1001' });
+    expect(JSON.stringify(closed)).not.toMatch(/DT4|Sample Patient|case-1001/);
   });
 });

@@ -30,7 +30,6 @@ from diucs.application.scheduling import cancel_work, schedule_work
 from diucs.application.sealed_send import queue_message
 from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound
 from diucs.application.use_cases.clinical_context import pinned_display
-from diucs.application.use_cases.filter_options import need_phrase
 from diucs.application.work import WorkKind
 from diucs.domain.codes import AdviceChoice, AgeBand, Channel, NeedCategory, Role, Urgency
 from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
@@ -53,6 +52,7 @@ from diucs.domain.rules.clinical_queue import (
     take,
     validate_note,
 )
+from diucs.domain.rules.need_words import need_words
 
 PRESENCE_TTL: Final = timedelta(seconds=120)
 PRESENCE_PREFIX: Final = "presence:clinical:"
@@ -134,8 +134,8 @@ def advice_notice(urgency: str, age_band: str, need: str) -> tuple[str, str]:
 
 
 def _need_text(needs: Sequence[str]) -> str:
-    phrases = [need_phrase(NeedCategory(need)) for need in needs]
-    return ", ".join(phrases) if phrases else "no need recorded"
+    """The needs in the one table of plain words (DEC-062 item 2)."""
+    return need_words([NeedCategory(need) for need in needs]) if needs else "no need recorded"
 
 
 def _tenant(scope: ScopeId | None) -> ScopeId:

@@ -24,6 +24,8 @@ export const LINK = {
   bookingChange: 'BookingChangeTokenAbcdefg',
   /** A change link whose booking was cancelled by the SPOA: GET answers 410 `cancelled`. */
   bookingCancelled: 'CancelledBookingTokenAbcd',
+  /** A booking request whose window has passed: GET answers 410 `expired` with the booking's closing details. */
+  bookingExpired: 'ExpiredBookingTokenAbcdef',
   /** A change link whose withdrawal is refused as taken (409 `withdrawn`). */
   bookingChangeTaken: 'TakenChangeTokenAbcdefghi',
   /** The back end cannot be reached. */
@@ -34,7 +36,12 @@ export const LINK = {
   stale: 'StaleLinkTokenAbcdefghijkl',
 } as const;
 
+/** The sealed thank-you detail the BFF gives a recorded figure (a stand-in: an opaque string). */
+export const THANKS_SEALED = 'sealed-thanks-sample-0123456789';
+
 export const csrfFor = (token: string) => `csrf-${token}`;
+/** The CSRF token the BFF gives a closed link for its renewal (the stand-in of lib/links/csrf.ts renewCsrfFor). */
+export const renewCsrfFor = (token: string) => `renew-${token}`;
 
 export const RECORDED_VIEW = {
   state: 'ok',
@@ -79,7 +86,7 @@ export const BOOKING_REQUEST_VIEW = {
   reference: '4821',
   serviceName: 'UCR West',
   ageBand: '80+',
-  need: 'fall-no-injury and frailty',
+  need: 'fall, no injury and frailty',
   urgency: 'within 2 hrs',
   replyBy: '2026-10-23T13:26:00Z',
   bookingStatus: 'requested',
@@ -93,9 +100,21 @@ export const BOOKING_CHANGE_VIEW = {
   reference: '4821',
   serviceName: 'UCR West',
   ageBand: '80+',
-  need: 'fall-no-injury and frailty',
+  need: 'fall, no injury and frailty',
   urgency: 'within 2 hrs',
   bookingStatus: 'confirmed',
+  coordinationPhone: '0300 123 4567',
+  confirmedAt: '2026-10-23T13:19:00Z',
+} as const;
+
+/**
+ * What a closed booking link says beyond its state word (booking_links.py closed_detail): the kind, the
+ * reference, when it closed, was confirmed and was cancelled, and the coordination number. Times are UTC;
+ * 13:19Z is 14:19 London summer time.
+ */
+export const BOOKING_CLOSED = {
+  kind: 'booking',
+  reference: '4821',
   coordinationPhone: '0300 123 4567',
 } as const;
 
@@ -119,12 +138,29 @@ const GONE_ON_GET: Partial<Record<string, string>> = {
   [LINK.used]: 'used',
   [LINK.bookingDeclined]: 'declined',
   [LINK.bookingCancelled]: 'cancelled',
+  [LINK.bookingExpired]: 'expired',
 };
+
+/** The closing details a booking link's 410 carries; other links carry the state word alone. */
+const GONE_DETAIL: Partial<Record<string, Record<string, unknown>>> = {
+  [LINK.bookingDeclined]: { ...BOOKING_CLOSED, closedAt: '2026-10-23T13:20:00Z' },
+  [LINK.bookingExpired]: { ...BOOKING_CLOSED, closedAt: '2026-10-23T13:26:00Z' },
+  [LINK.bookingCancelled]: {
+    ...BOOKING_CLOSED,
+    closedAt: '2026-10-23T13:40:00Z',
+    confirmedAt: '2026-10-23T13:19:00Z',
+    cancelledAt: '2026-10-23T13:40:00Z',
+  },
+};
+
+export function goneBody(token: string): Record<string, unknown> {
+  return { state: GONE_ON_GET[token] ?? 'expired', ...GONE_DETAIL[token] };
+}
 
 export function linkViewReply(token: string): LinkReplyFor {
   if (token === LINK.down) return { status: 503, body: { state: 'error' } };
   const view = VIEW_FOR_OPEN[token];
-  if (view === undefined) return { status: 410, body: { state: GONE_ON_GET[token] ?? 'expired' } };
+  if (view === undefined) return { status: 410, body: goneBody(token) };
   return { status: 200, body: { ...view, csrfToken: csrfFor(token) } };
 }
 
@@ -151,20 +187,39 @@ export function linkAnswerReply(token: string, given: string | null, body: Recor
 
 /** The booking answers (L02): a confirm or decline, a withdrawal or a not-reached report. */
 function bookingAnswerReply(token: string, body: Record<string, unknown>): LinkReplyFor | undefined {
-  if (token === LINK.bookingTaken) return { status: 409, body: { state: 'declined' } };
-  if (token === LINK.bookingChangeTaken) return { status: 409, body: { state: 'withdrawn' } };
-  if (token === LINK.bookingDeclined || token === LINK.bookingCancelled) return { status: 410, body: { state: GONE_ON_GET[token] } };
-  if (body.action === 'confirm' && token === LINK.booking) {
-    return { status: 200, body: { bookingStatus: 'confirmed', changeToken: BOOKING_CHANGE_TOKEN } };
+  if (token === LINK.bookingTaken) {
+    return { status: 409, body: { state: 'declined', ...BOOKING_CLOSED, closedAt: '2026-10-23T13:20:00Z' } };
   }
-  if (body.action === 'decline' && token === LINK.booking) return { status: 200, body: { bookingStatus: 'declined' } };
-  if (body.action === 'withdraw' && token === LINK.bookingChange) return { status: 200, body: { bookingStatus: 'withdrawn' } };
-  if (body.action === 'not-reached' && token === LINK.bookingChange) return { status: 200, body: { bookingStatus: 'not-reached' } };
+  if (token === LINK.bookingChangeTaken) {
+    return {
+      status: 409,
+      body: { state: 'withdrawn', ...BOOKING_CLOSED, closedAt: '2026-10-23T13:41:00Z', confirmedAt: '2026-10-23T13:19:00Z' },
+    };
+  }
+  if (token === LINK.bookingDeclined || token === LINK.bookingCancelled || token === LINK.bookingExpired) {
+    return { status: 410, body: goneBody(token) };
+  }
+  if (body.action === 'confirm' && token === LINK.booking) {
+    return {
+      status: 200,
+      body: { bookingStatus: 'confirmed', changeToken: BOOKING_CHANGE_TOKEN, confirmedAt: '2026-10-23T13:19:00Z' },
+    };
+  }
+  if (body.action === 'decline' && token === LINK.booking) {
+    return { status: 200, body: { bookingStatus: 'declined', respondedAt: '2026-10-23T13:19:00Z' } };
+  }
+  if (body.action === 'withdraw' && token === LINK.bookingChange) {
+    return { status: 200, body: { bookingStatus: 'withdrawn', respondedAt: '2026-10-23T13:41:00Z' } };
+  }
+  if (body.action === 'not-reached' && token === LINK.bookingChange) {
+    return { status: 200, body: { bookingStatus: 'not-reached', respondedAt: '2026-10-23T13:41:00Z' } };
+  }
   return undefined;
 }
 
 /** What the back end answers to `POST /links/{token}/renew`. */
-export function linkRenewReply(token: string): LinkReplyFor {
+export function linkRenewReply(token: string, given: string | null = renewCsrfFor(token)): LinkReplyFor {
+  if (given !== renewCsrfFor(token)) return { status: 403, body: { state: 'forbidden' } };
   if (token === LINK.limited) return { status: 429, body: { state: 'rate-limited' }, headers: { 'Retry-After': '600' } };
   return { status: 202, body: { state: 'accepted' } };
 }

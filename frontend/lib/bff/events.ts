@@ -5,7 +5,17 @@
 // names come from R06 (`board`) and from the W06 prompt (`board.updated`,
 // `booking.updated`); see DEC-152.
 
-export const RELAYED_EVENTS: readonly string[] = ['board', 'board.updated', 'booking.updated'];
+export const RELAYED_EVENTS: readonly string[] = [
+  'board',
+  'board.updated',
+  'booking.updated',
+  'heartbeat',
+  'board-whole',
+];
+
+/** Events that carry the time and nothing else: the stream's heartbeat and a whole-board change. */
+const TIME_ONLY_EVENTS: readonly string[] = ['heartbeat', 'board-whole'];
+
 /**
  * The network stream (TEN-068, routes_network_events.py): `network-board` says the network's board
  * changed, and `scope-ended` says the viewer may no longer read it. The two streams never relay each
@@ -44,7 +54,7 @@ function sanitiseNetwork(name: string, data: string): string {
 }
 
 /** The data of an event, cut down to the fields the pages use, each checked. */
-function sanitise(data: string): string {
+function sanitise(name: string, data: string): string {
   const kept: Record<string, string> = {};
   let parsed: unknown;
   try {
@@ -54,8 +64,9 @@ function sanitise(data: string): string {
   }
   if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
     const { serviceId, kind, changedAt } = parsed as Record<string, unknown>;
-    if (typeof serviceId === 'string' && SERVICE_ID.test(serviceId)) kept.serviceId = serviceId;
-    if (typeof kind === 'string' && KINDS.includes(kind)) kept.kind = kind;
+    const timeOnly = TIME_ONLY_EVENTS.includes(name);
+    if (!timeOnly && typeof serviceId === 'string' && SERVICE_ID.test(serviceId)) kept.serviceId = serviceId;
+    if (!timeOnly && typeof kind === 'string' && KINDS.includes(kind)) kept.kind = kind;
     if (typeof changedAt === 'string' && UTC_TIME.test(changedAt) && !Number.isNaN(Date.parse(changedAt))) {
       kept.changedAt = changedAt;
     }
@@ -73,7 +84,7 @@ function dispatch(frame: Frame, stream: RelayedStream): string {
     return NETWORK_RELAYED_EVENTS.includes(name) ? `event: ${name}\ndata: ${sanitiseNetwork(name, data)}\n\n` : '';
   }
   if (!RELAYED_EVENTS.includes(name)) return '';
-  return `event: ${name}\ndata: ${sanitise(data)}\n\n`;
+  return `event: ${name}\ndata: ${sanitise(name, data)}\n\n`;
 }
 
 /** Reads server-sent event text as it arrives, in pieces, and gives back the text to forward. */

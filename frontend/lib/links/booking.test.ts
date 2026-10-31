@@ -14,19 +14,25 @@ describe('parseBookingView', () => {
       reference: '4821',
       serviceName: 'UCR West',
       ageBand: '80+',
-      need: 'fall-no-injury and frailty',
+      need: 'fall, no injury and frailty',
       urgency: 'within 2 hrs',
       replyBy: '2026-10-23T13:26:00Z',
       bookingStatus: 'requested',
       coordinationPhone: '0300 123 4567',
+      confirmedAt: null,
     });
   });
 
-  it('reads a change view, which has no reply-by time', () => {
+  it('reads a change view, which has no reply-by time and says when the booking was confirmed', () => {
     const view = parseBookingView(changeView);
     expect(view.purpose).toBe('booking-change');
     expect(view.bookingStatus).toBe('confirmed');
     expect(view.replyBy).toBeNull();
+    expect(view.confirmedAt).toBe('2026-10-23T13:19:00Z');
+  });
+
+  it('refuses a confirmed time that is not a time', () => {
+    expect(() => parseBookingView({ ...changeView, confirmedAt: 'at lunch' })).toThrow(LinkShapeError);
   });
 
   it('allows a missing coordination phone as null, and drops fields it does not read', () => {
@@ -80,11 +86,12 @@ describe('the booking views the back end writes (L02, booking_links.py)', () => 
         reference: '4821',
         serviceName: 'UCR West',
         ageBand: '80+',
-        need: 'fall-no-injury and frailty',
+        need: 'fall, no injury and frailty',
         urgency: 'within 2 hrs',
         replyBy: '2026-10-30T14:10:00+00:00',
         bookingStatus: 'requested',
         coordinationPhone: '0300 123 4567',
+        confirmedAt: null,
       },
     });
   });
@@ -94,7 +101,12 @@ describe('the booking views the back end writes (L02, booking_links.py)', () => 
     const link = parseOpenLink(LINK_CHANGE_VIEW);
     expect(link.kind).toBe('booking');
     if (link.kind === 'booking') {
-      expect(link.view).toMatchObject({ purpose: 'booking-change', bookingStatus: 'confirmed', replyBy: null });
+      expect(link.view).toMatchObject({
+        purpose: 'booking-change',
+        bookingStatus: 'confirmed',
+        replyBy: null,
+        confirmedAt: '2026-10-30T14:03:00Z',
+      });
     }
   });
 });

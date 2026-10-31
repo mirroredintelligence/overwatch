@@ -5,6 +5,10 @@ subject. The subject is matched by its resource key (`Type/id`, DEC-053). A plac
 created only when the subject is absent. The work runs in the caller's transaction (the unit of
 work), through named queries in the registry. Every dueAt is stored in UTC.
 
+save() moves the status only forward from `scheduled`: a work that is done or cancelled keeps its
+status whatever the copy the caller read says, so a cancel committed between a read and a save is
+not undone (KI-89). The record's lock is taken first, then the status is read.
+
 add() is safe to retry (DEC-012): adding the same record again changes nothing, and adding a
 different record under an existing id is refused with Conflict.
 """
@@ -170,8 +174,10 @@ REGISTRY.register(
         id="Q-WORK-SAVE",
         cypher=(
             "MATCH (w:ScheduledWork {id: $id, tenantId: $tenant}) "
-            "SET w.kind = $kind, w.dueAt = $dueAt, "
-            "w.sequenceNumber = $sequenceNumber, w.status = $status "
+            "SET w.id = w.id "
+            "WITH w "
+            "SET w.kind = $kind, w.dueAt = $dueAt, w.sequenceNumber = $sequenceNumber, "
+            "w.status = CASE WHEN w.status = 'scheduled' THEN $status ELSE w.status END "
             "RETURN count(w) AS saved"
         ),
         mode="write",

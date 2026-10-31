@@ -4,7 +4,9 @@ When a prompt goes unanswered, three jobs scheduled by SendPrompts (U03) run in 
 the prompt's communication (or about the service, when nobody could be texted, DEC-115 item 15):
 
     +30 min  reminder    C8 to the reporter with a fresh link (reply by now + 30 min); the status
-                         of the service moves to Not updated (StatusChanged on capacity.events)
+                         of the service moves to Not updated (StatusChanged on capacity.events).
+                         When no reminder can be sent (no reporter to text), the lead is told at
+                         once (ReportEscalated) and the +90 min step then raises nothing more
     +60 min  phone task  PhoneTaskRaised on capacity.events, for the advisors
     +90 min  escalation  ReportEscalated on alerts.events, for the shift lead
 
@@ -92,6 +94,9 @@ LADDER_OFFSETS: Final[Mapping[WorkKind, timedelta]] = MappingProxyType(
 
 LADDER_KINDS: Final = tuple(LADDER_OFFSETS)
 
+PROMPT_LOOKBACK: Final = timedelta(hours=24)
+"""How far back a report looks for prompts whose ladders it may stop (KI-137)."""
+
 REMINDER_REPLY_WINDOW: Final = timedelta(minutes=30)
 """[ASSUMED] How long a reporter has to answer a reminder, from when it is sent (U06 prompt)."""
 
@@ -178,14 +183,19 @@ async def stop_answered_ladders(
     in the caller's unit of work, and return their work ids. `prompt-due` work is never listed.
 
     The ladders are found through the service itself (the ladder of a service nobody could be
-    texted for) and through the latest prompt of each of its reporter roles (the ladder of a
-    prompt is about its communication, DEC-115 item 16). An older prompt's ladder, or one of a role
-    that has since gone, is not listed; its steps stop themselves when they run (DEC-166 item 3).
+    texted for) and through every prompt of the last day sent to one of its reporter roles (the
+    ladder of a prompt is about its communication, DEC-115 item 16). The ladder of a role that has
+    since gone is not listed; its steps stop themselves when they run (DEC-166 item 3).
     """
     about_ids = [service_id]
-    for role in await uow.people.reporter_roles_for_service(service_id, now):
-        prompt = await uow.communications.latest_prompt_for_phone([role.id], _PROMPT_MESSAGES)
-        if prompt is not None:
+    role_ids = [role.id for role in await uow.people.reporter_roles_for_service(service_id, now)]
+    if role_ids:
+        # Every prompt of the last day, not only the latest of each role (KI-137): a ladder lives at
+        # most the escalation offset past its prompt's due time, so a prompt older than a day has
+        # no step left to cancel.
+        for prompt in await uow.communications.recent_prompts_for_roles(
+            role_ids, _PROMPT_MESSAGES, now - PROMPT_LOOKBACK
+        ):
             about_ids.append(prompt.id)
     cancelled: list[str] = []
     for about_id in about_ids:
@@ -383,6 +393,15 @@ class MissedReportLadder:
         sent = await self._send_reminder(uow, scope, settings, prompt, profile, at)
         if await _first_to_raise(uow, scope, _STATUS, profile.id, due, work.id):
             await self._announce_status(uow, settings, profile, latest, due, at)
+        if sent is None and await _first_to_raise(
+            uow, scope, _ESCALATION, profile.id, due, work.id
+        ):
+            # Nobody could be sent the reminder (the reporter's role has ended, the holder has no
+            # phone now, or nobody could be texted for this service at all): nobody is chasing the
+            # figure, so the shift lead is told now, not at the +90 minute step, which then finds
+            # the alert already raised (KI-139). The advisors' phone task still comes at +60.
+            escalation = ReportEscalated(service_id=profile.id, due_at=due, at=at)
+            await uow.outbox.add(outbox_message_for(escalation, id=self._ids.new_id(), now=at))
         return LadderStepResult(REMINDED, sent)
 
     async def _send_reminder(

@@ -23,15 +23,21 @@ from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWork
 from diucs.application.tenancy import current_tenant
 from diucs.application.use_cases.link_access import (
     Body,
+    ClosedDetail,
     LinkAction,
     LinkConflict,
     LinkGone,
     LinkPurposeHandler,
     LinkRequest,
     command_key,
+    iso_utc,
 )
 from diucs.application.use_cases.request_booking import need_text, urgency_wording
-from diucs.application.use_cases.respond_to_booking import RespondToBooking, RespondToBookingCommand
+from diucs.application.use_cases.respond_to_booking import (
+    ChangeLinkRequest,
+    RespondToBooking,
+    RespondToBookingCommand,
+)
 from diucs.application.use_cases.withdraw_booking import (
     ReportNotReached,
     ReportNotReachedCommand,
@@ -108,6 +114,29 @@ def gone_state(status: BookingStatus) -> str:
     return _GONE_STATES.get(status, "used")
 
 
+_CANCELLED: Final = frozenset({BookingStatus.CANCELLED_BEFORE, BookingStatus.CANCELLED_AFTER})
+
+
+def closed_detail(booking: Booking, phone: str | None) -> ClosedDetail:
+    """What a closed booking link says: when it closed (the time of its last move, or its reply-by
+    time when no move was recorded, as for a request whose window has passed), when it was confirmed
+    and when it was cancelled, and the tenant's coordination number (KI-169, KI-648, KI-649, KI-664,
+    KI-665; H-486, H-488, H-499)."""
+    closed_at = booking.responded_at or booking.reply_by
+    return ClosedDetail(
+        closed_at=closed_at,
+        confirmed_at=booking.confirmed_at,
+        cancelled_at=closed_at if booking.status in _CANCELLED else None,
+        coordination_phone=phone,
+        booking=True,
+        reference=booking.reference,
+    )
+
+
+async def _closed_for(uow: UnitOfWork, booking: Booking) -> ClosedDetail:
+    return closed_detail(booking, coordination_phone(await uow.tenant_config.contacts()))
+
+
 def coordination_phone(contacts: Iterable[Any]) -> str | None:
     """The SPOA's coordination phone from the tenant's own contacts, or None when it has none.
     Never a default: a page shows the number the tenant set, or no number."""
@@ -130,6 +159,7 @@ def change_view_body(
         "urgency": None if case.urgency is None else urgency_wording(case.urgency),
         "bookingStatus": booking.status.value,
         "coordinationPhone": phone,
+        "confirmedAt": iso_utc(booking.confirmed_at),
     }
 
 
@@ -192,6 +222,15 @@ async def _burn(
         await uow.commit()
 
 
+async def _closed_detail_of(
+    uow_factory: UnitOfWorkFactory, link: LinkRequest
+) -> ClosedDetail | None:
+    """What the closed link of a booking says, from the booking it names in the bound tenant."""
+    async with uow_factory() as uow:
+        booking = await uow.bookings.get(link.record.about_id)
+        return None if booking is None else await _closed_for(uow, booking)
+
+
 class BookingRequestLink:
     """The request link (`booking-request`): show the booking, then confirm or decline it."""
 
@@ -213,7 +252,7 @@ class BookingRequestLink:
             if booking is None:
                 raise LinkGone("expired")
             if booking.status is not BookingStatus.REQUESTED:
-                raise LinkGone(gone_state(booking.status))
+                raise LinkGone(gone_state(booking.status), await _closed_for(uow, booking))
             profile, _ = await _holder(uow, link, booking)
             case = await uow.cases.get(booking.case_id)
             if case is None:
@@ -229,10 +268,16 @@ class BookingRequestLink:
             if booking is None:
                 raise LinkGone("expired")
             if booking.status is not BookingStatus.REQUESTED:
-                raise LinkConflict(gone_state(booking.status))
+                raise LinkConflict(gone_state(booking.status), await _closed_for(uow, booking))
             profile, practitioner_id = await _holder(uow, link, booking)
         decision: Literal["confirm", "decline"] = (
             "confirm" if action.action == CONFIRM else "decline"
+        )
+        # The change link is issued in the unit that records the confirmation (KI-483).
+        change_link = (
+            ChangeLinkRequest(CHANGE_PURPOSE, link.record.phone_hash, CHANGE_TOKEN_LIFETIME)
+            if decision == "confirm"
+            else None
         )
         result = await self._respond.execute(
             RespondToBookingCommand(
@@ -242,27 +287,30 @@ class BookingRequestLink:
                 decision=decision,
                 reason=reason,
                 channel=ReportSource.LINK,
+                change_link=change_link,
             )
         )
         if result.already_final:
-            raise LinkConflict(gone_state(result.status))
-        body: dict[str, object] = {"bookingStatus": result.status.value}
-        if decision == "confirm":
             async with self._uow_factory() as uow:
-                token = await self._tokens(uow.link_tokens).issue(
-                    CHANGE_PURPOSE,
-                    booking.id,
-                    link.record.phone_hash,
-                    self._clock.now() + CHANGE_TOKEN_LIFETIME,
-                )
-                await uow.commit()
-            body["changeToken"] = token
+                final = await uow.bookings.get(booking.id)
+                detail = None if final is None else await _closed_for(uow, final)
+            raise LinkConflict(gone_state(result.status), detail)
+        body: dict[str, object] = {"bookingStatus": result.status.value}
+        if result.responded_at is not None:
+            body["confirmedAt" if decision == "confirm" else "respondedAt"] = iso_utc(
+                result.responded_at
+            )
+        if result.change_token is not None:
+            body["changeToken"] = result.change_token
         await _burn(self._uow_factory, self._tokens, link, key)
         return body
 
     async def renew(self, link: LinkRequest, link_base_url: str) -> bool:
         """A booking request is not renewed: a new request is the advisor's to send (False)."""
         return False
+
+    async def closed(self, link: LinkRequest, state: str) -> ClosedDetail | None:
+        return await _closed_detail_of(self._uow_factory, link)
 
 
 class BookingChangeLink:
@@ -287,7 +335,7 @@ class BookingChangeLink:
             if booking is None:
                 raise LinkGone("expired")
             if booking.status is not BookingStatus.CONFIRMED:
-                raise LinkGone(gone_state(booking.status))
+                raise LinkGone(gone_state(booking.status), await _closed_for(uow, booking))
             profile, _ = await _holder(uow, link, booking)
             case = await uow.cases.get(booking.case_id)
             if case is None:
@@ -303,7 +351,7 @@ class BookingChangeLink:
             if booking is None:
                 raise LinkGone("expired")
             if booking.status is not BookingStatus.CONFIRMED:
-                raise LinkConflict(gone_state(booking.status))
+                raise LinkConflict(gone_state(booking.status), await _closed_for(uow, booking))
             profile, practitioner_id = await _holder(uow, link, booking)
         actor = _actor(practitioner_id, profile.id)
         try:
@@ -330,10 +378,18 @@ class BookingChangeLink:
         except InvalidTransition:
             raise LinkConflict(gone_state(booking.status)) from None
         await _burn(self._uow_factory, self._tokens, link, key)
-        return {"bookingStatus": status.value}
+        body: dict[str, object] = {"bookingStatus": status.value}
+        async with self._uow_factory() as uow:
+            done_booking = await uow.bookings.get(booking.id)
+        if done_booking is not None and done_booking.responded_at is not None:
+            body["respondedAt"] = iso_utc(done_booking.responded_at)
+        return body
 
     async def renew(self, link: LinkRequest, link_base_url: str) -> bool:
         return False
+
+    async def closed(self, link: LinkRequest, state: str) -> ClosedDetail | None:
+        return await _closed_detail_of(self._uow_factory, link)
 
 
 def booking_purposes(

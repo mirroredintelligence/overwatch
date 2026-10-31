@@ -196,7 +196,9 @@ async def test_a_report_by_tenant_a_changes_nothing_of_tenant_b(
     uow_factory_b: UnitOfWorkFactory,
     test_container: Container,
 ) -> None:
-    response = await post(api_client, report_body(2, at="2026-10-23T10:00:00Z"), west_reporter())
+    # Later than tenant A's prior figure (13:03) and not after the clock: an explicit time that is
+    # not later than the latest figure is refused (KI-7, DEC-1100 Q8).
+    response = await post(api_client, report_body(2, at="2026-10-23T13:10:00Z"), west_reporter())
 
     assert response.status_code == 201
     async with uow_factory_b() as uow:

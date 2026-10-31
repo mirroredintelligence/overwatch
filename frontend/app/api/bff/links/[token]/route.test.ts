@@ -3,6 +3,9 @@ import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LINK_CSRF_COOKIE } from '@/lib/links/csrf';
 import { BACKEND_ROOT, csrfFor, LINK, RECORDED_ANSWER, TENANT_HOST } from '@/test/fixtures/links';
+import { renewCsrfFor } from '@/lib/links/csrf';
+import { unsealThanks } from '@/lib/links/thanks';
+import { TEST_SESSION_SECRET } from '@/test/cookies';
 import { cookieWrites, cookiesMock, lastWrite, requestWithCookies, resetCookieWrites } from '@/test/cookies';
 import { resetLinkRequests, seenBackendRequests } from '@/test/msw/handlers/links';
 import { server } from '@/test/msw/server';
@@ -33,6 +36,7 @@ function post(token: string, body: unknown, cookie: string | null, header: strin
 
 beforeEach(() => {
   vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
+  vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
   resetLinkRequests();
   resetCookieWrites();
   cookiesMock.mockClear();
@@ -57,11 +61,49 @@ describe('GET /api/bff/links/[token]', () => {
     expect(last?.host).toBe(TENANT_HOST);
   });
 
-  it('answers an expired or used link with 410 and its state word only, and sets no cookie', async () => {
+  it('answers an expired or used link with 410, its state word and the CSRF token of its renewal, and sets no cookie', async () => {
+    const response = await GET(requestWithCookies(url(LINK.expired), {}), ctx(LINK.expired));
+    expect(response.status).toBe(410);
+    expect(await response.json()).toEqual({ state: 'expired', csrfToken: renewCsrfFor(LINK.expired) });
+    expect(cookieWrites).toHaveLength(0);
+  });
+
+  it('gives an unknown token the same answer as an expired link, so the CSRF token says nothing about which links exist', async () => {
+    const unknown = await GET(requestWithCookies(url('x'), {}), ctx('NoSuchLinkTokenAbcdefghij'));
+    expect(unknown.status).toBe(410);
+    expect(await unknown.json()).toEqual({ state: 'expired', csrfToken: renewCsrfFor('NoSuchLinkTokenAbcdefghij') });
+  });
+
+  it('still answers 410 with the state word alone when there is no secret to make the renewal token', async () => {
+    vi.stubEnv('SESSION_SECRET', '');
     const response = await GET(requestWithCookies(url(LINK.expired), {}), ctx(LINK.expired));
     expect(response.status).toBe(410);
     expect(await response.json()).toEqual({ state: 'expired' });
-    expect(cookieWrites).toHaveLength(0);
+  });
+
+  it('passes on what a closed booking link says: its kind, reference, times and the coordination number', async () => {
+    const response = await GET(requestWithCookies(url(LINK.bookingCancelled), {}), ctx(LINK.bookingCancelled));
+    expect(response.status).toBe(410);
+    expect(await response.json()).toEqual({
+      state: 'cancelled',
+      kind: 'booking',
+      reference: '4821',
+      closedAt: '2026-10-23T13:40:00Z',
+      confirmedAt: '2026-10-23T13:19:00Z',
+      cancelledAt: '2026-10-23T13:40:00Z',
+      coordinationPhone: '0300 123 4567',
+      csrfToken: renewCsrfFor(LINK.bookingCancelled),
+    });
+  });
+
+  it('drops what the back end sent that a closed page does not read', async () => {
+    server.use(
+      http.get(`${BACKEND_ROOT}/links/:token`, () =>
+        HttpResponse.json({ state: 'expired', kind: 'booking', reference: '4821', postcode: 'DT4 8XX', caseId: 'case-1001' }, { status: 410 }),
+      ),
+    );
+    const response = await GET(requestWithCookies(url(LINK.booking), {}), ctx(LINK.booking));
+    expect(JSON.stringify(await response.json())).not.toMatch(/DT4|case-1001/);
   });
 
   it('answers a token that cannot be a link as gone, without calling the back end', async () => {
@@ -99,10 +141,78 @@ describe('POST /api/bff/links/[token]', () => {
     const token = csrfFor(LINK.recorded);
     const response = await POST(post(LINK.recorded, { action: 'confirm' }, token, token), ctx(LINK.recorded));
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual(RECORDED_ANSWER);
+    expect(await response.json()).toEqual({ ...RECORDED_ANSWER, thanks: expect.any(String) });
     const sent = seenBackendRequests.find((r) => r.method === 'POST');
     expect(sent?.body).toEqual({ action: 'confirm' });
     expect(sent?.host).toBe(TENANT_HOST);
+  });
+
+  it('carries the sealed thank-you detail of a recorded figure, and nothing sealed for any other answer', async () => {
+    const token = csrfFor(LINK.recorded);
+    const recorded = (await (await POST(post(LINK.recorded, { action: 'confirm' }, token, token), ctx(LINK.recorded))).json()) as {
+      thanks?: string;
+    };
+    expect(typeof recorded.thanks).toBe('string');
+    expect(await unsealThanks(recorded.thanks ?? '')).toEqual(RECORDED_ANSWER);
+
+    const booked = (await (await POST(post(LINK.booking, { action: 'confirm' }, csrfFor(LINK.booking), csrfFor(LINK.booking)), ctx(LINK.booking))).json()) as Record<string, unknown>;
+    expect(booked.thanks).toBeUndefined();
+    expect(booked.confirmedAt).toBe('2026-10-23T13:19:00Z');
+  });
+
+  it('gives an answer to a link that has closed the CSRF token of its renewal, so the page can offer a new link', async () => {
+    const token = csrfFor(LINK.expired);
+    const response = await POST(post(LINK.expired, { action: 'confirm' }, token, token), ctx(LINK.expired));
+    expect(response.status).toBe(410);
+    expect(await response.json()).toEqual({ state: 'expired', csrfToken: renewCsrfFor(LINK.expired) });
+  });
+
+  it('answers a recorded figure without the sealed detail when there is no secret to seal it with', async () => {
+    vi.stubEnv('SESSION_SECRET', '');
+    const token = csrfFor(LINK.recorded);
+    const response = await POST(post(LINK.recorded, { action: 'confirm' }, token, token), ctx(LINK.recorded));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(RECORDED_ANSWER);
+  });
+
+  // KI-178: the answer's value is checked here, before the back end is asked.
+  it.each([
+    ['an unknown action', { action: 'bogus' }],
+    ['no action', {}],
+    ['an action that is not text', { action: 3 }],
+    ['a number with no value', { action: 'number' }],
+    ['a value that is text', { action: 'number', value: '3' }],
+    ['a negative value', { action: 'number', value: -1 }],
+    ['a value over 999', { action: 'number', value: 1000 }],
+    ['a value that is not whole', { action: 'number', value: 1.5 }],
+    ['a value that is not finite', { action: 'number', value: 1e999 }],
+    ['a value on a confirm', { action: 'confirm', value: 3 }],
+    ['a confirm-out-of-range that is not true or false', { action: 'number', value: 4, confirmOutOfRange: 'yes' }],
+    ['a reason that is too long', { action: 'decline', reason: 'x'.repeat(100) }],
+    ['a reason that is not a code', { action: 'decline', reason: 'Outside <b>our</b> criteria' }],
+    ['a reason that is not text', { action: 'decline', reason: 4 }],
+    ['a reason on a confirm', { action: 'confirm', reason: 'full' }],
+  ])('refuses %s with 400, before calling the back end', async (_name, body) => {
+    const token = csrfFor(LINK.recorded);
+    const response = await POST(post(LINK.recorded, body, token, token), ctx(LINK.recorded));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ state: 'invalid' });
+    expect(seenBackendRequests.filter((r) => r.method === 'POST')).toHaveLength(0);
+  });
+
+  it.each([
+    [{ action: 'confirm' }],
+    [{ action: 'number', value: 0 }],
+    [{ action: 'number', value: 999, confirmOutOfRange: true }],
+    [{ action: 'closed' }],
+    [{ action: 'decline' }],
+    [{ action: 'decline', reason: 'outside-criteria' }],
+    [{ action: 'withdraw', reason: 'now-full' }],
+    [{ action: 'not-reached', reason: 'no-answer' }],
+  ])('lets %j through to the back end', async (body) => {
+    const token = csrfFor(LINK.recorded);
+    await POST(post(LINK.recorded, body, token, token), ctx(LINK.recorded));
+    expect(seenBackendRequests.filter((r) => r.method === 'POST')).toHaveLength(1);
   });
 
   it('forwards only the answer fields, so a tenant named in the body never reaches the back end', async () => {

@@ -95,7 +95,7 @@ def test_the_fit_names_the_postcode_and_the_needs_the_service_takes() -> None:
 
     assert fits_for(criteria, (NeedCategory.FALL_NO_INJURY, NeedCategory.FRAILTY)) == (
         "Covers this postcode",
-        "Takes fall, frailty",
+        "Takes fall, no injury and frailty",
     )
 
 

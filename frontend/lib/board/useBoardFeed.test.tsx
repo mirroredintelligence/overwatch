@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FakeStream } from '@/test/fakeStream';
 import { BOARD_A, BOARD_B, boardBuiltAt, entry, GENERATED_AT } from '@/test/fixtures/board';
 import { BoardFetchError, type FetchedBoard } from './client';
-import { STALE_AFTER_MS } from './liveness';
+import { HEARTBEAT_SILENCE_MS, STALE_AFTER_MS } from './liveness';
 import type { Board } from './types';
 import { useBoardFeed, type BoardFeedOptions } from './useBoardFeed';
 
@@ -70,6 +70,16 @@ async function emit(stream: FakeStream, type = 'board') {
     stream.emit(type);
   });
   await settle();
+}
+
+/** Time passes on a healthy stream: the back end's heartbeat arrives every 15 s (KI-54). */
+async function advanceWithBeats(stream: () => FakeStream, ms: number) {
+  for (let left = ms; left > 0; left -= 15_000) {
+    await advance(Math.min(15_000, left));
+    await act(async () => {
+      stream().emit('heartbeat');
+    });
+  }
 }
 
 async function breakStream(stream: FakeStream, gaveUp = false) {
@@ -448,9 +458,9 @@ describe('useBoardFeed: a board that stops refreshing', () => {
     await openStream(stream());
     fetchBoard.mockRejectedValue(unreachable());
 
-    await advance(STALE_AFTER_MS - 1_000);
+    await advanceWithBeats(stream, STALE_AFTER_MS - 1_000);
     expect(result.current.assessment.mode).toBe('live');
-    await advance(2_000);
+    await advanceWithBeats(stream, 2_000);
 
     expect(result.current.assessment).toMatchObject({ mode: 'last-known', reason: 'old', since: iso(T0 + 60_000) });
   });
@@ -511,11 +521,11 @@ describe('useBoardFeed: a board that stops refreshing', () => {
     }));
     await openStream(stream());
 
-    await advance(61_000);
+    await advanceWithBeats(stream, 61_000);
     expect(result.current.assessment).toEqual({ mode: 'live', streamPaused: false });
 
     fetchBoard.mockRejectedValue(unreachable());
-    await advance(STALE_AFTER_MS + 61_000);
+    await advanceWithBeats(stream, STALE_AFTER_MS + 61_000);
     expect(result.current.assessment).toMatchObject({ mode: 'last-known' });
   });
 });
@@ -532,7 +542,7 @@ describe('useBoardFeed: the back end clock from each answer', () => {
     await openStream(stream());
 
     expect(result.current.assessment).toEqual({ mode: 'live', streamPaused: false });
-    await advance(61_000);
+    await advanceWithBeats(stream, 61_000);
     expect(result.current.assessment).toEqual({ mode: 'live', streamPaused: false });
   });
 });
@@ -689,5 +699,118 @@ describe('useBoardFeed: clean-up on unmount', () => {
     await advance(60_000);
 
     expect(streams).toHaveLength(1);
+  });
+});
+
+describe('useBoardFeed: the heartbeat and the whole-board event (KI-54, KI-55)', () => {
+  it('listens for heartbeat and board-whole as well as the board events', async () => {
+    const { stream } = mount();
+    await openStream(stream());
+
+    expect(stream().listenerNames()).toEqual(expect.arrayContaining(['board', 'board.updated', 'board-whole', 'heartbeat']));
+  });
+
+  it('a whole-board event triggers exactly one refetch', async () => {
+    const { stream, fetchBoard } = mount();
+    await openStream(stream());
+    fetchBoard.mockClear();
+
+    await emit(stream(), 'board-whole');
+
+    expect(fetchBoard).toHaveBeenCalledTimes(1);
+  });
+
+  it('a heartbeat refetches nothing', async () => {
+    const { stream, fetchBoard } = mount();
+    await openStream(stream());
+    fetchBoard.mockClear();
+
+    await emit(stream(), 'heartbeat');
+
+    expect(fetchBoard).not.toHaveBeenCalled();
+  });
+
+  it('the silence limit is three beats of the back end (15 s each)', () => {
+    expect(HEARTBEAT_SILENCE_MS).toBe(45_000);
+  });
+
+  it('a stream that says it is open but sends nothing for the silence limit is taken for dead, closed and opened again', async () => {
+    const { streams, stream } = mount();
+    await openStream(stream());
+
+    await advance(HEARTBEAT_SILENCE_MS - 1_000);
+    expect(streams).toHaveLength(1);
+    expect(stream().closed).toBe(false);
+
+    await advance(2_000);
+    expect(streams[0].closed).toBe(true);
+
+    await advance(5_000);
+    expect(streams).toHaveLength(2);
+  });
+
+  it('the wall shows the stream as paused once the silence has lasted past the stream gap', async () => {
+    const { result, stream } = mount();
+    await openStream(stream());
+
+    await advance(HEARTBEAT_SILENCE_MS + 11_000);
+
+    expect(result.current.assessment).toMatchObject({ mode: 'live', streamPaused: true });
+  });
+
+  it('beats keep the stream alive for as long as they arrive', async () => {
+    const { result, streams, stream } = mount();
+    await openStream(stream());
+
+    for (let beat = 0; beat < 8; beat += 1) {
+      await advance(15_000);
+      await emit(stream(), 'heartbeat');
+    }
+
+    expect(streams).toHaveLength(1);
+    expect(stream().closed).toBe(false);
+    expect(result.current.assessment).toEqual({ mode: 'live', streamPaused: false });
+  });
+
+  it('a board event counts as a sign of life as well as a heartbeat', async () => {
+    const { streams, stream } = mount();
+    await openStream(stream());
+
+    await advance(40_000);
+    await emit(stream(), 'board');
+    await advance(40_000);
+
+    expect(streams).toHaveLength(1);
+  });
+
+  it('the new stream, once open, starts its own silence clock and refetches the whole board', async () => {
+    const { streams, stream, fetchBoard } = mount();
+    await openStream(stream());
+    await advance(HEARTBEAT_SILENCE_MS + 6_000);
+    expect(streams).toHaveLength(2);
+    fetchBoard.mockClear();
+
+    await openStream(stream());
+    expect(fetchBoard).toHaveBeenCalledTimes(1);
+    await advance(HEARTBEAT_SILENCE_MS - 1_000);
+
+    expect(streams).toHaveLength(2);
+  });
+
+  it('a screen with no stream at all has no silence to measure and opens nothing', async () => {
+    const { streams } = mount({ createEventSource: () => null });
+
+    await advance(HEARTBEAT_SILENCE_MS * 3);
+
+    expect(streams).toHaveLength(0);
+  });
+
+  it('a stream that never opened is the browser\'s to retry, not a silence of ours', async () => {
+    const { streams } = mount();
+
+    await advance(HEARTBEAT_SILENCE_MS * 2);
+
+    expect(streams).toHaveLength(1);
+    expect(streams[0].closed).toBe(false);
   });
 });

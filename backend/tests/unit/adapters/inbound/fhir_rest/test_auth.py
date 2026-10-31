@@ -182,6 +182,38 @@ def test_an_advisor_sees_the_booking_task_unchanged_with_no_label() -> None:
     assert projected.meta is None or not projected.meta.security
 
 
+def test_a_reporter_does_not_see_the_message_id_or_the_acknowledgement_of_a_booking() -> None:
+    """The request message id and who acknowledged a withdrawal are the SPOA's own records."""
+
+    def entry(code: str, value: str) -> dict[str, object]:
+        return {
+            "type": {
+                "coding": [
+                    {"system": "https://diucs.example/CodeSystem/booking-output-type", "code": code}
+                ]
+            },
+            "valueString": value,
+        }
+
+    task = Task.model_validate(
+        {
+            "status": "requested",
+            "intent": "order",
+            "output": [
+                entry("reason", "staffing"),
+                entry("request-message", "comm-77"),
+                entry("acknowledged-by", "prac-advisor-2"),
+                entry("request-delivery", "delivered"),
+            ],
+        }
+    )
+
+    projected = PROJECTIONS.project(task, actor(Role.REPORTER))
+
+    kept = [o.type.coding[0].code for o in projected.output or []]
+    assert kept == ["reason"]
+
+
 def test_a_reporter_task_with_nothing_to_remove_gets_no_label() -> None:
     task = Task.model_validate({"status": "requested", "intent": "order"})
 

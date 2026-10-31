@@ -29,6 +29,7 @@ from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.identity import PhoneHasher, normalise_uk_mobile
 from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from diucs.application.prompt_judgement import number_after_prompt
 from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound
 from diucs.application.tenant_settings import TenantZones, as_zones, read_settings
 from diucs.application.use_cases.confirm_capacity import (
@@ -41,7 +42,6 @@ from diucs.application.use_cases.link_access import (
     SendTheNumber,
     iso_utc,
     judge,
-    number_after_prompt,
 )
 from diucs.application.use_cases.report_capacity import ReportCapacity, ReportCapacityCommand
 from diucs.domain.codes import Channel, ReportSource, ReportType, Role

@@ -1,9 +1,10 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runAxe } from '@/test/a11y';
-import { LINK } from '@/test/fixtures/links';
-import { resetLinkRequests, seenBackendRequests, seenBffPosts } from '@/test/msw/handlers/links';
+import { csrfFor, LINK, renewCsrfFor } from '@/test/fixtures/links';
+import { resetLinkRequests, seenBackendRequests, seenBffPosts, seenBffReads, seenBffRenewCsrf, seenBffRenews } from '@/test/msw/handlers/links';
 import { server } from '@/test/msw/server';
 import { LinkLoader } from './LinkLoader';
 
@@ -66,9 +67,51 @@ describe('LinkLoader', () => {
     expect(await screen.findByText('We could not load this link. Try again in a few minutes.')).toBeInTheDocument();
   });
 
-  it('sends a booking link on to /l/[token]/booking', async () => {
+  it('shows a booking request in place, and reads the link once (KI-651)', async () => {
     render(<LinkLoader token={LINK.booking} />);
-    await waitFor(() => expect(replace).toHaveBeenCalledWith(`/l/${LINK.booking}/booking`));
+    expect(await screen.findByRole('button', { name: 'Confirm booking' })).toBeInTheDocument();
+    expect(screen.getByText('Need fall, no injury and frailty')).toBeInTheDocument();
+    expect(replace).not.toHaveBeenCalled();
+    expect(seenBffReads).toEqual([LINK.booking]);
+  });
+
+  it('answers a booking request it showed with the CSRF token of that one read', async () => {
+    render(<LinkLoader token={LINK.booking} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Confirm booking' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Booked' })).toBeInTheDocument();
+    expect(seenBffPosts).toEqual([{ token: LINK.booking, body: { action: 'confirm' }, csrf: csrfFor(LINK.booking) }]);
+    expect(seenBffReads).toEqual([LINK.booking]);
+  });
+
+  it('shows a confirmed booking’s change page in place, and reads the link once', async () => {
+    render(<LinkLoader token={LINK.bookingChange} />);
+    expect(await screen.findByRole('button', { name: 'We cannot take this patient now' })).toBeInTheDocument();
+    expect(replace).not.toHaveBeenCalled();
+    expect(seenBffReads).toEqual([LINK.bookingChange]);
+  });
+
+  it('shows a closed booking link as a closed booking, with its reference, the time and the number (H-486)', async () => {
+    const { container } = render(<LinkLoader token={LINK.bookingExpired} />);
+    expect(await screen.findByRole('heading', { level: 1, name: 'This request has closed' })).toBeInTheDocument();
+    expect(screen.getByText('Reference 4821. Closed at 14:26.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '0300 123 4567' })).toHaveAttribute('href', 'tel:0300 123 4567');
+    expect(screen.queryByRole('button', { name: 'Send me a new link' })).toBeNull();
+    expect(await runAxe(container)).toHaveNoViolations();
+  });
+
+  it('shows a cancelled booking as cancelled, with when and the number', async () => {
+    render(<LinkLoader token={LINK.bookingCancelled} />);
+    expect(await screen.findByRole('heading', { level: 1, name: 'Cancelled by the coordination team' })).toBeInTheDocument();
+    expect(screen.getByText('Booking 4821 was cancelled at 14:40. No action needed.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '0300 123 4567' })).toBeInTheDocument();
+  });
+
+  it('gives a closed capacity link its renewal CSRF token, and asks for a new link with it', async () => {
+    render(<LinkLoader token={LINK.expired} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Send me a new link' }));
+    expect(await screen.findByText('We have sent a new link.')).toBeInTheDocument();
+    expect(seenBffRenews).toEqual([LINK.expired]);
+    expect(seenBffRenewCsrf).toEqual([renewCsrfFor(LINK.expired)]);
   });
 
   it('says the link could not be loaded for a purpose this page does not serve', async () => {

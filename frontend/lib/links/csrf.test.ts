@@ -5,7 +5,7 @@ import { SESSION_COOKIE } from '@/lib/auth/session';
 import { sessionFor } from '@/test/requests';
 import { TENANTS } from '@/test/tenants';
 import { TEST_SESSION_SECRET } from '@/test/cookies';
-import { checkLinkCsrf, issueLinkCsrf, LINK_CSRF_COOKIE, linkCsrfPath } from './csrf';
+import { checkLinkCsrf, checkRenewCsrf, issueLinkCsrf, LINK_CSRF_COOKIE, linkCsrfPath, renewCsrfFor } from './csrf';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
@@ -113,4 +113,43 @@ describe('the link CSRF is separate from the staff CSRF (TEN-046)', () => {
   function seedStaff() {
     vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
   }
+});
+
+
+describe('the CSRF token of a renewal (KI-178)', () => {
+  beforeEach(() => vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET));
+
+  const renewRequest = (token: string, header: string | null) =>
+    new Request(`https://tenant-a.example.test/api/bff/links/${token}/renew`, {
+      method: 'POST',
+      headers: header === null ? {} : { 'X-CSRF-Token': header },
+    });
+
+  it('is the same for the same link, different for another link, and is not the link', () => {
+    expect(renewCsrfFor(TOKEN)).toBe(renewCsrfFor(TOKEN));
+    expect(renewCsrfFor(TOKEN)).not.toBe(renewCsrfFor('OtherLinkTokenAbcdefghi'));
+    expect(renewCsrfFor(TOKEN)).toMatch(/^[0-9a-f]{64}$/);
+    expect(renewCsrfFor(TOKEN)).not.toContain(TOKEN);
+  });
+
+  it('is not the token that answers a capacity link, so one cannot stand in for the other', () => {
+    expect(renewCsrfFor(TOKEN)).not.toBe(VALUE);
+  });
+
+  it('is accepted when the header carries it for this link', () => {
+    expect(checkRenewCsrf(renewRequest(TOKEN, renewCsrfFor(TOKEN)), TOKEN)).toBe(true);
+  });
+
+  it.each([
+    ['no header', () => null],
+    ['an empty header', () => ''],
+    ['another link’s token', () => renewCsrfFor('OtherLinkTokenAbcdefghi')],
+    ['a guess', () => 'a'.repeat(64)],
+  ])('is refused for %s', (_name, header) => {
+    expect(checkRenewCsrf(renewRequest(TOKEN, header()), TOKEN)).toBe(false);
+  });
+
+  it('is refused for a request to another link’s path', () => {
+    expect(checkRenewCsrf(renewRequest('OtherLinkTokenAbcdefghi', renewCsrfFor(TOKEN)), TOKEN)).toBe(false);
+  });
 });

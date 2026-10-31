@@ -215,11 +215,12 @@ async def test_one_tenant_failing_does_not_stop_or_slow_another(
 
     # Tenant A failed on a-1 and went on to a-2; tenant B published both of its rows.
     assert first == RelayResult(published=3, failed=1, skipped_no_lock=False)
-    # The next round, with no time passed, leaves tenant A to wait and still serves tenant B.
-    assert second == RelayResult(published=1, failed=0, skipped_no_lock=False)
-    assert len([call for call in bus.calls if call[1] in ("a-1", "a-2")]) == tried_a
+    # The next round, with no time passed: tenant A published a-2, so it does not wait for the one
+    # row that fails (KI-103): it tries a-1 again, counts the attempt, and tenant B is still served.
+    assert second == RelayResult(published=1, failed=1, skipped_no_lock=False)
+    assert len([call for call in bus.calls if call[1] in ("a-1", "a-2")]) == tried_a + 1
     assert (await outbox_node(neo4j_driver, "b-3", scope=other_tenant_id))["status"] == "published"
-    assert (await outbox_node(neo4j_driver, "a-1"))["attempts"] == 1
+    assert (await outbox_node(neo4j_driver, "a-1"))["attempts"] == 2
 
 
 async def test_a_directory_entry_that_is_not_a_tenant_is_skipped_and_the_rest_go_on(

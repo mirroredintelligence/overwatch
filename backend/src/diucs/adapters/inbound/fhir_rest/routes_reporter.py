@@ -46,10 +46,10 @@ from diucs.adapters.inbound.fhir_rest.routes_identity import (
     _json,
     _signed_in,
 )
-from diucs.adapters.inbound.fhir_rest.routes_services import UnitOfWorkIdempotency
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.identity import HmacPhoneHasher
 from diucs.application.tenant_settings import DirectoryZones, TenantZones
+from diucs.application.uow_idempotency import UnitOfWorkIdempotency
 from diucs.application.use_cases.confirm_capacity import ConfirmCapacity
 from diucs.application.use_cases.link_access import iso_utc
 from diucs.application.use_cases.pin import RATE_WINDOW, limiter_key
@@ -191,8 +191,20 @@ def _reporting(container: _Container) -> ReporterReporter:
     return ReporterReporter(
         container.uow_factory,
         container.clock,
-        ReportCapacity(container.uow_factory, container.clock, container.ids, idempotency),
-        ConfirmCapacity(container.uow_factory, container.clock, container.ids, idempotency),
+        ReportCapacity(
+            container.uow_factory,
+            container.clock,
+            container.ids,
+            idempotency,
+            zones=_zones(container),
+        ),
+        ConfirmCapacity(
+            container.uow_factory,
+            container.clock,
+            container.ids,
+            idempotency,
+            zones=_zones(container),
+        ),
         _zones(container),
     )
 

@@ -6,13 +6,18 @@ import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
 import { type BookingAnswer, type BookingOutcome, readLinkView, sendBookingAnswer } from '@/lib/links/browser';
-import { type BookingView, londonHm } from '@/lib/links/model';
+import { type BookingView, type ClosedLink, londonHm } from '@/lib/links/model';
+import { atTime, closedFacts, PhoneTo } from './closed';
 import { LinkUnavailable } from './LinkUnavailable';
 import styles from './Reporter.module.css';
 
 // The service's page for a booking request (L02, W19). It opens from the request text or email.
 // Opening it changes nothing: only a press posts. A confirm or a decline is single use, so once it
-// is answered (or closed by the coordination team) the page shows what the booking now is.
+// is answered (or closed by the coordination team) the page shows what the booking now is, with the
+// time and, for a closed request, the reference and the coordination number.
+//
+// The link is read once (KI-651): a page that has already read it (LinkLoader) passes what it read, as
+// `initial` (an open request) or `initialClosed` (a closed one), and this page reads nothing.
 
 type Phase = 'loading' | 'open' | 'busy' | 'booked' | 'declined' | 'closed' | 'unavailable';
 
@@ -37,10 +42,16 @@ function capitalise(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-export function BookingDecision({ token }: { token: string }) {
+type Props = { token: string; initial?: BookingView; initialClosed?: ClosedLink };
+
+export function BookingDecision({ token, initial, initialClosed }: Props) {
   const router = useRouter();
-  const [phase, setPhase] = useState<Phase>('loading');
-  const [view, setView] = useState<BookingView | null>(null);
+  const given = initial !== undefined || initialClosed !== undefined;
+  const [phase, setPhase] = useState<Phase>(initial !== undefined ? 'open' : initialClosed !== undefined ? 'closed' : 'loading');
+  const [view, setView] = useState<BookingView | null>(initial ?? null);
+  // What the booking says of its closing, and the time of the answer this page took (or was refused with).
+  const [closed, setClosed] = useState<ClosedLink | null>(initialClosed ?? null);
+  const [when, setWhen] = useState<string | null>(null);
   const [reason, setReason] = useState<string | null>(null);
   const [changeToken, setChangeToken] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -50,6 +61,7 @@ export function BookingDecision({ token }: { token: string }) {
   const [redirect, setRedirect] = useState<string | null>(null);
 
   useEffect(() => {
+    if (given) return undefined;
     let current = true;
     void readLinkView(token).then((result) => {
       if (!current) return;
@@ -66,12 +78,13 @@ export function BookingDecision({ token }: { token: string }) {
         setRedirect(`/l/${token}`);
         return;
       }
+      if (result.kind === 'gone') setClosed(result.closed);
       setPhase(result.kind === 'gone' ? 'closed' : 'unavailable');
     });
     return () => {
       current = false;
     };
-  }, [token]);
+  }, [token, given]);
 
   useEffect(() => {
     if (redirect !== null) router.replace(redirect);
@@ -84,16 +97,22 @@ export function BookingDecision({ token }: { token: string }) {
     const outcome: BookingOutcome = await sendBookingAnswer(token, view.csrfToken, next);
     switch (outcome.kind) {
       case 'answered':
-        if (outcome.bookingStatus === 'declined') setPhase('declined');
-        else {
+        if (outcome.bookingStatus === 'declined') {
+          setWhen(outcome.respondedAt ?? null);
+          setPhase('declined');
+        } else {
+          setWhen(outcome.confirmedAt ?? null);
           setChangeToken(outcome.changeToken ?? null);
           setPhase('booked');
         }
         return;
       case 'conflict':
+        setClosed(outcome.closed);
+        setWhen(outcome.state === 'confirmed' ? outcome.closed.confirmedAt : outcome.closed.closedAt);
         setPhase(pageFor(outcome.state));
         return;
       case 'gone':
+        setClosed(outcome.closed);
         setPhase('closed');
         return;
       case 'rate-limited':
@@ -109,7 +128,7 @@ export function BookingDecision({ token }: { token: string }) {
   if (phase === 'unavailable') return <LinkUnavailable />;
 
   if (phase === 'loading' || view === null) {
-    if (phase === 'closed') return <Closed phone={null} />;
+    if (phase === 'closed') return <Closed closed={closed} phone={closed?.coordinationPhone ?? null} />;
     return (
       <main className={styles.page}>
         <p className={styles.eyebrow} role="status">
@@ -119,9 +138,9 @@ export function BookingDecision({ token }: { token: string }) {
     );
   }
 
-  const phone = view.coordinationPhone;
+  const phone = closed?.coordinationPhone ?? view.coordinationPhone;
 
-  if (phase === 'closed') return <Closed phone={phone} />;
+  if (phase === 'closed') return <Closed closed={closed} phone={phone} />;
 
   if (phase === 'booked') {
     return (
@@ -129,6 +148,7 @@ export function BookingDecision({ token }: { token: string }) {
         <p className={styles.eyebrow}>DIUCS booking request</p>
         <h1 className={styles.title}>Booked</h1>
         <p className={styles.question}>{`Reference ${view.reference}, ${view.serviceName}. The advisor has been told.`}</p>
+        {atTime('Confirmed', when) !== null ? <p className={styles.or}>{atTime('Confirmed', when)}</p> : null}
         <p className={styles.or}>Referral details follow in SystmOne.</p>
         <p className={styles.footer}>
           Something changed?{' '}
@@ -150,6 +170,7 @@ export function BookingDecision({ token }: { token: string }) {
         <p className={styles.eyebrow}>DIUCS booking request</p>
         <h1 className={styles.title}>Declined</h1>
         <p className={styles.question}>{`Reference ${view.reference} declined. The advisor has been told.`}</p>
+        {atTime('Declined', when) !== null ? <p className={styles.or}>{atTime('Declined', when)}</p> : null}
         <p className={styles.footer}>You can close this page.</p>
       </main>
     );
@@ -208,17 +229,19 @@ export function BookingDecision({ token }: { token: string }) {
   );
 }
 
-function Closed({ phone }: { phone: string | null }) {
+function Closed({ closed, phone }: { closed: ClosedLink | null; phone: string | null }) {
+  const facts = closedFacts(closed);
   return (
     <main className={styles.page}>
       <p className={styles.eyebrow}>DIUCS booking request</p>
       <h1 className={styles.title}>This request has closed</h1>
+      {facts !== null ? <p className={styles.or}>{facts}</p> : null}
       <p className={styles.question}>
-        {phone === null ? (
-          'If you can still take this patient, phone the coordination team.'
-        ) : (
-          <>If you can still take this patient, phone the coordination team on <a href={`tel:${phone}`}>{phone}</a>.</>
-        )}
+        <PhoneTo
+          phone={phone}
+          lead="If you can still take this patient, phone the coordination team on"
+          none="If you can still take this patient, phone the coordination team."
+        />
       </p>
     </main>
   );

@@ -17,12 +17,17 @@ const RESULT: Partial<Record<Phase, { tone: 'info' | 'warning'; text: string }>>
   failed: { tone: 'warning', text: 'We could not send a new link. Try again.' },
 };
 
-export function LinkExpired({ token }: { token: string }) {
+/**
+ * `csrfToken` is the renewal token the closed link's answer gave the page (KI-178). With none, a new link is
+ * not offered and the person is told to reply to the text.
+ */
+export function LinkExpired({ token, csrfToken }: { token: string; csrfToken: string | null }) {
   const [phase, setPhase] = useState<Phase>('idle');
 
   async function renew() {
+    if (csrfToken === null) return;
     setPhase('busy');
-    const result = await requestRenew(token);
+    const result = await requestRenew(token, csrfToken);
     setPhase(result === 'accepted' ? 'sent' : result === 'rate-limited' ? 'rate-limited' : 'failed');
   }
 
@@ -32,7 +37,7 @@ export function LinkExpired({ token }: { token: string }) {
       <p className={styles.eyebrow}>DIUCS capacity update</p>
       <h1 className={styles.title}>This link has expired</h1>
       <p className={styles.question}>This link can no longer be used.</p>
-      {phase !== 'sent' ? (
+      {phase !== 'sent' && csrfToken !== null ? (
         <Button variant="primary" busy={phase === 'busy'} dataEl="REP-LINK-RENEW-BTN" onClick={renew}>
           Send me a new link
         </Button>

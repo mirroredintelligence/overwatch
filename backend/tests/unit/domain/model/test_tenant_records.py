@@ -90,8 +90,25 @@ def test_an_email_channel_may_hold_the_reference_of_its_smtp_secret() -> None:
 def test_the_provider_must_be_the_one_the_kind_uses() -> None:
     with pytest.raises(ValidationFailed):
         sms(provider=ChannelProvider.SMTP)
+
+
+def test_an_email_channel_may_use_twilio_email_or_the_legacy_smtp_relay() -> None:
+    # DEC-1130: email goes through Twilio's own Email API; a stored SMTP channel stays readable.
+    assert email(provider=ChannelProvider.TWILIO).provider is ChannelProvider.TWILIO
+    assert email(provider=ChannelProvider.SMTP).provider is ChannelProvider.SMTP
+
+
+def test_a_twilio_email_channel_holds_no_secret_of_its_own() -> None:
+    # It sends with the tenant's text subaccount (the same Account SID and token, DEC-131).
     with pytest.raises(ValidationFailed):
-        email(provider=ChannelProvider.TWILIO)
+        email(provider=ChannelProvider.TWILIO, secret_ref="twilio/example-icb/auth-token")
+
+
+def test_the_provider_a_new_channel_takes_is_twilio_for_both_kinds() -> None:
+    from diucs.domain.model.tenant_records import CHANNEL_PROVIDER
+
+    assert CHANNEL_PROVIDER[ChannelKind.SMS] is ChannelProvider.TWILIO
+    assert CHANNEL_PROVIDER[ChannelKind.EMAIL] is ChannelProvider.TWILIO
 
 
 @pytest.mark.parametrize(

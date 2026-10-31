@@ -1,6 +1,6 @@
-import { createHash, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { cookies } from 'next/headers';
-import { baseCookieOptions, readRequestCookie } from '@/lib/auth/session';
+import { baseCookieOptions, readRequestCookie, sessionSecretKey } from '@/lib/auth/session';
 
 // The link page's double-submit CSRF (DEC-167 item 3). The browser's own copy of the link's
 // CSRF token is a cookie that only this link's BFF path receives, and the page sends the same
@@ -37,4 +37,29 @@ export function checkLinkCsrf(request: Request, token: string): boolean {
   if (!header || !cookie) return false;
   // Hashing gives equal-length inputs, so the comparison never branches on length.
   return timingSafeEqual(digest(header), digest(cookie));
+}
+
+/**
+ * The CSRF token of a renewal (KI-178). A closed link has no back-end token to answer with, so the BFF
+ * makes one from the link and its own secret: the page reads it from the closed link's answer (a page of
+ * another origin cannot read it) and sends it back in X-CSRF-Token. Nothing is stored. It is not the
+ * token that answers a capacity link, and it says nothing of whether the link exists: every closed or
+ * unknown link gets one. Throws when there is no secret to make it with.
+ */
+export function renewCsrfFor(token: string): string {
+  return createHmac('sha256', Buffer.from(sessionSecretKey())).update(`link-renew:${token}`).digest('hex');
+}
+
+/** True only when the request is a renewal of this link and its header is this link's renewal token. */
+export function checkRenewCsrf(request: Request, token: string): boolean {
+  if (new URL(request.url).pathname !== `${linkCsrfPath(token)}/renew`) return false;
+  const header = request.headers.get('X-CSRF-Token');
+  if (!header) return false;
+  let expected: string;
+  try {
+    expected = renewCsrfFor(token);
+  } catch {
+    return false; // no secret to check it with: refused, never allowed
+  }
+  return timingSafeEqual(digest(header), digest(expected));
 }

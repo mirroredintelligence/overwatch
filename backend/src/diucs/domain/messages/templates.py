@@ -23,10 +23,11 @@ from dataclasses import dataclass
 from html import escape
 from typing import Final, cast
 
-from diucs.domain.codes import AgeBand, Channel, NeedCategory
+from diucs.domain.codes import AgeBand, Channel
 from diucs.domain.errors import ValidationFailed
 from diucs.domain.messages.catalogue import TENANT_TEXT_FIELD_NAMES, MessageId
 from diucs.domain.messages.privacy_guard import find_patient_data
+from diucs.domain.rules.need_words import is_need_words
 from diucs.domain.rules.tenant_settings import check_tenant_text
 
 FOOTER: Final = (
@@ -44,11 +45,12 @@ BOTH: Final = 2
 
 # Constrained fields (DEC-047 item 9). A reference is a 4-digit booking reference with no leading
 # zero (DEC-041). An age band is an AgeBand value. An urgency is one of the three wordings of the
-# Urgency members (within 2 hrs, today, planned). A need is a NeedCategory code.
+# Urgency members (within 2 hrs, today, planned). A need is the plain words of the need table
+# (DEC-062 item 2, domain/rules/need_words.py), never a code.
 REFERENCE_FORMAT: Final = re.compile(r"[1-9][0-9]{3}")
+LETTER_FORMAT: Final = re.compile(r"[A-Z]")
 AGE_BANDS: Final = frozenset(band.value for band in AgeBand)
 URGENCY_WORDING: Final = frozenset({"within 2 hrs", "today", "planned"})
-NEED_CODES: Final = frozenset(need.value for need in NeedCategory)
 # C12 tells the reporter how to answer: with a number, or, on a grouped prompt, with a letter and a
 # number (U05, DEC-148). Nothing else is accepted, so no free text reaches the sentence.
 REPLY_WITH_FORMAT: Final = re.compile(r"a number|[A-H] and a number")
@@ -125,13 +127,22 @@ _FIELDS: Final[Mapping[MessageId, frozenset[str]]] = {
     MessageId.C12: frozenset({"service", "value", "unit", "as_of", "reply_with", "reply_by"}),
 }
 
+# A field a message may take but does not need. `letter` is the service's letter on a grouped prompt
+# (KI-26): the refusals of one item of a grouped prompt say what to type with it.
+_OPTIONAL_FIELDS: Final[Mapping[MessageId, frozenset[str]]] = {
+    MessageId.C2: frozenset({"letter"}),
+    MessageId.C5: frozenset({"letter"}),
+    MessageId.C6: frozenset({"letter"}),
+    MessageId.C7: frozenset({"letter"}),
+}
+
 _C1_TEXT: Final = (
     "DIUCS: {service}. We have {value} {unit} (as of {as_of}). "
     "Confirm or update: {link} Or reply Y, or a new number. By {reply_by}."
 )
 _C2_TEXT: Final = (
     "DIUCS: {service}. How many {unit} can you take {window}? "
-    "Send a number (0 = closed). By {reply_by}."
+    "Send {send_a_number} (0 = closed). By {reply_by}."
 )
 _C8_TEXT: Final = (
     "DIUCS reminder: {service} has not updated. Confirm or update: {link} By {reply_by}."
@@ -169,6 +180,15 @@ _B7_TEXT: Final = (
 _B8_TEXT: Final = "No booking is waiting for a reply."
 _B9_TEXT: Final = "That booking has expired, so nothing was booked."
 _K2_TEXT: Final = "Due {review_by}. Confirm or update in 2 minutes."
+# [ASSUMED] (WB4, DEC-1100 Q2): the echoes of a booking reply or cancellation on email and push, for
+# a service whose reporter is not on text. They follow the text echoes and carry no link: an echo
+# asks for nothing. Information governance approves the wording in writing before a real send.
+_ECHO_EMAIL_FOOTER: Final = (
+    "This email has no patient information. Replies to this address are not read."
+)
+_B4_TEXT: Final = "Booked: {reference}, {service}, confirmed {confirmed_at}. Thank you."
+_B5_ACK_TEXT: Final = "Noted: {reference} declined."
+_B6_TEXT: Final = "Booking {reference} was cancelled at {cancelled_at}. No action needed."
 # [ASSUMED] (W7B): the test message. It carries no link and asks for nothing, so it can never be
 # answered with a number.
 _T1_TEXT: Final = "DIUCS test: {service}. This is a test message. There is nothing to reply to."
@@ -226,18 +246,18 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
         text=(
             "Too late: the {cutoff} cut-off had passed, so {rejected} was not used. "
             "New question: {service} has {value} {unit} recorded. "
-            "Reply Y if right, or send the new number, by {reply_by}."
+            "Reply {yes} if right, or send {send_new_number}, by {reply_by}."
         ),
     ),
     (MessageId.C6, Channel.TEXT): _Template(
         required=_FIELDS[MessageId.C6],
-        text="Y was used {times} already. Please send the number for {service}.",
+        text="Y was used {times} already. Please send {send_the_number} for {service}.",
     ),
     (MessageId.C7, Channel.TEXT): _Template(
         required=_FIELDS[MessageId.C7],
         text=(
             "{service}: {value} is outside the usual range of {low} to {high}. "
-            "If it is right, send {value} again."
+            "If it is right, send {again} again."
         ),
     ),
     (MessageId.C8, Channel.TEXT): _Template(required=_FIELDS[MessageId.C8], text=_C8_TEXT),
@@ -299,9 +319,17 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
         subject="Booking request {reference}: {service}",
     ),
     # IG-pending (DEC-037 item 3): rule-book example, awaiting IG approval.
-    (MessageId.B4, Channel.TEXT): _Template(
+    (MessageId.B4, Channel.TEXT): _Template(required=_FIELDS[MessageId.B4], text=_B4_TEXT),
+    (MessageId.B4, Channel.EMAIL): _Template(
         required=_FIELDS[MessageId.B4],
-        text="Booked: {reference}, {service}, confirmed {confirmed_at}. Thank you.",
+        text=f"{_B4_TEXT}\n\n{_ECHO_EMAIL_FOOTER}",
+        subject="Booked: {reference}, {service}",
+        html=f"<p>{_B4_TEXT}</p>\n<p>{_ECHO_EMAIL_FOOTER}</p>",
+    ),
+    (MessageId.B4, Channel.PUSH): _Template(
+        required=_FIELDS[MessageId.B4],
+        text="{service}, confirmed {confirmed_at}.",
+        subject="Booked: {reference}",
     ),
     # IG-pending (DEC-037 item 3): rule-book example, awaiting IG approval.
     (MessageId.B5, Channel.TEXT): _Template(
@@ -311,10 +339,25 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
             "Optional reason: reply 1 full, 2 outside criteria, 3 other."
         ),
     ),
+    (MessageId.B5, Channel.EMAIL): _Template(
+        required=_FIELDS[MessageId.B5],
+        text=f"{_B5_ACK_TEXT} The advisor has been told.\n\n{_ECHO_EMAIL_FOOTER}",
+        subject="Declined: {reference}",
+        html=f"<p>{_B5_ACK_TEXT} The advisor has been told.</p>\n<p>{_ECHO_EMAIL_FOOTER}</p>",
+    ),
+    (MessageId.B5, Channel.PUSH): _Template(
+        required=_FIELDS[MessageId.B5], text=_B5_ACK_TEXT, subject="Declined: {reference}"
+    ),
     # Screen text, ui-screens.md line 1276 (DEC-037 item 1). No rule-book sample exists.
-    (MessageId.B6, Channel.TEXT): _Template(
+    (MessageId.B6, Channel.TEXT): _Template(required=_FIELDS[MessageId.B6], text=_B6_TEXT),
+    (MessageId.B6, Channel.EMAIL): _Template(
         required=_FIELDS[MessageId.B6],
-        text="Booking {reference} was cancelled at {cancelled_at}. No action needed.",
+        text=f"{_B6_TEXT}\n\n{_ECHO_EMAIL_FOOTER}",
+        subject="Cancelled: {reference}",
+        html=f"<p>{_B6_TEXT}</p>\n<p>{_ECHO_EMAIL_FOOTER}</p>",
+    ),
+    (MessageId.B6, Channel.PUSH): _Template(
+        required=_FIELDS[MessageId.B6], text=_B6_TEXT, subject="Cancelled: {reference}"
     ),
     (MessageId.B7, Channel.TEXT): _Template(required=_FIELDS[MessageId.B7], text=_B7_TEXT),
     (MessageId.B8, Channel.TEXT): _Template(required=_FIELDS[MessageId.B8], text=_B8_TEXT),
@@ -480,15 +523,6 @@ def _output_has_patient_data(part: str | None) -> bool:
     return part is not None and bool(find_patient_data(part))
 
 
-def _is_need_text(value: object) -> bool:
-    """One need code, or two joined with " and" (U17: a booking names the first two needs). Any
-    other word, or free text, is refused."""
-    if not isinstance(value, str):
-        return False
-    parts = value.split(" and ")
-    return len(parts) in (1, 2) and all(part in NEED_CODES for part in parts)
-
-
 def _check_constrained_fields(fields: Mapping[str, object]) -> None:
     if "reference" in fields and not _is_reference(fields["reference"]):
         raise ValidationFailed("reference", "must be four digits, no leading zero")
@@ -500,8 +534,12 @@ def _check_constrained_fields(fields: Mapping[str, object]) -> None:
         isinstance(fields["reply_with"], str) and REPLY_WITH_FORMAT.fullmatch(fields["reply_with"])
     ):
         raise ValidationFailed("reply_with", "must be 'a number' or a letter and 'a number'")
-    if "need" in fields and not _is_need_text(fields["need"]):
-        raise ValidationFailed("need", "must be a need category code, or two joined with 'and'")
+    if "need" in fields and not is_need_words(fields["need"]):
+        raise ValidationFailed("need", "must be the plain words of the needs, not a code")
+    if "letter" in fields and not (
+        isinstance(fields["letter"], str) and LETTER_FORMAT.fullmatch(fields["letter"])
+    ):
+        raise ValidationFailed("letter", "must be one capital letter, the service's letter")
 
 
 # The confirm limit as words for C6 (TEN-022). Only the three limits the policy allows are words.
@@ -521,12 +559,31 @@ def _check_tenant_fields(fields: Mapping[str, object]) -> None:
             raise ValidationFailed("confirm_limit", "must be 1, 2 or 3")
 
 
+def _lettered(message_id: MessageId, fields: Mapping[str, object]) -> dict[str, object]:
+    """The words of a refusal that depend on whether the prompt was grouped (KI-26). On a grouped
+    prompt a bare figure is not understood, so each says what to type with the service's letter:
+    `A 40`, `Y A`, `A and a number`. With no letter the single-service wording is unchanged."""
+    letter = fields.get("letter")
+    values = {key: value for key, value in fields.items() if key != "letter"}
+    if message_id is MessageId.C2:
+        values["send_a_number"] = "a number" if letter is None else f"{letter} and a number"
+    elif message_id is MessageId.C5:
+        values["yes"] = "Y" if letter is None else f"Y {letter}"
+        values["send_new_number"] = (
+            "the new number" if letter is None else f"{letter} and the new number"
+        )
+    elif message_id is MessageId.C6:
+        values["send_the_number"] = "the number" if letter is None else f"{letter} and the number"
+        values["times"] = CONFIRM_LIMIT_WORDS[cast(int, fields["confirm_limit"])]
+        del values["confirm_limit"]
+    elif message_id is MessageId.C7:
+        values["again"] = fields["value"] if letter is None else f"{letter} {fields['value']}"
+    return values
+
+
 def _values(message_id: MessageId, fields: Mapping[str, object]) -> dict[str, object]:
-    if message_id is MessageId.C6:
-        return {
-            "service": fields["service"],
-            "times": CONFIRM_LIMIT_WORDS[cast(int, fields["confirm_limit"])],
-        }
+    if message_id in (MessageId.C2, MessageId.C5, MessageId.C6, MessageId.C7):
+        return _lettered(message_id, fields)
     if message_id is MessageId.C9:
         return _multi_service_values(fields["items"], fields["reply_by"])
     if message_id is MessageId.C10:
@@ -544,7 +601,7 @@ def render(message_id: MessageId, channel: Channel, **fields: object) -> Rendere
     that cannot be worded.
     """
     message_id = MessageId(message_id)
-    unexpected = sorted(set(fields) - _FIELDS[message_id])
+    unexpected = sorted(set(fields) - _FIELDS[message_id] - _OPTIONAL_FIELDS.get(message_id, set()))
     if unexpected:
         raise ValidationFailed(unexpected[0], "not a field of this message")
     template = _TEMPLATES.get((message_id, channel))

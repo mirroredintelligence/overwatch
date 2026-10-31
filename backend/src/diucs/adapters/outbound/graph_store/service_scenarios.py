@@ -149,6 +149,135 @@ _LATEST_SEED: Final = TenantSeed(
         SeedRel("booking-confirmed", "OWNER", "ward"),
     ),
 )
+# The bookings of a case (WB4). bk-c1 and bk-c2 focus on case-1, bk-c2 is the newer; bk-c3
+# focuses on another case. Booking Tasks carry a reference.
+_CASE_REQUEST: Final = SeedNode(
+    "case-request",
+    ("Resource", "ServiceRequest"),
+    {"id": "case-1", "key": "ServiceRequest/case-1", "reference": "4801"},
+)
+_OTHER_REQUEST: Final = SeedNode(
+    "other-request",
+    ("Resource", "ServiceRequest"),
+    {"id": "case-2", "key": "ServiceRequest/case-2", "reference": "4802"},
+)
+_CASE_OLDER: Final = SeedNode(
+    "case-older",
+    ("Resource", "Task"),
+    {
+        "id": Marked("bk-c1"),
+        "key": "Task/bk-c1",
+        "businessStatus": "requested",
+        "reference": "4841",
+        "authoredOn": "2026-10-29T14:16:00Z",
+    },
+)
+_CASE_NEWER: Final = SeedNode(
+    "case-newer",
+    ("Resource", "Task"),
+    {
+        "id": Marked("bk-c2"),
+        "key": "Task/bk-c2",
+        "businessStatus": "declined",
+        "reference": "4842",
+        "authoredOn": "2026-10-29T14:30:00Z",
+    },
+)
+_CASE_OTHER: Final = SeedNode(
+    "case-other",
+    ("Resource", "Task"),
+    {
+        "id": Marked("bk-c3"),
+        "key": "Task/bk-c3",
+        "businessStatus": "requested",
+        "reference": "4843",
+        "authoredOn": "2026-10-29T14:40:00Z",
+    },
+)
+_CASE_BOOKINGS_SEED: Final = TenantSeed(
+    nodes=(_CASE_REQUEST, _OTHER_REQUEST, _CASE_OLDER, _CASE_NEWER, _CASE_OTHER),
+    rels=(
+        SeedRel("case-older", "FOCUS", "case-request"),
+        SeedRel("case-newer", "FOCUS", "case-request"),
+        SeedRel("case-other", "FOCUS", "other-request"),
+    ),
+)
+
+# The withdrawals and not-reached reports nobody has acknowledged (WB4). bk-w1 and bk-n1 are open
+# (bk-n1 the newer), bk-w2 is withdrawn and acknowledged, bk-r1 is only requested.
+_ACKNOWLEDGED_AT: Final = "acknowledged-at"
+_ALERT_WITHDRAWN: Final = SeedNode(
+    "alert-withdrawn",
+    ("Resource", "Task"),
+    {
+        "id": Marked("bk-w1"),
+        "key": "Task/bk-w1",
+        "businessStatus": "withdrawn",
+        "reference": "4851",
+        "authoredOn": "2026-10-29T14:16:00Z",
+    },
+)
+_ALERT_ACKNOWLEDGED: Final = SeedNode(
+    "alert-acknowledged",
+    ("Resource", "Task"),
+    {
+        "id": Marked("bk-w2"),
+        "key": "Task/bk-w2",
+        "businessStatus": "withdrawn",
+        "reference": "4852",
+        "authoredOn": "2026-10-29T14:20:00Z",
+    },
+)
+_ALERT_NOT_REACHED: Final = SeedNode(
+    "alert-not-reached",
+    ("Resource", "Task"),
+    {
+        "id": Marked("bk-n1"),
+        "key": "Task/bk-n1",
+        "businessStatus": "not-reached",
+        "reference": "4853",
+        "authoredOn": "2026-10-29T14:30:00Z",
+    },
+)
+_ALERT_REQUESTED: Final = SeedNode(
+    "alert-requested",
+    ("Resource", "Task"),
+    {
+        "id": Marked("bk-r1"),
+        "key": "Task/bk-r1",
+        "businessStatus": "requested",
+        "reference": "4854",
+        "authoredOn": "2026-10-29T14:40:00Z",
+    },
+)
+_ALERT_ACK_OUTPUT: Final = SeedNode(
+    "alert-ack-output",
+    ("Task_Output",),
+    {"key": "Task/bk-w2#output[0]", "valueDateTime": _AT_1030},
+)
+_ALERT_ACK_CONCEPT: Final = SeedNode(
+    "alert-ack-concept",
+    ("Concept",),
+    {
+        "key": f"Concept|{_BOOKING_OUTPUT_SYSTEM}|{_ACKNOWLEDGED_AT}",
+        "system": _BOOKING_OUTPUT_SYSTEM,
+        "code": _ACKNOWLEDGED_AT,
+    },
+)
+_ALERTS_SEED: Final = TenantSeed(
+    nodes=(
+        _ALERT_WITHDRAWN,
+        _ALERT_ACKNOWLEDGED,
+        _ALERT_NOT_REACHED,
+        _ALERT_REQUESTED,
+        _ALERT_ACK_OUTPUT,
+        _ALERT_ACK_CONCEPT,
+    ),
+    rels=(
+        SeedRel("alert-acknowledged", "HAS_OUTPUT", "alert-ack-output"),
+        SeedRel("alert-ack-output", "TYPE", "alert-ack-concept"),
+    ),
+)
 _BOOKING_SEED: Final = TenantSeed(
     nodes=(
         _WARD,
@@ -298,6 +427,19 @@ SCENARIOS: Final[dict[str, Scenario]] = {
         params={"reference": "4822"},
         lookup=("reference",),
         expect=Expect(rows=({"id": Marked("bk-2")},)),
+    ),
+    "Q-BOOK-FOR-CASE": Scenario(
+        "the bookings of one of the tenant's cases, newest first",
+        seed=_CASE_BOOKINGS_SEED,
+        params={"id": "case-1"},
+        lookup=("id",),
+        expect=Expect(rows=({"id": Marked("bk-c2")}, {"id": Marked("bk-c1")})),
+    ),
+    "Q-BOOK-UNACKNOWLEDGED": Scenario(
+        "the tenant's withdrawn or not-reached bookings that no advisor has acknowledged",
+        seed=_ALERTS_SEED,
+        params={"code": _ACKNOWLEDGED_AT, "system": _BOOKING_OUTPUT_SYSTEM},
+        expect=Expect(rows=({"id": Marked("bk-n1")}, {"id": Marked("bk-w1")})),
     ),
     "Q-BOOK-SET-PROPS": Scenario(
         "set the status and the reference of one of the tenant's bookings",

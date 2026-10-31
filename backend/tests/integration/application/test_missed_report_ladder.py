@@ -700,10 +700,12 @@ async def test_a_service_ladder_with_nobody_to_text_still_raises_the_status_and_
     phone = await rig.step(SERVICE, WorkKind.PHONE_TASK, london(13, 0))
     lead = await rig.step(SERVICE, WorkKind.ESCALATE_TO_LEAD, london(13, 30))
 
+    # The lead is told at the reminder, when it turns out nobody can be texted (KI-139); the +90
+    # minute step then finds the alert raised and does nothing more.
     assert (reminded.action, phone.action, lead.action) == (
         REMINDED,
         PHONE_TASK_RAISED,
-        ESCALATED,
+        IGNORED,
     )
     assert reminded.communication_id is None
     assert await _reminders(neo4j_driver) == []

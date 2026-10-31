@@ -52,14 +52,11 @@ from diucs.application.ports.outbound.outbox import OutboxMessage
 from diucs.application.ports.outbound.sealing import ContentSealer
 from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET, SecretStore
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from diucs.application.prompt_judgement import figure_is_out_of_date, number_after_prompt
 from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_tenant
 from diucs.application.use_cases.confirm_capacity import (
     ConfirmCapacityCommand,
     ConfirmCapacityResult,
-)
-from diucs.application.use_cases.handle_inbound_text import (
-    figure_is_out_of_date,
-    recorded_since_prompt,
 )
 from diucs.application.use_cases.pair_wall_screen import AttemptLimiter
 from diucs.application.use_cases.report_capacity import (
@@ -72,11 +69,11 @@ from diucs.application.use_cases.send_prompts import (
     MESSAGES_TOPIC,
     SEND_MESSAGE,
     LinkTokenServiceFactory,
-    _render,
-    _send_payload,
+    render_prompt,
+    send_payload,
     split_unit_label,
 )
-from diucs.domain.codes import ReportSource, ReportType, Role
+from diucs.domain.codes import ReportSource, Role
 from diucs.domain.errors import (
     ConfirmLimitReached,
     Conflict,
@@ -93,6 +90,7 @@ from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED
 from diucs.domain.model.people import PractitionerRole
 from diucs.domain.model.service import ServiceProfile
 from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
+from diucs.domain.rules.confirmable_age import confirmable_age
 from diucs.domain.rules.london_time import LONDON
 from diucs.domain.rules.reply_parser import Confirm, Number
 from diucs.domain.rules.reply_policy import (
@@ -157,13 +155,32 @@ type Body = Mapping[str, object]
 """The JSON body of a link page: text, whole numbers and None."""
 
 
+@dataclass(frozen=True, slots=True)
+class ClosedDetail:
+    """What a closed link may say beyond its state word, for a link that exists in the bound tenant
+    (KI-169, KI-648, KI-649, KI-664, KI-665). An unknown link, another tenant's link and a malformed
+    one carry none, so the page says nothing about which links exist. `booking` marks a booking
+    link, whose page shows the coordination number; the number is the tenant's own setting and is
+    never a default (H-486, H-488)."""
+
+    closed_at: datetime | None = None
+    confirmed_at: datetime | None = None
+    cancelled_at: datetime | None = None
+    coordination_phone: str | None = None
+    booking: bool = False
+    reference: str | None = None
+    """The booking reference, so a service can match the page to a booking it has (H-499)."""
+
+
 class LinkGone(DomainError):
     """The link cannot be used: `state` is `expired` (unknown, malformed, another tenant's, for
-    another purpose, or past its reply-by time) or `used`. Nothing else is carried."""
+    another purpose, or past its reply-by time) or `used`. A link that exists also says when it
+    closed (`detail`); an unknown one carries nothing else."""
 
-    def __init__(self, state: str) -> None:
+    def __init__(self, state: str, detail: ClosedDetail | None = None) -> None:
         super().__init__(state)
         self.state = state
+        self.detail = detail
 
 
 class CsrfRejected(DomainError):
@@ -172,11 +189,13 @@ class CsrfRejected(DomainError):
 
 class LinkConflict(DomainError):
     """The booking a link is for is no longer open for this answer (L02): `state` is its state word
-    (expired, cancelled, declined, ...), and the page answers 409 with that word."""
+    (expired, cancelled, declined, ...), and the page answers 409 with that word and, for a link
+    that exists, when it closed (`detail`)."""
 
-    def __init__(self, state: str) -> None:
+    def __init__(self, state: str, detail: ClosedDetail | None = None) -> None:
         super().__init__(state)
         self.state = state
+        self.detail = detail
 
 
 class LinkOutOfRange(DomainError):
@@ -277,6 +296,11 @@ class LinkPurposeHandler(Protocol):
         """Queue a fresh prompt for an expired link. True when one was queued."""
         ...
 
+    async def closed(self, link: LinkRequest, state: str) -> ClosedDetail | None:
+        """What the page of this closed link says about when and how it closed (`state` is
+        `expired` or `used`), or None when it says nothing more."""
+        ...
+
 
 type LinkPurposes = Mapping[str, LinkPurposeHandler]
 
@@ -307,6 +331,29 @@ def next_due_iso(
     """The next prompt of the service after `now`, as the page shows it: in the tenant's zone and
     under the tenant's policy (TEN-041), written in UTC. None when the service has none."""
     return iso_utc(next_due(profile, now, policy, zone))
+
+
+def closed_body(state: str, detail: ClosedDetail | None) -> dict[str, object]:
+    """The JSON of a closed link (410) or a refused answer (409): the state word, and for a link
+    that exists, when it closed, when it was confirmed or cancelled, and the coordination number.
+    Only what is known is there, and nothing else: no id, no name, no tenant."""
+    body: dict[str, object] = {"state": state}
+    if detail is None:
+        return body
+    if detail.booking:
+        body["kind"] = "booking"
+    if detail.reference is not None:
+        body["reference"] = detail.reference
+    for name, moment in (
+        ("closedAt", detail.closed_at),
+        ("confirmedAt", detail.confirmed_at),
+        ("cancelledAt", detail.cancelled_at),
+    ):
+        if moment is not None:
+            body[name] = iso_utc(moment)
+    if detail.coordination_phone is not None:
+        body["coordinationPhone"] = detail.coordination_phone
+    return body
 
 
 def command_key(scope: ScopeId, record: LinkTokenRecord) -> str:
@@ -424,9 +471,13 @@ class _Gate:
         """The link, open at this moment. `LinkGone` with `used` or `expired` otherwise."""
         link, state = await self.find(token, slot)
         if state is LinkCheck.USED:
-            raise LinkGone(STATE_USED)
+            raise LinkGone(
+                STATE_USED, await self._purposes[link.record.purpose].closed(link, STATE_USED)
+            )
         if state is LinkCheck.EXPIRED:
-            raise _gone()
+            raise LinkGone(
+                STATE_EXPIRED, await self._purposes[link.record.purpose].closed(link, STATE_EXPIRED)
+            )
         return link
 
 
@@ -611,7 +662,9 @@ def judge(
         case RecordConfirm():
             if (
                 latest is None
-                or figure_is_out_of_date(latest.effective_at, prompt_sent_at)
+                or figure_is_out_of_date(
+                    latest.effective_at, prompt_sent_at, confirmable_age(profile)
+                )
                 or number_since_prompt
             ):
                 raise SendTheNumber("stale")
@@ -622,18 +675,6 @@ def judge(
             # A late answer. The link expires with the prompt, so none can reach here; it is
             # refused as an expired link all the same.
             raise _gone()
-
-
-async def number_after_prompt(
-    uow: UnitOfWork, service_id: str, latest: CapacityReport, prompt_sent_at: datetime
-) -> bool:
-    """True when a number was written for the service since the prompt was sent (hazard H-32): the
-    record order, not the effective time, as for a Y by text (DEC-148 item 20)."""
-    since = await uow.capacity.reports_since(service_id, prompt_sent_at)
-    return any(
-        report.report_type is ReportType.NUMBER and recorded_since_prompt(report, prompt_sent_at)
-        for report in [*since, latest]
-    )
 
 
 class CapacityLinkHandler:
@@ -809,6 +850,13 @@ class CapacityLinkHandler:
             # The key holds another answer: this link has been answered.
             raise LinkGone(STATE_USED) from None
 
+    async def closed(self, link: LinkRequest, state: str) -> ClosedDetail | None:
+        """A closed prompt link says nothing beyond its state word: an expired one must answer as an
+        unknown one does (L01, DEC-167), so the page cannot tell a person which links exist
+        (DEC-1151). A booking link says more (booking_links.py), because its holder is told by the
+        state word anyway and needs the coordination number."""
+        return None
+
     async def renew(self, link: LinkRequest, link_base_url: str) -> bool:
         now = self._clock.now()
         key = _renew_key(link.scope, link.record)
@@ -841,7 +889,9 @@ class CapacityLinkHandler:
                 CAPACITY_PURPOSE, communication_id, link.record.phone_hash, reply
             )
             url = f"{link_base_url.rstrip('/')}/{token}"
-            message_id, rendered = _render(profile, latest, window, url, reply, zone=self._zone)
+            message_id, rendered = render_prompt(
+                profile, latest, window, url, reply, zone=self._zone
+            )
             await uow.communications.add(
                 Communication(
                     id=communication_id,
@@ -860,7 +910,7 @@ class CapacityLinkHandler:
                     id=outbox_id,
                     topic=MESSAGES_TOPIC,
                     event_type=SEND_MESSAGE,
-                    payload=_send_payload(
+                    payload=send_payload(
                         outbox_id,
                         communication_id,
                         message_id,
@@ -892,21 +942,3 @@ class CapacityLinkHandler:
             await uow.idempotency.put(key, _Renewed(communication_id))
             await uow.commit()
         return True
-
-
-class UnitOfWorkIdempotency:
-    """The idempotency store of a use case's early replay check, on the application's own unit of
-    work, so an inbound adapter needs no outbound adapter. The authoritative check and the write
-    of the key are inside the use case's unit of work."""
-
-    def __init__(self, uow_factory: UnitOfWorkFactory) -> None:
-        self._uow_factory = uow_factory
-
-    async def get(self, key: str) -> object | None:
-        async with self._uow_factory() as uow:
-            return await uow.idempotency.get(key)
-
-    async def put(self, key: str, result: object) -> None:
-        async with self._uow_factory() as uow:
-            await uow.idempotency.put(key, result)
-            await uow.commit()

@@ -20,13 +20,15 @@ A Communication that already has a provider id, or has left `queued`, is never s
 Errors carry fixed texts only: no number, address, body text or tenant id reaches a log line or an
 error (the log holds the message id, the status and the reason code).
 
-Known issue (I10-1): the provider call and the commit of its record are separate. If the commit
-fails after the provider accepted the text, the redelivery sends it again. Twilio's Messages API
-has no idempotency key used here.
+Known issue (I10-1, narrowed by KI-185): the provider call and the commit of its record are
+separate. If the commit fails after the provider accepted the text, the redelivery in the same
+process records the remembered receipt and sends nothing; a redelivery to another process, or after
+a restart, still sends it again. Twilio's Messages API has no idempotency key used here.
 """
 
 import json
 import logging
+from collections import OrderedDict
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
@@ -57,6 +59,7 @@ from diucs.domain.codes import Channel
 from diucs.domain.errors import ValidationFailed
 from diucs.domain.messages.catalogue import MessageId
 from diucs.domain.messages.templates import render
+from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED
 from diucs.domain.model.people import cover_in_force, phone_contact_key, role_holder
 from diucs.domain.model.tenant import NumberStatus
 from diucs.domain.model.tenant_records import ChannelKind
@@ -84,6 +87,8 @@ PERSON_BODY_MAX: Final = 300
 
 # The reason a Communication records when it is not sent (stored as `errorCode`, never logged
 # with an address).
+SERVICE_SUSPENDED: Final = "service-suspended"
+"""A prompt for a service that is suspended or no longer active at send time (KI-388, H-137)."""
 NO_CONTACT: Final = "no-contact"
 NO_CHANNEL: Final = "no-channel"
 REFUSED: Final = "refused"
@@ -174,6 +179,26 @@ def parse_outbound(
     )
 
 
+PROMPTS_HELD_BACK: Final = frozenset(
+    message.value for message in (MessageId.C1, MessageId.C2, MessageId.C8, MessageId.C9)
+)
+"""The messages that ask a reporter for a figure. One queued before its service was suspended is
+not sent after it; an echo or a refusal answers a reporter and still goes (KI-388, H-137)."""
+
+
+async def prompt_is_held_back(uow: UnitOfWork, communication: Communication) -> bool:
+    """True when this is a prompt for a figure and its service is suspended, no longer active or
+    gone now, at send time. SendPrompts judges the service when it runs; a prompt it had already
+    queued is judged again here, so a suspension stops what is still waiting to go (H-137)."""
+    if communication.message_id not in PROMPTS_HELD_BACK or communication.about_id is None:
+        return False
+    profile = await uow.services.get(communication.about_id)
+    if profile is None or not profile.active:
+        return True
+    flags = await uow.flags.service_flags(communication.about_id)
+    return any(flag.code == SERVICE_FLAG_SUSPENDED for flag in flags)
+
+
 def is_handled(communication: Communication) -> bool:
     """True when this communication was sent or refused already: it has a provider id, or it has
     left `queued`. Such a message is never sent again (I10)."""
@@ -182,17 +207,55 @@ def is_handled(communication: Communication) -> bool:
     )
 
 
+SENT_LEDGER_SIZE: Final = 10_000
+"""How many accepted sends a sender remembers (KI-185). Bounded: the oldest is forgotten first."""
+
+
+class _SentLedger:
+    """The receipts of the sends the provider accepted, by tenant and outbox message id, so a
+    redelivery after a commit that failed records the same send and does not make another (H-46).
+    It holds the provider's receipt only: never a number, an address or a text."""
+
+    def __init__(self, size: int) -> None:
+        self._size = size
+        self._receipts: OrderedDict[tuple[str, str], SendReceipt] = OrderedDict()
+
+    def get(self, tenant_id: str, message_id: str) -> SendReceipt | None:
+        return self._receipts.get((tenant_id, message_id))
+
+    def remember(self, tenant_id: str, message_id: str, receipt: SendReceipt) -> None:
+        key = (tenant_id, message_id)
+        self._receipts[key] = receipt
+        self._receipts.move_to_end(key)
+        while len(self._receipts) > self._size:
+            self._receipts.popitem(last=False)
+
+
 class _OutboundSender:
     """The shared path of the text and email senders. A subclass names its channel, how it finds
-    the recipient and how it sends through the bound tenant's sender."""
+    the recipient and how it sends through the bound tenant's sender.
+
+    Send-once (KI-185, H-46): the provider call and the commit of its record are separate. When
+    the commit fails after the provider accepted the send, the bus redelivers the message; the
+    sender remembers the receipt of an accepted send, so the redelivery records that receipt and
+    does not call the provider again. The memory is this process's: a redelivery to another process
+    or after a restart can still send twice."""
 
     channel: Channel
     name: str
 
-    def __init__(self, senders: SenderResolver, sealer: ContentSealer, clock: Clock) -> None:
+    def __init__(
+        self,
+        senders: SenderResolver,
+        sealer: ContentSealer,
+        clock: Clock,
+        *,
+        ledger_size: int = SENT_LEDGER_SIZE,
+    ) -> None:
         self._senders = senders
         self._sealer = sealer
         self._clock = clock
+        self._ledger = _SentLedger(ledger_size)
 
     async def __call__(self, message: BusMessage, uow: UnitOfWork) -> None:
         if message.event_type != SEND_MESSAGE_EVENT:
@@ -210,6 +273,16 @@ class _OutboundSender:
         if communication is None:
             raise PermanentError(NO_COMMUNICATION)
         if is_handled(communication):
+            return
+        remembered = self._ledger.get(tenant_id, message.id)
+        if remembered is not None:
+            # The provider accepted this send before, and the commit after it failed.
+            await self._settle(
+                uow, message, communication.id, "sent", remembered.provider_message_id, None
+            )
+            return
+        if await prompt_is_held_back(uow, communication):
+            await self._settle(uow, message, communication.id, "failed", None, SERVICE_SUSPENDED)
             return
 
         address = await self._address(uow, outbound.recipient_role_id, self._clock.now())
@@ -233,6 +306,7 @@ class _OutboundSender:
             await self._settle(uow, message, communication.id, "failed", None, SEND_FAILED)
             return
         if receipt.accepted:
+            self._ledger.remember(tenant_id, message.id, receipt)
             await self._settle(
                 uow, message, communication.id, "sent", receipt.provider_message_id, None
             )
@@ -284,7 +358,8 @@ class SmsMessageSender(_OutboundSender):
     async def _address(self, uow: UnitOfWork, role_id: str, now: datetime) -> str | None:
         # The post's own number is the original holder's. While a cover holds the post the text
         # goes to the cover's number, and to no one when none was kept (F6B). A recipient that is
-        # not a post (a text code's contact key) is addressed by the key itself.
+        # not a post is addressed by the key itself. (A text code is not sent here: it has its own
+        # consumer, code_sender.py.)
         role = await uow.people.get_role(role_id)
         return await uow.contacts.get_phone(
             role_id if role is None else phone_contact_key(role, now)
@@ -439,6 +514,10 @@ class PushMessageSender:
         if communication is None:
             raise PermanentError(NO_COMMUNICATION)
         if is_handled(communication):
+            return
+
+        if await prompt_is_held_back(uow, communication):
+            await self._settle(uow, message, communication.id, "failed", SERVICE_SUSPENDED)
             return
 
         now = self._clock.now()

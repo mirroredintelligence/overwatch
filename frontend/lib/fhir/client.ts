@@ -57,6 +57,8 @@ export class FhirError extends Error {
 }
 
 const FHIR_MEDIA_TYPE = 'application/fhir+json; fhirVersion=4.3';
+/** The methods whose body type the back end checks, whether or not they send a body. */
+const BODY_METHODS: ReadonlySet<string> = new Set(['POST', 'PUT']);
 const BASE_URL_VARIABLE = 'DIUCS_FHIR_BASE_URL';
 
 /** A call made with no usable token. A fault in the caller, never an answer to show a person. */
@@ -161,13 +163,16 @@ export async function fhirFetch<T>(path: string, init: FhirInit): Promise<FhirRe
   headers.set('Authorization', `Bearer ${token}`);
   if (init.idempotencyKey) headers.set('Idempotency-Key', init.idempotencyKey);
   if (init.ifMatch) headers.set('If-Match', init.ifMatch);
-  if (hasBody) headers.set('Content-Type', FHIR_MEDIA_TYPE);
+  const method = init.method ?? (hasBody ? 'POST' : 'GET');
+  // The back end refuses a POST or PUT with no JSON Content-Type before any route runs (415, BodyTypeMiddleware),
+  // body or not: a bodiless POST (remind, resend, switch-to-text) carries the type too (WB4).
+  if (hasBody || BODY_METHODS.has(method.toUpperCase())) headers.set('Content-Type', FHIR_MEDIA_TYPE);
 
   let response: Response;
   let text: string;
   try {
     response = await fetch(url, {
-      method: init.method ?? (hasBody ? 'POST' : 'GET'),
+      method,
       headers,
       body: hasBody ? JSON.stringify(init.body) : undefined,
       // Never kept by Next.js or a proxy: an answer is for one person and one tenant.

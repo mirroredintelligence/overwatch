@@ -10,6 +10,12 @@ been published for KEEPALIVE_INTERVAL_SECONDS, so proxies keep the connection op
 client goes away the subscription is closed (its aclose, see the Cache port), so the cache keeps
 no subscriber for a stream that has ended.
 
+Two named events let the page read the stream (KI-54, KI-55). `heartbeat` is sent in place of a
+bare comment when nothing has been published for KEEPALIVE_INTERVAL_SECONDS: it carries the
+server's time, and a page that has heard none for three intervals knows the stream is dead though
+the connection says open. `board-whole` is a change that belongs to no one service (the pressure
+banner, an approved criteria set): the projector publishes it with a null service id.
+
 The message rules are in DEC-111: the stream accepts the shape the board projector publishes
 (`{"type": "board-changed", "service_id", "at"}`, DEC-099 item 8) and the shape the task names
 (`serviceId`, optional `kind`, `changedAt`).
@@ -19,13 +25,14 @@ import asyncio
 import contextlib
 import json
 import re
-from collections.abc import AsyncIterator, Mapping
-from datetime import datetime
+from collections.abc import AsyncIterator, Callable, Mapping
+from datetime import UTC, datetime
 from typing import Annotated, Any, Final
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
+from diucs.adapters.inbound.fhir_rest.app import get_container
 from diucs.adapters.inbound.fhir_rest.auth import require_role
 from diucs.application.actor import Actor, require_actor_in_bound_tenant
 from diucs.application.ports.outbound.cache import BOARD_UPDATES_CHANNEL, Cache
@@ -36,6 +43,8 @@ KEEPALIVE_INTERVAL_SECONDS: Final[float] = 15.0
 KEEPALIVE_LINE: Final = ": keep-alive\n\n"
 STREAM_ROLES: Final = (Role.WALL, Role.ADVISOR, Role.CLINICAL, Role.LEAD, Role.EXEC)
 KINDS: Final = frozenset({"capacity", "status", "booking"})
+HEARTBEAT_EVENT: Final = "heartbeat"
+WHOLE_BOARD_EVENT: Final = "board-whole"
 
 router = APIRouter()
 
@@ -95,11 +104,36 @@ def _fields(message: object) -> tuple[str, str | None, str] | None:
     return service_id, kind, text
 
 
+def _event(name: str, changed_at: str) -> str:
+    return (
+        f"event: {name}\ndata: {json.dumps({'changedAt': changed_at}, separators=(',', ':'))}\n\n"
+    )
+
+
+def heartbeat_sse(now: datetime) -> str:
+    """The heartbeat event: the server's time in UTC and nothing else."""
+    return _event(HEARTBEAT_EVENT, now.astimezone(UTC).isoformat().replace("+00:00", "Z"))
+
+
+def _whole_board(message: object) -> str | None:
+    """The whole-board event for a projector message that names no service (an explicit null)."""
+    if not isinstance(message, Mapping) or message.get("type") != BOARD_CHANGED:
+        return None
+    if "service_id" not in message or message["service_id"] is not None:
+        return None
+    text = _utc_time_text(message.get("at"))
+    return None if text is None else _event(WHOLE_BOARD_EVENT, text)
+
+
 def to_sse(message: object) -> str | None:
     """One server-sent event for a board message, or None when the message is not a board event.
 
-    The event carries only the service id, the kind when the message has one, and the time.
+    The event carries only the service id, the kind when the message has one, and the time. A
+    projector message with a null service id is the whole-board event: the time only.
     """
+    whole = _whole_board(message)
+    if whole is not None:
+        return whole
     fields = _fields(message)
     if fields is None:
         return None
@@ -124,8 +158,11 @@ async def _close(messages: AsyncIterator[str]) -> None:
         await aclose()
 
 
-async def _events(messages: AsyncIterator[str]) -> AsyncIterator[str]:
-    # The read stays pending across keep-alive ticks, so no message is lost to a timeout.
+async def _events(
+    messages: AsyncIterator[str], now: Callable[[], datetime] | None = None
+) -> AsyncIterator[str]:
+    # The read stays pending across heartbeat ticks, so no message is lost to a timeout.
+    clock = now or (lambda: datetime.now(UTC))
     pending: asyncio.Future[str | None] | None = None
     try:
         while True:
@@ -133,7 +170,7 @@ async def _events(messages: AsyncIterator[str]) -> AsyncIterator[str]:
                 pending = asyncio.ensure_future(_next_message(messages))
             done, _ = await asyncio.wait({pending}, timeout=KEEPALIVE_INTERVAL_SECONDS)
             if not done:
-                yield KEEPALIVE_LINE
+                yield heartbeat_sse(clock())
                 continue
             raw = pending.result()
             pending = None
@@ -167,7 +204,7 @@ async def events(
     require_actor_in_bound_tenant(actor)
     messages = await _cache(request).subscribe(BOARD_UPDATES_CHANNEL)
     return StreamingResponse(
-        _events(messages),
+        _events(messages, get_container(request).clock.now),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-store"},
     )

@@ -23,7 +23,12 @@ from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.flags import REPORT_FLAG_OPEN, ReportFlag
 from diucs.domain.model.service import ServiceProfile
 from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
-from diucs.domain.rules.report_flags import MANY_CHANGES_WINDOW, PHONED_WINDOW, flags_for_report
+from diucs.domain.rules.report_flags import (
+    MANY_CHANGES_WINDOW,
+    PHONED_WINDOW,
+    flags_for_report,
+    new_flag_reasons,
+)
 
 LOOKBACK: Final = max(MANY_CHANGES_WINDOW, PHONED_WINDOW)
 """How far before a report the rules look: the longer of the two windows (DEC-161 item 2)."""
@@ -64,9 +69,7 @@ async def raise_report_flags(
         return []
     already_open = {flag.reason for flag in await uow.flags.open_report_flags(profile.id)}
     raised: list[str] = []
-    for reason in reasons:
-        if reason in already_open:
-            continue
+    for reason in new_flag_reasons(reasons, already_open):
         flag = ReportFlag(
             id=ids.new_id(),
             report_id=report.id,

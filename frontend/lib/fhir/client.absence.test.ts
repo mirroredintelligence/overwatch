@@ -46,7 +46,23 @@ describe('optional request headers are absent when not given (DEC-109 item 8)', 
     expect(seen).toEqual([null]);
   });
 
-  it('sends no Content-Type when there is no body', async () => {
+  it('sends no Content-Type on a GET, which has no body', async () => {
+    const seen: (string | null)[] = [];
+    server.use(
+      http.get(`${BASE}/Task/a3`, ({ request }) => {
+        seen.push(request.headers.get('content-type'));
+        return HttpResponse.json({ resourceType: 'Task', id: 'a3' });
+      }),
+    );
+
+    await fhirFetch('/Task/a3', { token: TEST_TOKEN });
+
+    expect(seen).toEqual([null]);
+  });
+
+  // A POST or PUT names its body type even with no body: the back end answers 415 to one that does not
+  // (BodyTypeMiddleware; WB4, test/backend-edge.ts).
+  it('sends the FHIR Content-Type on a POST with no body', async () => {
     const seen: (string | null)[] = [];
     server.use(
       http.post(`${BASE}/Task/a3/$withdraw`, ({ request }) => {
@@ -57,7 +73,7 @@ describe('optional request headers are absent when not given (DEC-109 item 8)', 
 
     await fhirFetch<undefined>('/Task/a3/$withdraw', { token: TEST_TOKEN, method: 'POST' });
 
-    expect(seen).toEqual([null]);
+    expect(seen).toEqual(['application/fhir+json; fhirVersion=4.3']);
   });
 });
 

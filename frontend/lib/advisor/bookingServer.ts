@@ -1,6 +1,6 @@
 import type { Session } from '@/lib/auth/session';
 import { fhirFetch } from '@/lib/fhir/client';
-import { bookingFromTask, bookingRequestTask, type BookingState } from './bookings';
+import { bookingFromTask, bookingRequestTask, bookingsFromSearch, type BookingState } from './bookings';
 
 // Server-only. The advisor's booking calls to the back end's Task routes (R09). The session's back-end
 // token is the only thing that says whose booking this is: no tenant or organisation is sent (DEC-130).
@@ -53,4 +53,17 @@ export async function acknowledgeBooking(session: Pick<Session, 'backendToken'>,
     token: session.backendToken,
     idempotencyKey,
   });
+}
+
+/** Every booking of one case, for the cards to come back after a reload (WB4). The back end reads only this tenant's. */
+export async function readCaseBookings(session: Pick<Session, 'backendToken'>, caseRef: string): Promise<BookingState[]> {
+  const focus = encodeURIComponent(`ServiceRequest/${caseRef}`);
+  const { data } = await fhirFetch<unknown>(`/Task?focus=${focus}`, { token: session.backendToken });
+  return bookingsFromSearch(data);
+}
+
+/** The withdrawals and not-reached reports nobody has answered yet, for the advisor who is not on the card (H-496). */
+export async function readOpenAlerts(session: Pick<Session, 'backendToken'>): Promise<BookingState[]> {
+  const { data } = await fhirFetch<unknown>('/Task?alert=open', { token: session.backendToken });
+  return bookingsFromSearch(data);
 }

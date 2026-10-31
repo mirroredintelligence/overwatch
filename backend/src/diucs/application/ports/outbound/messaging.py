@@ -118,6 +118,9 @@ class Communication:
     delivery_status: str
     provider_message_id: str | None = None
     in_response_to: str | None = None
+    error_code: str | None = None
+    """Why a failed message failed, when the sender recorded a reason (`no-contact`, `no-channel`,
+    `refused`, `send-failed`, `service-suspended`): a fixed word, never an address (KI-189)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -149,9 +152,32 @@ class CommunicationRepository(Protocol):
         unknown status is a ValidationFailed."""
         ...
 
+    async def park_receipt(
+        self, provider_message_id: str, status: str, error_code: str | None
+    ) -> None:
+        """Keep a delivery receipt for a provider id that no Communication holds yet (KI-133): the
+        provider can call back before the sender has committed the id it got. Only the provider id,
+        the status and the provider's error code are kept. Parking the same receipt again is one
+        receipt."""
+        ...
+
+    async def apply_parked_receipts(self, provider_message_id: str) -> int:
+        """Apply the receipts parked for this provider id, oldest first, through
+        `set_delivery_status` (so a status never moves back), and forget them. Returns how many
+        were taken. Called in the unit of work that records the send, and by the tracker when the
+        id is there by the time it has parked a receipt."""
+        ...
+
     async def latest_prompt_for_phone(
         self, role_ids: Collection[str], message_ids: Collection[str]
     ) -> Communication | None: ...
+
+    async def recent_prompts_for_roles(
+        self, role_ids: Collection[str], message_ids: Collection[str], since: datetime
+    ) -> list[Communication]:
+        """Every prompt of these message ids sent to any of these roles at or after `since`, newest
+        first (KI-137): a report stops the ladder of each prompt it answers, not only the latest."""
+        ...
 
     async def record_send_outcome(
         self,

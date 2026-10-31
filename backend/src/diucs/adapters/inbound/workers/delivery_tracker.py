@@ -10,9 +10,10 @@ A receipt moves the Communication forward and never back: queued, then sent, the
 failed, and delivered and failed are final. The rule and the lock that makes it hold when two
 receipts are handled at once are in `CommunicationRepository.set_delivery_status`; this handler only
 translates. A receipt for a provider id that no Communication holds (it can arrive before the send
-is recorded, or belong to another tenant) is completed and dropped, not retried: the log line holds
-the provider id and the status only. The provider's error code is logged with them, for staff, and
-is not stored: the Communication has no property for it (known issue).
+is recorded) is parked, not dropped (KI-133): the provider id and the status are kept, and the
+sender applies them in the unit of work that records the send. Either way the message completes and
+is not retried: the log line holds the provider id and the status only. The provider's error code
+is logged with them, for staff, and kept only on a parked receipt.
 
 A payload that cannot be applied (no provider id, a status the system does not record, a code that
 is not text, another kind of message) is a PermanentError with a fixed text, so the bus
@@ -65,9 +66,22 @@ class DeliveryTracker:
             raise PermanentError(BAD_ERROR_CODE)
 
         moved = await uow.communications.set_delivery_status(provider_id, status)
+        parked = False
+        if not moved and await uow.communications.by_provider_id(provider_id) is None:
+            # The receipt beat the send's record (the provider called back before the sender
+            # committed the id it got): keep it, and the sender applies it (KI-133). If the id is
+            # there by now, the sender committed in between, so apply what is parked ourselves.
+            await uow.communications.park_receipt(provider_id, status, error_code)
+            parked = True
+            if await uow.communications.by_provider_id(provider_id) is not None:
+                await uow.communications.apply_parked_receipts(provider_id)
         logger.info(
             "delivery receipt %s: provider_message_id=%s status=%s error_code=%s",
-            "applied" if moved else "ignored (unknown id, or already past this status)",
+            "applied"
+            if moved
+            else "parked (no record holds this id yet)"
+            if parked
+            else "ignored (already past this status)",
             provider_id,
             status,
             error_code or "-",

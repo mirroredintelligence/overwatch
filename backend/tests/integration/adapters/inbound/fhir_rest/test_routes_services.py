@@ -27,7 +27,6 @@ from neo4j import AsyncDriver
 from diucs.adapters.inbound.fhir_rest.app import create_app
 from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
 from diucs.adapters.inbound.fhir_rest.mapping import report_to_fhir
-from diucs.adapters.inbound.fhir_rest.routes_services import UnitOfWorkIdempotency
 from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
 from diucs.adapters.outbound.graph_store.capacity_repository import Neo4jCapacityRepository
 from diucs.adapters.testing.fixed_clock import FixedClock
@@ -35,6 +34,7 @@ from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.adapters.testing.memory_cache import InMemoryCache
 from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.uow_idempotency import UnitOfWorkIdempotency
 from diucs.bootstrap.container import Container
 from diucs.domain.codes import (
     Measure,

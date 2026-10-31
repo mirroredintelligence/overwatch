@@ -178,15 +178,32 @@ async def test_a_board_message_is_sent_as_one_event(
     assert stream.text() == EVENT_TEXT
 
 
-async def test_a_keep_alive_comment_is_sent_when_nothing_is_published(
+async def test_a_heartbeat_event_is_sent_when_nothing_is_published(
     stream_app: FastAPI, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    # KI-54: a named event the page can read, with the server's clock; it keeps proxies open too.
     monkeypatch.setattr(routes_events, "KEEPALIVE_INTERVAL_SECONDS", 0.05)
 
     async with _Stream(stream_app, _wall_headers()) as stream:
-        await stream.read_until(": keep-alive\n\n")
+        await stream.read_until("event: heartbeat\n")
+        await stream.read_until("\n\n")
 
-    assert stream.text().startswith(": keep-alive\n\n")
+    first = stream.text().split("\n\n")[0]
+    assert first.startswith("event: heartbeat\ndata: ")
+    body = json.loads(first.split("data: ", 1)[1])
+    assert set(body) == {"changedAt"}
+    assert body["changedAt"].endswith("Z")
+
+
+async def test_a_whole_board_message_reaches_an_open_stream_as_a_whole_board_event(
+    stream_app: FastAPI, stream_cache: InMemoryCache
+) -> None:
+    whole = '{"type": "board-changed", "service_id": null, "at": "2026-10-23T13:12:00+00:00"}'
+    async with _Stream(stream_app, _wall_headers()) as stream:
+        await stream_cache.publish(BOARD_UPDATES_CHANNEL, whole)
+        await stream.read_until("\n\n")
+
+    assert stream.text() == 'event: board-whole\ndata: {"changedAt":"2026-10-23T13:12:00Z"}\n\n'
 
 
 @pytest.mark.parametrize(

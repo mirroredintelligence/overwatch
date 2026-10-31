@@ -171,13 +171,15 @@ async def test_open_flags_are_listed_oldest_first_and_checked_ones_are_not(
     await _seed(neo4j_driver)
     await _run(
         neo4j_driver,
-        lambda repo: repo.add_report_flag(CHANGES_FLAG_WEST),
-        lambda repo: repo.add_report_flag(RANGE_FLAG_WEST),
-        lambda repo: repo.add_report_flag(RANGE_FLAG_EAST),
+        # One open flag for each service and reason (KI-101): the earlier flag is closed before the
+        # later one for the same reason is raised.
         lambda repo: repo.add_report_flag(EARLIER_CHECKED_WEST),
         lambda repo: repo.save_report_flag(
             replace(EARLIER_CHECKED_WEST, status=REPORT_FLAG_CHECKED, resolved_at=RESOLVED)
         ),
+        lambda repo: repo.add_report_flag(CHANGES_FLAG_WEST),
+        lambda repo: repo.add_report_flag(RANGE_FLAG_WEST),
+        lambda repo: repo.add_report_flag(RANGE_FLAG_EAST),
     )
     assert await _read(neo4j_driver, lambda repo: repo.open_report_flags(WEST)) == [
         RANGE_FLAG_WEST,
@@ -534,3 +536,74 @@ async def test_two_racing_adds_of_one_flag_id_on_different_reports_leave_one_fla
     with pytest.raises(Conflict):
         await racer
     assert await count_nodes(neo4j_driver, "ReportFlag") == 1
+
+
+# One open flag for each service and reason, kept by the store as well as by the use case (KI-101)
+
+SECOND_RANGE_FLAG_WEST = replace(
+    RANGE_FLAG_WEST,
+    id="rf-west-0930-range-again",
+    created_at=datetime(2026, 10, 25, 9, 30, tzinfo=UTC),
+)
+
+
+async def test_a_second_open_flag_for_one_service_and_reason_is_a_conflict_and_leaves_one(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    await _seed(neo4j_driver)
+    await _run(neo4j_driver, lambda repo: repo.add_report_flag(RANGE_FLAG_WEST))
+
+    with pytest.raises(Conflict):
+        await _run(neo4j_driver, lambda repo: repo.add_report_flag(SECOND_RANGE_FLAG_WEST))
+
+    assert await count_nodes(neo4j_driver, "ReportFlag") == 1
+    assert await _read(neo4j_driver, lambda repo: repo.open_report_flags(WEST)) == [RANGE_FLAG_WEST]
+
+
+async def test_another_reason_or_another_service_may_have_its_own_open_flag(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    await _seed(neo4j_driver)
+
+    await _run(
+        neo4j_driver,
+        lambda repo: repo.add_report_flag(RANGE_FLAG_WEST),
+        lambda repo: repo.add_report_flag(CHANGES_FLAG_WEST),
+        lambda repo: repo.add_report_flag(RANGE_FLAG_EAST),
+    )
+
+    assert await count_nodes(neo4j_driver, "ReportFlag") == 3
+
+
+async def test_once_the_open_flag_is_resolved_the_reason_may_be_flagged_again(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    await _seed(neo4j_driver)
+    await _run(
+        neo4j_driver,
+        lambda repo: repo.add_report_flag(RANGE_FLAG_WEST),
+        lambda repo: repo.save_report_flag(
+            replace(RANGE_FLAG_WEST, status=REPORT_FLAG_CHECKED, resolved_at=RESOLVED)
+        ),
+    )
+
+    await _run(neo4j_driver, lambda repo: repo.add_report_flag(SECOND_RANGE_FLAG_WEST))
+
+    assert await _read(neo4j_driver, lambda repo: repo.open_report_flags(WEST)) == [
+        SECOND_RANGE_FLAG_WEST
+    ]
+
+
+async def test_two_open_flags_for_one_reason_in_one_unit_are_refused_at_the_second(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    await _seed(neo4j_driver)
+
+    with pytest.raises(Conflict):
+        await _run(
+            neo4j_driver,
+            lambda repo: repo.add_report_flag(RANGE_FLAG_WEST),
+            lambda repo: repo.add_report_flag(SECOND_RANGE_FLAG_WEST),
+        )
+
+    assert await count_nodes(neo4j_driver, "ReportFlag") == 0

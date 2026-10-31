@@ -55,6 +55,61 @@ def test_a_terminal_booking_cannot_move_again() -> None:
         declined.with_status(BookingStatus.CONFIRMED, CONFIRMED_AT)
 
 
+def test_the_new_fields_default_to_none() -> None:
+    booking = _requested()
+
+    assert booking.phone_prompt_at is None
+    assert booking.request_message_id is None
+    assert booking.acknowledged_at is None
+    assert booking.acknowledged_by is None
+
+
+def test_an_acknowledgement_is_kept_with_who_and_when_and_the_status_is_unchanged() -> None:
+    withdrawn = (
+        _requested()
+        .with_status(BookingStatus.CONFIRMED, CONFIRMED_AT)
+        .with_status(BookingStatus.WITHDRAWN, CONFIRMED_AT + timedelta(minutes=5), "staffing")
+    )
+
+    acknowledged = withdrawn.with_acknowledgement(
+        "prac-advisor-2", CONFIRMED_AT + timedelta(minutes=7)
+    )
+
+    assert acknowledged.acknowledged_at == CONFIRMED_AT + timedelta(minutes=7)
+    assert acknowledged.acknowledged_by == "prac-advisor-2"
+    assert acknowledged.status is BookingStatus.WITHDRAWN
+    assert acknowledged.responded_at == withdrawn.responded_at
+    assert acknowledged.reason == "staffing"
+
+
+def test_a_second_acknowledgement_keeps_the_first() -> None:
+    first = _requested().with_acknowledgement("prac-advisor-2", CONFIRMED_AT)
+
+    again = first.with_acknowledgement("prac-advisor-3", CONFIRMED_AT + timedelta(minutes=1))
+
+    assert (again.acknowledged_by, again.acknowledged_at) == ("prac-advisor-2", CONFIRMED_AT)
+
+
+def test_a_naive_acknowledgement_time_is_refused() -> None:
+    with pytest.raises(ValidationFailed):
+        _requested().with_acknowledgement("prac-advisor-2", datetime(2026, 10, 25, 13, 19))
+
+
+def test_a_naive_phone_prompt_time_is_refused() -> None:
+    with pytest.raises(ValidationFailed):
+        Booking(
+            id="bk-4821",
+            reference="4821",
+            service_id="svc-ucr-west",
+            case_id="case-1",
+            requester_id="prac-advisor-1",
+            status=BookingStatus.REQUESTED,
+            requested_at=REQUESTED_AT,
+            reply_by=REPLY_BY,
+            phone_prompt_at=datetime(2026, 10, 25, 13, 21),
+        )
+
+
 def test_a_naive_datetime_is_refused() -> None:
     with pytest.raises(ValidationFailed):
         Booking(

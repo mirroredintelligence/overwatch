@@ -133,6 +133,15 @@ class BookingRepository(Protocol):
         """The open bookings per service. Every requested service id is a key, with [] if none."""
         ...
 
+    async def for_case(self, case_id: str) -> list[Booking]:
+        """The bookings of this case in any state, newest first (W8A-K1, Q-BOOK-FOR-CASE)."""
+        ...
+
+    async def unacknowledged_exceptions(self) -> list[Booking]:
+        """The withdrawn and not-reached bookings no advisor has acknowledged, newest first
+        (H-496, Q-BOOK-UNACKNOWLEDGED)."""
+        ...
+
     async def latest_for_services(self, service_ids: Sequence[str]) -> list[Booking]:
         """The most recent booking of each of these services that has one, in any state (U22).
         Q-BOOK-LATEST-FOR: one booking per service, by its authored time."""

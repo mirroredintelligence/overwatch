@@ -33,6 +33,7 @@ from diucs.application.ports.outbound.tokens import (
     LinkTokenService,
 )
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.uow_idempotency import UnitOfWorkIdempotency
 from diucs.application.use_cases.confirm_capacity import ConfirmCapacity, ConfirmCapacityCommand
 from diucs.application.use_cases.link_access import (
     CAPACITY_PURPOSE,
@@ -44,7 +45,6 @@ from diucs.application.use_cases.link_access import (
     RenewLinkCommand,
     RespondViaLink,
     RespondViaLinkCommand,
-    UnitOfWorkIdempotency,
     ViewLink,
     ViewLinkQuery,
 )

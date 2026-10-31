@@ -34,6 +34,7 @@ from diucs.domain.messages.privacy_guard import (
     scan_value,
 )
 from diucs.domain.messages.templates import RenderedMessage, render
+from diucs.domain.rules.need_words import NEED_WORDS
 from diucs.domain.rules.tenant_settings import check_tenant_text
 
 TEXT, EMAIL, PUSH = Channel.TEXT, Channel.EMAIL, Channel.PUSH
@@ -408,10 +409,18 @@ def test_a_free_text_need_is_refused(need: str) -> None:
         render(MessageId.B1, TEXT, **fields)
 
 
-@pytest.mark.parametrize("need", [member.value for member in NeedCategory])
-def test_every_need_category_is_accepted(need: str) -> None:
+@pytest.mark.parametrize("need", [NEED_WORDS[member] for member in NeedCategory])
+def test_every_need_category_is_accepted_in_its_plain_words(need: str) -> None:
     fields = {**SAMPLE_FIELDS[MessageId.B1], "need": need}
     assert render(MessageId.B1, TEXT, **fields).text
+
+
+@pytest.mark.parametrize("need", [member.value for member in NeedCategory if NEED_WORDS[member] != member.value])
+def test_a_raw_need_code_is_refused(need: str) -> None:
+    """DEC-062 item 2: the need is printed in plain words, never as its code."""
+    fields = {**SAMPLE_FIELDS[MessageId.B1], "need": need}
+    with pytest.raises(ValidationFailed):
+        render(MessageId.B1, TEXT, **fields)
 
 
 @pytest.mark.parametrize("urgency", ["within 2 hrs", "today", "planned"])

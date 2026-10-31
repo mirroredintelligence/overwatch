@@ -100,6 +100,11 @@ const TAKES_NETWORK_ID = [
   'app/api/bff/network-admin/members/[id]/remove/route.ts',
   'app/api/bff/network-admin/members/route.ts',
   'app/api/bff/network-admin/route.ts',
+  // The member administrator's routes that need a network of the organisation's (TEN-081); the sharing read
+  // and a grant's own routes take none.
+  'app/api/bff/sharing/agreement/route.ts',
+  'app/api/bff/sharing/grants/route.ts',
+  'app/api/bff/sharing/leave/route.ts',
 ];
 
 function textOf(file: string): string {

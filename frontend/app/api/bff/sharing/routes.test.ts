@@ -52,7 +52,7 @@ const PATHS: Record<Name, [verb: 'GET' | 'POST', url: string, params?: Record<st
   agreement: ['POST', `${BASE}/agreement`],
 };
 const BODIES: Partial<Record<Name, unknown>> = {
-  propose: { scope: 'capacity' },
+  propose: { kind: 'capacity' },
   agreement: { agreementVersion: 2 },
 };
 /** The routes that need a network of the organisation's. A grant is found by its own handle. */
@@ -169,7 +169,7 @@ describe('what the organisation shares', () => {
   it('holds no tenant id but the organisation’s own, no membership handle and none of the back end’s own names', async () => {
     const text = await (await call('overview')).text();
     expect(text).not.toMatch(new RegExp(`${OWNER.id}|trust-a`));
-    expect(text).not.toMatch(/mem-a|membership|network_id|network_name|organisation_name|is_owner|tenant_id/i);
+    expect(text).not.toMatch(/mem-a|membershipId|membership_id|network_id|network_name|organisation_name|is_owner|tenant_id/i);
   });
 
   it('answers an organisation in no network with the allowlist and no network, and still its own code', async () => {
@@ -252,25 +252,25 @@ describe('which network: the registry decides, never the browser', () => {
 
 describe('proposing sharing', () => {
   it.each(['capacity', 'directory', 'criteria'])('proposes %s for the network the organisation is in, and answers the grant’s handle', async (scope) => {
-    const response = await call('propose', { body: { scope } });
+    const response = await call('propose', { body: { kind: scope } });
     expect(response.status).toBe(201);
     expect(await response.json()).toEqual({ id: 'grant-new', status: 'proposed' });
     expect(writes()[0]).toMatchObject({ path: '/network-admin/grants', body: { network_id: NETWORK_ID, scope }, role: 'tenant-admin', tenant: MEMBER.id });
   });
 
   it.each([
-    ['no scope', {}],
-    ['a scope that is not one', { scope: 'everything' }],
-    ['a scope that is not text', { scope: 7 }],
-    ['a window the screen does not offer', { scope: 'capacity', effectiveFrom: '2026-11-01T00:00:00Z' }],
-    ['another field', { scope: 'capacity', purpose: 'x' }],
+    ['no kind', {}],
+    ['a kind that is not one', { kind: 'everything' }],
+    ['a kind that is not text', { kind: 7 }],
+    ['a window the screen does not offer', { kind: 'capacity', effectiveFrom: '2026-11-01T00:00:00Z' }],
+    ['another field', { kind: 'capacity', purpose: 'x' }],
   ])('refuses %s with 400 before any call', async (_name, body) => {
     expect((await call('propose', { body })).status).toBe(400);
     expect(backend()).toEqual([]);
   });
 
   it('refuses a body that names a network or a tenant (the input guard), before any work', async () => {
-    for (const body of [{ scope: 'capacity', network_id: NETWORK_ID }, { scope: 'capacity', networkId: NETWORK_ID }, { scope: 'capacity', tenant_id: OWNER.id }]) {
+    for (const body of [{ kind: 'capacity', network_id: NETWORK_ID }, { kind: 'capacity', networkId: NETWORK_ID }, { kind: 'capacity', tenant_id: OWNER.id }, { scope: 'capacity' }]) {
       expect((await call('propose', { body })).status).toBe(400);
     }
     expect(backend()).toEqual([]);

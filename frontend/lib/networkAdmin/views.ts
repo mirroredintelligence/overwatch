@@ -220,3 +220,12 @@ export function parseSharing(value: unknown): SharingRead {
     }),
   };
 }
+
+/** The organisation's own grants in every network: each with the network it is in, to group them by. */
+export type OwnGrant = GrantRow & { networkId: string };
+
+export function parseOwnGrants(value: unknown): OwnGrant[] {
+  const rows = list(obj(value).grants, 5000);
+  const grants = parseGrants(value);
+  return grants.map((grant, index) => ({ ...grant, networkId: str(obj(rows[index]).network_id, 31) }));
+}

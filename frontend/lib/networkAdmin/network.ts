@@ -53,3 +53,16 @@ export function chooseNetwork(fitting: NetworkRow[], named: string | null): Netw
 export async function ownerNetwork(session: Caller, request: Request): Promise<NetworkRow> {
   return chooseNetwork(ownedNetworks(await listNetworks(session)), namedNetwork(request));
 }
+
+/** The networks this organisation is in with a standing: an active membership (the owner's own included). */
+export const activeNetworks = (networks: NetworkRow[]): NetworkRow[] => networks.filter((n) => n.membershipStatus === 'active');
+/** The networks a member may leave: its active memberships in networks it does not own. */
+export const leavableNetworks = (networks: NetworkRow[]): NetworkRow[] => networks.filter((n) => n.membershipStatus === 'active' && !n.isOwner);
+/** The networks that wait for this organisation to accept an agreement: an invitation, or a newer version. */
+export const acceptableNetworks = (networks: NetworkRow[]): NetworkRow[] =>
+  networks.filter((n) => n.membershipStatus === 'invited' || (n.membershipStatus === 'active' && n.agreementBehind));
+
+/** A member's network for this request, among those `fit` allows, after asking the registry. */
+export async function memberNetwork(session: Caller, request: Request, fit: (networks: NetworkRow[]) => NetworkRow[]): Promise<NetworkRow> {
+  return chooseNetwork(fit(await listNetworks(session)), namedNetwork(request));
+}

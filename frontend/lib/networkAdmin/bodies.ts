@@ -50,3 +50,25 @@ export function reasonBody(body: unknown): { reason: ListingReason } {
   if (typeof reason !== 'string' || !(LISTING_REASONS as readonly string[]).includes(reason)) throw invalidRequest();
   return { reason: reason as ListingReason };
 }
+
+const SHARED_SCOPES = ['capacity', 'directory', 'criteria'] as const;
+
+/**
+ * A proposal to share one kind: the kind and nothing else (the window is the start of now, with no end). The
+ * browser's key is `kind`, not the back end's `scope`: the input guard refuses any key that names a scope,
+ * because a scope is a tenant's or a network's.
+ */
+export function proposeBody(body: unknown): { scope: (typeof SHARED_SCOPES)[number] } {
+  const b = only(body, ['kind']);
+  const { kind } = b;
+  if (typeof kind !== 'string' || !(SHARED_SCOPES as readonly string[]).includes(kind)) throw invalidRequest();
+  return { scope: kind as (typeof SHARED_SCOPES)[number] };
+}
+
+/** The agreement version the administrator read and accepts. */
+export function acceptBody(body: unknown): { agreement_version: number } {
+  const b = only(body, ['agreementVersion']);
+  const { agreementVersion } = b;
+  if (typeof agreementVersion !== 'number' || !Number.isInteger(agreementVersion) || agreementVersion < 1 || agreementVersion > 100000) throw invalidRequest();
+  return { agreement_version: agreementVersion };
+}

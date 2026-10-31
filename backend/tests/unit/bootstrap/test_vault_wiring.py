@@ -561,3 +561,38 @@ def test_the_relay_stops_when_a_plain_secret_is_set_beside_the_vault(
 
     assert "DIUCS_SERVICEBUS_CONNECTION" in str(stopped.value)
     assert SERVICE_BUS not in str(stopped.value)
+
+
+# ---- the real client is built with short timeouts, over the managed identity
+
+
+def test_the_real_client_is_built_with_bounded_waits_and_closes_its_credential(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import azure.identity
+    import azure.keyvault.secrets as secrets_module
+
+    built: dict[str, Any] = {}
+    closed: list[str] = []
+
+    class _Credential:
+        def close(self) -> None:
+            closed.append("credential")
+
+    class _Client(FakeKeyVaultClient):
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__({})
+            built.update(kwargs)
+
+    monkeypatch.setattr(azure.identity, "DefaultAzureCredential", _Credential)
+    monkeypatch.setattr(secrets_module, "SecretClient", _Client)
+
+    store = load_secret_store(_settings())
+    assert store is not None
+    store.close()  # type: ignore[attr-defined]
+
+    assert built["vault_url"] == VAULT_URL
+    assert 0 < built["connection_timeout"] <= 10
+    assert 0 < built["read_timeout"] <= 15
+    assert built["retry_total"] <= 3
+    assert closed == ["credential"]

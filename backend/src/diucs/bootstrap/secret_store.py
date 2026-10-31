@@ -56,6 +56,15 @@ _SETTING_FIELDS: Final = (
 )
 _ENV_PREFIX: Final = "DIUCS_"
 
+# A read of a name that is not cached waits for the vault on the calling thread, which on the API is
+# the event loop. The Azure client's own defaults (300 s to connect or read, several retries) would
+# freeze the process for minutes when the vault cannot be reached, so the bounds are set here: a
+# read gives up after at most about (connect + read) x (retries + 1), and then fails closed or
+# serves the value held.
+VAULT_CONNECTION_TIMEOUT_S: Final = 3.0
+VAULT_READ_TIMEOUT_S: Final = 5.0
+VAULT_RETRIES: Final = 2
+
 
 class SecretConfigError(Exception):
     """The process cannot get its secrets with this configuration. The text names a setting or a
@@ -139,7 +148,13 @@ def load_secret_store(
         from azure.keyvault.secrets import SecretClient
 
         credential = DefaultAzureCredential()
-        client = SecretClient(vault_url=url, credential=credential)
+        client = SecretClient(
+            vault_url=url,
+            credential=credential,
+            connection_timeout=VAULT_CONNECTION_TIMEOUT_S,
+            read_timeout=VAULT_READ_TIMEOUT_S,
+            retry_total=VAULT_RETRIES,
+        )
         on_close = credential.close
     options: dict[str, object] = {} if clock is None else {"clock": clock}
     return KeyVaultSecretStore(

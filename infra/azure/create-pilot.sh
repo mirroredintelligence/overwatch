@@ -205,7 +205,8 @@ cat <<'TODO'
   - Cloudflare: zone, DNS, custom hostnames, WAF, origin lock; the origin secret is the Key Vault secret edge-origin
   - Twilio: account, a subaccount and number per tenant, a verified email domain per tenant (secrets at onboarding)
   - OS Places API key:  printf '%s' '<key>' | az keyvault secret set --vault-name <kv> --name os-places-api-key --file /dev/stdin --encoding utf-8
-  - Container apps (api, web, workers, collector) are created at deploy time, when there are images.
+  - Container apps (api, web, workers, collector) are created at deploy time, when there are images. Give api, web and
+    workers only the vault URL and their identity's client id (SETUP.md 5a); never a secret as an environment value.
 TODO
 
 say "result"

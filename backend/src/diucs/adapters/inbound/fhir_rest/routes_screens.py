@@ -6,6 +6,10 @@ GET  /screens/pairing/{pairingId}    claim: the display asks whether a lead has 
                                      gets its device token once. No token; the secret comes only
                                      in the X-Screen-Secret header, never in the URL; the tenant is
                                      the host's.
+POST /screens/preview                the confirm step (TEN-072): a shift lead types the code and
+                                     is told when the screen first asked for it and its kind
+                                     (`{firstSeenAt, deviceClass}`). Role lead; burns and writes
+                                     nothing; a wrong code counts against the connect's allowance.
 POST /screens                        connect: a shift lead types the code and a screen name. Role
                                      lead, Idempotency-Key required. The tenant is the lead's: the
                                      role dependency binds it from the verified token (TEN-018,
@@ -102,6 +106,7 @@ from diucs.application.use_cases.pair_wall_screen import (
     ConfirmPairing,
     ConfirmPairingCommand,
     PairingRateLimited,
+    PreviewPairing,
     StartPairing,
 )
 from diucs.application.use_cases.screen_admin import (
@@ -169,6 +174,14 @@ class _Container(Protocol):
 
     @property
     def rng(self) -> random.Random: ...
+
+
+class PreviewScreenBody(BaseModel):
+    """The code a lead typed, and nothing else (`extra="forbid"`: no tenant is a field)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    code: str
 
 
 class ConnectScreenBody(BaseModel):
@@ -344,6 +357,33 @@ async def connect_screen(
         return _json(
             201,
             {"deviceId": result.device_id, "name": result.screen_name, "status": "online"},
+        )
+
+    return await _answer(run)
+
+
+@router.post(SCREENS_PATH + "/preview")
+async def preview_screen(
+    body: PreviewScreenBody,
+    request: Request,
+    actor: Annotated[Actor, Depends(require_role(Role.LEAD))],
+) -> Response:
+    """The confirm step's read (TEN-072): when the screen first asked for the code and what kind
+    of device it is. Burns nothing, writes nothing; a wrong code counts against the same failure
+    allowance as a connect, and every refusal is the connect's one 404."""
+
+    async def run() -> Response:
+        container = _container(request)
+        _check_secrets(container)
+        preview = await PreviewPairing(
+            container.uow_factory, container.clock, container.secrets, container.cache
+        ).execute(actor, body.code)
+        return _json(
+            200,
+            {
+                "firstSeenAt": format_instant(preview.first_seen_at),
+                "deviceClass": preview.device_class,
+            },
         )
 
     return await _answer(run)

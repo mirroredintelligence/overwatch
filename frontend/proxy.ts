@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { isSamePathOnly, rolesFor } from '@/lib/auth/access';
+import { normaliseHost } from '@/lib/auth/host';
 import { entraAuthorityOrigin } from '@/lib/auth/oidc';
 import { operatorAccessFor } from '@/lib/operator/access';
 import { operatorSessionFromRequest } from '@/lib/operator/session';
@@ -50,8 +51,25 @@ async function decideOperator(request: NextRequest, roles: readonly string[]): P
   return { kind: 'pass', guarded: true };
 }
 
+// The console's own host (the host of OVERWATCH_OPERATOR_PUBLIC_URL) is not a tenant's: the staff sign-in there
+// would send the person to Entra with the staff door's return address (a different host, so the return
+// meets no transaction cookie) and end at /sign-in?error=failed. So its front page and the staff sign-in page
+// go to the console's own.
+function onConsoleHost(request: NextRequest): boolean {
+  const configured = process.env.OVERWATCH_OPERATOR_PUBLIC_URL;
+  if (!configured) return false;
+  try {
+    return normaliseHost(new URL(configured).host) === normaliseHost(request.headers.get('host') ?? request.nextUrl.host);
+  } catch {
+    return false;
+  }
+}
+
 async function decide(request: NextRequest): Promise<Decision> {
   const { pathname, search } = request.nextUrl;
+  if ((pathname === '/' || pathname === SIGN_IN_PATH) && onConsoleHost(request)) {
+    return { kind: 'sign-in', url: new URL(pathname === '/' ? '/operator' : OPERATOR_SIGN_IN_PATH, request.url) };
+  }
   const operator = operatorAccessFor(pathname);
   if (operator.kind === 'public') return { kind: 'pass', guarded: false };
   if (operator.kind === 'guarded') return decideOperator(request, operator.roles);

@@ -375,3 +375,21 @@ describe('the operator console pages', () => {
     expect(formAction(await proxy(await asOperator('/operator', 'platform-operator')))).toBe("form-action 'self'");
   });
 });
+
+describe('the console host has no staff front door', () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it('sends the front page and the staff sign-in on the console host to the console', async () => {
+    vi.stubEnv('OVERWATCH_OPERATOR_PUBLIC_URL', 'https://admin.example.test');
+    const home = await proxy(await request('/', undefined, { headers: { host: 'admin.example.test' } }));
+    expect(redirectedTo(home)).toBe('/operator');
+    const signIn = await proxy(await request('/sign-in', undefined, { headers: { host: 'admin.example.test' } }));
+    expect(redirectedTo(signIn)).toBe('/operator/sign-in');
+  });
+
+  it('leaves a tenant host alone', async () => {
+    vi.stubEnv('OVERWATCH_OPERATOR_PUBLIC_URL', 'https://admin.example.test');
+    expect(passes(await proxy(await request('/', undefined, { headers: { host: 'capacity.example.test' } })))).toBe(true);
+    expect(passes(await proxy(await request('/sign-in', undefined, { headers: { host: 'capacity.example.test' } })))).toBe(true);
+  });
+});

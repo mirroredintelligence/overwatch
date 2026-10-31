@@ -86,3 +86,5 @@ Each of api, web and workers holds Key Vault Secrets User on the vault and nothi
 `web` also needs `DIUCS_FHIR_BASE_URL` (the API's internal address ending `/fhir`); `api` needs `DIUCS_BASE_URL`
 (`https://overwatch.mirroredintelligence.com`) and `DIUCS_EDGE=none`. Twilio: no global credential (DEC-1304 item 9);
 the Auth Token is `twilio--<tenant>--auth-token`.
+
+`api` and `workers` also need the Aura connection as plain, non-secret settings: `DIUCS_NEO4J_URI=neo4j+s://8cb817d8.databases.neo4j.io` and `DIUCS_NEO4J_USER=8cb817d8`. The password is the Key Vault secret `neo4j-password` (to be added by the owner).

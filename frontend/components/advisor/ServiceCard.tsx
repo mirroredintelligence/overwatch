@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import type { OptionView } from '@/lib/advisor/options';
 import { categoryLabel, durationText } from '@/lib/board/format';
+import { NetworkServiceLine } from './NetworkServiceLine';
 import { OptionBooking } from './OptionBooking';
 import styles from './ServiceCard.module.css';
 
@@ -61,7 +62,8 @@ export function ServiceCard({ caseId, option, onSeeOptions, onAskClinical, onCri
 
       <p className={styles.line}>{`Response or travel: ${option.travelText ?? NOT_KNOWN}`}</p>
       <p className={styles.line}>{dataAgeLine(option)}</p>
-      {network === null ? null : <p className={styles.caption}>{network.source}</p>}
+      {network === null || network.source === '' ? null : <p className={styles.caption}>{network.source}</p>}
+      {network === null ? null : <NetworkServiceLine option={option} className={styles.line} />}
 
       {option.fits.length === 0 ? null : (
         <section className={styles.section}>

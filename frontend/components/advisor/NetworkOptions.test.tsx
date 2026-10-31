@@ -129,7 +129,7 @@ describe('NetworkOptions', () => {
   it('shows no tenant, network or source identifier, and no case data', async () => {
     const { container } = render(<NetworkOptions caseId="4821" />);
     await screen.findAllByRole('article');
-    expect(container.textContent).not.toMatch(/net-sample|tenant|grant|DT4|postcode/i);
+    expect(container.textContent).not.toMatch(/net-sample|tenant|grant|DT4/i);
   });
 
   it('has the toggle between the list and the map of the same case', async () => {

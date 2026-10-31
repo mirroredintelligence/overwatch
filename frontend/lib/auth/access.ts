@@ -17,6 +17,9 @@ const PREFIX_ROLES: ReadonlyMap<string, readonly Role[]> = new Map([
   ['console', ['support']],
   // The tenant administrator's pages (TEN-076): the role the back end gives a tenant's administrator.
   ['admin', ['tenant-admin']],
+  // The network administrator's pages (TEN-080): the owner of a network. The back end decides again on
+  // every call, and which network is the registry's answer, never the browser's.
+  ['network-admin', ['network-admin']],
   // The operator console is another door with its own session (lib/operator): no tenant role opens it.
   ['operator', []],
 ]);
@@ -29,6 +32,7 @@ const HOMES: Readonly<Partial<Record<Role, string>>> = {
   exec: '/planning',
   support: '/console',
   'tenant-admin': '/admin',
+  'network-admin': '/network-admin',
 };
 
 const FALLBACK_HOME = '/';

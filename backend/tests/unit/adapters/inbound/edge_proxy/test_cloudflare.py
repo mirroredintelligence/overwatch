@@ -1,7 +1,7 @@
 """The trusted-proxy handling for Cloudflare (B1, deployment-plan item 5): the client address and
-the original host are read from the edge's headers only when the request comes from Cloudflare, by its
-published address ranges or by the origin secret Cloudflare adds. Every other request keeps its
-socket peer and its own Host header, and the edge's headers never reach a route. Synthetic
+the original host are read from the edge's headers only when the request comes from Cloudflare,
+by its published address ranges or by the origin secret Cloudflare adds. Every other request keeps
+its socket peer and its own Host header, and the edge's headers never reach a route. Synthetic
 addresses only (documentation ranges and Cloudflare's own published ranges)."""
 
 import ipaddress

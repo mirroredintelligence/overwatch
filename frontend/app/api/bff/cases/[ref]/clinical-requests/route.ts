@@ -6,10 +6,12 @@ import { fhirFetch } from '@/lib/fhir/client';
 import type { Role } from '@/lib/auth/session';
 
 // An advisor asks for clinical advice on a case (W45, R13 `POST /fhir/Task`). The case is the focus; the
-// urgency and the reason are its inputs. The back end takes exactly these two values, and refuses others.
+// urgency and the reason are its inputs, and the service the advisor was considering, when they asked about
+// one (KI-768): its id, which the back end turns into the name the clinician and the advice show.
 
 const NO_STORE = { 'Cache-Control': 'no-store' };
 const CASE = /^[A-Za-z0-9-]{1,64}$/;
+const SERVICE = /^[A-Za-z0-9.-]{1,64}$/;
 const ROLES: Role[] = ['advisor', 'lead'];
 
 type Context = { params: Promise<{ ref: string }> };
@@ -32,6 +34,10 @@ const post = withBff<Context>(
     if (typeof why !== 'string' || !(REQUEST_WHYS as readonly string[]).includes(why)) {
       return Response.json({ code: 'invalid', message: 'The request was not valid.' }, { status: 400, headers: NO_STORE });
     }
+    const service = body?.service;
+    if (service !== undefined && (typeof service !== 'string' || !SERVICE.test(service))) {
+      return Response.json({ code: 'invalid', message: 'The request was not valid.' }, { status: 400, headers: NO_STORE });
+    }
     const task = {
       resourceType: 'Task',
       status: 'requested',
@@ -40,6 +46,7 @@ const post = withBff<Context>(
       extension: [
         { url: codeSystemUrl('task-input/urgency'), valueCode: urgency },
         { url: codeSystemUrl('task-input/why'), valueCode: why },
+        ...(service === undefined ? [] : [{ url: codeSystemUrl('task-input/service'), valueString: service }]),
       ],
     };
     const { data } = await fhirFetch<{ id?: unknown }>('/Task', {

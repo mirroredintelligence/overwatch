@@ -7,7 +7,7 @@ import { AdviceForm } from '@/components/clinical/AdviceForm';
 import { Button } from '@/components/ui/Button';
 import { bffRequest } from '@/lib/bff/browser';
 import { londonTime } from '@/lib/board/format';
-import { ADVICE_LABELS, REASON_LABELS } from '@/lib/clinical/advice';
+import { adviceText, REASON_LABELS } from '@/lib/clinical/advice';
 import { minutesLeft } from '@/lib/clinical/countdown';
 import { summaryLine, urgencyText, WHY_TEXT } from '@/lib/clinical/queue';
 import { advisorContactFromJson, seenLineText, type AdvisorContact, type Seen } from '@/lib/clinical/seen';
@@ -19,8 +19,10 @@ import styles from '@/components/exec/Exec.module.css';
 // request is held by this clinician (DEC-855, H-375): otherwise the screen says what is missing and
 // gives no way to advise. The case is shown as the advisor recorded it: age band, needs, urgency and
 // NEWS2 (the postcode is never sent to a clinician, DEC-396). What the advisor saw is its own read (W9G) and
-// is shown beside it, capacity only; the advice form does not wait on it, but the call to the advisor is
-// offered whenever the request is held. The advisor's number is asked for only when the button is pressed, is
+// is shown beside it, capacity only. The advice form is offered only when that read loaded too (DEC-1179,
+// tightening DEC-1036): advice given without seeing what the advisor saw can be advice about the wrong
+// services. A request with no display recorded is a read that worked ("none recorded"), so it still
+// allows advice. When the read fails the call to the advisor is offered, and a way to read it again. The advisor's number is asked for only when the button is pressed, is
 // kept in this component's memory only and goes when the advice is sent.
 
 const BACK = (
@@ -42,7 +44,10 @@ function Countdown({ returnsAt }: { returnsAt: string }) {
   );
 }
 
-const SEEN_FAILED = 'What the advisor saw could not be read. Phone the advisor to ask.';
+/** The read of what the advisor saw failed or cannot be trusted: the form is not offered (DEC-1179). */
+const seenFailed = (seen: Seen | null) => seen === null || seen.state === 'unreadable';
+
+const SEEN_FAILED = 'What the advisor saw could not be read, so no advice can be given from here. Phone the advisor to ask, or read it again.';
 
 function SawSection({ seen }: { seen: Seen | null }) {
   if (seen === null || seen.state === 'unreadable') {
@@ -158,6 +163,7 @@ export function CaseView({ requestId, request, seen }: { requestId: string; requ
         <h2 id="case-the-case" className={styles.cardTitle}>The case</h2>
         {line !== '' ? <p>{line}</p> : <p>The advisor has recorded no details yet.</p>}
         <p>{`Needed: ${urgencyText(request.urgency)}`}</p>
+        {request.service === null ? null : <p>{`The advisor was asking about: ${request.service}`}</p>}
       </section>
       <section className={styles.section} aria-labelledby="case-why">
         <h2 id="case-why" className={styles.cardTitle}>Why the advisor asked</h2>
@@ -173,7 +179,7 @@ export function CaseView({ requestId, request, seen }: { requestId: string; requ
         {caseSection}
         <SawSection seen={seen} />
         <section className={styles.section} aria-label="Advice">
-          <p>{`Advice given: ${given === null ? 'not recorded' : given.choice in ADVICE_LABELS ? ADVICE_LABELS[given.choice as keyof typeof ADVICE_LABELS] : given.choice}`}</p>
+          <p>{`Advice given: ${given === null ? 'not recorded' : adviceText(given.choice, request.service)}`}</p>
           {given?.reason ? <p>{`Reason: ${given.reason in REASON_LABELS ? REASON_LABELS[given.reason as keyof typeof REASON_LABELS] : given.reason}`}</p> : null}
         </section>
         <div className={styles.actions}>{BACK}</div>
@@ -197,7 +203,12 @@ export function CaseView({ requestId, request, seen }: { requestId: string; requ
       {sent ? null : <SawSection seen={seen} />}
       {sent || request.returnsAt === null ? null : <Countdown returnsAt={request.returnsAt} />}
       {sent ? null : <CallAdvisor requestId={requestId} />}
-      {sent ? (
+      {!sent && seenFailed(seen) ? (
+        <div className={styles.actions}>
+          <Button variant="secondary" onClick={() => router.refresh()} dataEl="CLIN-CASE-REREAD-BTN">Read it again</Button>
+          {BACK}
+        </div>
+      ) : sent ? (
         <section className={styles.section} aria-labelledby="advice-sent">
           <h2 id="advice-sent" className={styles.heading}>Advice sent</h2>
           <p>The advisor has it now. Logged for audit: your role, the time, your advice and what you saw.</p>
@@ -210,7 +221,7 @@ export function CaseView({ requestId, request, seen }: { requestId: string; requ
       ) : (
         <section className={styles.section} aria-labelledby="advice-heading">
           <h2 id="advice-heading" className={styles.heading}>Give advice</h2>
-          <AdviceForm requestId={requestId} onSent={() => setSent(true)} />
+          <AdviceForm requestId={requestId} serviceName={request.service} onSent={() => setSent(true)} />
         </section>
       )}
     </div>

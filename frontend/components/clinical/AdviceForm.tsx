@@ -3,7 +3,7 @@
 import { useId, useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/Button';
 import { OptionButton } from '@/components/ui/OptionButton';
-import { ADVICE_CHOICES, ADVICE_LABELS, ADVICE_REASONS, NOTE_LIMIT, REASON_LABELS, validateAdvice } from '@/lib/clinical/advice';
+import { ADVICE_CHOICES, adviceText, ADVICE_REASONS, NOTE_LIMIT, REASON_LABELS, validateAdvice } from '@/lib/clinical/advice';
 import { bffRequest } from '@/lib/bff/browser';
 import styles from '@/components/exec/Exec.module.css';
 
@@ -13,7 +13,7 @@ import styles from '@/components/exec/Exec.module.css';
 export const SEND_FAILED = 'Could not send advice. Try again.';
 export const NO_LONGER_YOURS = 'This request is no longer yours. It may have returned to the queue.';
 
-export function AdviceForm({ requestId, onSent }: { requestId: string; onSent: () => void }) {
+export function AdviceForm({ requestId, serviceName = null, onSent }: { requestId: string; serviceName?: string | null; onSent: () => void }) {
   const [advice, setAdvice] = useState<string | null>(null);
   const [reason, setReason] = useState<string | null>(null);
   const [note, setNote] = useState('');
@@ -51,7 +51,7 @@ export function AdviceForm({ requestId, onSent }: { requestId: string; onSent: (
         <div className={styles.group}>
           {ADVICE_CHOICES.map((choice) => (
             <OptionButton key={choice} selected={advice === choice} onSelect={() => setAdvice(choice)} dataEl={`CLIN-ADVICE-${choice.toUpperCase()}`}>
-              {ADVICE_LABELS[choice]}
+              {adviceText(choice, serviceName)}
             </OptionButton>
           ))}
         </div>

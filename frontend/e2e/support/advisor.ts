@@ -8,6 +8,7 @@ import {
   CRITERIA_HISTORY,
   OPTIONS,
 } from '@/test/fixtures/backend-shapes';
+import { caseOfOptionsBody, isRadarCase, postcodeSaved, radarCase, radarOptions } from './radar';
 
 // The advisor call-flow routes of the stand-in back end, for the browser tests (W10 to W16, W20, W50).
 // The answers are the JSON the real back end's mapping functions write (test/fixtures/backend-shapes.ts,
@@ -28,10 +29,12 @@ function send(response: ServerResponse, status: number, body: unknown, headers: 
 const outcome = (status: number, code: string) =>
   ({ resourceType: 'OperationOutcome', issue: [{ severity: 'error', code }] }) as const;
 
-function drain(request: IncomingMessage): Promise<void> {
+/** Reads the body to its end and returns it as text (the options route reads which case it is asked about). */
+function drain(request: IncomingMessage): Promise<string> {
   return new Promise((resolve) => {
-    request.on('data', () => undefined);
-    request.on('end', () => resolve());
+    let text = '';
+    request.on('data', (chunk: Buffer) => (text += chunk.toString()));
+    request.on('end', () => resolve(text));
   });
 }
 
@@ -43,7 +46,9 @@ export async function handleAdvisorRoute(request: IncomingMessage, response: Ser
   const isTask = /^\/fhir\/Task(\/[^/]+)?(\/\$(cancel|acknowledge))?$/.test(pathname);
   const isOther = pathname === '/fhir/HealthcareService/$filter-options' || pathname === '/fhir/Basic';
   if (!isCase && !isTask && !isOther) return false;
-  await drain(request);
+  const bodyText = await drain(request);
+  // The radar's own cases (e2e/support/radar.ts) are answered apart from the one shared case below.
+  const radarId = /^\/fhir\/ServiceRequest\/(radar-[a-z0-9]+)$/.exec(pathname)?.[1];
 
   // The real back end refuses a POST or PUT whose body type is not JSON before any route runs, body or not
   // (BodyTypeMiddleware, 415): so does this one, so a page that sends none fails here too (WB4).
@@ -65,6 +70,9 @@ export async function handleAdvisorRoute(request: IncomingMessage, response: Ser
     state.caseNow = CASE_BLANK;
     state.booking = null;
     send(response, 201, CASE_BLANK, { ETag: 'W/"1"', Location: '/fhir/ServiceRequest/case-1' });
+  } else if (isRadarCase(radarId) && (method === 'GET' || method === 'PUT')) {
+    if (method === 'PUT') postcodeSaved(radarId);
+    send(response, 200, radarCase(radarId), { ETag: 'W/"1"' });
   } else if (/^\/fhir\/ServiceRequest\/[^/]+$/.test(pathname) && method === 'GET') {
     send(response, 200, state.caseNow, { ETag: 'W/"1"' });
   } else if (/^\/fhir\/ServiceRequest\/[^/]+$/.test(pathname) && method === 'PUT') {
@@ -74,7 +82,8 @@ export async function handleAdvisorRoute(request: IncomingMessage, response: Ser
     state.caseNow = CASE_CLOSED;
     send(response, 200, CASE_CLOSED);
   } else if (pathname === '/fhir/HealthcareService/$filter-options') {
-    send(response, 200, OPTIONS);
+    const radar = caseOfOptionsBody(bodyText);
+    send(response, 200, isRadarCase(radar) ? radarOptions(radar) : OPTIONS);
   } else if (pathname === '/fhir/Basic') {
     send(response, 200, CRITERIA_HISTORY);
   } else if (pathname === '/fhir/Task' && method === 'POST') {

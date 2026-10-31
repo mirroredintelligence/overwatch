@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import type { PostcodeChange } from '@/lib/advisor/postcodeChange';
 import styles from './map.module.css';
 
 // The two states the map and the list give when a postcode cannot be used (W50). Each names a next step; a
@@ -13,6 +14,8 @@ type DistrictProps = {
   districts?: string[];
   /** Saves the chosen district and runs the options again; true when it was kept. */
   onChooseDistrict?: (district: string) => Promise<boolean>;
+  /** Tries a postcode typed here and runs the options again. Omitted: the state offers no field. */
+  onSearchAgain?: (postcode: string) => Promise<PostcodeChange>;
 };
 
 const CHOICE_NOTE = 'Options will use the district, with a wider travel range.';
@@ -51,6 +54,61 @@ function DistrictChips({ districts, onChooseDistrict }: { districts: string[]; o
   );
 }
 
+const SEARCH_MESSAGES: Record<Exclude<PostcodeChange, 'saved'>, string> = {
+  invalid: 'Enter a full postcode, like DT4 8XX.',
+  conflict: 'The case changed while you were typing. Read it again, then try again.',
+  failed: 'The postcode could not be tried. Try again.',
+};
+
+// The postcode typed again in place (MapWeb 3): one field and one button. A postcode that is kept runs the
+// options again and the screen changes; one that is not is said, in words, beside the field.
+function PostcodeSearch({ onSearchAgain }: { onSearchAgain: (postcode: string) => Promise<PostcodeChange> }) {
+  const fieldId = useId();
+  const [typed, setTyped] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+
+  const search = async () => {
+    if (busy) return;
+    setBusy(true);
+    setProblem(null);
+    const result = await onSearchAgain(typed);
+    if (result !== 'saved') {
+      setProblem(SEARCH_MESSAGES[result]);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className={styles.search}>
+      <label htmlFor={fieldId} className={styles.chipsLegend}>
+        Postcode
+      </label>
+      <input
+        id={fieldId}
+        type="text"
+        className={styles.field}
+        value={typed}
+        autoComplete="off"
+        aria-invalid={problem === null ? undefined : true}
+        aria-describedby={problem === null ? undefined : `${fieldId}-problem`}
+        onChange={(event) => setTyped(event.target.value)}
+        data-el="ADV-POSTCODE-FIX"
+      />
+      {problem === null ? null : (
+        <p id={`${fieldId}-problem`} role="alert">
+          {problem}
+        </p>
+      )}
+      <div className={styles.actions}>
+        <Button variant="secondary" busy={busy} onClick={() => void search()} dataEl="ADV-POSTCODE-SEARCH-BTN">
+          Search again
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function Choice({ districts, onChooseDistrict }: DistrictProps) {
   if (districts === undefined || onChooseDistrict === undefined || districts.length === 0) return null;
   return <DistrictChips districts={districts} onChooseDistrict={onChooseDistrict} />;
@@ -61,6 +119,7 @@ export function PostcodeNotFound({
   onAskClinical,
   districts,
   onChooseDistrict,
+  onSearchAgain,
 }: { caseId: string; onAskClinical: () => void } & DistrictProps) {
   const id = encodeURIComponent(caseId);
   // With districts to choose, the spec's sentence; with none to choose from, it does not point at them.
@@ -71,10 +130,14 @@ export function PostcodeNotFound({
         We could not find that postcode
       </h2>
       <p className={styles.sub}>{offered ? 'Check it with the caller, or choose the district.' : 'Check it with the caller.'}</p>
+      {onSearchAgain === undefined ? null : <PostcodeSearch onSearchAgain={onSearchAgain} />}
       <Choice districts={districts} onChooseDistrict={onChooseDistrict} />
       <div className={styles.actions}>
         <Button variant="secondary" href={`/advisor/case/${id}`}>
           Change the postcode
+        </Button>
+        <Button variant="secondary" href="/advisor/board" dataEl="ADV-NOFIT-PHONE-BTN">
+          Phone a service you know has space
         </Button>
         <Button variant="secondary" href={`/advisor/case/${id}/finish?outcome=no-service-fits`} dataEl="ADV-NOFIT-OTHER-BTN">
           Other routes under local protocol

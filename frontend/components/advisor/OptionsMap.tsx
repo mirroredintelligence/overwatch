@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { StatusBadge } from '@/components/ui/StatusBadge';
+import { ShapeIcon, STATUS_SHAPES, StatusBadge } from '@/components/ui/StatusBadge';
 import type { LatLon } from '@/lib/map/project';
 import { layoutOf, PICTURE, percentOf, radiusPx } from '@/lib/map/layout';
 import { type OptionView } from '@/lib/advisor/options';
@@ -17,7 +17,8 @@ import styles from './map.module.css';
 // labelled pin, and each visiting service as a dashed area. It is not a tile map: no tile provider is
 // chosen and no third-party script is loaded. The list holds every service the map shows.
 
-const CAPTION = 'Patient shown at postcode centre. Dashed areas are where a visiting service can attend.';
+const CAPTION =
+  'Patient shown at postcode centre. Dashed areas are where a visiting service can attend. The dotted line is the route to the selected site.';
 const PATIENT_RADIUS = 9;
 
 export type OptionsMapProps = {
@@ -66,6 +67,10 @@ export function OptionsMap({
   const at = (index: number) => layout.points[index];
   const offset = patientArea === null ? 0 : 1;
   const selected = options.find((option) => option.serviceId === selectedId) ?? null;
+  // The route to the selected fixed site: a dotted line from the patient (W50, MapWeb). A visiting service
+  // comes to the patient, so it has no route to draw.
+  const selectedIndex = selected === null ? -1 : fixed.findIndex((option) => option.serviceId === selected.serviceId);
+  const routeEnd = selectedIndex < 0 || patientArea === null ? null : at(offset + selectedIndex);
 
   return (
     <section className={styles.screen} aria-label={`Map of options near ${postcode}`}>
@@ -87,6 +92,19 @@ export function OptionsMap({
               />
             );
           })}
+          {routeEnd === undefined || routeEnd === null ? null : (
+            <line
+              x1={at(0).x}
+              y1={at(0).y}
+              x2={routeEnd.x}
+              y2={routeEnd.y}
+              stroke="currentColor"
+              strokeWidth={3}
+              strokeDasharray="2 8"
+              strokeLinecap="round"
+              data-el="ADV-MAP-ROUTE"
+            />
+          )}
           {patientArea === null ? null : (
             <circle cx={at(0).x} cy={at(0).y} r={PATIENT_RADIUS} fill="currentColor" />
           )}
@@ -108,13 +126,24 @@ export function OptionsMap({
             data-el={`ADV-MAP-PIN-${option.serviceId.toUpperCase()}`}
             onClick={() => onSelect(option.serviceId)}
           >
+            <ShapeIcon shape={STATUS_SHAPES[option.status]} />
             {option.name}
           </button>
         ))}
         {visiting.map((option, index) => (
-          <span key={option.serviceId} className={styles.visiting} style={percentOf(at(offset + fixed.length + index))}>
-            {`${option.name} (visiting)`}
-          </span>
+          <button
+            key={option.serviceId}
+            type="button"
+            className={styles.pin}
+            style={percentOf(at(offset + fixed.length + index))}
+            aria-label={`${option.name} (visits)`}
+            aria-pressed={option.serviceId === selectedId}
+            data-el={`ADV-MAP-AREA-${option.serviceId.toUpperCase()}`}
+            onClick={() => onSelect(option.serviceId)}
+          >
+            <ShapeIcon shape={STATUS_SHAPES[option.status]} />
+            {`${option.name} (visits)`}
+          </button>
         ))}
       </div>
       <p className={styles.caption}>{CAPTION}</p>
@@ -157,6 +186,7 @@ function PinCard({
       {free === null ? null : <p className={styles.line}>{free}</p>}
       <p className={styles.line}>{travelLine(option)}</p>
       {age === null ? null : <p className={styles.line}>{age}</p>}
+      {option.criteriaVersion === null ? null : <p className={styles.line}>{`Criteria version ${option.criteriaVersion}`}</p>}
       {network === null ? <ServicePhone phone={option.phone} /> : null}
       {network === null ? <OptionBooking caseId={caseId} option={option} /> : <NetworkServiceLine option={option} className={styles.line} />}
       <div className={styles.actions}>

@@ -82,8 +82,9 @@ async function readCapped(stream: ReadableStream<Uint8Array> | null, limit: numb
   return { kind: 'bytes', bytes };
 }
 
-/** The answer for a method or path that is not a forward: 404, empty. The same for every one of them. */
-export function notFound(): Response {
+/** The answer for a method or path that is not a forward: 404, empty. The same for every one of them. It looks at nothing it is given. */
+export function notFound(...ignored: unknown[]): Response {
+  void ignored;
   return answer(404);
 }
 

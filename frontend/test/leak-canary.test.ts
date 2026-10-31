@@ -139,7 +139,7 @@ describe('inspectUpstream: what is a leak', () => {
     });
 
     it.each(PATHS)('is a leak when POST %s carries a bearer, a cookie or a forwarding or edge header', (path) => {
-      for (const headers of [
+      for (const headers of <Record<string, string>[]>[
         { Authorization: 'Bearer sample' },
         { Cookie: 'a=b' },
         { 'X-Forwarded-For': '203.0.113.9' },

@@ -15,7 +15,7 @@ Also accepts a `not-reached` booking now (was withdrawn only). The first acknowl
 
 ### Link pages (root, no session)
 - `GET /links/{token}` for a closed booking link answers 410 `{state, kind: "booking", reference, closedAt, confirmedAt?, cancelledAt?, coordinationPhone?}` (times are instants; the phone is the tenant's current number). A capacity link, an unknown one and another tenant's say `{state}` alone.
-- A confirm or withdraw answer carries `confirmedAt` and `respondedAt`.
+- A confirm answer carries `confirmedAt`; a decline or a withdrawal answer carries `respondedAt`.
 - B4, B5 and B6 echoes go to the reporter on their own channel (text, email, push).
 
 ## BFF (front end)

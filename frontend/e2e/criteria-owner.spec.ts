@@ -12,7 +12,7 @@ import { TOKEN_ORG_A } from './support/tokens';
 const BASE_URL = SITE_URL;
 const WCAG = ['wcag2a', 'wcag2aa', 'wcag21aa'];
 
-// DEC-1306: the owner's home is the landing at /criteria (the old /owner/criteria had no page).
+// DEC-1310: the owner's home is the landing at /criteria (the old /owner/criteria had no page).
 test('the owner’s landing lists the services, goes straight to a single one, and says so when there are none', async ({ page }) => {
   await signIn(page.context(), BASE_URL, 'owner', TOKEN_ORG_A, ['s1', 's2']);
   await page.goto('/criteria');

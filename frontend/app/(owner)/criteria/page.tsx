@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic';
 
-// The criteria owner's landing (DEC-1306): the services the signed-in person can review, from the
+// The criteria owner's landing (DEC-1310): the services the signed-in person can review, from the
 // session's own list. The design has no landing screen (the owner arrives from a reminder link), so
 // this stays plain: one service goes straight to its overview, none says so. The session carries the
 // service ids only, so no review-by date is shown here; the overview has it.

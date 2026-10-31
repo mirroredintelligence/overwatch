@@ -92,6 +92,7 @@ from overwatch.adapters.outbound.graph_store.support_ticket_repository import (
 from overwatch.adapters.outbound.graph_store.tenant_config_repository import (
     Neo4jTenantConfigRepository,
 )
+from overwatch.adapters.outbound.graph_store.visit_repository import Neo4jVisitRepository
 from overwatch.application.idempotency import IdempotencyStore
 from overwatch.application.ports.outbound.aggregates import AggregateRepository
 from overwatch.application.ports.outbound.audit import AuditLog
@@ -134,6 +135,7 @@ from overwatch.application.ports.outbound.unit_of_work import (
     NetworkUnitOfWorkFactory,
     UnitOfWorkFactory,
 )
+from overwatch.application.ports.outbound.visits import VisitRepository
 from overwatch.application.tenancy import ScopeId, claim_unit, release_unit, scope_for_new_unit
 from overwatch.domain.errors import Conflict
 
@@ -175,6 +177,7 @@ DEFAULT_FACTORIES: dict[str, RepositoryFactory] = {
     "insight": lambda tx, store: Neo4jInsightRepository(tx),
     "support_tickets": lambda tx, store: Neo4jSupportTicketRepository(tx),
     "tenant_config": lambda tx, store: Neo4jTenantConfigRepository(tx),
+    "visits": lambda tx, store: Neo4jVisitRepository(tx),
     # The network scope's writer and reader (TEN-053). They sit in the same mapping because a unit
     # of work is the same class in either kind of scope; their statements are network-only, so a
     # tenant unit that reaches for one is refused by `run_query` (`ScopeKindMismatch`).
@@ -250,6 +253,7 @@ class Neo4jUnitOfWork:
     insight: InsightRepository
     support_tickets: SupportTicketRepository
     tenant_config: TenantConfigRepository
+    visits: VisitRepository
     projections: ProjectionWriter
     network_view: NetworkView
     network_samples: NetworkSamples

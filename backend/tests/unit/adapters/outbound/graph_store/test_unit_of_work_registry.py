@@ -66,6 +66,7 @@ REQUIRED_NAMES = {
     "insight",
     "support_tickets",
     "tenant_config",
+    "visits",  # DEC-1309: the visit offers and the practitioner's visit settings
     # The network scope's two repositories (TEN-053): on the unit, not on the tenant port.
     "projections",
     "network_view",

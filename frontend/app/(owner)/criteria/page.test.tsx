@@ -4,7 +4,7 @@ import { runAxe } from '@/test/a11y';
 import type { Session } from '@/lib/auth/session';
 import CriteriaLandingPage from './page';
 
-// DEC-1306: the criteria owner's landing at /criteria. The services are the session's own list.
+// DEC-1310: the criteria owner's landing at /criteria. The services are the session's own list.
 
 const getSession = vi.fn<() => Promise<Session | null>>();
 const redirect = vi.fn((to: string): never => {

@@ -66,6 +66,8 @@ CLASS_OF_LABEL: Final[Mapping[str, ExportClass]] = MappingProxyType(
         "Task_Output": _C.CASES_AND_REQUESTS,
         "ServiceRequest": _C.CASES_AND_REQUESTS,
         "Patient": _C.CASES_AND_REQUESTS,
+        "VisitOffer": _C.CASES_AND_REQUESTS,
+        "VisitSettings": _C.PEOPLE,
         "Practitioner": _C.PEOPLE,
         "PractitionerRole": _C.PEOPLE,
         "AlertSubscription": _C.ALERTS_AND_FLAGS,

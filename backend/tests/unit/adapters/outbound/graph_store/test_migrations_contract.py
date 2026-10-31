@@ -28,6 +28,7 @@ from overwatch.adapters.outbound.graph_store.migrations_tenant import (
     SUPERSEDED_CONSTRAINTS,
     SUPERSEDED_INDEXES,
 )
+from overwatch.adapters.outbound.graph_store.migrations_visits import VISIT_MIGRATIONS
 
 DROP = re.compile(r"DROP CONSTRAINT (\w+) IF EXISTS")
 CREATE = re.compile(
@@ -49,11 +50,15 @@ def test_it_is_assembled_after_every_other_migration() -> None:
     # W5E), and of the platform's own records (0190, wave 9 bundle W9C) follow it: they are expand
     # steps on labels that did not exist before, so they replace no key and need not wait for the
     # contract step. The browser-insight area (0195, 0196, W9F) is the same: composite keys and
-    # indexes on labels that carry no superseded key.
+    # indexes on labels that carry no superseded key. The visit offers (0200, 0201, DEC-1309) are
+    # the same: composite keys on two new labels.
     later = ids[ids.index(CONTRACT_MIGRATION_ID) + 1 :]
-    assert later == [m.id for m in NETWORK_MIGRATIONS] + [m.id for m in PLATFORM_MIGRATIONS] + [
-        m.id for m in INSIGHT_MIGRATIONS
-    ]
+    assert later == (
+        [m.id for m in NETWORK_MIGRATIONS]
+        + [m.id for m in PLATFORM_MIGRATIONS]
+        + [m.id for m in INSIGHT_MIGRATIONS]
+        + [m.id for m in VISIT_MIGRATIONS]
+    )
     assert all(int(i[:4]) >= 110 for i in later)
 
 

@@ -1,0 +1,202 @@
+/* The practitioner app (RadarPhone 1 to 4): a phone-first column with a bar and a back arrow on top, the
+   page in the middle and the actions fixed to the foot, inside the staff shell. Colours and sizes are
+   the tokens in app/tokens.css. Nothing here is wider than the screen at 360 px. */
+
+.screen {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 8rem);
+  max-width: 32rem;
+  margin: 0 auto;
+  color: var(--c-ink);
+  background: Canvas;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) var(--space-2) var(--space-2);
+  border-bottom: 1px solid var(--c-line);
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  color: var(--c-ink);
+}
+
+.back:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.barTitle {
+  margin: 0;
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: var(--type-title-weight);
+}
+
+.body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-4);
+}
+
+.actions {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-5);
+  border-top: 1px solid var(--c-line);
+  background: Canvas;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--type-heading-size);
+  line-height: var(--type-heading-lh);
+  font-weight: var(--type-heading-weight);
+  letter-spacing: var(--type-heading-tracking);
+  text-wrap: balance;
+}
+
+.label {
+  margin: 0;
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-lh);
+  font-weight: var(--type-label-weight);
+}
+
+.labelRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.optional,
+.note {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-muted);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.panel {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius);
+  background: var(--c-bg);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  overflow-wrap: anywhere;
+}
+
+.panel p {
+  margin: 0;
+}
+
+.panelTitle {
+  font-weight: 700;
+}
+
+.badge {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-2);
+  border: 2px solid var(--c-primary);
+  border-radius: var(--radius-chip);
+  font-weight: 700;
+  color: var(--c-primary-dark);
+  background: Canvas;
+}
+
+.badgeSolid {
+  color: Canvas;
+  background: var(--c-primary);
+}
+
+.badge svg {
+  flex: none;
+  width: 22px;
+  height: 22px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 56px;
+  padding: var(--space-2) var(--space-4);
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius);
+  color: var(--c-ink);
+  text-decoration: none;
+}
+
+.item:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.itemText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.itemMeta {
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
+}
+
+.lines {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+}
+
+.countdown {
+  font-variant-numeric: tabular-nums;
+}

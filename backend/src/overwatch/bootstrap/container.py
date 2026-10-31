@@ -155,6 +155,7 @@ from overwatch.application.use_cases.tenant_invariants import (
     RunInvariantCheckCommand,
     ensure_invariant_schedule,
 )
+from overwatch.application.use_cases.visit_offers import CloseVisitOffer, visit_close_handlers
 from overwatch.application.use_cases.withdraw_booking import (
     EscalateWithdrawal,
     EscalateWithdrawalCommand,
@@ -445,6 +446,9 @@ def _scheduled_work(
             BookingPhonePrompt(uow_factory, clock), ExpireBooking(uow_factory, clock)
         )
     )
+    # The close of a visit offer (DEC-1308 item 7): erases what an unanswered or unfinished one
+    # holds.
+    handlers.update(visit_close_handlers(CloseVisitOffer(uow_factory, clock, ids)))
     # The daily criteria review run (U31).
     reviews = RunCriteriaReviews(uow_factory, ids, clock, AesGcmContentSealer(secrets))
     handlers[WorkKind.CRITERIA_REVIEW_REMINDER] = criteria_review_handler(reviews)

@@ -208,6 +208,12 @@ def create_app(
 
     app.include_router(routes_coverage.router)
 
+    # The practitioner app (DEC-1306 to DEC-1309): a visit offered to the round, accepted or
+    # declined, carried out, and the practitioner's location choice.
+    from overwatch.adapters.inbound.fhir_rest import routes_practitioner
+
+    app.include_router(routes_practitioner.router)
+
     # The insight console's routes (W9F): the browser's ui.* events counted into the tenant's
     # daily aggregates, and the five tabs of the insight page read back for the support role.
     from overwatch.adapters.inbound.fhir_rest import routes_insight

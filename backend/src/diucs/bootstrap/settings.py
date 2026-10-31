@@ -98,6 +98,10 @@ class Settings(BaseSettings):
     # TEN-043: the Entra directory of the platform operator's own staff (a GUID). Unset leaves the
     # operator sign-in unconfigured (it answers as a server with no exchange configuration).
     operator_directory_id: str | None = None
+    # The app registrations the sign-in tokens are issued to (GUIDs, not secrets). Both are needed
+    # for the Entra verifier; without them every sign-in is refused (RefusingIdentityVerifier).
+    entra_staff_client_id: str | None = None
+    entra_operator_client_id: str | None = None
     # B8 (DEC-1304): where the platform's secrets come from. With `key_vault_url` set (a URL, not a
     # secret) the process reads them from Azure Key Vault through its managed identity
     # (`AZURE_CLIENT_ID` picks the identity): the Neo4j password, the Redis URL and the Service Bus

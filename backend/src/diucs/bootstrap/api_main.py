@@ -52,6 +52,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final, Protocol
 
+import httpx
 import uvicorn
 from azure.servicebus.aio import ServiceBusClient
 from fastapi import FastAPI
@@ -73,6 +74,7 @@ from diucs.adapters.inbound.link_pages.capacity_links import (
 )
 from diucs.adapters.inbound.sms_webhook.routes import SmsWebhookDeps
 from diucs.adapters.outbound.bus_servicebus.service_bus import ServiceBusEventBus
+from diucs.adapters.outbound.entra_identity.verifier import EntraConfig, EntraIdentityVerifier
 from diucs.adapters.outbound.push_webpush.web_push import VAPID_PRIVATE_KEY_SECRET
 from diucs.adapters.outbound.telemetry.azure_monitor_query import LogsQueryClient
 from diucs.adapters.outbound.telemetry.otel import configure_telemetry
@@ -420,6 +422,24 @@ def _service_bus_connection(settings: Settings) -> str:
     return secret.get_secret_value()
 
 
+def _identity_verifier(settings: Settings, http: httpx.AsyncClient) -> IdentityVerifier:
+    """The Entra verifier once both app registrations and the operator directory are configured;
+    until then every sign-in is refused, so an unconfigured process lets no one in."""
+    if (
+        settings.entra_staff_client_id
+        and settings.entra_operator_client_id
+        and settings.operator_directory_id
+    ):
+        config = EntraConfig(
+            staff_client_id=settings.entra_staff_client_id.lower(),
+            operator_client_id=settings.entra_operator_client_id.lower(),
+            operator_directory_id=settings.operator_directory_id.lower(),
+        )
+        return EntraIdentityVerifier(config, http)
+    log.warning("Entra sign-in is not configured: every sign-in will be refused")
+    return RefusingIdentityVerifier()
+
+
 def prepare_process(settings: Settings) -> tuple[Settings, ApiParts]:
     """The settings as the process runs them and the external adapters, before anything connects.
 
@@ -439,15 +459,21 @@ def prepare_process(settings: Settings) -> tuple[Settings, ApiParts]:
         raise ApiConfigError(SECRET_STORE_MISSING)
     client = ServiceBusClient.from_connection_string(connection)
     bus = ServiceBusEventBus(client)
+    http = httpx.AsyncClient()
 
     async def close_secrets() -> None:
         close_store(store)
 
     return settings, ApiParts(
         secrets=store,
-        verifier=RefusingIdentityVerifier(),
+        verifier=_identity_verifier(settings, http),
         event_bus=bus,
-        closers=(close_secrets, client.close, bus.close),  # run in reverse: the store last
+        closers=(
+            close_secrets,
+            client.close,
+            bus.close,
+            http.aclose,
+        ),  # run in reverse: the store last
     )
 
 

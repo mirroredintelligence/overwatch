@@ -95,7 +95,11 @@ from diucs.bootstrap.container import (
     NoTelemetry,
     build,
 )
-from diucs.bootstrap.network_services import build_network_admin_services, build_network_services
+from diucs.bootstrap.network_services import (
+    build_network_admin_services,
+    build_network_ownership,
+    build_network_services,
+)
 from diucs.bootstrap.platform_services import install_platform_routes
 from diucs.bootstrap.secret_store import (
     OS_PLACES_API_KEY_SECRET,
@@ -366,6 +370,7 @@ def build_api(
         verifier=parts.verifier,
         operator_directory_id=settings.operator_directory_id,
         platform_audit=container.platform_audit,
+        ownership=build_network_ownership(container),
     )
     app.state.link_pages = LinkPagesDeps(cache=container.cache, sealer=container.sealer)
     app.state.sms_webhook = SmsWebhookDeps(

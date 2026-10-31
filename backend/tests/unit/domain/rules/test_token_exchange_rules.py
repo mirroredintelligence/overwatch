@@ -82,6 +82,29 @@ def binding(directory: str, status: BindingStatus) -> EntraBinding:
 # ----------------------------------------------------------------------- the staff role
 
 
+def test_a_network_administrator_mapping_gives_nothing_unless_the_tenant_owns_a_network() -> None:
+    # TEN-080: the role is the owner's. A mapping on any other tenant is ignored, so the person
+    # falls to the next role their groups give, or to none.
+    mappings = [mapping(G_EXEC, Role.NETWORK_ADMIN), mapping(G_ADVISOR, Role.ADVISOR)]
+
+    assert staff_role(mappings, [G_EXEC]) is None
+    assert staff_role(mappings, [G_EXEC], owns_network=False) is None
+    assert staff_role(mappings, [G_EXEC, G_ADVISOR]) is Role.ADVISOR
+    assert staff_role(mappings, [G_EXEC], owns_network=True) is Role.NETWORK_ADMIN
+    assert staff_role(mappings, [G_EXEC, G_ADVISOR], owns_network=True) is Role.NETWORK_ADMIN
+
+
+def test_the_tenant_administrator_outranks_the_network_administrator() -> None:
+    mappings = [mapping(G_EXEC, Role.NETWORK_ADMIN), forced(G_LEAD, Role.TENANT_ADMIN)]
+
+    assert staff_role(mappings, [G_EXEC, G_LEAD], owns_network=True) is Role.TENANT_ADMIN
+
+
+@pytest.mark.parametrize("owns", [1, "yes", None, [True]])
+def test_ownership_is_a_real_boolean_or_it_is_not_ownership(owns: object) -> None:
+    assert staff_role([mapping(G_EXEC, Role.NETWORK_ADMIN)], [G_EXEC], owns_network=owns) is None  # type: ignore[arg-type]
+
+
 def test_a_held_group_gives_the_role_its_mapping_names() -> None:
     assert staff_role([mapping(G_LEAD, Role.LEAD)], [G_LEAD]) is Role.LEAD
 

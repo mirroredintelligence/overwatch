@@ -1,6 +1,6 @@
 # Delivery status
 
-Generated 2026-10-28T19:48:26.191302+00:00. Source of truth: the shared ledger (python delivery.py status). Delivered 80/301 tasks.
+Generated 2026-10-31T13:57:43.892711+00:00. Source of truth: the shared ledger (python delivery.py status). Delivered 109/301 tasks.
 
 ## S0 Foundations
 
@@ -83,33 +83,33 @@ Generated 2026-10-28T19:48:26.191302+00:00. Source of truth: the shared ledger (
 | P12 | Contract tests for the cache and event bus fakes | delivered | build-P12b | 0924380808a0648c83044e0c89cb6086cfd8aeb3 | checks, coverage, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-P12-r4 |
 | U01 | ReportCapacity use case | delivered | build-U01 | ca6e95f | checks, coverage, mutation, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-U01-r7 |
 | U02 | ConfirmCapacity use case | delivered | build-U02-r3 | 953e4ab | checks, coverage, hazard-note, mutation, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-U02-r3 |
-| U03 | SendPrompts use case (one service) | in-progress | build-U03-r3-sonnet | - | - |
-| U04 | Grouped prompts for multi-service phones | not-started | - | - | - |
-| U05 | HandleInboundText use case: capacity replies | not-started | - | - | - |
-| U06 | Missed-report ladder handlers | not-started | - | - | - |
-| U07 | Raise report flags when reports break rules | not-started | - | - | - |
+| U03 | SendPrompts use case (one service) | delivered | build-U03-fin-sonnet | 02bb194 | checks, hazard-note, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-U03-r1-sonnet |
+| U04 | Grouped prompts for multi-service phones | delivered | build-U04 | 2c79ab4 | checks, hazard-note, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-U04 |
+| U05 | HandleInboundText use case: capacity replies | delivered | build-U05-fix2 | c9fc9f0 | checks, coverage, mutation, spec-trace, tests-green, tests-red; verified by orch-verify-U05-r3 |
+| U06 | Missed-report ladder handlers | delivered | build-U06 | 2e4a29c | checks, coverage, hazard-note, mutation, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-U06 |
+| U07 | Raise report flags when reports break rules | delivered | build-U07 | a3e43b2 | checks, coverage, hazard-note, mutation, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-U07 |
 | U08 | QueryBoard read model | delivered | build-U08b | 5ac4b94 | checks, hazard-note, mutation, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-U08-r3 |
 | U09 | Board projector: cache and live updates | delivered | build-U09 | 9b11f6e | checks, coverage, hazard-note, mutation, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-U09 |
 | I01 | Redis cache adapter | delivered | build-I01 | af8bce876c088853319b9770886f5107666fed71 | checks, mutation, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-I01-r4 |
 | I02 | Service Bus event bus adapter | delivered | build-I02 | ff0c49d | checks, coverage, mutation, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-I02-r6 |
-| I03 | Outbox relay worker | not-started | - | - | - |
+| I03 | Outbox relay worker | delivered | build-I03 | 4e01478 | checks, coverage, hazard-note, mutation, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-I03 |
 | I04 | Idempotent message consumer framework | delivered | build-I04 | 8f76cf9 | checks, coverage, hazard-note, mutation, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-I04-r5 |
-| I05 | Scheduled work consumer | not-started | - | - | - |
-| TEN-001 | Tenancy seam step one: tenant context, run_query binding and registration check in warn mode | in-progress | build-TEN-001-r5-sonnet | - | - |
-| TEN-002 | Unit of work, connection and health on the scoped transaction (reworks P06, G14) | not-started | - | - | - |
-| TEN-003 | Test harness step one: tenant per run, bound-tenant fixtures, tenant-prefixed ids (reworks F10, F11) | not-started | - | - | - |
-| TEN-004 | Generated two-tenant isolation test over the query registry, with the unconverted-ids ratchet | not-started | - | - | - |
-| TEN-005 | Composite constraints, index swap and default-tenant backfill (runs alone) | not-started | - | - | - |
-| TEN-006 | Tenant domain model, configuration bounds, policy defaults and lifecycle state machine (pure) | not-started | - | - | - |
-| TEN-007 | Tenant record, TenantDirectory, global statement allowlist, secret references and fake secret store | not-started | - | - | - |
-| TEN-008 | Mapper reserves tenantId; Concept, CodeSystem and Identifier tenant-scoped (reworks G02 to G04) | not-started | - | - | - |
-| TEN-009 | Resource store statements stamped and anchored (reworks G05) | not-started | - | - | - |
-| TEN-010 | Service, capacity, booking and case repositories tenant-scoped (reworks P01, P02, P21) | not-started | - | - | - |
-| TEN-011 | Person, registration and scope-list repositories tenant-scoped (reworks P03, P13) | not-started | - | - | - |
+| I05 | Scheduled work consumer | stale | build-I05 | - | - |
+| TEN-001 | Tenancy seam step one: tenant context, run_query binding and registration check in warn mode | delivered | build-TEN-001-reg | 1e74bc7 | checks, coverage, hazard-note, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-TEN-001-r1 |
+| TEN-002 | Unit of work, connection and health on the scoped transaction (reworks P06, G14) | delivered | build-B1a | ce82c5c | checks, coverage, hazard-note, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-TEN-002-r1 |
+| TEN-003 | Test harness step one: tenant per run, bound-tenant fixtures, tenant-prefixed ids (reworks F10, F11) | delivered | build-TEN003-fin | e59b422 | checks, coverage, hazard-note, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-TEN-003-r1 |
+| TEN-004 | Generated two-tenant isolation test over the query registry, with the unconverted-ids ratchet | delivered | build-TEN-004-fix | a95fa3c | checks, coverage, hazard-note, mutation, spec-trace, tests-green, tests-red; verified by verify-TEN-004-r2 |
+| TEN-005 | Composite constraints, index swap and default-tenant backfill (runs alone) | delivered | build-TEN-005 | 964fa49 | checks, hazard-note, other, spec-trace, tests-green, tests-red; verified by verify-TEN-005 |
+| TEN-006 | Tenant domain model, configuration bounds, policy defaults and lifecycle state machine (pure) | delivered | build-TEN-006 | 37514dc | checks, coverage, hazard-note, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-TEN-006 |
+| TEN-007 | Tenant record, TenantDirectory, global statement allowlist, secret references and fake secret store | delivered | build-TEN-007 | 6112a5d | checks, coverage, hazard-note, mutation, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-TEN-007-r2 |
+| TEN-008 | Mapper reserves tenantId; Concept, CodeSystem and Identifier tenant-scoped (reworks G02 to G04) | delivered | build-TEN-008 | eae9ea9 | checks, coverage, hazard-note, mutation, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-TEN-008 |
+| TEN-009 | Resource store statements stamped and anchored (reworks G05) | delivered | build-TEN-009 | 5d64d90 | checks, coverage, hazard-note, mutation, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-TEN-009-r2 |
+| TEN-010 | Service, capacity, booking and case repositories tenant-scoped (reworks P01, P02, P21) | delivered | build-TEN-010 | ffd71c677f1bf04d2385d5b34f3c339773f1c462 | checks, hazard-note, mutation, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-B3 |
+| TEN-011 | Person, registration and scope-list repositories tenant-scoped (reworks P03, P13) | delivered | build-TEN-011 | ffd71c677f1bf04d2385d5b34f3c339773f1c462 | checks, hazard-note, mutation, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-B3 |
 | TEN-012 | Criteria and flag repositories tenant-scoped (reworks P04, P14) | not-started | - | - | - |
 | TEN-013 | Link token record and store carry the tenant (reworks D26, P10) | not-started | - | - | - |
 | TEN-014 | Contact, credential and device stores tenant-scoped (reworks P16) | not-started | - | - | - |
-| TEN-015 | Communication and scheduled-work repositories tenant-scoped (reworks P07, P08) | not-started | - | - | - |
+| TEN-015 | Communication and scheduled-work repositories tenant-scoped (reworks P07, P08) | delivered | build-TEN-015 | ffd71c677f1bf04d2385d5b34f3c339773f1c462 | checks, hazard-note, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-B3 |
 | TEN-016 | Outbox, idempotency and processed markers tenant-scoped (reworks P06, P15) | not-started | - | - | - |
 | TEN-017 | Audit chain per scope with per-scope genesis (reworks P05) | not-started | - | - | - |
 | TEN-018 | REST edge: tenant claim, Actor.tenant_id, roles, scope binding dependency (reworks R01, R02, R03) | not-started | - | - | - |
@@ -141,24 +141,24 @@ Generated 2026-10-28T19:48:26.191302+00:00. Source of truth: the shared ledger (
 | R01 | FHIR REST app skeleton | delivered | build-R01b | 4a04d06d8a9be8b4131161daa7942e1af1b3dcd5 | checks, hazard-note, mutation, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-R01-r4 |
 | R02 | Authentication, roles and service scope | delivered | build-R02 | 2fd0829 | checks, hazard-note, mutation, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-R02 |
 | R03 | ETag, If-Match and Idempotency-Key handling | delivered | build-R03 | 9f208fe | checks, coverage, hazard-note, mutation, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-R03-r3 |
-| R04 | HealthcareService and capacity Observation endpoints | not-started | - | - | - |
-| R05 | $board and $confirm-capacity operations | not-started | - | - | - |
+| R04 | HealthcareService and capacity Observation endpoints | delivered | build-R04 | 8d54fb7 | checks, coverage, hazard-note, mutation, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-R04 |
+| R05 | $board and $confirm-capacity operations | delivered | build-R05-fix | 360093e | checks, hazard-note, mutation, privacy-scan, spec-trace, tests-green, tests-red; verified by orch-verify-R05-r2 |
 | R06 | Server-sent events stream | delivered | build-R06 | b6e1283 | checks, coverage, hazard-note, mutation, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-R06-r3 |
-| L01 | Capacity link API | not-started | - | - | - |
+| L01 | Capacity link API | delivered | build-L01 | 88af902 | checks, coverage, hazard-note, mutation, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-L01 |
 | I06 | Twilio SMS adapter | delivered | orch-sharon-r6 | 31fbd89 | checks, coverage, mutation, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-I06-r5 |
-| I07 | SMS inbound webhook | not-started | - | - | - |
-| I08 | Reply processor and delivery receipt consumers | not-started | - | - | - |
-| I09 | Email adapter (SMTP) with HTML and text bodies | stale | build-I09 | - | checks, coverage, hazard-note, mutation, privacy-scan, spec-trace, tests-green, tests-red |
+| I07 | SMS inbound webhook | delivered | build-I07 | 4cedeb4 | checks, coverage, hazard-note, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-I07-r1 |
+| I08 | Reply processor and delivery receipt consumers | delivered | build-I08 | d4f9eeb | checks, coverage, hazard-note, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-I08 |
+| I09 | Email adapter (SMTP) with HTML and text bodies | delivered | build-I09-takeover | 443d608 | checks, hazard-note, mutation, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-I09 |
 | I10 | Outbound message senders (messages.outbound consumers) | not-started | - | - | - |
-| U10 | PairWallScreen use case | not-started | - | - | - |
-| R15 | Wall screen pairing endpoints | not-started | - | - | - |
+| U10 | PairWallScreen use case | delivered | build-U10 | 8007f3c | checks, coverage, hazard-note, mutation, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-U10-r2 |
+| R15 | Wall screen pairing endpoints | stale | build-R15 | - | - |
 | W01 | BFF foundations: typed FHIR client and MSW test setup | delivered | build-W01 | 16b31ab | checks, hazard-note, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-W01-r6 |
 | W02 | BFF session cookie and CSRF | delivered | build-W02 | aaf3cca | checks, coverage, hazard-note, mutation, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-W02-r4 |
 | W03 | Base UI components | delivered | build-W03 | 4b2dc1f51b1b90c99c7f00cc7eb22c165060c514 | checks, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-W03 |
-| W04 | Capacity link pages | not-started | - | - | - |
-| W05 | Wall board page | not-started | - | - | - |
-| W06 | Wall board live updates and Last known | not-started | - | - | - |
-| W07 | Wall board variants: pressure, out of hours, pending | not-started | - | - | - |
+| W04 | Capacity link pages | delivered | build-W04 | bd0193d | checks, hazard-note, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-W04 |
+| W05 | Wall board page | delivered | build-W05 | ba27993 | checks, hazard-note, mutation, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-W05-r1 |
+| W06 | Wall board live updates and Last known | delivered | build-W06 | 11d63ec | checks, hazard-note, mutation, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-W06-r1 |
+| W07 | Wall board variants: pressure, out of hours, pending | delivered | build-W07 | 6e8cc3e | checks, hazard-note, mutation, other, privacy-scan, spec-trace, tests-green, tests-red; verified by orch-verify-W07-r3 |
 | W08 | Wall screen pairing pages | not-started | - | - | - |
 | O01 | Backend OpenTelemetry baseline | not-started | - | - | - |
 | TEN-039 | Board projector, query board and SSE stream per tenant (reworks U08, U09, R06) | not-started | - | - | - |
@@ -191,7 +191,7 @@ Generated 2026-10-28T19:48:26.191302+00:00. Source of truth: the shared ledger (
 
 | Task | Title | Status | Owner | Commit | Evidence |
 |---|---|---|---|---|---|
-| U11 | OpenCase use case | not-started | - | - | - |
+| U11 | OpenCase use case | stale | build-U11 | - | - |
 | U12 | FilterOptions use case with audit snapshot | not-started | - | - | - |
 | U13 | Advisor phoned and declined-despite-capacity | not-started | - | - | - |
 | U14 | RecordOutcome and close case | not-started | - | - | - |
@@ -201,8 +201,8 @@ Generated 2026-10-28T19:48:26.191302+00:00. Source of truth: the shared ledger (
 | I11 | Local postcode centroids and interim travel-time adapter | not-started | - | - | - |
 | R07 | Case endpoints and $filter-options | not-started | - | - | - |
 | R08 | Lead endpoints: service set-up and reporter numbers | not-started | - | - | - |
-| R16 | Pathways Dx code lookup endpoint | not-started | - | - | - |
-| W09 | Staff sign-in with Entra ID and role guard | not-started | - | - | - |
+| R16 | Pathways Dx code lookup endpoint | stale | build-R16 | - | - |
+| W09 | Staff sign-in with Entra ID and role guard | stale | build-W09 | - | - |
 | W10 | Advisor home and call step header | not-started | - | - | - |
 | W11 | Patient needs form | not-started | - | - | - |
 | W12 | Referrer score pickers | not-started | - | - | - |

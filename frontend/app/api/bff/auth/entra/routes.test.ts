@@ -275,8 +275,15 @@ describe('GET /api/bff/auth/entra/callback: a good sign-in', () => {
     expect(outcome.body).toContain('url=/admin"');
   });
 
-  it('gives no session to a role this front end has no pages for yet, and says the access message', async () => {
+  it('signs in a network administrator and goes to the network administration pages (TEN-080)', async () => {
     const outcome = await signIn({ oid: OID_LEAD, roles: ['DIUCS.NetworkAdmin'], tid: DIRECTORY_A });
+    expect(outcome.session?.role).toBe('network-admin');
+    expect(outcome.body).toContain('url=/network-admin"');
+  });
+
+  it('gives no session to a role the back end gave that this front end has no pages for, and says the access message', async () => {
+    // The back end may one day answer a staff role this front end does not know: it is refused, never guessed at.
+    const outcome = await signIn({ oid: OID_LEAD, roles: ['DIUCS.Unknown'], tid: DIRECTORY_A });
     expectNoSession(outcome);
     expect(outcome.location).toBe('/sign-in?error=no-access');
   });

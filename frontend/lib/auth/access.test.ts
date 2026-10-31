@@ -25,6 +25,11 @@ const TABLE: [string, Role[]][] = [
   ['/admin', ['tenant-admin']],
   ['/admin/config', ['tenant-admin']],
   ['/admin/support', ['tenant-admin']],
+  // The network administrator's pages (TEN-080): the owner's own role; no other role, the tenant
+  // administrator included, opens them, and the network pages are not for it.
+  ['/network-admin', ['network-admin']],
+  ['/network-admin/grants', ['network-admin']],
+  ['/network-admin/listings', ['network-admin']],
   // The operator console is a different door (lib/operator/access.ts): no TENANT role opens it.
   ['/operator', []],
   ['/operator/tenants/trust-a', []],
@@ -89,6 +94,7 @@ describe('roleHome', () => {
     ['exec', '/planning'],
     ['support', '/console'],
     ['tenant-admin', '/admin'],
+    ['network-admin', '/network-admin'],
   ] as [Role, string][])('sends %s to %s', (role, home) => {
     expect(roleHome(role)).toBe(home);
   });
@@ -98,7 +104,7 @@ describe('roleHome', () => {
   });
 
   it('can open its own home, whichever role', () => {
-    for (const role of ['advisor', 'clinical', 'lead', 'owner', 'exec', 'support', 'tenant-admin'] as Role[]) {
+    for (const role of ['advisor', 'clinical', 'lead', 'owner', 'exec', 'support', 'tenant-admin', 'network-admin'] as Role[]) {
       expect(canAccess(role, roleHome(role))).toBe(true);
     }
   });

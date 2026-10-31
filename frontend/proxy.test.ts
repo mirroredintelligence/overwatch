@@ -182,7 +182,7 @@ describe('a signed-in role', () => {
     expect((await proxy(await request('/lead', 'advisor')))?.headers.get('cache-control')).toBe('no-store');
   });
 
-  const guarded = ['/advisor', '/advisor/case/4821', '/clinical', '/lead', '/owner', '/owner/criteria', '/planning', '/console', '/admin', '/admin/config'];
+  const guarded = ['/advisor', '/advisor/case/4821', '/clinical', '/lead', '/owner', '/owner/criteria', '/planning', '/console', '/admin', '/admin/config', '/network-admin', '/network-admin/grants', '/network-admin/listings'];
   it.each(ROLES.flatMap((role) => guarded.map((path) => [role, path] as const)))('%s on %s', async (role, path) => {
     const response = await proxy(await request(path, role));
     if (canAccess(role, path)) {
@@ -192,9 +192,21 @@ describe('a signed-in role', () => {
     }
   });
 
+  it('gives only the network administrator the network administration, and it no other page', async () => {
+    for (const path of ['/network-admin', '/network-admin/grants', '/network-admin/listings']) {
+      expect(passes(await proxy(await request(path, 'network-admin'))), path).toBe(true);
+      for (const role of ['tenant-admin', 'lead', 'exec', 'advisor', 'support'] as Role[]) {
+        expect(rewrittenTo(await proxy(await request(path, role))), `${role} ${path}`).toBe('/forbidden');
+      }
+    }
+    for (const path of ['/admin', '/lead', '/advisor', '/planning', '/network/board']) {
+      expect(rewrittenTo(await proxy(await request(path, 'network-admin'))), path).toBe('/forbidden');
+    }
+  });
+
   it('gives a wall screen, a reporter and a link no staff page', async () => {
     for (const role of ['wall', 'reporter', 'anonymous-link', 'audit'] as Role[]) {
-      for (const path of ['/advisor', '/clinical', '/lead', '/owner', '/planning', '/console', '/admin']) {
+      for (const path of ['/advisor', '/clinical', '/lead', '/owner', '/planning', '/console', '/admin', '/network-admin']) {
         expect(rewrittenTo(await proxy(await request(path, role)))).toBe('/forbidden');
       }
     }

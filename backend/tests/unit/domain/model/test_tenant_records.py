@@ -349,11 +349,25 @@ def test_a_binding_status_is_checked_by_exact_type() -> None:
 # ---------------------------------------------------------------- role mappings
 
 
-def test_the_roles_a_group_may_map_to_are_the_staff_roles() -> None:
+def test_the_roles_a_group_may_map_to_are_the_staff_roles_and_the_network_administrator() -> None:
+    # The network administrator is a role of the owner's own directory (TEN-080, DEC-1260): the
+    # exchange gives it only to the tenant that owns a network. The tenant administrator is not
+    # mappable: that role comes from the first administrator's invitation (DEC-1007 item 4).
     assert (
-        frozenset({Role.ADVISOR, Role.CLINICAL, Role.LEAD, Role.OWNER, Role.EXEC, Role.AUDIT})
+        frozenset(
+            {
+                Role.ADVISOR,
+                Role.CLINICAL,
+                Role.LEAD,
+                Role.OWNER,
+                Role.EXEC,
+                Role.AUDIT,
+                Role.NETWORK_ADMIN,
+            }
+        )
         == ENTRA_MAPPABLE_ROLES
     )
+    assert Role.TENANT_ADMIN not in ENTRA_MAPPABLE_ROLES
 
 
 @pytest.mark.parametrize("role", sorted(ENTRA_MAPPABLE_ROLES))
@@ -362,7 +376,17 @@ def test_a_group_maps_to_a_staff_role(role: Role) -> None:
 
 
 @pytest.mark.parametrize(
-    "role", [Role.REPORTER, Role.WALL, Role.ANONYMOUS_LINK, Role.SUPPORT, "advisor", None]
+    "role",
+    [
+        Role.REPORTER,
+        Role.WALL,
+        Role.ANONYMOUS_LINK,
+        Role.SUPPORT,
+        Role.TENANT_ADMIN,
+        Role.PLATFORM_OPERATOR,
+        "advisor",
+        None,
+    ],
 )
 def test_a_group_may_not_map_to_a_role_that_does_not_come_from_the_directory(
     role: object,

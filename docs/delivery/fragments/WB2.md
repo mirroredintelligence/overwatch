@@ -51,6 +51,10 @@ Rows closed: KI-7, 8, 9, 23, 24, 26, 30, 31, 33, 35, 36, 54, 55, 88, 89, 97, 99,
 - Front end: `lib/board/liveness.ts` `HEARTBEAT_SILENCE_MS`; `lib/board/useBoardFeed.ts` `REFRESH_EVENTS` now includes `board-whole`, `HEARTBEAT_EVENT`.
 - Service Bus: topic `codes.dispatch`, subscription `code-sender` (`infra/servicebus-config.json`).
 
+## Tests run (all in the WB2 worktree, after the merge of `integration/build`)
+
+`ruff check`, `ruff format --check`, `mypy src` (468 files), `lint-imports` (5 kept): clean. Back end unit and architecture: 15 186 passed in the full serial run, four failures found and fixed (the network board now refuses a future-dated figure itself, `ProviderReceipt` is bookkeeping in the tenant export, the zone ratchet lost `report_capacity.py`, the damaged email channel case), then `tests/unit/domain tests/unit/application tests/unit/bootstrap tests/architecture` again: 10 105 passed. Integration (own files, parallel, no lock): 231 passed in the combined run, the board and events files (69) separately, flags and resolve (160), the zone-wired routes (315), the code sender against the emulator (1), `test_tenant_isolation.py` in the combined run. Front end: `pnpm typecheck`, `pnpm lint`, `pnpm build` clean; `pnpm test` 6 371 passed, with one timeout of the whole-app eslint test under machine load that passed alone (20 of 20).
+
 ## Not run
 
 Playwright (the e2e stub changed: written, not run); the live Twilio check (no credential, no network to twilio.com); the whole integration suite (the orchestrator runs it once at the end).

@@ -14,7 +14,7 @@ G05 convention (a Resource node with placeholder=true, created only when it does
 """
 
 from collections.abc import Collection
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Final, Literal
 
 from neo4j.exceptions import ClientError
@@ -356,6 +356,17 @@ _SCENARIOS: Final[dict[str, Scenario]] = {
         },
         expect=Expect(rows=(_ROW_OF_LATEST,)),
     ),
+    "Q-COMM-RECENT-PROMPTS": _scenario(
+        "find every prompt sent to a role since a time, newest first",
+        _LATEST_SEED,
+        {
+            "roleIds": ["role-1"],
+            "messageIds": ["C1"],
+            "messageSystem": MESSAGE_SYSTEM,
+            "since": _SENT - timedelta(hours=1),
+        },
+        expect=Expect(rows=(_ROW_OF_LATEST,)),
+    ),
 }
 
 _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
@@ -433,6 +444,22 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
         "MATCH (c)-[:RECIPIENT]->(role:PractitionerRole {tenantId: $tenant}) "
         "WHERE role.id IN $roleIds "
         "WITH c ORDER BY c.sent DESC, c.id DESC LIMIT 1 " + _READ,
+        "read",
+    ),
+    "Q-COMM-RECENT-PROMPTS": (
+        "MATCH (c:Communication {tenantId: $tenant})-[:TOPIC]->(t:Concept {tenantId: $tenant}) "
+        "WHERE t.system = $messageSystem AND t.code IN $messageIds "
+        "AND c.deliveryStatus <> 'received' AND c.sent >= $since "
+        "MATCH (c)-[:RECIPIENT]->(role:PractitionerRole {tenantId: $tenant}) "
+        "WHERE role.id IN $roleIds "
+        "WITH DISTINCT c "
+        "OPTIONAL MATCH (c)-[:TOPIC]->(topic:Concept {tenantId: $tenant}) "
+        "OPTIONAL MATCH (c)-[:MEDIUM]->(medium:Concept {tenantId: $tenant}) "
+        "OPTIONAL MATCH (c)-[:RECIPIENT]->(role:PractitionerRole {tenantId: $tenant}) "
+        "OPTIONAL MATCH (c)-[:ABOUT]->(subject:HealthcareService {tenantId: $tenant}) "
+        "RETURN properties(c) AS props, topic.code AS messageId, medium.code AS channel, "
+        "role.id AS recipientRoleId, subject.id AS aboutId "
+        "ORDER BY c.sent DESC, c.id DESC",
         "read",
     ),
 }
@@ -608,6 +635,18 @@ class Neo4jCommunicationRepository:
             messageSystem=MESSAGE_SYSTEM,
         )
         return _from_row(rows[0]) if rows else None
+
+    async def recent_prompts_for_roles(
+        self, role_ids: Collection[str], message_ids: Collection[str], since: datetime
+    ) -> list[Communication]:
+        rows = await self._run(
+            "Q-COMM-RECENT-PROMPTS",
+            roleIds=sorted(role_ids),
+            messageIds=sorted(message_ids),
+            messageSystem=MESSAGE_SYSTEM,
+            since=since.astimezone(UTC),
+        )
+        return [_from_row(row) for row in rows]
 
     async def _run(self, query_id: str, **params: Any) -> list[dict[str, Any]]:
         return await run_query(self._tx, REGISTRY.get(query_id), **params)

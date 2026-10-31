@@ -153,6 +153,13 @@ class CommunicationRepository(Protocol):
         self, role_ids: Collection[str], message_ids: Collection[str]
     ) -> Communication | None: ...
 
+    async def recent_prompts_for_roles(
+        self, role_ids: Collection[str], message_ids: Collection[str], since: datetime
+    ) -> list[Communication]:
+        """Every prompt of these message ids sent to any of these roles at or after `since`, newest
+        first (KI-137): a report stops the ladder of each prompt it answers, not only the latest."""
+        ...
+
     async def record_send_outcome(
         self,
         communication_id: str,

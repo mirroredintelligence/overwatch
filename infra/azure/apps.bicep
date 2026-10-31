@@ -123,7 +123,7 @@ resource workers 'Microsoft.App/containerApps@2024-03-01' = {
         {
           name: 'workers'
           image: '${registryServer}/diucs-backend:${backendImage}'
-          command: ['python', '-m', 'diucs.bootstrap.workers_main']
+          command: ['python', '-m', 'overwatch.bootstrap.workers_main']
           env: [
             { name: 'OVERWATCH_KEY_VAULT_URL', value: keyVaultUrl }
             { name: 'AZURE_CLIENT_ID', value: workersIdentity.properties.clientId }

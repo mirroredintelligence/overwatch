@@ -4,7 +4,7 @@ import { ChangeNumberForm } from '@/components/lead/ChangeNumberForm';
 // Change reporter number (W18). At /lead/reporters/number, with ?service=<id> to choose the service.
 
 export const metadata: Metadata = {
-  title: 'Change reporter number - DIUCS capacity',
+  title: 'Change reporter number - Overwatch',
   robots: { index: false },
 };
 

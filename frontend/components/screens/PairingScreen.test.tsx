@@ -40,7 +40,7 @@ afterEach(() => {
 describe('PairingScreen', () => {
   it('shows the artboard’s words and the code as two groups of three', async () => {
     await show(api());
-    expect(screen.getByRole('heading', { level: 1, name: 'DIUCS capacity wall screen' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Overwatch wall screen' })).toBeInTheDocument();
     expect(screen.getByText('482 913')).toBeInTheDocument();
     expect(screen.getByText('Enter this code in the admin page to connect this screen.')).toBeInTheDocument();
     expect(screen.getByText('Waiting to be connected · code works for 10 minutes')).toBeInTheDocument();

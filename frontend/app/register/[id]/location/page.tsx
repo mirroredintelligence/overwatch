@@ -5,7 +5,7 @@ import styles from '@/components/register/register.module.css';
 // Registration step 2, where the service is (W24). The form does the lookup through the BFF.
 
 export const metadata: Metadata = {
-  title: 'Where is the service? - DIUCS capacity',
+  title: 'Where is the service? - Overwatch',
   robots: { index: false },
 };
 

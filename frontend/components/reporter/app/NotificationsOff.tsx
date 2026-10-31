@@ -37,7 +37,7 @@ export function NotificationsOff() {
       <p>We cannot alert you. Turn them on in your phone settings, or switch to text.</p>
       <ol>
         <li>Open your phone Settings</li>
-        <li>Find DIUCS capacity</li>
+        <li>Find Overwatch</li>
         <li>Turn Notifications on</li>
       </ol>
       {still ? <p role="status">Notifications are still off.</p> : null}

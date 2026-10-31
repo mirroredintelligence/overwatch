@@ -5,7 +5,7 @@ import { getSession } from '@/lib/auth/session';
 import { PLANNING_ROLES } from '@/lib/planning/backend';
 
 export const metadata: Metadata = {
-  title: 'DIUCS capacity: planning',
+  title: 'Overwatch: planning',
 };
 
 export const dynamic = 'force-dynamic';

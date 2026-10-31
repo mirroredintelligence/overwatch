@@ -7,7 +7,7 @@ import { SERVICE_ID } from '@/lib/lead/routeParams';
 // be one is the same "No record" as an unknown one, and is not looked up.
 
 export const metadata: Metadata = {
-  title: 'Audit replay - DIUCS capacity',
+  title: 'Audit replay - Overwatch',
   robots: { index: false },
 };
 

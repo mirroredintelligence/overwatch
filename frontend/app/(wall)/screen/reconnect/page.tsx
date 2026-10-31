@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { PairingScreen } from '@/components/screens/PairingScreen';
 
 export const metadata: Metadata = {
-  title: 'DIUCS capacity wall screen',
+  title: 'Overwatch wall screen',
   // A wall display is not for search engines or caches.
   robots: { index: false },
 };

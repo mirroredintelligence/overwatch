@@ -6,7 +6,7 @@ import { DEFAULT_ALERT_PREFERENCES } from '@/lib/exec/alertPrefs';
 import { readLeaders } from '@/lib/exec/leaders';
 import { readAlertPreferences } from '@/lib/exec/subscriptions';
 
-export const metadata: Metadata = { title: 'Set up alerts - DIUCS capacity' };
+export const metadata: Metadata = { title: 'Set up alerts - Overwatch' };
 // Read at every request: the saved choices are the person's own and never cached.
 export const dynamic = 'force-dynamic';
 

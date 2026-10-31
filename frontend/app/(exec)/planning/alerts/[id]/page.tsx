@@ -6,7 +6,7 @@ import { readBoard } from '@/lib/board/read';
 import { ALERT_ROLES, alertsByState } from '@/lib/exec/alertsServer';
 import type { AlertItem } from '@/lib/exec/alerts';
 
-export const metadata: Metadata = { title: 'Alert - DIUCS capacity' };
+export const metadata: Metadata = { title: 'Alert - Overwatch' };
 export const dynamic = 'force-dynamic';
 
 // An alert is read from the caller's own lists (open, then acknowledged, then closed): the back end has no

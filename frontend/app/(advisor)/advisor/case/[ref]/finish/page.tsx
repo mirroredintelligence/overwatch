@@ -4,7 +4,7 @@ import { FinishScreen } from '@/components/advisor/FinishScreen';
 import { outcomeFromAddress } from '@/lib/advisor/outcome';
 
 export const metadata: Metadata = {
-  title: 'Record outcome · DIUCS capacity',
+  title: 'Record outcome · Overwatch',
 };
 
 // The outcome step (URL /advisor/case/[ref]/finish). The address may name the outcome to preselect

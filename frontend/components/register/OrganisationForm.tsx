@@ -91,7 +91,7 @@ export function OrganisationForm({ registrationId }: OrganisationFormProps) {
 
   const header = (
     <>
-      <p className={styles.product}>DIUCS capacity</p>
+      <p className={styles.product}>Overwatch</p>
       <p className={styles.note}>Step 1 of 5 · Organisation</p>
       <h1 className={styles.heading}>Your organisation</h1>
     </>

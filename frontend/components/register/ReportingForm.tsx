@@ -89,7 +89,7 @@ export function ReportingForm({ registrationId }: ReportingFormProps) {
 
   return (
     <div className={styles.stack}>
-      <p className={styles.product}>DIUCS capacity</p>
+      <p className={styles.product}>Overwatch</p>
       <p className={styles.note}>Step 4 of 5 · Capacity reporting</p>
       <h1 className={styles.heading}>How will you report capacity?</h1>
 

@@ -3,7 +3,7 @@ import { CriteriaFlow } from '@/components/owner/CriteriaFlow';
 import type { CriteriaStep } from '@/lib/criteria/types';
 
 export const metadata: Metadata = {
-  title: 'Criteria · DIUCS capacity',
+  title: 'Criteria · Overwatch',
 };
 
 export const dynamic = 'force-dynamic';

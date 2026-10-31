@@ -4,7 +4,7 @@ import { PracticeView } from '@/components/learn/PracticeView';
 import { lessonById } from '@/lib/learn/content';
 
 export const metadata: Metadata = {
-  title: 'DIUCS capacity: practice',
+  title: 'Overwatch: practice',
 };
 
 export default async function PracticePage({ params }: { params: Promise<{ lessonId: string }> }) {

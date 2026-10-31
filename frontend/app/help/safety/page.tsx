@@ -3,7 +3,7 @@ import { SafetyConcernForm } from '@/components/help/SafetyConcernForm';
 import { copy } from '@/lib/copy';
 import { currentProfile } from '@/lib/tenant/profile';
 
-export const metadata: Metadata = { title: 'Report a safety concern - DIUCS capacity' };
+export const metadata: Metadata = { title: 'Report a safety concern - Overwatch' };
 export const dynamic = 'force-dynamic';
 
 // The tenant's own coordination team and number, when it has set them: "Phone <team> on <number>." Nothing

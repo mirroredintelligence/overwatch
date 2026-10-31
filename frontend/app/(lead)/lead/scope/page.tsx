@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { ScopeList } from '@/components/lead/ScopeList';
 
 export const metadata: Metadata = {
-  title: 'Services in scope · DIUCS capacity',
+  title: 'Services in scope · Overwatch',
 };
 
 // Read at every request: the scope list is never cached. The page takes no input; the organisation

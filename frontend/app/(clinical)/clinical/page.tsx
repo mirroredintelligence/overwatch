@@ -4,7 +4,7 @@ import { DutyForm } from '@/components/clinical/DutyForm';
 import { getSession } from '@/lib/auth/session';
 import { readPresence, readQueue } from '@/lib/clinical/clinicalServer';
 
-export const metadata: Metadata = { title: 'On duty - DIUCS capacity' };
+export const metadata: Metadata = { title: 'On duty - Overwatch' };
 export const dynamic = 'force-dynamic';
 
 // The clinical advisor's on-duty page (W44). The presence and the counts are the back end's; the page holds

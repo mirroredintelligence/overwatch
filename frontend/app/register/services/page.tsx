@@ -5,7 +5,7 @@ import styles from '@/components/register/register.module.css';
 // My services (W26): the reporter's services and where each one stands.
 
 export const metadata: Metadata = {
-  title: 'My services - DIUCS capacity',
+  title: 'My services - Overwatch',
   robots: { index: false },
 };
 

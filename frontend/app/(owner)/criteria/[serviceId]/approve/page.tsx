@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { CriteriaApproval } from '@/components/owner/CriteriaApproval';
 
 export const metadata: Metadata = {
-  title: 'Second approval · DIUCS capacity',
+  title: 'Second approval · Overwatch',
 };
 
 export const dynamic = 'force-dynamic';

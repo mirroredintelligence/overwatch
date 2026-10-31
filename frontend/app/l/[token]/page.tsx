@@ -15,7 +15,7 @@ import { LinkLoader } from '@/components/reporter/LinkLoader';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'DIUCS capacity update',
+  title: 'Overwatch update',
   referrer: 'no-referrer',
   robots: { index: false, follow: false },
 };

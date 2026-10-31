@@ -4,7 +4,7 @@ import styles from './Reporter.module.css';
 export function LinkUnavailable() {
   return (
     <main className={styles.page}>
-      <p className={styles.eyebrow}>DIUCS capacity update</p>
+      <p className={styles.eyebrow}>Overwatch update</p>
       <p className={styles.question}>We could not load this link. Try again in a few minutes.</p>
     </main>
   );

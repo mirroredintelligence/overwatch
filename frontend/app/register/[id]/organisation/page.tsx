@@ -5,7 +5,7 @@ import styles from '@/components/register/register.module.css';
 // Registration step 1, the organisation (W54). The form loads the invitation through the BFF.
 
 export const metadata: Metadata = {
-  title: 'Your organisation - DIUCS capacity',
+  title: 'Your organisation - Overwatch',
   robots: { index: false },
 };
 

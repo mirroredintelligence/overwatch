@@ -13,7 +13,7 @@ const tokenFor = (role: string) =>
 test('shows a code on a display with no session, in groups of three, and nothing a person could type on it', async ({ page }) => {
   await page.goto('/screen/pair');
 
-  await expect(page.getByRole('heading', { level: 1, name: 'DIUCS capacity wall screen' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Overwatch wall screen' })).toBeVisible();
   await expect(page.locator('[data-el="WALL-PAIR-CODE"]')).toHaveText(/^\d{3} \d{3}$/);
   await expect(page.getByText('Enter this code in the admin page to connect this screen.')).toBeVisible();
   await expect(page.getByText('Waiting to be connected · code works for 10 minutes')).toBeVisible();

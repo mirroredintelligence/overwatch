@@ -6,7 +6,7 @@ import styles from '@/components/console/Console.module.css';
 import { lessonById } from '@/lib/learn/content';
 
 export const metadata: Metadata = {
-  title: 'DIUCS capacity: lesson',
+  title: 'Overwatch: lesson',
 };
 
 export default async function LessonPage({ params }: { params: Promise<{ lessonId: string }> }) {

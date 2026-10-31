@@ -28,12 +28,12 @@ async function open(query: Query = {}) {
   return view;
 }
 
-const ACCESS_MESSAGE = 'Your account does not have access to DIUCS capacity. Ask your shift lead to check your access.';
+const ACCESS_MESSAGE = 'Your account does not have access to Overwatch. Ask your shift lead to check your access.';
 
 describe('sign-in page copy', () => {
   it('shows the wording from the screen spec', async () => {
     await open();
-    expect(screen.getByRole('heading', { level: 1, name: 'DIUCS capacity' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Overwatch' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'Sign in' })).toBeInTheDocument();
     expect(screen.getByText('Use your staff account. There is no new password.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Sign in with your staff account' })).toBeInTheDocument();

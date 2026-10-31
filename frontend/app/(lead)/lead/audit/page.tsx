@@ -4,7 +4,7 @@ import { AuditSearch } from '@/components/lead/AuditSearch';
 // The audit search (W47). At /lead/audit.
 
 export const metadata: Metadata = {
-  title: 'Audit replay - DIUCS capacity',
+  title: 'Audit replay - Overwatch',
   robots: { index: false },
 };
 

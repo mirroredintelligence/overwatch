@@ -101,7 +101,7 @@ test('shows the access message and sets no session when the account has no DIUCS
 
   await expect(page).toHaveURL(/\/sign-in\?error=no-access$/);
   await expect(
-    page.getByText('Your account does not have access to DIUCS capacity. Ask your shift lead to check your access.'),
+    page.getByText('Your account does not have access to Overwatch. Ask your shift lead to check your access.'),
   ).toBeVisible();
   expect(await sessionRole(page)).toBeNull();
 });

@@ -8,7 +8,7 @@ import styles from '@/components/register/register.module.css';
 // is handed to the form, never shown. ?saved=1 comes back from "Save and come back later".
 
 export const metadata: Metadata = {
-  title: 'Register your service - DIUCS capacity',
+  title: 'Register your service - Overwatch',
   robots: { index: false },
 };
 
@@ -28,7 +28,7 @@ export default async function RegisterPage({ searchParams }: { searchParams: Sea
   return (
     <main className={styles.main}>
       <div className={styles.panel}>
-        <p className={styles.product}>DIUCS capacity</p>
+        <p className={styles.product}>Overwatch</p>
         {saved ? (
           <Banner tone="info" title="Your draft is saved. Use your invitation link to come back." dataEl="REG-SAVED-NOTE" />
         ) : null}

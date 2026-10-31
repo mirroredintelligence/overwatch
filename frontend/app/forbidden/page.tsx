@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import styles from '../sign-in/page.module.css';
 
 export const metadata: Metadata = {
-  title: 'No access - DIUCS capacity',
+  title: 'No access - Overwatch',
   robots: { index: false },
 };
 

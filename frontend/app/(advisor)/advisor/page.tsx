@@ -3,7 +3,7 @@ import { BoardCounts } from '@/components/advisor/BoardCounts';
 import { StartCallButton } from '@/components/advisor/StartCallButton';
 
 export const metadata: Metadata = {
-  title: 'Advisor home · DIUCS capacity',
+  title: 'Advisor home · Overwatch',
 };
 
 // The advisor's home (URL /advisor). The route group (advisor) adds no segment, so this file is

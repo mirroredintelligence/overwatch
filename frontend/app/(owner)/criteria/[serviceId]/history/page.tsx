@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { CriteriaHistory } from '@/components/owner/CriteriaHistory';
 
 export const metadata: Metadata = {
-  title: 'Criteria history · DIUCS capacity',
+  title: 'Criteria history · Overwatch',
 };
 
 export const dynamic = 'force-dynamic';

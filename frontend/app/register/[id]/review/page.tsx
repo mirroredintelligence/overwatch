@@ -5,7 +5,7 @@ import styles from '@/components/register/register.module.css';
 // Registration step 5, the review (W26). The sections are read through the BFF.
 
 export const metadata: Metadata = {
-  title: 'Check your details - DIUCS capacity',
+  title: 'Check your details - Overwatch',
   robots: { index: false },
 };
 

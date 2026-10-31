@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { ProblemForm } from '@/components/help/ProblemForm';
 import { pagePath } from '@/lib/help/report';
 
-export const metadata: Metadata = { title: 'Something is wrong with the tool - DIUCS capacity' };
+export const metadata: Metadata = { title: 'Something is wrong with the tool - Overwatch' };
 
 // The page the person came from is the `from` query (a page path), so the report says where it happened.
 export default async function ProblemPage({ searchParams }: { searchParams: Promise<{ from?: string }> }) {

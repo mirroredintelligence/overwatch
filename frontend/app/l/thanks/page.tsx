@@ -22,7 +22,12 @@ type Props = { searchParams: Promise<Record<string, string | string[] | undefine
 export default async function ThanksPage({ searchParams }: Props) {
   const raw = (await searchParams).d;
   const sealed = typeof raw === 'string' ? raw : '';
-  const detail = await unsealThanks(sealed);
+  // The detail is a courtesy: the page is true without it. A secret that cannot be read (unsealThanks throws then)
+  // is logged by name and the page says only thank you; nothing is claimed and nothing is passed.
+  const detail = await unsealThanks(sealed).catch(() => {
+    console.warn('The thank-you detail could not be opened: the session secret could not be read.');
+    return null;
+  });
 
   return (
     <main className={styles.page}>

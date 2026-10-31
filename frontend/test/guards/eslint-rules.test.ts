@@ -74,7 +74,7 @@ describe('tenant configuration and headers', () => {
 });
 
 describe('server modules in components', () => {
-  it.each(["'next/headers'", "'@/lib/fhir/client'", "'@/lib/auth/session'", "'@/lib/links/server'", "'@/lib/tenant/profile'"])(
+  it.each(["'next/headers'", "'@/lib/fhir/client'", "'@/lib/auth/session'", "'@/lib/links/server'", "'@/lib/tenant/profile'", "'@/lib/secrets'", "'@/lib/secrets/client'"])(
     'forbids a component importing %s',
     async (module) => {
       expect(has(await messages(`import * as m from ${module};\nexport const x = m;`, 'components/x/Y.tsx'), 'server')).toBe(true);

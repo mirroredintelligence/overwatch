@@ -14,6 +14,7 @@ describe('clinicalRequestFromTask', () => {
       glance: { caseReference: '4821', ageBand: '80+', needs: ['frailty', 'fall-no-injury'], caseUrgency: 'within-2-hrs', news2: 2 },
       returnsAt: null,
       advice: null,
+      service: null,
     });
   });
 
@@ -58,5 +59,22 @@ describe('clinicalRequestFromTask', () => {
   it('never carries a postcode, a district or a practitioner, whatever the Task holds', () => {
     const read = clinicalRequestFromTask({ ...QUEUE_TASKS[0], owner: { reference: 'Practitioner/pr-1' }, requester: { reference: 'Practitioner/pr-2' }, extension: [...(QUEUE_TASKS[0]!.extension as { url: string }[]), { url: 'https://diucs.example/CodeSystem/task-input/postcode', valueString: 'DT4 8XX' }] });
     expect(JSON.stringify(read)).not.toMatch(/practitioner|DT4|postcode/i);
+  });
+});
+
+describe('the service under consideration (KI-768)', () => {
+  const named = (name: unknown) => ({
+    ...QUEUE_TASKS[0],
+    extension: [...(QUEUE_TASKS[0]!.extension as object[]), { url: 'https://diucs.example/CodeSystem/task-input/service', valueString: name }],
+  });
+
+  it('is the name the back end gives, and none when it gives none', () => {
+    expect(clinicalRequestFromTask(named('UCR West')).service).toBe('UCR West');
+    expect(clinicalRequestFromTask(QUEUE_TASKS[0]).service).toBeNull();
+  });
+
+  it('is none for a name that is not text or is empty: never a guess', () => {
+    expect(clinicalRequestFromTask(named(7)).service).toBeNull();
+    expect(clinicalRequestFromTask(named('')).service).toBeNull();
   });
 });

@@ -154,11 +154,32 @@ describe('CaseView: what the advisor saw', () => {
   it.each([
     ['a display that cannot be read', seenFromJson(SEEN_UNREADABLE)],
     ['a read that failed', null],
-  ])('says what the advisor saw could not be read for %s, offers the call, and keeps the advice form (the case is on screen)', (_name, value) => {
+  ])('offers no advice form when what the advisor saw cannot be read (%s): it says so and offers the call (DEC-1179)', (_name, value) => {
     render(<CaseView requestId="req-5008" request={held} seen={value} />);
-    expect(screen.getByRole('alert')).toHaveTextContent('What the advisor saw could not be read. Phone the advisor to ask.');
+    expect(screen.getByRole('alert')).toHaveTextContent('What the advisor saw could not be read, so no advice can be given from here. Phone the advisor to ask, or read it again.');
     expect(screen.queryByText(/accepting|over capacity/i)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Call the advisor' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Send advice' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Give advice' })).not.toBeInTheDocument();
+    // The case is still on screen, and the way back to the queue.
+    expect(screen.getByRole('heading', { name: 'Case 5001' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Back to the queue' })).toBeInTheDocument();
+  });
+
+  it('"Read it again" asks the page to read the request and what the advisor saw once more', async () => {
+    refresh.mockClear();
+    render(<CaseView requestId="req-5008" request={held} seen={null} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Read it again' }));
+
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('still offers the advice form when a display was read, and when none is recorded for the request', () => {
+    const { unmount } = render(<CaseView requestId="req-5001" request={held} seen={seen} />);
+    expect(screen.getByRole('button', { name: 'Send advice' })).toBeInTheDocument();
+    unmount();
+    render(<CaseView requestId="req-5001" request={held} seen={seenFromJson(SEEN_NO_DISPLAY)} />);
     expect(screen.getByRole('button', { name: 'Send advice' })).toBeInTheDocument();
   });
 
@@ -277,5 +298,29 @@ describe('CaseView: call the advisor', () => {
     await userEvent.click(callButton());
     await screen.findByRole('status', { name: 'The advisor’s number' });
     expect(await runAxe(container)).toHaveNoViolations();
+  });
+});
+
+describe('the service under consideration (KI-768)', () => {
+  const asked = { ...held, service: 'UCR West' } as ClinicalRequest;
+
+  it('says which service the advisor was asking about, and offers "Go ahead with" it by name', () => {
+    render(<CaseView requestId="req-5001" request={asked} seen={seen} />);
+
+    expect(screen.getByText('The advisor was asking about: UCR West')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Go ahead with UCR West' })).toBeInTheDocument();
+  });
+
+  it('says nothing of a service, and keeps the general label, when none was named', () => {
+    render(<CaseView requestId="req-5001" request={held} seen={seen} />);
+
+    expect(screen.queryByText(/was asking about/)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Go ahead with the service' })).toBeInTheDocument();
+  });
+
+  it('names the service in the advice shown on a request already advised', () => {
+    render(<CaseView requestId="req-5002" request={{ ...(DONE_ITEMS[1] ?? DONE_ITEMS[0]), service: 'UCR West', advice: { choice: 'go-ahead', reason: null, note: null, at: null } } as ClinicalRequest} seen={seen} />);
+
+    expect(screen.getByText('Advice given: Go ahead with UCR West')).toBeInTheDocument();
   });
 });

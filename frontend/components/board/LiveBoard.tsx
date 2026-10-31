@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import type { FetchedBoard } from '@/lib/board/client';
 import type { Board as BoardData } from '@/lib/board/types';
+import type { WallScope } from '@/lib/board/scope';
 import { useBoardFeed, type StreamSource } from '@/lib/board/useBoardFeed';
 import { Board } from './Board';
 import { StatusAnnouncer } from './StatusAnnouncer';
@@ -21,18 +22,23 @@ export type LiveBoardProps = {
   heading?: string | null;
   /** The web server's clock (epoch ms) when it read `initialBoard`. */
   serverTime: number;
+  /** Which board the page read `initialBoard` under (TEN-072). Absent: the screen's own organisation's. */
+  initialScope?: WallScope;
   // Seams for tests. Production uses the defaults.
   fetchBoard?: (signal: AbortSignal) => Promise<FetchedBoard>;
-  createEventSource?: () => StreamSource | null;
+  createEventSource?: (scope: WallScope) => StreamSource | null;
   now?: () => number;
   onUnpaired?: () => void;
 };
 
 const STREAM_URL = '/api/bff/events';
+// A screen that shows a network listens to the network's own channel; it names no network (its record does).
+const NETWORK_STREAM_URL = '/api/bff/wall/network-events';
 const PAIR = '/screen/pair';
 
-function openStream(): StreamSource | null {
-  return typeof EventSource === 'undefined' ? null : new EventSource(STREAM_URL);
+function openStream(scope: WallScope): StreamSource | null {
+  if (typeof EventSource === 'undefined') return null;
+  return new EventSource(scope.boardScope === 'network' ? NETWORK_STREAM_URL : STREAM_URL);
 }
 
 export function LiveBoard({
@@ -40,15 +46,17 @@ export function LiveBoard({
   subtitle = null,
   heading = null,
   serverTime,
+  initialScope,
   fetchBoard,
   createEventSource = openStream,
   now,
   onUnpaired,
 }: LiveBoardProps) {
   const router = useRouter();
-  const { board, assessment } = useBoardFeed({
+  const { board, assessment, scope, lastNetworkName } = useBoardFeed({
     initialBoard,
     serverTime,
+    initialScope,
     fetchBoard,
     createEventSource,
     now,
@@ -60,9 +68,9 @@ export function LiveBoard({
       {/* Status changes, said politely once (KI-56). */}
       <StatusAnnouncer board={board} lastKnown={assessment.mode === 'last-known'} />
       {assessment.mode === 'last-known' ? (
-        <Board board={board} lastKnown={assessment} subtitle={subtitle} heading={heading} />
+        <Board board={board} lastKnown={assessment} subtitle={subtitle} heading={heading} scope={scope} fellBackFrom={lastNetworkName} />
       ) : (
-        <Board board={board} streamPaused={assessment.streamPaused} subtitle={subtitle} heading={heading} />
+        <Board board={board} streamPaused={assessment.streamPaused} subtitle={subtitle} heading={heading} scope={scope} fellBackFrom={lastNetworkName} />
       )}
     </>
   );

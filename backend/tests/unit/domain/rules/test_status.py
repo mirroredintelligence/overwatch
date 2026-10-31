@@ -350,6 +350,16 @@ def test_naive_now_is_refused() -> None:
         compute_status(UCR_WEST, report(4), (), datetime(2026, 10, 23, 13, 12))
 
 
+def test_a_figure_dated_after_now_gives_a_status_and_does_not_raise() -> None:
+    # KI-31: a reader whose clock is behind the writer's must still answer.
+    ahead = report(4, at=datetime(2026, 10, 23, 13, 14, tzinfo=UTC))
+
+    result = compute_status(UCR_WEST, ahead, (), datetime(2026, 10, 23, 13, 12, tzinfo=UTC))
+
+    assert result.status is Status.ACCEPTING
+    assert result.freshness.age == timedelta(0)
+
+
 @given(
     minutes_now=st.integers(min_value=0, max_value=14 * 24 * 60),
     minutes_since_report=st.integers(min_value=0, max_value=7 * 24 * 60),

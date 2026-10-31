@@ -85,9 +85,13 @@ describe('readLink', () => {
   });
 
   it('reads a 410 as gone, with its closed state word', async () => {
-    await expect(readLink(LINK.expired, TENANT_HOST)).resolves.toEqual({ kind: 'gone', state: 'expired' });
-    await expect(readLink(LINK.used, TENANT_HOST)).resolves.toEqual({ kind: 'gone', state: 'used' });
-    await expect(readLink(LINK.bookingCancelled, TENANT_HOST)).resolves.toEqual({ kind: 'gone', state: 'cancelled' });
+    await expect(readLink(LINK.expired, TENANT_HOST)).resolves.toMatchObject({ kind: 'gone', closed: { state: 'expired', kind: null } });
+    await expect(readLink(LINK.used, TENANT_HOST)).resolves.toMatchObject({ kind: 'gone', closed: { state: 'used' } });
+    // A closed booking link also says what it knows of its closing (KI-169, KI-648, KI-664).
+    await expect(readLink(LINK.bookingCancelled, TENANT_HOST)).resolves.toMatchObject({
+      kind: 'gone',
+      closed: { state: 'cancelled', kind: 'booking', reference: '4821', cancelledAt: '2026-10-23T13:40:00Z', coordinationPhone: '0300 123 4567' },
+    });
   });
 
   it('answers a 503 as unavailable, not as gone', async () => {
@@ -112,7 +116,7 @@ describe('publicReply', () => {
     });
     expect(publicReply(410, { state: 'used', closedAt: '2026-10-23T11:30:00Z' })).toEqual({
       status: 410,
-      body: { state: 'used' },
+      body: { state: 'used', closedAt: '2026-10-23T11:30:00Z' },
     });
   });
 });

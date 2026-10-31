@@ -91,6 +91,7 @@ describe('the booking views the back end writes (L02, booking_links.py)', () => 
         replyBy: '2026-10-30T14:10:00+00:00',
         bookingStatus: 'requested',
         coordinationPhone: '0300 123 4567',
+        confirmedAt: null,
       },
     });
   });
@@ -104,7 +105,7 @@ describe('the booking views the back end writes (L02, booking_links.py)', () => 
         purpose: 'booking-change',
         bookingStatus: 'confirmed',
         replyBy: null,
-        confirmedAt: '2026-10-30T14:03:00+00:00',
+        confirmedAt: '2026-10-30T14:03:00Z',
       });
     }
   });

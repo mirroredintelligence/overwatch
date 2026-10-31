@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runAxe } from '@/test/a11y';
 import { BOOKING_CHANGE_TOKEN, BOOKING_REQUEST_VIEW, csrfFor, LINK } from '@/test/fixtures/links';
-import { resetLinkRequests, seenBackendRequests, seenBffPosts } from '@/test/msw/handlers/links';
+import { resetLinkRequests, seenBffPosts, seenBffReads } from '@/test/msw/handlers/links';
 import { BookingDecision } from './BookingDecision';
 
 const { replace } = vi.hoisted(() => ({ replace: vi.fn() }));
@@ -94,7 +94,7 @@ describe('BookingDecision: closed and taken links', () => {
   it('shows the closed page when the link is closed on opening, and posts nothing', async () => {
     const { container } = render(<BookingDecision token={LINK.bookingDeclined} />);
     expect(await screen.findByRole('heading', { level: 1, name: 'This request has closed' })).toBeInTheDocument();
-    expect(screen.getByText('If you can still take this patient, phone the coordination team.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '0300 123 4567' })).toHaveAttribute('href', 'tel:0300 123 4567');
     expect(seenBffPosts).toHaveLength(0);
     expect(await runAxe(container)).toHaveNoViolations();
   });
@@ -172,12 +172,12 @@ describe('BookingDecision: the times and the number (KI-648, KI-649, H-486, H-48
 });
 
 describe('BookingDecision: a link read once (KI-651)', () => {
-  const initial = { ...BOOKING_REQUEST_VIEW, csrfToken: csrfFor(LINK.booking) };
+  const initial = { ...BOOKING_REQUEST_VIEW, csrfToken: csrfFor(LINK.booking), confirmedAt: null };
 
   it('shows a view it is given without reading the link again', async () => {
     render(<BookingDecision token={LINK.booking} initial={initial} />);
     expect(await screen.findByRole('heading', { level: 1, name: 'UCR West' })).toBeInTheDocument();
-    expect(seenBackendRequests).toHaveLength(0);
+    expect(seenBffReads).toEqual([]);
     expect(replace).not.toHaveBeenCalled();
   });
 
@@ -186,6 +186,6 @@ describe('BookingDecision: a link read once (KI-651)', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Confirm booking' }));
     await screen.findByRole('heading', { level: 1, name: 'Booked' });
     expect(seenBffPosts).toEqual([{ token: LINK.booking, body: { action: 'confirm' }, csrf: csrfFor(LINK.booking) }]);
-    expect(seenBackendRequests.filter((r) => r.method === 'GET')).toHaveLength(0);
+    expect(seenBffReads).toEqual([]);
   });
 });

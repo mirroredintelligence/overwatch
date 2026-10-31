@@ -4,7 +4,7 @@ import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runAxe } from '@/test/a11y';
 import { csrfFor, LINK, renewCsrfFor } from '@/test/fixtures/links';
-import { resetLinkRequests, seenBackendRequests, seenBffPosts, seenBffRenewCsrf, seenBffRenews } from '@/test/msw/handlers/links';
+import { resetLinkRequests, seenBackendRequests, seenBffPosts, seenBffReads, seenBffRenewCsrf, seenBffRenews } from '@/test/msw/handlers/links';
 import { server } from '@/test/msw/server';
 import { LinkLoader } from './LinkLoader';
 
@@ -72,7 +72,7 @@ describe('LinkLoader', () => {
     expect(await screen.findByRole('button', { name: 'Confirm booking' })).toBeInTheDocument();
     expect(screen.getByText('Need fall, no injury and frailty')).toBeInTheDocument();
     expect(replace).not.toHaveBeenCalled();
-    expect(seenBackendRequests.filter((r) => r.method === 'GET' && r.token === LINK.booking)).toHaveLength(1);
+    expect(seenBffReads).toEqual([LINK.booking]);
   });
 
   it('answers a booking request it showed with the CSRF token of that one read', async () => {
@@ -80,14 +80,14 @@ describe('LinkLoader', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Confirm booking' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Booked' })).toBeInTheDocument();
     expect(seenBffPosts).toEqual([{ token: LINK.booking, body: { action: 'confirm' }, csrf: csrfFor(LINK.booking) }]);
-    expect(seenBackendRequests.filter((r) => r.method === 'GET')).toHaveLength(1);
+    expect(seenBffReads).toEqual([LINK.booking]);
   });
 
   it('shows a confirmed booking’s change page in place, and reads the link once', async () => {
     render(<LinkLoader token={LINK.bookingChange} />);
     expect(await screen.findByRole('button', { name: 'We cannot take this patient now' })).toBeInTheDocument();
     expect(replace).not.toHaveBeenCalled();
-    expect(seenBackendRequests.filter((r) => r.method === 'GET' && r.token === LINK.bookingChange)).toHaveLength(1);
+    expect(seenBffReads).toEqual([LINK.bookingChange]);
   });
 
   it('shows a closed booking link as a closed booking, with its reference, the time and the number (H-486)', async () => {

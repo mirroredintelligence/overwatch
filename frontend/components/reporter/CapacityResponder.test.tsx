@@ -4,8 +4,8 @@ import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { parseLinkView, type LinkView } from '@/lib/links/model';
 import { runAxe } from '@/test/a11y';
-import { EMPTY_VIEW, LINK, RECORDED_VIEW, THANKS_SEALED, csrfFor } from '@/test/fixtures/links';
-import { resetLinkRequests, seenBackendRequests, seenBffPosts } from '@/test/msw/handlers/links';
+import { EMPTY_VIEW, LINK, RECORDED_VIEW, THANKS_SEALED, csrfFor, renewCsrfFor } from '@/test/fixtures/links';
+import { resetLinkRequests, seenBackendRequests, seenBffPosts, seenBffRenewCsrf } from '@/test/msw/handlers/links';
 import { server } from '@/test/msw/server';
 import { CapacityResponder } from './CapacityResponder';
 
@@ -117,6 +117,26 @@ describe('CapacityResponder with a figure on record', () => {
     expect(push).not.toHaveBeenCalled();
   });
 
+  it('offers a new link, with the renewal CSRF token the closed answer carried', async () => {
+    renderFor(LINK.recorded);
+    server.use(
+      http.post('/api/bff/links/:token', () =>
+        HttpResponse.json({ state: 'expired', csrfToken: renewCsrfFor(LINK.recorded) }, { status: 410 }),
+      ),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Yes, still 3' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Send me a new link' }));
+    expect(await screen.findByText('We have sent a new link.')).toBeInTheDocument();
+    expect(seenBffRenewCsrf).toEqual([renewCsrfFor(LINK.recorded)]);
+  });
+
+  it('offers no new link when the closed answer carried no renewal token', async () => {
+    renderFor(LINK.recorded);
+    server.use(http.post('/api/bff/links/:token', () => HttpResponse.json({ state: 'used' }, { status: 410 })));
+    await userEvent.click(screen.getByRole('button', { name: 'Yes, still 3' }));
+    await screen.findByRole('heading', { level: 1, name: 'This link has expired' });
+    expect(screen.queryByRole('button', { name: 'Send me a new link' })).toBeNull();
+  });
 });
 
 describe('CapacityResponder with no figure yet', () => {

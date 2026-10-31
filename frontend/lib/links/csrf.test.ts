@@ -141,12 +141,12 @@ describe('the CSRF token of a renewal (KI-178)', () => {
   });
 
   it.each([
-    ['no header', null],
-    ['an empty header', ''],
-    ['another link’s token', renewCsrfFor('OtherLinkTokenAbcdefghi')],
-    ['a guess', 'a'.repeat(64)],
+    ['no header', () => null],
+    ['an empty header', () => ''],
+    ['another link’s token', () => renewCsrfFor('OtherLinkTokenAbcdefghi')],
+    ['a guess', () => 'a'.repeat(64)],
   ])('is refused for %s', (_name, header) => {
-    expect(checkRenewCsrf(renewRequest(TOKEN, header), TOKEN)).toBe(false);
+    expect(checkRenewCsrf(renewRequest(TOKEN, header()), TOKEN)).toBe(false);
   });
 
   it('is refused for a request to another link’s path', () => {

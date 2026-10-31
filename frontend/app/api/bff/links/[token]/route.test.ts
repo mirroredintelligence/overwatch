@@ -141,7 +141,7 @@ describe('POST /api/bff/links/[token]', () => {
     const token = csrfFor(LINK.recorded);
     const response = await POST(post(LINK.recorded, { action: 'confirm' }, token, token), ctx(LINK.recorded));
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual(RECORDED_ANSWER);
+    expect(await response.json()).toEqual({ ...RECORDED_ANSWER, thanks: expect.any(String) });
     const sent = seenBackendRequests.find((r) => r.method === 'POST');
     expect(sent?.body).toEqual({ action: 'confirm' });
     expect(sent?.host).toBe(TENANT_HOST);
@@ -158,6 +158,13 @@ describe('POST /api/bff/links/[token]', () => {
     const booked = (await (await POST(post(LINK.booking, { action: 'confirm' }, csrfFor(LINK.booking), csrfFor(LINK.booking)), ctx(LINK.booking))).json()) as Record<string, unknown>;
     expect(booked.thanks).toBeUndefined();
     expect(booked.confirmedAt).toBe('2026-10-23T13:19:00Z');
+  });
+
+  it('gives an answer to a link that has closed the CSRF token of its renewal, so the page can offer a new link', async () => {
+    const token = csrfFor(LINK.expired);
+    const response = await POST(post(LINK.expired, { action: 'confirm' }, token, token), ctx(LINK.expired));
+    expect(response.status).toBe(410);
+    expect(await response.json()).toEqual({ state: 'expired', csrfToken: renewCsrfFor(LINK.expired) });
   });
 
   it('answers a recorded figure without the sealed detail when there is no secret to seal it with', async () => {

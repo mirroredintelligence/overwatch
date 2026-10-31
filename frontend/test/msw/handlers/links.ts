@@ -10,6 +10,8 @@ import { BACKEND_ROOT, LINK, THANKS_SEALED, linkAnswerReply, linkRenewReply, lin
 export const seenBffPosts: { token: string; body: unknown; csrf: string | null }[] = [];
 /** Every renewal the browser asked the BFF for, newest last. */
 export const seenBffRenews: string[] = [];
+/** Every read of a link the browser asked the BFF for, newest last (one per page view: KI-651). */
+export const seenBffReads: string[] = [];
 /** The CSRF header of every renewal the browser asked the BFF for, newest last. */
 export const seenBffRenewCsrf: (string | null)[] = [];
 /** Every request the back end stand-in saw, with the Host it was sent to. */
@@ -18,6 +20,7 @@ export const seenBackendRequests: { method: string; token: string; host: string 
 export function resetLinkRequests() {
   seenBffPosts.length = 0;
   seenBffRenews.length = 0;
+  seenBffReads.length = 0;
   seenBffRenewCsrf.length = 0;
   seenBackendRequests.length = 0;
 }
@@ -65,6 +68,7 @@ export const backendLinkHandlers = [
 export const bffLinkHandlers = [
   http.get('/api/bff/links/:token', (({ params }) => {
     const token = String(params.token);
+    seenBffReads.push(token);
     const answer = linkViewReply(token);
     // The BFF gives every closed link a CSRF token for its renewal (lib/links/csrf.ts).
     return reply(answer.status === 410 ? { ...answer, body: { ...answer.body, csrfToken: renewCsrfFor(token) } } : answer);
@@ -76,7 +80,10 @@ export const bffLinkHandlers = [
     const answer = linkAnswerReply(token, request.headers.get('x-csrf-token'), body);
     // The BFF seals the detail of a recorded figure for the thank-you page (lib/links/thanks.ts).
     const recorded = answer.status === 200 && 'recordedAt' in answer.body;
-    return reply(recorded ? { ...answer, body: { ...answer.body, thanks: THANKS_SEALED } } : answer);
+    if (recorded) return reply({ ...answer, body: { ...answer.body, thanks: THANKS_SEALED } });
+    // A closed link's answer carries the CSRF token of its renewal (the BFF makes it).
+    if (answer.status === 410) return reply({ ...answer, body: { ...answer.body, csrfToken: renewCsrfFor(token) } });
+    return reply(answer);
   }) as HttpResponseResolver),
   http.post('/api/bff/links/:token/renew', (({ request, params }) => {
     const token = String(params.token);

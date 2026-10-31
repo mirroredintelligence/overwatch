@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runAxe } from '@/test/a11y';
 import { BOOKING_CHANGE_VIEW, csrfFor, LINK } from '@/test/fixtures/links';
-import { resetLinkRequests, seenBackendRequests, seenBffPosts } from '@/test/msw/handlers/links';
+import { resetLinkRequests, seenBffPosts, seenBffReads } from '@/test/msw/handlers/links';
 import { BookingChange } from './BookingChange';
 
 const { replace } = vi.hoisted(() => ({ replace: vi.fn() }));
@@ -175,7 +175,7 @@ describe('BookingChange: a link read once (KI-651)', () => {
   it('shows a view it is given without reading the link again', async () => {
     render(<BookingChange token={LINK.bookingChange} initial={{ ...BOOKING_CHANGE_VIEW, csrfToken: csrfFor(LINK.bookingChange), replyBy: null }} />);
     expect(await screen.findByRole('heading', { level: 1, name: 'UCR West' })).toBeInTheDocument();
-    expect(seenBackendRequests).toHaveLength(0);
+    expect(seenBffReads).toEqual([]);
     expect(replace).not.toHaveBeenCalled();
   });
 });

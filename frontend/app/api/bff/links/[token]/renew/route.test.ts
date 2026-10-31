@@ -57,13 +57,13 @@ describe('POST /api/bff/links/[token]/renew', () => {
 // KI-178: a renewal sends a text, so it is checked as an answer is.
 describe('the CSRF check of a renewal', () => {
   it.each([
-    ['no header', null],
-    ['an empty header', ''],
-    ['the token of another link', renewCsrfFor(LINK.used)],
-    ['a guess', 'f'.repeat(64)],
-    ['the token that answers a capacity link', 'csrf-ExpiredLinkTokenAbcdefgh'],
+    ['no header', () => null],
+    ['an empty header', () => ''],
+    ['the token of another link', () => renewCsrfFor(LINK.used)],
+    ['a guess', () => 'f'.repeat(64)],
+    ['the token that answers a capacity link', () => 'csrf-ExpiredLinkTokenAbcdefgh'],
   ])('refuses %s with 403, before calling the back end', async (_name, header) => {
-    const response = await POST(renew(LINK.expired, header), ctx(LINK.expired));
+    const response = await POST(renew(LINK.expired, header()), ctx(LINK.expired));
     expect(response.status).toBe(403);
     expect(await response.json()).toEqual({ state: 'forbidden' });
     expect(seenBackendRequests).toHaveLength(0);

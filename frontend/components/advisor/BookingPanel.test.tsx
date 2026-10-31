@@ -6,8 +6,8 @@ import { server } from '@/test/msw/server';
 import { FakeStream } from '@/test/fakeStream';
 import { runAxe } from '@/test/a11y';
 import { byEl } from '@/test/el';
-import { BOOKING_ID, CASE_REF, SERVICE_ID, SERVICE_PHONE, SERVICE_WITH_OPEN_REQUEST, STATE_CONFIRMED, STATE_NOT_REACHED, STATE_REQUESTED, STATE_WITHDRAWN } from '@/test/fixtures/bookings';
-import { bookingStore, resetBookingRequests, seenAcknowledgements, seenBookingCancels, seenBookingPosts, seenBookingReads } from '@/test/msw/handlers/bookings';
+import { BOOKING_ID, CASE_REF, SERVICE_ID, SERVICE_PHONE, SERVICE_WITH_OPEN_REQUEST, STATE_CONFIRMED, STATE_NOT_REACHED, STATE_REQUESTED, STATE_WITHDRAWN, STATE_WITHDRAWN_ACKNOWLEDGED } from '@/test/fixtures/bookings';
+import { bookingStore, caseBookings, resetBookingRequests, seenAcknowledgements, seenBookingCancels, seenBookingCaseReads, seenBookingPosts, seenBookingReads } from '@/test/msw/handlers/bookings';
 import { BookingPanel } from './BookingPanel';
 
 // The "Request booking" control and the booking card it opens (W20). The live stream and the
@@ -60,7 +60,7 @@ describe('BookingPanel: Request booking', () => {
   it('posts once with the CSRF header and an Idempotency-Key, then shows the requested text with 14:21 and 14:26', async () => {
     const { container } = renderPanel();
     await userEvent.click(screen.getByRole('button', { name: 'Request booking' }));
-    expect(await screen.findByText('Text sent 14:16. Waiting for CONFIRMED. Phone prompt at 14:21. Request expires 14:26.')).toBeInTheDocument();
+    expect(await screen.findByText('Text delivered 14:16. Waiting for CONFIRMED. Phone prompt at 14:21. Request expires 14:26.')).toBeInTheDocument();
     expect(seenBookingPosts).toHaveLength(1);
     expect(seenBookingPosts[0]?.body).toEqual({ caseRef: CASE_REF, serviceId: SERVICE_ID });
     expect(seenBookingPosts[0]?.csrf).toBe(CSRF);
@@ -285,5 +285,69 @@ describe('BookingPanel: withdrawal and not-reached alerts (W21, DEC-854)', () =>
     await userEvent.click(screen.getByRole('button', { name: 'See options again' }));
     await vi.waitFor(() => byEl('ADV-WITHDRAWN-NOTICE'));
     expect(await runAxe(document.body)).toHaveNoViolations();
+  });
+});
+
+
+describe('BookingPanel: the card comes back after a reload (WB4)', () => {
+  it('reads the bookings of the case once, and shows the card for the service that has one', async () => {
+    caseBookings.current = [STATE_CONFIRMED];
+    renderPanel();
+    expect(await screen.findByText('Booked')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Request booking' })).toBeNull();
+    expect(seenBookingCaseReads).toEqual([CASE_REF]);
+  });
+
+  it('offers Request booking when the case has no booking for this service', async () => {
+    caseBookings.current = [{ ...STATE_CONFIRMED, serviceId: 'another-service' }];
+    renderPanel();
+    expect(await screen.findByRole('button', { name: 'Request booking' })).toBeInTheDocument();
+    expect(screen.queryByText('Booked')).toBeNull();
+  });
+
+  it('shows the latest booking of the service when it has had more than one', async () => {
+    caseBookings.current = [
+      { ...STATE_REQUESTED, id: 'bk-old', status: 'declined', declinedAt: '2026-10-30T13:19:00Z', requestedAt: '2026-10-30T13:16:00Z' },
+      { ...STATE_REQUESTED, id: 'bk-new' },
+    ];
+    renderPanel();
+    expect(await screen.findByText('Requested')).toBeInTheDocument();
+    expect(screen.queryByText('Declined')).toBeNull();
+  });
+
+  it('does not open a withdrawal alert that was answered before the reload', async () => {
+    caseBookings.current = [STATE_WITHDRAWN_ACKNOWLEDGED];
+    renderPanel();
+    expect(await screen.findByText('Withdrawn')).toBeInTheDocument();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+  });
+
+  it('opens the alert of a withdrawal nobody answered', async () => {
+    caseBookings.current = [STATE_WITHDRAWN];
+    renderPanel();
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument();
+  });
+
+  it('offers Request booking when the read fails: the back end refuses a second request itself (409)', async () => {
+    server.use(http.get('/api/bff/bookings', () => HttpResponse.json({ code: 'unavailable' }, { status: 503 })));
+    renderPanel();
+    expect(await screen.findByRole('button', { name: 'Request booking' })).toBeInTheDocument();
+  });
+
+  it('does not offer Request booking while the read is out, so a reload cannot post a second request', async () => {
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.get('/api/bff/bookings', async () => {
+        await gate;
+        return HttpResponse.json({ bookings: [STATE_CONFIRMED] });
+      }),
+    );
+    renderPanel();
+    expect(screen.queryByRole('button', { name: 'Request booking' })).toBeNull();
+    release();
+    expect(await screen.findByText('Booked')).toBeInTheDocument();
   });
 });

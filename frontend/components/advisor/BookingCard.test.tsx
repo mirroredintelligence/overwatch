@@ -3,7 +3,17 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BookingState } from '@/lib/advisor/bookings';
 import { runAxe } from '@/test/a11y';
-import { SERVICE_PHONE, STATE_CONFIRMED, STATE_DECLINED, STATE_DECLINED_NO_REASON, STATE_EXPIRED, STATE_REQUESTED } from '@/test/fixtures/bookings';
+import {
+  SERVICE_PHONE,
+  STATE_CONFIRMED,
+  STATE_DECLINED,
+  STATE_DECLINED_NO_REASON,
+  STATE_EXPIRED,
+  STATE_REQUESTED,
+  STATE_REQUESTED_TENANT_POLICY,
+  STATE_WITHDRAWN,
+  STATE_WITHDRAWN_ACKNOWLEDGED,
+} from '@/test/fixtures/bookings';
 import { BookingCard } from './BookingCard';
 
 // The advisor's booking card (W20): the live states of one request or booking. Sample values only.
@@ -30,7 +40,7 @@ describe('BookingCard: requested', () => {
     const { container } = renderCard(STATE_REQUESTED);
     expect(screen.getByText('Requested')).toBeInTheDocument();
     expect(screen.getByText('Not booked yet')).toBeInTheDocument();
-    expect(screen.getByText('Text sent 14:16. Waiting for CONFIRMED. Phone prompt at 14:21. Request expires 14:26.')).toBeInTheDocument();
+    expect(screen.getByText('Text delivered 14:16. Waiting for CONFIRMED. Phone prompt at 14:21. Request expires 14:26.')).toBeInTheDocument();
     expect(screen.getByText('Colleagues see 1 pending on the board.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Phone them instead' })).toHaveAttribute('data-el', 'ADV-BOOK-PHONE-BTN');
     expect(screen.getByRole('button', { name: 'Cancel request' })).toHaveAttribute('data-el', 'ADV-BOOK-CANCEL-BTN');
@@ -172,5 +182,58 @@ describe('BookingCard: a service whose phone number is not on this screen (H-530
     render(<BookingCard booking={STATE_DECLINED} serviceName="UCR West" servicePhone={null} />);
 
     expect(screen.getByText(NO_NUMBER)).toBeInTheDocument();
+  });
+});
+
+
+describe('BookingCard: the request text is not said to have arrived unless it did (H-494)', () => {
+  it.each([
+    ['queued', 'Text waiting to be sent 14:16.'],
+    ['sent', 'Text sent 14:16.'],
+    ['delivered', 'Text delivered 14:16.'],
+  ] as const)('says %s', (delivery, words) => {
+    renderCard({ ...STATE_REQUESTED, delivery });
+    expect(screen.getByText(new RegExp(`^${words.replace('.', '\\.')} Waiting for CONFIRMED`))).toBeInTheDocument();
+  });
+
+  it('says the text did not arrive, and to phone, at once and not only at the prompt time', () => {
+    renderCard({ ...STATE_REQUESTED, delivery: 'failed' });
+    expect(screen.getByText(/^Text not delivered 14:16\./)).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('The text to UCR West was not delivered. Phone them now.');
+  });
+
+  it('says only "Text sent" for a booking from before the state was kept', () => {
+    renderCard({ ...STATE_REQUESTED, delivery: null });
+    expect(screen.getByText(/^Text sent 14:16\./)).toBeInTheDocument();
+  });
+});
+
+describe('BookingCard: the tenant\'s own phone prompt and reply times (H-493)', () => {
+  it('says the prompt and expiry the booking carries, not the defaults', () => {
+    renderCard(STATE_REQUESTED_TENANT_POLICY);
+    expect(screen.getByText(/Phone prompt at 14:19\. Request expires 14:24\./)).toBeInTheDocument();
+  });
+
+  it('says the minutes of the booking on the no-reply card', () => {
+    renderCard({ ...STATE_REQUESTED_TENANT_POLICY, status: 'expired', expiredAt: '2026-10-30T14:24:00Z' });
+    expect(
+      screen.getByText(
+        'No reply after 3 min, so you were prompted to phone. The request expired at 8 min and the pending count is released. Do not assume it was accepted.',
+      ),
+    ).toBeInTheDocument();
+  });
+});
+
+describe('BookingCard: a withdrawal already answered (KI-451)', () => {
+  it('opens the alert for a withdrawal nobody has answered', () => {
+    renderCard(STATE_WITHDRAWN);
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+  });
+
+  it('does not open the alert again after a reload, when the back end holds the answer', () => {
+    renderCard(STATE_WITHDRAWN_ACKNOWLEDGED);
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(screen.queryByText(/This is not answered yet/)).toBeNull();
+    expect(screen.getByText('Withdrawn')).toBeInTheDocument();
   });
 });

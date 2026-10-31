@@ -1,7 +1,28 @@
-import { BOOKINGS } from '@/test/fixtures/backend-shapes';
+import { ALERT_SEARCH, BOOKING_ACKNOWLEDGED, BOOKING_SEARCH, BOOKINGS } from '@/test/fixtures/backend-shapes';
 import { describe, expect, it } from 'vitest';
 import { STATE_CONFIRMED, STATE_DECLINED, STATE_REQUESTED, TASK_CONFIRMED, TASK_DECLINED, TASK_EXPIRED, TASK_REQUESTED, CASE_REF, SERVICE_ID } from '@/test/fixtures/bookings';
-import { bookingFromTask, bookingRequestTask, BookingShapeError, declineReasonWording, parseBookingState, PHONE_PROMPT_AFTER_MS, withdrawReasonWording, CANCEL_REASONS } from './bookings';
+import {
+  bookingFromTask,
+  bookingRequestTask,
+  bookingsFromSearch,
+  BookingShapeError,
+  declineReasonWording,
+  deliveryWording,
+  minutesBetween,
+  parseBookingList,
+  parseBookingState,
+  PHONE_PROMPT_AFTER_MS,
+  withdrawReasonWording,
+  CANCEL_REASONS,
+} from './bookings';
+import {
+  STATE_REQUESTED_OLD,
+  STATE_REQUESTED_TENANT_POLICY,
+  STATE_WITHDRAWN_ACKNOWLEDGED,
+  TASK_REQUESTED_OLD,
+  TASK_REQUESTED_TENANT_POLICY,
+  TASK_WITHDRAWN_ACKNOWLEDGED,
+} from '@/test/fixtures/bookings';
 import { STATE_WITHDRAWN, STATE_NOT_REACHED, TASK_WITHDRAWN, TASK_NOT_REACHED } from '@/test/fixtures/bookings';
 
 describe('bookingFromTask', () => {
@@ -98,6 +119,10 @@ describe('bookingFromTask against the Task the back end writes (R09, booking_tas
   it('reads a request: the reference, the times and the phone prompt five minutes after it', () => {
     expect(bookingFromTask(BOOKINGS.requested)).toEqual({
       id: 'bk-1',
+      caseRef: 'case-1',
+      serviceId: 'svc-1',
+      delivery: 'delivered',
+      acknowledgedAt: null,
       reference: '4821',
       status: 'requested',
       requestedAt: '2026-10-30T14:00:00Z',
@@ -141,5 +166,93 @@ describe('bookingFromTask against the Task the back end writes (R09, booking_tas
 
   it('puts every status the back end can write on the card (BOOKING_STATUSES lists them all)', () => {
     for (const task of Object.values(BOOKINGS)) expect(() => bookingFromTask(task)).not.toThrow();
+  });
+});
+
+
+describe('what the back end now keeps on a booking (WB4: H-493, H-494, KI-451)', () => {
+  it('reads the phone prompt time the tenant\'s policy gave, not five minutes after the request', () => {
+    expect(bookingFromTask(TASK_REQUESTED_TENANT_POLICY)).toEqual(STATE_REQUESTED_TENANT_POLICY);
+    expect(bookingFromTask(TASK_REQUESTED_TENANT_POLICY).phonePromptAt).toBe('2026-10-30T14:19:00Z');
+  });
+
+  it('falls back to five minutes for a booking from before the prompt time was kept', () => {
+    expect(bookingFromTask(TASK_REQUESTED_OLD)).toEqual(STATE_REQUESTED_OLD);
+  });
+
+  it('reads the case and the service the booking is for', () => {
+    expect(bookingFromTask(BOOKINGS.requested)).toMatchObject({ caseRef: 'case-1', serviceId: 'svc-1' });
+  });
+
+  it.each(['queued', 'sent', 'delivered', 'failed'])('reads the request message state %s', (state) => {
+    const task = { ...TASK_REQUESTED_OLD, output: [{ type: { coding: [{ code: 'request-delivery' }] }, valueString: state }] };
+    expect(bookingFromTask(task).delivery).toBe(state);
+  });
+
+  it('reads a state it does not know as unknown, never as delivered', () => {
+    const task = { ...TASK_REQUESTED_OLD, output: [{ type: { coding: [{ code: 'request-delivery' }] }, valueString: 'whatever' }] };
+    expect(bookingFromTask(task).delivery).toBeNull();
+  });
+
+  it('reads when a withdrawal was acknowledged, from the real back-end answer', () => {
+    expect(bookingFromTask(BOOKING_ACKNOWLEDGED)).toMatchObject({ status: 'withdrawn', acknowledgedAt: '2026-10-30T14:09:00Z' });
+    expect(bookingFromTask(TASK_WITHDRAWN_ACKNOWLEDGED)).toEqual(STATE_WITHDRAWN_ACKNOWLEDGED);
+  });
+
+  it('never carries who acknowledged it', () => {
+    expect(JSON.stringify(bookingFromTask(BOOKING_ACKNOWLEDGED))).not.toContain('adv-2');
+  });
+
+  it('measures minutes between two instants, for the words on the card', () => {
+    expect(minutesBetween('2026-10-30T14:16:00Z', '2026-10-30T14:19:00Z')).toBe(3);
+    expect(minutesBetween('2026-10-30T14:16:00Z', '2026-10-30T14:24:30Z')).toBe(9);
+  });
+});
+
+describe('deliveryWording (H-494): a text that was sent is not said to have arrived', () => {
+  it.each([
+    ['queued', 'Text waiting to be sent'],
+    ['sent', 'Text sent'],
+    ['delivered', 'Text delivered'],
+    ['failed', 'Text not delivered'],
+    [null, 'Text sent'],
+  ] as const)('says %s as %s', (state, words) => {
+    expect(deliveryWording(state)).toBe(words);
+  });
+});
+
+describe('the search of a case\'s bookings and the open alerts', () => {
+  it('reads the back end\'s search Bundle into booking states', () => {
+    const found = bookingsFromSearch(BOOKING_SEARCH);
+    expect(found.map((b) => b.status)).toEqual(expect.arrayContaining(['declined', 'requested']));
+    expect(found).toHaveLength(2);
+    expect(found.map((b) => b.delivery)).toEqual(expect.arrayContaining(['sent', 'queued']));
+  });
+
+  it('reads the open alerts: withdrawn bookings not yet answered', () => {
+    const found = bookingsFromSearch(ALERT_SEARCH);
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatchObject({ status: 'withdrawn', acknowledgedAt: null, caseRef: 'case-1' });
+  });
+
+  it('reads an empty search as no bookings', () => {
+    expect(bookingsFromSearch({ resourceType: 'Bundle', type: 'searchset', total: 0 })).toEqual([]);
+  });
+
+  it.each([
+    ['not a Bundle', { resourceType: 'Patient' }],
+    ['an entry that is not a Task', { resourceType: 'Bundle', entry: [{ resource: { resourceType: 'Patient' } }] }],
+  ])('refuses %s', (_name, body) => {
+    expect(() => bookingsFromSearch(body)).toThrow(BookingShapeError);
+  });
+
+  it('parses the BFF\'s list and drops anything beyond the booking fields', () => {
+    const list = parseBookingList({ bookings: [{ ...STATE_REQUESTED_OLD, patient: 'Sample Patient' }] });
+    expect(list).toEqual([STATE_REQUESTED_OLD]);
+  });
+
+  it('refuses a list that is not a list of bookings', () => {
+    expect(() => parseBookingList({ bookings: 'x' })).toThrow(BookingShapeError);
+    expect(() => parseBookingList(null)).toThrow(BookingShapeError);
   });
 });

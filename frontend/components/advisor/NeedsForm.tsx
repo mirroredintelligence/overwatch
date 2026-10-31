@@ -362,7 +362,7 @@ export function NeedsForm({ caseId }: { caseId: string }) {
                           name="score-correction-reason"
                           checked={reason === item.code}
                           onChange={() => setReason(item.code)}
-                          data-el={`ADV-SCORE-REASON-${item.code}`}
+                          data-el={`ADV-SCORE-REASON-${item.code.toUpperCase()}`}
                         />
                         {item.label}
                       </label>

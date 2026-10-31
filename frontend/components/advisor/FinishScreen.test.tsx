@@ -1,11 +1,11 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetCsrfCache } from '@/lib/advisor/browser';
 import { runAxe } from '@/test/a11y';
 import { byEl } from '@/test/el';
 import { http, HttpResponse } from 'msw';
-import { resetSeenAdvisorRequests } from '@/test/msw/handlers/advisor';
+import { resetSeenAdvisorRequests, SUMMARY_VIEW } from '@/test/msw/handlers/advisor';
 import { server } from '@/test/msw/server';
 import { FinishScreen } from './FinishScreen';
 
@@ -52,6 +52,26 @@ describe('FinishScreen (W15)', () => {
 
     expect(await screen.findByRole('heading', { name: 'Call closed' })).toBeInTheDocument();
     expect(document.querySelector('[data-el="ADV-FIN-SAVE-BTN"]')).toBeNull();
+  });
+
+  it('reads the summary again with the service chosen as the destination, so the copied referral names it (H-322)', async () => {
+    const asked: (string | null)[] = [];
+    server.use(
+      http.get('/api/bff/cases/:ref/summary', ({ request }) => {
+        const destination = new URL(request.url).searchParams.get('destination');
+        asked.push(destination);
+        return HttpResponse.json({ ...SUMMARY_VIEW, destination: destination === null ? 'No destination chosen yet' : 'UCR West' });
+      }),
+    );
+    const user = userEvent.setup();
+    render(<FinishScreen caseId="4821" preselect={null} />);
+    expect(await screen.findByText('No destination chosen yet')).toBeInTheDocument();
+
+    await user.click(byEl('ADV-FIN-OUTCOME-ACCEPTED'));
+    await user.click(await screen.findByRole('button', { name: 'UCR West' }));
+
+    await waitFor(() => expect(asked).toEqual([null, 'svc-ucr-west']));
+    expect(await screen.findAllByText('UCR West')).not.toHaveLength(0);
   });
 
   it('"Start next call" goes to the advisor home', async () => {

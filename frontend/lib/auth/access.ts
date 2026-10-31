@@ -12,6 +12,8 @@ const PREFIX_ROLES: ReadonlyMap<string, readonly Role[]> = new Map([
   // which of these roles may approve or change; the page may be opened by all three (DEC-700).
   ['criteria', ['owner', 'clinical', 'lead']],
   ['planning', ['exec', 'lead']],
+  // The network pages (TEN-068): the roles that see a network. The back end decides again, per call.
+  ['network', ['advisor', 'clinical', 'lead', 'owner', 'exec']],
   ['console', ['support']],
   // The tenant administrator's pages (TEN-076): the role the back end gives a tenant's administrator.
   ['admin', ['tenant-admin']],

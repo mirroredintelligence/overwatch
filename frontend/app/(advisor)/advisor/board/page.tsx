@@ -30,7 +30,7 @@ export default async function AdvisorBoardPage() {
       <p>
         <a href="/advisor">Back to advisor home</a>
       </p>
-      <Board board={board} />
+      <Board board={board} ownSwitch={{ ownHref: '/advisor/board', networkHref: '/network/board' }} />
     </>
   );
 }

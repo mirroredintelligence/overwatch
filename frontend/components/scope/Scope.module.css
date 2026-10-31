@@ -1,0 +1,119 @@
+/* The scope header, the switch, the organisation label (docs/design/network-ui.md section 3).
+   Tokens only: no new colour, no status colour, no motion. */
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  box-sizing: border-box;
+  padding: var(--space-2) var(--space-4);
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius);
+  background: Canvas;
+  color: var(--c-ink);
+}
+
+.label {
+  margin: 0;
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: var(--type-title-weight);
+  overflow-wrap: anywhere;
+}
+
+/* Read from across a room: the display size, in the wall's own header. */
+.wall .label {
+  font-size: var(--type-display-size);
+  line-height: var(--type-display-lh);
+  letter-spacing: var(--type-display-tracking);
+}
+
+.switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-height: var(--chip-h);
+  padding: 0 var(--space-4);
+  border: 2px solid var(--c-unknown);
+  border-radius: var(--radius-chip);
+  background: Canvas;
+  color: var(--c-ink);
+  font-size: var(--type-label-size);
+  text-decoration: none;
+}
+
+.link:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+/* The current board is a filled word, not a colour alone: the link also carries aria-current. */
+.link[aria-current='page'] {
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+  color: Canvas;
+  font-weight: 700;
+}
+
+.org {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--c-ink-2);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+}
+
+.orgName {
+  overflow-wrap: anywhere;
+}
+
+/* "Your organisation": a word in a bordered label, never a status colour. */
+.own {
+  padding: 0 var(--space-2);
+  border: 2px solid var(--c-primary);
+  border-radius: var(--radius);
+  background: var(--c-tint);
+  color: var(--c-ink);
+  font-weight: 700;
+}
+
+/* The panel of a state in which the network is not shown. */
+.panel {
+  box-sizing: border-box;
+  padding: var(--space-5);
+  border: 3px dashed var(--c-unknown);
+  border-radius: var(--radius-card);
+  background: Canvas;
+  color: var(--c-ink);
+}
+
+.panelTitle {
+  margin: 0;
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: var(--type-title-weight);
+}
+
+.panelBody {
+  margin: var(--space-2) 0 0;
+}
+
+/* Read by a screen reader, not seen. */
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

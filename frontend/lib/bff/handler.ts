@@ -25,6 +25,12 @@ export type BffOptions = {
    * so an id that is in another tenant cannot be told from an id that is nowhere.
    */
   idScoped?: boolean;
+  /**
+   * The route takes the id of a network in its query (`networkId`, one, a network id) and nothing else
+   * that names a tenant, a scope or a network (TEN-068). The network is still checked per call: the id
+   * is a choice among the networks the server offered, never an authority.
+   */
+  allowNetworkId?: boolean;
 };
 
 export type BffHandler<C = unknown> = (
@@ -86,7 +92,7 @@ export function withBff<C = unknown>(
       const check = UNSAFE_METHODS.has(request.method.toUpperCase()) || options.csrf === true;
       if (check && !checkCsrf(request, session)) return refuse(403, 'csrf');
 
-      if (await refusesTenantInput(request)) return refuse(400, 'invalid');
+      if (await refusesTenantInput(request, { allowNetworkId: options.allowNetworkId })) return refuse(400, 'invalid');
 
       // A reporter's token lasts 30 minutes: it is renewed from the live PIN session when due (W8E,
       // DEC-792), after every check above so a refused request asks the back end for nothing. A session

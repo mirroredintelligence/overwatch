@@ -10,7 +10,7 @@ import styles from './Tile.module.css';
 // never shows a back-end id except the one data attribute the prompt asks for, and
 // never a name or id of any organisation: it is given one service's own figures.
 
-const VARIANT: Record<BoardStatus, string> = {
+export const VARIANT: Record<BoardStatus, string> = {
   accepting: styles.accepting,
   limited: styles.limited,
   'not-accepting': styles.notAccepting,
@@ -19,7 +19,7 @@ const VARIANT: Record<BoardStatus, string> = {
   'out-of-hours': styles.outOfHours,
 };
 
-type Figure = {
+export type Figure = {
   /** The big number. */
   big: string;
   unit: string;
@@ -27,7 +27,7 @@ type Figure = {
   bar: { label: string; percent: number };
 };
 
-const UNKNOWN_UNIT = 'Phone to confirm';
+export const UNKNOWN_UNIT = 'Phone to confirm';
 const OUT_OF_HOURS_LABEL = 'Out of hours';
 
 function usedLabel(used: number | null, established: number): string {
@@ -45,7 +45,7 @@ function unknownFigure(established: number): Figure {
   return { big: '?', unit: UNKNOWN_UNIT, bar: { label: usedLabel(null, established), percent: 100 } };
 }
 
-function figureFor(entry: BoardEntry): Figure {
+export function figureFor(entry: BoardEntry): Figure {
   const { status, established, used } = entry;
 
   if (status === 'not-updated') {
@@ -79,13 +79,13 @@ function figureFor(entry: BoardEntry): Figure {
  * report left it. A service that was not updated stays "?", and an out-of-hours
  * claim is not repeated, because opening hours may have started or ended since.
  */
-function lastKnownFigureFor(entry: BoardEntry): Figure {
+export function lastKnownFigureFor(entry: BoardEntry): Figure {
   return entry.status === 'not-updated' || entry.status === 'out-of-hours'
     ? unknownFigure(entry.established)
     : figureFor(entry);
 }
 
-const LAST_KNOWN_WARNING = 'Do not rely on this. Phone to confirm.';
+export const LAST_KNOWN_WARNING = 'Do not rely on this. Phone to confirm.';
 
 export function Tile({
   entry,

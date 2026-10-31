@@ -25,6 +25,16 @@ export const copy = {
   /** The line under the wall board's heading: the tenant's own coordination team name, or nothing. */
   wallSubtitle: (profile: TenantProfile | null): string | null => profile?.wording?.coordinationTeamName ?? null,
 
+  /**
+   * The wall board's heading: the organisation and the tenant's own word for its system (TEN-069, KI-545),
+   * or null when the tenant has no wording, so the board keeps the product's own words (H-T15).
+   */
+  capacityHeading: (profile: TenantProfile | null, organisation: string | null): string | null => {
+    const system = profile?.wording?.systemName ?? null;
+    if (system === null) return null;
+    return organisation === null ? system : `${organisation} ${system}`;
+  },
+
   /** "Phone <team> on <number>." with whichever the tenant has set; null when it has neither. */
   phoneTheCoordinationTeam: (profile: TenantProfile | null): string | null => {
     const team = profile?.wording?.coordinationTeamName ?? null;

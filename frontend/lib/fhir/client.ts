@@ -203,7 +203,7 @@ export async function fhirFetch<T>(path: string, init: FhirInit): Promise<FhirRe
   return { data: parsed.value as T, etag };
 }
 
-export type FhirStreamInit = Pick<FhirInit, 'token' | 'traceparent'> & {
+export type FhirStreamInit = Pick<FhirInit, 'token' | 'traceparent' | 'root'> & {
   /** Aborting closes the connection to the back end. */
   signal?: AbortSignal;
 };
@@ -221,7 +221,7 @@ export async function fhirStream(
   init: FhirStreamInit,
 ): Promise<{ body: ReadableStream<Uint8Array> }> {
   const token = checkedToken(init?.token);
-  const url = `${baseUrl()}${checkedPath(path)}`;
+  const url = `${baseUrl(init?.root === true)}${checkedPath(path)}`;
   const headers = new Headers({ Accept: EVENT_STREAM, traceparent: init.traceparent ?? newTraceparent() });
   headers.set('Authorization', `Bearer ${token}`);
 

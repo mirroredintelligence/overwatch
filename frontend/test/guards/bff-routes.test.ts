@@ -75,6 +75,21 @@ const NAMED: Record<string, Kind> = {
 const WITH_BFF = /\bwithBff(<[^>]*>)?\(/;
 const WITH_OPERATOR_BFF = /\bwithOperatorBff(<[^>]*>)?\(/;
 
+/**
+ * The routes that let a `networkId` query key through (TEN-068): the network's own read routes, each of
+ * which says `allowNetworkId: true`. The list is explicit, so a route cannot start taking a network id
+ * without this file saying so; every other route refuses the key as it refuses a tenant.
+ */
+const TAKES_NETWORK_ID = [
+  'app/api/bff/network/board/route.ts',
+  'app/api/bff/network/criteria/route.ts',
+  'app/api/bff/network/directory/route.ts',
+  'app/api/bff/network/events/route.ts',
+  'app/api/bff/network/phones/route.ts',
+  'app/api/bff/network/system-now/route.ts',
+  'app/api/bff/network/week/route.ts',
+];
+
 function textOf(file: string): string {
   return readFileSync(`${ROOT}${file}`, 'utf8');
 }
@@ -149,6 +164,11 @@ describe('the routes on disk', () => {
   it('say idScoped on every route that takes an id from the caller, beyond the list of those that do not yet', () => {
     const idRoutes = files.filter((f) => /\[[^\]]+\]/.test(f) && WITH_BFF.test(textOf(f)) && !/idScoped:\s*true/.test(textOf(f)));
     expect(idRoutes.sort()).toEqual([...ID_ROUTES_NOT_YET_SCOPED].sort());
+  });
+
+  it('say allowNetworkId on exactly the network read routes, and nowhere else (TEN-068)', () => {
+    const says = files.filter((f) => /\ballowNetworkId:\s*true/.test(textOf(f)));
+    expect(says.sort()).toEqual([...TAKES_NETWORK_ID].sort());
   });
 
   it('give an operator route no tenant wrapper and a tenant route no operator wrapper: one door each', () => {
@@ -226,7 +246,10 @@ describe.each(files.filter((f) => kindOf(f) === 'session'))('%s (session)', (fil
   it('refuses, with 400, a request that names a tenant, a scope or a network, before it does any work', async () => {
     for (const { verb, handler } of await load(file)) {
       const role = await allowedRole(verb, handler);
-      for (const query of ['tenant=trust-b', 'scope=network', 'networkId=net-sample']) {
+      // A route that takes a network id (TEN-068) refuses the other two and, tested in its own file,
+      // everything about `networkId` that is not one network id; the third is the one it lets through.
+      const queries = ['tenant=trust-b', 'scope=network', ...(TAKES_NETWORK_ID.includes(file) ? ['network=net-sample', 'networkIds=net-sample'] : ['networkId=net-sample'])];
+      for (const query of queries) {
         const response = await handler(
           await requestAs(A, role, { method: verb, path: `/api/bff/x?${query}`, csrf: UNSAFE.has(verb) ? true : undefined }),
           undefined,

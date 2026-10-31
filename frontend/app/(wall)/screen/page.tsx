@@ -46,6 +46,9 @@ export default async function WallScreenPage() {
   }
   // The line under the heading is the tenant's own, from the profile of the host the session was made
   // on; none when the tenant has not set one or the profile cannot be read.
-  const subtitle = copy.wallSubtitle(await readTenantProfile(session.host));
-  return <LiveBoard initialBoard={board} serverTime={serverTime} subtitle={subtitle} />;
+  const profile = await readTenantProfile(session.host);
+  const subtitle = copy.wallSubtitle(profile);
+  // The heading is the tenant's own word for its system when it has one (TEN-069, KI-545).
+  const heading = copy.capacityHeading(profile, board.organisation);
+  return <LiveBoard initialBoard={board} serverTime={serverTime} subtitle={subtitle} heading={heading} />;
 }

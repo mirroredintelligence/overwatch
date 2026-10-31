@@ -87,12 +87,13 @@ describe('server modules in components', () => {
   });
 });
 
+// Linting the whole application takes about two minutes on a loaded machine: the budget is generous so this guard cannot flake.
 describe('what is left alone', () => {
   it('has no rule that fires on the application as it stands', async () => {
     const results = await eslint.lintFiles(['app/**/*.{ts,tsx}', 'components/**/*.{ts,tsx}', 'lib/**/*.{ts,tsx}', 'proxy.ts']);
     const own = results.flatMap((r) => r.messages.map((m) => `${r.filePath}: ${m.message}`));
     expect(own).toEqual([]);
-  }, 120_000);
+  }, 600_000);
 
   it('does not apply to tests, which may name what the rules forbid', async () => {
     expect(await messages('export const a = localStorage;\nexport const b = process.env.NEXT_PUBLIC_X;', 'lib/x.test.ts')).toEqual([]);

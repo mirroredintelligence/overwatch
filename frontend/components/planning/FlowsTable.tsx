@@ -2,6 +2,7 @@ import { share } from '@/lib/planning/share';
 import type { Flow } from '@/lib/planning/types';
 import styles from '../console/Console.module.css';
 import layout from './Planning.module.css';
+import { StyledDiv } from '@/components/ui/Styled';
 
 // Where they went when the best fit was full (W51). A share is of the referrals whose best fit was
 // unavailable (total). A suppressed row shows "fewer than 10" and has no share and no bar.
@@ -16,7 +17,7 @@ export function FlowsTable({ flows, total }: { flows: readonly Flow[]; total: nu
         <p className={styles.help}>Counts under 10 are not shown, to protect small groups.</p>
       </div>
       <div className={layout.scroll}>
-      <table className={styles.table} aria-label="Where they went when the best fit was full table" style={{ minWidth: '32rem' }}>
+      <table className={`${styles.table} ${layout.flowsTable}`} aria-label="Where they went when the best fit was full table">
         <thead>
           <tr>
             <th scope="col">Best fit and its state</th>
@@ -40,7 +41,7 @@ export function FlowsTable({ flows, total }: { flows: readonly Flow[]; total: nu
                     <>
                       <span>{pct}%</span>
                       <div className={layout.bar} aria-hidden="true">
-                        <div data-bar className={layout.barFill} style={{ width: `${pct}%` }} />
+                        <StyledDiv data-bar className={layout.barFill} css={{ width: `${pct}%` }} />
                       </div>
                     </>
                   )}

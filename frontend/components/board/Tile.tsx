@@ -3,6 +3,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { ageLineText, categoryLabel, dataAgeText, londonTime, reopensText } from '@/lib/board/format';
 import type { BoardEntry, BoardStatus } from '@/lib/board/types';
 import styles from './Tile.module.css';
+import { StyledDiv } from '@/components/ui/Styled';
 
 // One service on the wall board (ui-screens.md, artboards "Main", "TileStates",
 // "BoardSurge" and "BoardQuiet"). It shows only what the back end sent for this
@@ -174,7 +175,7 @@ export function Tile({
         <div className={styles.usage}>
           <p className={styles.barLabel}>{barLabel}</p>
           <div className={styles.bar} aria-hidden="true">
-            <div className={styles.fill} data-bar-fill style={{ width: `${figure.bar.percent}%` }} />
+            <StyledDiv className={styles.fill} data-bar-fill css={{ width: `${figure.bar.percent}%` }} />
           </div>
         </div>
       )}

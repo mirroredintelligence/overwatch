@@ -6,6 +6,7 @@ import { KM_PER_DEGREE, type LatLon } from '@/lib/map/project';
 import { inLayer, type Layer, overlappingPairs } from '@/lib/radar/radar';
 import mapStyles from '../advisor/map.module.css';
 import styles from './radar.module.css';
+import { StyledSpan } from '@/components/ui/Styled';
 
 // The radar's picture (RadarWeb 1, 3 to 5): the patient's area at the postcode centre, each visiting service
 // as a dashed area, the overlap of two areas hatched, and each place to go as a labelled icon. Like the map
@@ -121,26 +122,26 @@ export function RadarMap({ options, patientArea, layers, postcode }: RadarMapPro
         </svg>
 
         {patientArea === null ? null : (
-          <span className={mapStyles.visiting} style={percentOf(layout.points[0])}>
+          <StyledSpan className={mapStyles.visiting} css={percentOf(layout.points[0])}>
             Patient area
-          </span>
+          </StyledSpan>
         )}
         {fixed.filter(shown).map((option) => {
           const centre = centreOf(option);
           return centre === undefined ? null : (
-            <span key={option.serviceId} className={styles.label} style={percentOf(centre)}>
+            <StyledSpan key={option.serviceId} className={styles.label} css={percentOf(centre)}>
               <ShapeIcon shape={STATUS_SHAPES[option.status]} />
               {option.name}
-            </span>
+            </StyledSpan>
           );
         })}
         {visiting.filter(shown).map((option) => {
           const centre = centreOf(option);
           return centre === undefined ? null : (
-            <span key={option.serviceId} className={styles.label} style={percentOf(centre)}>
+            <StyledSpan key={option.serviceId} className={styles.label} css={percentOf(centre)}>
               <ShapeIcon shape={STATUS_SHAPES[option.status]} />
               {option.name}
-            </span>
+            </StyledSpan>
           );
         })}
       </div>

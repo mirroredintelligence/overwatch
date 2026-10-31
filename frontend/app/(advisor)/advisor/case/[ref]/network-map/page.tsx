@@ -3,7 +3,7 @@ import { CallSteps } from '@/components/advisor/CallSteps';
 import { NetworkMap } from '@/components/advisor/NetworkMap';
 
 export const metadata: Metadata = {
-  title: 'Network map · DIUCS capacity',
+  title: 'Network map · Overwatch',
   robots: { index: false },
 };
 

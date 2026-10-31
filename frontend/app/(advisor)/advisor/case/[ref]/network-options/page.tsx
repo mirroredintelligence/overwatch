@@ -4,7 +4,7 @@ import { CaseSummary } from '@/components/advisor/CaseSummary';
 import { NetworkOptions } from '@/components/advisor/NetworkOptions';
 
 export const metadata: Metadata = {
-  title: 'Network options · DIUCS capacity',
+  title: 'Network options · Overwatch',
   robots: { index: false },
 };
 

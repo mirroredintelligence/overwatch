@@ -405,3 +405,47 @@ async def test_a_service_with_a_current_version_still_reads_and_saves(
     # A service save clears the service's outgoing relationships (DEC-053 item 6), so the link
     # may be gone, but the current version is still found by its status.
     assert await _read(neo4j_driver, lambda repo: repo.current_for_service(SERVICE)) == UCR_WEST_V3
+
+
+# KI-180: the history is every version whose subject is the service.
+
+
+async def test_a_draft_that_supersedes_nothing_is_in_the_history_beside_the_current_version(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    await _seed_service(neo4j_driver)
+    await _run(neo4j_driver, lambda repo: repo.add(UCR_WEST_V3))
+    draft = replace(
+        UCR_WEST_V3,
+        id="crit-ucr-west-v4-draft",
+        version=4,
+        status=CriteriaStatus.DRAFT,
+        supersedes_id=None,
+    )
+    await _run(neo4j_driver, lambda repo: repo.add(draft))
+
+    history = await _read(neo4j_driver, lambda repo: repo.history(SERVICE))
+
+    assert [(v.version, v.status) for v in history] == [
+        (4, CriteriaStatus.DRAFT),
+        (3, CriteriaStatus.CURRENT),
+    ]
+
+
+async def test_a_service_with_no_current_version_still_has_its_history(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    await _seed_service(neo4j_driver)
+    first = replace(UCR_WEST_V3, id="crit-first", version=1, status=CriteriaStatus.DRAFT)
+    await _run(neo4j_driver, lambda repo: repo.add(first))
+
+    history = await _read(neo4j_driver, lambda repo: repo.history(SERVICE))
+
+    assert [v.id for v in history] == ["crit-first"]
+
+
+async def test_another_services_versions_are_not_in_the_history(neo4j_driver: AsyncDriver) -> None:
+    await _seed_service(neo4j_driver)
+    await _run(neo4j_driver, lambda repo: repo.add(UCR_WEST_V3))
+
+    assert await _read(neo4j_driver, lambda repo: repo.history("svc-nowhere")) == []

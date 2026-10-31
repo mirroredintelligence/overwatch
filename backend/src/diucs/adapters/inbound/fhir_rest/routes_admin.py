@@ -61,8 +61,10 @@ from diucs.application.ports.outbound.identity import (
 )
 from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.sealing import ContentSealer
+from diucs.application.ports.outbound.tenants import TenantDirectory
 from diucs.application.ports.outbound.tokens import SecretStore
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.tenant_settings import DirectoryZones
 from diucs.application.use_cases.audit_replay import (
     ExportAuditReplay,
     GetAuditReplay,
@@ -116,6 +118,8 @@ FLAG_OUTCOMES: Final[dict[str, Literal["checked", "accepted", "phoned"]]] = {
 class _Container(Protocol):
     @property
     def clock(self) -> Clock: ...
+    @property
+    def tenants(self) -> TenantDirectory: ...
     @property
     def ids(self) -> IdGenerator: ...
     @property
@@ -462,6 +466,7 @@ async def resolve_report_flag(
                 container.clock,
                 container.ids,
                 UnitOfWorkIdempotency(container.uow_factory),
+                zones=DirectoryZones(container.tenants),
             ),
             container.clock,
         ).execute(

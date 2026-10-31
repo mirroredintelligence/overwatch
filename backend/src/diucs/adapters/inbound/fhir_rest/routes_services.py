@@ -58,6 +58,7 @@ from diucs.application.actor import Actor
 from diucs.application.ports.outbound.terminology import profile_url
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
 from diucs.application.tenancy import ScopeKind
+from diucs.application.tenant_settings import DirectoryZones
 from diucs.application.use_cases.report_capacity import ReportCapacity
 from diucs.domain.codes import (
     BASE_URL,
@@ -420,6 +421,7 @@ async def create_report(
             container.clock,
             container.ids,
             UnitOfWorkIdempotency(container.uow_factory),
+            zones=DirectoryZones(container.tenants),
         )
         try:
             result = await use_case.execute(command)

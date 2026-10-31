@@ -27,6 +27,7 @@ from diucs.adapters.inbound.fhir_rest.errors import operation_outcome
 from diucs.adapters.inbound.fhir_rest.mapping import board_to_parameters, report_to_fhir
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.tenant_settings import DirectoryZones
 from diucs.application.use_cases.confirm_capacity import ConfirmCapacity, ConfirmCapacityCommand
 from diucs.application.use_cases.coordination_contact import ReadCoordinationPhone
 from diucs.application.use_cases.query_board import QueryBoard, QueryBoardQuery
@@ -95,6 +96,7 @@ async def confirm_capacity(
             container.clock,
             container.ids,
             _UnitOfWorkIdempotency(container.uow_factory),
+            zones=DirectoryZones(container.tenants),
         )
         # A lead confirms for the service after phoning it; a reporter confirms from the app.
         source = ReportSource.ADVISOR_PHONED if actor.role is Role.LEAD else ReportSource.APP

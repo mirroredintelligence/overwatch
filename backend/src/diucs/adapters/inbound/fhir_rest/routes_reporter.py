@@ -191,8 +191,20 @@ def _reporting(container: _Container) -> ReporterReporter:
     return ReporterReporter(
         container.uow_factory,
         container.clock,
-        ReportCapacity(container.uow_factory, container.clock, container.ids, idempotency),
-        ConfirmCapacity(container.uow_factory, container.clock, container.ids, idempotency),
+        ReportCapacity(
+            container.uow_factory,
+            container.clock,
+            container.ids,
+            idempotency,
+            zones=_zones(container),
+        ),
+        ConfirmCapacity(
+            container.uow_factory,
+            container.clock,
+            container.ids,
+            idempotency,
+            zones=_zones(container),
+        ),
         _zones(container),
     )
 

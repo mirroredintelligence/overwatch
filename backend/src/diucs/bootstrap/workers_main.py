@@ -251,8 +251,20 @@ async def serve(settings: Settings, stop: asyncio.Event) -> None:
             container.ids,
             store,
             cache,
-            ReportCapacity(container.uow_factory, container.clock, container.ids, store),
-            ConfirmCapacity(container.uow_factory, container.clock, container.ids, store),
+            ReportCapacity(
+                container.uow_factory,
+                container.clock,
+                container.ids,
+                store,
+                zones=DirectoryZones(container.tenants),
+            ),
+            ConfirmCapacity(
+                container.uow_factory,
+                container.clock,
+                container.ids,
+                store,
+                zones=DirectoryZones(container.tenants),
+            ),
             respond_to_booking=RespondToBooking(
                 container.uow_factory,
                 store,

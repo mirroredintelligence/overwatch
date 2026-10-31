@@ -6,6 +6,7 @@ nothing, it counts a refused code against the same failure allowance as a connec
 used to guess codes), and every refusal is the one NotAllowed of pairing. Synthetic values only.
 """
 
+from dataclasses import replace
 from datetime import timedelta
 
 import pytest
@@ -96,9 +97,12 @@ async def test_every_refusal_is_the_one_not_allowed(rig: Rig, neo4j_driver: Asyn
     never = "000 000" if fresh.code_display != "000 000" else "111 111"
     before = await _state(neo4j_driver)
     messages: set[str] = set()
-    for code in (never, expired.code_display, used.code_display, "48291", "abc def", ""):
+    codes = (never, expired.code_display, used.code_display, "48291", "abc def", "")
+    for n, code in enumerate(codes):
+        # One lead each, so the failure allowance of one lead does not answer for the others.
+        lead = replace(LEAD, practitioner_id=f"prac-lead-{n}")
         with pytest.raises(NotAllowed) as refused:
-            await _preview(rig).execute(LEAD, code)
+            await _preview(rig).execute(lead, code)
         assert type(refused.value) is NotAllowed
         messages.add(str(refused.value))
     assert messages == {REFUSED_MESSAGE}

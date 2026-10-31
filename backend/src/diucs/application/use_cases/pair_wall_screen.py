@@ -67,6 +67,8 @@ from diucs.domain.rules.tokens import (
 USE_CASE: Final = "PairWallScreen"
 PAIRING_PURPOSE: Final = "wall-pairing"
 PAIRING_SECRET_PURPOSE: Final = "wall-pairing-secret"
+WALL_DEVICE_CLASS: Final = "wall-display"
+"""The only kind of device that pairs by a code today (`DeviceType.WALL_DISPLAY`)."""
 ACTION_PAIRED: Final = "wall-screen-paired"
 ACTION_CLAIMED: Final = "wall-screen-claimed"
 SCREEN_CHANNEL: Final = "screen"
@@ -117,6 +119,15 @@ class ConfirmPairingResult:
     device_id: str
     screen_name: str
     replayed: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class PairingPreview:
+    """What a lead is shown before connecting a screen (TEN-072): when the screen first asked for
+    its code, and what kind of device it is. Nothing about the screen's place or any person."""
+
+    first_seen_at: datetime
+    device_class: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -377,6 +388,53 @@ class ConfirmPairing:
             await uow.idempotency.put(key, _StoredConfirm(fingerprint, result))
             await uow.commit()
         return result
+
+
+class PreviewPairing:
+    """The confirm step's read (TEN-072, docs/design/network-ui.md section 6, ScreenClaim): a lead
+    types the code, and sees when that screen first asked for it before connecting it. Burns
+    nothing, writes nothing.
+
+    A wrong code takes a slot of the SAME failure allowance as a connect (per lead, per tenant), so
+    a preview is not a way to guess a code; a right one gives its slot back. Every refusal (wrong,
+    malformed, expired, used, another tenant's, and a role that is not the lead) is the one
+    NotAllowed of pairing. The first-seen time is derived from the code's lifetime (the record
+    holds only the time it lapses), so nothing is stored for it."""
+
+    def __init__(
+        self, uow_factory: UnitOfWorkFactory, clock: Clock, secret_store: SecretStore, cache: Cache
+    ) -> None:
+        self._uow_factory = uow_factory
+        self._clock = clock
+        self._secrets = secret_store
+        self._limiter = AttemptLimiter(cache)
+
+    async def execute(self, actor: Actor, code: str) -> PairingPreview:
+        if actor.role is not Role.LEAD or actor.practitioner_id is None:
+            raise NotAllowed(LEAD_ONLY_MESSAGE)
+        link_secret = self._secrets.get(LINK_TOKEN_SECRET)
+        now = self._clock.now()
+        async with self._uow_factory() as uow:
+            scope = _tenant_scope(uow)
+            digits = normalise_code(code)
+            code_hash = None if digits is None else _keyed(link_secret, scope, digits)
+            attempts = f"pairing-confirm:{scope}:{_who(actor.practitioner_id)}"
+            slot = await self._limiter.take(attempts, CONFIRM_FAILURE_LIMIT, LIMIT_WINDOW)
+            if slot is None:
+                raise PairingRateLimited(RATE_LIMITED_MESSAGE)
+            record = None if code_hash is None else await uow.link_tokens.get_by_hash(code_hash)
+            if (
+                record is None
+                or record.purpose != PAIRING_PURPOSE
+                or check_link(record, now) is not LinkCheck.OK
+                or await uow.devices.get(record.about_id) is not None
+            ):
+                raise NotAllowed(REFUSED_MESSAGE)
+            await self._limiter.release(slot)
+            return PairingPreview(
+                first_seen_at=record.expires_at - PAIRING_CODE_VALID_FOR,
+                device_class=WALL_DEVICE_CLASS,
+            )
 
 
 def _replay(stored: object, fingerprint: str) -> ConfirmPairingResult:

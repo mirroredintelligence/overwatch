@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import type { OptionView } from '@/lib/advisor/options';
 import { categoryLabel, durationText } from '@/lib/board/format';
+import { NetworkServiceLine } from './NetworkServiceLine';
 import { OptionBooking } from './OptionBooking';
 import { ServicePhone } from './ServicePhone';
 import styles from './ServiceCard.module.css';
@@ -20,6 +21,9 @@ export type ServiceCardProps = {
   onSeeOptions?: () => void;
   onAskClinical?: () => void;
   onCriteria?: (serviceId: string) => void;
+  /** The criteria of ANOTHER organisation's service (the network pages' dialog). The own-service read cannot
+   *  find them (KI-794), so a network card has the button only when this is given. */
+  onNetworkCriteria?: (serviceId: string) => void;
   onPhoned?: (serviceId: string) => void;
   onDeclined?: (serviceId: string) => void;
 };
@@ -38,7 +42,7 @@ function dataAgeLine(option: OptionView): string {
   return `Data age: ${durationText(Math.floor(option.dataAgeSeconds / 60))} ago`;
 }
 
-export function ServiceCard({ caseId, option, onSeeOptions, onAskClinical, onCriteria, onPhoned, onDeclined }: ServiceCardProps) {
+export function ServiceCard({ caseId, option, onSeeOptions, onAskClinical, onCriteria, onNetworkCriteria, onPhoned, onDeclined }: ServiceCardProps) {
   const network = option.network;
   const checks = option.staleWarning
     ? [...option.checks, 'Data is over 2 hrs old. Consider phoning.']
@@ -64,7 +68,8 @@ export function ServiceCard({ caseId, option, onSeeOptions, onAskClinical, onCri
 
       <p className={styles.line}>{`Response or travel: ${option.travelText ?? NOT_KNOWN}`}</p>
       <p className={styles.line}>{dataAgeLine(option)}</p>
-      {network === null ? null : <p className={styles.caption}>{network.source}</p>}
+      {network === null || network.source === '' ? null : <p className={styles.caption}>{network.source}</p>}
+      {network === null ? null : <NetworkServiceLine option={option} className={styles.line} />}
 
       {option.fits.length === 0 ? null : (
         <section className={styles.section}>
@@ -88,7 +93,7 @@ export function ServiceCard({ caseId, option, onSeeOptions, onAskClinical, onCri
         </section>
       )}
 
-      <ServicePhone phone={option.phone} />
+      {network === null ? <ServicePhone phone={option.phone} /> : null}
 
       {network === null ? <OptionBooking caseId={caseId} option={option} onSeeOptions={onSeeOptions} onAskClinical={onAskClinical} /> : null}
 
@@ -97,7 +102,11 @@ export function ServiceCard({ caseId, option, onSeeOptions, onAskClinical, onCri
           <Button variant="secondary" dataEl="ADV-OPT-CRITERIA-BTN" onClick={() => onCriteria?.(option.serviceId)}>
             Criteria
           </Button>
-        ) : null}
+        ) : onNetworkCriteria === undefined ? null : (
+          <Button variant="secondary" dataEl="ADV-OPT-CRITERIA-BTN" onClick={() => onNetworkCriteria(option.serviceId)}>
+            Criteria
+          </Button>
+        )}
         {network === null ? (
           <Button variant="secondary" dataEl="ADV-OPT-PHONED-BTN" onClick={() => onPhoned?.(option.serviceId)}>
             I phoned

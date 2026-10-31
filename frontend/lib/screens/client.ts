@@ -133,3 +133,34 @@ export async function connectScreen(input: ConnectInput, signal?: AbortSignal): 
   if (response.status === 401 || response.status === 403) throw new ScreenClientError('unauthorised');
   throw failureOf(response);
 }
+
+export type ScreenPreview = { organisationName: string | null; firstSeenAt: string; deviceClass: 'wall-display' };
+
+/**
+ * The confirm step's look at a code (TEN-072): which organisation the screen will show, when the screen
+ * first asked for the code and what kind of device it is. Nothing is connected or burned. The session's
+ * CSRF token is read first and sent as the header, as for a connect.
+ */
+export async function previewScreen(code: string, signal?: AbortSignal): Promise<ScreenPreview> {
+  const session = await send('/api/bff/session', { method: 'GET', signal });
+  if (session.status === 401 || session.status === 403) throw new ScreenClientError('unauthorised');
+  const csrfToken = session.ok ? (await bodyOf(session)).csrfToken : undefined;
+  if (typeof csrfToken !== 'string' || csrfToken === '') throw new ScreenClientError('unavailable');
+
+  const response = await send(`${BASE}/preview`, {
+    method: 'POST',
+    signal,
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+    body: JSON.stringify({ code }),
+  });
+  if (response.status === 200) {
+    const { organisationName, firstSeenAt, deviceClass } = await bodyOf(response);
+    const named = organisationName === null || (typeof organisationName === 'string' && organisationName.length > 0 && organisationName.length <= 200);
+    if (!named || typeof firstSeenAt !== 'string' || Number.isNaN(Date.parse(firstSeenAt)) || deviceClass !== 'wall-display') {
+      throw new ScreenClientError('unavailable');
+    }
+    return { organisationName: organisationName as string | null, firstSeenAt, deviceClass };
+  }
+  if (response.status === 401 || response.status === 403) throw new ScreenClientError('unauthorised');
+  throw failureOf(response);
+}

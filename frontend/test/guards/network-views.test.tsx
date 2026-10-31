@@ -3,6 +3,7 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NetworkBoardView } from '@/components/network/NetworkBoardView';
 import { NetworkHistoryView } from '@/components/network/NetworkHistoryView';
+import { NetworkHomeView } from '@/components/network/NetworkHomeView';
 import { NetworkPhonesView } from '@/components/network/NetworkPhonesView';
 import { NetworkServiceDetail } from '@/components/network/NetworkServiceDetail';
 import { NetworkServicesView } from '@/components/network/NetworkServicesView';
@@ -68,6 +69,8 @@ const VIEWS: [string, () => React.ReactElement, string][] = [
   ['the services', () => <NetworkServicesView ownHref="/advisor/board" />, 'UCR West'],
   ['a service', () => <NetworkServiceDetail rowRef="lst-0001" ownHref="/advisor/board" />, 'Shared by Sample Area A'],
   ['the history', () => <NetworkHistoryView ownHref="/advisor/board" />, 'Former service'],
+  ['the advisor’s home counts', () => <NetworkHomeView audience="advisor" ownHref="/advisor" />, '4 services from 3 organisations'],
+  ['the executive’s home counts', () => <NetworkHomeView audience="exec" ownHref="/planning" />, '4 services from 3 organisations'],
   ['system now', () => <NetworkSystemNowView ownHref="/lead" />, '4 services from 3 organisations'],
   ['the phones', () => <NetworkPhonesView ownHref="/lead/phones" />, '3 services from 3 organisations'],
   ['the week', () => <NetworkWeekView ownHref="/planning/week" />, '134 hours sampled'],
@@ -105,7 +108,7 @@ describe('every network view shows no tenant, grant or source id', () => {
 
   it('the list of views here is the list of the network views on disk', async () => {
     const files = Object.keys(import.meta.glob('../../components/network/Network*View.tsx', { eager: false })).map((path) => path.split('/').pop());
-    const known = ['NetworkBoardView.tsx', 'NetworkHistoryView.tsx', 'NetworkPhonesView.tsx', 'NetworkServicesView.tsx', 'NetworkSystemNowView.tsx', 'NetworkWeekView.tsx'];
+    const known = ['NetworkBoardView.tsx', 'NetworkHistoryView.tsx', 'NetworkHomeView.tsx', 'NetworkPhonesView.tsx', 'NetworkServicesView.tsx', 'NetworkSystemNowView.tsx', 'NetworkWeekView.tsx'];
     // NetworkServiceDetail is the one view whose file is not named View; it has its own entry above.
     expect(files.sort()).toEqual(known);
   });

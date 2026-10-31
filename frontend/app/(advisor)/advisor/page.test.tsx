@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetCsrfCache } from '@/lib/advisor/browser';
 import { runAxe } from '@/test/a11y';
 import { CASE_ID, CSRF_TOKEN, resetSeenAdvisorRequests, seenCaseCreates } from '@/test/msw/handlers/advisor';
+import { networkBffHandlers } from '@/test/msw/handlers/networkBff';
 import { server } from '@/test/msw/server';
 import AdvisorHomePage from './page';
 
@@ -16,6 +17,26 @@ beforeEach(() => {
   push.mockReset();
   resetCsrfCache();
   resetSeenAdvisorRequests();
+});
+
+describe('advisor home: the scope header (WB11, W10-K3)', () => {
+  it('says it shows our organisation and offers the network home, when the organisation is in a network', async () => {
+    server.use(...networkBffHandlers);
+    render(<AdvisorHomePage />);
+    const header = screen.getByRole('region', { name: 'Which board you are viewing' });
+    expect(header).toHaveTextContent('Showing: Our organisation');
+    const nav = await within(header).findByRole('navigation', { name: 'Choose the board' });
+    expect(within(nav).getByRole('link', { name: 'Network' })).toHaveAttribute('href', '/network/home');
+    expect(within(nav).getByRole('link', { name: 'Our organisation' })).toHaveAttribute('href', '/advisor');
+  });
+
+  it('shows the label and no switch when the organisation is in no network', async () => {
+    server.use(http.get('/api/bff/network', () => HttpResponse.json({ ownOrganisation: 'Sample Area A', networks: [] })));
+    render(<AdvisorHomePage />);
+    await waitFor(() => expect(byEl('ADV-HOME-COUNT-ACCEPTING')).toHaveTextContent('4'));
+    expect(screen.getByRole('region', { name: 'Which board you are viewing' })).toHaveTextContent('Showing: Our organisation');
+    expect(screen.queryByRole('navigation', { name: 'Choose the board' })).toBeNull();
+  });
 });
 
 describe('advisor home (W10)', () => {

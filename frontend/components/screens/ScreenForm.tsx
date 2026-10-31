@@ -3,15 +3,17 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { Banner, Button } from '@/components/ui';
 import { londonTime } from '@/lib/board/format';
-import { connectScreen, ScreenClientError, type ScreenField } from '@/lib/screens/client';
+import { connectScreen, previewScreen, ScreenClientError, type ScreenField, type ScreenPreview } from '@/lib/screens/client';
 import { parseCode, parseLocation, parseName } from '@/lib/screens/model';
 import styles from './ScreenForm.module.css';
 
 export type ConnectApi = {
   connect: (input: { code: string; name: string; location: string | null }) => Promise<{ name: string; status: 'online'; connectedAt: string }>;
+  /** The confirm step's look at the code (TEN-072): the organisation, when the screen first asked, its kind. */
+  preview: (code: string) => Promise<ScreenPreview>;
 };
 
-const SCREEN_API: ConnectApi = { connect: connectScreen };
+const SCREEN_API: ConnectApi = { connect: connectScreen, preview: previewScreen };
 const LEAD_HOME = '/lead';
 const SCREENS_LIST = '/lead/screens';
 const SIGN_IN_AGAIN = '/sign-in?next=%2Flead%2Fscreens%2Fnew';
@@ -24,6 +26,9 @@ type Values = Record<ScreenField, string>;
 type Errors = Partial<Record<ScreenField, string>>;
 type Notice = 'throttled' | 'unavailable' | 'unauthorised' | null;
 type Connected = { name: string; connectedAt: string };
+type Checking = { input: { code: string; name: string; location: string | null }; preview: ScreenPreview };
+
+const DEVICE_CLASS_WORDS: Record<ScreenPreview['deviceClass'], string> = { 'wall-display': 'Wall display' };
 
 const EMPTY: Values = { code: '', name: '', location: '' };
 
@@ -37,15 +42,19 @@ export function ScreenForm({ api = SCREEN_API }: { api?: ConnectApi }) {
   const [notice, setNotice] = useState<Notice>(null);
   const [busy, setBusy] = useState(false);
   const [connected, setConnected] = useState<Connected | null>(null);
+  // The confirm step (ScreenClaim): what the lead typed, and what the back end says about the code.
+  const [checking, setChecking] = useState<Checking | null>(null);
   // Focus goes where the person needs it next: the first wrong field, or the confirmation. A new
   // object each time, so the same field is focused again after a second wrong answer.
   const [focus, setFocus] = useState<{ id: string } | null>(null);
   const sending = useRef(false);
   const doneId = `${ids.code}-done`;
+  const checkId = `${ids.code}-check`;
   useEffect(() => {
     if (focus !== null) document.getElementById(focus.id)?.focus();
   }, [focus]);
-  const focusOn = (field: ScreenField | 'confirmation') => setFocus({ id: field === 'confirmation' ? doneId : ids[field] });
+  const focusOn = (field: ScreenField | 'confirmation' | 'check') =>
+    setFocus({ id: field === 'confirmation' ? doneId : field === 'check' ? checkId : ids[field] });
 
   function change(field: ScreenField, value: string) {
     setValues((current) => ({ ...current, [field]: value }));
@@ -72,25 +81,52 @@ export function ScreenForm({ api = SCREEN_API }: { api?: ConnectApi }) {
     setErrors({});
     sending.current = true;
     setBusy(true);
+    const input = { code: code.value, name: name.value, location: location.value };
     try {
-      const result = await api.connect({ code: code.value, name: name.value, location: location.value });
-      setConnected({ name: result.name, connectedAt: result.connectedAt });
-      focusOn('confirmation');
+      // The lead is shown what the screen is before it is connected (ScreenClaim, TEN-072).
+      const preview = await api.preview(input.code);
+      setChecking({ input, preview });
+      focusOn('check');
     } catch (error) {
-      const kind = error instanceof ScreenClientError ? error.kind : 'unavailable';
-      if (kind === 'not-found') {
-        setErrors({ code: NOT_FOUND });
-        focusOn('code');
-      } else if (kind === 'invalid') {
-        const field = error instanceof ScreenClientError && error.field !== undefined ? error.field : 'name';
-        setErrors({ [field]: error instanceof ScreenClientError && error.detail !== undefined ? error.detail : 'Check what you typed.' });
-        focusOn(field);
-      } else {
-        setNotice(kind === 'throttled' ? 'throttled' : kind === 'unauthorised' ? 'unauthorised' : 'unavailable');
-      }
+      failWith(error);
     } finally {
       sending.current = false;
       setBusy(false);
+    }
+  }
+
+  async function connect() {
+    if (sending.current || checking === null) return;
+    sending.current = true;
+    setBusy(true);
+    setNotice(null);
+    try {
+      const result = await api.connect(checking.input);
+      setConnected({ name: result.name, connectedAt: result.connectedAt });
+      setChecking(null);
+      focusOn('confirmation');
+    } catch (error) {
+      // A refused code or a field the back end disliked sends the lead back to the form to fix it.
+      const kind = error instanceof ScreenClientError ? error.kind : 'unavailable';
+      if (kind === 'not-found' || kind === 'invalid') setChecking(null);
+      failWith(error);
+    } finally {
+      sending.current = false;
+      setBusy(false);
+    }
+  }
+
+  function failWith(error: unknown) {
+    const kind = error instanceof ScreenClientError ? error.kind : 'unavailable';
+    if (kind === 'not-found') {
+      setErrors({ code: NOT_FOUND });
+      focusOn('code');
+    } else if (kind === 'invalid') {
+      const field = error instanceof ScreenClientError && error.field !== undefined ? error.field : 'name';
+      setErrors({ [field]: error instanceof ScreenClientError && error.detail !== undefined ? error.detail : 'Check what you typed.' });
+      focusOn(field);
+    } else {
+      setNotice(kind === 'throttled' ? 'throttled' : kind === 'unauthorised' ? 'unauthorised' : 'unavailable');
     }
   }
 
@@ -99,6 +135,14 @@ export function ScreenForm({ api = SCREEN_API }: { api?: ConnectApi }) {
     setErrors({});
     setNotice(null);
     setConnected(null);
+    setChecking(null);
+    focusOn('code');
+  }
+
+  function cancelCheck() {
+    // Back to the form with what was typed; nothing was connected.
+    setChecking(null);
+    setNotice(null);
     focusOn('code');
   }
 
@@ -134,6 +178,40 @@ export function ScreenForm({ api = SCREEN_API }: { api?: ConnectApi }) {
               </Button>
               <Button variant="primary" href={LEAD_HOME} dataEl="LEAD-SCREEN-DONE-BTN">
                 Done
+              </Button>
+            </div>
+          </section>
+        </div>
+      </main>
+    );
+  }
+
+  if (checking !== null) {
+    const seen = londonTime(checking.preview.firstSeenAt);
+    return (
+      <main className={styles.page}>
+        <div className={styles.panel}>
+          <section className={styles.card} aria-labelledby={checkId}>
+            <h1 id={checkId} className={styles.heading} tabIndex={-1}>
+              Check before you connect
+            </h1>
+            {notice === 'throttled' ? <Banner tone="warning" title={THROTTLED} dataEl="LEAD-SCREEN-MESSAGE" /> : null}
+            {notice === 'unavailable' ? <Banner tone="warning" title={UNAVAILABLE} dataEl="LEAD-SCREEN-MESSAGE" /> : null}
+            {notice === 'unauthorised' ? (
+              <Banner tone="warning" title="Your session has ended. Sign in again." dataEl="LEAD-SCREEN-MESSAGE">
+                <a href={SIGN_IN_AGAIN}>Sign in</a>
+              </Banner>
+            ) : null}
+            <p>
+              {`You are connecting a screen to ${checking.preview.organisationName ?? 'your organisation'}. It will show our organisation’s capacity only. It never shows patient information.`}
+            </p>
+            <p className={styles.note}>{`First seen ${seen} · ${DEVICE_CLASS_WORDS[checking.preview.deviceClass]}`}</p>
+            <div className={styles.actions}>
+              <Button variant="primary" busy={busy} onClick={() => void connect()} dataEl="SCREENS-CLAIM-CONFIRM-BTN">
+                Connect screen
+              </Button>
+              <Button variant="neutral" onClick={cancelCheck} dataEl="SCREENS-CLAIM-CANCEL-BTN">
+                Cancel
               </Button>
             </div>
           </section>

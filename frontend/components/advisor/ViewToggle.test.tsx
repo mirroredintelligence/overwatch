@@ -11,6 +11,19 @@ import { ViewToggle } from './ViewToggle';
 
 beforeEach(() => push.mockReset());
 
+describe('ViewToggle: the network variant (WB11)', () => {
+  it('goes between the network map and the network list of the same case, with the same ids', async () => {
+    const user = userEvent.setup();
+    render(<ViewToggle caseId="4821" current="list" scope="network" />);
+    expect(byEl('ADV-MAP-TOGGLE-LIST')).toHaveAttribute('aria-pressed', 'true');
+    await user.click(byEl('ADV-MAP-TOGGLE-MAP'));
+    expect(push).toHaveBeenLastCalledWith('/advisor/case/4821/network-map');
+    render(<ViewToggle caseId="4821" current="map" scope="network" />);
+    await user.click(screen.getAllByRole('button', { name: 'List' }).at(-1) as HTMLElement);
+    expect(push).toHaveBeenLastCalledWith('/advisor/case/4821/network-options');
+  });
+});
+
 describe('ViewToggle (W50)', () => {
   it('marks the current view pressed, and the other one not', () => {
     render(<ViewToggle caseId="4821" current="list" />);

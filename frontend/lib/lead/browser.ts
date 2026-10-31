@@ -65,6 +65,36 @@ export async function leadPost(path: string, body?: unknown, idempotencyKey?: st
   return { ok: false, status: response.status, code };
 }
 
+/** Sends one PUT to the BFF with the CSRF token, an Idempotency-Key and the `If-Match` of the version it changes (TEN-072). */
+export async function leadPut(path: string, body: unknown, options: { idempotencyKey: string; ifMatch: string }): Promise<LeadResult> {
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      method: 'PUT',
+      headers: {
+        'X-CSRF-Token': csrfToken() ?? '',
+        'Idempotency-Key': options.idempotencyKey,
+        'If-Match': options.ifMatch,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+      cache: 'no-store',
+      credentials: 'same-origin',
+    });
+  } catch {
+    return { ok: false, status: 0, code: undefined };
+  }
+  let parsed: unknown;
+  try {
+    parsed = await response.json();
+  } catch {
+    parsed = undefined;
+  }
+  if (response.ok) return { ok: true, status: response.status, body: parsed };
+  const code = typeof (parsed as { code?: unknown } | undefined)?.code === 'string' ? (parsed as { code: string }).code : undefined;
+  return { ok: false, status: response.status, code };
+}
+
 /** Reads one lead GET. Throws on any failure, so the caller decides what the page shows. */
 export async function leadGet(path: string): Promise<unknown> {
   const response = await fetch(path, { method: 'GET', cache: 'no-store', credentials: 'same-origin' });

@@ -282,3 +282,31 @@
 .signInLink {
   margin-inline-start: var(--space-1);
 }
+
+/* The board choice (TEN-072): each option is a labelled radio with a target as large as a button. */
+.radioRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--btn-h);
+  font-size: var(--type-body-size);
+  color: var(--c-ink);
+}
+
+.radioRow input {
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  flex: none;
+}
+
+.screenNote {
+  display: block;
+  color: var(--c-muted, inherit);
+  font-size: var(--type-caption-size);
+}
+
+.rowActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}

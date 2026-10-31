@@ -1,7 +1,7 @@
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { server } from '@/test/msw/server';
-import { connectScreen, pollPairing, renewSession, ScreenClientError, startPairing } from './client';
+import { connectScreen, pollPairing, previewScreen, renewSession, ScreenClientError, startPairing } from './client';
 
 // The browser's calls to the BFF's screen routes. Each answer is checked before the page uses it,
 // and each failure is one of a few kinds, never the BFF's own words.
@@ -189,5 +189,54 @@ describe('connectScreen', () => {
     expect((await kindOf(connectScreen(INPUT))).kind).toBe('unavailable');
     server.use(http.post('*/api/bff/screens', () => HttpResponse.error()));
     expect((await kindOf(connectScreen(INPUT))).kind).toBe('unavailable');
+  });
+});
+
+
+describe('previewScreen (TEN-072)', () => {
+  const ANSWER = { organisationName: 'Dorset Community Care', firstSeenAt: '2026-10-23T08:56:00Z', deviceClass: 'wall-display' };
+
+  function backEnd(reply: () => Response = () => HttpResponse.json(ANSWER)) {
+    const seen: { csrf: string | null; body: unknown }[] = [];
+    server.use(
+      http.get('*/api/bff/session', () => HttpResponse.json({ role: 'lead', services: [], sub: 'stf-1', csrfToken: 'c'.repeat(43) })),
+      http.post('*/api/bff/screens/preview', async ({ request }) => {
+        seen.push({ csrf: request.headers.get('x-csrf-token'), body: await request.json() });
+        return reply();
+      }),
+    );
+    return seen;
+  }
+
+  it('posts the code with the session’s CSRF token and answers the organisation, the time and the kind', async () => {
+    const seen = backEnd();
+    expect(await previewScreen('482913')).toEqual(ANSWER);
+    expect(seen).toEqual([{ csrf: 'c'.repeat(43), body: { code: '482913' } }]);
+  });
+
+  it('keeps a null organisation name', async () => {
+    backEnd(() => HttpResponse.json({ ...ANSWER, organisationName: null }));
+    expect((await previewScreen('482913')).organisationName).toBeNull();
+  });
+
+  it.each([
+    [404, 'not-found'],
+    [429, 'throttled'],
+    [503, 'unavailable'],
+    [401, 'unauthorised'],
+    [403, 'unauthorised'],
+  ])('answers %i as %s', async (status, kind) => {
+    backEnd(() => HttpResponse.json({}, { status }));
+    expect((await kindOf(previewScreen('482913'))).kind).toBe(kind);
+  });
+
+  it.each([
+    ['a time that is not a time', { ...ANSWER, firstSeenAt: 'yesterday' }],
+    ['another kind of device', { ...ANSWER, deviceClass: 'laptop' }],
+    ['an organisation name that is a number', { ...ANSWER, organisationName: 4 }],
+    ['not an object', 'x'],
+  ])('refuses an answer with %s', async (_name, body) => {
+    backEnd(() => HttpResponse.json(body));
+    expect((await kindOf(previewScreen('482913'))).kind).toBe('unavailable');
   });
 });

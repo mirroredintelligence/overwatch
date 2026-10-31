@@ -16,11 +16,20 @@ organisation shares its directory, capacity and criteria (a service whose criter
 cannot be filtered, so it is not offered: fail closed), its status can take a case, and its current
 criteria cover the case. The row is named by its listing id, never by a tenant or a service id of
 the member; the organisation's name comes from the registry.
+
+One filter, two answers (the merge of WB11, DEC-1176, TEN-051, TEN-053). `execute` is the options
+list: the options only, appended after the viewer's own services by the advisor's options screen.
+`view` is the same classification with the rows that are not options named as well, for the network
+options page and map: "not available on the network. Phone to confirm." for a paused listing,
+"criteria not shared. Phone to confirm." for a service whose criteria are not shared (or cannot be
+built: fail closed), the reason of a status that cannot take a case, and "outside criteria" with no
+case value in it. Nothing of a case is in any reason, in the network scope or in the audit entry,
+which holds the listing's opaque reference, the figures and the code of the reason.
 """
 
 import asyncio
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Final
 
 from diucs.application.actor import Actor
@@ -34,25 +43,30 @@ from diucs.application.ports.outbound.unit_of_work import (
 )
 from diucs.application.tenancy import bind_network
 from diucs.application.use_cases.filter_options import (
+    OUTSIDE_CRITERIA_REASON,
+    SHOWN_AS_NOT_SUITABLE,
+    SHOWN_AS_OPTION,
     FilterOptionsResult,
+    NotSuitable,
     Option,
     criteria_warnings,
     data_age_warnings,
     fits_for,
     option_order_key,
+    reason_code,
     status_reason,
     status_warnings,
     travel_legs,
 )
 from diucs.application.use_cases.open_case import check_role, missing_fields
 from diucs.application.use_cases.query_network_board import NetworkReadUnitNotReadOnly
-from diucs.domain.codes import CriteriaStatus, Status
+from diucs.domain.codes import AgeBand, CriteriaStatus, NeedCategory, Status
 from diucs.domain.errors import Conflict, NotFound, ValidationFailed
 from diucs.domain.model.criteria import ServiceCriteria
 from diucs.domain.model.network import DirectorySource, GrantScope
 from diucs.domain.model.tenant_policy import DEFAULT_POLICY
 from diucs.domain.rules.criteria_filter import check_hard_criteria
-from diucs.domain.rules.listing import ListingPresentation, listing_presentation
+from diucs.domain.rules.listing import ListingPresentation
 from diucs.domain.rules.london_time import to_london
 from diucs.domain.rules.network_board import (
     NetworkBoardEntry,
@@ -63,10 +77,26 @@ from diucs.domain.rules.projection import CriteriaProjection, ServiceProjection
 
 FILTER_NETWORK_OPTIONS: Final = "FilterNetworkOptions"
 READ_ACTION: Final = "R"
+PAUSED_REASON: Final = "not available on the network. Phone to confirm."
+CRITERIA_NOT_SHARED_REASON: Final = "criteria not shared. Phone to confirm."
 SOURCE_TEXT: Final = {
     DirectorySource.MANUAL: "Entered by the organisation",
     DirectorySource.DIRECTORY_OF_SERVICES: "From the Directory of Services",
 }
+
+_NETWORK_REASON_CODES: Final[tuple[tuple[str, str], ...]] = (
+    (PAUSED_REASON, "paused"),
+    (CRITERIA_NOT_SHARED_REASON, "criteria-not-shared"),
+)
+
+
+def network_reason_code(reason: str) -> str:
+    """The code of a reason text, for the audit snapshot. The reason of a row may carry an age
+    ("not updated for 4 hrs"); the code never does. Any other text is refused."""
+    for text, code in _NETWORK_REASON_CODES:
+        if reason == text:
+            return code
+    return reason_code(reason)
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,8 +107,42 @@ class FilterNetworkOptionsCommand:
 
 
 @dataclass(frozen=True, slots=True)
+class NetworkCaseInputs:
+    """What of a case the comparison reads, in memory only: never stored, sent or logged here."""
+
+    age_band: AgeBand
+    district: str
+    needs: tuple[NeedCategory, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class NetworkOption(Option):
+    """An option of another organisation. Facts only: no comment, no pending count, no reporter,
+    no tenant, grant or source service id. `service_id` is the listing's opaque reference and
+    `organisation` the registry's display name."""
+
+    review_by: date | None = None
+    """When the shared criteria are next due for review."""
+    contact_label: str | None = None
+    """The service line's name, when the organisation shared one."""
+
+
+@dataclass(frozen=True, slots=True)
+class NetworkNotSuitable(NotSuitable):
+    organisation: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class FilterNetworkOptionsResult(FilterOptionsResult):
+    system_name: str = ""
+    pathway_name: str = ""
+    time_zone: str = ""
+    """The network's own settings, for the page's header (not a tenant's)."""
+
+
+@dataclass(frozen=True, slots=True)
 class _Candidate:
-    option: Option
+    option: NetworkOption
     site: LatLon | None
 
 
@@ -107,6 +171,116 @@ def _site(service: ServiceProjection) -> LatLon | None:
     return LatLon(lat=location.latitude, lon=location.longitude)
 
 
+def classify_network_row(
+    entry: NetworkBoardEntry,
+    item: NetworkServiceInput,
+    projection: CriteriaProjection | None,
+    case: NetworkCaseInputs,
+    now: datetime,
+    today: date,
+) -> _Candidate | NetworkNotSuitable | None:
+    """One row of the network board: an option, not suitable with the reason, or nothing at all
+    (a listing that is hidden, a service that is closed, or a directory or capacity grant that is
+    not in force shows nothing, not even a name). Pure.
+
+    A paused listing shows nothing of its figures and nothing else is read of it. A service whose
+    criteria are not shared, or cannot be built into a version, cannot be shown to fit: it is not
+    suitable (fail closed), never a pass. No reason holds a case value."""
+
+    def not_suitable(reason: str) -> NetworkNotSuitable:
+        return NetworkNotSuitable(
+            service_id=entry.row_ref,
+            name=entry.service_name,
+            reason=reason,
+            organisation=entry.organisation_name,
+        )
+
+    # The order of the board's own rule: a hidden listing shows nothing, a paused one shows its name
+    # only, and only then do the grants and the service decide.
+    if entry.presentation is ListingPresentation.HIDDEN:
+        return None
+    if entry.presentation is not ListingPresentation.SHOWN or entry.status is None:
+        return not_suitable(PAUSED_REASON)
+    shares = item.visible_scopes
+    if (
+        GrantScope.DIRECTORY not in shares
+        or GrantScope.CAPACITY not in shares
+        or not item.service.active
+    ):
+        return None
+    data_age = None if entry.reported_at is None else now - entry.reported_at
+    reason = status_reason(entry.status, data_age)
+    if reason is not None:
+        return not_suitable(reason)
+    current = None
+    if GrantScope.CRITERIA in shares and projection is not None:
+        try:
+            current = criteria_of(entry.row_ref, projection)
+        except ValidationFailed:
+            current = None
+    if current is None:
+        return not_suitable(CRITERIA_NOT_SHARED_REASON)
+    verdict = check_hard_criteria(current, case.age_band, case.district, case.needs)
+    if not verdict.passes:
+        return not_suitable(OUTSIDE_CRITERIA_REASON)
+    site = _site(item.service)
+    warnings = (
+        verdict.warnings
+        + status_warnings(entry.status)
+        + data_age_warnings(data_age)
+        + criteria_warnings(current, today)
+    )
+    status: Status = entry.status
+    return _Candidate(
+        option=NetworkOption(
+            service_id=entry.row_ref,
+            name=entry.service_name,
+            status=status,
+            effective_available=entry.effective_available,
+            over_by=entry.over_by,
+            unit_label=entry.unit_label or "",
+            data_age=data_age,
+            travel=None,
+            fits=fits_for(current, case.needs),
+            warnings=warnings,
+            criteria_id=current.id,
+            criteria_version=current.version,
+            category=entry.category,
+            position=site,
+            phone=item.service.contact_phone,
+            organisation=entry.organisation_name,
+            organisation_source=SOURCE_TEXT[entry.source],
+            review_by=current.review_by,
+            contact_label=item.service.contact_label,
+        ),
+        site=site,
+    )
+
+
+def _snapshot_row(
+    entry: NetworkBoardEntry, row: _Candidate | NetworkNotSuitable, now: datetime
+) -> dict[str, Any]:
+    """One row of a display, for the advisor's own audit entry: the listing's opaque reference, the
+    status, the figures, the age and the criteria version of an option, and the code of why a row
+    was not suitable. No organisation or service name, no tenant or source id."""
+    shown: dict[str, Any] = {
+        "row_ref": entry.row_ref,
+        "status": None if entry.status is None else entry.status.value,
+        "number": entry.effective_available,
+        "over_by": entry.over_by,
+        "data_age_seconds": (
+            None if entry.reported_at is None else int((now - entry.reported_at).total_seconds())
+        ),
+    }
+    if isinstance(row, NetworkNotSuitable):
+        shown["shown_as"] = SHOWN_AS_NOT_SUITABLE
+        shown["reason"] = network_reason_code(row.reason)
+    else:
+        shown["criteria_version"] = row.option.criteria_version
+        shown["shown_as"] = SHOWN_AS_OPTION
+    return shown
+
+
 class FilterNetworkOptions:
     def __init__(
         self,
@@ -124,7 +298,18 @@ class FilterNetworkOptions:
         self._postcodes = postcodes
         self._travel_time = travel_time
 
-    async def execute(self, command: FilterNetworkOptionsCommand) -> FilterOptionsResult:
+    async def execute(self, command: FilterNetworkOptionsCommand) -> FilterNetworkOptionsResult:
+        """The options list: the options only (DEC-1176)."""
+        return await self._run(command, with_not_suitable=False)
+
+    async def view(self, command: FilterNetworkOptionsCommand) -> FilterNetworkOptionsResult:
+        """The network options page: the options and the rows that are not options, each with its
+        reason, and whether no service covers the case's district."""
+        return await self._run(command, with_not_suitable=True)
+
+    async def _run(
+        self, command: FilterNetworkOptionsCommand, *, with_not_suitable: bool
+    ) -> FilterNetworkOptionsResult:
         check_role(command.actor)
         # Not a member, a network that is closed or unknown, and a role that never sees a network
         # are refused here before the case is read (the one NotFound of NetworkAccess).
@@ -141,10 +326,10 @@ class FilterNetworkOptions:
                 raise ValidationFailed(
                     ", ".join(missing), "a case needs these before options can be filtered"
                 )
-            age_band, district, needs = case.age_band, case.postcode, case.needs
-            reference = case.reference
-            if age_band is None or district is None:  # missing_fields has refused both
+            if case.age_band is None or case.postcode is None:  # missing_fields has refused both
                 raise ValidationFailed("case", "is incomplete")
+            inputs = NetworkCaseInputs(case.age_band, case.postcode, case.needs)
+            reference = case.reference
 
         now = self._clock.now()
         registry = await self._access.view(member, now)
@@ -165,7 +350,7 @@ class FilterNetworkOptions:
         }
         own = command.actor.tenant_id
         keys: dict[str, tuple[str, str]] = {}
-        inputs: list[NetworkServiceInput] = []
+        inputs_of: list[NetworkServiceInput] = []
         for row in services:
             if row.source_tenant_id == own:
                 continue  # the viewer's own services are the tenant's options, with their actions
@@ -173,7 +358,7 @@ class FilterNetworkOptions:
             if listed is None:
                 continue
             keys[listed.row_ref] = (row.source_tenant_id, row.projection.source_service_id)
-            inputs.append(
+            inputs_of.append(
                 NetworkServiceInput(
                     row_ref=listed.row_ref,
                     organisation_name=listed.organisation_name,
@@ -186,41 +371,37 @@ class FilterNetworkOptions:
                 )
             )
         board = assemble_network_board(
-            inputs,
+            inputs_of,
             now,
             watch_from=DEFAULT_POLICY.pressure_watch_from,
             high_from=DEFAULT_POLICY.pressure_high_from,
         )
-        by_ref = {item.row_ref: item for item in inputs}
+        by_ref = {item.row_ref: item for item in inputs_of}
         today = to_london(now).date()
-        patient = self._postcodes.locate(district)
+        patient = self._postcodes.locate(inputs.district)
 
         candidates: list[_Candidate] = []
+        refused: list[NetworkNotSuitable] = []
         shown: list[dict[str, Any]] = []
         for entry in board.entries:
             item = by_ref[entry.row_ref]
-            criteria_projection = criteria_of_key.get(keys[entry.row_ref])
-            candidate = self._candidate(
-                entry, item, criteria_projection, age_band, district, needs, today, now
+            classified = classify_network_row(
+                entry,
+                item,
+                criteria_of_key.get(keys[entry.row_ref]),
+                inputs,
+                now,
+                today,
             )
-            if candidate is None:
+            if classified is None:
                 continue
-            candidates.append(candidate)
-            shown.append(
-                {
-                    "row_ref": entry.row_ref,
-                    "status": None if entry.status is None else entry.status.value,
-                    "number": entry.effective_available,
-                    "over_by": entry.over_by,
-                    "data_age_seconds": (
-                        None
-                        if entry.reported_at is None
-                        else int((now - entry.reported_at).total_seconds())
-                    ),
-                    "criteria_version": candidate.option.criteria_version,
-                    "shown_as": "option",
-                }
-            )
+            if isinstance(classified, NetworkNotSuitable):
+                if with_not_suitable:
+                    refused.append(classified)
+                    shown.append(_snapshot_row(entry, classified, now))
+                continue
+            candidates.append(classified)
+            shown.append(_snapshot_row(entry, classified, now))
 
         # No unit is open: the travel estimates are awaited here, all at once.
         ranges = await asyncio.gather(
@@ -244,72 +425,31 @@ class FilterNetworkOptions:
             )
             await uow.commit()
 
-        return FilterOptionsResult(
+        out_of_area = False
+        if with_not_suitable:
+            covered = [
+                criteria_of_key[key]
+                for ref, key in keys.items()
+                if key in criteria_of_key and GrantScope.CRITERIA in by_ref[ref].visible_scopes
+            ]
+            out_of_area = bool(covered) and all(
+                inputs.district not in projection.districts for projection in covered
+            )
+
+        refused_in_order = sorted(
+            refused,
+            key=lambda item: (item.organisation.casefold(), item.name.casefold(), item.service_id),
+        )
+        return FilterNetworkOptionsResult(
             options=tuple(sorted(options, key=option_order_key)),
-            not_suitable=(),
+            not_suitable=tuple(refused_in_order),
             generated_at=now,
             patient=None if patient is None else patient.lat_lon,
             not_found=patient is None,
-        )
-
-    def _candidate(
-        self,
-        entry: NetworkBoardEntry,
-        item: NetworkServiceInput,
-        projection: CriteriaProjection | None,
-        age_band: Any,
-        district: str,
-        needs: Any,
-        today: Any,
-        now: datetime,
-    ) -> _Candidate | None:
-        shares = item.visible_scopes
-        if (
-            GrantScope.DIRECTORY not in shares
-            or GrantScope.CAPACITY not in shares
-            or GrantScope.CRITERIA not in shares
-            or listing_presentation(item.listing) is ListingPresentation.HIDDEN
-            or not item.service.active
-            or entry.status is None
-            or projection is None
-        ):
-            return None
-        data_age = None if entry.reported_at is None else now - entry.reported_at
-        if status_reason(entry.status, data_age) is not None:
-            return None
-        current = criteria_of(entry.row_ref, projection)
-        verdict = check_hard_criteria(current, age_band, district, needs)
-        if not verdict.passes:
-            return None
-        site = _site(item.service)
-        warnings = (
-            verdict.warnings
-            + status_warnings(entry.status)
-            + data_age_warnings(data_age)
-            + criteria_warnings(current, today)
-        )
-        status: Status = entry.status
-        return _Candidate(
-            option=Option(
-                service_id=entry.row_ref,
-                name=entry.service_name,
-                status=status,
-                effective_available=entry.effective_available,
-                over_by=entry.over_by,
-                unit_label=entry.unit_label or "",
-                data_age=data_age,
-                travel=None,
-                fits=fits_for(current, needs),
-                warnings=warnings,
-                criteria_id=current.id,
-                criteria_version=current.version,
-                category=entry.category,
-                position=site,
-                phone=item.service.contact_phone,
-                organisation=entry.organisation_name,
-                organisation_source=SOURCE_TEXT[entry.source],
-            ),
-            site=site,
+            out_of_area=out_of_area,
+            system_name=member.settings.system_name,
+            pathway_name=member.settings.pathway_name,
+            time_zone=member.settings.time_zone,
         )
 
     async def _travel_range(
@@ -320,5 +460,5 @@ class FilterNetworkOptions:
         return await self._travel_time.estimate(patient, site)
 
 
-def _with_travel(option: Option, travel: TravelRange | None) -> Option:
+def _with_travel(option: NetworkOption, travel: TravelRange | None) -> NetworkOption:
     return replace(option, travel=travel, legs=travel_legs(option.name, travel))

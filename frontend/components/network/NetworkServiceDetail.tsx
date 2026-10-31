@@ -8,7 +8,7 @@ import { categoryLabel } from '@/lib/board/format';
 import { NEED_LABELS } from '@/lib/criteria/model';
 import type { NeedCode } from '@/lib/criteria/types';
 import { readNetworkView } from '@/lib/network/browser';
-import { dayText } from '@/lib/network/entries';
+import { agesText, dayText } from '@/lib/network/entries';
 import { hoursText } from '@/lib/network/hours';
 import { NETWORK_ROUTES } from '@/lib/network/links';
 import { ownRow } from '@/lib/network/orgs';
@@ -102,7 +102,7 @@ function Detail({ networkId, networkName, ownOrganisation, ownHref, rowRef }: { 
           <>
             <p>{`Accepts: ${needs(criteria.accepts)}`}</p>
             <p>{`Does not accept: ${needs(criteria.excludes)}`}</p>
-            <p>{`Ages: ${criteria.ageMin} to ${criteria.ageMax}`}</p>
+            <p>{`Ages: ${agesText(criteria.ageMin, criteria.ageMax)}`}</p>
             <p>{`Districts: ${criteria.districts.length === 0 ? 'none listed' : criteria.districts.join(', ')}`}</p>
             <p>{`Review by ${dayText(`${criteria.reviewBy}T12:00:00Z`)}`}</p>
           </>

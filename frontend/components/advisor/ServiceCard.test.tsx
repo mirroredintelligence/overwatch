@@ -102,7 +102,7 @@ describe('ServiceCard (W13)', () => {
     );
   });
 
-  it('a network service has its phone as the one thing to do with it', () => {
+  it('a network service has its phone as the one thing to do with it: the service line, once', () => {
     renderCard({
       ...UCR_WEST,
       phone: '01305 900300',
@@ -110,7 +110,24 @@ describe('ServiceCard (W13)', () => {
     });
     const card = screen.getByRole('article', { name: 'UCR West' });
 
-    expect(within(card).getByRole('link', { name: 'Phone 01305 900300' })).toHaveAttribute('href', 'tel:01305 900300');
+    // One link, the service line of the network rows (WB11), not a second "Phone" button beside it, and
+    // not the advice to find the number in the viewer's own directory: another organisation's service is
+    // not in it.
+    expect(within(card).getAllByRole('link')).toHaveLength(1);
+    expect(within(card).getByRole('link', { name: 'Phone UCR West on 01305 900300' })).toHaveAttribute('href', 'tel:01305900300');
+    expect(within(card).queryByText('No phone number is held for this service. Find it in your service directory.')).toBeNull();
+  });
+
+  it('a network card has the criteria button only where the page can read another organisation\u2019s criteria', async () => {
+    const network = { organisation: 'Neighbouring', source: '' };
+    const onNetworkCriteria = vi.fn();
+    const { unmount } = render(<ServiceCard caseId="case-1" option={{ ...UCR_WEST, network }} onNetworkCriteria={onNetworkCriteria} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Criteria' }));
+    expect(onNetworkCriteria).toHaveBeenCalledWith('svc-ucr-west');
+    unmount();
+    // The own options page passes the own-criteria handler to every card: it must not reach a network row.
+    render(<ServiceCard caseId="case-1" option={{ ...UCR_WEST, network }} onCriteria={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: 'Criteria' })).toBeNull();
   });
 
   it('says no number is held, and invents none, when the service has none', () => {
@@ -119,6 +136,33 @@ describe('ServiceCard (W13)', () => {
 
     expect(within(card).queryByRole('link', { name: /^Phone/ })).toBeNull();
     expect(within(card).getByText('No phone number is held for this service. Find it in your service directory.')).toBeInTheDocument();
+  });
+
+  it('a network service has the service line to phone, and nothing else to do about it (WB11)', () => {
+    renderCard({ ...UCR_WEST, phone: '01632 960010', network: { organisation: 'Neighbouring', source: '' } });
+    const card = screen.getByRole('article', { name: 'UCR West' });
+    const link = within(card).getByRole('link', { name: /01632 960010/ });
+    expect(link).toHaveAttribute('href', 'tel:01632960010');
+    expect(link).toHaveAttribute('data-el', 'NET-BOARD-PHONE-LINK');
+    expect(within(card).getByRole('link', { name: 'Phone UCR West on 01632 960010' })).toBe(link);
+    expect(within(card).getByText('Service line')).toBeInTheDocument();
+    // No empty source line, and none of the controls of the organisation's own services.
+    expect(card.querySelectorAll('p:empty')).toHaveLength(0);
+    for (const name of ['Request booking', 'I phoned', 'They declined', 'Ask clinical advisor', 'See options']) {
+      expect(within(card).queryByRole('button', { name: new RegExp(name) })).toBeNull();
+    }
+  });
+
+  it('a network service that shared no number says so, with no link', () => {
+    renderCard({ ...UCR_WEST, phone: null, network: { organisation: 'Neighbouring', source: '' } });
+    const card = screen.getByRole('article', { name: 'UCR West' });
+    expect(within(card).getByText('No number shared')).toBeInTheDocument();
+    expect(within(card).queryByRole('link')).toBeNull();
+  });
+
+  it('the organisation’s own service has no service line row: it has its own booking panel', () => {
+    renderCard(UCR_WEST);
+    expect(screen.queryByText('No number shared')).toBeNull();
   });
 
   it('has no rank, no "best" and no score', () => {

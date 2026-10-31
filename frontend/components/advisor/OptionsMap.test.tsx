@@ -121,6 +121,28 @@ describe('OptionsMap (W50)', () => {
     expect(within(card).queryByRole('button', { name: 'Criteria' })).toBeNull();
   });
 
+  it('a network pin has the criteria button only on the network map, and the service line in place of the phone button', async () => {
+    const onNetworkCriteria = vi.fn();
+    const withPhone = MAP_OPTIONS.map((option) => (option.network === null ? option : { ...option, phone: '01632 960010' }));
+    render(
+      <OptionsMap
+        caseId="4821"
+        postcode="DT4 8XX"
+        patientArea={MAP_VIEW.patientArea}
+        options={withPhone}
+        selectedId="svc-other-unit"
+        onSelect={vi.fn()}
+        onNetworkCriteria={onNetworkCriteria}
+      />,
+    );
+    const card = screen.getByRole('region', { name: 'Other unit' });
+
+    await userEvent.click(within(card).getByRole('button', { name: 'Criteria' }));
+    expect(onNetworkCriteria).toHaveBeenCalledWith('svc-other-unit');
+    expect(within(card).getByRole('link', { name: 'Phone Other unit on 01632 960010' })).toHaveAttribute('data-el', 'NET-BOARD-PHONE-LINK');
+    expect(within(card).getAllByRole('link')).toHaveLength(1);
+  });
+
   it('a pin card with a service phone offers it as a link; one with none says so (Q5)', () => {
     const [first] = MAP_OPTIONS;
     render(

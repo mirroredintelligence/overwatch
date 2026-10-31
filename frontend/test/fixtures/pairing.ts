@@ -34,7 +34,21 @@ function outcome(status: number, code: string, text: string, headers?: Record<st
 const refused = () => outcome(404, 'not-found', REFUSED_TEXT);
 const iso = (ms: number) => new Date(ms).toISOString().replace('.000Z', 'Z');
 
-type Screen = { deviceId: string; host: string; name: string; location: string | null; pairedAt: number; collected: boolean; revokedAt: number | null };
+type Screen = {
+  deviceId: string;
+  host: string;
+  name: string;
+  location: string | null;
+  pairedAt: number;
+  collected: boolean;
+  revokedAt: number | null;
+  /** The board it shows (TEN-067): its own, or the one network of the stand-in. */
+  network: boolean;
+  scopeVersion: number;
+};
+
+/** The one network a tenant of the stand-in may choose for a screen (the id of the network stand-in). */
+export const STAND_IN_NETWORK = { id: 'net-sample', name: 'Sample network' };
 
 function leadOf(authorization: string | null): boolean {
   const token = /^Bearer (.+)$/.exec(authorization ?? '')?.[1];
@@ -92,16 +106,69 @@ export class PairingStandIn {
       location: s.location,
       state: s.revokedAt !== null ? 'revoked' : s.collected ? 'online' : 'waiting',
       status: s.revokedAt !== null ? 'revoked' : s.collected ? 'active' : 'paired-unclaimed',
-      boardScope: 'tenant',
-      networkId: null,
-      networkName: null,
+      boardScope: s.network ? 'network' : 'tenant',
+      networkId: s.network ? STAND_IN_NETWORK.id : null,
+      networkName: s.network ? STAND_IN_NETWORK.name : null,
       networkAvailable: true,
-      scopeVersion: 1,
+      scopeVersion: s.scopeVersion,
       pairedAt: iso(s.pairedAt),
       lastSeenAt: s.collected && s.revokedAt === null ? iso(now.getTime()) : null,
       revokedAt: s.revokedAt === null ? null : iso(s.revokedAt),
     }));
-    return { status: 200, body: { scope: 'tenant', asOf: iso(now.getTime()), screens, networks: [] }, headers: { 'Cache-Control': 'no-store' } };
+    return { status: 200, body: { scope: 'tenant', asOf: iso(now.getTime()), screens, networks: [STAND_IN_NETWORK] }, headers: { 'Cache-Control': 'no-store' } };
+  }
+
+  /** `PUT /screens/{id}/board-scope`: the lead chooses the screen's board; the version moves when it changes (TEN-067). */
+  setBoard(host: string | null, authorization: string | null, idempotencyKey: string | null, ifMatch: string | null, deviceId: string, body: unknown): StandInReply {
+    if (!leadOf(authorization)) return outcome(404, 'not-found', 'Not found.');
+    if (idempotencyKey === null || !/^[\x21-\x7e]{1,200}$/.test(idempotencyKey)) return outcome(400, 'required', 'Idempotency-Key is required.');
+    if (ifMatch === null) return outcome(428, 'required', 'If-Match is required.');
+    const screen = this.screensOf(host).find((s) => s.deviceId === deviceId && s.revokedAt === null);
+    const fields = typeof body === 'object' && body !== null && !Array.isArray(body) ? (body as Record<string, unknown>) : null;
+    if (screen === undefined) return outcome(404, 'not-found', 'The requested resource was not found.');
+    if (fields === null || (fields.boardScope !== 'tenant' && fields.boardScope !== 'network')) return outcome(400, 'invalid', 'The request was not valid.');
+    if (fields.boardScope === 'network' && fields.networkId !== STAND_IN_NETWORK.id) return outcome(404, 'not-found', 'The requested resource was not found.');
+    if (ifMatch !== `W/"${screen.scopeVersion}"`) return outcome(412, 'conflict', 'The screen changed.');
+    const network = fields.boardScope === 'network';
+    if (screen.network !== network) {
+      screen.network = network;
+      screen.scopeVersion += 1;
+    }
+    return {
+      status: 200,
+      body: {
+        deviceId,
+        name: screen.name,
+        location: screen.location,
+        status: screen.collected ? 'active' : 'paired-unclaimed',
+        boardScope: network ? 'network' : 'tenant',
+        networkId: network ? STAND_IN_NETWORK.id : null,
+        networkName: network ? STAND_IN_NETWORK.name : null,
+        networkAvailable: true,
+        scopeVersion: screen.scopeVersion,
+      },
+      headers: { 'Cache-Control': 'no-store', ETag: `W/"${screen.scopeVersion}"` },
+    };
+  }
+
+  /** `GET /screens/me/board-scope`: what a screen shows, from the screen's own record (the wall token's subject). */
+  ownBoardScope(deviceId: string | null): StandInReply {
+    const screen = this.screens.find((s) => s.deviceId === deviceId && s.revokedAt === null);
+    if (screen === undefined) return { status: 200, body: { boardScope: 'tenant', fallback: false, scopeVersion: 1 }, headers: { 'Cache-Control': 'no-store' } };
+    const body = screen.network
+      ? { boardScope: 'network', fallback: false, scopeVersion: screen.scopeVersion, networkName: STAND_IN_NETWORK.name }
+      : { boardScope: 'tenant', fallback: false, scopeVersion: screen.scopeVersion };
+    return { status: 200, body, headers: { 'Cache-Control': 'no-store' } };
+  }
+
+  /** `POST /screens/preview`: the confirm step's look at a live code (TEN-072). */
+  preview(host: string | null, authorization: string | null, body: unknown, now: Date = new Date()): StandInReply {
+    if (!leadOf(authorization)) return outcome(404, 'not-found', 'Not found.');
+    const fields = typeof body === 'object' && body !== null && !Array.isArray(body) ? (body as Record<string, unknown>) : null;
+    if (fields === null || typeof fields.code !== 'string' || Object.keys(fields).length !== 1) return outcome(400, 'invalid', 'The request was not valid.');
+    const pairing = this.pairings.find((p) => p.host === host && p.code === fields.code && p.deviceToken === null && now.getTime() < p.expiresAt);
+    if (pairing === undefined) return refused();
+    return { status: 200, body: { firstSeenAt: iso(pairing.expiresAt - PAIRING_LIFETIME_MS), deviceClass: 'wall-display' }, headers: { 'Cache-Control': 'no-store' } };
   }
 
   /** `POST /screens/{id}/revoke`: ends the screen at once; the same answer again for one already ended. */
@@ -190,7 +257,7 @@ export class PairingStandIn {
     pairing.deviceToken = DEVICE_TOKENS[n % DEVICE_TOKENS.length] as string;
     pairing.deviceId = DEVICES[pairing.deviceToken] as string;
     const location = typeof fields.location === 'string' ? fields.location : null;
-    this.screens.push({ deviceId: pairing.deviceId, host: host as string, name: String(fields.name).trim(), location, pairedAt: now.getTime(), collected: false, revokedAt: null });
+    this.screens.push({ deviceId: pairing.deviceId, host: host as string, name: String(fields.name).trim(), location, pairedAt: now.getTime(), collected: false, revokedAt: null, network: false, scopeVersion: 1 });
     return { status: 201, body: { deviceId: pairing.deviceId, name: String(fields.name).trim(), status: 'online' } };
   }
 }

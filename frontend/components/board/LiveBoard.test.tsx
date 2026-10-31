@@ -7,6 +7,7 @@ import { runAxe } from '@/test/a11y';
 import { FakeStream } from '@/test/fakeStream';
 import { BOARD_A, BOARD_SURGE, boardBuiltAt, GENERATED_AT, MAIN_ENTRIES } from '@/test/fixtures/board';
 import { server } from '@/test/msw/server';
+import type { WallScope } from '@/lib/board/scope';
 import { LiveBoard } from './LiveBoard';
 
 const replace = vi.hoisted(() => vi.fn());
@@ -25,6 +26,9 @@ afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
+
+/** What the wall's read answers: the setting and the board. */
+const wall = (board: unknown) => ({ scope: { boardScope: 'tenant', scopeVersion: 1, fallback: false, networkName: null }, board });
 
 function builtNow(over: Partial<typeof BOARD_A> = {}): FetchedBoard {
   return { board: { ...boardBuiltAt(BOARD_A, iso(Date.now())), ...over }, serverTime: Date.now() };
@@ -297,8 +301,8 @@ describe('LiveBoard: an update that fails to parse', () => {
   it('falls back to Last known with the old figures, never to a blank board or a wrong tile', async () => {
     const m = mount({ fetchBoard: undefined });
     server.use(
-      http.get('*/api/bff/board', () =>
-        HttpResponse.json({ ...BOARD_A, entries: [{ ...BOARD_A.entries[0], status: 'busy', used: -3 }] }),
+      http.get('*/api/bff/wall/board', () =>
+        HttpResponse.json(wall({ ...BOARD_A, entries: [{ ...BOARD_A.entries[0], status: 'busy', used: -3 }] })),
       ),
     );
 
@@ -314,11 +318,12 @@ describe('LiveBoard: an update that fails to parse', () => {
   it.each([
     ['a body that is not JSON', () => new HttpResponse('<html>bad gateway</html>', { headers: { 'Content-Type': 'text/html' } })],
     ['an empty object', () => HttpResponse.json({})],
-    ['a negative count', () => HttpResponse.json({ ...BOARD_A, entries: [{ ...BOARD_A.entries[0], established: -1 }] })],
-    ['a fractional count', () => HttpResponse.json({ ...BOARD_A, entries: [{ ...BOARD_A.entries[0], used: 2.5 }] })],
+    ['a negative count', () => HttpResponse.json(wall({ ...BOARD_A, entries: [{ ...BOARD_A.entries[0], established: -1 }] }))],
+    ['a fractional count', () => HttpResponse.json(wall({ ...BOARD_A, entries: [{ ...BOARD_A.entries[0], used: 2.5 }] }))],
+    ['a setting that is not one', () => HttpResponse.json({ scope: { boardScope: 'moon' }, board: BOARD_A })],
   ])('treats %s as Last known', async (_label, answer) => {
     const m = mount({ fetchBoard: undefined });
-    server.use(http.get('*/api/bff/board', answer));
+    server.use(http.get('*/api/bff/wall/board', answer));
 
     await advance(60_000);
 
@@ -328,7 +333,7 @@ describe('LiveBoard: an update that fails to parse', () => {
 });
 
 describe('LiveBoard: through the BFF, as the paired screen (no tenant from anywhere)', () => {
-  it('opens the stream at /api/bff/events with no query string, and reads /api/bff/board with no query or tenant header', async () => {
+  it('opens the stream at /api/bff/events with no query string, and reads /api/bff/wall/board with no query or tenant header', async () => {
     const urls: string[] = [];
     class RecordingSource extends FakeStream {
       constructor(url: string | URL) {
@@ -339,12 +344,12 @@ describe('LiveBoard: through the BFF, as the paired screen (no tenant from anywh
     vi.stubGlobal('EventSource', RecordingSource);
     const seen: Request[] = [];
     server.use(
-      http.get('*/api/bff/board', ({ request }) => {
+      http.get('*/api/bff/wall/board', ({ request }) => {
         seen.push(request.clone());
-        return HttpResponse.json(boardBuiltAt(BOARD_A, iso(Date.now())));
+        return HttpResponse.json(wall(boardBuiltAt(BOARD_A, iso(Date.now()))));
       }),
     );
-    mount({ createEventSource: undefined, fetchBoard: undefined });
+    mount({ createEventSource: undefined, fetchBoard: undefined, initialScope: { boardScope: 'tenant', scopeVersion: 1, fallback: false, networkName: null } });
 
     await advance(60_000);
 
@@ -357,7 +362,7 @@ describe('LiveBoard: through the BFF, as the paired screen (no tenant from anywh
   });
 
   it('goes to /screen/pair when the BFF refuses the screen with 401', async () => {
-    server.use(http.get('*/api/bff/board', () => HttpResponse.json({ code: 'no-session' }, { status: 401 })));
+    server.use(http.get('*/api/bff/wall/board', () => HttpResponse.json({ code: 'no-session' }, { status: 401 })));
     mount({ fetchBoard: undefined, onUnpaired: undefined });
 
     await advance(60_000);
@@ -377,5 +382,59 @@ describe('LiveBoard: clean-up', () => {
 
     expect(m.stream.closed).toBe(true);
     expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+describe('LiveBoard: the board its administrator chose (TEN-072)', () => {
+  const NETWORK: WallScope = { boardScope: 'network', scopeVersion: 3, fallback: false, networkName: 'West Dorset system' };
+  const FELL_BACK: WallScope = { boardScope: 'tenant', scopeVersion: 4, fallback: true, networkName: null };
+
+  it('shows a network board in network mode: the header, the heading and the organisation under each tile', () => {
+    const network = { ...BOARD_A, entries: BOARD_A.entries.map((e, i) => ({ ...e, organisation: i === 0 ? 'Own Trust' : 'Sample Area B', ownOrganisation: i === 0, pending: 0 })) };
+    const view = mount({ initialBoard: network, initialScope: NETWORK });
+    expect(screen.getByText('Showing: Network, West Dorset system')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'West Dorset system capacity' })).toBeInTheDocument();
+    expect(within(tiles(view.container)[0]!).getByText('Your organisation')).toBeInTheDocument();
+    expect(within(tiles(view.container)[1]!).getByText('Sample Area B')).toBeInTheDocument();
+  });
+
+  it('listens to the network’s channel when it shows a network, and to the board’s when it shows its own', () => {
+    const urls: string[] = [];
+    class RecordingSource extends FakeStream {
+      constructor(url: string | URL) {
+        super();
+        urls.push(String(url));
+      }
+    }
+    vi.stubGlobal('EventSource', RecordingSource);
+    mount({ createEventSource: undefined, initialScope: NETWORK });
+    mount({ createEventSource: undefined });
+    expect(urls).toEqual(['/api/bff/wall/network-events', '/api/bff/events']);
+  });
+
+  it('falls back to its own board with the warning, names the network it was showing, and drops the network’s figures', async () => {
+    const network = { ...BOARD_A, entries: BOARD_A.entries.map((e) => ({ ...e, name: `Network ${e.name}`, organisation: 'Sample Area B' })) };
+    const m = mount({ initialBoard: network, initialScope: NETWORK });
+    m.fetchBoard.mockResolvedValue({ board: boardBuiltAt(BOARD_A, iso(Date.now())), serverTime: Date.now(), scope: FELL_BACK });
+    await advance(60_000);
+    expect(screen.getByRole('alert')).toHaveTextContent('No longer showing West Dorset system. Showing: Our organisation.');
+    expect(screen.getByText('Showing: Our organisation')).toBeInTheDocument();
+    expect(m.container.textContent).not.toContain('Network UCR');
+    expect(tiles(m.container)).toHaveLength(MAIN_ENTRIES.length);
+  });
+
+  it('keeps the fall back warning through the next refreshes until the administrator changes the screen', async () => {
+    const m = mount({ initialBoard: BOARD_A, initialScope: FELL_BACK });
+    m.fetchBoard.mockResolvedValue({ board: boardBuiltAt(BOARD_A, iso(Date.now())), serverTime: Date.now(), scope: FELL_BACK });
+    await advance(60_000);
+    await advance(60_000);
+    expect(screen.getByRole('alert')).toHaveTextContent('No longer showing the network board. Showing: Our organisation.');
+  });
+
+  it('goes back to pairing when the screen is refused, as for its own board', async () => {
+    const m = mount({ initialScope: NETWORK });
+    m.fetchBoard.mockRejectedValue(new BoardFetchError('refused', 404));
+    await advance(60_000);
+    expect(m.onUnpaired).toHaveBeenCalledTimes(1);
   });
 });

@@ -29,6 +29,13 @@ export type InputGuardOptions = {
    * any header and any body key is still refused.
    */
   allowNetworkId?: boolean;
+  /**
+   * The route CHANGES which board a wall screen shows and takes the id of the network the server offered
+   * (TEN-072): the top-level key `networkId` of a JSON body, once, holding a network id. Nothing else:
+   * not the query, not a header, not a form, not a nested key, and every other key that names a tenant,
+   * a scope or a network is still refused.
+   */
+  allowNetworkIdInBody?: boolean;
 };
 
 function queryNames(request: Request, options: InputGuardOptions): boolean {
@@ -75,7 +82,7 @@ async function readBounded(request: Request): Promise<string | null> {
 }
 
 /** True when a parsed JSON value has a key that names one, or is too deep or too large to check. */
-function jsonNames(value: unknown): boolean {
+function jsonNames(value: unknown, options: InputGuardOptions): boolean {
   let nodes = 0;
   const walk = (node: unknown, depth: number): boolean => {
     if (typeof node !== 'object' || node === null) return false;
@@ -83,6 +90,11 @@ function jsonNames(value: unknown): boolean {
     if (depth > MAX_DEPTH || nodes > MAX_NODES) return true;
     if (Array.isArray(node)) return node.some((item) => walk(item, depth + 1));
     for (const [key, item] of Object.entries(node)) {
+      // The one body key a route may say it takes: top level only, a string that is a network id.
+      if (options.allowNetworkIdInBody === true && depth === 0 && key === 'networkId') {
+        if (typeof item !== 'string' || !NETWORK_ID.test(item)) return true;
+        continue;
+      }
       if (namesTenantInput(key) || walk(item, depth + 1)) return true;
     }
     return false;
@@ -90,7 +102,7 @@ function jsonNames(value: unknown): boolean {
   return walk(value, 0);
 }
 
-async function bodyNames(request: Request): Promise<boolean> {
+async function bodyNames(request: Request, options: InputGuardOptions): Promise<boolean> {
   if (request.method === 'GET' || request.method === 'HEAD') return false;
   const type = (request.headers.get('content-type') ?? '').toLowerCase();
   const isJson = type.includes('json');
@@ -104,7 +116,7 @@ async function bodyNames(request: Request): Promise<boolean> {
     return false;
   }
   try {
-    return jsonNames(JSON.parse(text));
+    return jsonNames(JSON.parse(text), options);
   } catch {
     // Not JSON: nothing here names anything, and the handler will refuse it in its own words.
     return false;
@@ -112,5 +124,5 @@ async function bodyNames(request: Request): Promise<boolean> {
 }
 
 export async function refusesTenantInput(request: Request, options: InputGuardOptions = {}): Promise<boolean> {
-  return queryNames(request, options) || headersName(request) || (await bodyNames(request));
+  return queryNames(request, options) || headersName(request) || (await bodyNames(request, options));
 }

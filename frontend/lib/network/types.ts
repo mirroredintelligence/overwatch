@@ -100,7 +100,8 @@ export type NetworkCriteriaEntry = {
   serviceName: string;
   version: number;
   ageMin: number;
-  ageMax: number;
+  /** Null when the service has no upper age limit. */
+  ageMax: number | null;
   districts: string[];
   accepts: string[];
   excludes: string[];
@@ -168,6 +169,50 @@ export type NetworkWeek = {
   statusShare: Record<(typeof WEEK_STATUSES)[number], WeekMeasure>;
   pressureHours: Record<Pressure, WeekMeasure>;
   pressureOverTime: { hour: string; pressure: Pressure }[];
+  systemName: string;
+  pathwayName: string;
+  timeZone: string;
+};
+
+
+/** A place on the earth, as a network row shares it. */
+export type NetworkPoint = { lat: number; lon: number };
+
+/**
+ * A service of ANOTHER organisation that may take the advisor's case (`GET /network/{id}/options`, WB11).
+ * Facts about capacity and the service line: no comment, no pending count, no reporter, no tenant. The
+ * reference is the listing's own opaque one. Read only: nothing here can be requested.
+ */
+export type NetworkOption = {
+  rowRef: string;
+  organisationName: string;
+  serviceName: string;
+  category: string;
+  status: BoardStatus;
+  effectiveAvailable: number | null;
+  overBy: number | null;
+  unitLabel: string | null;
+  dataAgeSeconds: number | null;
+  fits: string[];
+  warnings: string[];
+  criteriaVersion: number;
+  reviewBy: string;
+  contactLabel: string | null;
+  contactPhone: string | null;
+  position: NetworkPoint | null;
+  travel: { lowMinutes: number; highMinutes: number } | null;
+};
+
+export type NetworkNotSuitable = { rowRef: string; organisationName: string; serviceName: string; reason: string };
+
+export type NetworkOptions = {
+  options: NetworkOption[];
+  notSuitable: NetworkNotSuitable[];
+  generatedAt: string;
+  /** The centre of the case's own district, for the map; null when the district is not known. */
+  patient: NetworkPoint | null;
+  notFound: boolean;
+  outOfArea: boolean;
   systemName: string;
   pathwayName: string;
   timeZone: string;

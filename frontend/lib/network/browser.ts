@@ -10,7 +10,7 @@ import type { NetworkBoard, NetworkList } from './types';
 
 const BASE = '/api/bff/network';
 
-export type NetworkView = 'board' | 'directory' | 'criteria' | 'system-now' | 'phones' | 'week';
+export type NetworkView = 'board' | 'directory' | 'criteria' | 'system-now' | 'phones' | 'week' | 'options';
 
 function viewUrl(view: string, networkId: string, extra = ''): string {
   return `${BASE}/${view}?networkId=${encodeURIComponent(networkId)}${extra === '' ? '' : `&${extra}`}`;

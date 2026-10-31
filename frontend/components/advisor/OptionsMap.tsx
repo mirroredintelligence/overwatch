@@ -7,6 +7,7 @@ import type { LatLon } from '@/lib/map/project';
 import { layoutOf, PICTURE, percentOf, radiusPx } from '@/lib/map/layout';
 import { type OptionView } from '@/lib/advisor/options';
 import { durationText } from '@/lib/board/format';
+import { NetworkServiceLine } from './NetworkServiceLine';
 import { OptionBooking } from './OptionBooking';
 import { ServicePhone } from './ServicePhone';
 import { TravelDetails } from './TravelDetails';
@@ -27,6 +28,8 @@ export type OptionsMapProps = {
   selectedId: string | null;
   onSelect: (serviceId: string) => void;
   onCriteria?: (serviceId: string) => void;
+  /** The dialog for another organisation's criteria (the network map only): see ServiceCard. */
+  onNetworkCriteria?: (serviceId: string) => void;
 };
 
 function freeText(option: OptionView): string | null {
@@ -50,6 +53,7 @@ export function OptionsMap({
   selectedId,
   onSelect,
   onCriteria,
+  onNetworkCriteria,
 }: OptionsMapProps) {
   const fixed = options.filter((option) => option.position !== null);
   const visiting = options.filter((option) => option.coverage !== null);
@@ -116,7 +120,7 @@ export function OptionsMap({
       <p className={styles.caption}>{CAPTION}</p>
 
       {selected === null ? null : (
-        <PinCard caseId={caseId} option={selected} onCriteria={onCriteria} />
+        <PinCard caseId={caseId} option={selected} onCriteria={onCriteria} onNetworkCriteria={onNetworkCriteria} />
       )}
     </section>
   );
@@ -126,15 +130,20 @@ function PinCard({
   caseId,
   option,
   onCriteria,
+  onNetworkCriteria,
 }: {
   caseId: string;
   option: OptionView;
   onCriteria?: (serviceId: string) => void;
+  onNetworkCriteria?: (serviceId: string) => void;
 }) {
   const [travelOpen, setTravelOpen] = useState(false);
   const free = freeText(option);
   const age = option.dataAgeSeconds === null ? null : `Updated ${durationText(Math.floor(option.dataAgeSeconds / 60))} ago`;
   const network = option.network;
+  // The own services always have the details; a network row has them when the travel is drawn in legs (the
+  // options list's rows are; the network page's are a range only).
+  const hasLegs = network === null || (option.travel?.legs.length ?? 0) > 0;
 
   return (
     <section className={styles.card} aria-label={option.name} data-el="ADV-MAP-CARD">
@@ -148,17 +157,23 @@ function PinCard({
       {free === null ? null : <p className={styles.line}>{free}</p>}
       <p className={styles.line}>{travelLine(option)}</p>
       {age === null ? null : <p className={styles.line}>{age}</p>}
-      <ServicePhone phone={option.phone} />
-      {network === null ? <OptionBooking caseId={caseId} option={option} /> : null}
+      {network === null ? <ServicePhone phone={option.phone} /> : null}
+      {network === null ? <OptionBooking caseId={caseId} option={option} /> : <NetworkServiceLine option={option} className={styles.line} />}
       <div className={styles.actions}>
         {network === null ? (
           <Button variant="secondary" dataEl="ADV-OPT-CRITERIA-BTN" onClick={() => onCriteria?.(option.serviceId)}>
             Criteria
           </Button>
+        ) : onNetworkCriteria === undefined ? null : (
+          <Button variant="secondary" dataEl="ADV-OPT-CRITERIA-BTN" onClick={() => onNetworkCriteria(option.serviceId)}>
+            Criteria
+          </Button>
+        )}
+        {hasLegs ? (
+          <Button variant="secondary" dataEl="ADV-MAP-TRAVEL-BTN" onClick={() => setTravelOpen((open) => !open)}>
+            Travel details
+          </Button>
         ) : null}
-        <Button variant="secondary" dataEl="ADV-MAP-TRAVEL-BTN" onClick={() => setTravelOpen((open) => !open)}>
-          Travel details
-        </Button>
       </div>
       {travelOpen ? <TravelDetails option={option} caseId={caseId} /> : null}
     </section>

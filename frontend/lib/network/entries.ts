@@ -1,5 +1,6 @@
-import type { BoardEntry } from '@/lib/board/types';
-import type { NetworkBoardEntry } from './types';
+import type { Board, BoardEntry } from '@/lib/board/types';
+import { ownRow } from './orgs';
+import type { NetworkBoard, NetworkBoardEntry } from './types';
 
 // Small pure rules of the network board page (TEN-070).
 
@@ -49,4 +50,30 @@ export function delayedOrganisations(entries: readonly NetworkBoardEntry[]): str
 export function goneOrganisations(before: readonly NetworkBoardEntry[], now: readonly NetworkBoardEntry[]): string[] {
   const present = new Set(now.map((entry) => entry.organisationName));
   return [...new Set(before.map((entry) => entry.organisationName))].filter((name) => !present.has(name)).sort((a, b) => a.localeCompare(b, 'en-GB'));
+}
+
+/**
+ * A network's board as a wall screen reads it (TEN-072): the same rows in the same order, each with the
+ * organisation it belongs to, whether it is the viewer's own and whether the listing is paused. A network
+ * shares no comment, pending count or next-due time, so a row has none. `ownOrganisation` is the display
+ * name of the viewer's own organisation, to mark its rows, or null when it is not known.
+ */
+export function networkToWallBoard(board: NetworkBoard, ownOrganisation: string | null): Board {
+  return {
+    entries: board.entries.map((entry) => ({
+      ...toBoardEntry(entry),
+      organisation: entry.organisationName,
+      ownOrganisation: ownRow(entry.organisationName, ownOrganisation),
+      paused: entry.presentation === 'unavailable' || entry.status === null,
+    })),
+    pressure: board.pressure,
+    allLimitedOrWorse: board.allLimitedOrWorse,
+    generatedAt: board.generatedAt,
+    organisation: null,
+  };
+}
+
+/** The ages a service takes: "18 to 120", or "18 and over" when it has no upper limit. */
+export function agesText(min: number, max: number | null): string {
+  return max === null ? `${min} and over` : `${min} to ${max}`;
 }

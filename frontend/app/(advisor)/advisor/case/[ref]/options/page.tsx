@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { CallSteps } from '@/components/advisor/CallSteps';
 import { CaseSummary } from '@/components/advisor/CaseSummary';
 import { OptionsList } from '@/components/advisor/OptionsList';
+import { OwnScopeHeader } from '@/components/scope/OwnScopeHeader';
 
 export const metadata: Metadata = {
   title: 'Options · DIUCS capacity',
@@ -15,6 +16,8 @@ export default async function CaseOptionsPage({ params }: { params: Promise<{ re
     <main>
       <CallSteps current="options" />
       <CaseSummary caseId={ref} />
+      {/* Which board this is, and the way to the network's options when the organisation is in one (WB11). */}
+      <OwnScopeHeader ownHref={`/advisor/case/${encodeURIComponent(ref)}/options`} networkHref={`/advisor/case/${encodeURIComponent(ref)}/network-options`} />
       <OptionsList caseId={ref} />
     </main>
   );

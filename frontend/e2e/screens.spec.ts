@@ -35,6 +35,10 @@ test('connects a display from a lead’s page, and the display goes on to the bo
   await admin.getByLabel(/Screen name/).fill('Control room');
   await admin.getByLabel(/Where it is/).fill('Ward 4 corridor');
   await admin.getByRole('button', { name: 'Connect screen' }).click();
+  // The confirm step (ScreenClaim, TEN-072): which organisation, when the screen first asked, what it is.
+  await expect(admin.getByRole('heading', { name: 'Check before you connect' })).toBeVisible();
+  await expect(admin.getByText(/^First seen \d\d:\d\d · Wall display$/)).toBeVisible();
+  await admin.getByRole('button', { name: 'Connect screen' }).click();
 
   await expect(admin.getByRole('heading', { name: 'Screen connected' })).toBeVisible();
   await expect(admin.getByText('Control room is now showing the live board.')).toBeVisible();
@@ -55,7 +59,7 @@ test('connects a display from a lead’s page, and the display goes on to the bo
   await lead.close();
 });
 
-test('lists the connected screen, and disconnecting it sends the display back to pairing saying so (W9I, written, not run)', async ({ browser, baseURL }) => {
+test('lists the connected screen, and unpairing it sends the display back to pairing saying so (W9I, written, not run)', async ({ browser, baseURL }) => {
   const display = await browser.newContext({ baseURL });
   const lead = await browser.newContext({ baseURL });
   const wall = await display.newPage();
@@ -68,22 +72,56 @@ test('lists the connected screen, and disconnecting it sends the display back to
   await admin.getByLabel(/Code shown on the screen/).fill(shown);
   await admin.getByLabel(/Screen name/).fill('Control room');
   await admin.getByRole('button', { name: 'Connect screen' }).click();
+  await admin.getByRole('button', { name: 'Connect screen' }).click();
   await admin.getByRole('link', { name: 'See all screens' }).click();
   await expect(admin).toHaveURL(/\/lead\/screens$/);
   const row = admin.getByRole('row', { name: /Control room/ });
-  await expect(row.getByText('Online')).toBeVisible();
+  await expect(row.getByText(/^Online, updated/)).toBeVisible();
+  await expect(row.getByText('Our organisation')).toBeVisible();
   await expect(wall).toHaveURL(/\/screen$/, { timeout: 15_000 });
 
-  await row.getByRole('button', { name: 'Disconnect Control room' }).click();
-  await admin.getByRole('dialog', { name: 'Disconnect Control room?' }).getByRole('button', { name: 'Disconnect screen' }).click();
-  await expect(admin.getByRole('status')).toHaveText('Control room was disconnected.');
-  await expect(admin.getByRole('row', { name: /Control room/ }).getByText('Disconnected')).toBeVisible();
+  await row.getByRole('button', { name: 'Unpair Control room' }).click();
+  await admin.getByRole('dialog', { name: 'Unpair Control room?' }).getByRole('button', { name: 'Unpair screen' }).click();
+  await expect(admin.getByRole('status')).toHaveText('Control room was unpaired.');
+  await expect(admin.getByRole('row', { name: /Control room/ }).getByText('Unpaired')).toBeVisible();
 
   // The display's next read is refused: it goes back to pairing, says so, and shows a new code.
   await wall.reload();
   await expect(wall).toHaveURL(/\/screen\/(pair|reconnect)$/, { timeout: 15_000 });
   await expect(wall.getByText('This screen was disconnected.')).toBeVisible();
   await expect(wall.locator('[data-el="WALL-PAIR-CODE"]')).toHaveText(/^\d{3} \d{3}$/);
+  await display.close();
+  await lead.close();
+});
+
+test('sets a screen to the network board, and the wall says which board it shows (TEN-072, written, not run)', async ({ browser, baseURL }) => {
+  const display = await browser.newContext({ baseURL });
+  const lead = await browser.newContext({ baseURL });
+  const wall = await display.newPage();
+  await wall.goto('/screen/pair');
+  const shown = (await wall.locator('[data-el="WALL-PAIR-CODE"]').textContent()) ?? '';
+
+  await signIn(lead, new URL(wall.url()).origin, 'lead', tokenFor('lead'));
+  const admin = await lead.newPage();
+  await admin.goto('/lead/screens/new');
+  await admin.getByLabel(/Code shown on the screen/).fill(shown);
+  await admin.getByLabel(/Screen name/).fill('Control room');
+  await admin.getByRole('button', { name: 'Connect screen' }).click();
+  await admin.getByRole('button', { name: 'Connect screen' }).click();
+  await admin.getByRole('link', { name: 'See all screens' }).click();
+  await expect(wall).toHaveURL(/\/screen$/, { timeout: 15_000 });
+  await expect(wall.getByText('Showing: Our organisation')).toBeVisible();
+
+  await admin.getByRole('button', { name: 'Change board for Control room' }).click();
+  const dialog = admin.getByRole('dialog', { name: 'Which board does Control room show?' });
+  await dialog.getByRole('radio', { name: 'Network, Sample network' }).check();
+  await dialog.getByRole('button', { name: 'Save' }).click();
+  await expect(admin.getByRole('status')).toHaveText('Control room now shows Network, Sample network.');
+  await expect(admin.getByRole('row', { name: /Control room/ }).getByText('Network, Sample network')).toBeVisible();
+
+  // The wall reads its setting again on its next refresh and says which board it shows, with the organisation under each name.
+  await expect(wall.getByText('Showing: Network, Sample network')).toBeVisible({ timeout: 90_000 });
+  await expect(wall.locator('[data-el="WALL-TILE"]').first().getByText(/Sample Area|Your organisation/).first()).toBeVisible();
   await display.close();
   await lead.close();
 });

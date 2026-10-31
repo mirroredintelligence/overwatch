@@ -148,3 +148,19 @@ export async function connectScreen(
   }
   return { name, status };
 }
+
+export type ScreenPreview = { firstSeenAt: string; deviceClass: 'wall-display' };
+
+/**
+ * The confirm step's read (TEN-072): when the screen that shows this code first asked for it, and what
+ * kind of device it is. A lead's own token names the tenant; nothing is burned or written at the back
+ * end, and a refused code is the same not-found as a connect's.
+ */
+export async function previewScreen(host: string | null, leadToken: string, code: string): Promise<ScreenPreview> {
+  const reply = await call({ method: 'POST', path: '/screens/preview', host, body: { code }, headers: { Authorization: `Bearer ${leadToken}` } });
+  if (reply.status !== 200) throw failure(reply, { unauthorised: true });
+  const { firstSeenAt, deviceClass } = fields(reply.body);
+  const seen = typeof firstSeenAt === 'string' ? Date.parse(firstSeenAt) : Number.NaN;
+  if (Number.isNaN(seen) || deviceClass !== 'wall-display') throw new ScreenApiError('bad-answer');
+  return { firstSeenAt: new Date(seen).toISOString().replace('.000Z', 'Z'), deviceClass };
+}

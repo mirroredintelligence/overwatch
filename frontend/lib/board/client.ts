@@ -1,5 +1,6 @@
 import { withTraceparent } from '@/lib/telemetry/trace';
 import { parseBoardJson } from './boardJson';
+import { parseWallScope, type WallScope } from './scope';
 import type { Board } from './types';
 
 // The browser's read of GET /api/bff/board: same origin, the session cookie, no
@@ -11,6 +12,8 @@ export type FetchedBoard = {
   board: Board;
   /** The back end's clock (epoch ms) from the Date header of the answer, or null when it had none. */
   serverTime: number | null;
+  /** Which board this is, when the read says (the wall's read does; TEN-072). Absent means the screen's own. */
+  scope?: WallScope;
 };
 
 export type BoardFetchKind = 'unreachable' | 'refused' | 'unreadable';
@@ -28,6 +31,8 @@ export class BoardFetchError extends Error {
 }
 
 export const BOARD_URL = '/api/bff/board';
+/** The wall's read: the screen's board setting and that board, in one answer (TEN-072). */
+export const WALL_BOARD_URL = '/api/bff/wall/board';
 
 /** The statuses that mean this screen is not (or no longer) paired. */
 export const REFUSED_STATUSES: readonly number[] = [401, 403, 404];
@@ -45,10 +50,23 @@ function serverTimeOf(response: Response): number | null {
 }
 
 export async function fetchBoardFromBff(signal?: AbortSignal): Promise<FetchedBoard> {
+  return read(BOARD_URL, signal, (body) => ({ board: parseBoardJson(body) }));
+}
+
+/** The wall's read: the board its administrator chose for it, and the setting it was read under. */
+export async function fetchWallBoard(signal?: AbortSignal): Promise<FetchedBoard> {
+  return read(WALL_BOARD_URL, signal, (body) => {
+    if (typeof body !== 'object' || body === null) throw new BoardFetchError('unreadable');
+    const { scope, board } = body as Record<string, unknown>;
+    return { board: parseBoardJson(board), scope: parseWallScope(scope) };
+  });
+}
+
+async function read(url: string, signal: AbortSignal | undefined, parse: (body: unknown) => { board: Board; scope?: WallScope }): Promise<FetchedBoard> {
   let response: Response;
   try {
     response = await fetch(
-      BOARD_URL,
+      url,
       withTraceparent({ method: 'GET', cache: 'no-store', credentials: 'same-origin', signal }),
     );
   } catch {
@@ -64,7 +82,7 @@ export async function fetchBoardFromBff(signal?: AbortSignal): Promise<FetchedBo
     throw new BoardFetchError(signal?.aborted ? 'unreachable' : 'unreadable', response.status);
   }
   try {
-    return { board: parseBoardJson(body), serverTime: serverTimeOf(response) };
+    return { ...parse(body), serverTime: serverTimeOf(response) };
   } catch {
     throw new BoardFetchError('unreadable', response.status);
   }

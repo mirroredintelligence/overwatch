@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { BoardCounts } from '@/components/advisor/BoardCounts';
 import { StartCallButton } from '@/components/advisor/StartCallButton';
+import { OwnScopeHeader } from '@/components/scope/OwnScopeHeader';
 
 export const metadata: Metadata = {
   title: 'Advisor home · DIUCS capacity',
@@ -13,6 +14,8 @@ export default function AdvisorHomePage() {
     <main>
       <h1>Ready for calls</h1>
       <p>Advisor home</p>
+      {/* Which board the counts are of, and the way to the network's counts (WB11, W10-K3). */}
+      <OwnScopeHeader ownHref="/advisor" networkHref="/network/home" />
       <StartCallButton />
       <section aria-labelledby="advisor-board-now">
         <h2 id="advisor-board-now">Board right now</h2>

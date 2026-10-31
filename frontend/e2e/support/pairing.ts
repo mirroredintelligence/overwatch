@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { decodeJwt } from 'jose';
 import { REVOKED_SCREENS } from '@/test/fixtures/exchange';
 import { PairingStandIn } from '@/test/fixtures/pairing';
+import { BOARD_BODY } from '@/test/fixtures/network';
 import { DIRECTORY_A } from '@/test/oidc/constants';
 import { SITE_PORT } from './env';
 
@@ -30,6 +31,16 @@ function header(request: IncomingMessage, name: string): string | null {
   return typeof value === 'string' ? value : null;
 }
 
+/** The subject of a bearer token (a wall token's is the screen's id), or null. */
+function subjectOf(authorization: string | null): string | null {
+  const token = /^Bearer (.+)$/.exec(authorization ?? '')?.[1];
+  try {
+    return token === undefined ? null : (decodeJwt(token).sub ?? null);
+  } catch {
+    return null;
+  }
+}
+
 /** True for a wall token the stand-in exchange issued for a screen no lead has disconnected: the board stand-in lets it read the sample board. */
 export function isWallToken(token: string): boolean {
   try {
@@ -46,10 +57,25 @@ export async function handlePairingRoute(request: IncomingMessage, response: Ser
   let reply;
   const claim = /^\/screens\/pairing\/([^/]+)$/.exec(pathname);
   const revoke = /^\/screens\/([^/]+)\/revoke$/.exec(pathname);
+  const board = /^\/screens\/([^/]+)\/board-scope$/.exec(pathname);
   if (request.method === 'POST' && pathname === '/screens/pairing') {
     reply = pairing.start(host);
   } else if (request.method === 'GET' && claim !== null) {
     reply = pairing.claim(host, decodeURIComponent(claim[1] ?? ''), header(request, 'x-screen-secret'));
+  } else if (request.method === 'GET' && pathname === '/screens/me/board-scope') {
+    // A wall screen's own setting, from the subject of its wall token (the back end reads its record).
+    reply = pairing.ownBoardScope(subjectOf(header(request, 'authorization')));
+  } else if (request.method === 'GET' && pathname === '/screens/me/network-board') {
+    reply = { status: 200, body: { ...BOARD_BODY, generated_at: new Date().toISOString() } };
+  } else if (request.method === 'GET' && pathname === '/screens/me/network-events') {
+    response.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store' });
+    response.write(': keep-alive\n\n');
+    request.on('close', () => response.end());
+    return true;
+  } else if (request.method === 'POST' && pathname === '/screens/preview') {
+    reply = pairing.preview(host, header(request, 'authorization'), await readJson(request));
+  } else if (request.method === 'PUT' && board !== null) {
+    reply = pairing.setBoard(host, header(request, 'authorization'), header(request, 'idempotency-key'), header(request, 'if-match'), decodeURIComponent(board[1] ?? ''), await readJson(request));
   } else if (request.method === 'GET' && pathname === '/screens') {
     reply = pairing.list(host, header(request, 'authorization'));
   } else if (request.method === 'POST' && revoke !== null) {

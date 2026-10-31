@@ -1,3 +1,4 @@
+import { OrgLabel } from '@/components/scope/OrgLabel';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { ageLineText, categoryLabel, dataAgeText, londonTime, reopensText } from '@/lib/board/format';
 import type { BoardEntry, BoardStatus } from '@/lib/board/types';
@@ -26,6 +27,8 @@ export type Figure = {
   /** The line above the bar ("Used N of M", or the status word) and how full the bar is. */
   bar: { label: string; percent: number };
 };
+
+type TileFigure = { big: string; unit: string; bar: Figure['bar'] | null };
 
 export const UNKNOWN_UNIT = 'Phone to confirm';
 const OUT_OF_HOURS_LABEL = 'Out of hours';
@@ -86,6 +89,7 @@ export function lastKnownFigureFor(entry: BoardEntry): Figure {
 }
 
 export const LAST_KNOWN_WARNING = 'Do not rely on this. Phone to confirm.';
+const PAUSED_WORDS = 'Not available on the network. Phone to confirm.';
 
 export function Tile({
   entry,
@@ -97,14 +101,16 @@ export function Tile({
   /** Shows the tile as last known: never styled or worded as current (W06). */
   lastKnown?: boolean;
 }) {
-  const figure = lastKnown ? lastKnownFigureFor(entry) : figureFor(entry);
+  const paused = entry.paused === true;
+  // A paused listing of a network has no figure to stand behind (TEN-072).
+  const figure: TileFigure = paused ? { big: '?', unit: UNKNOWN_UNIT, bar: null } : lastKnown ? lastKnownFigureFor(entry) : figureFor(entry);
   const age = ageLineText(entry, now);
   const notUpdated = entry.status === 'not-updated';
   // Pending is a count of requests not yet answered, shown apart from the number and
   // never taken off it (domain-rules 1.6). A last known tile shows none: the count
   // is as old as the figures, and the tile must not look as if any of it were current.
   const pending = lastKnown ? 0 : entry.pending;
-  const barLabel = pending > 0 ? `${figure.bar.label} · ${pending} pending` : figure.bar.label;
+  const barLabel = figure.bar === null ? '' : pending > 0 ? `${figure.bar.label} · ${pending} pending` : figure.bar.label;
   const variant = lastKnown ? styles.notUpdated : VARIANT[entry.status];
 
   return (
@@ -117,6 +123,7 @@ export function Tile({
       <div className={styles.top}>
         <div className={styles.who}>
           <h2 className={styles.name}>{entry.name}</h2>
+          {entry.organisation === undefined ? null : <OrgLabel name={entry.organisation} own={entry.ownOrganisation === true} />}
           <p className={styles.category}>{categoryLabel(entry.category)}</p>
         </div>
         <StatusBadge status={lastKnown ? 'last-known' : entry.status} size="lg" />
@@ -133,7 +140,11 @@ export function Tile({
         ) : null}
         <div className={styles.words}>
           <p className={styles.unit}>{figure.unit}</p>
-          {lastKnown ? (
+          {paused ? (
+            <p className={styles.meta} data-el="WALL-TILE-PAUSED">
+              {PAUSED_WORDS}
+            </p>
+          ) : lastKnown ? (
             <p className={styles.meta} data-el="WALL-TILE-LAST-KNOWN">
               {entry.reportedAt === null ? (
                 'No figure reported yet'
@@ -159,14 +170,16 @@ export function Tile({
         </div>
       </div>
 
-      <div className={styles.usage}>
-        <p className={styles.barLabel}>{barLabel}</p>
-        <div className={styles.bar} aria-hidden="true">
-          <div className={styles.fill} data-bar-fill style={{ width: `${figure.bar.percent}%` }} />
+      {figure.bar === null ? null : (
+        <div className={styles.usage}>
+          <p className={styles.barLabel}>{barLabel}</p>
+          <div className={styles.bar} aria-hidden="true">
+            <div className={styles.fill} data-bar-fill style={{ width: `${figure.bar.percent}%` }} />
+          </div>
         </div>
-      </div>
+      )}
 
-      <p className={styles.age}>{lastKnown ? <strong>{LAST_KNOWN_WARNING}</strong> : notUpdated ? <strong>{age}</strong> : age}</p>
+      {paused ? null : <p className={styles.age}>{lastKnown ? <strong>{LAST_KNOWN_WARNING}</strong> : notUpdated ? <strong>{age}</strong> : age}</p>}
     </article>
   );
 }

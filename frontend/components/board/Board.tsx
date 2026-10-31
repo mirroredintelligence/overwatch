@@ -2,6 +2,8 @@ import { londonDate, londonTime } from '@/lib/board/format';
 import type { Board as BoardData } from '@/lib/board/types';
 import { OwnScopeHeader } from '@/components/scope/OwnScopeHeader';
 import { ScopeHeader } from '@/components/scope/ScopeHeader';
+import { ScopeNotice } from '@/components/scope/ScopeNotice';
+import type { WallScope } from '@/lib/board/scope';
 import type { ScopeLinks } from '@/components/scope/ScopeSwitch';
 import styles from './Board.module.css';
 import { Legend } from './Legend';
@@ -27,8 +29,17 @@ export function Board({
   subtitle = null,
   heading = null,
   ownSwitch,
+  scope,
+  fellBackFrom = null,
 }: {
   board: BoardData;
+  /**
+   * Which board the wall shows (TEN-072). A network says its name in the header and as the heading and has
+   * no sorting footer; a screen that fell back says so in a warning and shows its own board. Absent: its own.
+   */
+  scope?: WallScope;
+  /** The name of the network a screen that fell back was showing, when it is known; none otherwise. */
+  fellBackFrom?: string | null;
   /**
    * Set where a person (not a wall) reads the board: the header then offers the switch to the network board
    * when the viewer's organisation is in a network. A wall has no switch: its administrator sets its board.
@@ -46,7 +57,8 @@ export function Board({
   // Current: every age is measured from the time the board was built. Last known:
   // from the time now, so the ages keep growing while the figures stand still.
   const now = lastKnown ? lastKnown.now : board.generatedAt;
-  const title = heading ?? (board.organisation ? `${board.organisation} urgent care capacity` : 'Urgent care capacity');
+  const network = scope !== undefined && scope.boardScope === 'network' ? scope.networkName : null;
+  const title = network !== null ? `${network} capacity` : (heading ?? (board.organisation ? `${board.organisation} urgent care capacity` : 'Urgent care capacity'));
 
   return (
     <main className={styles.board}>
@@ -65,7 +77,23 @@ export function Board({
 
       {/* Which board this is, in words, on the screen itself: a wall has no address bar (TEN-069). It stays
           in every state, last known included. The network variant says the network's name instead (TEN-072). */}
-      {ownSwitch === undefined ? <ScopeHeader scope="own" variant="wall" /> : <OwnScopeHeader {...ownSwitch} />}
+      {network !== null ? (
+        <ScopeHeader scope="network" networkName={network} variant="wall" />
+      ) : ownSwitch === undefined ? (
+        <ScopeHeader scope="own" variant="wall" />
+      ) : (
+        <OwnScopeHeader {...ownSwitch} />
+      )}
+
+      {/* The screen was set to a network it may no longer read: it says so and shows its own board; it
+          never goes blank and never falls back silently (docs/design/network-ui.md section 5). It stays
+          until the administrator changes the screen's board, in every state. */}
+      {scope?.fallback === true ? (
+        <ScopeNotice
+          tone="warning"
+          title={`No longer showing ${fellBackFrom ?? 'the network board'}. Showing: Our organisation.`}
+        />
+      ) : null}
 
       {lastKnown ? (
         <LastKnownBanner lastKnown={lastKnown} />

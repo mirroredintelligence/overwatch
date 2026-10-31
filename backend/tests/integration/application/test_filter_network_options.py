@@ -336,6 +336,135 @@ async def test_the_network_scope_holds_nothing_of_the_case(world: NetworkWorld) 
     assert all(rows == [] for rows in (await world.invariants()).values())
 
 
+async def _view(world: NetworkWorld, tenant: str):  # type: ignore[no-untyped-def]
+    return await _use_case(world, tenant).view(
+        FilterNetworkOptionsCommand(_advisor(tenant), CASE_ID, world.ids.network)
+    )
+
+
+async def test_the_page_view_names_a_service_whose_criteria_were_not_shared_and_the_list_drops_it(
+    world: NetworkWorld,
+) -> None:
+    m1, m2, m3 = world.ids.members
+    await _own_case(world, m1)
+    await world.end_grant(m2, GrantScope.CRITERIA)
+
+    listed = await _ask(world, m1)
+    page = await _view(world, m1)
+
+    assert {o.organisation for o in listed.options} == {"Org m3"}
+    assert listed.not_suitable == ()
+    assert {o.organisation for o in page.options} == {"Org m3"}
+    assert [(n.organisation, n.reason) for n in page.not_suitable] == [
+        ("Org m2", "criteria not shared. Phone to confirm.")
+    ]
+
+
+async def test_the_page_view_names_a_paused_listing_with_nothing_else_of_it(
+    world: NetworkWorld,
+) -> None:
+    from diucs.domain.model.network import ListingReason, ListingStatus
+    from diucs.domain.rules.listing import suspend_listing
+
+    m1, m2, m3 = world.ids.members
+    await _own_case(world, m1)
+    listing = (await world.registry.listings_of(world.ids.network, m2))[0]
+    await world.registry.save_listing(
+        suspend_listing(
+            listing,
+            by_tenant_id=world.ids.owner,
+            owner_tenant_id=world.ids.owner,
+            reason=ListingReason.SAFETY_CONCERN,
+            account_ref="acct-owner-0001",
+            now=READ_AT,
+        ),
+        expected_status=ListingStatus.ADMITTED,
+    )
+
+    listed = await _ask(world, m1)
+    page = await _view(world, m1)
+
+    assert {o.organisation for o in listed.options} == {"Org m3"}
+    assert listed.not_suitable == ()
+    assert [(n.organisation, n.reason) for n in page.not_suitable] == [
+        ("Org m2", "not available on the network. Phone to confirm.")
+    ]
+    assert {o.organisation for o in page.options} == {"Org m3"}
+
+
+async def test_the_page_view_gives_the_reason_for_a_case_outside_the_criteria_and_no_case_value(
+    world: NetworkWorld,
+) -> None:
+    m1 = world.ids.members[0]
+    await _own_case(world, m1, _case(needs=(NeedCategory.IV_THERAPY,)))
+
+    page = await _view(world, m1)
+
+    assert page.options == ()
+    assert {n.reason for n in page.not_suitable} == {"outside criteria"}
+    assert "iv-therapy" not in repr(page).lower().replace("_", "-")
+    assert page.out_of_area is False
+
+
+async def test_the_page_view_says_when_no_service_covers_the_district(
+    world: NetworkWorld,
+) -> None:
+    m1 = world.ids.members[0]
+    await _own_case(world, m1, _case(postcode="ZZ9"))
+
+    page = await _view(world, m1)
+
+    assert page.options == () and page.out_of_area is True
+    assert page.system_name and page.time_zone
+
+
+async def test_the_audit_of_a_page_view_holds_the_codes_of_the_reasons_and_no_name_or_id(
+    world: NetworkWorld,
+) -> None:
+    m1, m2, m3 = world.ids.members
+    await _own_case(world, m1)
+    await world.end_grant(m2, GrantScope.CRITERIA)
+
+    await _view(world, m1)
+
+    async with tenant_uow_factory(world.driver, m1, _clock())() as uow:
+        entries = [r.entry for r in await uow.audit.records()]
+    (shown,) = [e for e in entries if e.use_case == "FilterNetworkOptions"]
+    rows = {row["row_ref"]: row for row in shown.snapshot["services"]}
+    assert rows[world.listing_id(m2)]["shown_as"] == "not-suitable"
+    assert rows[world.listing_id(m2)]["reason"] == "criteria-not-shared"
+    assert rows[world.listing_id(m3)]["shown_as"] == "option"
+    text = repr(shown.snapshot)
+    for member in (*world.ids.members, world.ids.owner):
+        assert member not in text
+    assert "Org m2" not in text and "DT4" not in text
+
+
+async def test_the_page_view_does_not_write_the_case_into_the_network_scope(
+    world: NetworkWorld,
+) -> None:
+    m1 = world.ids.members[0]
+    await _own_case(world, m1)
+    before = await world.invariants()
+
+    await _view(world, m1)
+
+    assert await world.invariants() == before
+
+
+@pytest.mark.parametrize("role", [Role.LEAD, Role.OWNER, Role.EXEC, Role.REPORTER, Role.WALL])
+async def test_the_page_view_refuses_the_roles_that_never_work_a_case(
+    world: NetworkWorld, role: Role
+) -> None:
+    m1 = world.ids.members[0]
+    await _own_case(world, m1)
+
+    with pytest.raises((NotAllowed, NotFound)):
+        await _use_case(world, m1).view(
+            FilterNetworkOptionsCommand(_advisor(m1, role), CASE_ID, world.ids.network)
+        )
+
+
 async def test_the_use_case_is_never_given_a_case_value_to_pass_on() -> None:
     fields = {field.name for field in dataclasses.fields(FilterNetworkOptionsCommand)}
     assert fields == {"actor", "case_id", "network_id"}

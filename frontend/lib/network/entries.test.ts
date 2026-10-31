@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { BOARD_BODY, boardEntry } from '@/test/fixtures/network';
-import { dayText, delayedOrganisations, goneOrganisations, toBoardEntry } from './entries';
+import { dayText, delayedOrganisations, goneOrganisations, networkToWallBoard, toBoardEntry } from './entries';
 import { parseBoard } from './parse';
+import type { NetworkBoard, NetworkBoardEntry } from './types';
 
 // TEN-070: small pure rules of the network board page.
 
@@ -81,5 +82,58 @@ describe('dayText', () => {
     expect(dayText('2026-10-01T09:00:00+00:00')).toBe('1 October 2026');
     expect(dayText('2026-12-31T23:30:00+00:00')).toBe('31 December 2026');
     expect(dayText('2026-06-30T23:30:00+00:00')).toBe('1 July 2026');
+  });
+});
+
+// TEN-072: a network's board as the wall board reads it.
+describe('networkToWallBoard', () => {
+  const entry = (over: Partial<NetworkBoardEntry> = {}): NetworkBoardEntry => ({
+    rowRef: 'lst-1',
+    organisationName: 'Sample Area B',
+    serviceName: 'Virtual ward frailty',
+    category: 'hospital-at-home-or-virtual-ward',
+    presentation: 'shown',
+    status: 'limited',
+    unitLabel: 'beds',
+    effectiveAvailable: 1,
+    overBy: null,
+    used: 9,
+    established: 10,
+    reportedAt: '2026-10-23T13:08:00Z',
+    staleWarning: false,
+    wasDueAt: null,
+    ...over,
+  });
+  const networkBoard = (entries: NetworkBoardEntry[]): NetworkBoard => ({
+    entries,
+    pressure: 'watch',
+    allLimitedOrWorse: false,
+    generatedAt: '2026-10-23T13:12:00Z',
+    systemName: 'Sample capacity',
+    pathwayName: 'Sample pathway',
+    timeZone: 'Europe/London',
+  });
+
+  it('keeps the rows in the order the back end sent them, with the organisation under each name', () => {
+    const wall = networkToWallBoard(networkBoard([entry({ rowRef: 'lst-9', organisationName: 'Zeta' }), entry({ rowRef: 'lst-2', organisationName: 'Alpha' })]), null);
+    expect(wall.entries.map((item) => [item.serviceId, item.organisation])).toEqual([['lst-9', 'Zeta'], ['lst-2', 'Alpha']]);
+    expect(wall.pressure).toBe('watch');
+    expect(wall.generatedAt).toBe('2026-10-23T13:12:00Z');
+    expect(wall.organisation).toBeNull();
+  });
+
+  it('marks the viewer’s own organisation’s rows', () => {
+    const wall = networkToWallBoard(networkBoard([entry({ organisationName: 'Own Trust' }), entry({ rowRef: 'lst-2', organisationName: 'Other' })]), 'Own Trust');
+    expect(wall.entries.map((item) => item.ownOrganisation)).toEqual([true, false]);
+  });
+
+  it('has no comment, no pending count and no next-due time on any row (a network does not share them)', () => {
+    const [row] = networkToWallBoard(networkBoard([entry()]), null).entries;
+    expect(row).toMatchObject({ comment: null, pending: 0, nextDueAt: null });
+  });
+
+  it('shows a paused listing as Not updated with no figure and says it is paused', () => {
+    const [row] = networkToWallBoard(networkBoard([entry({ presentation: 'unavailable', status: null, effectiveAvailable: null, used: null })]), null).entries;
+    expect(row).toMatchObject({ status: 'not-updated', effectiveAvailable: null, used: null, paused: true, unitLabel: 'Phone to confirm' });
   });
 });

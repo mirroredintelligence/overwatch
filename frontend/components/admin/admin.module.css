@@ -278,3 +278,76 @@
   margin: 0 auto;
   padding: var(--space-4);
 }
+
+/* A heading with an action beside it (it wraps under the heading on a phone). */
+.headRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-4);
+}
+
+/* A real empty state: what there is none of, and the one next step. */
+.empty {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+  padding: var(--space-5);
+  border: 2px dashed var(--c-unknown);
+  border-radius: var(--radius-card);
+}
+
+.emptyTitle {
+  margin: 0;
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+}
+
+/* A table that reads as cards on a phone: each cell is labelled by its column (data-label). */
+@media (max-width: 40rem) {
+  .stackTable thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .stackTable tr {
+    display: grid;
+    gap: var(--space-1);
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--c-line);
+  }
+
+  .stackTable th,
+  .stackTable td {
+    display: block;
+    padding: 0;
+    border: 0;
+  }
+
+  .stackTable td[data-label]::before {
+    content: attr(data-label) ': ';
+    font-weight: 700;
+    color: var(--c-muted);
+  }
+}
+
+/* One group-to-role row: the group, the role and the way to remove it; stacked on a phone. */
+.mappingRow {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr) auto;
+  gap: var(--space-3);
+  align-items: end;
+}
+
+@media (max-width: 40rem) {
+  .mappingRow {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid var(--c-line);
+  }
+}

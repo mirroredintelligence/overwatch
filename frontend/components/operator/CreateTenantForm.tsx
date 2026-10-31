@@ -7,13 +7,22 @@ import { Button } from '@/components/ui/Button';
 import { operatorSend } from '@/lib/operator/browser';
 import { ORGANISATION_TYPE_WORDS, TENANT_ID_PATTERN } from '@/lib/operator/words';
 import { useSubmitKey } from '@/lib/tenantAdmin/browser';
+import { MAPPABLE_ROLE_WORDS } from '@/lib/tenantAdmin/roles';
 import styles from '@/components/admin/admin.module.css';
 
 // Creating a tenant (TEN-083): the operator names it and gives its id. The id is the path of the call, never a
 // field of its body. Sending the same again finishes a creation that stopped. `recorded: false` means the
 // tenant was created and the platform chain could not record it: the form says so and is not shown again.
+//
+// The form has three parts (design canvas "Overwatch admin portals", artboard 2): the organisation, the Entra
+// directory its staff sign in through, and which directory group gives which role. The directory is saved as
+// waiting: it is verified afterwards, on the tenant's page, once the domain is checked. A group is never given
+// the administrator's role (the list has none): the first administrator is invited by text.
 
 type Created = { created: boolean; recorded: boolean };
+type Row = { key: number; group: string; role: string };
+
+const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function CreateTenantForm() {
   const [id, setId] = useState('');
@@ -23,9 +32,12 @@ export function CreateTenantForm() {
   const [ods, setOds] = useState('');
   const [country, setCountry] = useState('GB');
   const [zone, setZone] = useState('Europe/London');
+  const [directory, setDirectory] = useState('');
+  const [rows, setRows] = useState<Row[]>([]);
+  const [nextKey, setNextKey] = useState(1);
   const [errors, setErrors] = useState<FieldError[]>([]);
   const [failure, setFailure] = useState('');
-  const [done, setDone] = useState<(Created & { id: string }) | null>(null);
+  const [done, setDone] = useState<(Created & { id: string; directory: boolean; groups: number }) | null>(null);
   const [busy, setBusy] = useState(false);
   const submitKey = useSubmitKey();
   const edit = (set: (v: string) => void) => (v: string) => {
@@ -33,6 +45,19 @@ export function CreateTenantForm() {
     set(v);
   };
   const problemOf = (field: string) => errors.find((e) => e.field === field)?.message ?? null;
+  const editRow = (key: number, change: Partial<Row>) => {
+    submitKey.fresh();
+    setRows((all) => all.map((r) => (r.key === key ? { ...r, ...change } : r)));
+  };
+  const addRow = () => {
+    submitKey.fresh();
+    setRows((all) => [...all, { key: nextKey, group: '', role: MAPPABLE_ROLE_WORDS[0]![0] }]);
+    setNextKey(nextKey + 1);
+  };
+  const removeRow = (key: number) => {
+    submitKey.fresh();
+    setRows((all) => all.filter((r) => r.key !== key));
+  };
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -43,16 +68,22 @@ export function CreateTenantForm() {
     if (displayName.trim() === '') problems.push({ field: 'display-name', message: 'Enter the name people know the organisation by.' });
     if (legalName.trim() === '') problems.push({ field: 'legal-name', message: 'Enter the organisation’s legal name.' });
     if (!/^[A-Za-z]{2}$/.test(country.trim())) problems.push({ field: 'country', message: 'Enter the two-letter country code.' });
+    if (directory.trim() !== '' && !GUID.test(directory.trim())) problems.push({ field: 'directory-id', message: 'Directory id: enter it as a directory id, for example 00000000-0000-0000-0000-000000000000.' });
+    rows.forEach((r, i) => {
+      if (!GUID.test(r.group.trim())) problems.push({ field: `group-${r.key}`, message: `Group ${i + 1}: enter the group object id, for example 11111111-1111-4111-8111-111111111111.` });
+    });
     setErrors(problems);
     if (problems.length > 0) return;
-    const body: Record<string, string> = { displayName: displayName.trim(), legalName: legalName.trim(), organisationType: type, countryCode: country.trim().toUpperCase(), timeZone: zone.trim() };
+    const body: Record<string, unknown> = { displayName: displayName.trim(), legalName: legalName.trim(), organisationType: type, countryCode: country.trim().toUpperCase(), timeZone: zone.trim() };
     if (ods.trim() !== '') body.odsCode = ods.trim();
+    if (directory.trim() !== '') body.directoryId = directory.trim().toLowerCase();
+    if (rows.length > 0) body.roleMappings = rows.map((r) => ({ groupObjectId: r.group.trim().toLowerCase(), role: r.role }));
     setBusy(true);
     const result = await operatorSend<Created>('PUT', `/api/bff/platform/tenants/${id}`, body, submitKey.key());
     setBusy(false);
     if (result.ok) {
       submitKey.fresh();
-      setDone({ ...result.data, id });
+      setDone({ ...result.data, id, directory: directory.trim() !== '', groups: rows.length });
       return;
     }
     setFailure(
@@ -85,6 +116,8 @@ export function CreateTenantForm() {
       {done !== null ? (
         <div role="status" className={styles.panel}>
           <p className={styles.ok}>{done.created ? 'Tenant created. It is being set up.' : 'The creation had stopped before. It is finished now.'}</p>
+          {done.directory ? <p className={styles.text}>The directory is waiting to be verified. Check the domain, then verify it on the tenant’s page.</p> : null}
+          {done.groups > 0 ? <p className={styles.text}>{done.groups === 1 ? '1 group is mapped to a role.' : `${done.groups} groups are mapped to roles.`}</p> : null}
           <p className={styles.text}>
             <a className={styles.link} href={`/operator/tenants/${done.id}`}>
               Open the tenant
@@ -94,22 +127,78 @@ export function CreateTenantForm() {
       ) : null}
       <form className={styles.stack} onSubmit={submit} noValidate aria-label="Create a tenant">
         <ErrorSummary errors={errors} />
-        <TextField id="tenant-id" label="Tenant id" value={id} onChange={edit(setId)} requirement="none" hint="Lower-case letters, digits and hyphens. It cannot be changed." error={problemOf('tenant-id')} autoComplete="off" />
-        <TextField id="display-name" label="Display name" value={displayName} onChange={edit(setDisplayName)} requirement="none" error={problemOf('display-name')} />
-        <TextField id="legal-name" label="Legal name" value={legalName} onChange={edit(setLegalName)} requirement="none" error={problemOf('legal-name')} />
-        <div className={styles.selectLabel}>
-          <label htmlFor="organisation-type">Organisation type</label>
-          <select id="organisation-type" className={styles.select} value={type} onChange={(e) => edit(setType)(e.target.value)}>
-            {ORGANISATION_TYPE_WORDS.map(([code, word]) => (
-              <option key={code} value={code}>
-                {word}
-              </option>
-            ))}
-          </select>
-        </div>
-        <TextField id="ods-code" label="ODS code" value={ods} onChange={edit(setOds)} requirement="optional" />
-        <TextField id="country" label="Country code" value={country} onChange={edit(setCountry)} requirement="none" error={problemOf('country')} />
-        <TextField id="time-zone" label="Time zone" value={zone} onChange={edit(setZone)} requirement="none" />
+        <fieldset className={styles.fieldset}>
+          <legend className={styles.legend}>1 The organisation</legend>
+          <TextField id="tenant-id" label="Tenant id" value={id} onChange={edit(setId)} requirement="none" hint="Lower-case letters, digits and hyphens. It cannot be changed." error={problemOf('tenant-id')} autoComplete="off" />
+          <TextField id="display-name" label="Display name" value={displayName} onChange={edit(setDisplayName)} requirement="none" error={problemOf('display-name')} />
+          <TextField id="legal-name" label="Legal name" value={legalName} onChange={edit(setLegalName)} requirement="none" error={problemOf('legal-name')} />
+          <div className={styles.selectLabel}>
+            <label htmlFor="organisation-type">Organisation type</label>
+            <select id="organisation-type" className={styles.select} value={type} onChange={(e) => edit(setType)(e.target.value)}>
+              {ORGANISATION_TYPE_WORDS.map(([code, word]) => (
+                <option key={code} value={code}>
+                  {word}
+                </option>
+              ))}
+            </select>
+          </div>
+          <TextField id="ods-code" label="ODS code" value={ods} onChange={edit(setOds)} requirement="optional" />
+          <TextField id="country" label="Country code" value={country} onChange={edit(setCountry)} requirement="none" error={problemOf('country')} />
+          <TextField id="time-zone" label="Time zone" value={zone} onChange={edit(setZone)} requirement="none" />
+        </fieldset>
+
+        <fieldset className={styles.fieldset}>
+          <legend className={styles.legend}>2 Entra directory</legend>
+          <p className={styles.text}>
+            The directory the organisation’s staff sign in with. It is saved as <strong>waiting</strong>: nobody can use it until you have checked the domain and verified it, on the tenant’s page.
+          </p>
+          <TextField
+            id="directory-id"
+            label="Directory id"
+            value={directory}
+            onChange={edit(setDirectory)}
+            requirement="optional"
+            hint="As shown in the organisation’s Entra tenant properties. Its administrator can also bind it later."
+            error={problemOf('directory-id')}
+            autoComplete="off"
+            dataEl="OP-CREATE-DIRECTORY-INPUT"
+          />
+          <p className={styles.row}>
+            <span className={styles.text}>Verification</span>
+            <span className={`${styles.tag} ${styles.tagDashed}`}>Waiting: verified after creation</span>
+          </p>
+        </fieldset>
+
+        <fieldset className={styles.fieldset}>
+          <legend className={styles.legend}>3 Who gets which role</legend>
+          <p className={styles.text}>
+            Map a directory group to a staff role. Someone in the group gets that role when they sign in. A group cannot be given the administrator’s role: the first administrator is invited by text.
+          </p>
+          {rows.length === 0 ? <p className={styles.muted}>No group is mapped yet. You can add them now, or the organisation’s administrator can later.</p> : null}
+          {rows.map((r, i) => (
+            <div key={r.key} className={styles.mappingRow} role="group" aria-label={`Group ${i + 1}`}>
+              <TextField id={`group-${r.key}`} label="Group object id" value={r.group} onChange={(v) => editRow(r.key, { group: v })} requirement="none" error={problemOf(`group-${r.key}`)} autoComplete="off" />
+              <div className={styles.selectLabel}>
+                <label htmlFor={`role-${r.key}`}>Role</label>
+                <select id={`role-${r.key}`} className={styles.select} value={r.role} onChange={(e) => editRow(r.key, { role: e.target.value })}>
+                  {MAPPABLE_ROLE_WORDS.map(([code, word]) => (
+                    <option key={code} value={code}>
+                      {word}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <Button variant="neutral" onClick={() => removeRow(r.key)} dataEl="OP-CREATE-GROUP-REMOVE-BTN">
+                Remove<span className={styles.srOnly}>{` group ${i + 1}`}</span>
+              </Button>
+            </div>
+          ))}
+          <div className={styles.actions}>
+            <Button variant="secondary" onClick={addRow} dataEl="OP-CREATE-GROUP-ADD-BTN">
+              {rows.length === 0 ? 'Add a group' : 'Add another group'}
+            </Button>
+          </div>
+        </fieldset>
         {failure !== '' ? (
           <p role="alert" className={styles.problem}>
             {failure}

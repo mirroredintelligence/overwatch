@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/Card';
 import { operatorSend } from '@/lib/operator/browser';
 import type { parseTenantDetail } from '@/lib/operator/views';
 import { isUkMobile } from '@/lib/forms/ukMobile';
+import { MAPPABLE_ROLE_WORDS } from '@/lib/tenantAdmin/roles';
 import { useSubmitKey } from '@/lib/tenantAdmin/browser';
 import { whenText } from '@/lib/tenantAdmin/words';
 import styles from '@/components/admin/admin.module.css';
@@ -27,6 +28,10 @@ function Said({ say }: { say: Say }) {
       {say.text}
     </p>
   );
+}
+
+function roleName(code: string): string {
+  return MAPPABLE_ROLE_WORDS.find(([value]) => value === code)?.[1] ?? code;
 }
 
 const NUMBER_STATE: Record<string, string> = { active: 'In use', retired: 'Stopped', quarantined: 'Quarantined' };
@@ -215,24 +220,85 @@ export function ReferencesPanel(props: PanelProps) {
   );
 }
 
+const BINDING_WORD = { pending: 'Waiting to be verified', verified: 'Verified', revoked: 'Replaced' } as const;
+const MAPPING_WORD = { active: 'In use', retired: 'Stopped' } as const;
+
+/** The tenant's directory and who gets which role. The organisation binds its directory (or the operator names it
+ * when creating the tenant) and it waits; checking the domain and verifying it is the operator's. */
 export function DirectoryPanel(props: PanelProps) {
   const write = useWrite(props.tenantId, props);
-  const id = props.detail.directoryId;
+  const bindings = props.detail.bindings.filter((b) => b.status !== 'revoked');
+  const roles = props.detail.roleMappings;
+  const waiting = bindings.find((b) => b.status === 'pending');
   return (
     <Card heading="Directory">
-      {id === null ? (
-        <p className={styles.text}>The tenant’s administrator has not bound a directory yet.</p>
-      ) : (
+      {bindings.length === 0 ? (
         <>
-          <p className={styles.text}>The directory the tenant’s administrator bound:</p>
-          <p className={styles.text}>{id}</p>
+          <p className={styles.text}>The tenant’s administrator has not bound a directory yet.</p>
+          <p className={styles.muted}>The organisation’s administrator can bind one on their Users and roles page. You can also name it when you create a tenant.</p>
+        </>
+      ) : (
+        <div className={styles.scroll}>
+          <table className={`${styles.table} ${styles.stackTable}`}>
+            <caption>Directories</caption>
+            <thead>
+              <tr>
+                <th scope="col">Directory id</th>
+                <th scope="col">State</th>
+                <th scope="col">Verified</th>
+              </tr>
+            </thead>
+            <tbody>
+              {bindings.map((b) => (
+                <tr key={b.directoryId}>
+                  <td data-label="Directory id">{b.directoryId}</td>
+                  <td data-label="State">
+                    <span className={b.status === 'verified' ? styles.tag : `${styles.tag} ${styles.tagDashed}`}>{BINDING_WORD[b.status]}</span>
+                  </td>
+                  <td data-label="Verified">{whenText(b.verifiedAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {waiting !== undefined ? (
+        <>
+          <p className={styles.text}>Check that the organisation owns the domain, then verify the directory. Nobody can sign in through it until you do.</p>
           <Said say={write.say} />
           <div className={styles.actions}>
-            <Button variant="secondary" busy={write.busy} onClick={() => void write.run('POST', 'directory/verification', { directoryId: id }, () => 'Directory verified.', () => 'The directory could not be verified. Try again.')}>
+            <Button variant="secondary" busy={write.busy} onClick={() => void write.run('POST', 'directory/verification', { directoryId: waiting.directoryId }, () => 'Directory verified.', () => 'The directory could not be verified. Try again.')}>
               Verify this directory
             </Button>
           </div>
         </>
+      ) : (
+        <Said say={write.say} />
+      )}
+      {roles.length === 0 ? (
+        <p className={styles.muted}>No group is mapped to a role yet. Until one is, nobody can sign in to this tenant.</p>
+      ) : (
+        <div className={styles.scroll}>
+          <table className={`${styles.table} ${styles.stackTable}`}>
+            <caption>Roles by group</caption>
+            <thead>
+              <tr>
+                <th scope="col">Group object id</th>
+                <th scope="col">Role</th>
+                <th scope="col">State</th>
+              </tr>
+            </thead>
+            <tbody>
+              {roles.map((m) => (
+                <tr key={m.groupObjectId}>
+                  <td data-label="Group object id">{m.groupObjectId}</td>
+                  <td data-label="Role">{roleName(m.role)}</td>
+                  <td data-label="State">{MAPPING_WORD[m.status]}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </Card>
   );

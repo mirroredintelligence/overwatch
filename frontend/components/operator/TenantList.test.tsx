@@ -42,6 +42,30 @@ describe('TenantList for the platform operator', () => {
     expect(screen.queryByText('There are no tenants yet.')).not.toBeInTheDocument();
   });
 
+  it('turns an empty list into a next step: the operator is offered the first tenant, with what comes after it', async () => {
+    server.use(http.get('/api/bff/platform/tenants', () => HttpResponse.json({ tenants: [] })));
+    const { container } = render(<TenantList role="platform-operator" />);
+    const empty = await screen.findByRole('region', { name: 'There are no tenants yet.' });
+    expect(within(empty).getByText(/give it an address, bind its directory/)).toBeInTheDocument();
+    expect(within(empty).getByRole('link', { name: 'Create the first tenant' })).toHaveAttribute('href', '/operator/tenants/new');
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(await runAxe(container)).toHaveNoViolations();
+  });
+
+  it('shows the way to create a tenant beside the heading once there are tenants, and no empty state', async () => {
+    render(<TenantList role="platform-operator" />);
+    await screen.findByRole('table');
+    expect(screen.getAllByRole('link', { name: 'Create a tenant' })).toHaveLength(1);
+    expect(screen.queryByRole('region', { name: 'There are no tenants yet.' })).not.toBeInTheDocument();
+  });
+
+  it('labels every cell by its column, so the table can read as cards on a phone', async () => {
+    render(<TenantList role="platform-operator" />);
+    const table = await screen.findByRole('table', { name: 'Tenants' });
+    const row = within(table).getByRole('row', { name: /Sample Area A/ });
+    expect(within(row).getAllByRole('cell').map((c) => c.getAttribute('data-label'))).toEqual(['Status', 'Type', 'Address', 'Activated']);
+  });
+
   it('has no axe violations', async () => {
     render(<TenantList role="platform-operator" />);
     await screen.findByRole('table');
@@ -50,6 +74,14 @@ describe('TenantList for the platform operator', () => {
 });
 
 describe('TenantList for a support person', () => {
+  it('has an empty state with no button to create one: a support person asks a platform operator', async () => {
+    server.use(http.get('/api/bff/platform/tenants', () => HttpResponse.json({ tenants: [] })));
+    render(<TenantList role="support" />);
+    const empty = await screen.findByRole('region', { name: 'There are no tenants yet.' });
+    expect(within(empty).queryByRole('link')).not.toBeInTheDocument();
+    expect(within(empty).getByText(/When a platform operator creates one/)).toBeInTheDocument();
+  });
+
   it('shows the name and the status only, with no link to a tenant’s page and no way to create one', async () => {
     server.use(http.get('/api/bff/platform/tenants', () => HttpResponse.json(VIEW_TENANTS_SUPPORT)));
     render(<TenantList role="support" />);

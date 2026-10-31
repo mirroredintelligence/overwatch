@@ -131,9 +131,27 @@ describe('provisioning', () => {
     resetOperatorWrites();
     const { unmount } = { unmount: () => undefined };
     unmount();
-    serve({ ...VIEW_DETAIL_PROVISIONING, directoryId: null });
+    serve({ ...VIEW_DETAIL_PROVISIONING, directoryId: null, bindings: [], roleMappings: [] });
     render(<TenantDetail tenantId="trust-b" />);
     expect(await screen.findByText('The tenant’s administrator has not bound a directory yet.')).toBeInTheDocument();
+    expect(screen.getByText('No group is mapped to a role yet. Until one is, nobody can sign in to this tenant.')).toBeInTheDocument();
+  });
+
+  it('shows the directory as waiting, with the groups mapped to roles in words', async () => {
+    await open();
+    const card = screen.getByRole('region', { name: 'Directory' });
+    expect(within(within(card).getByRole('table', { name: 'Directories' })).getByText('Waiting to be verified')).toBeInTheDocument();
+    const roles = within(card).getByRole('table', { name: 'Roles by group' });
+    expect(within(roles).getByText('22222222-2222-4222-8222-222222222222')).toBeInTheDocument();
+    expect(within(roles).getByText('Shift lead')).toBeInTheDocument();
+    expect(within(roles).getByText('In use')).toBeInTheDocument();
+  });
+
+  it('offers no verification for a directory that is already verified', async () => {
+    await open({ ...VIEW_DETAIL_PROVISIONING, directoryId: '11111111-1111-4111-8111-111111111111', bindings: [{ directoryId: '11111111-1111-4111-8111-111111111111', status: 'verified', verifiedAt: '2026-10-21T09:00:00Z' }] });
+    const card = screen.getByRole('region', { name: 'Directory' });
+    expect(within(card).getByText('Verified', { selector: 'span' })).toBeInTheDocument();
+    expect(within(card).queryByRole('button', { name: 'Verify this directory' })).not.toBeInTheDocument();
   });
 
   it('invites the first administrator by a UK mobile, says when the invitation ends and never shows the number again', async () => {

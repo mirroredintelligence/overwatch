@@ -1,0 +1,330 @@
+From a04db5210839a1b5e84522ace7e08f47f953f311 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 29 Oct 2026 20:42:08 +0000
+Subject: [PATCH] Test harness: N concurrent Neo4j slots (DIUCS_NEO4J_SLOTS,
+ default 2); parked, not merged
+
+---
+ backend/tests/support/harness_lock.py         | 122 ++++++++++++------
+ .../tests/unit/support/test_harness_lock.py   | 111 ++++++++++++++++
+ .../unit/support/test_start_container.py      |   1 +
+ 3 files changed, 194 insertions(+), 40 deletions(-)
+
+diff --git a/backend/tests/support/harness_lock.py b/backend/tests/support/harness_lock.py
+index 54881d2..ab90af7 100644
+--- a/backend/tests/support/harness_lock.py
++++ b/backend/tests/support/harness_lock.py
+@@ -3,7 +3,8 @@
+ Several agents run pytest on one machine and each session used to start its own Neo4j. Load reached
+ 15 on 4 cores, readiness probes timed out and the disk filled. The harness now takes an exclusive
+ advisory lock (flock) on one file before it starts a container, and holds it until that container is
+-removed. A second session waits, with a bounded timeout, and its error names the holder's pid.
++removed. With DIUCS_NEO4J_SLOTS slots (default 2) that many sessions run at once; another waits,
++with a bounded timeout, and its error names the holders' pids.
+ 
+ The operating system drops a flock when the process that holds it dies, so a killed run (SIGKILL,
+ out-of-memory) never blocks the next one. Nothing here needs clean-up code to be safe.
+@@ -29,6 +30,10 @@ except ImportError:  # pragma: no cover - Windows
+ 
+ DEFAULT_LOCK_PATH = "/tmp/diucs-neo4j-harness.lock"
+ LOCK_ENV = "DIUCS_NEO4J_LOCK"
++SLOTS_ENV = "DIUCS_NEO4J_SLOTS"
++# Two runs at once: a busy Neo4j test container takes about 1.5 cores and 700 MB, and the build
++# machine has 4 cores. Three is borderline; raise DIUCS_NEO4J_SLOTS only after watching the load.
++DEFAULT_SLOTS = 2
+ LOCK_TIMEOUT_ENV = "DIUCS_NEO4J_LOCK_TIMEOUT"
+ # A full serial run is about 15 minutes; four agents queued is an hour.
+ DEFAULT_LOCK_TIMEOUT_S = 3600.0
+@@ -52,6 +57,20 @@ def lock_path() -> str:
+     return os.environ.get(LOCK_ENV) or DEFAULT_LOCK_PATH
+ 
+ 
++def slot_count() -> int:
++    """How many test runs may hold a container at once: DIUCS_NEO4J_SLOTS, else DEFAULT_SLOTS."""
++    try:
++        value = int(os.environ.get(SLOTS_ENV, ""))
++    except ValueError:
++        return DEFAULT_SLOTS
++    return value if value >= 1 else DEFAULT_SLOTS
++
++
++def slot_paths(path: str, slots: int) -> list[str]:
++    """The lock files, one per slot: the configured path, then `<path>.1`, `<path>.2` and so on."""
++    return [path] + [f"{path}.{index}" for index in range(1, slots)]
++
++
+ def _timeout_from_environment() -> float:
+     try:
+         value = float(os.environ.get(LOCK_TIMEOUT_ENV, ""))
+@@ -96,23 +115,66 @@ def _write_pid(fd: int) -> None:
+         os.pwrite(fd, f"{os.getpid()}\n".encode("ascii"), 0)
+ 
+ 
++def _wait_for_a_slot(
++    opened: list[int],
++    paths: list[str],
++    take: Callable[[int, int], None],
++    exclusive: int,
++    limit: float,
++    clock: Callable[[], float],
++    sleep: Callable[[float], None],
++) -> int:
++    """Take the first free slot among the open lock files, polling until limit seconds pass."""
++    deadline = clock() + limit
++    warned = False
++    while True:
++        for descriptor in opened:
++            try:
++                take(descriptor, exclusive)
++                return descriptor
++            except BlockingIOError:
++                continue
++            except PermissionError as error:
++                if error.errno != errno.EACCES:
++                    raise
++        now = clock()
++        holders = [holder_pid(slot_file) for slot_file in paths]
++        named = ", ".join(
++            f"pid {pid}" if pid is not None else "a holder that is unknown" for pid in holders
++        )
++        if now >= deadline:
++            slots = f"All {len(paths)} slots are held by" if len(paths) > 1 else "It is held by"
++            raise HarnessLockTimeout(
++                f"The Neo4j harness lock {paths[0]} was not free within {limit:g} seconds. "
++                f"{slots} {named}: another test run is using the Neo4j harness. "
++                f"Wait for it, or end that process if it is stuck."
++            )
++        if not warned:
++            warned = True
++            _log.warning("Waiting for the Neo4j harness lock %s, held by %s", paths[0], named)
++        sleep(min(POLL_INTERVAL_S, deadline - now))
++
++
+ def acquire(
+     owner: str,
+     *,
+     timeout_s: float | None = None,
+     path: str | None = None,
++    slots: int | None = None,
+     flock: Callable[[int, int], None] | None = None,
+     clock: Callable[[], float] = time.monotonic,
+     sleep: Callable[[float], None] = time.sleep,
+ ) -> None:
+-    """Take the harness lock for `owner` (a container name), waiting up to timeout_s. If this
+-    process already holds it, the hold is shared and this returns at once. Raises
+-    HarnessLockTimeout, naming the holder's pid, if the lock stays taken."""
++    """Take a harness slot for `owner` (a container name), waiting up to timeout_s for the first
++    free one of `slots` (default: DIUCS_NEO4J_SLOTS, else 2). If this process already holds a slot,
++    the hold is shared and this returns at once. Raises HarnessLockTimeout, naming every holder's
++    pid, if all slots stay taken."""
+     global _fd
+     take = flock or _os_flock
+     exclusive = (fcntl.LOCK_EX | fcntl.LOCK_NB) if fcntl is not None else 0
+     limit = _timeout_from_environment() if timeout_s is None else timeout_s
+     resolved = path or lock_path()
++    paths = slot_paths(resolved, slots if slots is not None else slot_count())
+     with _state:
+         if _fd is not None:
+             _holds.add(owner)
+@@ -121,44 +183,24 @@ def acquire(
+             _log.warning("No flock on this platform: the Neo4j harness lock is not taken.")
+             _holds.add(owner)
+             return
++        opened: list[int] = []
+         try:
+-            fd = _open(resolved)
+-        except OSError as error:
+-            raise HarnessLockError(
+-                f"The Neo4j harness lock file {resolved} cannot be opened: {error}. "
+-                f"It must be a plain file, not a symlink."
+-            ) from error
+-        deadline = clock() + limit
+-        warned = False
+-        while True:
+-            try:
+-                take(fd, exclusive)
+-                break
+-            except (BlockingIOError, PermissionError) as error:
+-                if isinstance(error, PermissionError) and error.errno != errno.EACCES:
+-                    os.close(fd)
+-                    raise
+-                now = clock()
+-                if now >= deadline:
+-                    os.close(fd)
+-                    holder = holder_pid(resolved)
+-                    named = f"pid {holder}" if holder is not None else "a holder that is unknown"
+-                    raise HarnessLockTimeout(
+-                        f"The Neo4j harness lock {resolved} was not free within {limit:g} seconds. "
+-                        f"It is held by {named}: another test run is using the Neo4j harness. "
+-                        f"Wait for it, or end that process if it is stuck."
++            for slot_file in paths:
++                try:
++                    opened.append(_open(slot_file))
++                except OSError as error:
++                    raise HarnessLockError(
++                        f"The Neo4j harness lock file {slot_file} cannot be opened: {error}. "
++                        f"It must be a plain file, not a symlink."
+                     ) from error
+-                if not warned:
+-                    warned = True
+-                    _log.warning(
+-                        "Waiting for the Neo4j harness lock %s, held by pid %s",
+-                        resolved,
+-                        holder_pid(resolved),
+-                    )
+-                sleep(min(POLL_INTERVAL_S, deadline - now))
+-            except BaseException:
+-                os.close(fd)
+-                raise
++            fd = _wait_for_a_slot(opened, paths, take, exclusive, limit, clock, sleep)
++        except BaseException:
++            for descriptor in opened:
++                os.close(descriptor)
++            raise
++        for descriptor in opened:
++            if descriptor != fd:
++                os.close(descriptor)
+         _write_pid(fd)
+         _fd = fd
+         _holds.add(owner)
+diff --git a/backend/tests/unit/support/test_harness_lock.py b/backend/tests/unit/support/test_harness_lock.py
+index 083c462..02f39ca 100644
+--- a/backend/tests/unit/support/test_harness_lock.py
++++ b/backend/tests/unit/support/test_harness_lock.py
+@@ -57,6 +57,12 @@ def _no_lock_left_behind() -> Iterator[None]:
+     harness_lock.release_all()
+ 
+ 
++@pytest.fixture(autouse=True)
++def _one_slot(monkeypatch: pytest.MonkeyPatch) -> None:
++    """Tests written for the single lock run with one slot; the slot tests set their own."""
++    monkeypatch.setenv("DIUCS_NEO4J_SLOTS", "1")
++
++
+ class FakeClock:
+     """Time that only moves when something sleeps."""
+ 
+@@ -389,3 +395,108 @@ def test_freeing_the_lock_empties_the_file_so_a_stale_pid_is_not_left_behind(
+ 
+     assert path.read_bytes() == b""
+     assert holder_pid(str(path)) is None
++
++
++# ---- slots: more than one run at a time ----------------------------------------------------
++
++
++@pytest.mark.parametrize(
++    ("value", "expected"),
++    [(None, 2), ("3", 3), ("1", 1), ("0", 2), ("-4", 2), ("many", 2), ("", 2)],
++)
++def test_the_slot_count_comes_from_the_environment_and_defaults_to_two(
++    monkeypatch: pytest.MonkeyPatch, value: str | None, expected: int
++) -> None:
++    if value is None:
++        monkeypatch.delenv("DIUCS_NEO4J_SLOTS", raising=False)
++    else:
++        monkeypatch.setenv("DIUCS_NEO4J_SLOTS", value)
++    assert harness_lock.slot_count() == expected
++
++
++def test_slot_paths_keep_the_first_path_and_number_the_rest() -> None:
++    assert harness_lock.slot_paths("/tmp/x.lock", 1) == ["/tmp/x.lock"]
++    assert harness_lock.slot_paths("/tmp/x.lock", 3) == [
++        "/tmp/x.lock",
++        "/tmp/x.lock.1",
++        "/tmp/x.lock.2",
++    ]
++
++
++def test_with_two_slots_a_second_run_takes_the_second_slot_without_waiting(
++    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
++) -> None:
++    monkeypatch.setenv("DIUCS_NEO4J_SLOTS", "2")
++    path = tmp_path / "harness.lock"
++    holder = _spawn(HOLDER, path, 30)
++    try:
++        assert _line(holder.stdout, 30) == "held"
++        assert not _is_free(path)
++
++        acquire("second", timeout_s=1.0, path=str(path))
++
++        assert holder_pid(str(path)) == holder.pid
++        assert holder_pid(f"{path}.1") == os.getpid()
++    finally:
++        holder.kill()
++        holder.wait()
++
++
++def test_with_two_slots_a_third_run_waits_and_the_timeout_names_both_holders(
++    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
++) -> None:
++    monkeypatch.setenv("DIUCS_NEO4J_SLOTS", "2")
++    path = tmp_path / "harness.lock"
++    first = _spawn(HOLDER, path, 30)
++    second = _spawn(HOLDER, path, 30)
++    try:
++        assert _line(first.stdout, 30) == "held"
++        assert _line(second.stdout, 30) == "held"
++
++        with pytest.raises(HarnessLockTimeout) as excinfo:
++            acquire("third", timeout_s=1.0, path=str(path))
++
++        message = str(excinfo.value)
++        assert f"pid {first.pid}" in message and f"pid {second.pid}" in message
++        assert "2 slots" in message
++    finally:
++        for process in (first, second):
++            process.kill()
++            process.wait()
++
++
++def test_a_freed_slot_is_taken_by_the_next_run_and_the_first_free_slot_wins(
++    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
++) -> None:
++    monkeypatch.setenv("DIUCS_NEO4J_SLOTS", "2")
++    path = tmp_path / "harness.lock"
++    holder = _spawn(HOLDER, path, 30)
++    try:
++        assert _line(holder.stdout, 30) == "held"
++        assert holder.stdin is not None
++        holder.stdin.write("go\n")
++        holder.stdin.flush()
++        assert _line(holder.stdout, 30) == "released"
++
++        acquire("next", timeout_s=1.0, path=str(path))
++
++        assert holder_pid(str(path)) == os.getpid()
++    finally:
++        holder.kill()
++        holder.wait()
++
++
++def test_with_two_slots_a_symlinked_second_slot_file_is_refused_and_its_target_left_alone(
++    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
++) -> None:
++    monkeypatch.setenv("DIUCS_NEO4J_SLOTS", "2")
++    path = tmp_path / "harness.lock"
++    target = tmp_path / "elsewhere"
++    target.write_text("keep\n", encoding="ascii")
++    (tmp_path / "harness.lock.1").symlink_to(target)
++
++    with pytest.raises(HarnessLockError, match="plain file"):
++        acquire("second", timeout_s=1.0, path=str(path))
++
++    assert target.read_text(encoding="ascii") == "keep\n"
++    assert harness_lock._fd is None
+diff --git a/backend/tests/unit/support/test_start_container.py b/backend/tests/unit/support/test_start_container.py
+index 028ad25..4a4686f 100644
+--- a/backend/tests/unit/support/test_start_container.py
++++ b/backend/tests/unit/support/test_start_container.py
+@@ -534,6 +534,7 @@ def test_a_lock_that_stays_taken_fails_in_the_lock_phase_naming_the_holder(
+     other = os.open(path, os.O_RDWR)
+     fcntl.flock(other, fcntl.LOCK_EX)  # another process holds it, as far as this one can tell
+     monkeypatch.setenv("DIUCS_NEO4J_LOCK_TIMEOUT", "0.3")
++    monkeypatch.setenv("DIUCS_NEO4J_SLOTS", "1")  # with spare slots a second run would not wait
+     clock = FakeClock()
+     docker = FakeDocker(clock)
+     try:
+-- 
+2.43.0
+

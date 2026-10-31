@@ -46,10 +46,18 @@ test.describe('at phone width (390 CSS px)', () => {
     await page.goto(`/l/${LINK.recorded}`);
     await page.getByRole('button', { name: 'Yes, still 3' }).click();
 
-    await expect(page).toHaveURL(new RegExp(`/l/${LINK.recorded}/thanks`));
+    // The address holds no link token (KI-179): the detail is sealed by the BFF.
+    await expect(page).toHaveURL(/\/l\/thanks\?d=/);
+    expect(page.url()).not.toContain(LINK.recorded);
     await expect(page.getByText('UCR West: 3 referrals in the next 2 hrs, recorded at 10:12.')).toBeVisible();
     await expect(page.getByText('You can close this page.')).toBeVisible();
     await noHorizontalScroll(page);
+  });
+
+  test('a hand-made thank-you address says thank you and nothing about a figure recorded (KI-179)', async ({ page }) => {
+    await page.goto('/l/thanks?d=not-a-sealed-detail');
+    await expect(page.getByRole('heading', { level: 1, name: 'Thank you' })).toBeVisible();
+    await expect(page.getByText(/recorded at/)).toHaveCount(0);
   });
 
   test('an expired link and an unknown one show the same page', async ({ page }) => {

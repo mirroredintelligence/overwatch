@@ -49,7 +49,13 @@ describe('GET /api/bff/links/[token] for a booking request', () => {
   it('answers a closed booking with 410 and its state word, which a holder of the link may know', async () => {
     const response = await GET(requestWithCookies(url(LINK.bookingDeclined), {}), ctx(LINK.bookingDeclined));
     expect(response.status).toBe(410);
-    expect(await response.json()).toEqual({ state: 'declined' });
+    expect(await response.json()).toEqual({
+      state: 'declined',
+      kind: 'booking',
+      reference: '4821',
+      closedAt: '2026-10-23T13:20:00Z',
+      coordinationPhone: '0300 123 4567',
+    });
     expect(cookieWrites).toHaveLength(0);
   });
 });
@@ -62,23 +68,36 @@ describe('POST /api/bff/links/[token] for a booking answer', () => {
     );
     expect(response.status).toBe(200);
     expect(seenBackendRequests.at(-1)?.body).toEqual({ action: 'decline', reason: 'outside-criteria' });
-    expect(await response.json()).toEqual({ bookingStatus: 'declined' });
+    expect(await response.json()).toEqual({ bookingStatus: 'declined', respondedAt: '2026-10-23T13:19:00Z' });
   });
 
   it('returns the change token of a confirmed booking', async () => {
     const response = await POST(post(LINK.booking, { action: 'confirm' }, csrfFor(LINK.booking)), ctx(LINK.booking));
-    expect(await response.json()).toEqual({ bookingStatus: 'confirmed', changeToken: BOOKING_CHANGE_TOKEN });
+    expect(await response.json()).toEqual({
+      bookingStatus: 'confirmed',
+      changeToken: BOOKING_CHANGE_TOKEN,
+      confirmedAt: '2026-10-23T13:19:00Z',
+    });
   });
 
   it('answers a cancelled change link with 410 cancelled, so its page can say so', async () => {
     const response = await GET(requestWithCookies(url(LINK.bookingCancelled), {}), ctx(LINK.bookingCancelled));
     expect(response.status).toBe(410);
-    expect(await response.json()).toEqual({ state: 'cancelled' });
+    expect(await response.json()).toMatchObject({
+      state: 'cancelled',
+      kind: 'booking',
+      reference: '4821',
+      cancelledAt: '2026-10-23T13:40:00Z',
+      coordinationPhone: '0300 123 4567',
+    });
   });
 
   it('answers an unknown link with 410 expired, never with a state word', async () => {
     const response = await GET(requestWithCookies(url('NoSuchLinkTokenAbcdefghij'), {}), ctx('NoSuchLinkTokenAbcdefghij'));
-    expect(await response.json()).toEqual({ state: 'expired' });
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body).toMatchObject({ state: 'expired' });
+    // Nothing tells an unknown link from an expired capacity link: no kind, no number, no time.
+    expect(Object.keys(body).sort()).toEqual(['state']);
   });
 
   it('refuses a booking answer without the CSRF header and posts nothing to the back end', async () => {

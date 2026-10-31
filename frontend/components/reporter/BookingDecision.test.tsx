@@ -2,8 +2,8 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runAxe } from '@/test/a11y';
-import { BOOKING_CHANGE_TOKEN, csrfFor, LINK } from '@/test/fixtures/links';
-import { resetLinkRequests, seenBffPosts } from '@/test/msw/handlers/links';
+import { BOOKING_CHANGE_TOKEN, BOOKING_REQUEST_VIEW, csrfFor, LINK } from '@/test/fixtures/links';
+import { resetLinkRequests, seenBffPosts, seenBffReads } from '@/test/msw/handlers/links';
 import { BookingDecision } from './BookingDecision';
 
 const { replace } = vi.hoisted(() => ({ replace: vi.fn() }));
@@ -22,7 +22,7 @@ describe('BookingDecision: an open request', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'UCR West' })).toBeInTheDocument();
     expect(screen.getByText('DIUCS booking request · Reference 4821')).toBeInTheDocument();
     expect(screen.getByText('Age band 80+')).toBeInTheDocument();
-    expect(screen.getByText('Need fall-no-injury and frailty')).toBeInTheDocument();
+    expect(screen.getByText('Need fall, no injury and frailty')).toBeInTheDocument();
     expect(screen.getByText('Response wanted Within 2 hrs')).toBeInTheDocument();
     expect(screen.getByText('Referral details follow in SystmOne.')).toBeInTheDocument();
     expect(screen.getByText('Not booked until you confirm. Reply by 14:26.')).toBeInTheDocument();
@@ -94,7 +94,7 @@ describe('BookingDecision: closed and taken links', () => {
   it('shows the closed page when the link is closed on opening, and posts nothing', async () => {
     const { container } = render(<BookingDecision token={LINK.bookingDeclined} />);
     expect(await screen.findByRole('heading', { level: 1, name: 'This request has closed' })).toBeInTheDocument();
-    expect(screen.getByText('If you can still take this patient, phone the coordination team.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '0300 123 4567' })).toHaveAttribute('href', 'tel:0300 123 4567');
     expect(seenBffPosts).toHaveLength(0);
     expect(await runAxe(container)).toHaveNoViolations();
   });
@@ -123,5 +123,69 @@ describe('BookingDecision: a change link opened by mistake', () => {
   it('sends a booking-change link on to its own page', async () => {
     render(<BookingDecision token={LINK.bookingChange} />);
     await waitFor(() => expect(replace).toHaveBeenCalledWith(`/l/${LINK.bookingChange}/booking/change`));
+  });
+});
+
+
+describe('BookingDecision: the times and the number (KI-648, KI-649, H-486, H-488)', () => {
+  it('says when the booking was confirmed', async () => {
+    render(<BookingDecision token={LINK.booking} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Confirm booking' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Booked' })).toBeInTheDocument();
+    expect(screen.getByText('Confirmed at 14:19.')).toBeInTheDocument();
+  });
+
+  it('says when it was declined', async () => {
+    render(<BookingDecision token={LINK.booking} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Decline' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Declined' })).toBeInTheDocument();
+    expect(screen.getByText('Declined at 14:19.')).toBeInTheDocument();
+  });
+
+  it('shows a closed request with its reference, when it closed and the coordination number', async () => {
+    const { container } = render(<BookingDecision token={LINK.bookingExpired} />);
+    expect(await screen.findByRole('heading', { level: 1, name: 'This request has closed' })).toBeInTheDocument();
+    expect(screen.getByText('Reference 4821. Closed at 14:26.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '0300 123 4567' })).toHaveAttribute('href', 'tel:0300 123 4567');
+    expect(await runAxe(container)).toHaveNoViolations();
+  });
+
+  it('shows a request declined and then opened with the number, not a bare closed page', async () => {
+    render(<BookingDecision token={LINK.bookingDeclined} />);
+    expect(await screen.findByText('Reference 4821. Closed at 14:20.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '0300 123 4567' })).toBeInTheDocument();
+  });
+
+  it('shows the number on the final page of an answer refused as already taken (409)', async () => {
+    render(<BookingDecision token={LINK.bookingTaken} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Decline' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Declined' })).toBeInTheDocument();
+    expect(screen.getByText('Declined at 14:20.')).toBeInTheDocument();
+  });
+
+  it('says to phone the coordination team, with no number, for a closed link that carries none', async () => {
+    render(<BookingDecision token={LINK.expired} />);
+    expect(await screen.findByRole('heading', { level: 1, name: 'This request has closed' })).toBeInTheDocument();
+    expect(screen.getByText('If you can still take this patient, phone the coordination team.')).toBeInTheDocument();
+    expect(screen.queryByRole('link')).toBeNull();
+  });
+});
+
+describe('BookingDecision: a link read once (KI-651)', () => {
+  const initial = { ...BOOKING_REQUEST_VIEW, csrfToken: csrfFor(LINK.booking), confirmedAt: null };
+
+  it('shows a view it is given without reading the link again', async () => {
+    render(<BookingDecision token={LINK.booking} initial={initial} />);
+    expect(await screen.findByRole('heading', { level: 1, name: 'UCR West' })).toBeInTheDocument();
+    expect(seenBffReads).toEqual([]);
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it('answers with the CSRF token of the view it was given', async () => {
+    render(<BookingDecision token={LINK.booking} initial={initial} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Confirm booking' }));
+    await screen.findByRole('heading', { level: 1, name: 'Booked' });
+    expect(seenBffPosts).toEqual([{ token: LINK.booking, body: { action: 'confirm' }, csrf: csrfFor(LINK.booking) }]);
+    expect(seenBffReads).toEqual([]);
   });
 });

@@ -60,6 +60,11 @@ test.describe('call flow (W10 to W16, W20, W21, W50)', () => {
     await ucr.getByRole('button', { name: 'Request booking' }).click();
     await expect(ucr.getByText('Requested')).toBeVisible();
 
+    // The card comes back after a reload: the case's bookings are read again (WB4).
+    await page.reload();
+    await expect(page.getByRole('article', { name: 'UCR West' }).getByText('Requested')).toBeVisible();
+    await expect(page.getByRole('article', { name: 'UCR West' }).getByRole('button', { name: 'Request booking' })).toHaveCount(0);
+
     await page.goto('/advisor/case/case-1/finish');
     await page.locator('[data-el="ADV-FIN-OUTCOME-DECLINED"]').click();
     await page.locator('[data-el="ADV-FIN-SAVE-BTN"]').click();

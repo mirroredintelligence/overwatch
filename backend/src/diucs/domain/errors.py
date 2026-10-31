@@ -57,6 +57,18 @@ class NothingToConfirm(DomainError):
     """The service has no report on record, so there is no figure to confirm."""
 
 
-class EffectiveBeforeConfirmation(ValidationFailed):
-    """A number given with an effective time before the latest confirmed figure of its service.
-    Stored behind that confirmation it would never reach the board, so it is refused (DEC-140)."""
+class EffectiveNotAfterLatest(ValidationFailed):
+    """A number given with an effective time that is not later than the latest figure of its
+    service. Stored, it would be hidden behind that figure (or tie with it), so it is refused
+    (DEC-140, DEC-1100 Q8). `latest_at` is the latest figure's time, so the edge can tell the
+    reporter which figure is on record; the message names it in the tenant's local time."""
+
+    def __init__(self, message: str, latest_at: datetime) -> None:
+        super().__init__("effective_at", message)
+        self.latest_at = latest_at
+
+
+class EffectiveBeforeConfirmation(EffectiveNotAfterLatest):
+    """The latest figure is a confirmation: the figure the board shows after it is that
+    confirmation's, and a number not later than it would never reach the board (DEC-140). Kept as
+    its own class for the callers that tell a confirmation from a number."""

@@ -698,7 +698,42 @@ export const BOOKINGS = {
     },
     "executionPeriod": {
       "start": "2026-10-30T14:00:00Z"
-    }
+    },
+    "output": [
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "code": "phone-prompt-at"
+            }
+          ]
+        },
+        "valueDateTime": "2026-10-30T14:05:00Z"
+      },
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "code": "request-message"
+            }
+          ]
+        },
+        "valueString": "comm-1"
+      },
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "code": "request-delivery"
+            }
+          ]
+        },
+        "valueString": "delivered"
+      }
+    ]
   },
   "confirmed": {
     "resourceType": "Task",
@@ -770,6 +805,39 @@ export const BOOKINGS = {
           ]
         },
         "valueDateTime": "2026-10-30T14:03:00Z"
+      },
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "code": "phone-prompt-at"
+            }
+          ]
+        },
+        "valueDateTime": "2026-10-30T14:05:00Z"
+      },
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "code": "request-message"
+            }
+          ]
+        },
+        "valueString": "comm-1"
+      },
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "code": "request-delivery"
+            }
+          ]
+        },
+        "valueString": "delivered"
       }
     ]
   },
@@ -843,6 +911,39 @@ export const BOOKINGS = {
           ]
         },
         "valueString": "full"
+      },
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "code": "phone-prompt-at"
+            }
+          ]
+        },
+        "valueDateTime": "2026-10-30T14:05:00Z"
+      },
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "code": "request-message"
+            }
+          ]
+        },
+        "valueString": "comm-1"
+      },
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "code": "request-delivery"
+            }
+          ]
+        },
+        "valueString": "delivered"
       }
     ]
   },
@@ -914,6 +1015,39 @@ export const BOOKINGS = {
             }
           ]
         }
+      },
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "code": "phone-prompt-at"
+            }
+          ]
+        },
+        "valueDateTime": "2026-10-30T14:05:00Z"
+      },
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "code": "request-message"
+            }
+          ]
+        },
+        "valueString": "comm-1"
+      },
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "code": "request-delivery"
+            }
+          ]
+        },
+        "valueString": "delivered"
       }
     ]
   },
@@ -976,6 +1110,39 @@ export const BOOKINGS = {
             }
           ]
         }
+      },
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "code": "phone-prompt-at"
+            }
+          ]
+        },
+        "valueDateTime": "2026-10-30T14:05:00Z"
+      },
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "code": "request-message"
+            }
+          ]
+        },
+        "valueString": "comm-1"
+      },
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "code": "request-delivery"
+            }
+          ]
+        },
+        "valueString": "delivered"
       }
     ]
   },
@@ -1049,6 +1216,39 @@ export const BOOKINGS = {
           ]
         },
         "valueDateTime": "2026-10-30T14:03:00Z"
+      },
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "code": "phone-prompt-at"
+            }
+          ]
+        },
+        "valueDateTime": "2026-10-30T14:05:00Z"
+      },
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "code": "request-message"
+            }
+          ]
+        },
+        "valueString": "comm-1"
+      },
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "code": "request-delivery"
+            }
+          ]
+        },
+        "valueString": "delivered"
       }
     ]
   },
@@ -1142,6 +1342,39 @@ export const BOOKINGS = {
           ]
         },
         "valueDateTime": "2026-10-30T14:03:00Z"
+      },
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "code": "phone-prompt-at"
+            }
+          ]
+        },
+        "valueDateTime": "2026-10-30T14:05:00Z"
+      },
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "code": "request-message"
+            }
+          ]
+        },
+        "valueString": "comm-1"
+      },
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "code": "request-delivery"
+            }
+          ]
+        },
+        "valueString": "delivered"
       }
     ]
   },
@@ -1226,9 +1459,545 @@ export const BOOKINGS = {
           ]
         },
         "valueDateTime": "2026-10-30T14:03:00Z"
+      },
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "code": "phone-prompt-at"
+            }
+          ]
+        },
+        "valueDateTime": "2026-10-30T14:05:00Z"
+      },
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "code": "request-message"
+            }
+          ]
+        },
+        "valueString": "comm-1"
+      },
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "code": "request-delivery"
+            }
+          ]
+        },
+        "valueString": "delivered"
       }
     ]
   }
+};
+
+export const BOOKING_ACKNOWLEDGED = {
+  "resourceType": "Task",
+  "id": "bk-1",
+  "status": "cancelled",
+  "businessStatus": {
+    "coding": [
+      {
+        "system": "https://diucs.example/CodeSystem/booking-business-status",
+        "code": "withdrawn",
+        "display": "Withdrawn"
+      }
+    ]
+  },
+  "intent": "order",
+  "authoredOn": "2026-10-30T14:00:00Z",
+  "lastModified": "2026-10-30T14:04:00Z",
+  "identifier": [
+    {
+      "system": "https://diucs.example/booking-reference",
+      "value": "4821"
+    }
+  ],
+  "restriction": {
+    "period": {
+      "end": "2026-10-30T14:10:00Z"
+    }
+  },
+  "focus": {
+    "reference": "ServiceRequest/case-1"
+  },
+  "owner": {
+    "reference": "HealthcareService/svc-1"
+  },
+  "requester": {
+    "reference": "Practitioner/adv-1"
+  },
+  "executionPeriod": {
+    "start": "2026-10-30T14:00:00Z",
+    "end": "2026-10-30T14:04:00Z"
+  },
+  "statusReason": {
+    "coding": [
+      {
+        "system": "https://diucs.example/CodeSystem/booking-business-status",
+        "code": "withdrawn",
+        "display": "Withdrawn"
+      }
+    ]
+  },
+  "output": [
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "https://diucs.example/CodeSystem/booking-output-type",
+            "code": "decision"
+          }
+        ]
+      },
+      "valueCodeableConcept": {
+        "coding": [
+          {
+            "system": "https://diucs.example/CodeSystem/booking-business-status",
+            "code": "withdrawn",
+            "display": "Withdrawn"
+          }
+        ]
+      }
+    },
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "https://diucs.example/CodeSystem/booking-output-type",
+            "code": "reason"
+          }
+        ]
+      },
+      "valueString": "now-full"
+    },
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "https://diucs.example/CodeSystem/booking-output-type",
+            "code": "confirmed-at"
+          }
+        ]
+      },
+      "valueDateTime": "2026-10-30T14:03:00Z"
+    },
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "https://diucs.example/CodeSystem/booking-output-type",
+            "code": "phone-prompt-at"
+          }
+        ]
+      },
+      "valueDateTime": "2026-10-30T14:05:00Z"
+    },
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "https://diucs.example/CodeSystem/booking-output-type",
+            "code": "request-message"
+          }
+        ]
+      },
+      "valueString": "comm-1"
+    },
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "https://diucs.example/CodeSystem/booking-output-type",
+            "code": "acknowledged-at"
+          }
+        ]
+      },
+      "valueDateTime": "2026-10-30T14:09:00Z"
+    },
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "https://diucs.example/CodeSystem/booking-output-type",
+            "code": "acknowledged-by"
+          }
+        ]
+      },
+      "valueString": "adv-2"
+    },
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "https://diucs.example/CodeSystem/booking-output-type",
+            "code": "request-delivery"
+          }
+        ]
+      },
+      "valueString": "delivered"
+    }
+  ]
+};
+
+export const BOOKING_SEARCH = {
+  "resourceType": "Bundle",
+  "type": "searchset",
+  "total": 2,
+  "entry": [
+    {
+      "fullUrl": "Task/bk-1",
+      "resource": {
+        "resourceType": "Task",
+        "id": "bk-1",
+        "status": "rejected",
+        "businessStatus": {
+          "coding": [
+            {
+              "system": "https://diucs.example/CodeSystem/booking-business-status",
+              "code": "declined",
+              "display": "Declined"
+            }
+          ]
+        },
+        "intent": "order",
+        "authoredOn": "2026-10-30T14:00:00Z",
+        "lastModified": "2026-10-30T14:03:00Z",
+        "identifier": [
+          {
+            "system": "https://diucs.example/booking-reference",
+            "value": "4821"
+          }
+        ],
+        "restriction": {
+          "period": {
+            "end": "2026-10-30T14:10:00Z"
+          }
+        },
+        "focus": {
+          "reference": "ServiceRequest/case-1"
+        },
+        "owner": {
+          "reference": "HealthcareService/svc-1"
+        },
+        "requester": {
+          "reference": "Practitioner/adv-1"
+        },
+        "executionPeriod": {
+          "start": "2026-10-30T14:00:00Z",
+          "end": "2026-10-30T14:03:00Z"
+        },
+        "output": [
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "https://diucs.example/CodeSystem/booking-output-type",
+                  "code": "decision"
+                }
+              ]
+            },
+            "valueCodeableConcept": {
+              "coding": [
+                {
+                  "system": "https://diucs.example/CodeSystem/booking-business-status",
+                  "code": "declined",
+                  "display": "Declined"
+                }
+              ]
+            }
+          },
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "https://diucs.example/CodeSystem/booking-output-type",
+                  "code": "reason"
+                }
+              ]
+            },
+            "valueString": "full"
+          },
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "https://diucs.example/CodeSystem/booking-output-type",
+                  "code": "phone-prompt-at"
+                }
+              ]
+            },
+            "valueDateTime": "2026-10-30T14:05:00Z"
+          },
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "https://diucs.example/CodeSystem/booking-output-type",
+                  "code": "request-message"
+                }
+              ]
+            },
+            "valueString": "comm-1"
+          },
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "https://diucs.example/CodeSystem/booking-output-type",
+                  "code": "request-delivery"
+                }
+              ]
+            },
+            "valueString": "sent"
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "Task/bk-1",
+      "resource": {
+        "resourceType": "Task",
+        "id": "bk-1",
+        "status": "requested",
+        "businessStatus": {
+          "coding": [
+            {
+              "system": "https://diucs.example/CodeSystem/booking-business-status",
+              "code": "requested",
+              "display": "Requested"
+            }
+          ]
+        },
+        "intent": "order",
+        "authoredOn": "2026-10-30T14:00:00Z",
+        "lastModified": "2026-10-30T14:00:00Z",
+        "identifier": [
+          {
+            "system": "https://diucs.example/booking-reference",
+            "value": "4821"
+          }
+        ],
+        "restriction": {
+          "period": {
+            "end": "2026-10-30T14:10:00Z"
+          }
+        },
+        "focus": {
+          "reference": "ServiceRequest/case-1"
+        },
+        "owner": {
+          "reference": "HealthcareService/svc-1"
+        },
+        "requester": {
+          "reference": "Practitioner/adv-1"
+        },
+        "executionPeriod": {
+          "start": "2026-10-30T14:00:00Z"
+        },
+        "output": [
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "https://diucs.example/CodeSystem/booking-output-type",
+                  "code": "phone-prompt-at"
+                }
+              ]
+            },
+            "valueDateTime": "2026-10-30T14:05:00Z"
+          },
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "https://diucs.example/CodeSystem/booking-output-type",
+                  "code": "request-message"
+                }
+              ]
+            },
+            "valueString": "comm-1"
+          },
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "https://diucs.example/CodeSystem/booking-output-type",
+                  "code": "request-delivery"
+                }
+              ]
+            },
+            "valueString": "queued"
+          }
+        ]
+      }
+    }
+  ]
+};
+
+export const ALERT_SEARCH = {
+  "resourceType": "Bundle",
+  "type": "searchset",
+  "total": 1,
+  "entry": [
+    {
+      "fullUrl": "Task/bk-1",
+      "resource": {
+        "resourceType": "Task",
+        "id": "bk-1",
+        "status": "cancelled",
+        "businessStatus": {
+          "coding": [
+            {
+              "system": "https://diucs.example/CodeSystem/booking-business-status",
+              "code": "withdrawn",
+              "display": "Withdrawn"
+            }
+          ]
+        },
+        "intent": "order",
+        "authoredOn": "2026-10-30T14:00:00Z",
+        "lastModified": "2026-10-30T14:04:00Z",
+        "identifier": [
+          {
+            "system": "https://diucs.example/booking-reference",
+            "value": "4821"
+          }
+        ],
+        "restriction": {
+          "period": {
+            "end": "2026-10-30T14:10:00Z"
+          }
+        },
+        "focus": {
+          "reference": "ServiceRequest/case-1"
+        },
+        "owner": {
+          "reference": "HealthcareService/svc-1"
+        },
+        "requester": {
+          "reference": "Practitioner/adv-1"
+        },
+        "executionPeriod": {
+          "start": "2026-10-30T14:00:00Z",
+          "end": "2026-10-30T14:04:00Z"
+        },
+        "statusReason": {
+          "coding": [
+            {
+              "system": "https://diucs.example/CodeSystem/booking-business-status",
+              "code": "withdrawn",
+              "display": "Withdrawn"
+            }
+          ]
+        },
+        "output": [
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "https://diucs.example/CodeSystem/booking-output-type",
+                  "code": "decision"
+                }
+              ]
+            },
+            "valueCodeableConcept": {
+              "coding": [
+                {
+                  "system": "https://diucs.example/CodeSystem/booking-business-status",
+                  "code": "withdrawn",
+                  "display": "Withdrawn"
+                }
+              ]
+            }
+          },
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "https://diucs.example/CodeSystem/booking-output-type",
+                  "code": "reason"
+                }
+              ]
+            },
+            "valueString": "now-full"
+          },
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "https://diucs.example/CodeSystem/booking-output-type",
+                  "code": "confirmed-at"
+                }
+              ]
+            },
+            "valueDateTime": "2026-10-30T14:03:00Z"
+          },
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "https://diucs.example/CodeSystem/booking-output-type",
+                  "code": "phone-prompt-at"
+                }
+              ]
+            },
+            "valueDateTime": "2026-10-30T14:05:00Z"
+          },
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "https://diucs.example/CodeSystem/booking-output-type",
+                  "code": "request-message"
+                }
+              ]
+            },
+            "valueString": "comm-1"
+          },
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "https://diucs.example/CodeSystem/booking-output-type",
+                  "code": "request-delivery"
+                }
+              ]
+            },
+            "valueString": "delivered"
+          }
+        ]
+      }
+    }
+  ]
+};
+
+export const LINK_CLOSED_CANCELLED = {
+  "state": "cancelled",
+  "kind": "booking",
+  "reference": "4821",
+  "closedAt": "2026-10-30T14:04:00Z",
+  "confirmedAt": "2026-10-30T14:03:00Z",
+  "cancelledAt": "2026-10-30T14:04:00Z",
+  "coordinationPhone": "0300 123 4567"
+};
+
+export const LINK_CLOSED_EXPIRED = {
+  "state": "expired",
+  "kind": "booking",
+  "reference": "4821",
+  "closedAt": "2026-10-30T14:03:00Z",
+  "coordinationPhone": "0300 123 4567"
+};
+
+export const LINK_CLOSED_UNKNOWN = {
+  "state": "expired"
 };
 
 export const LINK_REQUEST_VIEW = {
@@ -1237,7 +2006,7 @@ export const LINK_REQUEST_VIEW = {
   "reference": "4821",
   "serviceName": "UCR West",
   "ageBand": "80+",
-  "need": "fall-no-injury and frailty",
+  "need": "fall, no injury and frailty",
   "urgency": "within 2 hrs",
   "replyBy": "2026-10-30T14:10:00+00:00",
   "bookingStatus": "requested",
@@ -1251,10 +2020,11 @@ export const LINK_CHANGE_VIEW = {
   "reference": "4821",
   "serviceName": "UCR West",
   "ageBand": "80+",
-  "need": "fall-no-injury and frailty",
+  "need": "fall, no injury and frailty",
   "urgency": "within 2 hrs",
   "bookingStatus": "confirmed",
   "coordinationPhone": "0300 123 4567",
+  "confirmedAt": "2026-10-30T14:03:00Z",
   "csrfToken": "csrf-sample"
 };
 

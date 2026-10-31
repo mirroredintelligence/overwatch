@@ -52,18 +52,25 @@ def test_every_urgency_member_has_a_wording() -> None:
         assert urgency_wording(urgency) in {"within 2 hrs", "today", "planned"}
 
 
-def test_one_need_is_its_code() -> None:
-    assert need_text(case_with((NeedCategory.FALL_NO_INJURY,))) == "fall-no-injury"
+def test_one_need_is_its_plain_words() -> None:
+    assert need_text(case_with((NeedCategory.FALL_NO_INJURY,))) == "fall, no injury"
 
 
 def test_two_needs_are_joined_with_and_in_their_order() -> None:
     needs = (NeedCategory.FALL_NO_INJURY, NeedCategory.FRAILTY)
-    assert need_text(case_with(needs)) == "fall-no-injury and frailty"
+    assert need_text(case_with(needs)) == "fall, no injury and frailty"
 
 
-def test_a_third_need_is_not_sent() -> None:
+def test_three_needs_are_all_named_with_and_before_the_last() -> None:
+    """DEC-1150: no need is left off (the U17 cap of two is lifted); the last joins with and."""
     needs = (NeedCategory.FALL_NO_INJURY, NeedCategory.FRAILTY, NeedCategory.DEMENTIA)
-    assert need_text(case_with(needs)) == "fall-no-injury and frailty"
+    assert need_text(case_with(needs)) == "fall, no injury, frailty and dementia"
+
+
+def test_no_raw_code_reaches_the_text() -> None:
+    needs = tuple(NeedCategory)
+    text = need_text(case_with(needs))
+    assert not any("-" in word for word in text.split())
 
 
 def test_a_case_with_no_need_is_refused_as_incomplete() -> None:
@@ -85,7 +92,24 @@ def test_the_replay_key_names_the_tenant_so_two_tenants_never_share_a_result() -
     assert command_key("tenant-a", "k-1") == command_key("tenant-a", "k-1")
 
 
-def test_the_text_request_accepts_two_codes_joined_with_and() -> None:
+def test_the_text_request_accepts_the_plain_words_of_two_needs_joined_with_and() -> None:
+    fields = {
+        "reference": "4821",
+        "service": "UCR West",
+        "age_band": "80+",
+        "need": "fall, no injury and frailty",
+        "urgency": "within 2 hrs",
+        "link": "https://dorset.diucs.example/l/abcdef",
+        "reply_by": "14:26",
+        "referral_system_name": "the referral system",
+    }
+    assert (
+        "Age 80+, fall, no injury and frailty, within 2 hrs"
+        in render(MessageId.B1, Channel.TEXT, **fields).text
+    )
+
+
+def test_the_text_request_refuses_a_raw_need_code() -> None:
     fields = {
         "reference": "4821",
         "service": "UCR West",
@@ -96,7 +120,8 @@ def test_the_text_request_accepts_two_codes_joined_with_and() -> None:
         "reply_by": "14:26",
         "referral_system_name": "the referral system",
     }
-    assert "fall-no-injury and frailty" in render(MessageId.B1, Channel.TEXT, **fields).text
+    with pytest.raises(ValidationFailed):
+        render(MessageId.B1, Channel.TEXT, **fields)
 
 
 def test_a_joined_need_with_a_word_that_is_no_code_is_still_refused() -> None:

@@ -17,6 +17,7 @@ from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.use_cases.advisor_phoned import RecordAdvisorPhoned
 from diucs.application.use_cases.report_capacity import ReportCapacity
 from diucs.application.use_cases.resolve_report_flag import (
     ListReportFlags,
@@ -112,7 +113,7 @@ def _resolve(uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver) -> Resol
     clock = FixedClock(datetime(2026, 10, 23, 13, 30, tzinfo=UTC))
     ids = SequentialIds()
     report_capacity = ReportCapacity(uow_factory, clock, ids, DriverIdempotencyStore(neo4j_driver))
-    return ResolveReportFlag(uow_factory, report_capacity, clock)
+    return ResolveReportFlag(uow_factory, RecordAdvisorPhoned(report_capacity, uow_factory), clock)
 
 
 async def test_the_out_of_range_description_matches_the_example_exactly(
@@ -200,3 +201,93 @@ async def _flag(uow_factory: UnitOfWorkFactory) -> ReportFlag:
         flag = await uow.flags.report_flag("flag-1")
     assert flag is not None
     return flag
+
+
+def _report(
+    report_id: str, value: int, at: datetime, source: ReportSource = ReportSource.TEXT
+) -> CapacityReport:
+    return CapacityReport(
+        id=report_id,
+        service_id="ucr-east",
+        value=value,
+        measure=Measure.REFERRALS_ACCEPTABLE,
+        effective_at=at,
+        source=source,
+        report_type=ReportType.NUMBER,
+    )
+
+
+async def _audit_entries(uow_factory: UnitOfWorkFactory) -> list[object]:
+    async with uow_factory() as uow:
+        return [record.entry for record in await uow.audit.records()]
+
+
+async def test_the_phoned_outcome_goes_through_record_advisor_phoned_and_says_so_in_the_audit(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    # KI-287: the lead's call is recorded by the same use case as an advisor's, so the record says
+    # what the service told and that the call resolved a flag.
+    await _seed_flag(uow_factory, seed_service)
+
+    await _resolve(uow_factory, neo4j_driver).execute(
+        ResolveReportFlagCommand("resolve-7", LEAD, "flag-1", "phoned", phoned_value=3)
+    )
+
+    entries = await _audit_entries(uow_factory)
+    capacity = [e for e in entries if getattr(e, "use_case", "") == "ReportCapacity"]
+    assert capacity, "the phoned figure was recorded by ReportCapacity under RecordAdvisorPhoned"
+    snapshot = capacity[-1].snapshot  # type: ignore[attr-defined]
+    assert snapshot["told"] == "accepting"
+    assert snapshot["flag_id"] == "flag-1"
+
+
+async def test_a_phoned_zero_is_recorded_as_not_accepting(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    await _seed_flag(uow_factory, seed_service)
+
+    await _resolve(uow_factory, neo4j_driver).execute(
+        ResolveReportFlagCommand("resolve-8", LEAD, "flag-1", "phoned", phoned_value=0)
+    )
+
+    async with uow_factory() as uow:
+        latest = await uow.capacity.latest("ucr-east")
+    assert latest is not None and latest.value == 0
+    assert latest.source is ReportSource.ADVISOR_PHONED
+    entries = await _audit_entries(uow_factory)
+    told = [e.snapshot["told"] for e in entries if hasattr(e, "snapshot") and "told" in e.snapshot]  # type: ignore[attr-defined]
+    assert told == ["not-accepting"]
+
+
+async def test_a_phoned_figure_that_contradicts_the_last_text_is_described_as_the_pair(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    # Q10: the lead sees both figures with their times, whichever came first.
+    await seed_service(UCR_EAST)
+    async with uow_factory() as uow:
+        await uow.capacity.add(_report("obs-text", 2, datetime(2026, 10, 23, 13, 0, tzinfo=UTC)))
+        await uow.capacity.add(
+            _report(
+                "obs-phone",
+                6,
+                datetime(2026, 10, 23, 13, 20, tzinfo=UTC),
+                source=ReportSource.ADVISOR_PHONED,
+            )
+        )
+        await uow.flags.add_report_flag(
+            ReportFlag(
+                id="flag-pair",
+                report_id="obs-phone",
+                service_id="ucr-east",
+                reason=ReportFlagReason.DIFFERS_FROM_PHONED,
+                status="open",
+                created_at=datetime(2026, 10, 23, 13, 20, tzinfo=UTC),
+            )
+        )
+        await uow.commit()
+
+    [view] = await ListReportFlags(uow_factory).execute(ListReportFlagsQuery(LEAD))
+
+    assert view.description == (
+        "UCR East: the advisor phoned 6 at 14:20, but the last text said 2 at 14:00."
+    )

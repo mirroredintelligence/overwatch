@@ -1,7 +1,7 @@
 import { CASE_ROLES } from '@/lib/advisor/roles';
 import { withBff } from '@/lib/bff/handler';
 import { FhirError } from '@/lib/fhir/client';
-import { openBooking } from '@/lib/advisor/bookingServer';
+import { openBooking, readCaseBookings, readOpenAlerts } from '@/lib/advisor/bookingServer';
 
 // The advisor's request for a booking (W20). The body names a case and a service and nothing else:
 // no tenant, organisation or scope is taken from it, the URL, a header or the query (DEC-130). The
@@ -47,3 +47,25 @@ const post = withBff(
 );
 
 export const POST = (request: Request) => post(request, undefined);
+
+// The advisor's reads of bookings, for a card that comes back after a reload and for the strip of open
+// alerts (WB4). One search or the other, by one parameter and nothing else: `case` (a case reference) or
+// `alert=open`. The tenant is the session's, never the query's. The answer is booking states only.
+const get = withBff(
+  async (request, session) => {
+    const params = new URL(request.url).searchParams;
+    const names = [...params.keys()];
+    if (names.length === 1 && names[0] === 'case') {
+      const caseRef = params.get('case') ?? '';
+      if (!CASE_REF.test(caseRef)) return refuse(400, 'invalid');
+      return Response.json({ bookings: await readCaseBookings(session, caseRef) }, { headers: NO_STORE });
+    }
+    if (names.length === 1 && names[0] === 'alert' && params.get('alert') === 'open') {
+      return Response.json({ bookings: await readOpenAlerts(session) }, { headers: NO_STORE });
+    }
+    return refuse(400, 'invalid');
+  },
+  { roles: [...CASE_ROLES], idScoped: true },
+);
+
+export const GET = (request: Request) => get(request, undefined);

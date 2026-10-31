@@ -56,8 +56,10 @@ from diucs.adapters.inbound.fhir_rest.routes_board import BOARD_ROLES
 from diucs.adapters.inbound.fhir_rest.validation import validated_body
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.terminology import profile_url
-from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from diucs.application.ports.outbound.unit_of_work import UnitOfWork
 from diucs.application.tenancy import ScopeKind
+from diucs.application.tenant_settings import DirectoryZones
+from diucs.application.uow_idempotency import UnitOfWorkIdempotency
 from diucs.application.use_cases.report_capacity import ReportCapacity
 from diucs.domain.codes import (
     BASE_URL,
@@ -355,24 +357,6 @@ async def refuse_edit() -> Response:
 # Creating a report
 
 
-class UnitOfWorkIdempotency:
-    """The idempotency store for ReportCapacity's early replay check, on the application's own
-    unit of work, so this adapter needs no outbound adapter. The authoritative check and the write
-    of the key are inside the use case's unit of work. (The same small class is in routes_board.)"""
-
-    def __init__(self, uow_factory: UnitOfWorkFactory) -> None:
-        self._uow_factory = uow_factory
-
-    async def get(self, key: str) -> object | None:
-        async with self._uow_factory() as uow:
-            return await uow.idempotency.get(key)
-
-    async def put(self, key: str, result: object) -> None:
-        async with self._uow_factory() as uow:
-            await uow.idempotency.put(key, result)
-            await uow.commit()
-
-
 def _check_matches_service(request: ReportRequest, profile: ServiceProfile) -> None:
     """The use case stamps the service's own measure on the report, so a sender who names another
     measure or unit would be told one thing and have another stored. Refuse the mismatch."""
@@ -420,6 +404,7 @@ async def create_report(
             container.clock,
             container.ids,
             UnitOfWorkIdempotency(container.uow_factory),
+            zones=DirectoryZones(container.tenants),
         )
         try:
             result = await use_case.execute(command)

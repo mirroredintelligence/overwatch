@@ -10,8 +10,8 @@ import {
   type CancelReason,
   clock,
   declineReasonWording,
-  PHONE_PROMPT_AFTER_MINUTES,
-  REPLY_WINDOW_MINUTES,
+  deliveryWording,
+  minutesBetween,
 } from '@/lib/advisor/bookings';
 import { CancelBookingDialog } from './CancelBookingDialog';
 import styles from './Advisor.module.css';
@@ -93,7 +93,9 @@ export function BookingCard(props: BookingCardProps) {
   // The phone prompt: an alert at the prompt time while the request is still open. A timer, not a
   // server read, so it shows on time whatever the back end says in between.
   const pending = booking.status === 'requested';
-  const promptDue = pending && (firedFor === stateKey || Date.parse(booking.phonePromptAt) <= now());
+  // A text that did not arrive is not waited on: the prompt to phone is due at once (H-494).
+  const notDelivered = pending && booking.delivery === 'failed';
+  const promptDue = pending && (notDelivered || firedFor === stateKey || Date.parse(booking.phonePromptAt) <= now());
   useEffect(() => {
     if (!pending) return;
     const wait = Date.parse(booking.phonePromptAt) - now();
@@ -113,7 +115,9 @@ export function BookingCard(props: BookingCardProps) {
   }
 
   const badge = BADGE[booking.status];
-  const needsAnswer = (booking.status === 'withdrawn' || booking.status === 'not-reached') && acknowledgedFor !== stateKey;
+  // Answered in this window, or already answered at the back end (a reload brings the card back with its answer, KI-451).
+  const needsAnswer =
+    (booking.status === 'withdrawn' || booking.status === 'not-reached') && acknowledgedFor !== stateKey && booking.acknowledgedAt === null;
   const alertOpen = needsAnswer && leftOpenFor !== stateKey;
   const hidden = dialogOpen || alertOpen;
   const cancelled = booking.status === 'cancelled-before' || booking.status === 'cancelled-after';
@@ -137,10 +141,16 @@ export function BookingCard(props: BookingCardProps) {
           <>
             <h3 className={styles.heading}>Not booked yet</h3>
             <p className={styles.text}>
-              {`Text sent ${clock(booking.requestedAt)}. Waiting for CONFIRMED. Phone prompt at ${clock(booking.phonePromptAt)}. Request expires ${clock(booking.replyBy)}.`}
+              {`${deliveryWording(booking.delivery)} ${clock(booking.requestedAt)}. Waiting for CONFIRMED. Phone prompt at ${clock(booking.phonePromptAt)}. Request expires ${clock(booking.replyBy)}.`}
             </p>
             <p className={styles.text}>Colleagues see 1 pending on the board.</p>
-            {promptDue ? <Banner tone="warning" title={`No reply yet. Phone ${serviceName} now.`} dataEl="ADV-BOOK-PROMPT" /> : null}
+            {promptDue ? (
+              <Banner
+                tone="warning"
+                title={notDelivered ? `The text to ${serviceName} was not delivered. Phone them now.` : `No reply yet. Phone ${serviceName} now.`}
+                dataEl="ADV-BOOK-PROMPT"
+              />
+            ) : null}
             <div className={styles.actions}>
               <Button variant="secondary" dataEl="ADV-BOOK-PHONE-BTN" onClick={() => setShowPhone(true)}>
                 Phone them instead
@@ -187,7 +197,7 @@ export function BookingCard(props: BookingCardProps) {
           <>
             <h3 className={styles.heading}>Not booked. Phone now.</h3>
             <p className={styles.text}>
-              {`No reply after ${PHONE_PROMPT_AFTER_MINUTES} min, so you were prompted to phone. The request expired at ${REPLY_WINDOW_MINUTES} min and the pending count is released. Do not assume it was accepted.`}
+              {`No reply after ${minutesBetween(booking.requestedAt, booking.phonePromptAt)} min, so you were prompted to phone. The request expired at ${minutesBetween(booking.requestedAt, booking.replyBy)} min and the pending count is released. Do not assume it was accepted.`}
             </p>
             <div className={styles.actions}>
               {phoneLink(phone, `Phone ${serviceName}`, 'ADV-BOOK-PHONE-NOW-BTN')}
@@ -211,7 +221,9 @@ export function BookingCard(props: BookingCardProps) {
         ) : null}
 
         {booking.status === 'withdrawn' || booking.status === 'not-reached' ? (
-          <p className={styles.text}>{badge.word}</p>
+          <p className={styles.text}>
+            {booking.acknowledgedAt === null ? badge.word : `${badge.word}. Alert answered at ${clock(booking.acknowledgedAt)}.`}
+          </p>
         ) : null}
 
         {needsAnswer && !alertOpen ? (

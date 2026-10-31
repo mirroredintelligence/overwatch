@@ -34,6 +34,7 @@ Service Bus earns its place for four things: durable scheduled messages without 
 | `criteria.events` | Topic | Outbox relay | Network projector | The notifier and flag maintainer subscriptions were never read and are deleted (DEC-1111) |
 | `alerts.events` | Topic | Alert evaluator | Notifier (tells the shift leads of an escalation, DEC-1111) | The escalation timer is scheduled work, and the analytics subscription was never read and is deleted |
 | `messages.outbound` | Topic | Use cases via the outbox | Text sender, email sender, push sender | Subscriptions filter on the channel. Each has a dead-letter queue and a retry policy. |
+| `codes.dispatch` | Topic | Use cases via the outbox (`RequestTextCode`) | Code sender (`code-sender`, KI-270) | A text code: the code and the number are sealed to the message, the tenant and the recipient key. An unknown number gets a `DiscardCode` that is never opened. One-hour time to live |
 
 The dead-letter queues are watched, and a message there raises an alert. I have not checked the tier needed for private networking or the message size limits, so confirm with the platform team.
 ### Ports added by this decision

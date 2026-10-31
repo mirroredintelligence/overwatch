@@ -20,7 +20,6 @@ import asyncio
 from collections.abc import Callable, Collection, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from types import MappingProxyType
 from typing import Any, Final
 
 from diucs.application.actor import Actor
@@ -46,6 +45,7 @@ from diucs.domain.rules.criteria_workflow import is_review_overdue
 from diucs.domain.rules.district_choice import candidate_districts
 from diucs.domain.rules.freshness import STALE_WARNING_AFTER, data_age_text
 from diucs.domain.rules.london_time import to_london
+from diucs.domain.rules.need_words import NEED_WORDS, need_words
 
 FILTER_OPTIONS: Final = "FilterOptions"
 READ_ACTION: Final = "R"
@@ -88,20 +88,9 @@ def reason_code(reason: str) -> str:
     raise ValueError("not a reason a service is not suitable")
 
 
-NEED_PHRASES: Final[Mapping[NeedCategory, str]] = MappingProxyType(
-    {
-        NeedCategory.FALL_NO_INJURY: "fall",
-        NeedCategory.FRAILTY: "frailty",
-        NeedCategory.WOUND_CARE: "wound care",
-        NeedCategory.IV_THERAPY: "IV therapy",
-        NeedCategory.PALLIATIVE: "palliative",
-        NeedCategory.DEMENTIA: "dementia",
-        NeedCategory.SUSPECTED_FRACTURE: "suspected fracture",
-        NeedCategory.HEAD_INJURY_ANTICOAGULANTS: "head injury on anticoagulants",
-        NeedCategory.INFECTION_ISOLATION: "infection isolation",
-    }
-)
-"""The lower-case phrase for each need, as the case summary and the fit lines write it."""
+NEED_PHRASES: Final[Mapping[NeedCategory, str]] = NEED_WORDS
+"""The phrase for each need, as the case summary and the fit lines write it: the one table of plain
+words (DEC-062 item 2; domain/rules/need_words.py), so the pages and the messages agree."""
 
 
 def need_phrase(need: NeedCategory) -> str:
@@ -282,9 +271,9 @@ def criteria_warnings(criteria: ServiceCriteria, today: date) -> tuple[str, ...]
 def fits_for(criteria: ServiceCriteria, needs: tuple[NeedCategory, ...]) -> tuple[str, ...]:
     """The fit lines of an option: the postcode is covered, and the needs the service accepts."""
     fits = [COVERS_POSTCODE]
-    taken = [need_phrase(need) for need in needs if need in criteria.accepts]
+    taken = tuple(need for need in needs if need in criteria.accepts)
     if taken:
-        fits.append(f"Takes {', '.join(taken)}")
+        fits.append(f"Takes {need_words(taken)}")
     return tuple(fits)
 
 

@@ -39,7 +39,6 @@ from diucs.adapters.inbound.fhir_rest.auth import require_role
 from diucs.adapters.inbound.fhir_rest.capability import FhirJSONResponse
 from diucs.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
 from diucs.adapters.inbound.fhir_rest.mapping import service_to_fhir, validate_outbound
-from diucs.adapters.inbound.fhir_rest.routes_services import UnitOfWorkIdempotency
 from diucs.application.actor import Actor
 from diucs.application.idempotency import format_instant
 from diucs.application.ports.outbound.clock import Clock
@@ -47,6 +46,7 @@ from diucs.application.ports.outbound.identity import HmacPhoneHasher, normalise
 from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.tokens import SecretStore
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.uow_idempotency import UnitOfWorkIdempotency
 from diucs.application.use_cases.change_reporter_number import (
     ChangeReporterNumber,
     ChangeReporterNumberCommand,

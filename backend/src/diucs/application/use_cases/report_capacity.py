@@ -12,6 +12,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Any, Final
+from zoneinfo import ZoneInfo
 
 from diucs.application.actor import Actor, require_actor_in_bound_tenant
 from diucs.application.idempotency import IdempotencyStore
@@ -22,6 +23,7 @@ from diucs.application.ports.outbound.messaging import Communication
 from diucs.application.ports.outbound.outbox import OutboxMessage, outbox_message_for
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
 from diucs.application.tenancy import ScopeKind, TenantMismatch, TenantNotBound
+from diucs.application.tenant_settings import TenantZones, as_zones, read_settings
 from diucs.application.use_cases.missed_report_ladder import stop_answered_ladders
 from diucs.application.use_cases.report_flags import raise_report_flags
 from diucs.domain.codes import (
@@ -36,6 +38,7 @@ from diucs.domain.errors import (
     Conflict,
     DomainError,
     EffectiveBeforeConfirmation,
+    EffectiveNotAfterLatest,
     NotAllowed,
     NotFound,
     ValidationFailed,
@@ -48,7 +51,8 @@ from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
 from diucs.domain.model.people import REPORTER_ROLE_CODES, PractitionerRole
 from diucs.domain.model.service import ServiceProfile
 from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
-from diucs.domain.rules.london_time import format_hhmm
+from diucs.domain.rules.effective_time import default_effective_at, is_later_than_latest
+from diucs.domain.rules.london_time import LONDON, format_hhmm, format_stamp
 from diucs.domain.rules.schedule import next_due
 from diucs.domain.rules.status import compute_status
 
@@ -151,9 +155,11 @@ def _echo_text(
     report: CapacityReport,
     next_prompt: datetime,
     replaced_value: int | None,
+    zone: ZoneInfo = LONDON,
 ) -> tuple[MessageId, str]:
-    """The C3 echo, or the C4 echo when a figure is replaced (DEC-100 item 1)."""
-    recorded_at = format_hhmm(report.effective_at)
+    """The C3 echo, or the C4 echo when a figure is replaced (DEC-100 item 1). The times are the
+    tenant's local times, in `zone` (KI-415)."""
+    recorded_at = format_hhmm(report.effective_at, zone)
     if replaced_value is not None:
         rendered = render(
             MessageId.C4,
@@ -172,7 +178,7 @@ def _echo_text(
         value=report.value,
         unit=profile.unit_label,
         recorded_at=recorded_at,
-        next_due=format_hhmm(next_prompt),
+        next_due=format_hhmm(next_prompt, zone),
     )
     return MessageId.C3, rendered.text
 
@@ -193,6 +199,7 @@ async def record_report(
     audit_detail: tuple[tuple[str, str], ...] = (),
     policy: TenantPolicy = DEFAULT_POLICY,
     config_version: int | None = None,
+    zone: ZoneInfo = LONDON,
 ) -> ReportCapacityResult:
     """Store one report with its status change, echo, audit entry and outbox messages, inside the
     caller's unit of work. The caller commits. U02 reuses this function (DEC-100).
@@ -209,7 +216,8 @@ async def record_report(
     `policy` is the tenant's policy (TEN-024): the status, the next prompt and the flag windows read
     it, and the default is today's behaviour. `config_version` is the version of the tenant
     configuration the policy came from; the default audit snapshot records it, and leaves the key
-    out when no version is in force (the built-in defaults).
+    out when no version is in force (the built-in defaults). `zone` is the tenant's time zone: the
+    status, the next prompt and the echo's times are read in it (KI-415).
     """
     flags: Sequence[ServiceFlag] = await uow.flags.service_flags(profile.id)
     if any(flag.code == SERVICE_FLAG_SUSPENDED for flag in flags):
@@ -218,8 +226,8 @@ async def record_report(
     latest_before = await uow.capacity.latest(profile.id)
     since = now
     confirmed = await uow.bookings.confirmed_since(profile.id, since)
-    before = compute_status(profile, latest_before, confirmed, now, policy).status
-    after = compute_status(profile, report, confirmed, now, policy).status
+    before = compute_status(profile, latest_before, confirmed, now, policy, zone).status
+    after = compute_status(profile, report, confirmed, now, policy, zone).status
 
     await uow.capacity.add(report)
 
@@ -246,13 +254,13 @@ async def record_report(
         uow, profile.id, answered_at=report.effective_at, now=now, policy=policy
     )
 
-    next_prompt = next_due(profile, now, policy)
+    next_prompt = next_due(profile, now, policy, zone)
     if send_echo is not None:
         # Unreachable for a valid profile: every window yields a due time on each day it starts,
         # and SEARCH_DAYS covers more than a week. Refusing here is the only honest outcome.
         if next_prompt is None:
             raise DomainError("a profile with available times always has a next due instant")
-        message_id, text = _echo_text(profile, report, next_prompt, replaced_value)
+        message_id, text = _echo_text(profile, report, next_prompt, replaced_value, zone)
         communication = Communication(
             id=ids.new_id(),
             message_id=message_id.value,
@@ -345,8 +353,11 @@ class _StoredReport:
     result: ReportCapacityResult
 
 
-def _replay(stored: _StoredReport, fingerprint: str) -> ReportCapacityResult:
-    if stored.fingerprint != fingerprint:
+def _replay(stored: object, fingerprint: str) -> ReportCapacityResult:
+    """A stored result for this key replays only for the same command by the same actor. Any other
+    stored value, including a key that ConfirmCapacity stored, is a Conflict, as it is there: it is
+    refused before the time or the figure is judged."""
+    if not isinstance(stored, _StoredReport) or stored.fingerprint != fingerprint:
         raise Conflict("this command key was used for a different report")
     return replace(stored.result, replayed=True)
 
@@ -370,11 +381,15 @@ class ReportCapacity:
         clock: Clock,
         ids: IdGenerator,
         idempotency: IdempotencyStore,
+        zones: TenantZones | None = None,
     ) -> None:
+        """`zones` is the tenant's time zone source; None is London, the one zone on the allow-list
+        (KI-415). The serving process passes `DirectoryZones`."""
         self._uow_factory = uow_factory
         self._clock = clock
         self._ids = ids
         self._idempotency = idempotency
+        self._zones = as_zones(zones)
 
     async def execute(self, command: ReportCapacityCommand) -> ReportCapacityResult:
         # Before anything is read, the early replay included: the actor's tenant is the bound one
@@ -385,7 +400,7 @@ class ReportCapacity:
         fingerprint = _fingerprint(command)
         # An early read outside the unit of work. The authoritative replay check is inside it.
         early = await self._idempotency.get(command.idempotency_key)
-        if isinstance(early, _StoredReport):
+        if early is not None:
             return _replay(early, fingerprint)
 
         _check_figure("value", command.value)
@@ -407,7 +422,7 @@ class ReportCapacity:
             await uow.capacity.lock_service(command.service_id)
             # The authoritative replay check, before any write (DEC-106 item 2).
             stored = await uow.idempotency.get(command.idempotency_key)
-            if isinstance(stored, _StoredReport):
+            if stored is not None:
                 return _replay(stored, fingerprint)
 
             profile = await uow.services.get(command.service_id)
@@ -433,17 +448,32 @@ class ReportCapacity:
                     actor=command.actor,
                     now=now,
                 )
-            config = await uow.tenant_config.current_version()
-            policy = DEFAULT_POLICY if config is None else config.policy
-            effective = now if explicit is None else explicit
-            if explicit is not None:
-                # A number back-dated behind the latest confirmed figure would never reach the
-                # board, so it is refused and nothing is written (DEC-140).
-                confirmed_at = await uow.capacity.latest_confirmation_at(profile.id)
-                if confirmed_at is not None and explicit < confirmed_at:
-                    raise EffectiveBeforeConfirmation(
-                        "effective_at", "is before the latest confirmed figure of this service"
-                    )
+            settings = await read_settings(uow, self._zones)
+            policy = settings.policy
+            # The effective time is judged against the latest figure of the service, read under the
+            # lock: a number that is not later than it would be hidden behind it, or tie with it, so
+            # an explicit one is refused and nothing is written (DEC-140 as changed by DEC-1100 Q8,
+            # KI-7, KI-9). With none given, the clock is used, but never at or before that figure
+            # (KI-8).
+            latest = await uow.capacity.latest(profile.id)
+            latest_at = None if latest is None else latest.effective_at
+            if (
+                explicit is not None
+                and latest is not None
+                and not is_later_than_latest(explicit, latest.effective_at)
+            ):
+                refusal = (
+                    EffectiveBeforeConfirmation
+                    if latest.report_type is ReportType.CONFIRMED
+                    else EffectiveNotAfterLatest
+                )
+                kind = "confirmed figure" if refusal is EffectiveBeforeConfirmation else "figure"
+                raise refusal(
+                    f"is not after the latest {kind} of this service, which is for "
+                    f"{format_stamp(latest.effective_at, settings.zone)}",
+                    latest.effective_at.astimezone(UTC),
+                )
+            effective = explicit if explicit is not None else default_effective_at(now, latest_at)
 
             report = CapacityReport(
                 id=self._ids.new_id(),
@@ -472,7 +502,8 @@ class ReportCapacity:
                 flag=command.flag,
                 audit_detail=command.audit_detail,
                 policy=policy,
-                config_version=None if config is None else config.version,
+                config_version=settings.config_version,
+                zone=settings.zone,
             )
             await uow.idempotency.put(command.idempotency_key, _StoredReport(fingerprint, result))
             await uow.commit()

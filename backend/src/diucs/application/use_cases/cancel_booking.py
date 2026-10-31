@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from typing import Final
 
 from diucs.application.actor import Actor
-from diucs.application.booking_effects import cancel_booking_timers, queue_echo, text_reporter_role
+from diucs.application.booking_effects import cancel_booking_timers, echo_role, queue_echo
 from diucs.application.idempotency import IdempotencyStore
 from diucs.application.ports.outbound.audit import AuditEntry
 from diucs.application.ports.outbound.clock import Clock
@@ -24,7 +24,7 @@ from diucs.application.ports.outbound.outbox import outbox_message_for
 from diucs.application.ports.outbound.sealing import ContentSealer
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
-from diucs.domain.codes import BookingStatus, CancelReason, Channel
+from diucs.domain.codes import BookingStatus, CancelReason
 from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
 from diucs.domain.events import BookingCancelled
 from diucs.domain.messages.catalogue import MessageId
@@ -140,11 +140,12 @@ class CancelBooking:
                     now=now,
                 )
             )
-            role = await text_reporter_role(uow, booking.service_id, now)
-            if role is not None:
+            echo = await echo_role(uow, booking.service_id, now)
+            if echo is not None:
+                role, channel = echo
                 rendered = render(
                     MessageId.B6,
-                    Channel.TEXT,
+                    channel,
                     reference=booking.reference,
                     cancelled_at=format_hhmm(now),
                 )

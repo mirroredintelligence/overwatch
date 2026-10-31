@@ -24,7 +24,6 @@ from diucs.application.ports.outbound.audit import AuditEntry
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.tenancy import current_scope_or_none
-from diucs.application.use_cases.filter_options import need_phrase
 from diucs.application.use_cases.open_case import check_role, replay_key, tenant_scope
 from diucs.domain.codes import BestFitNotUsedReason, Outcome, display
 from diucs.domain.errors import Conflict, NotFound, StaleVersion, ValidationFailed
@@ -38,6 +37,7 @@ from diucs.domain.model.scores import (
     Score,
     score_record,
 )
+from diucs.domain.rules.need_words import need_words
 
 RECORD_OUTCOME: Final = "RecordOutcome"
 CLOSE_ACTION: Final = "U"
@@ -105,7 +105,7 @@ def _sentence(text: str) -> str:
 def needs_text(case: Case) -> str:
     if not case.needs:
         return ""
-    return _sentence(", ".join(need_phrase(need) for need in case.needs))
+    return _sentence(need_words(case.needs))
 
 
 def score_text(score: Score) -> str:

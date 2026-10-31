@@ -694,3 +694,45 @@ async def test_the_response_and_the_log_carry_no_token_or_secret(
     assert token not in response.text
     assert token not in caplog.text
     assert TEST_BFF_SECRET.decode() not in caplog.text
+
+
+# The order of the checks for an invalid service id (KI-36): who you are comes before what you named
+
+
+BAD_ID = "/fhir/HealthcareService/svc%20bad!/$confirm-capacity"
+
+
+@pytest.mark.usefixtures("seeded")
+async def test_no_token_and_an_invalid_service_id_is_still_login_not_a_validation_answer(
+    api_client: AsyncClient, neo4j_driver: AsyncDriver
+) -> None:
+    unknown_caller = await _confirm(api_client, BAD_ID, {}, "key-bad-0")
+    valid_id = await _confirm(api_client, CONFIRM_WEST, {}, "key-bad-1")
+
+    assert unknown_caller.status_code == 401
+    assert unknown_caller.json() == valid_id.json()
+    assert await _observations(neo4j_driver) == 2
+
+
+@pytest.mark.usefixtures("seeded")
+async def test_a_role_that_may_not_confirm_is_refused_before_the_service_id_is_judged(
+    api_client: AsyncClient, neo4j_driver: AsyncDriver
+) -> None:
+    refused_role = await _confirm(api_client, BAD_ID, _bearer(Role.WALL, (), "wall-1"), "key-bad-2")
+    valid_id = await _confirm(
+        api_client, CONFIRM_WEST, _bearer(Role.WALL, (), "wall-1"), "key-bad-3"
+    )
+
+    assert refused_role.status_code == valid_id.status_code == 404
+    assert refused_role.json() == valid_id.json()
+    assert await _observations(neo4j_driver) == 2
+
+
+@pytest.mark.usefixtures("seeded")
+async def test_a_lead_with_an_invalid_service_id_is_refused_and_writes_nothing(
+    api_client: AsyncClient, neo4j_driver: AsyncDriver
+) -> None:
+    response = await _confirm(api_client, BAD_ID, _bearer(Role.LEAD, (), "lead-1"), "key-bad-4")
+
+    assert response.status_code == 400  # the app answers a malformed path as a bad request
+    assert await _observations(neo4j_driver) == 2

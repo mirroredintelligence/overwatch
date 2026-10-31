@@ -13,7 +13,13 @@ from datetime import UTC, date, datetime, timedelta
 from diucs.adapters.fhir_shared.booking_task import booking_to_fhir
 from diucs.adapters.inbound.fhir_rest.case_mapping import case_to_fhir, filter_result_to_fhir
 from diucs.adapters.inbound.fhir_rest.routes_criteria import _view_basic
-from diucs.adapters.inbound.link_pages.booking_links import change_view_body, view_body
+from diucs.adapters.inbound.fhir_rest.routes_bookings import _search_bundle
+from diucs.adapters.inbound.link_pages.booking_links import (
+    change_view_body,
+    closed_detail,
+    view_body,
+)
+from diucs.application.use_cases.link_access import closed_body
 from diucs.application.ports.outbound.geo import LatLon, TravelRange
 from diucs.adapters.inbound.fhir_rest.case_mapping import summary_to_fhir
 from diucs.application.use_cases.case_summary import CaseSummary
@@ -101,15 +107,20 @@ no_postcode = FilterOptionsResult(
 )
 
 
-def booking(*path: BookingStatus, reason: str | None = None) -> dict:
+def booking_of(*path: BookingStatus, reason: str | None = None) -> Booking:
     b = Booking(
         id="bk-1", reference="4821", service_id="svc-1", case_id="case-1", requester_id="adv-1",
         status=BookingStatus.REQUESTED, requested_at=T0, reply_by=T0 + timedelta(minutes=10),
+        phone_prompt_at=T0 + timedelta(minutes=5), request_message_id="comm-1",
     )
     for step, target in enumerate(path):
         last = step == len(path) - 1
         b = b.with_status(target, T0 + timedelta(minutes=3 + step), reason if last else None)
-    return booking_to_fhir(b)
+    return b
+
+
+def booking(*path: BookingStatus, reason: str | None = None, delivery: str | None = "delivered") -> dict:
+    return booking_to_fhir(booking_of(*path, reason=reason), delivery_status=delivery)
 
 
 criteria = CriteriaVersionView(
@@ -129,11 +140,12 @@ bookings = {
     "withdrawn": booking(BookingStatus.CONFIRMED, BookingStatus.WITHDRAWN, reason="now-full"),
     "notReached": booking(BookingStatus.CONFIRMED, BookingStatus.NOT_REACHED, reason="no-answer"),
 }
-requested_b = Booking(
-    id="bk-1", reference="4821", service_id="svc-1", case_id="case-1", requester_id="adv-1",
-    status=BookingStatus.REQUESTED, requested_at=T0, reply_by=T0 + timedelta(minutes=10),
-)
-confirmed_b = requested_b.with_status(BookingStatus.CONFIRMED, T0 + timedelta(minutes=3))
+requested_b = booking_of()
+confirmed_b = booking_of(BookingStatus.CONFIRMED)
+withdrawn_b = booking_of(BookingStatus.CONFIRMED, BookingStatus.WITHDRAWN, reason="now-full")
+acknowledged_b = withdrawn_b.with_acknowledgement("adv-2", T0 + timedelta(minutes=9))
+cancelled_b = booking_of(BookingStatus.CONFIRMED, BookingStatus.CANCELLED_AFTER)
+PHONE = "0300 123 4567"
 
 shapes = {
     "caseFull": case_to_fhir(case),
@@ -165,6 +177,21 @@ shapes = {
         "entry": [{"resource": _view_basic(criteria, "svc-1")}],
     },
     "bookings": bookings,
+    "bookingAcknowledged": booking_to_fhir(acknowledged_b, delivery_status="delivered"),
+    "bookingSearch": _search_bundle(
+        [
+            booking_to_fhir(booking_of(BookingStatus.DECLINED, reason="full"), delivery_status="sent"),
+            booking_to_fhir(requested_b, delivery_status="queued"),
+        ]
+    ),
+    "alertSearch": _search_bundle(
+        [booking_to_fhir(withdrawn_b, delivery_status="delivered")]
+    ),
+    "linkClosedCancelled": closed_body("cancelled", closed_detail(cancelled_b, PHONE)),
+    "linkClosedExpired": closed_body(
+        "expired", closed_detail(booking_of(BookingStatus.EXPIRED), PHONE)
+    ),
+    "linkClosedUnknown": closed_body("expired", None),
     "linkRequestView": {
         "state": "ok", "purpose": "booking-request",
         **view_body(requested_b, "UCR West", case, "0300 123 4567"), "csrfToken": "csrf-sample",

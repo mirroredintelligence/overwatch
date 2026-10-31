@@ -43,6 +43,9 @@ class RecordAdvisorPhonedCommand:
     told: PhonedAnswer
     value: int | None
     case_id: str | None = None
+    flag_id: str | None = None
+    """The report flag this call resolves, when the shift lead phoned to check a flagged report
+    (KI-287); it goes into the audit entry beside what the service told."""
 
 
 def phoned_figure(told: str, value: int | None) -> int:
@@ -72,6 +75,8 @@ class RecordAdvisorPhoned:
         detail: list[tuple[str, str]] = [("told", command.told)]
         if command.case_id is not None:
             detail.append(("case_id", command.case_id))
+        if command.flag_id is not None:
+            detail.append(("flag_id", command.flag_id))
         return await self._report_capacity.execute(
             ReportCapacityCommand(
                 idempotency_key=command.idempotency_key,

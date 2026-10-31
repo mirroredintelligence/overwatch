@@ -4,6 +4,7 @@ import {
   CASE_BLANK,
   CASE_CLOSED,
   CASE_FULL,
+  BOOKING_SEARCH,
   CRITERIA_HISTORY,
   OPTIONS,
 } from '@/test/fixtures/backend-shapes';
@@ -44,6 +45,13 @@ export async function handleAdvisorRoute(request: IncomingMessage, response: Ser
   if (!isCase && !isTask && !isOther) return false;
   await drain(request);
 
+  // The real back end refuses a POST or PUT whose body type is not JSON before any route runs, body or not
+  // (BodyTypeMiddleware, 415): so does this one, so a page that sends none fails here too (WB4).
+  const bodyType = (request.headers['content-type'] ?? '').split(';', 1)[0]?.trim().toLowerCase();
+  if ((method === 'POST' || method === 'PUT') && bodyType !== 'application/json' && bodyType !== 'application/fhir+json') {
+    send(response, 415, outcome(415, 'unsupported'));
+    return true;
+  }
   if (writes && request.headers['idempotency-key'] === undefined) {
     send(response, 400, outcome(400, 'invalid'));
     return true;
@@ -72,6 +80,12 @@ export async function handleAdvisorRoute(request: IncomingMessage, response: Ser
   } else if (pathname === '/fhir/Task' && method === 'POST') {
     state.booking = BOOKINGS.requested;
     send(response, 201, BOOKINGS.requested, { Location: '/fhir/Task/bk-1' });
+  } else if (pathname === '/fhir/Task' && method === 'GET') {
+    // The search of a case's bookings (`?focus=`) and of the open alerts (`?alert=open`): the case's booking
+    // once there is one, and no open alert.
+    const query = new URL(request.url ?? '', 'http://stand-in.test').searchParams;
+    const entries = query.has('focus') && state.booking !== null ? [state.booking] : [];
+    send(response, 200, { ...BOOKING_SEARCH, total: entries.length, entry: entries.map((resource) => ({ resource })) });
   } else if (/^\/fhir\/Task\/[^/]+$/.test(pathname) && method === 'GET') {
     if (state.booking === null) send(response, 404, outcome(404, 'not-found'));
     else send(response, 200, state.booking);

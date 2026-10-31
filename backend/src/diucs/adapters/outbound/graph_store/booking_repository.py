@@ -18,9 +18,13 @@ from datetime import UTC, datetime
 from typing import Any, Final
 
 from diucs.adapters.fhir_shared.booking_task import (
+    _ACKNOWLEDGED_AT,
+    _ACKNOWLEDGED_BY,
     _CONFIRMED_AT,
     _OUTPUT_TYPE_SYSTEM,
+    _PHONE_PROMPT_AT,
     _REASON,
+    _REQUEST_MESSAGE,
     _TASK,
     BOOKING_REFERENCE_SYSTEM,
     booking_to_fhir,
@@ -101,12 +105,29 @@ _LATEST_FOR: Final = NamedQuery(
 _FOR_CASE: Final = NamedQuery(
     id="Q-BOOK-FOR-CASE",
     cypher=(
-        "MATCH (t:Task {tenantId: $tenant})-[:FOCUS]->(r:ServiceRequest {id: $case, "
-        "tenantId: $tenant}) WHERE t.reference IS NOT NULL "
+        "MATCH (t:Task {tenantId: $tenant})-[:FOCUS]->"
+        "(:ServiceRequest {id: $id, tenantId: $tenant}) "
+        "WHERE t.reference IS NOT NULL "
         "RETURN t.id AS id ORDER BY t.authoredOn DESC, t.id"
     ),
     mode="read",
     scenario=SCENARIOS["Q-BOOK-FOR-CASE"],
+)
+# The withdrawals and not-reached reports that no advisor has acknowledged: a Task in one of the two
+# states with no acknowledged-at output. The newest first, so the oldest alert is never the one cut
+# off by the limit.
+_UNACKNOWLEDGED: Final = NamedQuery(
+    id="Q-BOOK-UNACKNOWLEDGED",
+    cypher=(
+        "MATCH (t:Task {tenantId: $tenant}) "
+        "WHERE t.businessStatus IN ['withdrawn', 'not-reached'] AND t.reference IS NOT NULL "
+        "AND NOT EXISTS { "
+        "MATCH (t)-[:HAS_OUTPUT]->(o:Task_Output {tenantId: $tenant})-[:TYPE]->"
+        "(c:Concept {code: $code, system: $system, tenantId: $tenant}) } "
+        "RETURN t.id AS id ORDER BY t.authoredOn DESC, t.id"
+    ),
+    mode="read",
+    scenario=SCENARIOS["Q-BOOK-UNACKNOWLEDGED"],
 )
 _BY_REF: Final = NamedQuery(
     id="Q-BOOK-BY-REF",
@@ -138,9 +159,10 @@ for _query in (
     _PENDING,
     _OPEN_FOR,
     _LATEST_FOR,
+    _FOR_CASE,
+    _UNACKNOWLEDGED,
     _CONFIRMED_FOR,
     _CONFIRMED_FOR_SERVICES,
-    _FOR_CASE,
     _BY_REF,
     _SET_PROPS,
 ):
@@ -209,6 +231,10 @@ def booking_from_fhir(resource: dict[str, Any]) -> Booking:
     responded_at = _instant("executionPeriod.end", period["end"]) if "end" in period else None
     reason_entry = _output_value(resource, _REASON)
     confirmed_entry = _output_value(resource, _CONFIRMED_AT)
+    prompt_entry = _output_value(resource, _PHONE_PROMPT_AT)
+    message_entry = _output_value(resource, _REQUEST_MESSAGE)
+    acknowledged_entry = _output_value(resource, _ACKNOWLEDGED_AT)
+    acknowledged_by_entry = _output_value(resource, _ACKNOWLEDGED_BY)
     return Booking(
         id=str(resource["id"]),
         reference=references[0],
@@ -225,6 +251,20 @@ def booking_from_fhir(resource: dict[str, Any]) -> Booking:
         ),
         responded_at=responded_at,
         reason=reason_entry["valueString"] if reason_entry is not None else None,
+        phone_prompt_at=(
+            _instant("output.valueDateTime", prompt_entry["valueDateTime"])
+            if prompt_entry is not None
+            else None
+        ),
+        request_message_id=message_entry["valueString"] if message_entry is not None else None,
+        acknowledged_at=(
+            _instant("output.valueDateTime", acknowledged_entry["valueDateTime"])
+            if acknowledged_entry is not None
+            else None
+        ),
+        acknowledged_by=(
+            acknowledged_by_entry["valueString"] if acknowledged_by_entry is not None else None
+        ),
     )
 
 
@@ -283,15 +323,6 @@ class Neo4jBookingRepository:
                 grouped[str(row["serviceId"])].append(booking)
         return grouped
 
-    async def for_case(self, case_id: str) -> list[Booking]:
-        rows = await run_query(self._tx, REGISTRY.get("Q-BOOK-FOR-CASE"), case=case_id)
-        found: list[Booking] = []
-        for row in rows:
-            booking = await self.get(str(row["id"]))
-            if booking is not None:
-                found.append(booking)
-        return found
-
     async def latest_for_services(self, service_ids: Sequence[str]) -> list[Booking]:
         """The most recent booking of each of these services that has one (U22)."""
         if not service_ids:
@@ -303,6 +334,25 @@ class Neo4jBookingRepository:
             if booking is not None:
                 found.append(booking)
         return found
+
+    async def for_case(self, case_id: str) -> list[Booking]:
+        """The bookings of this case in any state, newest first (W8A-K1). A case that is another
+        tenant's, or unknown, has none."""
+        rows = await run_query(self._tx, REGISTRY.get("Q-BOOK-FOR-CASE"), id=case_id)
+        found = [await self.get(str(row["id"])) for row in rows]
+        return [booking for booking in found if booking is not None]
+
+    async def unacknowledged_exceptions(self) -> list[Booking]:
+        """The withdrawn and not-reached bookings that no advisor has acknowledged, newest first
+        (H-496)."""
+        rows = await run_query(
+            self._tx,
+            REGISTRY.get("Q-BOOK-UNACKNOWLEDGED"),
+            code=_ACKNOWLEDGED_AT,
+            system=_OUTPUT_TYPE_SYSTEM,
+        )
+        found = [await self.get(str(row["id"])) for row in rows]
+        return [booking for booking in found if booking is not None]
 
     async def confirmed_since(self, service_id: str, since: datetime) -> list[datetime]:
         rows = await run_query(self._tx, REGISTRY.get("Q-BOOK-CONFIRMED-SINCE"), id=service_id)

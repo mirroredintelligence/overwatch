@@ -139,8 +139,12 @@ class BookingRepository(Protocol):
         ...
 
     async def for_case(self, case_id: str) -> list[Booking]:
-        """Every booking made for this case, in any state, the most recently requested first
-        (Q-BOOK-FOR-CASE, H-322)."""
+        """The bookings of this case in any state, newest first (W8A-K1, Q-BOOK-FOR-CASE)."""
+        ...
+
+    async def unacknowledged_exceptions(self) -> list[Booking]:
+        """The withdrawn and not-reached bookings no advisor has acknowledged, newest first
+        (H-496, Q-BOOK-UNACKNOWLEDGED)."""
         ...
 
     async def latest_for_services(self, service_ids: Sequence[str]) -> list[Booking]:

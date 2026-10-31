@@ -165,9 +165,19 @@ def test_naive_last_report_is_rejected() -> None:
         assess_freshness(UCR_WEST, datetime(2026, 10, 23, 13, 3), utc(2026, 10, 23, 13, 12))
 
 
-def test_report_after_now_is_rejected() -> None:
-    with pytest.raises(ValueError):
-        assess_freshness(UCR_WEST, utc(2026, 10, 23, 13, 13), utc(2026, 10, 23, 13, 12))
+def test_a_report_dated_after_now_is_read_as_just_now_and_does_not_raise() -> None:
+    # KI-31: a report written by a host whose clock runs ahead of the reader's carries a time after
+    # the reader's now. It is a current figure, not an error: age zero, nothing overdue, no warning.
+    result = assess_freshness(UCR_WEST, utc(2026, 10, 23, 13, 13), utc(2026, 10, 23, 13, 12))
+
+    assert result == Freshness(overdue=False, age=timedelta(0), stale_warning=False, was_due=None)
+
+
+def test_a_report_a_day_ahead_is_still_just_now() -> None:
+    result = assess_freshness(UCR_WEST, utc(2026, 10, 24, 13, 12), utc(2026, 10, 23, 13, 12))
+
+    assert result.age == timedelta(0)
+    assert result.overdue is False and result.stale_warning is False
 
 
 @pytest.mark.parametrize(

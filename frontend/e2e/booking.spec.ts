@@ -55,6 +55,18 @@ test.describe('booking request at phone width (390 CSS px)', () => {
   });
 });
 
+test.describe('a booking page opened after it closed (KI-169, KI-649, H-486)', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('says its reference, when it closed and the coordination number to phone', async ({ page }) => {
+    await page.goto(`/l/${LINK.bookingExpired}/booking`);
+    await expect(page.getByText('Reference 4821. Closed at 14:26.')).toBeVisible();
+    await expect(page.getByRole('link', { name: '0300 123 4567' })).toHaveAttribute('href', 'tel:0300 123 4567');
+    await noHorizontalScroll(page);
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  });
+});
+
 test.describe('booking change at phone width (390 CSS px)', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 

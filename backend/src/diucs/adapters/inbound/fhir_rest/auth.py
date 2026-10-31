@@ -294,11 +294,31 @@ class ProjectionRegistry:
         return _with_redacted_label(projected)
 
 
+# Outputs of a booking that are the SPOA's own records: the id of the message that asked the
+# service, its delivery state, and who acknowledged a withdrawal and when (WB4).
+_SPOA_OUTPUTS: Final = frozenset(
+    {"request-message", "request-delivery", "acknowledged-by", "acknowledged-at"}
+)
+
+
 def _reporter_task(task: Task) -> Task:
-    # The case a booking refers to (focus) and the patient (for) are not a reporter's to see.
-    # The rule covers every Task, not only bookings: P02 writes no Task.code, so a booking cannot
-    # be told apart by code, and failing closed is the safer reading (DEC-098 item 2).
-    return task.model_copy(update={"focus": None, "for_fhir": None})
+    # The case a booking refers to (focus) and the patient (for) are not a reporter's to see, nor
+    # are the SPOA's own records on it. The rule covers every Task, not only bookings: P02 writes no
+    # Task.code, so a booking cannot be told apart by code, and failing closed is the safer reading
+    # (DEC-098 item 2).
+    update: dict[str, Any] = {"focus": None, "for_fhir": None}
+    if task.output:
+        kept = [
+            entry
+            for entry in task.output
+            if not (
+                entry.type is not None
+                and entry.type.coding
+                and entry.type.coding[0].code in _SPOA_OUTPUTS
+            )
+        ]
+        update["output"] = kept or None
+    return task.model_copy(update=update)
 
 
 PROJECTIONS: Final = ProjectionRegistry()

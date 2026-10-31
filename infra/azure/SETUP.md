@@ -183,6 +183,10 @@ done
 
 ## 7. Redis (Azure Managed Redis)
 
+Pilot tier: `Balanced_B0`, the smallest Azure Managed Redis SKU. The Enterprise and Enterprise Flash tiers are not used,
+and no classic Azure Cache for Redis (Basic or Standard) is used: Microsoft has blocked creating new classic caches for
+existing customers from 1 October 2026 and retires them on 30 September 2028, so classic is not a choice here.
+
 ```bash
 az redisenterprise create -g "$RG" -n "$REDIS" --location "$LOC" --sku Balanced_B0 --clustering-policy EnterpriseCluster --public-network-access Disabled
 ```

@@ -81,6 +81,8 @@ CLASS_OF_LABEL: Final[Mapping[str, ExportClass]] = MappingProxyType(
         "ElementUsageDaily": _C.TELEMETRY,
         "FrictionDaily": _C.TELEMETRY,
         "FunnelDaily": _C.TELEMETRY,
+        "MeasureDaily": _C.TELEMETRY,
+        "ReleaseDaily": _C.TELEMETRY,
         "QueryStatDaily": _C.TELEMETRY,
         "RouteDaily": _C.TELEMETRY,
         "SupportTicket": _C.SUPPORT,
@@ -104,6 +106,7 @@ EXCLUDED_LABELS: Final = frozenset(
         "LinkToken",  # token hashes
         "UiSession",
         "SupportCode",
+        "TallySeen",  # keyed session markers of the insight counters: bookkeeping
         "SupportAccess",
         "IdempotencyRecord",
         "IdempotencyValue",

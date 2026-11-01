@@ -20,6 +20,7 @@ from types import TracebackType
 from typing import Protocol, Self
 
 from overwatch.application.idempotency import IdempotencyStore
+from overwatch.application.ports.outbound.admin_consent import AdminConsentRepository
 from overwatch.application.ports.outbound.aggregates import AggregateRepository
 from overwatch.application.ports.outbound.audit import AuditLog
 from overwatch.application.ports.outbound.consent import NotificationConsentStore
@@ -94,6 +95,7 @@ class UnitOfWork(Protocol):
     insight: InsightRepository
     support_tickets: SupportTicketRepository
     tenant_config: TenantConfigRepository
+    admin_consents: AdminConsentRepository
     visits: VisitRepository
 
     @property

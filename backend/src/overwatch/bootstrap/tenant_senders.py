@@ -22,6 +22,7 @@ ChannelUnavailable, whose text names the tenant id and the channel only. No numb
 secret is ever in an error or a log. A missing bound tenant is a TenancyError, never a default.
 """
 
+from dataclasses import dataclass
 from typing import Final
 
 import httpx
@@ -46,8 +47,21 @@ from overwatch.domain.errors import NotFound, ValidationFailed
 from overwatch.domain.model.tenant import NumberStatus
 from overwatch.domain.model.tenant_records import ChannelKind, ChannelProvider, TenantChannel
 
+PLATFORM_EMAIL_TOKEN_SECRET: Final = "platform-twilio-auth-token"
+"""The platform's own Twilio auth token, a platform secret (not a tenant's reference)."""
+
 TEXT_CHANNEL: Final = "text"
 EMAIL_CHANNEL: Final = "email"
+
+
+@dataclass(frozen=True, slots=True)
+class PlatformEmailIdentity:
+    """The platform's own Twilio account and sender for email from the platform to a tenant's
+    administrator (DEC-1316). The auth token is the secret `PLATFORM_EMAIL_TOKEN_SECRET`."""
+
+    account_sid: str
+    from_address: str
+    display_name: str | None = "Overwatch"
 
 
 def smtp_relay_from(settings: Settings) -> SmtpRelay:
@@ -74,12 +88,40 @@ class TenantSenderResolver:
         http: httpx.AsyncClient,
         status_url: str,
         smtp_relay: SmtpRelay | None = None,
+        platform_email: PlatformEmailIdentity | None = None,
     ) -> None:
         self._directory = directory
         self._secrets = secrets
         self._http = http
         self._status_url = status_url
         self._smtp_relay = smtp_relay
+        self._platform_email = platform_email
+
+    async def admin_email_for(self, channel: TenantChannel | None) -> EmailSender:
+        """One rule for every platform-admin email (DEC-1316): the tenant's own email sender when
+        it has a usable one, otherwise the platform's Twilio. Only this method falls back; a
+        tenant's own messages use `email_for` and fail closed."""
+        try:
+            return await self.email_for(channel)
+        except ChannelUnavailable:
+            return self._platform_sender()
+
+    def _platform_sender(self) -> EmailSender:
+        unavailable = ChannelUnavailable("no platform email sender")
+        identity = self._platform_email
+        if identity is None:
+            raise unavailable
+        token = self._secret_text(PLATFORM_EMAIL_TOKEN_SECRET, unavailable)
+        try:
+            return TwilioEmail(
+                self._http,
+                identity.account_sid,
+                token,
+                identity.from_address,
+                identity.display_name,
+            )
+        except ValueError:
+            raise unavailable from None
 
     async def sms_for(self) -> SmsSender:
         tenant = current_tenant()

@@ -37,6 +37,7 @@ from overwatch.application.platform_services import (
     TenantAdminServices,
 )
 from overwatch.application.ports.outbound.platform_audit import PlatformAuditRecord
+from overwatch.application.use_cases.admin_consent import AdminConsentView
 from overwatch.application.use_cases.platform_tenants import ListPlatformTenants, ReadPlatformTenant
 from overwatch.application.use_cases.tenant_admin import (
     ActivateTenant,
@@ -52,6 +53,7 @@ from overwatch.application.use_cases.tenant_suspend import SuspendTenant
 from overwatch.domain.codes import Role
 from overwatch.domain.model.tenant import TenantStatus
 from overwatch.domain.rules import bff_token
+from overwatch.domain.rules.admin_consent import EffectiveStatus
 from overwatch.domain.rules.bff_token import OperatorClaims, encode_operator_token
 from tests.support.provisioning_fakes import (
     NOW,
@@ -185,7 +187,18 @@ def build(*, with_services: bool = True) -> Rigs:
         clock,
         lambda scope: frozenset({"DT4"}),
     )
+    consent_view = AdminConsentView(
+        invite_id="inv-1",
+        email_masked="j***@example.org",
+        status=EffectiveStatus.PENDING,
+        created_at=NOW,
+        expires_at=NOW + timedelta(days=7),
+        consented_at=None,
+        reason=None,
+    )
     stubs = SimpleNamespace(
+        consent_invite=Recording(consent_view),
+        consent_read=Recording(consent_view),
         invite=Recording(
             SimpleNamespace(expires_at=NOW + timedelta(hours=48), communication_id="c-1")
         ),
@@ -235,6 +248,8 @@ def build(*, with_services: bool = True) -> Rigs:
         references=RecordTenantReferences(fake, fake, world.factory(), clock),  # type: ignore[arg-type]
         directory=VerifyEntraBinding(fake, fake, world.factory(), clock),  # type: ignore[arg-type]
         invite=stubs.invite,  # type: ignore[arg-type]
+        consent_invite=stubs.consent_invite,  # type: ignore[arg-type]
+        consent_read=stubs.consent_read,  # type: ignore[arg-type]
         activate=activate,
         suspend=SuspendTenant(fake, fake, world.factory(), clock, (told.append,)),  # type: ignore[arg-type]
         resume=stubs.resume,  # type: ignore[arg-type]

@@ -108,6 +108,7 @@ def create_app(
     # Imported here: the route modules depend on auth, which imports this module (DEC-111).
     from overwatch.adapters.inbound.fhir_rest import (
         routes_admin,
+        routes_admin_consent,
         routes_alerts,
         routes_auth,
         routes_board,
@@ -172,6 +173,9 @@ def create_app(
     app.include_router(routes_reporter.router)
     # The public tenant profile (TEN-040): no token, the tenant is the request host.
     app.include_router(routes_public.router)
+    # The return of an Entra administrator from the consent page (DEC-1316): public, the tenant
+    # is named by the state and checked by the invite's hash inside it.
+    app.include_router(routes_admin_consent.router)
     # The token exchange (TEN-043): the back end issues the tenant-bound token.
     app.include_router(routes_auth.router)
     # Shift lead set-up and number changes (R08): FHIR operations over the U15 and U16 use cases.

@@ -152,9 +152,20 @@ class FixedSenderResolver:
         self,
         sms: Mapping[str, SmsSender] | None = None,
         email: Mapping[str, EmailSender] | None = None,
+        platform_email: EmailSender | None = None,
     ) -> None:
         self._sms = dict(sms or {})
         self._email = dict(email or {})
+        self._platform_email = platform_email
+
+    async def admin_email_for(self, channel: TenantChannel | None = None) -> EmailSender:
+        """The tenant's own sender, else the platform's (DEC-1316)."""
+        try:
+            return await self.email_for(channel)
+        except ChannelUnavailable:
+            if self._platform_email is None:
+                raise
+            return self._platform_email
 
     async def sms_for(self) -> SmsSender:
         tenant = current_tenant()

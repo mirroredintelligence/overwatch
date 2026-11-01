@@ -92,6 +92,7 @@ from overwatch.application.ports.outbound.tenants import normalise_directory_id
 from overwatch.application.ports.outbound.tokens import SecretStore, SecretStoreUnavailable
 from overwatch.application.tenant_resolution import DirectoryInboundLines
 from overwatch.application.use_cases.exchange_token import ACCOUNT_REF_SECRET, SIGNING_SECRET
+from overwatch.bootstrap.admin_consent import install_admin_consent
 from overwatch.bootstrap.container import (
     Container,
     NoGeocoder,
@@ -390,9 +391,11 @@ def build_api(
     app.state.network_services = build_network_services(container)
     app.state.network_admin = build_network_admin_services(container)
     install_platform_routes(app, container)
+    consent_http = httpx.AsyncClient()
+    install_admin_consent(app, container, settings, consent_http)
     app.router.lifespan_context = serving_lifespan(
         container,
-        parts.closers,
+        (*parts.closers, consent_http.aclose),
         lambda: [
             *startup_warnings(settings, container, parts),
             *optional_secret_warnings(parts.secrets),

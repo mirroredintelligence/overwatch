@@ -29,3 +29,10 @@ class SenderResolver(Protocol):
         """The email sender of the bound tenant, from the tenant's active email channel record (the
         caller reads it in its own unit of work). Raises ChannelUnavailable when there is none."""
         ...
+
+    async def admin_email_for(self, channel: TenantChannel | None) -> EmailSender:
+        """The email sender for a message from the platform to a tenant's administrator (DEC-1316):
+        the tenant's own email sender when it has a usable one, otherwise the platform's. One rule
+        for every platform-admin email. A tenant message (a prompt, a booking) never uses this: it
+        stays fail closed on `email_for`. Raises ChannelUnavailable when neither exists."""
+        ...

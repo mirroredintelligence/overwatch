@@ -106,6 +106,7 @@ EXCLUDED_LABELS: Final = frozenset(
         "Credential",  # PIN hashes and the like
         "Device",  # device tokens
         "LinkToken",  # token hashes
+        "AdminConsentInvite",  # state and address hashes (DEC-1316): bookkeeping, no one's record
         "UiSession",
         "SupportCode",
         "TallySeen",  # keyed session markers of the insight counters: bookkeeping

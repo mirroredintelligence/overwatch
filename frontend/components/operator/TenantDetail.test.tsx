@@ -188,6 +188,72 @@ describe('provisioning', () => {
   });
 });
 
+describe('administrator consent (DEC-1316)', () => {
+  const invitation = (status: string, extra: Record<string, unknown> = {}) => ({
+    invitation: { emailMasked: 'j***@example-trust.test', status, createdAt: '2026-11-01T09:00:00Z', expiresAt: '2026-11-08T09:00:00Z', consentedAt: null, reason: null, ...extra },
+  });
+  const serveConsent = (body: unknown) => server.use(http.get('/api/bff/platform/tenants/:id/admin-consent', () => HttpResponse.json(body as Record<string, unknown>)));
+
+  it('says no invitation has been sent, and emails the administrator on a valid address', async () => {
+    const user = await open();
+    const card = screen.getByRole('region', { name: 'Administrator consent' });
+    expect(await within(card).findByText('No invitation has been sent.')).toBeInTheDocument();
+    await user.type(within(card).getByLabelText('Administrator’s work email'), 'jane.admin@example-trust.test');
+    await user.click(within(card).getByRole('button', { name: 'Send consent invitation' }));
+    await waitFor(() => expect(seenOperatorWrites).toHaveLength(1));
+    expect(lastWrite()).toMatchObject({ path: '/api/bff/platform/tenants/trust-b/admin-consent-invitation', body: { email: 'jane.admin@example-trust.test' } });
+    expect(await within(card).findByRole('status')).toHaveTextContent('Invitation emailed. It stays valid for 7 days. The address is not shown again.');
+    expect(within(card).getByLabelText('Administrator’s work email')).toHaveValue('');
+    expect(document.body.textContent ?? '').not.toContain('jane.admin@example-trust.test');
+  });
+
+  it('refuses something that is not an email address before any call', async () => {
+    const user = await open();
+    const card = screen.getByRole('region', { name: 'Administrator consent' });
+    await user.type(await within(card).findByLabelText('Administrator’s work email'), 'not an address');
+    await user.click(within(card).getByRole('button', { name: 'Send consent invitation' }));
+    expect(await within(card).findByText('Enter the administrator’s work email address, for example name@organisation.nhs.uk.', { selector: 'p' })).toBeInTheDocument();
+    expect(seenOperatorWrites).toEqual([]);
+  });
+
+  it('shows the masked address and a pending invitation, with the reason and a way to send again', async () => {
+    serveConsent(invitation('pending', { reason: 'Overwatch is not installed in your directory yet.' }));
+    await open();
+    const card = screen.getByRole('region', { name: 'Administrator consent' });
+    expect(await within(card).findByText('j***@example-trust.test')).toBeInTheDocument();
+    expect(within(card).getByText('Waiting for approval')).toBeInTheDocument();
+    expect(within(card).getByText('Overwatch is not installed in your directory yet.')).toBeInTheDocument();
+    expect(within(card).getByRole('button', { name: 'Send again' })).toBeInTheDocument();
+  });
+
+  it.each([
+    ['consented', 'Approved', { consentedAt: '2026-11-02T10:00:00Z' }],
+    ['expired', 'Expired', {}],
+    ['revoked', 'Replaced by a newer invitation', {}],
+  ])('says %s in words', async (status, word, extra) => {
+    serveConsent(invitation(status, extra));
+    await open();
+    const card = screen.getByRole('region', { name: 'Administrator consent' });
+    expect(await within(card).findByText(word as string, { selector: 'dd' })).toBeInTheDocument();
+  });
+
+  it('does not offer the form until a directory is set', async () => {
+    await open({ ...VIEW_DETAIL_PROVISIONING, bindings: [] });
+    const card = screen.getByRole('region', { name: 'Administrator consent' });
+    expect(await within(card).findByText('Set the directory first. The consent link is for that directory.')).toBeInTheDocument();
+    expect(within(card).queryByRole('button', { name: /Send/ })).not.toBeInTheDocument();
+  });
+
+  it('says it could not be sent, without the address, when the back end refuses', async () => {
+    server.use(http.post('/api/bff/platform/tenants/:id/admin-consent-invitation', () => HttpResponse.json({ code: 'conflict' }, { status: 409 })));
+    const user = await open();
+    const card = screen.getByRole('region', { name: 'Administrator consent' });
+    await user.type(await within(card).findByLabelText('Administrator’s work email'), 'jane.admin@example-trust.test');
+    await user.click(within(card).getByRole('button', { name: 'Send consent invitation' }));
+    expect(await within(card).findByRole('alert')).toHaveTextContent('The invitation could not be sent. Set the directory first, and check that an email sender is available.');
+  });
+});
+
 describe('activation', () => {
   it('offers to activate a tenant that is ready, asks first, and says it is active', async () => {
     const user = await open(VIEW_DETAIL_READY);

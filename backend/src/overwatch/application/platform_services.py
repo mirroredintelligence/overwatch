@@ -26,6 +26,7 @@ from overwatch.application.ports.outbound.platform_audit import (
     PlatformAuditEntry,
     PlatformAuditReader,
 )
+from overwatch.application.use_cases.admin_consent import InviteAdminConsent, ReadAdminConsent
 from overwatch.application.use_cases.cross_tenant_tickets import (
     ApproveSupportTicket,
     CancelSupportTicket,
@@ -143,6 +144,8 @@ class PlatformServices:
     recorder: PlatformRecorder
     audit_reader: PlatformAuditReader
     tickets: SupportTicketServices
+    consent_invite: InviteAdminConsent | None = None
+    consent_read: ReadAdminConsent | None = None
 
 
 @dataclass(frozen=True, slots=True)

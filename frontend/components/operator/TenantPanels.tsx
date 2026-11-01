@@ -4,8 +4,8 @@ import { useState, type FormEvent } from 'react';
 import { TextField } from '@/components/forms/TextField';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { operatorSend } from '@/lib/operator/browser';
-import type { parseTenantDetail } from '@/lib/operator/views';
+import { operatorSend, useOperatorRead } from '@/lib/operator/browser';
+import type { parseConsent, parseTenantDetail } from '@/lib/operator/views';
 import { isUkMobile } from '@/lib/forms/ukMobile';
 import { MAPPABLE_ROLE_WORDS } from '@/lib/tenantAdmin/roles';
 import { useSubmitKey } from '@/lib/tenantAdmin/browser';
@@ -335,6 +335,93 @@ export function InvitationPanel(props: PanelProps) {
           </Button>
         </div>
       </form>
+    </Card>
+  );
+}
+
+type Consent = ReturnType<typeof parseConsent>;
+const CONSENT_WORD: Record<string, string> = { pending: 'Waiting for approval', consented: 'Approved', expired: 'Expired', revoked: 'Replaced by a newer invitation' };
+const WORK_EMAIL = /^[A-Za-z0-9._%+'-]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$/;
+
+/**
+ * Step 1 of admin consent (DEC-1316): the operator names the organisation's Entra administrator, who is emailed a
+ * link. The page shows only the masked address and where the invitation stands; the address is never shown or kept
+ * in the clear. "Approved" is only ever what the back end confirmed through Microsoft Graph in their directory.
+ */
+export function ConsentPanel(props: PanelProps) {
+  const { state, reload } = useOperatorRead<Consent>(`/api/bff/platform/tenants/${props.tenantId}/admin-consent`);
+  const [email, setEmail] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const write = useWrite(props.tenantId, props);
+  const hasDirectory = props.detail.bindings.some((b) => b.status !== 'revoked');
+  const invitation = state.status === 'ok' ? state.data.invitation : null;
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const address = email.trim();
+    if (!WORK_EMAIL.test(address) || address.includes('..')) {
+      setError('Enter the administrator’s work email address, for example name@organisation.nhs.uk.');
+      return;
+    }
+    setError(null);
+    void write
+      .run(
+        'POST',
+        'admin-consent-invitation',
+        { email: address },
+        () => 'Invitation emailed. It stays valid for 7 days. The address is not shown again.',
+        (status) => (status === 403 || status === 404 || status === 409 ? 'The invitation could not be sent. Set the directory first, and check that an email sender is available.' : 'The invitation could not be sent. Try again.'),
+      )
+      .then((ok) => {
+        if (ok) {
+          setEmail('');
+          reload();
+        }
+      });
+  }
+  return (
+    <Card heading="Administrator consent">
+      <p className={styles.text}>
+        The organisation’s Microsoft Entra administrator is emailed a link to approve Overwatch in their own directory. It is marked approved only once Overwatch can be seen installed there.
+      </p>
+      {state.status === 'loading' ? <p className={styles.muted}>Loading the invitation.</p> : null}
+      {state.status === 'failed' ? (
+        <p role="alert" className={styles.problem}>
+          We could not load the invitation.
+        </p>
+      ) : null}
+      {invitation === null ? (
+        state.status === 'ok' ? <p className={styles.text}>No invitation has been sent.</p> : null
+      ) : (
+        <dl className={styles.facts} aria-label="Latest invitation">
+          <dt>Sent to</dt>
+          <dd>{invitation.emailMasked}</dd>
+          <dt>State</dt>
+          <dd>{CONSENT_WORD[invitation.status] ?? invitation.status}</dd>
+          <dt>Sent</dt>
+          <dd>{whenText(invitation.createdAt)}</dd>
+          <dt>{invitation.status === 'consented' ? 'Approved' : 'Ends'}</dt>
+          <dd>{whenText(invitation.status === 'consented' ? invitation.consentedAt : invitation.expiresAt)}</dd>
+          {invitation.status === 'pending' && invitation.reason !== null ? (
+            <>
+              <dt>Not yet</dt>
+              <dd>{invitation.reason}</dd>
+            </>
+          ) : null}
+        </dl>
+      )}
+      {hasDirectory ? (
+        <form className={styles.stack} onSubmit={submit} noValidate aria-label="Invite the Entra administrator">
+          <TextField id="consent-email" label="Administrator’s work email" value={email} onChange={(v) => { write.fresh(); setEmail(v); }} requirement="none" inputMode="email" autoComplete="off" error={error} />
+          <Said say={write.say} />
+          <div className={styles.actions}>
+            <Button variant="secondary" type="submit" busy={write.busy}>
+              {invitation === null ? 'Send consent invitation' : 'Send again'}
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <p className={styles.text}>Set the directory first. The consent link is for that directory.</p>
+      )}
     </Card>
   );
 }

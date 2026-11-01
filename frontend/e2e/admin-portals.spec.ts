@@ -96,6 +96,19 @@ test.describe('the platform console', () => {
     await expect(directory.getByText('Directory verified.')).toBeVisible();
     await expect(directory.getByText('Verified', { exact: true }).first()).toBeVisible();
     await expect(directory.getByRole('button', { name: 'Verify this directory' })).toHaveCount(0);
+
+    // Admin consent, step 1 (DEC-1316): the Entra administrator is named and emailed; the page shows only the
+    // masked address and that the invitation is waiting (it is approved only once the back end sees the app installed).
+    const consent = page.getByRole('region', { name: 'Administrator consent' });
+    await expect(consent.getByText('No invitation has been sent.')).toBeVisible();
+    await consent.getByLabel('Administrator’s work email').fill('jane.admin@example-trust.test');
+    await consent.getByRole('button', { name: 'Send consent invitation' }).click();
+    await expect(consent.getByText('Invitation emailed.')).toBeVisible();
+    await expect(consent.getByText('j***@example-trust.test')).toBeVisible();
+    await expect(consent.getByText('Waiting for approval')).toBeVisible();
+    await expect(consent.getByRole('button', { name: 'Send again' })).toBeVisible();
+    await expect(page.locator('body')).not.toContainText('jane.admin@example-trust.test');
+    expect(await axe(page)).toEqual([]);
   });
 
   test('refuses a directory id that is not a directory id, in words, and creates nothing', async ({ page }) => {

@@ -102,6 +102,11 @@ class Settings(BaseSettings):
     # for the Entra verifier; without them every sign-in is refused (RefusingIdentityVerifier).
     entra_staff_client_id: str | None = None
     entra_operator_client_id: str | None = None
+    # DEC-1316: the platform's own email identity for a message to a tenant's administrator that
+    # the tenant cannot send yet (the Twilio account SID is an identifier, not a secret; its auth
+    # token is the secret `platform-twilio-auth-token`). Unset: no platform fallback.
+    platform_twilio_account_sid: str | None = None
+    platform_email_from: str = "noreply@mirroredintelligence.com"
     # B8 (DEC-1304): where the platform's secrets come from. With `key_vault_url` set (a URL, not a
     # secret) the process reads them from Azure Key Vault through its managed identity
     # (`AZURE_CLIENT_ID` picks the identity): the Neo4j password, the Redis URL and the Service Bus

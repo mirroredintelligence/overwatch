@@ -15,6 +15,9 @@ from overwatch.adapters.outbound.graph_store.migrations import (
     MIGRATIONS,
     assemble_migrations,
 )
+from overwatch.adapters.outbound.graph_store.migrations_admin_consent import (
+    ADMIN_CONSENT_MIGRATIONS,
+)
 from overwatch.adapters.outbound.graph_store.migrations_contract import CONTRACT_MIGRATIONS
 from overwatch.adapters.outbound.graph_store.migrations_insight import INSIGHT_MIGRATIONS
 from overwatch.adapters.outbound.graph_store.migrations_network import NETWORK_MIGRATIONS
@@ -191,6 +194,7 @@ def test_the_assembled_list_is_the_core_the_tenant_and_the_network_lists_togethe
         + len(PLATFORM_MIGRATIONS)
         + len(INSIGHT_MIGRATIONS)
         + len(VISIT_MIGRATIONS)
+        + len(ADMIN_CONSENT_MIGRATIONS)
     )
     assert {m.id for m in MIGRATIONS} == (
         {m.id for m in CORE_MIGRATIONS}
@@ -204,6 +208,7 @@ def test_the_assembled_list_is_the_core_the_tenant_and_the_network_lists_togethe
         | {m.id for m in PLATFORM_MIGRATIONS}
         | {m.id for m in INSIGHT_MIGRATIONS}
         | {m.id for m in VISIT_MIGRATIONS}
+        | {m.id for m in ADMIN_CONSENT_MIGRATIONS}
     )
 
 

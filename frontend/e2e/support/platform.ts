@@ -27,6 +27,7 @@ type Tenant = {
   bindings: Binding[];
   roleMappings: Mapping[];
   directoryId: string | null;
+  invitation?: { emailMasked: string; createdAt: string; expiresAt: string };
 };
 
 const stores = new Map<string, Map<string, Tenant>>();
@@ -114,11 +115,32 @@ export async function handlePlatformRoute(request: IncomingMessage, response: Se
     send(response, 200, { tenants: support ? all.map(({ id, displayName, status }) => ({ id, displayName, status })) : all.map(listed) });
     return true;
   }
-  const one = /^\/platform\/tenants\/([a-z0-9][a-z0-9-]{0,30})(\/directory\/verification)?$/.exec(pathname);
+  const one = /^\/platform\/tenants\/([a-z0-9][a-z0-9-]{0,30})(\/directory\/verification|\/admin-consent|\/admin-consent-invitation)?$/.exec(pathname);
   if (one === null) return false;
   const id = one[1]!;
   if (support) {
     send(response, 404, NOT_FOUND);
+    return true;
+  }
+
+  // The admin consent invitation (DEC-1316): the stand-in keeps the masked address only, as the real route does.
+  if (one[2] === '/admin-consent' && get) {
+    const found = store.get(id);
+    const invite = found?.invitation;
+    send(response, found === undefined ? 404 : 200, found === undefined ? NOT_FOUND : { invitation: invite === undefined ? null : { inviteId: 'inv-e2e', status: 'pending', consentedAt: null, reason: null, ...invite } });
+    return true;
+  }
+  if (one[2] === '/admin-consent-invitation' && request.method === 'POST') {
+    const body = await bodyOf(request);
+    const found = store.get(id);
+    const email = typeof body.email === 'string' ? /^([^@\s])[^@\s]*@([^@\s]+)$/.exec(body.email) : null;
+    if (found === undefined || email === null) {
+      send(response, found === undefined ? 404 : 422, found === undefined ? NOT_FOUND : { resourceType: 'OperationOutcome', issue: [{ severity: 'error', code: 'invalid' }] });
+      return true;
+    }
+    const now = Date.now();
+    found.invitation = { emailMasked: `${email[1]}***@${email[2]}`, createdAt: new Date(now).toISOString(), expiresAt: new Date(now + 7 * 86_400_000).toISOString() };
+    send(response, 201, { invitation: { inviteId: 'inv-e2e', status: 'pending', consentedAt: null, reason: null, ...found.invitation }, recorded: true });
     return true;
   }
 

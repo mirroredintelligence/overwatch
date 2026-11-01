@@ -28,6 +28,9 @@ from neo4j import AsyncDriver, AsyncSession, AsyncTransaction
 
 from overwatch.adapters.outbound.audit_neo4j.audit_log import Neo4jAuditLog
 from overwatch.adapters.outbound.audit_neo4j.outbox import Neo4jOutbox
+from overwatch.adapters.outbound.graph_store.admin_consent_repository import (
+    Neo4jAdminConsentRepository,
+)
 from overwatch.adapters.outbound.graph_store.aggregate_repository import Neo4jAggregateRepository
 from overwatch.adapters.outbound.graph_store.alert_repository import (
     Neo4jAlertRepository,
@@ -94,6 +97,7 @@ from overwatch.adapters.outbound.graph_store.tenant_config_repository import (
 )
 from overwatch.adapters.outbound.graph_store.visit_repository import Neo4jVisitRepository
 from overwatch.application.idempotency import IdempotencyStore
+from overwatch.application.ports.outbound.admin_consent import AdminConsentRepository
 from overwatch.application.ports.outbound.aggregates import AggregateRepository
 from overwatch.application.ports.outbound.audit import AuditLog
 from overwatch.application.ports.outbound.clock import Clock
@@ -177,6 +181,7 @@ DEFAULT_FACTORIES: dict[str, RepositoryFactory] = {
     "insight": lambda tx, store: Neo4jInsightRepository(tx),
     "support_tickets": lambda tx, store: Neo4jSupportTicketRepository(tx),
     "tenant_config": lambda tx, store: Neo4jTenantConfigRepository(tx),
+    "admin_consents": lambda tx, store: Neo4jAdminConsentRepository(tx),
     "visits": lambda tx, store: Neo4jVisitRepository(tx),
     # The network scope's writer and reader (TEN-053). They sit in the same mapping because a unit
     # of work is the same class in either kind of scope; their statements are network-only, so a
@@ -253,6 +258,7 @@ class Neo4jUnitOfWork:
     insight: InsightRepository
     support_tickets: SupportTicketRepository
     tenant_config: TenantConfigRepository
+    admin_consents: AdminConsentRepository
     visits: VisitRepository
     projections: ProjectionWriter
     network_view: NetworkView

@@ -124,6 +124,18 @@ export function invitationBody(raw: unknown): Obj {
   return { mobile };
 }
 
+// One plain address: no display name, no comment, no quoting (the back end checks again, DEC-1316).
+const WORK_EMAIL = /^[A-Za-z0-9._%+'-]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$/;
+
+/** The Entra administrator's work email address, for the admin consent invitation (DEC-1316). */
+export function consentInvitationBody(raw: unknown): Obj {
+  const body = asObject(raw);
+  only(body, ['email']);
+  const email = text(body.email, 3, 254).trim();
+  if (!WORK_EMAIL.test(email) || email.includes('..')) throw invalidRequest();
+  return { email };
+}
+
 export function suspensionBody(raw: unknown): Obj {
   const body = asObject(raw);
   only(body, ['mode', 'reason']);

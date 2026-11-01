@@ -23,6 +23,8 @@ from overwatch.application.ports.outbound.tenants import (
 from overwatch.application.tenancy import TenancyError, bind_tenant
 from overwatch.bootstrap.settings import Settings
 from overwatch.bootstrap.tenant_senders import (
+    PLATFORM_EMAIL_TOKEN_SECRET,
+    PlatformEmailIdentity,
     TenantSenderResolver,
     smtp_relay_from,
     status_callback_url,
@@ -517,3 +519,99 @@ async def test_a_legacy_smtp_channel_still_resolves_to_the_smtp_sender() -> None
         sender = await resolver.email_for(_channel())
 
     assert isinstance(sender, SmtpEmail)
+
+
+# DEC-1316: one rule for every platform-admin email. The tenant's own sender when it has one,
+# otherwise the platform's Twilio. A tenant's own messages (`email_for`) never fall back.
+
+PLATFORM_SID = "AC" + "9" * 32
+PLATFORM_TOKEN = b"platform-token-for-the-example-account-01"
+PLATFORM = PlatformEmailIdentity(PLATFORM_SID, "noreply@mirroredintelligence.com")
+
+
+def _admin_resolver(
+    seen: list[httpx.Request],
+    *,
+    directory: _Directory | None = None,
+    platform: PlatformEmailIdentity | None = PLATFORM,
+    secrets: FixedSecretStore | None = None,
+) -> Any:
+    store = secrets or FixedSecretStore(
+        {twilio_token_ref(SAMPLE_ID): TOKEN, PLATFORM_EMAIL_TOKEN_SECRET: PLATFORM_TOKEN}
+    )
+
+    def accept(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(202, json={"operationId": "op-1"})
+
+    return TenantSenderResolver(
+        directory or _Directory(_line()),
+        store,
+        httpx.AsyncClient(transport=httpx.MockTransport(accept)),
+        STATUS_URL,
+        platform_email=platform,
+    )
+
+
+async def test_an_admin_email_goes_from_the_tenants_own_sender_when_it_has_one() -> None:
+    seen: list[httpx.Request] = []
+    resolver = _admin_resolver(seen)
+
+    with bind_tenant(SAMPLE_ID):
+        sender = await resolver.admin_email_for(_twilio_channel())
+        await sender.send("admin@example.org", "Subject", "Body", None)
+
+    [request] = seen
+    body = request.content.decode()
+    assert "capacity@example-icb.test" in body  # the tenant's own address
+    assert "noreply@mirroredintelligence.com" not in body
+
+
+async def test_an_admin_email_falls_back_to_the_platform_when_the_tenant_has_none() -> None:
+    seen: list[httpx.Request] = []
+    resolver = _admin_resolver(seen)
+
+    with bind_tenant(SAMPLE_ID):
+        sender = await resolver.admin_email_for(None)
+        await sender.send("admin@example.org", "Subject", "Body", None)
+
+    [request] = seen
+    body = request.content.decode()
+    assert "noreply@mirroredintelligence.com" in body
+    assert "capacity@example-icb.test" not in body
+    assert request.headers["Authorization"].startswith("Basic ")
+
+
+async def test_the_platform_fallback_reads_the_platform_secret_and_no_tenant_secret() -> None:
+    store = FixedSecretStore({PLATFORM_EMAIL_TOKEN_SECRET: PLATFORM_TOKEN})
+    resolver = _admin_resolver([], secrets=store)
+
+    with bind_tenant(SAMPLE_ID):
+        await resolver.admin_email_for(None)
+
+    assert store.requested == (PLATFORM_EMAIL_TOKEN_SECRET,)
+
+
+async def test_a_tenants_own_email_never_falls_back_to_the_platform() -> None:
+    resolver = _admin_resolver([])
+
+    with bind_tenant(SAMPLE_ID), pytest.raises(ChannelUnavailable):
+        await resolver.email_for(None)
+
+
+async def test_with_no_tenant_sender_and_no_platform_identity_the_admin_email_is_unavailable() -> (
+    None
+):
+    resolver = _admin_resolver([], platform=None)
+
+    with bind_tenant(SAMPLE_ID), pytest.raises(ChannelUnavailable):
+        await resolver.admin_email_for(None)
+
+
+async def test_a_missing_platform_secret_is_unavailable_and_names_no_secret() -> None:
+    resolver = _admin_resolver([], secrets=FixedSecretStore({}))
+
+    with bind_tenant(SAMPLE_ID), pytest.raises(ChannelUnavailable) as refused:
+        await resolver.admin_email_for(None)
+
+    assert PLATFORM_EMAIL_TOKEN_SECRET not in str(refused.value)

@@ -31,6 +31,9 @@ from overwatch.adapters.outbound.graph_store.migration_types import (
     Migration,
     MigrationFailed,
 )
+from overwatch.adapters.outbound.graph_store.migrations_admin_consent import (
+    ADMIN_CONSENT_MIGRATIONS,
+)
 from overwatch.adapters.outbound.graph_store.migrations_contract import CONTRACT_MIGRATIONS
 from overwatch.adapters.outbound.graph_store.migrations_insight import INSIGHT_MIGRATIONS
 from overwatch.adapters.outbound.graph_store.migrations_network import NETWORK_MIGRATIONS
@@ -192,6 +195,7 @@ MIGRATIONS: Final[list[Migration]] = assemble_migrations(
     PLATFORM_MIGRATIONS,
     INSIGHT_MIGRATIONS,
     VISIT_MIGRATIONS,
+    ADMIN_CONSENT_MIGRATIONS,
 )
 
 _APPLIED = "MATCH (m:Migration) RETURN m.id AS id"

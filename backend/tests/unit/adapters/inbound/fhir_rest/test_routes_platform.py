@@ -78,6 +78,13 @@ ROUTES: list[tuple[str, str, Any, frozenset[Role]]] = [
         OPERATOR,
     ),
     ("POST", f"/platform/tenants/{TENANT}/admin-invitation", {"mobile": "07700 900123"}, OPERATOR),
+    (
+        "POST",
+        f"/platform/tenants/{TENANT}/admin-consent-invitation",
+        {"email": "admin@example.org"},
+        OPERATOR,
+    ),
+    ("GET", f"/platform/tenants/{TENANT}/admin-consent", None, OPERATOR),
     ("POST", f"/platform/tenants/{TENANT}/activation", None, OPERATOR),
     ("POST", "/platform/tenants/act-org/suspension", SUSPEND_BODY, OPERATOR),
     ("DELETE", "/platform/tenants/act-org/suspension", None, OPERATOR),
@@ -499,6 +506,35 @@ async def test_the_other_provisioning_steps_answer_in_fixed_words_and_record_no_
     for value in ("07700 900123", "+447700900123", "new.example.org", "AC" + "1" * 32):
         assert value not in repr(r.audit.entries), value
     assert "07700 900123" not in chain
+
+
+async def test_the_admin_consent_invitation_answers_the_masked_view_and_is_recorded() -> None:
+    async with routes() as (r, client):
+        invited = await send(
+            client,
+            "POST",
+            f"/platform/tenants/{TENANT}/admin-consent-invitation",
+            {"email": "admin@example.org"},
+            ops(),
+        )
+        read = await send(client, "GET", f"/platform/tenants/{TENANT}/admin-consent", None, ops())
+        bad = await send(
+            client,
+            "POST",
+            f"/platform/tenants/{TENANT}/admin-consent-invitation",
+            {"email": "admin@example.org", "tenantId": "other-org"},
+            ops(),
+        )
+
+    assert invited.status_code == 201 and invited.json()["recorded"] is True
+    assert invited.json()["invitation"]["emailMasked"] == "j***@example.org"
+    assert invited.json()["invitation"]["status"] == "pending"
+    assert read.status_code == 200
+    assert read.json()["invitation"]["expiresAt"] == "2026-11-06T09:00:00Z"
+    assert r.stubs.consent_invite.commands[0].email == "admin@example.org"
+    assert [e.action for e in r.audit.entries] == ["tenant-admin-consent-invited"]
+    assert "admin@example.org" not in repr(r.audit.entries)
+    assert bad.status_code in (400, 422)  # no body names a tenant
 
 
 async def test_a_value_another_tenant_holds_is_a_409_and_the_step_is_not_recorded() -> None:

@@ -554,6 +554,10 @@ BINDS_ITSELF = {
     ("POST", "/links/{token}"): "tenant from the link token record (L01)",
     ("POST", "/links/{token}/renew"): "tenant from the link token record (L01)",
     ("POST", "/test/synthetic/prompt"): "the synthetic hook's own configured tenant (O09)",
+    (
+        "POST",
+        "/admin-consent/confirmation",
+    ): "tenant named by the state as a hint; the invite is found by its hash inside it (DEC-1316)",
 }
 
 

@@ -20,6 +20,8 @@ use a route reads it as the 404 of a route that is not there:
   PUT    /platform/tenants/{id}/references              operator: DSA, DPIA and DCB0160 references
   POST   /platform/tenants/{id}/directory/verification  operator: verify the bound directory
   POST   /platform/tenants/{id}/admin-invitation        operator: invite the first administrator
+  POST   /platform/tenants/{id}/admin-consent-invitation  operator: email the Entra administrator
+  GET    /platform/tenants/{id}/admin-consent           operator: the latest invitation, masked
   POST   /platform/tenants/{id}/activation              operator
   POST   /platform/tenants/{id}/suspension              operator (mode and reason)
   DELETE /platform/tenants/{id}/suspension              operator: resume
@@ -68,6 +70,10 @@ from overwatch.application.cross_tenant_guard import PlatformPrincipal
 from overwatch.application.platform_services import PlatformServices
 from overwatch.application.ports.outbound.platform_audit import PlatformAuditRecord
 from overwatch.application.ports.outbound.tenant_registry import RegistryTenant
+from overwatch.application.use_cases.admin_consent import (
+    AdminConsentView,
+    InviteAdminConsentCommand,
+)
 from overwatch.application.use_cases.cross_tenant_tickets import (
     CancelTicketCommand,
     OpenTicketCommand,
@@ -202,6 +208,10 @@ class DirectoryBody(_Body):
 
 class InvitationBody(_Body):
     mobile: str = Field(min_length=1, max_length=32)
+
+
+class ConsentInvitationBody(_Body):
+    email: str = Field(min_length=3, max_length=254)
 
 
 class SuspendBody(_Body):
@@ -579,6 +589,56 @@ async def invite_first_administrator(
         )
 
     return await replay_or_run(request, actor, key, run)
+
+
+def consent_view_to_dict(view: AdminConsentView | None) -> dict[str, Any]:
+    if view is None:
+        return {"invitation": None}
+    return {
+        "invitation": {
+            "inviteId": view.invite_id,
+            "emailMasked": view.email_masked,
+            "status": view.status.value,
+            "createdAt": _iso(view.created_at),
+            "expiresAt": _iso(view.expires_at),
+            "consentedAt": _iso(view.consented_at),
+            "reason": view.reason,
+        }
+    }
+
+
+def _consent_services(request: Request) -> PlatformServices:
+    services = _services(request)
+    if services.consent_invite is None or services.consent_read is None:
+        raise RuntimeError("the admin consent services are not configured")
+    return services
+
+
+@router.post("/tenants/{tenant_id}/admin-consent-invitation")
+async def invite_admin_consent(
+    tenant_id: TenantPath, body: ConsentInvitationBody, request: Request, actor: InTenant
+) -> Response:
+    """Email the organisation's Entra administrator the admin consent link and record the invite as
+    pending (DEC-1316). A second call is a resend: the earlier link is revoked. The address is used
+    for the send only; the answer, the audit entry and the store hold a masked form and a hash."""
+    key = idempotency_key(request)
+
+    async def run() -> Response:
+        services = _consent_services(request)
+        assert services.consent_invite is not None
+        view = await services.consent_invite.execute(InviteAdminConsentCommand(actor, body.email))
+        return await _step(
+            services, actor, "tenant-admin-consent-invited", consent_view_to_dict(view), 201
+        )
+
+    return await replay_or_run(request, actor, key, run)
+
+
+@router.get("/tenants/{tenant_id}/admin-consent")
+async def read_admin_consent(tenant_id: TenantPath, request: Request, actor: InTenant) -> Response:
+    services = _consent_services(request)
+    assert services.consent_read is not None
+    return _json(200, consent_view_to_dict(await services.consent_read.execute(actor)))
 
 
 @router.post("/tenants/{tenant_id}/activation")

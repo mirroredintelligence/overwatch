@@ -96,6 +96,27 @@ export function parseInvitation(value: unknown) {
   return { expiresAt: str(v.expiresAt, 40), recorded: bool(v.recorded) };
 }
 
+export const CONSENT_STATUSES = ['pending', 'consented', 'expired', 'revoked'] as const;
+
+/** The latest admin consent invitation of a tenant (DEC-1316): the masked address and where it stands. Never the address. */
+export function parseConsent(value: unknown) {
+  const v = obj(value);
+  const recorded = v.recorded === undefined ? undefined : bool(v.recorded);
+  if (v.invitation === null || v.invitation === undefined) return { invitation: null, recorded };
+  const i = obj(v.invitation);
+  return {
+    invitation: {
+      emailMasked: str(i.emailMasked, 320),
+      status: oneOf(i.status, CONSENT_STATUSES),
+      createdAt: str(i.createdAt, 40),
+      expiresAt: str(i.expiresAt, 40),
+      consentedAt: strOrNull(i.consentedAt, 40),
+      reason: strOrNull(i.reason, 600),
+    },
+    recorded,
+  };
+}
+
 export function parseSuspension(value: unknown) {
   const v = obj(value);
   return { mode: oneOf(v.mode, ['read-only', 'blocked'] as const), recorded: bool(v.recorded) };

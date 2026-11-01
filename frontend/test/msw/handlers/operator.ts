@@ -40,6 +40,11 @@ export const operatorHandlers = [
   ),
   http.get('/api/bff/platform/tenants', () => ok(VIEW_TENANTS_OPERATOR)),
   http.get('/api/bff/platform/tenants/:id', () => ok(VIEW_DETAIL_PROVISIONING)),
+  http.get('/api/bff/platform/tenants/:id/admin-consent', () => ok({ invitation: null })),
+  http.post('/api/bff/platform/tenants/:id/admin-consent-invitation', async ({ request }) => {
+    await recorded(request);
+    return ok({ invitation: { emailMasked: 'j***@example-trust.test', status: 'pending', createdAt: '2026-11-01T09:00:00Z', expiresAt: '2026-11-08T09:00:00Z', consentedAt: null, reason: null }, recorded: true }, 201);
+  }),
   http.get('/api/bff/platform/audit', ({ request }) => {
     const after = new URL(request.url).searchParams.get('afterSeq');
     return after === '3' ? ok({ entries: [{ seq: 4, action: 'tenant-activated', principalRef: 'ops-0123456789abcdef0123456789abcdef', tenantId: 'trust-b', accessId: null, snapshot: { status: 'active' }, at: '2026-10-22T09:00:00Z' }], next: null }) : ok(VIEW_AUDIT);

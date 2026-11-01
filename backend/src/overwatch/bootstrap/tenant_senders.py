@@ -47,7 +47,7 @@ from overwatch.domain.errors import NotFound, ValidationFailed
 from overwatch.domain.model.tenant import NumberStatus
 from overwatch.domain.model.tenant_records import ChannelKind, ChannelProvider, TenantChannel
 
-PLATFORM_EMAIL_TOKEN_SECRET: Final = "platform-twilio-auth-token"
+PLATFORM_EMAIL_TOKEN_SECRET: Final = "twilio-auth-token"
 """The platform's own Twilio auth token, a platform secret (not a tenant's reference)."""
 
 TEXT_CHANNEL: Final = "text"

@@ -12,7 +12,7 @@ const handle = withOperatorBff<Context>(
     if (record === null) return Response.json({ code: 'not-found', message: 'No NHS organisation has that ODS code.' }, { status: 404 });
     return Response.json({ record }, { headers: { 'Cache-Control': 'no-store' } });
   },
-  { roles: ['platform-operator'] },
+  { roles: ['platform-operator'], idScoped: true },
 );
 
 export const GET = (request: Request, context: Context) => handle(request, context);

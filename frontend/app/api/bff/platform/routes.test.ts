@@ -116,19 +116,6 @@ const CASES: Case[] = [
   },
   { name: 'verify a directory', module: () => import('./tenants/[id]/directory/verification/route'), verb: 'POST', url: `${T}/directory/verification`, params: P, roles: OPERATOR, body: { directoryId: '11111111-1111-4111-8111-111111111111' }, backendBody: { directoryId: '11111111-1111-4111-8111-111111111111' }, backend: { path: '/platform/tenants/trust-b/directory/verification', reply: { recorded: true } }, view: { recorded: true } },
   {
-    name: 'invite the first administrator',
-    module: () => import('./tenants/[id]/admin-invitation/route'),
-    verb: 'POST',
-    url: `${T}/admin-invitation`,
-    params: P,
-    roles: OPERATOR,
-    body: { mobile: '07700 900123' },
-    backendBody: { mobile: '07700 900123' },
-    backend: { path: '/platform/tenants/trust-b/admin-invitation', status: 201, reply: { expiresAt: '2026-11-01T09:00:00Z', recorded: true } },
-    status: 201,
-    view: { expiresAt: '2026-11-01T09:00:00Z', recorded: true },
-  },
-  {
     name: 'invite the Entra administrator to consent',
     module: () => import('./tenants/[id]/admin-consent-invitation/route'),
     verb: 'POST',
@@ -459,14 +446,11 @@ describe('the bodies the BFF will not pass on', () => {
     expect(seen).toEqual([]);
   });
 
-  it('refuses references that are empty, a number that is not E.164 and a mobile that is not a UK mobile', async () => {
+  it('refuses references that are empty, a number that is not E.164', async () => {
     handleBackend(byName('references'));
     expect((await call(byName('references'), 'platform-operator', { body: {} })).status).toBe(400);
     handleBackend(byName('record a number'));
     expect((await call(byName('record a number'), 'platform-operator', { body: { e164: '01632 960002', accountSid: 'AC1', senderLabel: 'S' } })).status).toBe(400);
-    handleBackend(byName('invite the first administrator'));
-    expect((await call(byName('invite the first administrator'), 'platform-operator', { body: { mobile: '0161 496 0000' } })).status).toBe(400);
-    expect((await call(byName('invite the first administrator'), 'platform-operator', { body: { mobile: '07700 900123', tenant: 'x' } })).status).toBe(400);
     expect(seen).toEqual([]);
   });
 

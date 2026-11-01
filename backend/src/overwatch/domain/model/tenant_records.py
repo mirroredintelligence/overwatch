@@ -80,9 +80,8 @@ ALLOWED_PROVIDERS: Final = MappingProxyType(
 # and `support` is a platform role that comes from the operator directory (DEC-134 item 5), never
 # from a customer's. The tenant administrator is mappable only for the group Overwatch creates
 # for it
-# (DEC-1317): the person-by-person way, the first administrator's invitation (DEC-1007 item 4), is
-# unchanged, and a hand-made mapping to the administrator role is still refused
-# (`HAND_MAPPABLE_ROLES`).
+# (DEC-1317, the only route: the text invitation of the first administrator is gone, DEC-1318),
+# and a hand-made mapping to the administrator role is still refused (`HAND_MAPPABLE_ROLES`).
 # The network administrator is a role of the network
 # owner's own directory (TEN-080, DEC-1260): a mapping on any other tenant is stored but gives
 # nothing, because the token exchange gives the role only to a tenant that owns an active network.

@@ -34,7 +34,7 @@ from overwatch.application.use_cases.tenant_admin import (
 from overwatch.domain.codes import Role
 from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
 from overwatch.domain.model.tenant import OrganisationType, TenantStatus
-from overwatch.domain.model.tenant_records import BindingStatus
+from overwatch.domain.model.tenant_records import BindingStatus, MappingStatus, RoleMapping
 from tests.support.provisioning_fakes import (
     DIRECTORY_ID,
     GROUP_ID,
@@ -433,6 +433,8 @@ async def test_a_directory_id_that_is_not_a_directory_id_is_refused() -> None:
 
 # -- ActivateTenant ------------------------------------------------------------------------------
 
+ADMIN_GROUP_ID = "9f8e7d6c-5b4a-4392-8170-6f5e4d3c2b1a"
+
 
 class _Ids:
     def new_id(self) -> str:
@@ -455,9 +457,8 @@ def _activate(
 
 async def _ready(platform: FakePlatform, world: FakeWorld) -> None:
     """Everything an activation needs: configuration, a tested number, references, a host and an
-    open invitation."""
+    mapped tenant-administrator group (DEC-1318: no invitation)."""
     from overwatch.application.ports.outbound.tenant_registry import TenantNumberRecord
-    from overwatch.application.provisioning import TENANT_ADMIN_INVITE
 
     world.config.make_ready()
     world.config.binding_list = [
@@ -469,7 +470,10 @@ async def _ready(platform: FakePlatform, world: FakeWorld) -> None:
     platform.numbers_by_tenant[TENANT] = {
         NUMBER: TenantNumberRecord(NUMBER, SID, f"twilio/{TENANT}/auth-token", tested_at=NOW)
     }
-    world.tokens.open_about[(TENANT_ADMIN_INVITE, f"tenant-admin-{TENANT}")] = object()
+    world.config.mapping_list = [
+        *world.config.mapping_list,
+        RoleMapping(ADMIN_GROUP_ID, Role.TENANT_ADMIN, MappingStatus.ACTIVE),
+    ]
 
 
 @pytest.fixture
@@ -504,6 +508,18 @@ async def test_a_ready_tenant_is_activated_once_judged_and_seeded(seeded: list[s
     assert seeded == [TENANT]
 
 
+async def test_activation_does_not_ask_for_an_invited_first_administrator(
+    seeded: list[str],
+) -> None:
+    platform, world = FakePlatform(provisioning_tenant()), FakeWorld()
+
+    with as_tenant(TENANT), pytest.raises(NotAllowed) as refused:
+        await _activate(platform, world, area=set()).execute(ActivateTenantCommand(operator()))
+
+    assert "invited" not in str(refused.value)
+    assert "Tenant administrator group made and mapped" in str(refused.value)
+
+
 async def test_a_tenant_with_nothing_set_lists_every_blocker_in_fixed_words_and_changes_nothing(
     seeded: list[str],
 ) -> None:
@@ -516,7 +532,7 @@ async def test_a_tenant_with_nothing_set_lists_every_blocker_in_fixed_words_and_
     for blocker in (
         "Configuration version approved",
         "At least one sender number active with a test text delivered",
-        "First tenant administrator invited",
+        "Tenant administrator group made and mapped",
         "Sign-in directory bound and verified",
         "At least one role mapping",
         "Support contacts set",
@@ -537,12 +553,40 @@ async def test_a_tenant_with_nothing_set_lists_every_blocker_in_fixed_words_and_
     [
         (lambda p, w: p.hosts.pop(TENANT), "Host set"),
         (lambda p, w: p.numbers_by_tenant[TENANT].clear(), "test text delivered"),
-        (lambda p, w: w.tokens.open_about.clear(), "First tenant administrator invited"),
+        (
+            lambda p, w: setattr(
+                w.config,
+                "mapping_list",
+                [m for m in w.config.mapping_list if m.role is not Role.TENANT_ADMIN],
+            ),
+            "Tenant administrator group made and mapped",
+        ),
+        (
+            lambda p, w: setattr(
+                w.config,
+                "mapping_list",
+                [
+                    RoleMapping(m.group_object_id, m.role, MappingStatus.RETIRED)
+                    if m.role is Role.TENANT_ADMIN
+                    else m
+                    for m in w.config.mapping_list
+                ],
+            ),
+            "Tenant administrator group made and mapped",
+        ),
         (lambda p, w: setattr(w.config, "current", None), "Configuration version approved"),
         (lambda p, w: setattr(w.config, "binding_list", []), "Sign-in directory bound"),
         (lambda p, w: setattr(w.config, "mapping_list", []), "role mapping"),
     ],
-    ids=["host", "number", "invitation", "configuration", "directory", "mapping"],
+    ids=[
+        "host",
+        "number",
+        "no-admin-group",
+        "retired-admin-group",
+        "configuration",
+        "directory",
+        "mapping",
+    ],
 )
 async def test_each_missing_thing_alone_blocks_activation(
     break_it: Any, blocker: str, seeded: list[str]

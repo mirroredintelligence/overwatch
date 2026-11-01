@@ -18,7 +18,7 @@ import styles from '@/components/admin/admin.module.css';
 // The form has three parts (design canvas "Overwatch admin portals", artboard 2): the organisation, the Entra
 // directory its staff sign in through, and which directory group gives which role. The directory is saved as
 // waiting: it is verified afterwards, on the tenant's page, once the domain is checked. A group is never given
-// the administrator's role (the list has none): the first administrator is invited by text.
+// the administrator's role (the list has none): the administrators are the members of the tenant-administrator group (DEC-1318).
 
 type Created = { created: boolean; recorded: boolean };
 type Row = { key: number; group: string; role: string };
@@ -338,7 +338,7 @@ export function CreateTenantForm() {
         <fieldset className={styles.fieldset}>
           <legend className={styles.legend}>3 Who gets which role</legend>
           <p className={styles.text}>
-            Map a directory group to a staff role. Someone in the group gets that role when they sign in. A group cannot be given the administrator’s role: the first administrator is invited by text.
+            Map a directory group to a staff role. Someone in the group gets that role when they sign in. A group cannot be given the administrator’s role: the administrators are the members of the group made for them.
           </p>
           {rows.length === 0 ? <p className={styles.muted}>No group is mapped yet. You can add them now, or the organisation’s administrator can later.</p> : null}
           {rows.map((r, i) => (

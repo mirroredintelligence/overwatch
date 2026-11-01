@@ -34,7 +34,6 @@ const AUDIT: Record<string, string> = {
   'tenant-number-tested': 'Text number tested',
   'tenant-references-recorded': 'References recorded',
   'tenant-directory-verified': 'Directory verified',
-  'tenant-admin-invited': 'First administrator invited',
   'tenant-activated': 'Tenant activated',
   'tenant-suspended': 'Tenant suspended',
   'tenant-resumed': 'Tenant resumed',

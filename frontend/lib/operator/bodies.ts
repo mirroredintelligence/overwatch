@@ -1,6 +1,5 @@
 import { invalidRequest } from '@/lib/lead/bffInput';
 import { directoryBody, MAPPABLE_ROLES } from '@/lib/tenantAdmin/bodies';
-import { isUkMobile } from '@/lib/forms/ukMobile';
 import { REASON_CODES } from './views';
 
 // The bodies the operator console's BFF routes pass to the back end, checked by shape and whitelisted field
@@ -115,14 +114,6 @@ export function referencesBody(raw: unknown): Obj {
 }
 
 export const verificationBody = directoryBody;
-
-export function invitationBody(raw: unknown): Obj {
-  const body = asObject(raw);
-  only(body, ['mobile']);
-  const mobile = text(body.mobile, 8, 24);
-  if (!isUkMobile(mobile)) throw invalidRequest();
-  return { mobile };
-}
 
 // One plain address: no display name, no comment, no quoting (the back end checks again, DEC-1316).
 const WORK_EMAIL = /^[A-Za-z0-9._%+'-]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$/;

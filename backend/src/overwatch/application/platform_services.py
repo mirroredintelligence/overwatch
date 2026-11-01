@@ -46,7 +46,6 @@ from overwatch.application.use_cases.entra_groups import (
     ReadManagedGroups,
 )
 from overwatch.application.use_cases.platform_tenants import ListPlatformTenants, ReadPlatformTenant
-from overwatch.application.use_cases.tenant_access import InviteTenantAdmin
 from overwatch.application.use_cases.tenant_admin import (
     ActivateTenant,
     CreateTenant,
@@ -142,7 +141,6 @@ class PlatformServices:
     host: SetTenantHost
     references: RecordTenantReferences
     directory: VerifyEntraBinding
-    invite: InviteTenantAdmin
     activate: ActivateTenant
     suspend: SuspendTenant
     resume: ResumeTenant

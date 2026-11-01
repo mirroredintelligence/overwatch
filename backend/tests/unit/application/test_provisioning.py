@@ -148,7 +148,7 @@ def _facts(**fields: object) -> ActivationFacts:
     base = {
         "configuration": _configuration(),
         "numbers": (_number(tested_at=NOW),),
-        "first_admin_invited": True,
+        "tenant_admin_group_mapped": True,
         "area_districts_set": True,
     }
     return activation_facts(tenant, **{**base, **fields})  # type: ignore[arg-type]
@@ -159,8 +159,8 @@ def test_a_complete_tenant_has_no_blocker() -> None:
 
 
 def test_each_fact_comes_from_its_own_source() -> None:
-    assert activation_blockers(_facts(first_admin_invited=False)) == [
-        "First tenant administrator invited"
+    assert activation_blockers(_facts(tenant_admin_group_mapped=False)) == [
+        "Tenant administrator group made and mapped"
     ]
     assert activation_blockers(_facts(area_districts_set=False)) == ["Area districts set"]
     assert activation_blockers(_facts(numbers=())) == [
@@ -189,7 +189,7 @@ def test_a_tenant_without_references_is_blocked_and_the_zone_is_the_records() ->
         bare,
         _configuration(),
         (_number(tested_at=NOW),),
-        first_admin_invited=True,
+        tenant_admin_group_mapped=True,
         area_districts_set=True,
     )
     assert facts.time_zone == "Europe/London"

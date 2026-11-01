@@ -11,7 +11,7 @@ import { UsersAndRoles } from './UsersAndRoles';
 
 // Users and roles (TEN-076): the directory the organisation signs in with and which of its groups gets which
 // role. A directory is bound as pending and stays so until the platform operator verifies it; a group is never
-// mapped to the administrator role (the first administrator is invited by the platform operator).
+// mapped to the administrator role (the administrators are the members of the tenant-administrator group).
 
 beforeEach(() => resetAdminWrites());
 const GUID = '22222222-2222-4222-8222-222222222222';
@@ -38,9 +38,9 @@ describe('what is bound now', () => {
     expect(within(row).getByText('In use')).toBeInTheDocument();
   });
 
-  it('says the first administrator is invited by the platform operator, and that a group cannot be mapped to it', async () => {
+  it('says the administrators are the members of the tenant-administrator group, and that a group cannot be mapped to it', async () => {
     await open();
-    expect(screen.getByText(/The first administrator is invited by the platform operator/)).toBeInTheDocument();
+    expect(screen.getByText(/The administrators are the members of the group the platform operator made for them/)).toBeInTheDocument();
     const select = screen.getByRole('combobox', { name: 'Role' });
     expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual(['Advisor', 'Clinical lead', 'Shift lead', 'Criteria owner', 'Planning', 'Audit']);
   });

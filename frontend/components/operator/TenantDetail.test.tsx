@@ -8,7 +8,7 @@ import { OPERATOR_SAMPLE_CSRF, resetOperatorWrites, seenOperatorWrites } from '@
 import { server } from '@/test/msw/server';
 import { TenantDetail } from './TenantDetail';
 
-// One tenant's page (TEN-083): provisioning (host, numbers, references, directory, the first administrator),
+// One tenant's page (TEN-083): provisioning (host, numbers, references, directory, the consent invitation and the groups),
 // what activation waits for, and the life of the tenant (activate, suspend, resume, start closing). Every
 // write is the operator's, with its CSRF token and one idempotency key per submit. A step that was done and
 // not recorded by the platform chain is said so, and is never offered again. No secret is ever shown.
@@ -154,29 +154,11 @@ describe('provisioning', () => {
     expect(within(card).queryByRole('button', { name: 'Verify this directory' })).not.toBeInTheDocument();
   });
 
-  it('invites the first administrator by a UK mobile, says when the invitation ends and never shows the number again', async () => {
-    const user = await open();
-    await user.type(screen.getByLabelText('Mobile number'), '07700 900123');
-    await user.click(screen.getByRole('button', { name: 'Send invitation' }));
-    await waitFor(() => expect(seenOperatorWrites).toHaveLength(1));
-    expect(lastWrite()).toMatchObject({ path: '/api/bff/platform/tenants/trust-b/admin-invitation', body: { mobile: '07700 900123' } });
-    expect(await screen.findByRole('status')).toHaveTextContent('Invitation sent. It ends 1 Nov 2026, 09:00. The number is not shown again.');
-    expect(screen.getByLabelText('Mobile number')).toHaveValue('');
-    expect(document.body.textContent ?? '').not.toContain('07700 900123');
-  });
-
-  it('refuses a number that is not a UK mobile, and says a second open invitation is not allowed on a 409', async () => {
-    const user = await open();
-    await user.type(screen.getByLabelText('Mobile number'), '0161 496 0000');
-    await user.click(screen.getByRole('button', { name: 'Send invitation' }));
-    expect(await screen.findByText('Enter a UK mobile number, for example 07700 900123.', { selector: 'p' })).toBeInTheDocument();
-    expect(seenOperatorWrites).toEqual([]);
-    server.use(http.post('/api/bff/platform/tenants/:id/admin-invitation', () => HttpResponse.json({ code: 'conflict' }, { status: 409 })));
-    const mobile = screen.getByLabelText('Mobile number');
-    await user.clear(mobile);
-    await user.type(mobile, '07700 900124');
-    await user.click(screen.getByRole('button', { name: 'Send invitation' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('An invitation is already open for this tenant. Wait for it to end or be used.');
+  it('has no first administrator section: the administrators are the members of the tenant-administrator group', async () => {
+    await open();
+    expect(screen.queryByRole('region', { name: 'First administrator' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Send invitation' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Mobile number')).not.toBeInTheDocument();
   });
 
   it('says a host or number another tenant holds could not be saved, on a 409', async () => {

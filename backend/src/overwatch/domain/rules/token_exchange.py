@@ -46,9 +46,10 @@ STAFF_TOKEN_LIFETIME: Final = timedelta(hours=8)
 OPERATOR_TOKEN_LIFETIME: Final = timedelta(hours=1)
 WALL_TOKEN_LIFETIME: Final = timedelta(hours=1)
 
-# The staff roles, highest first. The two administration roles lead. The tenant administrator cannot
-# be mapped from a group (ENTRA_MAPPABLE_ROLES: it comes from the first administrator's invitation);
-# the network administrator can, and is given only to the owner of a network (`staff_role`).
+# The staff roles, highest first. The two administration roles lead. The tenant administrator is
+# mapped only from the group Overwatch makes for it (DEC-1317, DEC-1318; a hand-made mapping is
+# refused); the network administrator can, and is given only to the owner of a network
+# (`staff_role`).
 STAFF_ROLE_PRIORITY: Final = (
     Role.TENANT_ADMIN,
     Role.NETWORK_ADMIN,

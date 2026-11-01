@@ -64,7 +64,7 @@ def passing_facts(**overrides: Any) -> ActivationFacts:
         active_numbers_tested=1,
         email_in_use=True,
         email_sender_verified=True,
-        first_admin_invited=True,
+        tenant_admin_group_mapped=True,
         entra_binding_verified=True,
         role_mappings=1,
         contact_kinds=frozenset(

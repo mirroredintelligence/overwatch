@@ -37,11 +37,6 @@ from overwatch.domain.rules.tenant_lifecycle import ActivationFacts
 OPERATOR_ROLE_MESSAGE: Final = "only the platform operator runs a tenant's lifecycle"
 OPERATOR_UNNAMED_MESSAGE: Final = "the operator must be named"
 
-# The purpose of the link token that invites a tenant's first administrator. It is not the
-# reporters' `invite`: the text-code flow looks the reporters' invitations up by phone, and must
-# never find this one.
-TENANT_ADMIN_INVITE: Final = "tenant-admin-invite"
-
 # What the registry's references say. The three references the activation needs (DEC-136 item 10).
 REFERENCE_NAMES: Final = ("dsa", "dpia", "dcb0160")
 
@@ -127,7 +122,7 @@ def activation_facts(
     configuration: ConfigurationFacts,
     numbers: tuple[TenantNumberRecord, ...],
     *,
-    first_admin_invited: bool,
+    tenant_admin_group_mapped: bool,
     area_districts_set: bool,
 ) -> ActivationFacts:
     """What is known of a provisioning tenant, as the domain's activation rule reads it. Email is in
@@ -140,7 +135,7 @@ def activation_facts(
         active_numbers_tested=count_tested_numbers(numbers),
         email_in_use=configuration.active_email_channels > 0,
         email_sender_verified=configuration.active_email_channels > 0,
-        first_admin_invited=first_admin_invited,
+        tenant_admin_group_mapped=tenant_admin_group_mapped,
         entra_binding_verified=configuration.entra_binding_verified,
         role_mappings=configuration.role_mappings,
         contact_kinds=configuration.contact_kinds,

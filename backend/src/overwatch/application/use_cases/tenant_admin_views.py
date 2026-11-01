@@ -56,7 +56,7 @@ ACCESS_LOG_MAX_DAYS: Final = 400
 ACCESS_LOG_LIMIT: Final = 200
 
 # The use cases whose entries are the platform's people acting in a tenant: the operator's
-# lifecycle (`tenant_admin.py`, `tenant_suspend.py`, `tenant_offboarding.py`, `tenant_access.py`)
+# lifecycle (`tenant_admin.py`, `tenant_suspend.py`, `tenant_offboarding.py`)
 # and the support guard and its tickets (`cross_tenant_guard.py`).
 OPERATOR_USE_CASES: Final = frozenset(
     {
@@ -67,7 +67,7 @@ OPERATOR_USE_CASES: Final = frozenset(
         "RecordTenantReferences",
         "VerifyEntraBinding",
         "ActivateTenant",
-        "InviteTenantAdmin",
+        "InviteTenantAdmin",  # no longer a use case: audit entries already written still read
         "ProvisionEntraGroups",
         "AddInitialGroupMember",
         "SuspendTenant",

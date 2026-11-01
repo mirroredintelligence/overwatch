@@ -13,7 +13,7 @@ import styles from './admin.module.css';
 
 // Users and roles (TEN-076): the directory the organisation signs in with and which of its groups gets which
 // role. A directory is bound as pending and stays so until the platform operator verifies it; a group is
-// never mapped to the administrator role by hand (the first administrator is invited by the platform operator).
+// never mapped to the administrator role by hand (the administrators are the members of the tenant-administrator group, DEC-1317).
 // Groups and members (DEC-1317) is the groups Overwatch made in that directory and who is in each.
 
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -163,7 +163,7 @@ function MappingCard({ mappings, onSaved }: { mappings: Overview['mappings']; on
   return (
     <Card heading="Role mappings">
       <p className={styles.text}>
-        A group in your directory gives its members a role. The first administrator is invited by the platform operator, so a group cannot be mapped to the administrator role.
+        A group in your directory gives its members a role. The administrators are the members of the group the platform operator made for them, so a group cannot be mapped to the administrator role by hand.
       </p>
       <div className={styles.scroll}>
         <table className={styles.table}>

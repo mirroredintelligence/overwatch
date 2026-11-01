@@ -24,7 +24,6 @@ from overwatch.domain.codes import Role
 from overwatch.domain.model.tenant import OrganisationType, SuspendMode, SuspendReason
 from tests.support.provisioning_fakes import TENANT, provisioning_tenant
 
-MOBILE = "07700 900123"
 EXPIRES = datetime(2026, 11, 1, 9, 0, tzinfo=UTC)
 
 
@@ -50,7 +49,6 @@ def _fakes() -> Any:
         host=_Recorder(),
         references=_Recorder(("dsa_ref",)),
         directory=_Recorder(),
-        invite=_Recorder(SimpleNamespace(expires_at=EXPIRES, communication_id="comm-1")),
         activate=_Recorder(SimpleNamespace(tenant_id=TENANT, epoch=1)),
         suspend=_Recorder(SimpleNamespace(tenant_id=TENANT, epoch=2, mode=SuspendMode.BLOCKED)),
         resume=_Recorder(SimpleNamespace(tenant_id=TENANT, epoch=3, services_prompted=4)),
@@ -83,7 +81,6 @@ def test_the_operator_is_required_and_the_command_is_one_of_the_eleven() -> None
         "number-tested",
         "references",
         "verify-directory",
-        "invite",
         "activate",
         "status",
         "suspend",
@@ -177,15 +174,11 @@ async def test_each_command_calls_its_use_case_for_the_named_tenant_and_prints_f
     assert lines == [f"tenant {TENANT}: {expected}"]
 
 
-async def test_the_invitation_prints_when_it_expires_and_never_the_number_or_a_link() -> None:
-    fakes = _fakes()
-
-    lines = await run_command(fakes, _args("invite", TENANT, MOBILE))
-
-    assert fakes.invite.commands[0].mobile == MOBILE
-    assert lines == [f"tenant {TENANT}: invitation queued, valid until {EXPIRES.isoformat()}"]
-    for line in lines:
-        assert "07700" not in line and "https://" not in line and "/i/" not in line
+def test_there_is_no_command_to_invite_a_first_administrator() -> None:
+    """DEC-1318: the tenant-administrator group is the only route."""
+    assert "invite" not in COMMANDS
+    with pytest.raises(SystemExit):
+        _args("invite", TENANT, "07700 900123")
 
 
 async def test_a_number_command_prints_no_number_and_no_account() -> None:

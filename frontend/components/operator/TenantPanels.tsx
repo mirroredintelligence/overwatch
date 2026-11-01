@@ -6,14 +6,13 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { operatorSend, useOperatorRead } from '@/lib/operator/browser';
 import type { parseConsent, parseTenantDetail } from '@/lib/operator/views';
-import { isUkMobile } from '@/lib/forms/ukMobile';
 import { MAPPABLE_ROLE_WORDS } from '@/lib/tenantAdmin/roles';
 import { useSubmitKey } from '@/lib/tenantAdmin/browser';
 import { whenText } from '@/lib/tenantAdmin/words';
 import styles from '@/components/admin/admin.module.css';
 
 // The provisioning panels of a tenant's page (TEN-083): the address, the text numbers, the agreement
-// references, the directory and the first administrator. Each is one small form with its own words. A step
+// references, the directory, the consent invitation and the groups. Each is one small form with its own words. A step
 // that was done and not recorded by the platform chain (`recorded: false`) is passed up so the page says so.
 
 export type Detail = ReturnType<typeof parseTenantDetail>;
@@ -304,41 +303,6 @@ export function DirectoryPanel(props: PanelProps) {
           </table>
         </div>
       )}
-    </Card>
-  );
-}
-
-export function InvitationPanel(props: PanelProps) {
-  const [mobile, setMobile] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const write = useWrite(props.tenantId, props);
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!isUkMobile(mobile)) {
-      setError('Enter a UK mobile number, for example 07700 900123.');
-      return;
-    }
-    setError(null);
-    void write
-      .run('POST', 'admin-invitation', { mobile }, (data) => `Invitation sent. It ends ${whenText(data.expiresAt ?? null)}. The number is not shown again.`, (status) =>
-        status === 409 ? 'An invitation is already open for this tenant. Wait for it to end or be used.' : 'The invitation could not be sent. Try again.',
-      )
-      .then((ok) => {
-        if (ok) setMobile('');
-      });
-  }
-  return (
-    <Card heading="First administrator">
-      <p className={styles.text}>The first administrator is invited by text and signs in with the tenant’s own directory.</p>
-      <form className={styles.stack} onSubmit={submit} noValidate aria-label="Invite the first administrator">
-        <TextField id="invite-mobile" label="Mobile number" value={mobile} onChange={(v) => { write.fresh(); setMobile(v); }} requirement="none" inputMode="tel" autoComplete="off" error={error} />
-        <Said say={write.say} />
-        <div className={styles.actions}>
-          <Button variant="secondary" type="submit" busy={write.busy}>
-            Send invitation
-          </Button>
-        </div>
-      </form>
     </Card>
   );
 }

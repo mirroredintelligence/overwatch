@@ -111,11 +111,11 @@ RELATIONSHIPS: Final = (
     ),
     _local(
         "FOR_SERVICE",
-        "a visit offer to its service: both matched on tenantId before the link is written (DEC-1309)",
+        "a visit offer to its service, both matched on tenantId (DEC-1309)",
     ),
     _local(
         "OFFERED_TO",
-        "a visit offer to its practitioner: both matched on tenantId before the link is written (DEC-1309)",
+        "a visit offer to its practitioner, both matched on tenantId (DEC-1309)",
     ),
     _local("HAS_OUTPUT"),
     _local("HAS_SETTING"),

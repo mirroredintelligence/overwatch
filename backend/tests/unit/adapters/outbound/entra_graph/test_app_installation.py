@@ -84,6 +84,7 @@ async def test_an_installed_app_reports_the_permissions_it_holds_by_name() -> No
     found = await _check(handler).check(DIRECTORY)
 
     assert found.installed
+    assert found.service_principal_id == SP_ID  # kept for the group set-up (DEC-1317)
     assert found.granted_roles == {"Group.ReadWrite.All", "User.Read.All"}
     token_request = seen[0]
     assert str(token_request.url) == (

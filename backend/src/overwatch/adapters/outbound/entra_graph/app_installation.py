@@ -66,7 +66,11 @@ class GraphAppInstallationCheck:
         assignments = await self._pages(
             f"{GRAPH}/servicePrincipals/{principal_id}/appRoleAssignments", headers
         )
-        return AppInstallation(True, await self._role_values(assignments, headers))
+        return AppInstallation(
+            True,
+            await self._role_values(assignments, headers),
+            service_principal_id=principal_id.lower(),
+        )
 
     # ------------------------------------------------------------------ the token
 

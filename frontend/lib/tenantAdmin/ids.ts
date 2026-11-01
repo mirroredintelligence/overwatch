@@ -8,6 +8,7 @@ const PATTERNS = {
   channel: /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/,
   version: /^[1-9][0-9]{0,5}$/,
   tenant: /^[a-z0-9][a-z0-9-]{1,30}$/,
+  guid: /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/,
 } as const;
 
 export function notFound(): FhirError {

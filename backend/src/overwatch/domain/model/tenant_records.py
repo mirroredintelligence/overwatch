@@ -78,8 +78,12 @@ ALLOWED_PROVIDERS: Final = MappingProxyType(
 # The roles a directory group may be mapped to: the staff roles, and the network administrator.
 # A wall screen, an anonymous link and a reporter's own device do not sign in through the directory,
 # and `support` is a platform role that comes from the operator directory (DEC-134 item 5), never
-# from a customer's. The tenant administrator is not mappable: that role comes from the first
-# administrator's invitation (DEC-1007 item 4). The network administrator is a role of the network
+# from a customer's. The tenant administrator is mappable only for the group Overwatch creates
+# for it
+# (DEC-1317): the person-by-person way, the first administrator's invitation (DEC-1007 item 4), is
+# unchanged, and a hand-made mapping to the administrator role is still refused
+# (`HAND_MAPPABLE_ROLES`).
+# The network administrator is a role of the network
 # owner's own directory (TEN-080, DEC-1260): a mapping on any other tenant is stored but gives
 # nothing, because the token exchange gives the role only to a tenant that owns an active network.
 ENTRA_MAPPABLE_ROLES: Final = frozenset(
@@ -91,8 +95,11 @@ ENTRA_MAPPABLE_ROLES: Final = frozenset(
         Role.EXEC,
         Role.AUDIT,
         Role.NETWORK_ADMIN,
+        Role.TENANT_ADMIN,
     }
 )
+HAND_MAPPABLE_ROLES: Final = ENTRA_MAPPABLE_ROLES - {Role.TENANT_ADMIN}
+"""What the tenant administrator may map by hand (`MapEntraGroup`): never the administrator role."""
 
 # Retention (DEC-136 item 10, audit F 2.3). The audit chain and the safety concerns are kept until
 # the tenant is purged; every other class is deleted or summarised after a number of days.

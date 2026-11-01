@@ -20,6 +20,8 @@ import pytest
 from httpx import AsyncClient
 
 from overwatch.adapters.inbound.fhir_rest.routes_tenant import setting_from_json, setting_to_json
+from overwatch.application.ports.outbound.admin_consent import GraphUnavailable
+from overwatch.application.ports.outbound.entra_groups import GroupMissing
 from overwatch.application.use_cases.cross_tenant_tickets import RequestTicketCommand
 from overwatch.application.use_cases.tenant_admin_views import (
     AccessLogEntry,
@@ -56,8 +58,10 @@ from overwatch.domain.model.tenant_records import (
 from overwatch.domain.rules.support_ticket import ReasonCode, TicketState
 from overwatch.domain.rules.tenant_settings import SETTING_SPECS, spec_for
 from tests.support.platform_routes_rig import (
+    GROUP_A,
     JSON,
     NOW,
+    USER_A,
     Rigs,
     build,
     ops,
@@ -95,6 +99,9 @@ ROUTES: list[tuple[str, str, Any]] = [
     ("PUT", "/tenant/retention", RETENTION),
     ("PUT", "/tenant/directory", {"directoryId": DIRECTORY}),
     ("PUT", "/tenant/role-mappings", {"groupObjectId": GROUP, "role": "lead"}),
+    ("GET", "/tenant/groups", None),
+    ("POST", f"/tenant/groups/{GROUP_A}/members", {"email": "sam@example.org"}),
+    ("DELETE", f"/tenant/groups/{GROUP_A}/members/{USER_A}", None),
     ("GET", "/tenant/support-tickets", None),
     ("GET", "/tenant/support-tickets/st-1", None),
     ("POST", "/tenant/support-tickets/st-1/approval", None),
@@ -592,6 +599,111 @@ async def test_a_contact_a_retention_a_directory_and_a_mapping_are_answered_in_a
     assert r.stubs.retention.commands[0].use_defaults is True
     assert r.stubs.bind.commands[0].directory_id == DIRECTORY
     assert r.stubs.map_group.commands[0].status is MappingStatus.RETIRED
+
+
+async def test_the_administrator_reads_the_groups_and_who_is_in_them() -> None:
+    async with routes() as (r, client):
+        response = await client.get("/tenant/groups", headers=admin())
+
+    assert response.status_code == 200
+    assert response.headers["Cache-Control"] == "no-store"
+    assert response.json() == {
+        "setUp": True,
+        "groups": [
+            {
+                "groupId": GROUP_A,
+                "name": "F81044_overwatch_tenant-admin",
+                "role": "tenant-admin",
+                "missing": False,
+                "members": [
+                    {"userId": USER_A, "displayName": "Jane Member", "mail": "jane@example.org"}
+                ],
+            }
+        ],
+    }
+
+
+async def test_a_member_is_added_by_address_to_the_group_named_in_the_path() -> None:
+    async with routes() as (r, client):
+        added = await send(
+            client,
+            "POST",
+            f"/tenant/groups/{GROUP_A}/members",
+            {"email": "Sam@example.org"},
+            admin(),
+        )
+        extra = await send(
+            client,
+            "POST",
+            f"/tenant/groups/{GROUP_A}/members",
+            {"email": "sam@example.org", "groupName": "Domain Admins"},
+            admin(),
+        )
+        bad_group = await send(
+            client,
+            "POST",
+            "/tenant/groups/not-a-guid/members",
+            {"email": "sam@example.org"},
+            admin(),
+        )
+
+    assert added.status_code == 200 and added.json() == {"groupId": GROUP_A, "changed": True}
+    [command] = r.stubs.groups_change.commands
+    assert (command.group_id, command.email, command.actor.tenant_id) == (
+        GROUP_A,
+        "Sam@example.org",
+        "tenant-a",
+    )
+    assert extra.status_code == 400 and bad_group.status_code in (400, 404, 422)
+    assert len(r.stubs.groups_change.commands) == 1
+
+
+async def test_a_member_is_removed_by_the_id_the_list_showed() -> None:
+    async with routes() as (r, client):
+        removed = await send(
+            client, "DELETE", f"/tenant/groups/{GROUP_A}/members/{USER_A}", None, admin()
+        )
+
+    assert removed.status_code == 200 and removed.json()["changed"] is True
+    [command] = r.stubs.groups_change.commands
+    assert (command.group_id, command.user_id, command.email) == (GROUP_A, USER_A, None)
+
+
+async def test_a_group_the_use_case_refuses_is_the_404_of_a_route_that_is_not_there() -> None:
+    async with routes() as (r, client):
+        r.stubs.groups_change.error = NotAllowed("that group is not one you manage here")
+        response = await send(
+            client, "DELETE", f"/tenant/groups/{GROUP_A}/members/{USER_A}", None, admin()
+        )
+
+    assert response.status_code == 404 and "manage" not in response.text
+
+
+async def test_a_group_deleted_in_the_directory_is_a_409_with_fixed_words_and_nothing_leaks() -> (
+    None
+):
+    async with routes() as (r, client):
+        r.stubs.groups_change.error = GroupMissing()
+        response = await send(
+            client,
+            "POST",
+            f"/tenant/groups/{GROUP_A}/members",
+            {"email": "sam@example.org"},
+            admin(),
+        )
+
+    assert response.status_code == 409
+    assert "no longer in your directory" in response.text
+    assert GROUP_A not in response.text and "sam@example.org" not in response.text
+
+
+async def test_the_directory_being_down_is_a_503_that_says_to_try_again() -> None:
+    async with routes() as (r, client):
+        r.stubs.groups_read.error = GraphUnavailable("token endpoint refused")
+        response = await client.get("/tenant/groups", headers=admin())
+
+    assert response.status_code == 503 and response.headers["Retry-After"] == "30"
+    assert "token endpoint" not in response.text
 
 
 async def test_explicit_retention_rules_are_made_into_rules() -> None:

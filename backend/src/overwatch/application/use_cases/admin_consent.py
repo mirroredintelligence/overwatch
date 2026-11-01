@@ -3,8 +3,8 @@
 The operator names the organisation's Entra administrator; we email them the consent link and keep
 the invite pending. It becomes consented only when `ConfirmAdminConsent` has seen, through Microsoft
 Graph in the administrator's own directory, that our staff app is installed there and holds the
-group permission. A redirect (or its `admin_consent=True`) is never proof, and the flag is not read
-as one.
+five Graph permissions it asks for (DEC-1317). A redirect (or its `admin_consent=True`) is never
+proof, and the flag is not read as one.
 
 Tenancy: all three run in one bound tenant scope. `InviteAdminConsent` and `ReadAdminConsent` are
 the platform operator's, on the tenant the operator's path names. `ConfirmAdminConsent` is public:
@@ -45,7 +45,7 @@ from overwatch.domain.model.tenant_records import (
 )
 from overwatch.domain.rules.admin_consent import (
     INVITE_VALID_FOR,
-    REQUIRED_APP_ROLE,
+    REQUIRED_APP_ROLES,
     AdminConsentInvite,
     EffectiveStatus,
     InviteStatus,
@@ -79,8 +79,9 @@ REASON_NOT_INSTALLED: Final = (
 )
 REASON_DECLINED: Final = "Microsoft reported that approval was not given, so no access was given."
 REASON_ROLE_MISSING: Final = (
-    "Overwatch is installed in your directory but the permission to manage its groups has not "
-    "been granted, so we have not marked it approved."
+    "Overwatch is installed in your directory but not all of the permissions it asks for have "
+    "been granted, so we have not marked it approved. Please approve again, accepting every "
+    "permission on the page."
 )
 REASON_UNREACHABLE: Final = (
     "We could not reach Microsoft to check just now. Nothing has been changed; please try again "
@@ -316,7 +317,7 @@ class ConfirmAdminConsent:
         reason: str | None = None
         if not found.installed:
             reason = REASON_DECLINED if admin_consent is False else REASON_NOT_INSTALLED
-        elif REQUIRED_APP_ROLE not in found.granted_roles:
+        elif not found.granted_roles >= REQUIRED_APP_ROLES:
             reason = REASON_ROLE_MISSING
         if reason is not None:
             async with self._uow_factory() as uow:
@@ -325,7 +326,9 @@ class ConfirmAdminConsent:
             return ConfirmResult(EffectiveStatus.PENDING, reason, name)
 
         async with self._uow_factory() as uow:
-            moved = await uow.admin_consents.mark_consented(invite.invite_id, now)
+            moved = await uow.admin_consents.mark_consented(
+                invite.invite_id, now, found.service_principal_id
+            )
             if moved:
                 await uow.audit.append(
                     AuditEntry(

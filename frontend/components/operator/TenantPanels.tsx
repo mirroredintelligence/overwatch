@@ -31,22 +31,26 @@ function Said({ say }: { say: Say }) {
 }
 
 function roleName(code: string): string {
+  if (code === 'tenant-admin') return 'Administrators';
   return MAPPABLE_ROLE_WORDS.find(([value]) => value === code)?.[1] ?? code;
 }
 
 const NUMBER_STATE: Record<string, string> = { active: 'In use', retired: 'Stopped', quarantined: 'Quarantined' };
 const E164 = /^\+[1-9]\d{6,14}$/;
 
+type MadeGroup = { role: string; name: string; groupId: string; created: boolean; assigned: boolean };
+type RunData = { recorded?: boolean; expiresAt?: string; groups?: MadeGroup[]; added?: boolean };
+
 /** One write of a panel: the key of this submit, busy, and what to say. */
 function useWrite(tenantId: string, props: Pick<PanelProps, 'onChanged' | 'onUnrecorded'>) {
   const submitKey = useSubmitKey();
   const [busy, setBusy] = useState(false);
   const [say, setSay] = useState<Say>(null);
-  async function run(method: 'POST' | 'PUT', sub: string, body: unknown, done: (data: { recorded?: boolean; expiresAt?: string }) => string, failed: (status: number) => string): Promise<boolean> {
+  async function run(method: 'POST' | 'PUT', sub: string, body: unknown, done: (data: RunData) => string, failed: (status: number) => string): Promise<boolean> {
     if (busy) return false;
     setBusy(true);
     setSay(null);
-    const result = await operatorSend<{ recorded?: boolean; expiresAt?: string }>(method, `/api/bff/platform/tenants/${tenantId}/${sub}`, body, submitKey.key());
+    const result = await operatorSend<RunData>(method, `/api/bff/platform/tenants/${tenantId}/${sub}`, body, submitKey.key());
     setBusy(false);
     if (result.ok) {
       submitKey.fresh();
@@ -422,6 +426,159 @@ export function ConsentPanel(props: PanelProps) {
       ) : (
         <p className={styles.text}>Set the directory first. The consent link is for that directory.</p>
       )}
+    </Card>
+  );
+}
+
+const GROUP_CHOICES: readonly [string, string][] = MAPPABLE_ROLE_WORDS;
+
+/**
+ * Step 2 of admin consent (DEC-1317): once the administrator has approved, make the organisation's groups in its own
+ * directory, then put the first people in them. The names are made by the back end from the organisation's code, never
+ * typed here, and nobody types a group id. Who is in a group is held in the organisation's directory, not by Overwatch.
+ */
+export function GroupsPanel(props: PanelProps) {
+  const { state } = useOperatorRead<Consent>(`/api/bff/platform/tenants/${props.tenantId}/admin-consent`);
+  const consented = state.status === 'ok' && state.data.invitation?.status === 'consented';
+  const [roles, setRoles] = useState<string[]>([]);
+  const [made, setMade] = useState<MadeGroup[]>([]);
+  const [memberRole, setMemberRole] = useState('tenant-admin');
+  const [email, setEmail] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const groups = useWrite(props.tenantId, props);
+  const member = useWrite(props.tenantId, props);
+  const mapped = props.detail.roleMappings.filter((m) => m.status === 'active');
+  const memberChoices = [['tenant-admin', 'Administrators'] as const, ...GROUP_CHOICES.filter(([code]) => mapped.some((m) => m.role === code))];
+
+  function toggle(code: string, on: boolean) {
+    groups.fresh();
+    setRoles((held) => (on ? [...held, code] : held.filter((c) => c !== code)));
+  }
+  function makeGroups(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void groups
+      .run('POST', 'entra-groups', { roles }, (data) => {
+        setMade(data.groups ?? []);
+        return 'Groups are in place in the organisation’s directory.';
+      }, (status) => (status === 404 ? 'The groups could not be made. Check that the administrator has approved Overwatch.' : status === 503 ? 'The organisation’s directory could not be reached. Try again in a minute.' : status === 409 ? 'A group already gives a different role. Nothing was changed.' : 'The groups could not be made. Try again.'));
+  }
+  function addMember(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const address = email.trim();
+    if (!WORK_EMAIL.test(address) || address.includes('..')) {
+      setError('Enter the person’s work email address, for example name@organisation.nhs.uk.');
+      return;
+    }
+    setError(null);
+    void member
+      .run('POST', 'entra-groups/members', { role: memberRole, email: address }, (data) => (data.added === false ? 'That person is already in the group.' : 'Added to the group. The address is not kept.'), (status) =>
+        status === 400
+          ? 'No one in the organisation’s directory has that address.'
+          : status === 404
+            ? 'That group has not been made yet.'
+            : status === 503
+              ? 'The organisation’s directory could not be reached. Try again in a minute.'
+              : 'The person could not be added. Try again.',
+      )
+      .then((ok) => {
+        if (ok) setEmail('');
+      });
+  }
+
+  return (
+    <Card heading="Organisation groups">
+      <p className={styles.text}>
+        Overwatch makes one group for the organisation’s administrators and one for each role below, in the organisation’s own directory. The names are made from the organisation’s code. Who is in a group stays in that directory.
+      </p>
+      {state.status === 'loading' ? <p className={styles.muted}>Loading.</p> : null}
+      {state.status === 'ok' && !consented ? <p className={styles.text}>Groups can be made once the organisation’s administrator has approved Overwatch.</p> : null}
+      {consented ? (
+        <>
+          <form className={styles.stack} onSubmit={makeGroups} noValidate aria-label="Make the organisation’s groups">
+            <fieldset className={styles.stack}>
+              <legend>Roles to give a group (the administrators’ group is always made)</legend>
+              {GROUP_CHOICES.map(([code, word]) => (
+                <label key={code}>
+                  <input type="checkbox" checked={roles.includes(code)} onChange={(event) => toggle(code, event.target.checked)} /> {word}
+                </label>
+              ))}
+            </fieldset>
+            <Said say={groups.say} />
+            <div className={styles.actions}>
+              <Button variant="secondary" type="submit" busy={groups.busy}>
+                Make groups
+              </Button>
+            </div>
+          </form>
+          {made.length > 0 ? (
+            <div className={styles.scroll}>
+              <table className={styles.table}>
+                <caption>Groups made</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Role</th>
+                    <th scope="col">Group name</th>
+                    <th scope="col">State</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {made.map((g) => (
+                    <tr key={g.groupId}>
+                      <td>{roleName(g.role)}</td>
+                      <td>{g.name}</td>
+                      <td>{g.created ? 'Made now' : 'Already there'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+          <div className={styles.scroll}>
+            <table className={styles.table}>
+              <caption>Groups mapped to a role</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Role</th>
+                  <th scope="col">Group id</th>
+                </tr>
+              </thead>
+              <tbody>
+                {mapped.length === 0 ? (
+                  <tr>
+                    <td colSpan={2}>No group is mapped yet.</td>
+                  </tr>
+                ) : (
+                  mapped.map((m) => (
+                    <tr key={`${m.groupObjectId}-${m.role}`}>
+                      <td>{roleName(m.role)}</td>
+                      <td>{m.groupObjectId}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          <form className={styles.stack} onSubmit={addMember} noValidate aria-label="Add a first member">
+            <div className={styles.selectLabel}>
+              <label htmlFor="first-member-group">Group</label>
+              <select id="first-member-group" className={styles.select} value={memberRole} onChange={(event) => { member.fresh(); setMemberRole(event.target.value); }}>
+                {memberChoices.map(([code, word]) => (
+                  <option key={code} value={code}>
+                    {word}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <TextField id="first-member-email" label="Person’s work email" value={email} onChange={(v) => { member.fresh(); setEmail(v); }} requirement="none" inputMode="email" autoComplete="off" error={error} />
+            <Said say={member.say} />
+            <div className={styles.actions}>
+              <Button variant="secondary" type="submit" busy={member.busy}>
+                Add to group
+              </Button>
+            </div>
+          </form>
+        </>
+      ) : null}
     </Card>
   );
 }

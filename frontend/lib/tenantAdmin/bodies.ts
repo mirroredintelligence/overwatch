@@ -111,3 +111,15 @@ export function mappingBody(raw: unknown): Obj {
   if (body.status !== undefined) out.status = oneOf(body.status, ['active', 'retired'] as const);
   return out;
 }
+
+// One plain address: no display name, no comment, no quoting (the back end checks again, DEC-1317).
+const MEMBER_EMAIL = /^[A-Za-z0-9._%+'-]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$/;
+
+/** The address of a person to add to a group. The group is the path's; the back end checks it is one it made. */
+export function memberBody(raw: unknown): Obj {
+  const body = asObject(raw);
+  only(body, ['email']);
+  const email = text(body.email, 3, 254).trim();
+  if (!MEMBER_EMAIL.test(email) || email.includes('..')) throw invalidRequest();
+  return { email };
+}

@@ -22,6 +22,8 @@ use a route reads it as the 404 of a route that is not there:
   POST   /platform/tenants/{id}/admin-invitation        operator: invite the first administrator
   POST   /platform/tenants/{id}/admin-consent-invitation  operator: email the Entra administrator
   GET    /platform/tenants/{id}/admin-consent           operator: the latest invitation, masked
+  POST   /platform/tenants/{id}/entra-groups            operator: make the organisation's groups
+  POST   /platform/tenants/{id}/entra-groups/members    operator: add a first member to a group
   POST   /platform/tenants/{id}/activation              operator
   POST   /platform/tenants/{id}/suspension              operator (mode and reason)
   DELETE /platform/tenants/{id}/suspension              operator: resume
@@ -79,6 +81,10 @@ from overwatch.application.use_cases.cross_tenant_tickets import (
     OpenTicketCommand,
     RequestTicketCommand,
     TicketView,
+)
+from overwatch.application.use_cases.entra_groups import (
+    AddInitialMemberCommand,
+    ProvisionEntraGroupsCommand,
 )
 from overwatch.application.use_cases.platform_tenants import PlatformTenantDetail
 from overwatch.application.use_cases.tenant_access import InviteTenantAdminCommand
@@ -211,6 +217,15 @@ class InvitationBody(_Body):
 
 
 class ConsentInvitationBody(_Body):
+    email: str = Field(min_length=3, max_length=254)
+
+
+class EntraGroupsBody(_Body):
+    roles: list[Role] = Field(default_factory=list, max_length=12)
+
+
+class GroupMemberBody(_Body):
+    role: Role
     email: str = Field(min_length=3, max_length=254)
 
 
@@ -639,6 +654,78 @@ async def read_admin_consent(tenant_id: TenantPath, request: Request, actor: InT
     services = _consent_services(request)
     assert services.consent_read is not None
     return _json(200, consent_view_to_dict(await services.consent_read.execute(actor)))
+
+
+def _group_services(request: Request) -> PlatformServices:
+    services = _services(request)
+    if services.groups_provision is None or services.groups_member is None:
+        raise RuntimeError("the Entra group services are not configured")
+    return services
+
+
+@router.post("/tenants/{tenant_id}/entra-groups")
+async def provision_entra_groups(
+    tenant_id: TenantPath, body: EntraGroupsBody, request: Request, actor: InTenant
+) -> Response:
+    """Make the organisation's groups in its own directory, assign them to our app role and map
+    them to their roles (DEC-1317). Needs a CONSENTED tenant. The names are fixed by the back end
+    from the tenant's ODS code (or id): nothing here is a name or a group id. Safe to repeat."""
+    key = idempotency_key(request)
+
+    async def run() -> Response:
+        services = _group_services(request)
+        assert services.groups_provision is not None
+        groups = await services.groups_provision.execute(
+            ProvisionEntraGroupsCommand(actor, tuple(body.roles))
+        )
+        return await _step(
+            services,
+            actor,
+            "tenant-entra-groups-provisioned",
+            {
+                "groups": [
+                    {
+                        "role": g.role.value,
+                        "name": g.name,
+                        "groupId": g.group_id,
+                        "created": g.created,
+                        "assigned": g.assigned,
+                    }
+                    for g in groups
+                ]
+            },
+            200,
+            {"roles": sorted(g.role.value for g in groups)},
+        )
+
+    return await replay_or_run(request, actor, key, run)
+
+
+@router.post("/tenants/{tenant_id}/entra-groups/members")
+async def add_first_group_member(
+    tenant_id: TenantPath, body: GroupMemberBody, request: Request, actor: InTenant
+) -> Response:
+    """Add a person to one of the organisation's groups by address, found in that directory. A
+    person who is not found is a 400 that says so. The address is used to look them up and is not
+    stored, audited or answered."""
+    key = idempotency_key(request)
+
+    async def run() -> Response:
+        services = _group_services(request)
+        assert services.groups_member is not None
+        change = await services.groups_member.execute(
+            AddInitialMemberCommand(actor, body.role, body.email)
+        )
+        return await _step(
+            services,
+            actor,
+            "tenant-entra-group-member-added",
+            {"groupId": change.group_id, "added": change.changed},
+            200,
+            {"role": body.role.value},
+        )
+
+    return await replay_or_run(request, actor, key, run)
 
 
 @router.post("/tenants/{tenant_id}/activation")

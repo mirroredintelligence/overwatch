@@ -60,6 +60,7 @@ from overwatch.domain.model.tenant import (
 from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, SettingValue, TenantPolicy
 from overwatch.domain.model.tenant_records import (
     CHANNEL_PROVIDER,
+    HAND_MAPPABLE_ROLES,
     BindingStatus,
     ChannelKind,
     EntraBinding,
@@ -392,6 +393,9 @@ def plan_binding(existing: tuple[EntraBinding, ...], directory_id: str) -> tuple
 
 
 def plan_mapping(command: MapGroupCommand) -> RoleMapping:
+    # The administrator role is mapped only for the group Overwatch creates (DEC-1317), not by hand.
+    if command.role not in HAND_MAPPABLE_ROLES:
+        raise ValidationFailed("role", "is not a role a directory group may give")
     return RoleMapping(command.group_object_id, command.role, command.status)
 
 

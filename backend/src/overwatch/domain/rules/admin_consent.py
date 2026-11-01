@@ -34,8 +34,18 @@ INVITE_VALID_FOR: Final = timedelta(days=7)
 STATE_RANDOM_BYTES: Final = 32
 STATE_SEPARATOR: Final = "."
 CONSENT_ENDPOINT: Final = "https://login.microsoftonline.com/{directory}/adminconsent"
-REQUIRED_APP_ROLE: Final = "Group.ReadWrite.All"
-"""The Graph application permission whose grant proves the consent covers what we need."""
+REQUIRED_APP_ROLES: Final = frozenset(
+    {
+        "Group.ReadWrite.All",  # 62a82d76-70ea-41e2-9197-370581804d09: create the groups
+        "GroupMember.ReadWrite.All",  # dbaae8cf-10b5-4b86-a4a1-f871c94c6695: add and remove members
+        "User.Read.All",  # df021288-bdef-4463-88db-98f22de89214: find a person by address
+        "AppRoleAssignment.ReadWrite.All",  # 06b708a9-e830-4db3-a914-8e69da51d44f: groups to role
+        "Application.Read.All",  # 9a5d68dd-52b0-4cc2-bd40-abcf44ac3a30: our service principal there
+    }
+)
+"""The Graph application permissions the consent must hold (DEC-1317 widens DEC-1316's one to five:
+every one is used by the group set-up and the membership changes, so a consent missing any of them
+would fail later, at the first group)."""
 
 EMAIL_MAX: Final = 254
 _EMAIL: Final = re.compile(
@@ -80,6 +90,9 @@ class AdminConsentInvite:
     revoked_at: datetime | None = None
     last_reason: str | None = None
     """The words for why the last check did not confirm the consent; None before any check."""
+    service_principal_id: str | None = None
+    """The object id of our app's service principal in the organisation's directory, read by the
+    check that confirmed the consent (DEC-1317). A directory object id, not personal data."""
 
     def __post_init__(self) -> None:
         if DIRECTORY_ID_PATTERN.fullmatch(self.directory_id) is None:
@@ -91,6 +104,10 @@ class AdminConsentInvite:
             value = getattr(self, name)
             if value is not None and value.utcoffset() is None:
                 raise ValidationFailed(name, "a time must carry its zone")
+        if self.service_principal_id is not None and (
+            DIRECTORY_ID_PATTERN.fullmatch(self.service_principal_id) is None
+        ):
+            raise ValidationFailed("service_principal_id", "not a directory object id")
         if self.expires_at <= self.created_at:
             raise ValidationFailed("expires_at", "an invite expires after it is made")
         if (self.status is InviteStatus.CONSENTED) != (self.consented_at is not None):

@@ -19,7 +19,9 @@ import pytest
 from httpx import AsyncClient
 
 from overwatch.adapters.inbound.fhir_rest.routes_platform import PERMISSIONS
+from overwatch.application.ports.outbound.admin_consent import GraphUnavailable
 from overwatch.domain.codes import Role
+from overwatch.domain.errors import ValidationFailed
 from overwatch.domain.model.tenant import TenantStatus
 from overwatch.domain.rules import bff_token
 from overwatch.domain.rules.support_ticket import TicketState
@@ -85,6 +87,13 @@ ROUTES: list[tuple[str, str, Any, frozenset[Role]]] = [
         OPERATOR,
     ),
     ("GET", f"/platform/tenants/{TENANT}/admin-consent", None, OPERATOR),
+    ("POST", f"/platform/tenants/{TENANT}/entra-groups", {"roles": ["lead"]}, OPERATOR),
+    (
+        "POST",
+        f"/platform/tenants/{TENANT}/entra-groups/members",
+        {"role": "tenant-admin", "email": "jane@example.org"},
+        OPERATOR,
+    ),
     ("POST", f"/platform/tenants/{TENANT}/activation", None, OPERATOR),
     ("POST", "/platform/tenants/act-org/suspension", SUSPEND_BODY, OPERATOR),
     ("DELETE", "/platform/tenants/act-org/suspension", None, OPERATOR),
@@ -535,6 +544,97 @@ async def test_the_admin_consent_invitation_answers_the_masked_view_and_is_recor
     assert [e.action for e in r.audit.entries] == ["tenant-admin-consent-invited"]
     assert "admin@example.org" not in repr(r.audit.entries)
     assert bad.status_code in (400, 422)  # no body names a tenant
+
+
+async def test_the_entra_groups_are_made_from_the_roles_asked_and_no_name_or_id_is_taken() -> None:
+    async with routes() as (r, client):
+        made = await send(
+            client,
+            "POST",
+            f"/platform/tenants/{TENANT}/entra-groups",
+            {"roles": ["lead"]},
+            ops(),
+        )
+        bodies = [
+            {"roles": ["lead"], "names": ["Domain Admins"]},
+            {"roles": ["lead"], "groupId": "aaaaaaaa-0000-4000-8000-00000000000a"},
+            {"roles": ["lead"], "tenantId": "other-org"},
+            {"roles": ["not-a-role"]},
+        ]
+        refused = [
+            await send(client, "POST", f"/platform/tenants/{TENANT}/entra-groups", b, ops())
+            for b in bodies
+        ]
+
+    assert made.status_code == 200 and made.json()["recorded"] is True
+    assert [g["name"] for g in made.json()["groups"]] == [
+        "F81044_overwatch_tenant-admin",
+        "F81044_overwatch_lead",
+    ]
+    assert made.json()["groups"][0]["created"] is True
+    [command] = r.stubs.groups_provision.commands
+    assert command.roles == (Role.LEAD,) and command.actor.tenant_id == TENANT
+    assert [x.status_code for x in refused] == [400, 400, 400, 400]
+    assert len(r.stubs.groups_provision.commands) == 1
+    assert [e.action for e in r.audit.entries] == ["tenant-entra-groups-provisioned"]
+
+
+async def test_a_first_member_is_added_by_role_and_address_and_the_address_goes_nowhere_else() -> (
+    None
+):
+    async with routes() as (r, client):
+        added = await send(
+            client,
+            "POST",
+            f"/platform/tenants/{TENANT}/entra-groups/members",
+            {"role": "tenant-admin", "email": "Jane.Member@example.org"},
+            ops(),
+        )
+        by_id = await send(
+            client,
+            "POST",
+            f"/platform/tenants/{TENANT}/entra-groups/members",
+            {
+                "role": "lead",
+                "email": "j@example.org",
+                "groupId": "aaaaaaaa-0000-4000-8000-00000000000a",
+            },
+            ops(),
+        )
+
+    assert added.status_code == 200 and added.json()["added"] is True
+    assert by_id.status_code == 400  # the operator never types a group id
+    [command] = r.stubs.groups_member.commands
+    assert command.role is Role.TENANT_ADMIN and command.email == "Jane.Member@example.org"
+    for text in (repr(r.audit.entries), added.text):
+        assert "example.org" not in text and "jane" not in text.lower()
+    assert [e.action for e in r.audit.entries] == ["tenant-entra-group-member-added"]
+
+
+async def test_a_person_who_is_not_found_is_a_400_with_words_and_the_directory_down_is_a_503() -> (
+    None
+):
+    async with routes() as (r, client):
+        r.stubs.groups_member.error = ValidationFailed(
+            "email", "no one in your directory has that address"
+        )
+        missing = await send(
+            client,
+            "POST",
+            f"/platform/tenants/{TENANT}/entra-groups/members",
+            {"role": "lead", "email": "ghost@example.org"},
+            ops(),
+        )
+        r.stubs.groups_provision.error = GraphUnavailable("could not be reached")
+        down = await send(
+            client, "POST", f"/platform/tenants/{TENANT}/entra-groups", {"roles": []}, ops()
+        )
+
+    assert missing.status_code == 400 and "no one in your directory" in missing.text
+    assert "ghost" not in missing.text
+    assert down.status_code == 503 and down.headers["Retry-After"] == "30"
+    assert "could not be reached" not in down.text
+    assert r.audit.entries == []  # a step that did not happen is not recorded
 
 
 async def test_a_value_another_tenant_holds_is_a_409_and_the_step_is_not_recorded() -> None:

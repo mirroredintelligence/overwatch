@@ -25,8 +25,20 @@ class AdminConsentRepository(Protocol):
         """Revoke every pending invite (a resend replaces them). Returns how many."""
         ...
 
-    async def mark_consented(self, invite_id: str, at: datetime) -> bool:
-        """Pending to consented, once. False when the invite was not pending any more."""
+    async def mark_consented(
+        self, invite_id: str, at: datetime, service_principal_id: str | None = None
+    ) -> bool:
+        """Pending to consented, once. False when the invite was not pending any more. Keeps the
+        object id of our service principal in the organisation's directory when the check found
+        it."""
+        ...
+
+    async def consented(self) -> AdminConsentInvite | None:
+        """The tenant's newest consented invite, or None."""
+        ...
+
+    async def set_service_principal(self, invite_id: str, service_principal_id: str) -> None:
+        """Keep the service principal's object id on a consented invite that has none."""
         ...
 
     async def set_reason(self, invite_id: str, reason: str) -> None:
@@ -43,6 +55,8 @@ class AppInstallation:
     installed: bool
     granted_roles: frozenset[str] = frozenset()
     reason: str | None = None
+    service_principal_id: str | None = None
+    """Our app's service principal object id in that directory, when installed."""
 
 
 class GraphUnavailable(Exception):

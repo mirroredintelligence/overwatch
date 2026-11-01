@@ -17,6 +17,7 @@ from overwatch.domain.errors import ValidationFailed
 from overwatch.domain.model.tenant import NumberStatus, RetentionClass
 from overwatch.domain.model.tenant_records import (
     ENTRA_MAPPABLE_ROLES,
+    HAND_MAPPABLE_ROLES,
     KEPT_UNTIL_PURGE,
     MAX_KEEP_DAYS,
     BindingStatus,
@@ -349,10 +350,10 @@ def test_a_binding_status_is_checked_by_exact_type() -> None:
 # ---------------------------------------------------------------- role mappings
 
 
-def test_the_roles_a_group_may_map_to_are_the_staff_roles_and_the_network_administrator() -> None:
+def test_the_roles_a_group_may_map_to_are_the_staff_roles_and_the_two_administrators() -> None:
     # The network administrator is a role of the owner's own directory (TEN-080, DEC-1260): the
-    # exchange gives it only to the tenant that owns a network. The tenant administrator is not
-    # mappable: that role comes from the first administrator's invitation (DEC-1007 item 4).
+    # exchange gives it only to the tenant that owns a network. The tenant administrator is
+    # mappable for the group Overwatch makes (DEC-1317); by hand it is not (HAND_MAPPABLE_ROLES).
     assert (
         frozenset(
             {
@@ -363,11 +364,14 @@ def test_the_roles_a_group_may_map_to_are_the_staff_roles_and_the_network_admini
                 Role.EXEC,
                 Role.AUDIT,
                 Role.NETWORK_ADMIN,
+                Role.TENANT_ADMIN,
             }
         )
         == ENTRA_MAPPABLE_ROLES
     )
-    assert Role.TENANT_ADMIN not in ENTRA_MAPPABLE_ROLES
+    assert Role.TENANT_ADMIN not in HAND_MAPPABLE_ROLES
+    assert ENTRA_MAPPABLE_ROLES - {Role.TENANT_ADMIN} == HAND_MAPPABLE_ROLES
+    assert Role.PLATFORM_OPERATOR not in ENTRA_MAPPABLE_ROLES
 
 
 @pytest.mark.parametrize("role", sorted(ENTRA_MAPPABLE_ROLES))
@@ -382,7 +386,6 @@ def test_a_group_maps_to_a_staff_role(role: Role) -> None:
         Role.WALL,
         Role.ANONYMOUS_LINK,
         Role.SUPPORT,
-        Role.TENANT_ADMIN,
         Role.PLATFORM_OPERATOR,
         "advisor",
         None,

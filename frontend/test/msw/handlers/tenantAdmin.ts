@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import { ONE_TIME_CODE, RAW_SETTINGS, VIEW_LOG, VIEW_OVERVIEW, VIEW_TICKETS, VIEW_VERSIONS } from '@/test/fixtures/tenantAdmin';
+import { GROUP_ADMIN, ONE_TIME_CODE, RAW_GROUPS, RAW_SETTINGS, VIEW_LOG, VIEW_OVERVIEW, VIEW_TICKETS, VIEW_VERSIONS } from '@/test/fixtures/tenantAdmin';
 
 // The tenant administrator's BFF routes for component tests (TEN-076): the answers are what the BFF gives
 // the browser (test/fixtures/tenantAdmin.ts, VIEW_*). A write is recorded with the CSRF token and the
@@ -39,6 +39,7 @@ export const tenantAdminHandlers = [
     return one ? HttpResponse.json(one, { headers: NO_STORE }) : HttpResponse.json({ code: 'not-found' }, { status: 404, headers: NO_STORE });
   }),
   http.get('/api/bff/tenant/access-log', () => HttpResponse.json(VIEW_LOG, { headers: NO_STORE })),
+  http.get('/api/bff/tenant/groups', () => HttpResponse.json(RAW_GROUPS, { headers: NO_STORE })),
   http.get('/api/bff/tenant/support-tickets', () => HttpResponse.json(VIEW_TICKETS, { headers: NO_STORE })),
   http.post('/api/bff/tenant/config/drafts', async ({ request }) => {
     await recorded(request);
@@ -71,6 +72,14 @@ export const tenantAdminHandlers = [
   http.put('/api/bff/tenant/role-mappings', async ({ request }) => {
     await recorded(request);
     return new HttpResponse(null, { status: 204, headers: NO_STORE });
+  }),
+  http.post('/api/bff/tenant/groups/:group/members', async ({ request, params }) => {
+    await recorded(request);
+    return HttpResponse.json({ groupId: String(params.group ?? GROUP_ADMIN), changed: true }, { headers: NO_STORE });
+  }),
+  http.delete('/api/bff/tenant/groups/:group/members/:user', async ({ request, params }) => {
+    await recorded(request);
+    return HttpResponse.json({ groupId: String(params.group), changed: true }, { headers: NO_STORE });
   }),
   http.post('/api/bff/tenant/support-tickets/:id/approval', async ({ request, params }) => {
     await recorded(request);

@@ -72,6 +72,7 @@ from overwatch.domain.model.tenant import (
 )
 from overwatch.domain.model.tenant_records import (
     CHANNEL_PROVIDER,
+    HAND_MAPPABLE_ROLES,
     BindingStatus,
     ChannelKind,
     EntraBinding,
@@ -244,7 +245,10 @@ class CreateTenant(OperatorUseCase):
             directory = normalise_directory_id(command.directory_id)
             if directory is None:
                 raise ValidationFailed("directory_id", "must be a directory id")
-        # Built (and so checked) before anything is written: a bad mapping creates nothing.
+        # Built (and so checked) before anything is written: a bad mapping creates nothing. The
+        # administrator role is not given to a group here (DEC-1317 makes that group itself).
+        if any(role not in HAND_MAPPABLE_ROLES for _group, role in command.role_mappings):
+            raise ValidationFailed("role_mappings", "is not a role a directory group may give")
         mappings = tuple(
             RoleMapping(group, role, MappingStatus.ACTIVE) for group, role in command.role_mappings
         )

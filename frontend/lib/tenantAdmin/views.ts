@@ -253,3 +253,33 @@ export function parseStored(value: unknown) {
 }
 
 export type { Obj };
+
+// ---------------------------------------------------------------- the organisation's groups (DEC-1317)
+
+export const GROUP_ROLES = ['tenant-admin', 'advisor', 'clinical', 'lead', 'owner', 'exec', 'audit'] as const;
+
+/** The groups Overwatch made in the organisation's directory and who is in each, as the directory shows them now. */
+export function parseGroups(value: unknown) {
+  const v = obj(value);
+  return {
+    setUp: bool(v.setUp),
+    groups: list(v.groups, 50).map((row) => {
+      const g = obj(row);
+      return {
+        groupId: str(g.groupId, 64),
+        name: strOrNull(g.name, 200),
+        role: oneOf(g.role, GROUP_ROLES),
+        missing: bool(g.missing),
+        members: list(g.members ?? [], 1000).map((item) => {
+          const m = obj(item);
+          return { userId: str(m.userId, 64), displayName: strOrNull(m.displayName, 200), mail: strOrNull(m.mail, 320) };
+        }),
+      };
+    }),
+  };
+}
+
+export function parseMemberChange(value: unknown) {
+  const v = obj(value);
+  return { groupId: str(v.groupId, 64), changed: bool(v.changed) };
+}

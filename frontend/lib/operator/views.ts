@@ -195,3 +195,23 @@ export function parseAccessOpened(value: unknown) {
 }
 
 export { badAnswer };
+
+export const GROUP_ROLES = ['tenant-admin', 'advisor', 'clinical', 'lead', 'owner', 'exec', 'audit'] as const;
+
+/** The groups made in the organisation's directory (DEC-1317): the fixed name, its id, and whether this call made it. */
+export function parseGroupsMade(value: unknown) {
+  const v = obj(value);
+  return {
+    groups: list(v.groups, 20).map((row) => {
+      const g = obj(row);
+      return { role: oneOf(g.role, GROUP_ROLES), name: str(g.name, 200), groupId: str(g.groupId, 64), created: bool(g.created), assigned: bool(g.assigned) };
+    }),
+    recorded: bool(v.recorded),
+  };
+}
+
+/** A first member added to a group (DEC-1317). Never the address, and never who the person is. */
+export function parseMemberAdded(value: unknown) {
+  const v = obj(value);
+  return { groupId: str(v.groupId, 64), added: bool(v.added), recorded: bool(v.recorded) };
+}

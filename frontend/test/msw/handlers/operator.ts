@@ -45,6 +45,20 @@ export const operatorHandlers = [
     await recorded(request);
     return ok({ invitation: { emailMasked: 'j***@example-trust.test', status: 'pending', createdAt: '2026-11-01T09:00:00Z', expiresAt: '2026-11-08T09:00:00Z', consentedAt: null, reason: null }, recorded: true }, 201);
   }),
+  http.post('/api/bff/platform/tenants/:id/entra-groups', async ({ request }) => {
+    await recorded(request);
+    return ok({
+      groups: [
+        { role: 'tenant-admin', name: 'RXX01_overwatch_tenant-admin', groupId: 'dddddddd-0000-4000-8000-000000000001', created: true, assigned: true },
+        { role: 'lead', name: 'RXX01_overwatch_lead', groupId: 'dddddddd-0000-4000-8000-000000000002', created: false, assigned: true },
+      ],
+      recorded: true,
+    });
+  }),
+  http.post('/api/bff/platform/tenants/:id/entra-groups/members', async ({ request }) => {
+    await recorded(request);
+    return ok({ groupId: 'dddddddd-0000-4000-8000-000000000001', added: true, recorded: true });
+  }),
   http.get('/api/bff/platform/audit', ({ request }) => {
     const after = new URL(request.url).searchParams.get('afterSeq');
     return after === '3' ? ok({ entries: [{ seq: 4, action: 'tenant-activated', principalRef: 'ops-0123456789abcdef0123456789abcdef', tenantId: 'trust-b', accessId: null, snapshot: { status: 'active' }, at: '2026-10-22T09:00:00Z' }], next: null }) : ok(VIEW_AUDIT);

@@ -68,6 +68,8 @@ OPERATOR_USE_CASES: Final = frozenset(
         "VerifyEntraBinding",
         "ActivateTenant",
         "InviteTenantAdmin",
+        "ProvisionEntraGroups",
+        "AddInitialGroupMember",
         "SuspendTenant",
         "ResumeTenant",
         "StartTenantOffboarding",

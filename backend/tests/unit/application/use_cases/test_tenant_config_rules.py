@@ -679,8 +679,11 @@ def test_a_mapping_is_built_from_the_command() -> None:
     assert retired.status is MappingStatus.RETIRED
 
 
-@pytest.mark.parametrize("role", [Role.SUPPORT, Role.WALL, Role.REPORTER, Role.ANONYMOUS_LINK])
-def test_a_group_cannot_be_mapped_to_a_role_the_directory_does_not_give(role: Role) -> None:
+@pytest.mark.parametrize(
+    "role",
+    [Role.SUPPORT, Role.WALL, Role.REPORTER, Role.ANONYMOUS_LINK, Role.TENANT_ADMIN],
+)
+def test_a_group_cannot_be_mapped_by_hand_to_a_role_the_directory_does_not_give(role: Role) -> None:
     with pytest.raises(ValidationFailed):
         plan_mapping(MapGroupCommand(actor(), GUID, role))
 

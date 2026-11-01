@@ -6,13 +6,15 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { adminSend, useAdminRead, useSubmitKey } from '@/lib/tenantAdmin/browser';
 import { MAPPABLE_ROLE_WORDS } from '@/lib/tenantAdmin/roles';
+import { GroupMembers } from './GroupMembers';
 import type { Overview } from './AdminOverview';
 import { whenText } from '@/lib/tenantAdmin/words';
 import styles from './admin.module.css';
 
 // Users and roles (TEN-076): the directory the organisation signs in with and which of its groups gets which
 // role. A directory is bound as pending and stays so until the platform operator verifies it; a group is
-// never mapped to the administrator role (the first administrator is invited by the platform operator).
+// never mapped to the administrator role by hand (the first administrator is invited by the platform operator).
+// Groups and members (DEC-1317) is the groups Overwatch made in that directory and who is in each.
 
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DIRECTORY_WORD = { pending: 'Pending', verified: 'Verified', revoked: 'Revoked' } as const;
@@ -35,6 +37,7 @@ export function UsersAndRoles() {
           <MappingCard mappings={state.data.mappings} onSaved={reload} />
         </>
       ) : null}
+      <GroupMembers />
     </main>
   );
 }

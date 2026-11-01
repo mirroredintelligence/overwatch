@@ -254,6 +254,88 @@ describe('administrator consent (DEC-1316)', () => {
   });
 });
 
+describe('organisation groups (DEC-1317)', () => {
+  const consented = { invitation: { emailMasked: 'j***@example-trust.test', status: 'consented', createdAt: '2026-11-01T09:00:00Z', expiresAt: '2026-11-08T09:00:00Z', consentedAt: '2026-11-02T10:00:00Z', reason: null } };
+  const serveConsented = () => server.use(http.get('/api/bff/platform/tenants/:id/admin-consent', () => HttpResponse.json(consented)));
+  const card = () => screen.getByRole('region', { name: 'Organisation groups' });
+
+  it('offers nothing until the administrator has approved Overwatch', async () => {
+    await open();
+    expect(await within(card()).findByText('Groups can be made once the organisation’s administrator has approved Overwatch.')).toBeInTheDocument();
+    expect(within(card()).queryByRole('button', { name: 'Make groups' })).not.toBeInTheDocument();
+  });
+
+  it('makes the groups for the roles ticked, sending only roles (no name, no group id), and lists what was made', async () => {
+    serveConsented();
+    const user = await open();
+    await user.click(await within(card()).findByRole('checkbox', { name: 'Shift lead' }));
+    await user.click(within(card()).getByRole('button', { name: 'Make groups' }));
+    await waitFor(() => expect(seenOperatorWrites).toHaveLength(1));
+    expect(lastWrite()).toMatchObject({ method: 'POST', path: '/api/bff/platform/tenants/trust-b/entra-groups', csrf: OPERATOR_SAMPLE_CSRF, body: { roles: ['lead'] } });
+    expect(lastWrite()?.key).toBeTruthy();
+    expect(await within(card()).findByRole('status')).toHaveTextContent('Groups are in place in the organisation’s directory.');
+    const made = within(card()).getByRole('table', { name: 'Groups made' });
+    expect(within(made).getByRole('row', { name: /Administrators RXX01_overwatch_tenant-admin Made now/ })).toBeInTheDocument();
+    expect(within(made).getByRole('row', { name: /Shift lead RXX01_overwatch_lead Already there/ })).toBeInTheDocument();
+  });
+
+  it('always makes the administrators’ group, even with no role ticked', async () => {
+    serveConsented();
+    const user = await open();
+    await user.click(await within(card()).findByRole('button', { name: 'Make groups' }));
+    await waitFor(() => expect(seenOperatorWrites).toHaveLength(1));
+    expect(lastWrite()?.body).toEqual({ roles: [] });
+  });
+
+  it('says the directory could not be reached, in words', async () => {
+    serveConsented();
+    server.use(http.post('/api/bff/platform/tenants/:id/entra-groups', () => HttpResponse.json({ code: 'transient' }, { status: 503 })));
+    const user = await open();
+    await user.click(await within(card()).findByRole('button', { name: 'Make groups' }));
+    expect(await within(card()).findByRole('alert')).toHaveTextContent('The organisation’s directory could not be reached. Try again in a minute.');
+  });
+
+  it('adds a first member by group and address, never showing or keeping the address', async () => {
+    serveConsented();
+    const user = await open();
+    await user.type(await within(card()).findByLabelText('Person’s work email'), 'jane.member@example-trust.test');
+    await user.click(within(card()).getByRole('button', { name: 'Add to group' }));
+    await waitFor(() => expect(seenOperatorWrites).toHaveLength(1));
+    expect(lastWrite()).toMatchObject({ path: '/api/bff/platform/tenants/trust-b/entra-groups/members', body: { role: 'tenant-admin', email: 'jane.member@example-trust.test' } });
+    expect(await within(card()).findByRole('status')).toHaveTextContent('Added to the group. The address is not kept.');
+    expect(within(card()).getByLabelText('Person’s work email')).toHaveValue('');
+    expect(document.body.textContent ?? '').not.toContain('jane.member@example-trust.test');
+  });
+
+  it('offers the administrators’ group first, then only the groups that are mapped', async () => {
+    serveConsented();
+    await open();
+    const select = await within(card()).findByRole('combobox', { name: 'Group' });
+    expect(within(select).getAllByRole('option')[0]).toHaveTextContent('Administrators');
+  });
+
+  it('refuses a non-address first, and says no one has that address when the directory does not know it', async () => {
+    serveConsented();
+    server.use(http.post('/api/bff/platform/tenants/:id/entra-groups/members', () => HttpResponse.json({ code: 'invalid' }, { status: 400 })));
+    const user = await open();
+    await user.type(await within(card()).findByLabelText('Person’s work email'), 'nonsense');
+    await user.click(within(card()).getByRole('button', { name: 'Add to group' }));
+    expect(await within(card()).findByText('Enter the person’s work email address, for example name@organisation.nhs.uk.', { selector: 'p' })).toBeInTheDocument();
+    expect(seenOperatorWrites).toEqual([]);
+    await user.clear(within(card()).getByLabelText('Person’s work email'));
+    await user.type(within(card()).getByLabelText('Person’s work email'), 'ghost@example-trust.test');
+    await user.click(within(card()).getByRole('button', { name: 'Add to group' }));
+    expect(await within(card()).findByRole('alert')).toHaveTextContent('No one in the organisation’s directory has that address.');
+  });
+
+  it('has no axe violations once consented', async () => {
+    serveConsented();
+    await open();
+    await within(card()).findByRole('button', { name: 'Make groups' });
+    expect(await runAxe(document.body)).toHaveNoViolations();
+  });
+});
+
 describe('activation', () => {
   it('offers to activate a tenant that is ready, asks first, and says it is active', async () => {
     const user = await open(VIEW_DETAIL_READY);

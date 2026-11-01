@@ -5,7 +5,7 @@ import { useOperatorRead } from '@/lib/operator/browser';
 import type { parseTenantDetail } from '@/lib/operator/views';
 import { organisationTypeWord, TENANT_STATUS_WORD } from '@/lib/operator/words';
 import { ActivationPanel, LifecyclePanel, type Notice } from './TenantLifecycle';
-import { ConsentPanel, DirectoryPanel, HostPanel, InvitationPanel, NumbersPanel, ReferencesPanel } from './TenantPanels';
+import { ConsentPanel, DirectoryPanel, GroupsPanel, HostPanel, InvitationPanel, NumbersPanel, ReferencesPanel } from './TenantPanels';
 import styles from '@/components/admin/admin.module.css';
 
 // One tenant's page (TEN-083): provisioning (the address, the text numbers, the agreement references, the
@@ -72,6 +72,7 @@ export function TenantDetail({ tenantId }: { tenantId: string }) {
       <ReferencesPanel {...panel} />
       <DirectoryPanel {...panel} />
       <ConsentPanel {...panel} />
+      <GroupsPanel {...panel} />
       <InvitationPanel {...panel} />
       <LifecyclePanel {...panel} onNotice={setNotice} />
     </main>

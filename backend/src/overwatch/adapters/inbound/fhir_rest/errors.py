@@ -17,6 +17,8 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from overwatch.adapters.inbound.fhir_rest.capability import FhirJSONResponse
 from overwatch.adapters.inbound.fhir_rest.validation import ProfileRejected, issue_outcome
+from overwatch.application.ports.outbound.admin_consent import GraphUnavailable
+from overwatch.application.ports.outbound.entra_groups import GroupMissing
 from overwatch.domain.errors import (
     Conflict,
     InvalidTransition,
@@ -187,7 +189,28 @@ def _unavailable(request: Request, exc: Any) -> Response:
     )
 
 
+GROUP_MISSING_TEXT = (
+    "A group Overwatch made is no longer in your directory. Ask the platform operator to set the "
+    "groups up again; nothing has been changed."
+)
+DIRECTORY_RETRY_SECONDS = 30
+
+
+def _directory_unavailable(request: Request, exc: Any) -> Response:
+    # Microsoft Graph could not be asked (DEC-1317). The cause is fixed words in the exception and
+    # never reaches the body.
+    assert isinstance(exc, GraphUnavailable)
+    return operation_outcome(
+        503,
+        "transient",
+        UNAVAILABLE_TEXT,
+        headers={"Retry-After": str(DIRECTORY_RETRY_SECONDS), "Cache-Control": "no-store"},
+    )
+
+
 def install_exception_handlers(app: FastAPI) -> None:
+    app.add_exception_handler(GraphUnavailable, _directory_unavailable)
+    app.add_exception_handler(GroupMissing, _fixed(409, "conflict", GROUP_MISSING_TEXT))
     app.add_exception_handler(ValidationFailed, _validation_failed)
     app.add_exception_handler(ProfileRejected, _profile_rejected)
     app.add_exception_handler(NotFound, _fixed(404, "not-found", NOT_FOUND_TEXT))

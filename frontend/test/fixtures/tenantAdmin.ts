@@ -167,3 +167,35 @@ export const VIEW_TICKETS = {
 };
 
 export const ONE_TIME_CODE = 'K7R4-92QX';
+
+// ---------------------------------------------------------------- the organisation's groups (DEC-1317)
+
+export const GROUP_ADMIN = 'dddddddd-0000-4000-8000-000000000001';
+export const GROUP_LEAD = 'dddddddd-0000-4000-8000-000000000002';
+export const MEMBER_JANE = 'eeeeeeee-0000-4000-8000-000000000001';
+export const MEMBER_SAM = 'eeeeeeee-0000-4000-8000-000000000002';
+
+/** `GET /tenant/groups`: what the back end answers, and (the reader keeps every field) what the BFF gives the browser. */
+export const RAW_GROUPS = {
+  setUp: true,
+  groups: [
+    {
+      groupId: GROUP_ADMIN,
+      name: 'RXX01_overwatch_tenant-admin',
+      role: 'tenant-admin',
+      missing: false,
+      members: [{ userId: MEMBER_JANE, displayName: 'Jane Sample', mail: 'jane.sample@example.test' }],
+    },
+    {
+      groupId: GROUP_LEAD,
+      name: 'RXX01_overwatch_lead',
+      role: 'lead',
+      missing: false,
+      members: [
+        { userId: MEMBER_JANE, displayName: 'Jane Sample', mail: 'jane.sample@example.test' },
+        { userId: MEMBER_SAM, displayName: 'Sam Second', mail: null },
+      ],
+    },
+  ],
+};
+export const VIEW_GROUPS = RAW_GROUPS;

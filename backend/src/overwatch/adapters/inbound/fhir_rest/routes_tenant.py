@@ -27,6 +27,10 @@ every write); a blocked, offboarding or purged tenant is closed at the edge.
   PUT  /tenant/directory                          bind the staff directory (pending, the operator
                                                   verifies it)
   PUT  /tenant/role-mappings                      map a directory group to a staff role
+  GET  /tenant/groups                             the groups Overwatch made in the organisation's
+                                                  directory, and who is in each (DEC-1317)
+  POST /tenant/groups/{group}/members             add a person, by address, to one of those groups
+  DELETE /tenant/groups/{group}/members/{user}    remove a person from one of those groups
   GET  /tenant/access-log                         what the platform's own people did here
   GET  /tenant/support-tickets[/{id}]             the tickets that name this tenant
   POST /tenant/support-tickets/{id}/approval      approve: the one-time code, in this answer only
@@ -58,6 +62,7 @@ from overwatch.application.use_cases.advisor_work_phone import (
     RecordAdvisorWorkPhoneCommand,
 )
 from overwatch.application.use_cases.cross_tenant_tickets import DecideTicketCommand, TicketView
+from overwatch.application.use_cases.entra_groups import ChangeMemberCommand, ManagedGroups
 from overwatch.application.use_cases.tenant_admin_views import (
     AccessLogEntry,
     ConfigVersionView,
@@ -103,9 +108,11 @@ TICKET_ID: Final = r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
 CHANNEL_ID: Final = r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
 TEXT_CHANNEL_MESSAGE: Final = "the text channel is set by the platform operator"
 TIME_SHAPE: Final = "must be a time of day as HH:MM"
+GUID: Final = r"^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$"
 
 Admin = Annotated[Actor, Depends(require_role(Role.TENANT_ADMIN))]
 TicketPath = Annotated[str, Path(pattern=TICKET_ID)]
+GuidPath = Annotated[str, Path(pattern=GUID)]
 
 
 # ---------------------------------------------------------------- bodies
@@ -162,6 +169,10 @@ class MappingBody(_Body):
     groupObjectId: str = Field(min_length=1, max_length=64)
     role: Role
     status: MappingStatus = MappingStatus.ACTIVE
+
+
+class MemberBody(_Body):
+    email: str = Field(min_length=3, max_length=254)
 
 
 # ---------------------------------------------------------------- helpers
@@ -561,6 +572,76 @@ async def put_role_mapping(body: MappingBody, request: Request, actor: Admin) ->
             MapGroupCommand(actor, body.groupObjectId, body.role, body.status)
         )
         return _empty()
+
+    return await replay_or_run(request, actor, key, run)
+
+
+def managed_groups_to_dict(view: ManagedGroups) -> dict[str, Any]:
+    return {
+        "setUp": view.set_up,
+        "groups": [
+            {
+                "groupId": group.group_id,
+                "name": group.name,
+                "role": group.role.value,
+                "missing": group.missing,
+                "members": [
+                    {"userId": m.object_id, "displayName": m.display_name, "mail": m.mail}
+                    for m in group.members
+                ],
+            }
+            for group in view.groups
+        ],
+    }
+
+
+def _group_services(request: Request) -> TenantAdminServices:
+    services = _services(request)
+    if services.groups_read is None or services.groups_change is None:
+        raise RuntimeError("the Entra group services are not configured")
+    return services
+
+
+@router.get("/groups")
+async def read_groups(request: Request, actor: Admin) -> Response:
+    """The groups Overwatch made in the organisation's directory and who is in them, read from the
+    directory now. Nothing about a member is stored here."""
+    services = _group_services(request)
+    assert services.groups_read is not None
+    return _json(200, managed_groups_to_dict(await services.groups_read.execute(actor)))
+
+
+@router.post("/groups/{group_id}/members")
+async def add_group_member(
+    group_id: GuidPath, body: MemberBody, request: Request, actor: Admin
+) -> Response:
+    """Add a person, by address, to a group whose name starts with this organisation's prefix. The
+    group is checked against our own mappings and the directory's name for it, not the id's
+    say-so."""
+    key = idempotency_key(request)
+
+    async def run() -> Response:
+        services = _group_services(request)
+        assert services.groups_change is not None
+        change = await services.groups_change.add(ChangeMemberCommand(actor, group_id, body.email))
+        return _json(200, {"groupId": change.group_id, "changed": change.changed})
+
+    return await replay_or_run(request, actor, key, run)
+
+
+@router.delete("/groups/{group_id}/members/{user_id}")
+async def remove_group_member(
+    group_id: GuidPath, user_id: GuidPath, request: Request, actor: Admin
+) -> Response:
+    key = idempotency_key(request)
+
+    async def run() -> Response:
+        services = _group_services(request)
+        assert services.groups_change is not None
+        change = await services.groups_change.remove(
+            ChangeMemberCommand(actor, group_id, user_id=user_id)
+        )
+        return _json(200, {"groupId": change.group_id, "changed": change.changed})
 
     return await replay_or_run(request, actor, key, run)
 

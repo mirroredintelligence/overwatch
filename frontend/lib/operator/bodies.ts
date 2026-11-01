@@ -172,3 +172,27 @@ export function codeBody(raw: unknown): Obj {
   if (!/^[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(code)) throw invalidRequest();
   return { code };
 }
+
+/** The roles the operator may ask a group for: the staff roles. The administrators' group is always made, and the
+ * network administrator and the platform's own roles never have one (the back end refuses them too). */
+export const GROUP_ROLE_CHOICES = MAPPABLE_ROLES;
+
+/** Make the organisation's groups (DEC-1317). The names are the back end's: nothing here is a name or a group id. */
+export function entraGroupsBody(raw: unknown): Obj {
+  const body = asObject(raw);
+  only(body, ['roles']);
+  const roles = body.roles ?? [];
+  if (!Array.isArray(roles) || roles.length > 12) throw invalidRequest();
+  const chosen = roles.map((role) => oneOf(role, GROUP_ROLE_CHOICES));
+  return { roles: [...new Set(chosen)] };
+}
+
+/** Add a first member (DEC-1317): the group by role (the administrators' or one made), and the person's work address. */
+export function groupMemberBody(raw: unknown): Obj {
+  const body = asObject(raw);
+  only(body, ['role', 'email']);
+  const role = oneOf(body.role, ['tenant-admin', ...GROUP_ROLE_CHOICES] as const);
+  const email = text(body.email, 3, 254).trim();
+  if (!WORK_EMAIL.test(email) || email.includes('..')) throw invalidRequest();
+  return { role, email };
+}

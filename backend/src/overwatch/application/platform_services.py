@@ -39,6 +39,12 @@ from overwatch.application.use_cases.cross_tenant_tickets import (
     RevokeSupportTicket,
     UseTicketAccess,
 )
+from overwatch.application.use_cases.entra_groups import (
+    AddInitialGroupMember,
+    ChangeGroupMember,
+    ProvisionEntraGroups,
+    ReadManagedGroups,
+)
 from overwatch.application.use_cases.platform_tenants import ListPlatformTenants, ReadPlatformTenant
 from overwatch.application.use_cases.tenant_access import InviteTenantAdmin
 from overwatch.application.use_cases.tenant_admin import (
@@ -146,6 +152,8 @@ class PlatformServices:
     tickets: SupportTicketServices
     consent_invite: InviteAdminConsent | None = None
     consent_read: ReadAdminConsent | None = None
+    groups_provision: ProvisionEntraGroups | None = None
+    groups_member: AddInitialGroupMember | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -162,3 +170,5 @@ class TenantAdminServices:
     bind: BindEntraDirectory
     map_group: MapEntraGroup
     tickets: SupportTicketServices
+    groups_read: ReadManagedGroups | None = None
+    groups_change: ChangeGroupMember | None = None

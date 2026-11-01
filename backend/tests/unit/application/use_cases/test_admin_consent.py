@@ -42,7 +42,7 @@ from overwatch.domain.model.tenant import TenantStatus
 from overwatch.domain.model.tenant_records import BindingStatus, EntraBinding
 from overwatch.domain.rules.admin_consent import (
     INVITE_VALID_FOR,
-    REQUIRED_APP_ROLE,
+    REQUIRED_APP_ROLES,
     AdminConsentInvite,
     EffectiveStatus,
     InviteStatus,
@@ -98,14 +98,29 @@ class _Consents:
                 count += 1
         return count
 
-    async def mark_consented(self, invite_id: str, at: datetime) -> bool:
+    async def mark_consented(
+        self, invite_id: str, at: datetime, service_principal_id: str | None = None
+    ) -> bool:
         for index, invite in enumerate(self._mine()):
             if invite.invite_id == invite_id and invite.status is InviteStatus.PENDING:
                 self._mine()[index] = replace(
-                    invite, status=InviteStatus.CONSENTED, consented_at=at, last_reason=None
+                    invite,
+                    status=InviteStatus.CONSENTED,
+                    consented_at=at,
+                    last_reason=None,
+                    service_principal_id=service_principal_id,
                 )
                 return True
         return False
+
+    async def consented(self) -> AdminConsentInvite | None:
+        done = [i for i in self._mine() if i.status is InviteStatus.CONSENTED]
+        return max(done, key=lambda i: i.consented_at or i.created_at, default=None)
+
+    async def set_service_principal(self, invite_id: str, service_principal_id: str) -> None:
+        for index, invite in enumerate(self._mine()):
+            if invite.invite_id == invite_id:
+                self._mine()[index] = replace(invite, service_principal_id=service_principal_id)
 
     async def set_reason(self, invite_id: str, reason: str) -> None:
         for index, invite in enumerate(self._mine()):
@@ -130,7 +145,8 @@ class _Graph:
         return self.result
 
 
-INSTALLED = AppInstallation(True, frozenset({REQUIRED_APP_ROLE, "User.Read.All"}))
+SP_ID = "22222222-2222-4222-8222-222222222222"
+INSTALLED = AppInstallation(True, frozenset(REQUIRED_APP_ROLES), service_principal_id=SP_ID)
 
 
 class _Rig:
@@ -373,7 +389,7 @@ async def _invited(rig: _Rig) -> str:
     return _state_sent(rig.platform_email)
 
 
-async def test_an_installed_app_with_the_group_permission_marks_it_consented() -> None:
+async def test_an_installed_app_with_all_five_permissions_marks_it_consented() -> None:
     rig = _rig()
     state = await _invited(rig)
     with as_tenant(TENANT):
@@ -384,6 +400,7 @@ async def test_an_installed_app_with_the_group_permission_marks_it_consented() -
     assert rig.graph.asked == [DIRECTORY_ID]  # Graph was asked, in the invite's own directory
     [stored] = rig.consents.by_tenant[TENANT]
     assert stored.status is InviteStatus.CONSENTED and stored.consented_at == NOW
+    assert stored.service_principal_id == SP_ID  # kept for the group set-up (DEC-1317)
     assert rig.world.audited()[-1] == "ConfirmAdminConsent"
 
 
@@ -406,8 +423,20 @@ async def test_a_redirect_that_says_no_is_told_in_words_and_stays_pending() -> N
     assert result.status is EffectiveStatus.PENDING and result.reason == REASON_DECLINED
 
 
-async def test_an_installed_app_without_the_group_permission_stays_pending() -> None:
-    rig = _rig(graph=AppInstallation(True, frozenset({"User.Read.All"})))
+def test_the_consent_must_hold_exactly_the_five_graph_permissions_the_app_declares() -> None:
+    assert {
+        "Group.ReadWrite.All",
+        "GroupMember.ReadWrite.All",
+        "User.Read.All",
+        "AppRoleAssignment.ReadWrite.All",
+        "Application.Read.All",
+    } == REQUIRED_APP_ROLES
+
+
+@pytest.mark.parametrize("missing", sorted(REQUIRED_APP_ROLES))
+async def test_an_installed_app_missing_any_one_permission_stays_pending(missing: str) -> None:
+    held = frozenset(REQUIRED_APP_ROLES - {missing})
+    rig = _rig(graph=AppInstallation(True, held, service_principal_id=SP_ID))
     state = await _invited(rig)
     with as_tenant(TENANT):
         result = await rig.confirm_case().execute(state, admin_consent=True)

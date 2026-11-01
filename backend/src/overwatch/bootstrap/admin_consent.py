@@ -13,7 +13,9 @@ from typing import Any
 import httpx
 
 from overwatch.adapters.outbound.entra_graph.app_installation import GraphAppInstallationCheck
+from overwatch.adapters.outbound.entra_graph.groups import GraphEntraGroups
 from overwatch.application.ports.outbound.admin_consent import AppInstallationCheck
+from overwatch.application.ports.outbound.entra_groups import EntraGroupDirectory
 from overwatch.application.ports.outbound.sender_resolver import SenderResolver
 from overwatch.application.ports.outbound.tenants import normalise_directory_id
 from overwatch.application.use_cases.admin_consent import (
@@ -21,6 +23,12 @@ from overwatch.application.use_cases.admin_consent import (
     ConfirmAdminConsent,
     InviteAdminConsent,
     ReadAdminConsent,
+)
+from overwatch.application.use_cases.entra_groups import (
+    AddInitialGroupMember,
+    ChangeGroupMember,
+    ProvisionEntraGroups,
+    ReadManagedGroups,
 )
 from overwatch.bootstrap.container import Container
 from overwatch.bootstrap.settings import Settings
@@ -57,9 +65,11 @@ def install_admin_consent(
     *,
     senders: SenderResolver | None = None,
     installation: AppInstallationCheck | None = None,
+    groups: EntraGroupDirectory | None = None,
 ) -> None:
     """Set the admin-consent services on the app. `senders` and `installation` are injected by a
-    test; production builds the tenant-first, platform-fallback resolver and the Graph check."""
+    test; production builds the tenant-first, platform-fallback resolver and the Graph check. The
+    organisation's groups (DEC-1317) use the same app, secret and HTTP client."""
     links = consent_links(settings)
     if links is None:
         log.warning("admin consent is not configured: no staff app registration is set")
@@ -74,6 +84,7 @@ def install_admin_consent(
     )
     check = installation or GraphAppInstallationCheck(http, container.secrets, links.client_id)
     clock = container.clock
+    directory = groups or GraphEntraGroups(http, container.secrets, links.client_id)
     app.state.platform_services = dataclasses.replace(
         app.state.platform_services,
         consent_invite=InviteAdminConsent(
@@ -86,6 +97,19 @@ def install_admin_consent(
             links,
         ),
         consent_read=ReadAdminConsent(container.uow_factory, clock),
+        groups_provision=ProvisionEntraGroups(
+            container.tenants, container.uow_factory, clock, directory, check
+        ),
+        groups_member=AddInitialGroupMember(
+            container.tenants, container.uow_factory, clock, directory, container.secrets
+        ),
+    )
+    app.state.tenant_admin_services = dataclasses.replace(
+        app.state.tenant_admin_services,
+        groups_read=ReadManagedGroups(container.tenants, container.uow_factory, directory),
+        groups_change=ChangeGroupMember(
+            container.tenants, container.uow_factory, clock, directory, container.secrets
+        ),
     )
     app.state.admin_consent_confirm = ConfirmAdminConsent(
         container.tenants, container.uow_factory, clock, check

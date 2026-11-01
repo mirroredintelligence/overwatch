@@ -36,8 +36,15 @@ from overwatch.application.platform_services import (
     SupportTicketServices,
     TenantAdminServices,
 )
+from overwatch.application.ports.outbound.entra_groups import DirectoryMember
 from overwatch.application.ports.outbound.platform_audit import PlatformAuditRecord
 from overwatch.application.use_cases.admin_consent import AdminConsentView
+from overwatch.application.use_cases.entra_groups import (
+    ManagedGroup,
+    ManagedGroups,
+    MemberChange,
+    ProvisionedGroup,
+)
 from overwatch.application.use_cases.platform_tenants import ListPlatformTenants, ReadPlatformTenant
 from overwatch.application.use_cases.tenant_admin import (
     ActivateTenant,
@@ -64,6 +71,9 @@ from tests.support.provisioning_fakes import (
 )
 from tests.support.ticket_rig import REF, Rig, rig
 
+GROUP_A = "aaaaaaaa-0000-4000-8000-00000000000a"
+GROUP_B = "aaaaaaaa-0000-4000-8000-00000000000b"
+USER_A = "bbbbbbbb-0000-4000-8000-00000000000a"
 SIGNING = TEST_BFF_SECRET
 SUPPORT_REF = REF
 OPERATOR_REF = "ref-platform-operator-0123456"
@@ -118,6 +128,16 @@ class Recording:
         if self.error is not None:
             raise self.error
         return self.result
+
+
+class RecordingChanger(Recording):
+    """The membership use case has two entry points; both record into the same list."""
+
+    async def add(self, command: Any) -> Any:
+        return await self.execute(command)
+
+    async def remove(self, command: Any) -> Any:
+        return await self.execute(command)
 
 
 class FakeAuditReader:
@@ -199,6 +219,30 @@ def build(*, with_services: bool = True) -> Rigs:
     stubs = SimpleNamespace(
         consent_invite=Recording(consent_view),
         consent_read=Recording(consent_view),
+        groups_provision=Recording(
+            (
+                ProvisionedGroup(
+                    Role.TENANT_ADMIN, "F81044_overwatch_tenant-admin", GROUP_A, True, True
+                ),
+                ProvisionedGroup(Role.LEAD, "F81044_overwatch_lead", GROUP_B, False, True),
+            )
+        ),
+        groups_member=Recording(MemberChange(GROUP_A, True)),
+        groups_read=Recording(
+            ManagedGroups(
+                True,
+                (
+                    ManagedGroup(
+                        GROUP_A,
+                        "F81044_overwatch_tenant-admin",
+                        Role.TENANT_ADMIN,
+                        False,
+                        (DirectoryMember(USER_A, "Jane Member", "jane@example.org"),),
+                    ),
+                ),
+            )
+        ),
+        groups_change=RecordingChanger(MemberChange(GROUP_A, True)),
         invite=Recording(
             SimpleNamespace(expires_at=NOW + timedelta(hours=48), communication_id="c-1")
         ),
@@ -250,6 +294,8 @@ def build(*, with_services: bool = True) -> Rigs:
         invite=stubs.invite,  # type: ignore[arg-type]
         consent_invite=stubs.consent_invite,  # type: ignore[arg-type]
         consent_read=stubs.consent_read,  # type: ignore[arg-type]
+        groups_provision=stubs.groups_provision,  # type: ignore[arg-type]
+        groups_member=stubs.groups_member,  # type: ignore[arg-type]
         activate=activate,
         suspend=SuspendTenant(fake, fake, world.factory(), clock, (told.append,)),  # type: ignore[arg-type]
         resume=stubs.resume,  # type: ignore[arg-type]
@@ -268,6 +314,8 @@ def build(*, with_services: bool = True) -> Rigs:
         bind=stubs.bind,  # type: ignore[arg-type]
         map_group=stubs.map_group,  # type: ignore[arg-type]
         tickets=ticket_services,
+        groups_read=stubs.groups_read,  # type: ignore[arg-type]
+        groups_change=stubs.groups_change,  # type: ignore[arg-type]
     )
     container = SimpleNamespace(
         clock=clock,

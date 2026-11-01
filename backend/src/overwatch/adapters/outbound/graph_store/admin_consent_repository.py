@@ -2,9 +2,10 @@
 
 One node per invite in the tenant's own scope: `(:AdminConsentInvite {tenantId, inviteId,
 directoryId, emailHash, emailMasked, stateHash, status, createdAt, expiresAt, consentedAt,
-revokedAt, lastReason})`. Every statement is a registered `NamedQuery` that names `tenantId:
-$tenant`, so another tenant's invite is never matched. Only hashes are stored: the state's SHA-256
-and the administrator address's keyed hash; the masked address is what the operator's page shows.
+revokedAt, lastReason, servicePrincipalId})`. Every statement is a registered `NamedQuery` that
+names `tenantId: $tenant`, so another tenant's invite is never matched. Only hashes are stored: the
+state's SHA-256 and the administrator address's keyed hash; the masked address is what the
+operator's page shows.
 Migration 0202 makes `(tenantId, inviteId)` unique.
 
 A node the domain refuses when read is `TenantRecordInvalid` with a fixed message (fail closed).
@@ -56,6 +57,27 @@ _SEED: Final = TenantSeed(
     )
 )
 
+_SP: Final = "22222222-2222-2222-2222-222222222222"
+_SEED_CONSENTED: Final = TenantSeed(
+    nodes=(
+        SeedNode(
+            "i",
+            ("AdminConsentInvite",),
+            {
+                "inviteId": "inv-1",
+                "directoryId": _DIRECTORY,
+                "emailHash": _EMAIL_HASH,
+                "emailMasked": Marked("mask"),
+                "stateHash": _STATE_HASH,
+                "status": "consented",
+                "createdAt": _T,
+                "expiresAt": _T_END,
+                "consentedAt": _T2,
+            },
+        ),
+    )
+)
+
 _SCENARIOS: Final[dict[str, Scenario]] = {
     "Q-ACI-ADD": Scenario(
         "create an invite beside the tenant's own",
@@ -101,12 +123,34 @@ _SCENARIOS: Final[dict[str, Scenario]] = {
     "Q-ACI-CONSENT": Scenario(
         "move the tenant's pending invite to consented once",
         seed=_SEED,
-        params={"inviteId": "inv-1", "at": _T2},
+        params={"inviteId": "inv-1", "at": _T2, "servicePrincipalId": _SP},
         lookup=("inviteId",),
+        new=("servicePrincipalId",),
         expect=Expect(
             rows=({"moved": 1},),
             after=(
-                NodeSpec(("AdminConsentInvite",), {"inviteId": "inv-1", "status": "consented"}),
+                NodeSpec(
+                    ("AdminConsentInvite",),
+                    {"inviteId": "inv-1", "status": "consented", "servicePrincipalId": _SP},
+                ),
+            ),
+        ),
+    ),
+    "Q-ACI-CONSENTED": Scenario(
+        "read the tenant's consented invites, newest first",
+        seed=_SEED_CONSENTED,
+        expect=Expect(rows=({"props": {"emailMasked": Marked("mask")}},)),
+    ),
+    "Q-ACI-SP": Scenario(
+        "keep the service principal on the tenant's consented invite that has none",
+        seed=_SEED_CONSENTED,
+        params={"inviteId": "inv-1", "servicePrincipalId": _SP},
+        lookup=("inviteId",),
+        new=("servicePrincipalId",),
+        expect=Expect(
+            rows=({"saved": 1},),
+            after=(
+                NodeSpec(("AdminConsentInvite",), {"inviteId": "inv-1", "servicePrincipalId": _SP}),
             ),
         ),
     ),
@@ -160,8 +204,21 @@ _QUERIES: Final[dict[str, tuple[str, Literal["read", "write"]]]] = {
         "MATCH (i:AdminConsentInvite {inviteId: $inviteId, tenantId: $tenant}) "
         "SET i.inviteId = i.inviteId "
         "WITH i WHERE i.status = 'pending' "
-        "SET i.status = 'consented', i.consentedAt = $at, i.lastReason = null "
+        "SET i.status = 'consented', i.consentedAt = $at, i.lastReason = null, "
+        "i.servicePrincipalId = $servicePrincipalId "
         "RETURN count(i) AS moved",
+        "write",
+    ),
+    "Q-ACI-CONSENTED": (
+        "MATCH (i:AdminConsentInvite {status: 'consented', tenantId: $tenant}) "
+        "RETURN properties(i) AS props ORDER BY i.consentedAt DESC",
+        "read",
+    ),
+    "Q-ACI-SP": (
+        "MATCH (i:AdminConsentInvite {inviteId: $inviteId, status: 'consented', "
+        "tenantId: $tenant}) "
+        "SET i.servicePrincipalId = $servicePrincipalId "
+        "RETURN count(i) AS saved",
         "write",
     ),
     "Q-ACI-REASON": (
@@ -219,6 +276,9 @@ def invite_from_props(props: dict[str, Any]) -> AdminConsentInvite:
         reason = props.get("lastReason")
         if reason is not None and type(reason) is not str:
             raise _invalid()
+        sp = props.get("servicePrincipalId")
+        if sp is not None and type(sp) is not str:
+            raise _invalid()
         return AdminConsentInvite(
             invite_id=_text(props, "inviteId"),
             directory_id=_text(props, "directoryId"),
@@ -231,6 +291,7 @@ def invite_from_props(props: dict[str, Any]) -> AdminConsentInvite:
             consented_at=_optional_instant(props.get("consentedAt")),
             revoked_at=_optional_instant(props.get("revokedAt")),
             last_reason=reason,
+            service_principal_id=sp,
         )
     except (ValidationFailed, ValueError) as error:
         raise _invalid() from error
@@ -261,9 +322,20 @@ class Neo4jAdminConsentRepository:
         rows = await self._run("Q-ACI-REVOKE-OPEN", at=at)
         return int(rows[0]["revoked"])
 
-    async def mark_consented(self, invite_id: str, at: datetime) -> bool:
-        rows = await self._run("Q-ACI-CONSENT", inviteId=invite_id, at=at)
+    async def mark_consented(
+        self, invite_id: str, at: datetime, service_principal_id: str | None = None
+    ) -> bool:
+        rows = await self._run(
+            "Q-ACI-CONSENT", inviteId=invite_id, at=at, servicePrincipalId=service_principal_id
+        )
         return int(rows[0]["moved"]) == 1
+
+    async def consented(self) -> AdminConsentInvite | None:
+        rows = await self._run("Q-ACI-CONSENTED")
+        return invite_from_props(rows[0]["props"]) if rows else None
+
+    async def set_service_principal(self, invite_id: str, service_principal_id: str) -> None:
+        await self._run("Q-ACI-SP", inviteId=invite_id, servicePrincipalId=service_principal_id)
 
     async def set_reason(self, invite_id: str, reason: str) -> None:
         await self._run("Q-ACI-REASON", inviteId=invite_id, reason=reason)

@@ -25,6 +25,9 @@ param webImage string
 param entraStaffClientId string = '7fb43bde-6a6d-4aed-9cac-9118de48ab52'
 param entraOperatorClientId string = '9b4e9144-358a-47cc-9ffb-e63bf0d21c41'
 param operatorDirectoryId string = 'c5901e0b-8d43-4ae8-97c3-ca6c52573a33'
+// The platform's Twilio account SID (an identifier, not a secret): passed at deploy time, never stored here.
+// Its auth token is the secret twilio-auth-token. Used for the platform's own email (admin consent invitations).
+param platformTwilioAccountSid string
 
 resource environment 'Microsoft.App/managedEnvironments@2024-03-01' existing = {
   name: environmentName
@@ -83,6 +86,8 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'OVERWATCH_ENTRA_STAFF_CLIENT_ID', value: entraStaffClientId }
             { name: 'OVERWATCH_ENTRA_OPERATOR_CLIENT_ID', value: entraOperatorClientId }
             { name: 'OVERWATCH_OPERATOR_DIRECTORY_ID', value: operatorDirectoryId }
+            { name: 'OVERWATCH_PLATFORM_TWILIO_ACCOUNT_SID', value: platformTwilioAccountSid }
+            { name: 'OVERWATCH_ENTRA_STAFF_CLIENT_ID', value: entraStaffClientId }
             { name: 'OVERWATCH_POSTCODE_CENTROIDS_PATH', value: '/app/data/postcodes/centroids-dt-bh.csv' }
           ]
           resources: {

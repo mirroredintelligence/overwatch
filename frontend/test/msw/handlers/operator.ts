@@ -72,7 +72,6 @@ export const operatorHandlers = [
   http.post('/api/bff/platform/tenants/:id/numbers/tested', async ({ request }) => { await recorded(request); return ok({ recorded: true }); }),
   http.put('/api/bff/platform/tenants/:id/references', async ({ request }) => { await recorded(request); return ok({ references: ['dsa_ref'], recorded: true }); }),
   http.post('/api/bff/platform/tenants/:id/directory/verification', async ({ request }) => { await recorded(request); return ok({ recorded: true }); }),
-  http.post('/api/bff/platform/tenants/:id/admin-invitation', async ({ request }) => { await recorded(request); return ok({ expiresAt: '2026-11-01T09:00:00Z', recorded: true }, 201); }),
   http.post('/api/bff/platform/tenants/:id/activation', async ({ request }) => { await recorded(request); return ok({ recorded: true }); }),
   http.post('/api/bff/platform/tenants/:id/suspension', async ({ request }) => { await recorded(request); return ok({ mode: 'read-only', recorded: true }); }),
   http.delete('/api/bff/platform/tenants/:id/suspension', async ({ request }) => { await recorded(request); return ok({ servicesPrompted: 3, servicesAnnounced: 1, resumedAgain: false, recorded: true }); }),

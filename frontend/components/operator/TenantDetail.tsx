@@ -5,11 +5,11 @@ import { useOperatorRead } from '@/lib/operator/browser';
 import type { parseTenantDetail } from '@/lib/operator/views';
 import { organisationTypeWord, TENANT_STATUS_WORD } from '@/lib/operator/words';
 import { ActivationPanel, LifecyclePanel, type Notice } from './TenantLifecycle';
-import { ConsentPanel, DirectoryPanel, GroupsPanel, HostPanel, InvitationPanel, NumbersPanel, ReferencesPanel } from './TenantPanels';
+import { ConsentPanel, DirectoryPanel, GroupsPanel, HostPanel, NumbersPanel, ReferencesPanel } from './TenantPanels';
 import styles from '@/components/admin/admin.module.css';
 
 // One tenant's page (TEN-083): provisioning (the address, the text numbers, the agreement references, the
-// directory, the first administrator), what activation waits for, and the life of the tenant. Every write is
+// directory, the consent invitation and the groups), what activation waits for, and the life of the tenant. Every write is
 // the operator's own. No secret is shown: a number says only whether it has an auth token.
 
 type Detail = ReturnType<typeof parseTenantDetail>;
@@ -73,7 +73,6 @@ export function TenantDetail({ tenantId }: { tenantId: string }) {
       <DirectoryPanel {...panel} />
       <ConsentPanel {...panel} />
       <GroupsPanel {...panel} />
-      <InvitationPanel {...panel} />
       <LifecyclePanel {...panel} onNotice={setNotice} />
     </main>
   );

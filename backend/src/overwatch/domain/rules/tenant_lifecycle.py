@@ -88,7 +88,7 @@ MISSING_CONFIG: Final = "Configuration version approved"
 MISSING_ZONE: Final = "Time zone set"
 MISSING_NUMBER: Final = "At least one sender number active with a test text delivered"
 MISSING_EMAIL: Final = "Email sender verified"
-MISSING_ADMIN: Final = "First tenant administrator invited"
+MISSING_ADMIN: Final = "Tenant administrator group made and mapped"
 MISSING_DIRECTORY: Final = "Sign-in directory bound and verified"
 MISSING_ROLE: Final = "At least one role mapping"
 MISSING_CONTACTS: Final = "Support contacts set: coordination phone and clinical safety officer"
@@ -109,7 +109,7 @@ class ActivationFacts:
     active_numbers_tested: int
     email_in_use: bool
     email_sender_verified: bool
-    first_admin_invited: bool
+    tenant_admin_group_mapped: bool
     entra_binding_verified: bool
     role_mappings: int
     contact_kinds: frozenset[ContactKind]
@@ -374,7 +374,7 @@ def activation_blockers(facts: ActivationFacts) -> list[str]:
     # Email is checked unless it is exactly not in use.
     if facts.email_in_use is not False and facts.email_sender_verified is not True:
         missing.append(MISSING_EMAIL)
-    if facts.first_admin_invited is not True:
+    if facts.tenant_admin_group_mapped is not True:
         missing.append(MISSING_ADMIN)
     if facts.entra_binding_verified is not True:
         missing.append(MISSING_DIRECTORY)

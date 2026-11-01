@@ -44,7 +44,7 @@ export function TenantList({ role }: { role: OperatorRole }) {
           {operator ? (
             <>
               <p className={styles.text}>
-                A tenant is one organisation. Create the first one, then give it an address, bind its directory, map the groups that sign in and invite its first administrator. It does nothing until you activate it.
+                A tenant is one organisation. Create the first one, then give it an address, bind its directory, map the groups that sign in and add its first administrator to the administrators’ group. It does nothing until you activate it.
               </p>
               <div className={styles.actions}>
                 <Button variant="primary" href="/operator/tenants/new" dataEl="OP-CREATE-TENANT-BTN">

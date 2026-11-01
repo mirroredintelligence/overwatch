@@ -48,7 +48,6 @@ from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOf
 from overwatch.application.provisioning import (
     OPERATOR_ROLE_MESSAGE,
     OPERATOR_UNNAMED_MESSAGE,
-    TENANT_ADMIN_INVITE,
     ScopeProvisioner,
     activation_facts,
     extra_blockers,
@@ -619,7 +618,6 @@ class ActivateTenant(OperatorUseCase):
             raise NotFound(NO_TENANT)
         if tenant.status is not TenantStatus.PROVISIONING:
             raise NotAllowed(NOT_PROVISIONING)
-        now = self._clock.now()
         host = await self._tenants.host_of(scope.value)
         numbers = await self._registry.numbers(scope.value)
         async with self._uow_factory() as uow:
@@ -633,17 +631,15 @@ class ActivateTenant(OperatorUseCase):
                 await repo.bindings(),
                 await repo.role_mappings(),
             )
-            invited = (
-                await uow.link_tokens.open_for_about(
-                    TENANT_ADMIN_INVITE, f"tenant-admin-{scope.value}", now
-                )
-                is not None
+            admin_group_mapped = any(
+                mapping.role is Role.TENANT_ADMIN and mapping.status is MappingStatus.ACTIVE
+                for mapping in await repo.role_mappings()
             )
         facts = activation_facts(
             tenant,
             configuration,
             numbers,
-            first_admin_invited=invited,
+            tenant_admin_group_mapped=admin_group_mapped,
             area_districts_set=bool(self._area_districts_for(scope)),
         )
         return ActivationAssessment(

@@ -101,7 +101,6 @@ def build_platform_services(
         host=provisioning.host,
         references=provisioning.references,
         directory=provisioning.directory,
-        invite=provisioning.invite,
         activate=provisioning.activate,
         suspend=provisioning.suspend,
         resume=provisioning.resume,

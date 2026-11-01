@@ -565,7 +565,7 @@ CONFIG = "Configuration version approved"
 ZONE = "Time zone set"
 NUMBER = "At least one sender number active with a test text delivered"
 EMAIL = "Email sender verified"
-ADMIN = "First tenant administrator invited"
+ADMIN = "Tenant administrator group made and mapped"
 ENTRA = "Sign-in directory bound and verified"
 ROLE = "At least one role mapping"
 CONTACTS = "Support contacts set: coordination phone and clinical safety officer"
@@ -612,8 +612,8 @@ SINGLE_FAILURES: list[tuple[str, dict[str, Any], str]] = [
         EMAIL,
     ),
     ("email in use is None", {"email_in_use": None, "email_sender_verified": False}, EMAIL),
-    ("no first admin", {"first_admin_invited": False}, ADMIN),
-    ("first admin is 1", {"first_admin_invited": 1}, ADMIN),
+    ("no tenant-admin group mapped", {"tenant_admin_group_mapped": False}, ADMIN),
+    ("group mapped is 1", {"tenant_admin_group_mapped": 1}, ADMIN),
     ("no sign-in directory", {"entra_binding_verified": False}, ENTRA),
     ("sign-in directory is 1", {"entra_binding_verified": 1}, ENTRA),
     ("no role mapping", {"role_mappings": 0}, ROLE),
@@ -706,7 +706,7 @@ def test_a_tenant_with_nothing_done_lists_every_sentence_in_order() -> None:
         active_numbers_tested=0,
         email_in_use=True,
         email_sender_verified=False,
-        first_admin_invited=False,
+        tenant_admin_group_mapped=False,
         entra_binding_verified=False,
         role_mappings=0,
         contact_kinds=frozenset(),
@@ -745,7 +745,7 @@ def test_the_facts_are_listed_in_the_decided_order() -> None:
         "active_numbers_tested",
         "email_in_use",
         "email_sender_verified",
-        "first_admin_invited",
+        "tenant_admin_group_mapped",
         "entra_binding_verified",
         "role_mappings",
         "contact_kinds",
@@ -766,7 +766,7 @@ FACT_VALUES = st.fixed_dictionaries(
         "active_numbers_tested": st.one_of(st.integers(-1, 3), st.booleans(), st.text(max_size=2)),
         "email_in_use": st.one_of(st.booleans(), st.none(), st.integers(0, 1)),
         "email_sender_verified": st.one_of(st.booleans(), st.integers(0, 1)),
-        "first_admin_invited": st.one_of(st.booleans(), st.integers(0, 1)),
+        "tenant_admin_group_mapped": st.one_of(st.booleans(), st.integers(0, 1)),
         "entra_binding_verified": st.one_of(st.booleans(), st.integers(0, 1)),
         "role_mappings": st.one_of(st.integers(-1, 3), st.booleans()),
         "contact_kinds": st.frozensets(st.sampled_from([*ContactKind, "coordination-phone"])),
@@ -796,7 +796,7 @@ def test_property_blockers_are_a_deterministic_ordered_subset_and_empty_only_whe
         and type(values["active_numbers_tested"]) is int
         and values["active_numbers_tested"] >= 1
         and (values["email_in_use"] is False or values["email_sender_verified"] is True)
-        and values["first_admin_invited"] is True
+        and values["tenant_admin_group_mapped"] is True
         and values["entra_binding_verified"] is True
         and type(values["role_mappings"]) is int
         and values["role_mappings"] >= 1

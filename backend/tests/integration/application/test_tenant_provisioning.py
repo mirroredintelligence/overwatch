@@ -3,7 +3,7 @@
 A tenant is made from nothing, step by step, as the platform operator would: created in
 provisioning (its registry record, its audit chain with its own genesis, its scope list), given a
 host, a number and references, its configuration approved by the tenant's side, its directory
-verified, its first administrator invited, and then activated. What is proved, on a private
+verified, its tenant-administrator group mapped, and then activated. What is proved, on a private
 contracted graph (DEC-159) that holds a second tenant that is never touched:
 
 - a tenant that has just been created is in provisioning and cannot be activated: the blockers are
@@ -36,7 +36,6 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
 from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
 from overwatch.adapters.outbound.graph_store.tenant_directory import Neo4jTenantDirectory
 from overwatch.adapters.outbound.graph_store.tenant_registry import Neo4jTenantRegistry
@@ -44,17 +43,8 @@ from overwatch.adapters.testing.fixed_clock import FixedClock
 from overwatch.adapters.testing.fixed_ids import SequentialIds
 from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
 from overwatch.application.actor import Actor
-from overwatch.application.ports.outbound.identity import HmacPhoneHasher
-from overwatch.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
 from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from overwatch.application.provisioning import TENANT_ADMIN_INVITE
 from overwatch.application.tenancy import bind_tenant
-from overwatch.application.tenant_settings import DirectoryHostUrl
-from overwatch.application.use_cases.tenant_access import (
-    InviteTenantAdmin,
-    InviteTenantAdminCommand,
-    invitation_key,
-)
 from overwatch.application.use_cases.tenant_admin import (
     ActivateTenant,
     ActivateTenantCommand,
@@ -90,6 +80,7 @@ from overwatch.bootstrap.provisioning import AuditHeads
 from overwatch.domain.codes import Role
 from overwatch.domain.errors import Conflict, NotAllowed
 from overwatch.domain.model.tenant import ContactKind, OrganisationType, TenantStatus
+from overwatch.domain.model.tenant_records import MappingStatus, RoleMapping
 from tests.support.neo4j import ThrowawayNeo4j, read_tx, wipe_all
 from tests.support.tenancy import as_tenant
 from tests.support.uow import tenant_uow_factory
@@ -104,7 +95,7 @@ NUMBER = "+447700900401"
 OTHER_NUMBER = "+447700900402"
 DIRECTORY_ID = "0f5a7c1e-3b2d-4c6a-9e8f-1a2b3c4d5e6f"
 GROUP_ID = "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d"
-MOBILE = "07700 900123"
+ADMIN_GROUP_ID = "9f8e7d6c-5b4a-4392-8170-6f5e4d3c2b1a"
 LINK_SECRET = b"test-only-link-token-secret-0123456789"
 PHONE_SECRET = b"test-only-phone-hash-secret-0123456789"
 WORDING = {
@@ -268,6 +259,14 @@ async def _configure(world: World, tenant: str) -> None:
         await MapEntraGroup(factory, world.clock, roles).execute(
             MapGroupCommand(_admin(tenant, "admin-1"), GROUP_ID, Role.LEAD)
         )
+    # The group Overwatch makes for the tenant administrators (DEC-1317) is mapped by
+    # `ProvisionEntraGroups`, not by hand (DEC-1318: no invitation of a first administrator).
+    with bind_tenant(tenant):
+        async with factory() as uow:
+            await uow.tenant_config.put_role_mapping(
+                RoleMapping(ADMIN_GROUP_ID, Role.TENANT_ADMIN, MappingStatus.ACTIVE)
+            )
+            await uow.commit()
 
 
 # -- the operator's steps -------------------------------------------------------------------------
@@ -293,22 +292,6 @@ async def _operator_steps(world: World, tenant: str) -> None:
         await VerifyEntraBinding(world.directory, world.registry, factory, world.clock).execute(
             VerifyDirectoryCommand(_operator(tenant), DIRECTORY_ID)
         )
-
-
-def _invite_use_case(world: World, tenant: str) -> InviteTenantAdmin:
-    def tokens(repo: LinkTokenRepository) -> LinkTokenService:
-        return LinkTokenService(repo, world.secrets, world.clock)
-
-    return InviteTenantAdmin(
-        world.directory,
-        world.factory(tenant),
-        tokens,
-        HmacPhoneHasher(world.secrets),
-        AesGcmContentSealer(world.secrets),
-        world.clock,
-        world.ids,
-        DirectoryHostUrl(world.directory),
-    )
 
 
 def _activate_use_case(world: World, tenant: str) -> ActivateTenant:
@@ -466,12 +449,6 @@ async def test_the_whole_provisioning_ends_in_an_active_tenant_with_its_jobs_see
     await _operator_steps(world, NEW)
 
     with as_tenant(NEW):
-        invited = await _invite_use_case(world, NEW).execute(
-            InviteTenantAdminCommand(_operator(NEW), MOBILE)
-        )
-    assert invited.expires_at > NOW
-
-    with as_tenant(NEW):
         result = await _activate_use_case(world, NEW).execute(ActivateTenantCommand(_operator(NEW)))
 
     assert result.tenant_id == NEW and result.seeded == (True, True)
@@ -487,54 +464,13 @@ async def test_the_whole_provisioning_ends_in_an_active_tenant_with_its_jobs_see
             assert await uow.audit.verify_chain() is True
     used = [r["useCase"] for r in await _audit_rows(world, NEW)]
     assert used[0] == "CreateTenant" and used[-1] == "ActivateTenant"
-    assert {"SetTenantHost", "RecordTenantNumber", "InviteTenantAdmin"} <= set(used)
+    assert {"SetTenantHost", "RecordTenantNumber"} <= set(used)
     # The other tenant's chain did not move.
     assert await _audit_rows(world, OTHER) == other_before
 
     # A second activation is refused: the tenant is no longer in provisioning.
     with as_tenant(NEW), pytest.raises(NotAllowed):
         await _activate_use_case(world, NEW).execute(ActivateTenantCommand(_operator(NEW)))
-
-
-async def test_the_invitation_holds_no_token_number_or_link_at_rest(world: World) -> None:
-    await _create(world, NEW)
-    await _configure(world, NEW)
-    await _operator_steps(world, NEW)
-
-    with as_tenant(NEW):
-        await _invite_use_case(world, NEW).execute(InviteTenantAdminCommand(_operator(NEW), MOBILE))
-
-    async def everything(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
-        return await (
-            await tx.run(
-                "MATCH (n {tenantId: $t}) RETURN labels(n) AS labels, properties(n) AS p", t=NEW
-            )
-        ).data()
-
-    rows = await read_tx(world.driver, everything)
-    secrets = ("07700900123", "+447700900123", "07700 900123", "/i/")
-    # The number lives in one place, the protected contact store; no other node holds it, and no
-    # node of any kind holds the national form, the spaced form or a link path.
-    holders = [
-        r["labels"] for r in rows if any(x in json.dumps(r["p"], default=str) for x in secrets)
-    ]
-    assert holders == [["ProtectedContact"]]
-    dump = json.dumps([r["p"] for r in rows if "ProtectedContact" not in r["labels"]], default=str)
-    for secret in secrets:
-        assert secret not in dump
-    assert "07700900123" not in json.dumps(rows, default=str).replace("+447700900123", "")
-    # The link token is the tenant's own purpose, by hash only; the contact is under its key.
-    assert TENANT_ADMIN_INVITE in dump
-    async with world.factory(NEW)() as uow:
-        assert await uow.contacts.get_phone(invitation_key(_scope(NEW))) == "+447700900123"
-    # Nothing of the other tenant holds an invitation.
-    assert await _count(world, OTHER, "LinkToken") == 0
-
-
-def _scope(tenant: str) -> Any:
-    from overwatch.application.tenancy import ScopeId
-
-    return ScopeId.tenant(tenant)
 
 
 async def test_the_registry_is_also_touched_only_for_the_tenant_acted_on(world: World) -> None:

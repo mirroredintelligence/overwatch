@@ -1,9 +1,8 @@
 """The platform operator's provisioning, wired (TEN-028, DEC-503): `scripts/provision_tenant.py`.
 
-The composition root of the operator's tenant lifecycle: the use cases of `tenant_admin.py` and
-`tenant_access.py` built on one container, and the command line that runs them. It is in bootstrap,
-the one layer that may name the registry adapter, bind a tenant and read the settings. Nothing here
-holds a rule.
+The composition root of the operator's tenant lifecycle: the use cases of `tenant_admin.py` built
+on one container, and the command line that runs them. It is in bootstrap, the one layer that may
+name the registry adapter, bind a tenant and read the settings. Nothing here holds a rule.
 
 Each command acts on one tenant. The tenant is the one named on the command line, bound for the
 command and for nothing else (`bind_tenant`), and the actor is the platform operator named with
@@ -40,14 +39,8 @@ from typing import Final
 from overwatch.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
 from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
 from overwatch.application.actor import Actor
-from overwatch.application.ports.outbound.identity import HmacPhoneHasher
-from overwatch.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
 from overwatch.application.tenancy import bind_tenant
-from overwatch.application.tenant_settings import DirectoryHostUrl, DirectoryZones
-from overwatch.application.use_cases.tenant_access import (
-    InviteTenantAdmin,
-    InviteTenantAdminCommand,
-)
+from overwatch.application.tenant_settings import DirectoryZones
 from overwatch.application.use_cases.tenant_admin import (
     ActivateTenant,
     ActivateTenantCommand,
@@ -89,7 +82,6 @@ COMMANDS: Final = (
     "number-tested",
     "references",
     "verify-directory",
-    "invite",
     "activate",
     "status",
     "suspend",
@@ -118,7 +110,6 @@ class Provisioning:
     host: SetTenantHost
     references: RecordTenantReferences
     directory: VerifyEntraBinding
-    invite: InviteTenantAdmin
     activate: ActivateTenant
     suspend: SuspendTenant
     resume: ResumeTenant
@@ -129,7 +120,7 @@ class Provisioning:
 def build_provisioning(
     container: Container, on_changed: tuple[TenantChanged, ...] = ()
 ) -> Provisioning:
-    """The use cases of `tenant_admin.py` and `tenant_access.py` over the container's directory,
+    """The use cases of `tenant_admin.py` over the container's directory,
     registry, units of work, clock, ids and secrets. `on_changed` is what a process that serves
     the REST edge passes (`auth.forget_tenant`), so a suspension, a resume or an offboarding takes
     effect there at once; the script has none and relies on the edge's cache interval."""
@@ -138,9 +129,6 @@ def build_provisioning(
     factory = container.uow_factory
     clock = container.clock
 
-    def tokens(repo: LinkTokenRepository) -> LinkTokenService:
-        return LinkTokenService(repo, container.secrets, clock)
-
     return Provisioning(
         create=CreateTenant(tenants, registry, AuditHeads(container.neo4j), factory, clock),
         number=RecordTenantNumber(tenants, registry, factory, clock),
@@ -148,16 +136,6 @@ def build_provisioning(
         host=SetTenantHost(tenants, registry, factory, clock),
         references=RecordTenantReferences(tenants, registry, factory, clock),
         directory=VerifyEntraBinding(tenants, registry, factory, clock),
-        invite=InviteTenantAdmin(
-            tenants,
-            factory,
-            tokens,
-            HmacPhoneHasher(container.secrets),
-            container.sealer,
-            clock,
-            container.ids,
-            DirectoryHostUrl(tenants),
-        ),
         activate=ActivateTenant(
             tenants, registry, factory, container.ids, clock, container.area_districts_for
         ),
@@ -222,10 +200,6 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     directory = commands.add_parser("verify-directory", help="verify the bound Entra directory")
     directory.add_argument("tenant_id")
     directory.add_argument("directory_id")
-
-    invite = commands.add_parser("invite", help="invite the tenant's first administrator")
-    invite.add_argument("tenant_id")
-    invite.add_argument("mobile")
 
     activate = commands.add_parser("activate", help="activate the tenant")
     activate.add_argument("tenant_id")
@@ -296,14 +270,6 @@ async def run_command(provisioning: Provisioning, args: argparse.Namespace) -> l
                     VerifyDirectoryCommand(actor, args.directory_id)
                 )
                 return [f"tenant {tenant_id}: directory verified"]
-            case "invite":
-                invited = await provisioning.invite.execute(
-                    InviteTenantAdminCommand(actor, args.mobile)
-                )
-                return [
-                    f"tenant {tenant_id}: invitation queued, valid until "
-                    f"{invited.expires_at.isoformat()}"
-                ]
             case "activate":
                 done = await provisioning.activate.execute(ActivateTenantCommand(actor))
                 return [f"tenant {done.tenant_id}: active, epoch {done.epoch}"]

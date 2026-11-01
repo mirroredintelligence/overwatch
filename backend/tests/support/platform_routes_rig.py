@@ -243,9 +243,6 @@ def build(*, with_services: bool = True) -> Rigs:
             )
         ),
         groups_change=RecordingChanger(MemberChange(GROUP_A, True)),
-        invite=Recording(
-            SimpleNamespace(expires_at=NOW + timedelta(hours=48), communication_id="c-1")
-        ),
         resume=Recording(
             SimpleNamespace(
                 tenant_id="act-org",
@@ -291,7 +288,6 @@ def build(*, with_services: bool = True) -> Rigs:
         host=SetTenantHost(fake, fake, world.factory(), clock),  # type: ignore[arg-type]
         references=RecordTenantReferences(fake, fake, world.factory(), clock),  # type: ignore[arg-type]
         directory=VerifyEntraBinding(fake, fake, world.factory(), clock),  # type: ignore[arg-type]
-        invite=stubs.invite,  # type: ignore[arg-type]
         consent_invite=stubs.consent_invite,  # type: ignore[arg-type]
         consent_read=stubs.consent_read,  # type: ignore[arg-type]
         groups_provision=stubs.groups_provision,  # type: ignore[arg-type]

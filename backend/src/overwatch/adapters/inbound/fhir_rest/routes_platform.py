@@ -19,7 +19,6 @@ use a route reads it as the 404 of a route that is not there:
   POST   /platform/tenants/{id}/numbers/tested          operator: a test text was delivered
   PUT    /platform/tenants/{id}/references              operator: DSA, DPIA and DCB0160 references
   POST   /platform/tenants/{id}/directory/verification  operator: verify the bound directory
-  POST   /platform/tenants/{id}/admin-invitation        operator: invite the first administrator
   POST   /platform/tenants/{id}/admin-consent-invitation  operator: email the Entra administrator
   GET    /platform/tenants/{id}/admin-consent           operator: the latest invitation, masked
   POST   /platform/tenants/{id}/entra-groups            operator: make the organisation's groups
@@ -87,7 +86,6 @@ from overwatch.application.use_cases.entra_groups import (
     ProvisionEntraGroupsCommand,
 )
 from overwatch.application.use_cases.platform_tenants import PlatformTenantDetail
-from overwatch.application.use_cases.tenant_access import InviteTenantAdminCommand
 from overwatch.application.use_cases.tenant_admin import (
     ActivateTenantCommand,
     CreateTenantCommand,
@@ -210,10 +208,6 @@ class ReferencesBody(_Body):
 
 class DirectoryBody(_Body):
     directoryId: str = Field(min_length=1, max_length=64)
-
-
-class InvitationBody(_Body):
-    mobile: str = Field(min_length=1, max_length=32)
 
 
 class ConsentInvitationBody(_Body):
@@ -579,29 +573,6 @@ async def verify_directory(
         services = _services(request)
         await services.directory.execute(VerifyDirectoryCommand(actor, body.directoryId))
         return await _step(services, actor, "tenant-directory-verified", {})
-
-    return await replay_or_run(request, actor, key, run)
-
-
-@router.post("/tenants/{tenant_id}/admin-invitation")
-async def invite_first_administrator(
-    tenant_id: TenantPath, body: InvitationBody, request: Request, actor: InTenant
-) -> Response:
-    """Invite the tenant's first administrator by mobile number. The mobile is hashed and stored in
-    the protected contact store, never echoed or audited; the text is queued to go from the tenant's
-    own number. Only when it will stop being valid is answered."""
-    key = idempotency_key(request)
-
-    async def run() -> Response:
-        services = _services(request)
-        invited = await services.invite.execute(InviteTenantAdminCommand(actor, body.mobile))
-        return await _step(
-            services,
-            actor,
-            "tenant-admin-invited",
-            {"expiresAt": _iso(invited.expires_at)},
-            201,
-        )
 
     return await replay_or_run(request, actor, key, run)
 

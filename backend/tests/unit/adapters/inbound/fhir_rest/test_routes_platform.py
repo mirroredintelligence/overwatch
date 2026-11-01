@@ -79,7 +79,6 @@ ROUTES: list[tuple[str, str, Any, frozenset[Role]]] = [
         {"directoryId": DIRECTORY_ID},
         OPERATOR,
     ),
-    ("POST", f"/platform/tenants/{TENANT}/admin-invitation", {"mobile": "07700 900123"}, OPERATOR),
     (
         "POST",
         f"/platform/tenants/{TENANT}/admin-consent-invitation",
@@ -175,6 +174,21 @@ async def test_the_role_matrix_of_every_platform_route(role: Role) -> None:
                 assert response.status_code == 500, (method, path, role)
             else:
                 assert response.status_code == 404, (method, path, role)
+
+
+async def test_the_first_administrator_text_invitation_route_is_gone() -> None:
+    r = build()
+    r.app.state.platform_services = _Tripwire()
+    async with r.client() as client:
+        response = await send(
+            client,
+            "POST",
+            f"/platform/tenants/{TENANT}/admin-invitation",
+            {"mobile": "07700 900123"},
+            ops(),
+        )
+
+    assert response.status_code == 404
 
 
 async def test_no_token_is_a_401_on_every_platform_route() -> None:
@@ -490,26 +504,16 @@ async def test_the_other_provisioning_steps_answer_in_fixed_words_and_record_no_
             {"dsaRef": "DSA-1", "dpiaRef": "DPIA-1"},
             ops(),
         )
-        invited = await send(
-            client,
-            "POST",
-            f"/platform/tenants/{TENANT}/admin-invitation",
-            {"mobile": "07700 900123"},
-            ops(),
-        )
 
     assert host.status_code == 200 and host.json() == {"recorded": True}
     assert number.status_code == 201 and number.json()["channelId"] == "sms-447700900123"
     assert tested.status_code == 200
     assert references.json() == {"references": ["dpia_ref", "dsa_ref"], "recorded": True}
-    assert invited.status_code == 201 and invited.json()["expiresAt"] == "2026-11-01T09:00:00Z"
-    assert r.stubs.invite.commands[0].mobile == "07700 900123"
     assert [e.action for e in r.audit.entries] == [
         "tenant-host-set",
         "tenant-number-recorded",
         "tenant-number-tested",
         "tenant-references-recorded",
-        "tenant-admin-invited",
     ]
     chain = repr(r.audit.entries) + repr(r.world.audit)
     for value in ("07700 900123", "+447700900123", "new.example.org", "AC" + "1" * 32):

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Network members</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.fr{width:1280px;height:800px;display:flex;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden}
+.rail{width:84px;flex:none;background:#0B2A3D;display:flex;flex-direction:column;align-items:center;padding:20px 0;gap:4px}
+.logo{width:44px;height:44px;border-radius:14px;background:#0B5C8C;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.ri{width:68px;padding:9px 0 7px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:3px;color:#B9D0DC;text-decoration:none;font-size:13px}
+.ri.on{background:rgba(255,255,255,.14);color:#fff;font-weight:700}
+.col{flex:1;min-width:0;display:flex;flex-direction:column}
+.top{height:72px;flex:none;display:flex;align-items:center;gap:16px;padding:0 28px;border-bottom:1px solid #DDE3E6;background:#fff}
+.ttl{display:flex;flex-direction:column;line-height:1.2}.ttl small{font-size:14px;color:#44555D}.ttl b{font-size:20px}
+.role{margin-left:auto;height:44px;padding:0 16px;border:2px solid #14232B;border-radius:999px;background:#fff;color:#14232B;font-family:inherit;font-size:16px;font-weight:700}
+.card{background:#fff;border-radius:22px;padding:18px 22px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07)}
+.eb{font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D}
+.btn{height:48px;padding:0 22px;border:0;border-radius:14px;background:#0B5C8C;color:#fff;font-family:inherit;font-size:17px;font-weight:700;box-shadow:0 6px 16px rgba(11,92,140,.28)}
+.btn2{height:44px;padding:0 18px;border:2px solid #0B5C8C;border-radius:14px;background:#fff;color:#0B5C8C;font-family:inherit;font-size:16px;font-weight:700}
+.tb{width:100%;border-collapse:collapse;font-size:16px}.tb th{text-align:left;font-size:13px;font-weight:700;color:#44555D;padding:6px 8px;border-bottom:2px solid #DDE3E6}.tb td{padding:10px 8px;border-bottom:1px solid #DDE3E6}
+.st{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;font-size:14px;font-weight:700;color:#fff}
+.a{background:#0B5C8C}.i{background:#fff;color:#44555D;border:2px dashed #6B7B83}.l{background:#3A4750}
+.bh{display:inline-block;padding:2px 8px;border:2px solid #A34700;border-radius:999px;background:#FFF1DC;color:#7A3500;font-size:13px;font-weight:700;margin-left:6px}
+.in{height:48px;border:2px solid #26343B;border-radius:12px;display:flex;align-items:center;padding:0 14px;font-size:18px;background:#fff}
+</style>
+</helmet>
+<div class="fr">
+  <nav aria-label="Network administration" class="rail">
+    <div class="logo"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#fff"/><path d="M3 13h20" stroke="#fff" stroke-width="2.4"/></svg></div>
+    <a href="#" class="ri on"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0M16 5a3.2 3.2 0 0 1 0 6.2M18 20a6 6 0 0 0-3-5.2"/></svg>Members</a>
+    <a href="#" class="ri"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg>Grants</a>
+    <a href="#" class="ri"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Listings</a>
+    <a href="#" class="ri"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>History</a>
+  </nav>
+  <div class="col">
+    <header class="top"><div class="ttl"><small>Example network · owner</small><b>Network members</b></div><button type="button" class="role">Network administrator ▾</button></header>
+    <main style="flex:1;min-height:0;padding:20px 28px;display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:20px">
+      <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+        <p style="margin:0;font-size:17px;line-height:1.45;color:#26343B">You see who has joined, what each organisation agreed to share and whether it is arriving. You never see another organisation's private data.</p>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div class="eb">Members</div><div style="display:flex;gap:8px"><button type="button" class="btn">Add an organisation</button></div></div>
+          <table class="tb"><thead><tr><th>Organisation</th><th>Status</th><th>Joined</th><th>Agreement</th><th></th></tr></thead><tbody>
+            <tr><td><b>Community Trust</b> (owner)</td><td><span class="st a">● Active</span></td><td>2 Sep</td><td>v3</td><td></td></tr>
+            <tr><td><b>Acute Trust</b></td><td><span class="st a">● Active</span></td><td>9 Sep</td><td>v3</td><td><button type="button" class="btn2">End</button></td></tr>
+            <tr><td><b>Hospice</b></td><td><span class="st a">● Active</span></td><td>14 Sep</td><td>v2 <span class="bh">Behind v3</span></td><td><button type="button" class="btn2">End</button></td></tr>
+            <tr><td><b>Care Home Group</b></td><td><span class="st l">■ Left</span></td><td>20 Sep</td><td>v2</td><td>Left 12 Oct</td></tr>
+            <tr><td><b>Therapy Partners</b></td><td><span class="st i">◌ Invited</span></td><td>Not yet</td><td>none</td><td></td></tr>
+          </tbody></table>
+        </div>
+        <div class="card" style="flex:1;min-height:0">
+          <div class="eb" style="margin-bottom:6px">Health: is sharing arriving?</div>
+          <table class="tb"><thead><tr><th>Organisation</th><th>Last update received</th><th>Delay</th><th style="text-align:right">Updates refused</th></tr></thead><tbody>
+            <tr><td>Community Trust</td><td>14:21</td><td>1 min</td><td style="text-align:right">0</td></tr>
+            <tr><td>Acute Trust</td><td>13:02</td><td><b style="color:#A34700">1 hr 20</b> ◐ late</td><td style="text-align:right">0</td></tr>
+            <tr><td>Hospice</td><td>14:18</td><td>3 min</td><td style="text-align:right">2</td></tr>
+          </tbody></table>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+        <div class="card" style="display:flex;flex-direction:column;gap:10px;border:2px solid #0B5C8C">
+          <div class="eb">Add an organisation</div>
+          <label style="font-size:17px;font-weight:700">Organisation code</label>
+          <div class="in">RXX01</div>
+          <div style="font-size:15px;color:#44555D">The code is on the organisation's administration page.</div>
+          <div style="display:flex;gap:10px"><button type="button" class="btn">Send invitation</button><button type="button" class="btn2" style="border-color:#DDE3E6;color:#26343B">Cancel</button></div>
+          <div style="font-size:15px;color:#44555D;background:#F4F6F5;border-radius:12px;padding:10px 12px">If the code is wrong, ineligible or already invited, the answer is the same: "We could not add that organisation. Check the code with them."</div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;gap:10px">
+          <div class="eb">Agreement</div>
+          <div style="font-size:17px;line-height:1.4">Current: <b>NA-2026-014, version 3</b>. Only the reference and version are stored, never the agreement itself.</div>
+          <button type="button" class="btn2" style="align-self:flex-start">Record a new agreement</button>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;gap:6px;border:2px dashed #6B7B83">
+          <div class="eb">Ending a membership</div>
+          <div style="font-size:16px;line-height:1.4">Its sharing stops now. What it already shared stays in the history, marked with today's date. A second administrator must confirm.</div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

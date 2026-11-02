@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Console find a session</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.fr{width:1280px;height:800px;display:flex;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden}
+.rail{width:84px;flex:none;background:#0B2A3D;display:flex;flex-direction:column;align-items:center;padding:20px 0;gap:4px}
+.logo{width:44px;height:44px;border-radius:14px;background:#0B5C8C;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.ri{width:68px;padding:9px 0 7px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:3px;color:#B9D0DC;text-decoration:none;font-size:13px}
+.ri.on{background:rgba(255,255,255,.14);color:#fff;font-weight:700}
+.col{flex:1;min-width:0;display:flex;flex-direction:column}
+.top{height:72px;flex:none;display:flex;align-items:center;gap:16px;padding:0 28px;border-bottom:1px solid #DDE3E6;background:#fff}
+.ttl{display:flex;flex-direction:column;line-height:1.2}.ttl small{font-size:14px;color:#44555D}.ttl b{font-size:20px}
+.role{margin-left:auto;height:44px;padding:0 16px;border:2px solid #14232B;border-radius:999px;background:#fff;color:#14232B;font-family:inherit;font-size:16px;font-weight:700}
+.card{background:#fff;border-radius:22px;padding:20px 24px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07)}
+.eb{font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D}
+.btn{height:52px;padding:0 26px;border:0;border-radius:14px;background:#0B5C8C;color:#fff;font-family:inherit;font-size:18px;font-weight:700;box-shadow:0 6px 16px rgba(11,92,140,.28)}
+.btn2{height:44px;padding:0 18px;border:2px solid #0B5C8C;border-radius:12px;background:#fff;color:#0B5C8C;font-family:inherit;font-size:16px;font-weight:700}
+.in{height:56px;border:2px solid #26343B;border-radius:14px;display:flex;align-items:center;padding:0 18px;font-size:22px;letter-spacing:.08em;background:#fff;flex:1}
+.tb{width:100%;border-collapse:collapse;font-size:16px}.tb th{text-align:left;font-size:13px;font-weight:700;color:#44555D;padding:6px 8px;border-bottom:2px solid #DDE3E6}.tb td{padding:10px 8px;border-bottom:1px solid #DDE3E6}
+.ch{display:inline-flex;align-items:center;height:40px;padding:0 14px;border-radius:999px;border:2px solid #DDE3E6;background:#fff;font-size:15px;font-weight:700}
+.ch.on{border-color:#0B5C8C;background:#E3F1F8;color:#0B3F61}
+</style>
+</helmet>
+<div class="fr">
+  <nav aria-label="Console" class="rail">
+    <div class="logo"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#fff"/><path d="M3 13h20" stroke="#fff" stroke-width="2.4"/></svg></div>
+    <a href="#" class="ri on"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>Sessions</a>
+    <a href="#" class="ri"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Insight</a>
+    <a href="#" class="ri" style="margin-top:auto"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/></svg>Help</a>
+  </nav>
+  <div class="col">
+    <header class="top"><div class="ttl"><small>Support console</small><b>Find a session</b></div><button type="button" class="role">Support ▾</button></header>
+    <main style="flex:1;min-height:0;padding:22px 28px;display:flex;flex-direction:column;gap:16px">
+      <div class="card" style="display:flex;flex-direction:column;gap:12px">
+        <div style="font-size:19px;line-height:1.4;max-width:900px">Opening one session needs a support code the person shared, or an approved ticket. Every open is logged and shown to the person.</div>
+        <div style="display:flex;gap:12px;align-items:center"><div class="in"><span style="color:#44555D;font-size:18px;letter-spacing:0">Support code</span></div><button type="button" class="btn">Open session</button></div>
+      </div>
+      <div class="card" style="flex:1;min-height:0;display:flex;flex-direction:column;gap:12px;overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between"><div style="font-size:19px;font-weight:700">Or search <span style="font-weight:400;color:#44555D;font-size:16px">: aggregates and session ids only</span></div><span style="font-size:16px;font-weight:700;color:#0B5C8C">More filters ▾</span></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="eb" style="margin-right:4px">Role</span><span class="ch">Reporter</span><span class="ch on">Advisor</span><span class="ch">Clinical</span><span class="ch">Lead</span><span class="ch">Exec</span><span class="eb" style="margin:0 4px 0 14px">When</span><span class="ch">24 hours</span><span class="ch on">7 days</span><span class="ch">30 days</span></div>
+        <table class="tb"><thead><tr><th>Session</th><th>Role</th><th>Device</th><th>Release</th><th>Started</th><th style="text-align:right">Events</th><th style="text-align:right">Friction</th><th style="text-align:right">Errors</th><th></th></tr></thead><tbody>
+          <tr><td><b>s-7f3a</b></td><td>Advisor</td><td>Desktop</td><td>1.4.2</td><td>13:02</td><td style="text-align:right">212</td><td style="text-align:right"><b style="color:#A34700">3</b></td><td style="text-align:right"><b style="color:#A34700">1</b></td><td><button type="button" class="btn2">Open</button></td></tr>
+          <tr><td><b>s-91c0</b></td><td>Advisor</td><td>Phone</td><td>1.4.2</td><td>13:40</td><td style="text-align:right">38</td><td style="text-align:right">0</td><td style="text-align:right">0</td><td><button type="button" class="btn2">Open</button></td></tr>
+          <tr><td><b>s-2b18</b></td><td>Advisor</td><td>Desktop</td><td>1.4.1</td><td>11:15</td><td style="text-align:right">147</td><td style="text-align:right">1</td><td style="text-align:right">0</td><td><button type="button" class="btn2">Open</button></td></tr>
+        </tbody></table>
+        <div style="font-size:15px;color:#44555D;margin-top:auto">Search shows aggregates and session ids only. Opening a timeline asks for a support code or a ticket approval, and that is refused with a way back to this page.</div>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Phone planning home</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.ph{width:390px;height:844px;position:relative;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden}
+.hd{height:60px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:#0B2A3D;color:#fff;font-weight:700;font-size:18px}
+.hd span{display:flex;align-items:center;gap:10px}
+.hd button{height:40px;padding:0 12px;border:2px solid rgba(255,255,255,.7);border-radius:999px;background:transparent;color:#fff;font-family:inherit;font-weight:700;font-size:15px}
+.bn{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-around;align-items:center;height:68px;background:#fff;border-top:1px solid #DDE3E6}
+.bn a{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:13px;color:#44555D;text-decoration:none;position:relative;min-width:64px}
+.bn a.on{color:#0B5C8C;font-weight:700}
+.bd{position:absolute;top:-4px;right:12px;min-width:18px;height:18px;border-radius:9px;background:#6B2C91;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 4px}
+.st{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;font-size:14px;font-weight:700;color:#fff}
+.sur{background:#6B2C91}.cl{background:#3A4750}.unk{background:#fff;color:#44555D;border:2px dashed #6B7B83}
+.rw{background:#fff;border-radius:20px;padding:14px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06)}
+.tl{border-radius:16px;padding:10px 12px;background:#fff;border:2px solid #0B5C8C;display:flex;flex-direction:column;gap:2px}
+.tl b{font-size:30px;line-height:1}.tl span{font-size:14px;font-weight:700;color:#26343B}
+</style>
+</helmet>
+<div class="ph">
+  <header class="hd"><span><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#fff"/><path d="M3 13h20" stroke="#fff" stroke-width="2.4"/></svg>Overwatch</span><button type="button">COO ▾</button></header>
+  <div style="padding:14px 16px 0;display:flex;flex-direction:column;gap:12px">
+    <div><div style="font-size:14px;color:#44555D">Your system</div><h1 style="margin:0;font-size:26px;line-height:1.15">Watch</h1><div style="font-size:16px;color:#26343B">3 of 9 services limited or worse</div></div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+      <div class="tl"><b style="color:#0B5C8C">4</b><span>● Accepting</span></div>
+      <div class="tl" style="border-color:#A34700"><b style="color:#A34700">2</b><span>◐ Limited</span></div>
+      <div class="tl" style="border-color:#3A4750"><b style="color:#3A4750">1</b><span>■ Closed</span></div>
+      <div class="tl" style="border-color:#6B2C91"><b style="color:#6B2C91">1</b><span>▲ Over</span></div>
+      <div class="tl" style="border:2px dashed #6B7B83"><b style="color:#44555D">1</b><span>◌ Not updated</span></div>
+    </div>
+    <div style="font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D;margin-top:4px">Needs attention (3)</div>
+    <div class="rw" style="border:2px solid #6B2C91"><div style="flex:1"><div style="font-size:18px;font-weight:700">Hospital at home</div><div style="font-size:15px;color:#44555D">Over capacity +4 since 13:10</div></div><span class="st sur">▲ Over</span></div>
+    <div class="rw"><div style="flex:1"><div style="font-size:18px;font-weight:700">SDEC · Site 2</div><div style="font-size:15px;color:#44555D">Not accepting since 12:50</div></div><span class="st cl">■ Closed</span></div>
+    <div class="rw" style="border:2px dashed #6B7B83"><div style="flex:1"><div style="font-size:18px;font-weight:700">Virtual ward · frailty</div><div style="font-size:15px;color:#44555D">Last known. Not updated 4 hrs 10 min.</div></div><span class="st unk">◌ Stale</span></div>
+    <button type="button" style="height:52px;border:2px solid #0B5C8C;border-radius:14px;background:#fff;color:#0B5C8C;font-family:inherit;font-size:17px;font-weight:700">See all services</button>
+  </div>
+  <nav class="bn" aria-label="Planning">
+    <a href="#" class="on"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11l8-7 8 7v9H4z"/></svg>Home</a>
+    <a href="#"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Services</a>
+    <a href="#"><span class="bd">2</span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4zM10 21h4"/></svg>Alerts</a>
+    <a href="#"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Week</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

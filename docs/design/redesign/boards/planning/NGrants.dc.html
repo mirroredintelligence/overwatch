@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Network grants</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.fr{width:1280px;height:800px;display:flex;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden}
+.rail{width:84px;flex:none;background:#0B2A3D;display:flex;flex-direction:column;align-items:center;padding:20px 0;gap:4px}
+.logo{width:44px;height:44px;border-radius:14px;background:#0B5C8C;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.ri{width:68px;padding:9px 0 7px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:3px;color:#B9D0DC;text-decoration:none;font-size:13px}
+.ri.on{background:rgba(255,255,255,.14);color:#fff;font-weight:700}
+.col{flex:1;min-width:0;display:flex;flex-direction:column}
+.top{height:72px;flex:none;display:flex;align-items:center;gap:16px;padding:0 28px;border-bottom:1px solid #DDE3E6;background:#fff}
+.ttl{display:flex;flex-direction:column;line-height:1.2}.ttl small{font-size:14px;color:#44555D}.ttl b{font-size:20px}
+.role{margin-left:auto;height:44px;padding:0 16px;border:2px solid #14232B;border-radius:999px;background:#fff;color:#14232B;font-family:inherit;font-size:16px;font-weight:700}
+.card{background:#fff;border-radius:22px;padding:18px 22px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07)}
+.eb{font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D}
+.btn{height:44px;padding:0 18px;border:0;border-radius:12px;background:#0B5C8C;color:#fff;font-family:inherit;font-size:16px;font-weight:700}
+.btn2{height:44px;padding:0 18px;border:2px solid #0B5C8C;border-radius:12px;background:#fff;color:#0B5C8C;font-family:inherit;font-size:16px;font-weight:700}
+.tb{width:100%;border-collapse:collapse;font-size:16px}.tb th{text-align:left;font-size:13px;font-weight:700;color:#44555D;padding:6px 8px;border-bottom:2px solid #DDE3E6}.tb td{padding:10px 8px;border-bottom:1px solid #DDE3E6}
+.ap{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;font-size:14px;font-weight:700}
+.w{background:#FFF1DC;border:2px solid #A34700;color:#7A3500}.o{background:#0B5C8C;color:#fff}.d{background:#fff;border:2px dashed #6B7B83;color:#44555D}
+.ch{display:inline-flex;align-items:center;height:40px;padding:0 14px;border-radius:999px;border:2px solid #DDE3E6;background:#fff;font-size:15px;font-weight:700}
+.ch.on{border-color:#0B5C8C;background:#E3F1F8;color:#0B3F61}
+.sc{display:flex;gap:10px;align-items:flex-start;font-size:16px;line-height:1.35}.sc b{display:block}
+</style>
+</helmet>
+<div class="fr">
+  <nav aria-label="Network administration" class="rail">
+    <div class="logo"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#fff"/><path d="M3 13h20" stroke="#fff" stroke-width="2.4"/></svg></div>
+    <a href="#" class="ri"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0M16 5a3.2 3.2 0 0 1 0 6.2M18 20a6 6 0 0 0-3-5.2"/></svg>Members</a>
+    <a href="#" class="ri on"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg>Grants</a>
+    <a href="#" class="ri"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Listings</a>
+    <a href="#" class="ri"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>History</a>
+  </nav>
+  <div class="col">
+    <header class="top"><div class="ttl"><small>Example network · owner</small><b>Grants</b></div><button type="button" class="role">Network administrator ▾</button></header>
+    <main style="flex:1;min-height:0;padding:20px 28px;display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:20px">
+      <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+        <div style="display:flex;gap:8px"><span class="ch on">Waiting for me 2</span><span class="ch">Waiting for the organisation 1</span><span class="ch">Approved</span><span class="ch">Declined</span></div>
+        <div class="card" style="flex:1;min-height:0">
+          <table class="tb"><thead><tr><th>Organisation</th><th>Scope</th><th>From</th><th>Approval</th><th></th></tr></thead><tbody>
+            <tr><td><b>Therapy Partners</b></td><td>Capacity</td><td>3 Nov</td><td><span class="ap w">◐ Waiting for the network owner</span></td><td style="white-space:nowrap"><button type="button" class="btn">Approve</button> <button type="button" class="btn2">Decline</button></td></tr>
+            <tr><td><b>Therapy Partners</b></td><td>Directory</td><td>3 Nov</td><td><span class="ap w">◐ Waiting for the network owner</span></td><td style="white-space:nowrap"><button type="button" class="btn">Approve</button> <button type="button" class="btn2">Decline</button></td></tr>
+            <tr><td><b>Hospice</b></td><td>Criteria</td><td>20 Oct</td><td><span class="ap d">◌ Waiting for the organisation</span></td><td></td></tr>
+            <tr><td><b>Acute Trust</b></td><td>Capacity</td><td>9 Sep</td><td><span class="ap o">● Approved</span></td><td>to 9 Sep next year</td></tr>
+            <tr><td><b>Acute Trust</b></td><td>Directory</td><td>9 Sep</td><td><span class="ap o">● Approved</span></td><td>to 9 Sep next year</td></tr>
+          </tbody></table>
+          <div style="margin-top:10px;border:2px solid #14232B;border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:14px;background:#F4F6F5"><div style="flex:1;font-size:16px;line-height:1.35"><b>Decline this grant?</b> Therapy Partners will not appear on the network board until a grant is approved.</div><button type="button" class="btn2" style="border-color:#14232B;color:#14232B">Decline</button><button type="button" class="btn2" style="border-color:#DDE3E6;color:#26343B">Cancel</button></div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+        <div class="card" style="display:flex;flex-direction:column;gap:12px">
+          <div class="eb">What each scope shares</div>
+          <div class="sc"><span aria-hidden="true">●</span><div><b>Capacity</b>Status and figure of each listed service, with the time reported.</div></div>
+          <div class="sc"><span aria-hidden="true">●</span><div><b>Directory</b>Service name, category, district, opening hours and service line.</div></div>
+          <div class="sc"><span aria-hidden="true">●</span><div><b>Criteria</b>The current version only: what is accepted, not accepted, ages, districts.</div></div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;gap:8px;background:#0B2A3D;color:#fff">
+          <div class="eb" style="color:#9FC3D6">Never shared</div>
+          <div style="font-size:17px;line-height:1.4;color:#D7E6EE">Anything about a patient or a person: cases, bookings, reporters' numbers, comments, audit. Each grant is for one purpose, "Network capacity view", and has dates.</div>
+        </div>
+        <div style="font-size:15px;color:#44555D;padding:0 4px">Approving or declining is recorded with the date in History.</div>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

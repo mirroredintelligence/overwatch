@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Console session timeline</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.fr{width:1280px;height:800px;display:flex;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden}
+.rail{width:84px;flex:none;background:#0B2A3D;display:flex;flex-direction:column;align-items:center;padding:20px 0;gap:4px}
+.logo{width:44px;height:44px;border-radius:14px;background:#0B5C8C;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.ri{width:68px;padding:9px 0 7px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:3px;color:#B9D0DC;text-decoration:none;font-size:13px}
+.ri.on{background:rgba(255,255,255,.14);color:#fff;font-weight:700}
+.col{flex:1;min-width:0;display:flex;flex-direction:column}
+.top{height:72px;flex:none;display:flex;align-items:center;gap:16px;padding:0 28px;border-bottom:1px solid #DDE3E6;background:#fff}
+.ttl{display:flex;flex-direction:column;line-height:1.2}.ttl small{font-size:14px;color:#44555D}.ttl b{font-size:20px}
+.role{margin-left:auto;height:44px;padding:0 16px;border:2px solid #14232B;border-radius:999px;background:#fff;color:#14232B;font-family:inherit;font-size:16px;font-weight:700}
+.card{background:#fff;border-radius:22px;padding:18px 22px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07)}
+.eb{font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D}
+.btn2{height:44px;padding:0 18px;border:2px solid #0B5C8C;border-radius:12px;background:#fff;color:#0B5C8C;font-family:inherit;font-size:16px;font-weight:700}
+.ch{display:inline-flex;align-items:center;height:40px;padding:0 14px;border-radius:999px;border:2px solid #DDE3E6;background:#fff;font-size:15px;font-weight:700}
+.ch.on{border-color:#0B5C8C;background:#E3F1F8;color:#0B3F61}
+.ev{display:grid;grid-template-columns:64px 118px minmax(0,1fr) 90px;gap:10px;align-items:center;padding:8px 10px;border-radius:12px;font-size:16px}
+.ev code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px;color:#26343B}
+.ev.fr2{background:#FFF1DC;border:2px solid #A34700}.ev.sel{background:#E3F1F8;border:2px solid #0B5C8C}
+.k{display:inline-flex;align-items:center;gap:5px;font-size:14px;font-weight:700}
+</style>
+</helmet>
+<div class="fr">
+  <nav aria-label="Console" class="rail">
+    <div class="logo"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#fff"/><path d="M3 13h20" stroke="#fff" stroke-width="2.4"/></svg></div>
+    <a href="#" class="ri on"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>Sessions</a>
+    <a href="#" class="ri"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Insight</a>
+    <a href="#" class="ri" style="margin-top:auto"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/></svg>Help</a>
+  </nav>
+  <div class="col">
+    <header class="top"><div class="ttl"><small>Support console · Advisor · Desktop · release 1.4.2 · 01:10 long · code valid until 14:30</small><b>Session s-7f3a</b></div><button type="button" class="role">Support ▾</button></header>
+    <main style="flex:1;min-height:0;padding:18px 28px;display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:20px">
+      <section class="card" style="display:flex;flex-direction:column;gap:10px;min-width:0;overflow:hidden" aria-label="Timeline">
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><span class="ch on">All</span><span class="ch">Errors</span><span class="ch">Friction</span><span class="ch">API</span><span class="ch">Navigation</span></div>
+        <div style="display:flex;flex-direction:column;gap:4px;overflow:hidden">
+          <div class="ev"><span>00:00</span><span class="k">Page view</span><code>/case/[ref]</code><span></span></div>
+          <div class="ev"><span>00:08</span><span class="k">Click</span><code>ADV-NEEDS-AGE-80PLUS</code><span>dom</span></div>
+          <div class="ev"><span>00:21</span><span class="k">Input</span><code>ADV-NEEDS-POSTCODE</code><span>valid</span></div>
+          <div class="ev"><span>00:44</span><span class="k">Click</span><code>ADV-OPT-REQUEST-BTN</code><span>1.8 s</span></div>
+          <div class="ev fr2"><span>00:45</span><span class="k">▲ Friction</span><code>ADV-OPT-REQUEST-BTN · impatient click</code><span></span></div>
+          <div class="ev fr2"><span>00:46</span><span class="k">▲ Friction</span><code>ADV-OPT-REQUEST-BTN · rage click, 3 in 1 s</code><span></span></div>
+          <div class="ev sel"><span>00:47</span><span class="k">API</span><code>POST /api/bff/bookings · 201</code><span><b>2.4 s</b></span></div>
+          <div class="ev"><span>01:10</span><span class="k">Page view</span><code>/case/[ref]/options</code><span></span></div>
+        </div>
+        <div style="font-size:14px;color:#44555D;margin-top:auto">Events show element ids and outcomes. Field values and page text are never recorded.</div>
+      </section>
+      <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+        <div class="card" style="border:2px solid #A34700;display:flex;flex-direction:column;gap:8px">
+          <div class="eb" style="color:#7A3500">What stands out</div>
+          <div style="font-size:18px;line-height:1.4">Rage click on <code style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:16px">ADV-OPT-REQUEST-BTN</code> while <code style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:16px">POST /api/bff/bookings</code> took 2.4 s.</div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;gap:10px;border:2px solid #0B5C8C">
+          <div class="eb">Selected: 00:47 · API</div>
+          <div style="font-size:17px;line-height:1.4">The request took 2.4 s. The slowest step was one database write, 1.2 s against a budget of 200 ms.</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" class="btn2" style="background:#0B5C8C;color:#fff;border:0">View trace</button><button type="button" class="btn2">Copy link to this moment</button></div>
+        </div>
+        <div style="display:flex;gap:10px"><button type="button" class="btn2" style="border-color:#14232B;color:#14232B">Close session</button></div>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

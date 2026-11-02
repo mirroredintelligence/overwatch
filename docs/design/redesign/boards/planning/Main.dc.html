@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Index of routes and boards</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.ix{width:1280px;height:1200px;box-sizing:border-box;padding:40px 48px;background:#0B2A3D;color:#fff;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;display:flex;flex-direction:column;gap:22px}
+.eb{font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#9FC3D6}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.blk{background:rgba(255,255,255,.07);border-radius:20px;padding:18px 22px}
+.blk h2{margin:0 0 8px;font-size:20px}
+.r{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:12px;padding:6px 0;border-top:1px solid rgba(255,255,255,.12);font-size:16px;line-height:1.3}
+.r code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:15px;color:#E3F1F8}
+.r span{color:#D7E6EE}
+</style>
+</helmet>
+<div class="ix">
+  <div>
+    <div class="eb">Overwatch redesign · planning, analytics, network and console</div>
+    <h1 style="margin:6px 0 0;font-size:38px;line-height:1.1">Every route on this surface, and the board that shows it</h1>
+    <p style="margin:10px 0 0;font-size:18px;line-height:1.45;color:#D7E6EE;max-width:980px">One shell for all of it: a dark rail, a white top bar, soft cards, status as shape and word. A view opens its detail in place, so the person keeps their context. Live figures never animate for style, and every state has its own address.</p>
+  </div>
+
+  <div class="grid">
+    <div class="blk">
+      <h2>Planning (COO, ICB and shift lead)</h2>
+      <div class="r"><code>/planning</code><span>Home: the system now · PHome, Morph, phone PH1</span></div>
+      <div class="r"><code>/planning/services</code><span>All services · PServices</span></div>
+      <div class="r"><code>/planning/services/[id]</code><span>A service, in place · PService, Morph</span></div>
+      <div class="r"><code>/planning/week</code><span>This week · PWeek</span></div>
+      <div class="r"><code>/planning/alerts</code><span>Alerts, open to closed · PAlerts, phone PH2</span></div>
+      <div class="r"><code>/planning/alerts/[id]</code><span>One alert · PAlert, PAlerts, phone PH3</span></div>
+      <div class="r"><code>/planning/phone</code><span>Alerts on this phone · phone PH5</span></div>
+      <div class="r"><code>/planning/setup</code><span>First-run alert set-up · PSettings</span></div>
+      <div class="r"><code>/planning/settings</code><span>Alerts and escalation · PSettings</span></div>
+      <div class="r"><code>/planning/flows</code><span>Right-sizing · PFlows</span></div>
+      <div class="r"><code>/planning/coverage</code><span>Coverage by time of day · PCoverage</span></div>
+    </div>
+    <div class="blk">
+      <h2>Network (read only, scope header on every page)</h2>
+      <div class="r"><code>/network/home</code><span>Counts · NHome, phone PH4</span></div>
+      <div class="r"><code>/network/board</code><span>Capacity board · NBoard</span></div>
+      <div class="r"><code>/network/services</code><span>Directory · NServices</span></div>
+      <div class="r"><code>/network/services/[id]</code><span>One service · NServices (detail)</span></div>
+      <div class="r"><code>/network/system-now</code><span>System now · NSystemNow</span></div>
+      <div class="r"><code>/network/phones</code><span>Phones and services · NPhones</span></div>
+      <div class="r"><code>/network/week</code><span>Week summary · NWeek</span></div>
+      <div class="r"><code>/network/history</code><span>Left or stopped sharing · NHistory</span></div>
+      <div class="r"><code>every refusal and degraded state</code><span>NStates</span></div>
+    </div>
+    <div class="blk">
+      <h2>Network administration (owner's network administrator)</h2>
+      <div class="r"><code>/network-admin</code><span>Members, agreement, health · NAdmin</span></div>
+      <div class="r"><code>/network-admin/grants</code><span>Grants · NGrants</span></div>
+      <div class="r"><code>/network-admin/listings</code><span>Listings · NListings</span></div>
+      <div class="r"><code>/network-admin/history</code><span>Decisions, read only · NAdminHistory</span></div>
+    </div>
+    <div class="blk">
+      <h2>Support console (support role only)</h2>
+      <div class="r"><code>/console</code><span>Find a session · CFind</span></div>
+      <div class="r"><code>/console/session/[id]</code><span>Timeline · CSession</span></div>
+      <div class="r"><code>/console/trace/[traceId]</code><span>Trace · CTrace</span></div>
+      <div class="r"><code>/console/insight</code><span>Funnels tab · CInsightA</span></div>
+      <div class="r"><code>/console/insight</code><span>Paths, friction, performance, releases tabs · CInsightB</span></div>
+    </div>
+  </div>
+
+  <div class="blk">
+    <h2>Across all of it</h2>
+    <div class="r"><code>Empty, loading, error, stale</code><span>PStates: one pattern for every view</span></div>
+    <div class="r"><code>Charts</code><span>PCharts: drawn with CSS and SVG, each with a table beside it</span></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1200}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

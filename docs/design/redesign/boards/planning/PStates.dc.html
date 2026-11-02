@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Empty, loading, error and stale</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.st4{width:1280px;height:800px;box-sizing:border-box;padding:36px 44px;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;display:flex;flex-direction:column;gap:18px}
+.g{flex:1;min-height:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:18px}
+.p{background:#fff;border-radius:22px;padding:20px 24px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07);display:flex;flex-direction:column;gap:12px;overflow:hidden}
+.eb{font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D}
+.sk{border-radius:10px;background:linear-gradient(100deg,#E1E7EA 0%,#E1E7EA 34%,#F6F9FA 46%,#E1E7EA 58%,#E1E7EA 100%)}
+.btn2{height:46px;padding:0 20px;border:2px solid #0B5C8C;border-radius:14px;background:#fff;color:#0B5C8C;font-family:inherit;font-size:17px;font-weight:700}
+.ban{border-radius:14px;padding:12px 16px;font-size:16px;line-height:1.4;display:flex;gap:10px;align-items:flex-start}
+.t{flex:1;border-radius:14px;padding:10px 12px;border:2px solid #0B5C8C;display:flex;flex-direction:column;gap:2px}
+.t b{font-size:30px;line-height:1}.t span{font-size:15px;font-weight:700}
+</style>
+</helmet>
+<div class="st4">
+  <div>
+    <div class="eb">The same four states on every dashboard, list and table</div>
+    <h1 style="margin:4px 0 0;font-size:34px;line-height:1.1">A view always says what state it is in, in words</h1>
+  </div>
+  <div class="g">
+
+    <section class="p" aria-label="Loading">
+      <div class="eb">Loading</div>
+      <div style="display:flex;gap:10px"><div class="sk" style="flex:1;height:64px"></div><div class="sk" style="flex:1;height:64px"></div><div class="sk" style="flex:1;height:64px"></div><div class="sk" style="flex:1;height:64px"></div></div>
+      <div style="display:flex;align-items:center;gap:12px"><div class="sk" style="width:40px;height:40px;border-radius:50%"></div><div style="flex:1;display:flex;flex-direction:column;gap:8px"><div class="sk" style="width:46%;height:16px"></div><div class="sk" style="width:72%;height:12px"></div></div><div class="sk" style="width:84px;height:44px;border-radius:999px"></div></div>
+      <div style="display:flex;align-items:center;gap:12px"><div class="sk" style="width:40px;height:40px;border-radius:50%"></div><div style="flex:1;display:flex;flex-direction:column;gap:8px"><div class="sk" style="width:38%;height:16px"></div><div class="sk" style="width:64%;height:12px"></div></div><div class="sk" style="width:84px;height:44px;border-radius:999px"></div></div>
+      <div style="font-size:15px;line-height:1.4;color:#44555D;margin-top:auto">One band of light crosses every placeholder together. It is announced once as "Loading the system now". Nothing moves under reduced motion.</div>
+    </section>
+
+    <section class="p" aria-label="Empty">
+      <div class="eb">Empty</div>
+      <div style="display:flex;flex-direction:column;gap:6px;padding:14px 16px;border-radius:16px;border:2px dashed #DDE3E6">
+        <div style="font-size:22px;font-weight:700">Nothing needs attention</div>
+        <div style="font-size:17px;line-height:1.4;color:#26343B">All 9 services reported in the last 2 hrs, and none is closed or over capacity.</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;padding:14px 16px;border-radius:16px;border:2px dashed #DDE3E6">
+        <div style="font-size:22px;font-weight:700">No alerts yet</div>
+        <div style="font-size:17px;line-height:1.4;color:#26343B">When a service you follow changes, it shows here. Choose which in alert settings.</div>
+      </div>
+      <div style="font-size:15px;line-height:1.4;color:#44555D;margin-top:auto">An empty view says why it is empty and what to do, never a blank page. A first-run empty view has one next step.</div>
+    </section>
+
+    <section class="p" aria-label="Error">
+      <div class="eb">Error</div>
+      <div class="ban" style="background:#FFF1DC;border:2px solid #A34700"><span aria-hidden="true" style="font-weight:700">!</span><span><b>The system now could not be loaded.</b> Your settings were not changed. Nothing on this page is out of date: nothing is shown.</span></div>
+      <div style="display:flex;gap:12px"><button type="button" class="btn2">Try again</button><button type="button" class="btn2" style="border-color:#DDE3E6;color:#26343B">Open the all services list</button></div>
+      <div style="font-size:15px;line-height:1.4;color:#44555D;margin-top:auto">One sentence, what did not happen, what is safe, and a way forward. Never a code or a stack.</div>
+    </section>
+
+    <section class="p" aria-label="Stale">
+      <div class="eb">Stale or offline</div>
+      <div class="ban" style="background:#E3F1F8;border:2px solid #0B5C8C"><span aria-hidden="true" style="font-weight:700">i</span><span><b>Offline since 14:30.</b> Figures are the last known and may be wrong. Use the whiteboard and phone process.</span></div>
+      <div style="display:flex;gap:10px">
+        <div class="t" style="border-style:dashed;border-color:#6B7B83"><b style="color:#44555D">4</b><span style="color:#44555D">◌ Last known 14:02</span></div>
+        <div class="t" style="border-style:dashed;border-color:#6B7B83"><b style="color:#44555D">2</b><span style="color:#44555D">◌ Last known 14:02</span></div>
+        <div class="t" style="border-style:dashed;border-color:#6B7B83"><b style="color:#44555D">?</b><span style="color:#44555D">◌ Not updated 4 hrs 10</span></div>
+      </div>
+      <div style="font-size:15px;line-height:1.4;color:#44555D;margin-top:auto">A stale figure is dashed, in words, and carries its time. It is never shown as current. The header and scope never disappear.</div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

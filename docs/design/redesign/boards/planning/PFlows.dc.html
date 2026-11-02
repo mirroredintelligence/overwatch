@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Right-sizing</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.fr{width:1280px;height:800px;display:flex;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden}
+.rail{width:84px;flex:none;background:#0B2A3D;display:flex;flex-direction:column;align-items:center;padding:20px 0;gap:4px}
+.logo{width:44px;height:44px;border-radius:14px;background:#0B5C8C;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.ri{width:68px;padding:9px 0 7px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:3px;color:#B9D0DC;text-decoration:none;font-size:13px}
+.ri.on{background:rgba(255,255,255,.14);color:#fff;font-weight:700}
+.col{flex:1;min-width:0;display:flex;flex-direction:column}
+.top{height:72px;flex:none;display:flex;align-items:center;gap:16px;padding:0 28px;border-bottom:1px solid #DDE3E6;background:#fff}
+.ttl{display:flex;flex-direction:column;line-height:1.2}.ttl small{font-size:14px;color:#44555D}.ttl b{font-size:20px}
+.role{margin-left:auto;height:44px;padding:0 16px;border:2px solid #14232B;border-radius:999px;background:#fff;color:#14232B;font-family:inherit;font-size:16px;font-weight:700}
+.card{background:#fff;border-radius:22px;padding:20px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07)}
+.eb{font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D}
+.btn2{height:44px;padding:0 18px;border:2px solid #0B5C8C;border-radius:14px;background:#fff;color:#0B5C8C;font-family:inherit;font-size:16px;font-weight:700}
+.ch{display:inline-flex;align-items:center;height:44px;padding:0 16px;border-radius:999px;border:2px solid #DDE3E6;background:#fff;font-size:16px;font-weight:700}
+.ch.on{border-color:#0B5C8C;background:#E3F1F8;color:#0B3F61}
+.tb{width:100%;border-collapse:collapse;font-size:16px}.tb th{text-align:left;font-size:14px;font-weight:700;color:#44555D;padding:6px 8px;border-bottom:2px solid #DDE3E6}.tb td{padding:9px 8px;border-bottom:1px solid #DDE3E6}
+.k b{display:block;font-size:40px;line-height:1;color:#0B3F61}.k span{display:block;font-size:16px;margin-top:4px}.k small{font-size:14px;color:#44555D}
+.hg{display:grid;grid-template-columns:70px repeat(7,minmax(0,1fr));gap:4px;font-size:15px}
+.hg div{height:34px;display:flex;align-items:center;justify-content:center;border-radius:8px;font-weight:700}
+.hg .h{font-weight:400;color:#44555D;background:none}
+.sh{display:flex;align-items:center;gap:10px}.sh i{display:block;height:12px;background:#0B5C8C;border-radius:4px}
+</style>
+</helmet>
+<div class="fr">
+  <nav aria-label="Planning" class="rail">
+    <div class="logo"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#fff"/><path d="M3 13h20" stroke="#fff" stroke-width="2.4"/></svg></div>
+    <a href="#" class="ri"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11l8-7 8 7v9H4z"/></svg>Home</a>
+    <a href="#" class="ri"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Services</a>
+    <a href="#" class="ri"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Week</a>
+    <a href="#" class="ri"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4zM10 21h4"/></svg>Alerts</a>
+    <a href="#" class="ri on"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Analysis</a>
+  </nav>
+  <div class="col">
+    <header class="top"><div class="ttl"><small>Analysis · sample data</small><b>Where capacity ran out</b></div><button type="button" class="role">COO or ICB lead ▾</button></header>
+    <main style="flex:1;min-height:0;padding:18px 28px;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span class="eb" style="margin-right:6px">Period</span><span class="ch">30 days</span><span class="ch on">90 days</span><span class="ch">12 months</span>
+        <span class="eb" style="margin:0 6px 0 18px">Need</span><span class="ch">All</span><span class="ch on">Falls and frailty</span><span class="ch">IV therapy</span><span class="ch">Palliative</span>
+        <button type="button" class="btn2" style="margin-left:auto">Export table (CSV)</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px">
+        <div class="card k"><b>640</b><span>referrals</span><small>Last 90 days, falls and frailty</small></div>
+        <div class="card k"><b>112</b><span>best fit unavailable</span><small>18% of referrals. Full, closed or not updated.</small></div>
+        <div class="card k"><b>62</b><span>went to another suitable service</span><small>The rest: fewer than 10 per destination, or none recorded</small></div>
+      </div>
+      <div style="flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:14px">
+        <div class="card" style="display:flex;flex-direction:column;gap:8px;overflow:hidden">
+          <div class="eb">Where they went when the best fit was full</div>
+          <table class="tb">
+            <thead><tr><th>Best fit, and its state</th><th>Went to</th><th style="text-align:right">Referrals</th><th>Share</th></tr></thead>
+            <tbody>
+              <tr><td>Hospital at home · full</td><td>UCR West</td><td style="text-align:right;font-weight:700">18</td><td><div class="sh"><i style="width:56px"></i>16%</div></td></tr>
+              <tr><td>Hospital at home · full</td><td>Community hospital · Ward B</td><td style="text-align:right;font-weight:700">11</td><td><div class="sh"><i style="width:34px"></i>10%</div></td></tr>
+              <tr><td>Hospital at home · full</td><td>Emergency department</td><td style="text-align:right;color:#44555D">under 10</td><td>hidden</td></tr>
+              <tr><td>UCR East · closed</td><td>SDEC · Site 1</td><td style="text-align:right;font-weight:700">22</td><td><div class="sh"><i style="width:68px"></i>20%</div></td></tr>
+              <tr><td>UCR East · closed</td><td>UCR West</td><td style="text-align:right;font-weight:700">15</td><td><div class="sh"><i style="width:46px"></i>13%</div></td></tr>
+              <tr><td>UCR East · closed</td><td>Emergency department</td><td style="text-align:right;font-weight:700">12</td><td><div class="sh"><i style="width:37px"></i>11%</div></td></tr>
+              <tr><td>Ward A · full</td><td>Ward B</td><td style="text-align:right;color:#44555D">under 10</td><td>hidden</td></tr>
+            </tbody>
+          </table>
+          <div style="font-size:14px;color:#44555D;margin-top:auto">Counts under 10 are not shown, to protect small groups. Bars start at zero.</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px;min-height:0">
+          <div class="card" style="display:flex;flex-direction:column;gap:8px">
+            <div class="eb">When the best fit was unavailable</div>
+            <div class="hg">
+              <div class="h"></div><div class="h">Mon</div><div class="h">Tue</div><div class="h">Wed</div><div class="h">Thu</div><div class="h">Fri</div><div class="h">Sat</div><div class="h">Sun</div>
+              <div class="h">00–06</div><div style="background:#E3F1F8">1</div><div style="background:#fff;border:1px solid #DDE3E6">0</div><div style="background:#E3F1F8">1</div><div style="background:#E3F1F8">1</div><div style="background:#C6E1F0">2</div><div style="background:#C6E1F0">2</div><div style="background:#A6CFE6">3</div>
+              <div class="h">06–12</div><div style="background:#A6CFE6">3</div><div style="background:#C6E1F0">2</div><div style="background:#A6CFE6">3</div><div style="background:#A6CFE6">3</div><div style="background:#7DB7D8">4</div><div style="background:#5A9FC9">5</div><div style="background:#7DB7D8">4</div>
+              <div class="h">12–18</div><div style="background:#5A9FC9">6</div><div style="background:#5A9FC9">5</div><div style="background:#5A9FC9">6</div><div style="background:#0B3F61;color:#fff">9</div><div style="background:#2C7AA8;color:#fff">7</div><div style="background:#5A9FC9">6</div><div style="background:#5A9FC9">5</div>
+              <div class="h">18–24</div><div style="background:#7DB7D8">4</div><div style="background:#A6CFE6">3</div><div style="background:#7DB7D8">4</div><div style="background:#5A9FC9">5</div><div style="background:#5A9FC9">6</div><div style="background:#2C7AA8;color:#fff">7</div><div style="background:#5A9FC9">5</div>
+            </div>
+            <div style="font-size:15px;color:#26343B">Busiest: Thursday 12:00 to 18:00 (9). Every cell shows its count, so shade is never the only signal.</div>
+          </div>
+          <div class="card" style="display:flex;flex-direction:column;gap:6px">
+            <div class="eb">Declined despite showing capacity, last 90 days</div>
+            <div style="display:flex;justify-content:space-between;font-size:17px"><span>Community hospital · Ward A</span><b>14</b></div>
+            <div style="display:flex;justify-content:space-between;font-size:17px"><span>SDEC · Site 1</span><b>11</b></div>
+            <div style="display:flex;justify-content:space-between;font-size:17px"><span>UCR East</span><b>10</b></div>
+            <div style="font-size:14px;color:#44555D">For a conversation with each service. Not a league table and not used to assess advisors.</div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:22px;font-size:16px;font-weight:700;color:#0B5C8C"><span>Show cohort definition ▾</span><span>How to read this ▾</span><span style="margin-left:auto;font-weight:400;color:#44555D;font-size:14px">Counts from the decision log. They do not show what happened to patients afterwards.</span></div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

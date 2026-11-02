@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>This week</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.fr{width:1280px;height:800px;display:flex;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden}
+.rail{width:84px;flex:none;background:#0B2A3D;display:flex;flex-direction:column;align-items:center;padding:20px 0;gap:4px}
+.logo{width:44px;height:44px;border-radius:14px;background:#0B5C8C;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.ri{width:68px;padding:9px 0 7px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:3px;color:#B9D0DC;text-decoration:none;font-size:13px}
+.ri.on{background:rgba(255,255,255,.14);color:#fff;font-weight:700}
+.col{flex:1;min-width:0;display:flex;flex-direction:column}
+.top{height:72px;flex:none;display:flex;align-items:center;gap:16px;padding:0 28px;border-bottom:1px solid #DDE3E6;background:#fff}
+.ttl{display:flex;flex-direction:column;line-height:1.2}.ttl small{font-size:14px;color:#44555D}.ttl b{font-size:20px}
+.role{margin-left:auto;height:44px;padding:0 16px;border:2px solid #14232B;border-radius:999px;background:#fff;color:#14232B;font-family:inherit;font-size:16px;font-weight:700}
+.card{background:#fff;border-radius:22px;padding:22px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07)}
+.eb{font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D}
+.btn2{height:48px;padding:0 20px;border:2px solid #0B5C8C;border-radius:14px;background:#fff;color:#0B5C8C;font-family:inherit;font-size:17px;font-weight:700}
+.ch{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 16px;border-radius:999px;border:2px solid #DDE3E6;background:#fff;font-size:16px;font-weight:700}
+.ch.on{border-color:#0B5C8C;background:#E3F1F8;color:#0B3F61}
+.kpi b{display:block;font-size:48px;line-height:1;color:#0B3F61}.kpi span{display:block;font-size:17px;margin-top:6px;color:#26343B}.kpi small{display:block;font-size:14px;color:#44555D;margin-top:2px}
+.bar{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;flex:1}
+.bar i{display:block;width:100%;max-width:62px;background:#0B5C8C;border-radius:8px 8px 0 0}
+.bar b{font-size:17px}.bar span{font-size:15px;color:#44555D}
+</style>
+</helmet>
+<div class="fr">
+  <nav aria-label="Planning" class="rail">
+    <div class="logo"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#fff"/><path d="M3 13h20" stroke="#fff" stroke-width="2.4"/></svg></div>
+    <a href="#" class="ri"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11l8-7 8 7v9H4z"/></svg>Home</a>
+    <a href="#" class="ri"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Services</a>
+    <a href="#" class="ri on"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Week</a>
+    <a href="#" class="ri"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4zM10 21h4"/></svg>Alerts</a>
+    <a href="#" class="ri"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Analysis</a>
+  </nav>
+  <div class="col">
+    <header class="top"><div class="ttl"><small>Your system · 17 to 23 Oct · sample data</small><b>This week</b></div><button type="button" class="role">COO or ICB lead ▾</button></header>
+    <main style="flex:1;min-height:0;padding:22px 28px;display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:22px">
+      <div style="display:flex;flex-direction:column;gap:18px;min-width:0">
+        <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px">
+          <div class="card kpi"><b>640</b><span>referrals</span><small>Last complete week</small></div>
+          <div class="card kpi"><b>18%</b><span>best fit not available</span><small>Full, closed or not updated</small></div>
+          <div class="card kpi"><b>92%</b><span>capacity updates on time</span><small>Updates by the due time</small></div>
+          <div class="card kpi"><b>4 min</b><span>median to a confirmed booking</span><small>Request sent to confirmed</small></div>
+        </div>
+        <div class="card" style="flex:1;min-height:0;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:center;justify-content:space-between"><div><div class="eb">Pressure through the week</div><div style="font-size:19px;font-weight:700;margin-top:2px">Services limited or worse, at the busiest point of each day</div></div><span class="ch on" style="height:40px">Chart</span></div>
+          <div style="position:relative;flex:1;min-height:0;display:flex;align-items:flex-end;gap:10px;padding:0 4px;border-bottom:2px solid #14232B">
+            <div style="position:absolute;left:0;right:0;bottom:calc(5 / 6 * 100%);border-top:2px dashed #A34700"></div>
+            <span style="position:absolute;right:6px;bottom:calc(5 / 6 * 100% + 4px);font-size:14px;color:#A34700;font-weight:700;background:#fff;padding:0 4px">5 or more raises an alert</span>
+            <div class="bar" style="height:100%"><b>2</b><i style="height:calc(2 / 6 * 100% - 30px)"></i></div>
+            <div class="bar" style="height:100%"><b>3</b><i style="height:calc(3 / 6 * 100% - 30px)"></i></div>
+            <div class="bar" style="height:100%"><b>2</b><i style="height:calc(2 / 6 * 100% - 30px)"></i></div>
+            <div class="bar" style="height:100%"><b>5</b><i style="height:calc(5 / 6 * 100% - 30px);background:#A34700"></i></div>
+            <div class="bar" style="height:100%"><b>4</b><i style="height:calc(4 / 6 * 100% - 30px)"></i></div>
+            <div class="bar" style="height:100%"><b>3</b><i style="height:calc(3 / 6 * 100% - 30px)"></i></div>
+            <div class="bar" style="height:100%"><b>2</b><i style="height:calc(2 / 6 * 100% - 30px)"></i></div>
+          </div>
+          <div style="display:flex;gap:10px;padding:0 4px;font-size:15px;color:#44555D"><span style="flex:1;text-align:center">Mon</span><span style="flex:1;text-align:center">Tue</span><span style="flex:1;text-align:center">Wed</span><span style="flex:1;text-align:center;font-weight:700;color:#A34700">Thu</span><span style="flex:1;text-align:center">Fri</span><span style="flex:1;text-align:center">Sat</span><span style="flex:1;text-align:center">Sun</span></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;font-size:15px;color:#44555D"><span>Out of 9 services. Axis starts at zero. Thursday is the only day at the alert level.</span><button type="button" class="btn2" style="height:44px">Show as a table</button></div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:18px;min-width:0">
+        <div class="card" style="display:flex;flex-direction:column;gap:10px">
+          <div class="eb">Time back (estimate)</div>
+          <div style="font-size:18px;line-height:1.4">412 updates by text, app or email. Each replaces about one phone call of [x] minutes.</div>
+          <div style="font-size:15px;color:#44555D;line-height:1.4;background:#FFF1DC;border-radius:12px;padding:10px 12px">An estimate until we measure the baseline. It is shown as a range with its sum: 412 × [x] minutes.</div>
+          <div style="font-size:16px;color:#0B5C8C;font-weight:700">Show the sum ▾</div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;gap:12px">
+          <div class="eb">Every Monday</div>
+          <div style="font-size:18px;line-height:1.4">Get this summary by email, so there is one less meeting to hold.</div>
+          <button type="button" class="btn2">Send me this each Monday</button>
+        </div>
+        <div style="font-size:15px;line-height:1.45;color:#44555D;padding:0 4px">Counts under 10 are hidden. Outcomes are not shown yet. No patient information on this screen.</div>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

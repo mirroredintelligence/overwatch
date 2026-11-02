@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Alert set-up and settings</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.fr{width:1280px;height:800px;display:flex;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden}
+.rail{width:84px;flex:none;background:#0B2A3D;display:flex;flex-direction:column;align-items:center;padding:20px 0;gap:4px}
+.logo{width:44px;height:44px;border-radius:14px;background:#0B5C8C;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.ri{width:68px;padding:9px 0 7px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:3px;color:#B9D0DC;text-decoration:none;font-size:13px}
+.ri.on{background:rgba(255,255,255,.14);color:#fff;font-weight:700}
+.col{flex:1;min-width:0;display:flex;flex-direction:column}
+.top{height:72px;flex:none;display:flex;align-items:center;gap:16px;padding:0 28px;border-bottom:1px solid #DDE3E6;background:#fff}
+.ttl{display:flex;flex-direction:column;line-height:1.2}.ttl small{font-size:14px;color:#44555D}.ttl b{font-size:20px}
+.role{margin-left:auto;height:44px;padding:0 16px;border:2px solid #14232B;border-radius:999px;background:#fff;color:#14232B;font-family:inherit;font-size:16px;font-weight:700}
+.card{background:#fff;border-radius:22px;padding:8px 22px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07)}
+.eb{font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D}
+.btn{height:52px;padding:0 26px;border:0;border-radius:14px;background:#0B5C8C;color:#fff;font-family:inherit;font-size:17px;font-weight:700;box-shadow:0 6px 16px rgba(11,92,140,.28)}
+.sw{display:flex;align-items:center;gap:16px;padding:14px 0;border-top:1px solid #DDE3E6}
+.sw:first-child{border-top:0}
+.sw b{display:block;font-size:19px}.sw small{display:block;font-size:15px;color:#44555D}
+.tg{flex:none;display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 6px 0 14px;border-radius:999px;font-family:inherit;font-size:16px;font-weight:700;border:2px solid #0B5C8C;background:#0B5C8C;color:#fff}
+.tg i{width:30px;height:30px;border-radius:50%;background:#fff;display:block}
+.tg.off{background:#fff;color:#26343B;border-color:#26343B;padding:0 14px 0 6px;flex-direction:row-reverse}
+.tg.off i{background:#26343B}
+.ch{display:inline-flex;align-items:center;height:44px;padding:0 16px;border-radius:999px;border:2px solid #DDE3E6;background:#fff;font-size:16px;font-weight:700}
+.ch.on{border-color:#0B5C8C;background:#E3F1F8;color:#0B3F61}
+.stp{display:flex;gap:12px;align-items:center;font-size:17px}
+.stp i{flex:none;width:32px;height:32px;border-radius:50%;font-style:normal;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center}
+</style>
+</helmet>
+<div class="fr">
+  <nav aria-label="Planning" class="rail">
+    <div class="logo"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#fff"/><path d="M3 13h20" stroke="#fff" stroke-width="2.4"/></svg></div>
+    <a href="#" class="ri"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11l8-7 8 7v9H4z"/></svg>Home</a>
+    <a href="#" class="ri"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Services</a>
+    <a href="#" class="ri"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Week</a>
+    <a href="#" class="ri on"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4zM10 21h4"/></svg>Alerts</a>
+    <a href="#" class="ri"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Analysis</a>
+  </nav>
+  <div class="col">
+    <header class="top"><div class="ttl"><small>First-time set-up, then the same page as Alert settings</small><b>Choose your alerts</b></div><button type="button" class="role">COO or ICB lead ▾</button></header>
+    <main style="flex:1;min-height:0;padding:22px 28px;display:grid;grid-template-columns:280px minmax(0,1fr);gap:26px">
+      <ol aria-label="Set-up steps" style="margin:0;padding:6px 0;list-style:none;display:flex;flex-direction:column;gap:18px">
+        <li class="stp"><i style="background:#0B5C8C;color:#fff">✓</i><span>Welcome</span></li>
+        <li class="stp" style="font-weight:700"><i style="background:#0B3F61;color:#fff">2</i><span>Choose your alerts</span></li>
+        <li class="stp" style="color:#44555D"><i style="background:#fff;border:2px dashed #6B7B83;box-sizing:border-box">3</i><span>Quiet hours and escalation</span></li>
+        <li style="font-size:15px;line-height:1.45;color:#44555D;margin-top:8px">Alerts never include patient information. You can change these at any time.</li>
+      </ol>
+      <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+        <div class="card">
+          <div class="sw"><div style="flex:1"><b>A service closes unexpectedly</b><small>Not planned out-of-hours closures</small></div><button type="button" class="tg" aria-pressed="true">On<i></i></button></div>
+          <div class="sw"><div style="flex:1"><b>A service goes over capacity</b><small>When it moves past its established level</small></div><button type="button" class="tg" aria-pressed="true">On<i></i></button></div>
+          <div class="sw" style="flex-wrap:wrap"><div style="flex:1"><b>A service has not updated</b><small>After 2 hrs. Choose 2 or 4 hrs.</small></div><button type="button" class="tg" aria-pressed="true">On<i></i></button><div style="width:100%;display:flex;gap:8px;padding-top:2px"><span class="ch on">After 2 hrs</span><span class="ch">After 4 hrs</span></div></div>
+          <div class="sw"><div style="flex:1"><b>System pressure rises</b><small>When 5 or more services are limited or worse</small></div><button type="button" class="tg" aria-pressed="true">On<i></i></button></div>
+          <div class="sw"><div style="flex:1"><b>Daily summary</b><small>07:30, by notification</small></div><button type="button" class="tg" aria-pressed="true">On<i></i></button></div>
+          <div class="sw"><div style="flex:1"><b>Weekly summary</b><small>Mondays, by email</small></div><button type="button" class="tg off" aria-pressed="false">Off<i></i></button></div>
+        </div>
+        <div style="background:#fff;border-radius:18px;padding:16px 22px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06)"><div><b style="font-size:19px">Quiet hours and escalation</b><div style="font-size:15px;color:#44555D">Quiet 22:00 to 06:00, critical only. Deputy alerted after 15 min.</div></div><span style="font-size:16px;font-weight:700;color:#0B5C8C">Change ▾</span></div>
+        <div style="display:flex;gap:12px;align-items:center;margin-top:auto"><button type="button" class="btn">Save my alerts</button><span style="font-size:15px;color:#44555D">Saved changes apply from the next alert.</span></div>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

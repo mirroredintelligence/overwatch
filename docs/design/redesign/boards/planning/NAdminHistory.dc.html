@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Network administration history</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.fr{width:1280px;height:800px;display:flex;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden}
+.rail{width:84px;flex:none;background:#0B2A3D;display:flex;flex-direction:column;align-items:center;padding:20px 0;gap:4px}
+.logo{width:44px;height:44px;border-radius:14px;background:#0B5C8C;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.ri{width:68px;padding:9px 0 7px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:3px;color:#B9D0DC;text-decoration:none;font-size:13px}
+.ri.on{background:rgba(255,255,255,.14);color:#fff;font-weight:700}
+.col{flex:1;min-width:0;display:flex;flex-direction:column}
+.top{height:72px;flex:none;display:flex;align-items:center;gap:16px;padding:0 28px;border-bottom:1px solid #DDE3E6;background:#fff}
+.ttl{display:flex;flex-direction:column;line-height:1.2}.ttl small{font-size:14px;color:#44555D}.ttl b{font-size:20px}
+.role{margin-left:auto;height:44px;padding:0 16px;border:2px solid #14232B;border-radius:999px;background:#fff;color:#14232B;font-family:inherit;font-size:16px;font-weight:700}
+.card{background:#fff;border-radius:22px;padding:8px 24px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07)}
+.ev{display:grid;grid-template-columns:130px 18px minmax(0,1fr) 230px;gap:14px;align-items:flex-start;padding:14px 0;border-top:1px solid #DDE3E6}
+.ev:first-child{border-top:0}.ev b{font-size:18px}.ev small{display:block;font-size:15px;color:#44555D}
+.dt{font-size:15px;color:#26343B;font-weight:700}
+.dot{width:12px;height:12px;border-radius:50%;background:#0B5C8C;margin-top:6px}.dot.x{background:#fff;border:3px solid #3A4750;box-sizing:border-box}.dot.w{background:#A34700}
+.ch{display:inline-flex;align-items:center;height:40px;padding:0 14px;border-radius:999px;border:2px solid #DDE3E6;background:#fff;font-size:15px;font-weight:700}
+.ch.on{border-color:#0B5C8C;background:#E3F1F8;color:#0B3F61}
+</style>
+</helmet>
+<div class="fr">
+  <nav aria-label="Network administration" class="rail">
+    <div class="logo"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#fff"/><path d="M3 13h20" stroke="#fff" stroke-width="2.4"/></svg></div>
+    <a href="#" class="ri"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0M16 5a3.2 3.2 0 0 1 0 6.2M18 20a6 6 0 0 0-3-5.2"/></svg>Members</a>
+    <a href="#" class="ri"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg>Grants</a>
+    <a href="#" class="ri"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Listings</a>
+    <a href="#" class="ri on"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>History</a>
+  </nav>
+  <div class="col">
+    <header class="top"><div class="ttl"><small>Example network · read only</small><b>History of decisions</b></div><button type="button" class="role">Network administrator ▾</button></header>
+    <main style="flex:1;min-height:0;padding:20px 28px;display:flex;flex-direction:column;gap:14px">
+      <div style="font-size:17px;line-height:1.45;color:#26343B">Read-only history of membership and grant decisions, with their dates. It names roles, never people.</div>
+      <div style="display:flex;gap:8px"><span class="ch on">All</span><span class="ch">Membership</span><span class="ch">Grants</span><span class="ch">Listings</span></div>
+      <div class="card" style="flex:1;min-height:0;overflow:hidden">
+        <div class="ev"><span class="dt">3 Nov 09:12</span><span class="dot w" aria-hidden="true"></span><div><b>Grant requested</b><small>Therapy Partners asked to share Capacity and Directory</small></div><div style="font-size:15px;color:#44555D">By the organisation's administrator</div></div>
+        <div class="ev"><span class="dt">12 Oct 17:40</span><span class="dot x" aria-hidden="true"></span><div><b>Membership ended</b><small>Care Home Group left. Its sharing stopped. A second administrator confirmed.</small></div><div style="font-size:15px;color:#44555D">By the network administrator, confirmed by a second</div></div>
+        <div class="ev"><span class="dt">8 Oct 11:03</span><span class="dot" aria-hidden="true"></span><div><b>Listing paused</b><small>Day hospice · reason: Data quality</small></div><div style="font-size:15px;color:#44555D">By the network administrator</div></div>
+        <div class="ev"><span class="dt">14 Sep 10:20</span><span class="dot" aria-hidden="true"></span><div><b>Grant approved</b><small>Hospice · Capacity · to 14 Sep next year</small></div><div style="font-size:15px;color:#44555D">By the network administrator</div></div>
+        <div class="ev"><span class="dt">9 Sep 16:45</span><span class="dot" aria-hidden="true"></span><div><b>Membership started</b><small>Acute Trust accepted agreement version 3</small></div><div style="font-size:15px;color:#44555D">By the organisation's administrator</div></div>
+      </div>
+      <div style="font-size:15px;color:#44555D">An empty history says "Nothing here yet." Decisions are never edited or removed.</div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

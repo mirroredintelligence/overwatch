@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Console insight other tabs</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.fr{width:1280px;height:800px;display:flex;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden}
+.rail{width:84px;flex:none;background:#0B2A3D;display:flex;flex-direction:column;align-items:center;padding:20px 0;gap:4px}
+.logo{width:44px;height:44px;border-radius:14px;background:#0B5C8C;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.ri{width:68px;padding:9px 0 7px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:3px;color:#B9D0DC;text-decoration:none;font-size:13px}
+.ri.on{background:rgba(255,255,255,.14);color:#fff;font-weight:700}
+.col{flex:1;min-width:0;display:flex;flex-direction:column}
+.top{height:72px;flex:none;display:flex;align-items:center;gap:16px;padding:0 28px;border-bottom:1px solid #DDE3E6;background:#fff}
+.ttl{display:flex;flex-direction:column;line-height:1.2}.ttl small{font-size:14px;color:#44555D}.ttl b{font-size:20px}
+.role{margin-left:auto;height:44px;padding:0 16px;border:2px solid #14232B;border-radius:999px;background:#fff;color:#14232B;font-family:inherit;font-size:16px;font-weight:700}
+.g{flex:1;min-height:0;padding:16px 28px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:14px}
+.p{background:#fff;border-radius:20px;padding:14px 18px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07);display:flex;flex-direction:column;gap:6px;overflow:hidden;min-width:0}
+.eb{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D}
+.eb em{font-style:normal;color:#0B3F61;background:#E3F1F8;border-radius:999px;padding:2px 10px;margin-left:6px;letter-spacing:0;text-transform:none;font-size:13px}
+.tb{width:100%;border-collapse:collapse;font-size:14.5px}.tb th{text-align:left;font-size:12.5px;font-weight:700;color:#44555D;padding:3px 6px;border-bottom:2px solid #DDE3E6}.tb td{padding:4px 6px;border-bottom:1px solid #DDE3E6}
+.tb code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px}
+.ok{display:inline-block;padding:1px 8px;border-radius:999px;background:#0B5C8C;color:#fff;font-size:13px;font-weight:700}
+.bad{display:inline-block;padding:1px 8px;border-radius:999px;background:#fff;color:#7A3500;border:2px solid #A34700;font-size:13px;font-weight:700}
+.n{font-size:13px;color:#44555D;margin-top:auto}
+</style>
+</helmet>
+<div class="fr">
+  <nav aria-label="Console" class="rail">
+    <div class="logo"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#fff"/><path d="M3 13h20" stroke="#fff" stroke-width="2.4"/></svg></div>
+    <a href="#" class="ri"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>Sessions</a>
+    <a href="#" class="ri on"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Insight</a>
+    <a href="#" class="ri" style="margin-top:auto"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/></svg>Help</a>
+  </nav>
+  <div class="col">
+    <header class="top"><div class="ttl"><small>Support console · sample data · each panel is one tab of Insight</small><b>Paths, friction, performance and releases</b></div><button type="button" class="role">Support ▾</button></header>
+    <div class="g">
+      <section class="p" aria-label="Paths">
+        <div class="eb">Paths<em>Most common routes</em></div>
+        <table class="tb"><thead><tr><th>Route</th><th style="text-align:right">Sessions</th><th style="text-align:right">Median time</th></tr></thead><tbody><tr><td><code>/case/[ref]</code></td><td style="text-align:right">212</td><td style="text-align:right">1 min 20 s</td></tr><tr><td><code>/case/[ref]/options</code></td><td style="text-align:right">198</td><td style="text-align:right">48 s</td></tr><tr><td><code>/case/[ref]/finish</code></td><td style="text-align:right">176</td><td style="text-align:right">35 s</td></tr></tbody></table>
+        <div style="font-size:14px"><b>U-turns, left within 5 s:</b> <code>/case/[ref]/options</code> back to <code>/case/[ref]</code> 18 · <code>/lead</code> to <code>/lead/phones</code> 11</div>
+        <div class="n">Never used this week: ADV-SCORE-MANCHESTER-CHIP, EXEC-WEEKLY-EMAIL-BTN</div>
+      </section>
+      <section class="p" aria-label="Friction">
+        <div class="eb">Friction<em>Elements over 5% are reviewed</em></div>
+        <table class="tb"><thead><tr><th>Element</th><th>Kind</th><th style="text-align:right">Events</th><th style="text-align:right">Rate</th></tr></thead><tbody>
+          <tr style="background:#FFF1DC"><td><code>ADV-OPT-REQUEST-BTN</code></td><td>Rage click</td><td style="text-align:right">41</td><td style="text-align:right"><b>13%</b> <span class="bad">Review</span></td></tr>
+          <tr style="background:#FFF1DC"><td><code>REG-STEP3-PHONE-FIELD</code></td><td>Validation loop</td><td style="text-align:right">27</td><td style="text-align:right"><b>12%</b> <span class="bad">Review</span></td></tr>
+          <tr style="background:#FFF1DC"><td><code>ONB-CODE-SEND-BTN</code></td><td>Dead click</td><td style="text-align:right">19</td><td style="text-align:right"><b>7%</b> <span class="bad">Review</span></td></tr>
+        </tbody></table>
+        <div style="display:flex;gap:8px;align-items:center;font-size:14px"><b style="color:#0B5C8C;text-decoration:underline">Show example sessions</b><span style="color:#44555D">anonymised timelines, no support code</span></div>
+        <div class="n">Device filter: all, phone, tablet, desktop.</div>
+      </section>
+      <section class="p" aria-label="Performance">
+        <div class="eb">Performance<em>p75 against budget</em></div>
+        <table class="tb"><thead><tr><th>Measure</th><th style="text-align:right">p75</th><th style="text-align:right">Budget</th><th>Status</th></tr></thead><tbody>
+          <tr><td>Largest contentful paint</td><td style="text-align:right">2.1 s</td><td style="text-align:right">2.5 s</td><td><span class="ok">● Within</span></td></tr>
+          <tr style="background:#FFF1DC"><td>Interaction to next paint</td><td style="text-align:right"><b>240 ms</b></td><td style="text-align:right">200 ms</td><td><span class="bad">▲ Over budget</span></td></tr>
+          <tr><td>Layout shift</td><td style="text-align:right">0.04</td><td style="text-align:right">0.1</td><td><span class="ok">● Within</span></td></tr>
+        </tbody></table>
+        <div style="font-size:14px"><b>Slowest:</b> <code>POST /api/bff/bookings</code> p95 2.4 s (budget 800 ms) · query <code>Q-TASK-BOOK-CREATE</code> 1.2 s (budget 200 ms)</div>
+        <div class="n">Prompt to board: system time 4 s, human time 8 min.</div>
+      </section>
+      <section class="p" aria-label="Releases">
+        <div class="eb">Releases<em>1.4.2 with 1.4.1</em></div>
+        <table class="tb"><thead><tr><th>Measure</th><th style="text-align:right">1.4.1</th><th style="text-align:right">1.4.2</th><th>Change</th></tr></thead><tbody>
+          <tr style="background:#FFF1DC"><td>INP p75, phone</td><td style="text-align:right">190 ms</td><td style="text-align:right"><b>240 ms</b></td><td><span class="bad">▲ Slower</span></td></tr>
+          <tr style="background:#FFF1DC"><td>Friction, request booking</td><td style="text-align:right">6%</td><td style="text-align:right"><b>13%</b></td><td><span class="bad">▲ Higher</span></td></tr>
+        </tbody></table>
+        <div class="eb" style="margin-top:4px">Pipeline</div>
+        <table class="tb"><thead><tr><th>Queue or topic</th><th style="text-align:right">Active</th><th style="text-align:right">Dead-lettered</th><th style="text-align:right">Oldest</th></tr></thead><tbody>
+          <tr><td><code>messages.outbound</code></td><td style="text-align:right">2</td><td style="text-align:right">0</td><td style="text-align:right">4 s</td></tr>
+          <tr style="background:#FFF1DC"><td><code>booking.events</code></td><td style="text-align:right">0</td><td style="text-align:right"><b>1</b></td><td style="text-align:right">n/a</td></tr>
+        </tbody></table>
+        <div class="n">A dead-lettered message raises an alert to engineering.</div>
+      </section>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

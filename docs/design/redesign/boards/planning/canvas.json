@@ -1,0 +1,78 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-11-03T10:00:00Z" },
+  "title": "Overwatch redesign: planning, analytics, network and console",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 1280, "h": 1200, "title": "Index: every route and the board that shows it" },
+    "Morph.dc.html": { "x": 1360, "y": 0, "w": 1280, "h": 800, "title": "Prototype: system now, to a service, to an alert", "is_interactive": true },
+
+    "PHome.dc.html": { "x": 0, "y": 1600, "w": 1280, "h": 800, "title": "Planning home: the system now" },
+    "PService.dc.html": { "x": 1360, "y": 1600, "w": 1280, "h": 800, "title": "A service, opened in place" },
+    "PAlert.dc.html": { "x": 2720, "y": 1600, "w": 1280, "h": 800, "title": "An alert, acknowledged in place" },
+    "PServices.dc.html": { "x": 4080, "y": 1600, "w": 1280, "h": 800, "title": "All services" },
+
+    "PWeek.dc.html": { "x": 0, "y": 2800, "w": 1280, "h": 800, "title": "This week" },
+    "PFlows.dc.html": { "x": 1360, "y": 2800, "w": 1280, "h": 800, "title": "Right-sizing: where capacity ran out" },
+    "PCoverage.dc.html": { "x": 2720, "y": 2800, "w": 1280, "h": 800, "title": "Coverage by time of day" },
+    "PAlerts.dc.html": { "x": 4080, "y": 2800, "w": 1280, "h": 800, "title": "Alerts: list to detail" },
+
+    "PSettings.dc.html": { "x": 0, "y": 4000, "w": 1280, "h": 800, "title": "Alert set-up and settings" },
+    "PStates.dc.html": { "x": 1360, "y": 4000, "w": 1280, "h": 800, "title": "Empty, loading, error and stale" },
+    "PCharts.dc.html": { "x": 2720, "y": 4000, "w": 1280, "h": 800, "title": "Charts: how they are drawn" },
+
+    "PH1.dc.html": { "x": 0, "y": 5200, "w": 390, "h": 844, "title": "Phone: planning home" },
+    "PH2.dc.html": { "x": 470, "y": 5200, "w": 390, "h": 844, "title": "Phone: alerts" },
+    "PH3.dc.html": { "x": 940, "y": 5200, "w": 390, "h": 844, "title": "Phone: acknowledge an alert" },
+    "PH4.dc.html": { "x": 1410, "y": 5200, "w": 390, "h": 844, "title": "Phone: network home" },
+    "PH5.dc.html": { "x": 1880, "y": 5200, "w": 390, "h": 844, "title": "Phone: alerts on this phone" },
+
+    "NHome.dc.html": { "x": 0, "y": 6450, "w": 1280, "h": 800, "title": "Network home" },
+    "NBoard.dc.html": { "x": 1360, "y": 6450, "w": 1280, "h": 800, "title": "Network board" },
+    "NServices.dc.html": { "x": 2720, "y": 6450, "w": 1280, "h": 800, "title": "Network directory and service" },
+    "NSystemNow.dc.html": { "x": 4080, "y": 6450, "w": 1280, "h": 800, "title": "Network: system now" },
+
+    "NPhones.dc.html": { "x": 0, "y": 7650, "w": 1280, "h": 800, "title": "Network: phones" },
+    "NWeek.dc.html": { "x": 1360, "y": 7650, "w": 1280, "h": 800, "title": "Network: week" },
+    "NHistory.dc.html": { "x": 2720, "y": 7650, "w": 1280, "h": 800, "title": "Network: history" },
+    "NStates.dc.html": { "x": 4080, "y": 7650, "w": 1280, "h": 800, "title": "Network: every degraded state" },
+
+    "NAdmin.dc.html": { "x": 0, "y": 8850, "w": 1280, "h": 800, "title": "Network admin: members, agreement, health" },
+    "NGrants.dc.html": { "x": 1360, "y": 8850, "w": 1280, "h": 800, "title": "Network admin: grants" },
+    "NListings.dc.html": { "x": 2720, "y": 8850, "w": 1280, "h": 800, "title": "Network admin: listings" },
+    "NAdminHistory.dc.html": { "x": 4080, "y": 8850, "w": 1280, "h": 800, "title": "Network admin: history" },
+
+    "CFind.dc.html": { "x": 0, "y": 10050, "w": 1280, "h": 800, "title": "Console: find a session" },
+    "CSession.dc.html": { "x": 1360, "y": 10050, "w": 1280, "h": 800, "title": "Console: session timeline" },
+    "CTrace.dc.html": { "x": 2720, "y": 10050, "w": 1280, "h": 800, "title": "Console: trace" },
+    "CInsightA.dc.html": { "x": 4080, "y": 10050, "w": 1280, "h": 800, "title": "Console insight: funnels" },
+
+    "CInsightB.dc.html": { "x": 0, "y": 11250, "w": 1280, "h": 800, "title": "Console insight: paths, friction, performance, releases" }
+  },
+  "order": [
+    "Main.dc.html", "Morph.dc.html",
+    "PHome.dc.html", "PService.dc.html", "PAlert.dc.html", "PServices.dc.html",
+    "PWeek.dc.html", "PFlows.dc.html", "PCoverage.dc.html", "PAlerts.dc.html",
+    "PSettings.dc.html", "PStates.dc.html", "PCharts.dc.html",
+    "PH1.dc.html", "PH2.dc.html", "PH3.dc.html", "PH4.dc.html", "PH5.dc.html",
+    "NHome.dc.html", "NBoard.dc.html", "NServices.dc.html", "NSystemNow.dc.html",
+    "NPhones.dc.html", "NWeek.dc.html", "NHistory.dc.html", "NStates.dc.html",
+    "NAdmin.dc.html", "NGrants.dc.html", "NListings.dc.html", "NAdminHistory.dc.html",
+    "CFind.dc.html", "CSession.dc.html", "CTrace.dc.html", "CInsightA.dc.html",
+    "CInsightB.dc.html"
+  ],
+  "notes": {
+    "t0": { "x": 0, "y": -300, "text": "Where to start: the index, and one prototype of the morph", "kind": "title1", "maxW": 2640 },
+    "t1": { "x": 0, "y": 1300, "text": "Planning: the system now, opened in place", "kind": "title1", "maxW": 5360 },
+    "t2": { "x": 0, "y": 2500, "text": "Planning: week, right-sizing, coverage and alerts", "kind": "title1", "maxW": 5360 },
+    "t3": { "x": 0, "y": 3700, "text": "Alert set-up, the states every view has, and how charts are drawn", "kind": "title1", "maxW": 3920 },
+    "t4": { "x": 0, "y": 4900, "text": "On a phone: planning, alerts and the network", "kind": "title1", "maxW": 2270 },
+    "t5": { "x": 0, "y": 6150, "text": "Network: read-only views of what is shared", "kind": "title1", "maxW": 5360 },
+    "t6": { "x": 0, "y": 7350, "text": "Network: phones, week, history and every degraded state", "kind": "title1", "maxW": 5360 },
+    "t7": { "x": 0, "y": 8550, "text": "Network administration: members, grants, listings, history", "kind": "title1", "maxW": 5360 },
+    "t8": { "x": 0, "y": 9750, "text": "Support console: sessions, traces and insight", "kind": "title1", "maxW": 5360 },
+    "n1": { "x": 1360, "y": 840, "w": 380, "fill": "blue", "text": "Press Home, Service, Alert. The strip of tiles folds, the list becomes a rail, the service takes the stage, the alert opens beside it. Nothing is redrawn, and no figure animates." }
+  },
+  "designSystems": []
+}

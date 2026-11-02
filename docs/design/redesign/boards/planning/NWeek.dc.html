@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Network week</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.fr{width:1280px;height:800px;display:flex;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden}
+.rail{width:84px;flex:none;background:#0B2A3D;display:flex;flex-direction:column;align-items:center;padding:20px 0;gap:4px}
+.logo{width:44px;height:44px;border-radius:14px;background:#0B5C8C;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.ri{width:68px;padding:9px 0 7px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:3px;color:#B9D0DC;text-decoration:none;font-size:13px}
+.ri.on{background:rgba(255,255,255,.14);color:#fff;font-weight:700}
+.col{flex:1;min-width:0;display:flex;flex-direction:column}
+.top{height:72px;flex:none;display:flex;align-items:center;gap:16px;padding:0 28px;border-bottom:1px solid #DDE3E6;background:#fff}
+.ttl{display:flex;flex-direction:column;line-height:1.2}.ttl small{font-size:14px;color:#44555D}.ttl b{font-size:20px}
+.role{margin-left:auto;height:44px;padding:0 16px;border:2px solid #14232B;border-radius:999px;background:#fff;color:#14232B;font-family:inherit;font-size:16px;font-weight:700}
+.scope{flex:none;display:flex;align-items:center;gap:16px;padding:10px 28px;background:#E3F1F8;border-bottom:2px solid #0B3F61}
+.scope b{font-size:17px;color:#0B3F61}
+.swt{margin-left:auto;display:flex;border:2px solid #0B3F61;border-radius:999px;overflow:hidden;background:#fff;font-size:15px;font-weight:700}
+.swt span{padding:9px 16px}.swt .on{background:#0B3F61;color:#fff}
+.card{background:#fff;border-radius:22px;padding:18px 22px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07)}
+.eb{font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D}
+.k b{display:block;font-size:44px;line-height:1;color:#0B3F61}.k span{display:block;font-size:16px;margin-top:4px}
+.hz{display:grid;grid-template-columns:44px repeat(24,minmax(0,1fr));gap:2px;font-size:12px;color:#44555D;align-items:center}
+.hz i{display:block;height:16px;border-radius:3px;background:#E3F1F8}
+.hz i.w{background:repeating-linear-gradient(135deg,#A34700 0 3px,#FFF1DC 3px 5px)}
+.hz i.h{background:#A34700;border:1px solid #14232B}
+.btn2{height:44px;padding:0 18px;border:2px solid #0B5C8C;border-radius:14px;background:#fff;color:#0B5C8C;font-family:inherit;font-size:16px;font-weight:700}
+.lg{display:flex;align-items:center;gap:8px;font-size:14px}.lg i{display:inline-block;width:22px;height:14px;border-radius:4px}
+</style>
+</helmet>
+<div class="fr">
+  <nav aria-label="Network" class="rail">
+    <div class="logo"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#fff"/><path d="M3 13h20" stroke="#fff" stroke-width="2.4"/></svg></div>
+    <a href="#" class="ri"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11l8-7 8 7v9H4z"/></svg>Home</a>
+    <a href="#" class="ri"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Board</a>
+    <a href="#" class="ri"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Services</a>
+    <a href="#" class="ri"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>System now</a>
+    <a href="#" class="ri"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>Phones</a>
+    <a href="#" class="ri on"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Week</a>
+  </nav>
+  <div class="col">
+    <header class="top"><div class="ttl"><small>17 to 23 Oct · what the board showed, not a live status</small><b>Example network this week</b></div><button type="button" class="role">COO or ICB lead ▾</button></header>
+    <div class="scope" role="region" aria-label="Which board you are viewing"><b>Showing: Network, Example network</b><div class="swt"><span>Our organisation</span><span class="on">Network</span></div></div>
+    <main style="flex:1;min-height:0;padding:16px 28px;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:18px">
+      <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px">
+          <div class="card k"><b>168</b><span>hours sampled</span></div>
+          <div class="card k"><b>92%</b><span>capacity updates on time</span></div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;gap:10px;flex:1;min-height:0">
+          <div class="eb">Services by status, share of the week</div>
+          <div role="img" aria-label="Accepting 52%, limited 22%, not accepting 9%, over capacity 6%, not updated 11%" style="display:flex;height:34px;border-radius:8px;overflow:hidden;border:1px solid #14232B"><span style="flex:52;background:#0B5C8C"></span><span style="flex:22;background:#A34700"></span><span style="flex:9;background:#3A4750"></span><span style="flex:6;background:repeating-linear-gradient(135deg,#6B2C91 0 5px,#fff 5px 8px)"></span><span style="flex:11;background:#fff;border-left:2px dashed #6B7B83"></span></div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px 18px"><span class="lg"><i style="background:#0B5C8C"></i>● Accepting 52%</span><span class="lg"><i style="background:#A34700"></i>◐ Limited 22%</span><span class="lg"><i style="background:#3A4750"></i>■ Not accepting 9%</span><span class="lg"><i style="background:repeating-linear-gradient(135deg,#6B2C91 0 4px,#fff 4px 6px)"></i>▲ Over capacity 6%</span><span class="lg"><i style="border:2px dashed #6B7B83"></i>◌ Not updated 11%</span></div>
+          <div style="font-size:15px;color:#26343B">Out of hours: Not shown: fewer than 10.</div>
+          <div class="eb" style="margin-top:6px">Hours at each pressure</div>
+          <div style="display:flex;gap:10px"><div style="flex:1;border:2px solid #0B5C8C;border-radius:14px;padding:10px 14px"><b style="font-size:26px">124 h</b><div style="font-size:15px">Normal</div></div><div style="flex:1;border:2px solid #A34700;border-radius:14px;padding:10px 14px;background:#FFF1DC"><b style="font-size:26px">31 h</b><div style="font-size:15px">Watch</div></div><div style="flex:1;border:2px solid #14232B;border-radius:14px;padding:10px 14px;background:#A34700;color:#fff"><b style="font-size:26px">13 h</b><div style="font-size:15px">High</div></div></div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+        <div class="card" style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center"><div class="eb">Pressure over time</div><span style="font-size:15px;font-weight:700;color:#0B5C8C">Show as a table ▾</span></div>
+          <div class="hz"><span></span><span style="grid-column:span 6">00</span><span style="grid-column:span 6">06</span><span style="grid-column:span 6">12</span><span style="grid-column:span 6">18</span></div>
+          <div class="hz"><span>Mon</span><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="hz"><span>Tue</span><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="w"></i><i class="w"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="hz"><span>Wed</span><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="hz"><span>Thu</span><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="w"></i><i class="w"></i><i class="w"></i><i class="h"></i><i class="h"></i><i class="h"></i><i class="w"></i><i class="w"></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="hz"><span>Fri</span><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="w"></i><i class="w"></i><i class="w"></i><i class="w"></i><i class="h"></i><i class="h"></i><i class="w"></i><i class="w"></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="hz"><span>Sat</span><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="w"></i><i class="w"></i><i class="w"></i><i class="w"></i><i class="w"></i><i class="w"></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="hz"><span>Sun</span><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="w"></i><i class="w"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div style="display:flex;gap:16px;margin-top:4px"><span class="lg"><i style="background:#E3F1F8;border:1px solid #DDE3E6"></i>Normal</span><span class="lg"><i style="background:repeating-linear-gradient(135deg,#A34700 0 3px,#FFF1DC 3px 5px)"></i>Watch</span><span class="lg"><i style="background:#A34700;border:1px solid #14232B"></i>High</span></div>
+          <div style="font-size:14px;color:#44555D">The highest pressure of each hour the board was sampled. Each hour is also in the table.</div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;gap:8px;border:2px dashed #6B7B83">
+          <div class="eb">If too few organisations shared</div>
+          <div style="font-size:17px;line-height:1.4">This week is not shown. Too few organisations shared capacity for it to be shown without identifying one.</div>
+        </div>
+        <div style="font-size:15px;color:#44555D;padding:0 4px">Capacity-derived measures only. There is no breakdown by member. Not shown: fewer than 10.</div>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

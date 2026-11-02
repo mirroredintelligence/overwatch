@@ -1,0 +1,425 @@
+/* The operator's page for one organisation: a task list on the left (above the part, on a phone) and the one
+   selected part on the right. Tokens from app/tokens.css only: no colour, size or spacing is written here that is
+   not one of them. Every state is said in a word, never by colour alone. */
+.page {
+  box-sizing: border-box;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-4) var(--space-7);
+  display: grid;
+  gap: var(--space-5);
+  font-family: var(--font-atkinson, system-ui), system-ui, sans-serif;
+  color: var(--c-ink);
+}
+
+/* The head: who, whether live, and how far along. */
+.head {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.headRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+@media (min-width: 62.5rem) {
+  .layout {
+    grid-template-columns: 22rem minmax(0, 1fr);
+    gap: var(--space-7);
+  }
+
+  .tasks {
+    position: sticky;
+    top: var(--space-4);
+  }
+}
+
+/* The task list (NHS and GOV.UK task list pattern): one link per task, its status in words, one line on where it
+   stands. */
+.taskList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+  background: Canvas;
+  overflow: hidden;
+}
+
+.task + .task {
+  border-top: 1px solid var(--c-line);
+}
+
+.taskLink {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: start;
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: var(--space-4);
+  border-left: 4px solid transparent;
+  color: inherit;
+  text-decoration: none;
+}
+
+.taskLink[aria-current='step'] {
+  background: var(--c-tint);
+  border-left-color: var(--c-primary);
+}
+
+.taskLink:focus-visible {
+  outline: var(--focus);
+  outline-offset: -3px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .taskLink:not([aria-current='step']):hover {
+    background: var(--c-bg);
+  }
+}
+
+.taskNumber {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--c-unknown);
+  border-radius: var(--radius-chip);
+  font-size: var(--type-caption-size);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.taskNumberDone {
+  border-color: var(--c-closed);
+  background: var(--c-closed);
+  color: Canvas;
+}
+
+.taskBody {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  min-width: 0;
+}
+
+.taskTitle {
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  font-weight: 700;
+  color: var(--c-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.taskSummary {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-muted);
+}
+
+/* Status tags: solid for completed, dashed for the rest (as everywhere else in the console). */
+.tagInProgress {
+  border-style: solid;
+  border-color: var(--c-primary);
+  background: var(--c-tint);
+}
+
+.tagWaiting {
+  border-style: dashed;
+  border-color: var(--c-limited);
+  background: var(--c-amber-tint);
+}
+
+/* The selected part. */
+.panel {
+  box-sizing: border-box;
+  min-width: 0;
+  display: grid;
+  gap: var(--space-6);
+  padding: var(--space-6);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+  background: Canvas;
+}
+
+@media (max-width: 40rem) {
+  .panel {
+    padding: var(--space-5) var(--space-4);
+  }
+}
+
+.panelHead {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-muted);
+}
+
+.panelTitle {
+  margin: 0;
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: var(--type-title-weight);
+  text-wrap: balance;
+}
+
+.panelTitle:focus-visible {
+  outline: var(--focus);
+  outline-offset: 4px;
+}
+
+.lede {
+  margin: 0;
+  max-width: 40rem;
+}
+
+/* A step inside a part: separated from the one before by a line and generous space. */
+.step {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.step + .step {
+  padding-top: var(--space-5);
+  margin-top: var(--space-1);
+  border-top: 1px solid var(--c-line);
+}
+
+.stepTitle {
+  margin: 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  font-weight: 700;
+}
+
+.subTitle {
+  margin: var(--space-3) 0 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  font-weight: 700;
+}
+
+/* Fields and their buttons never run the full width of the panel. */
+.form {
+  display: grid;
+  gap: var(--space-4);
+  max-width: 36rem;
+}
+
+.formGroup {
+  display: grid;
+  gap: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--c-line);
+}
+
+.text {
+  margin: 0;
+  max-width: 40rem;
+}
+
+.teamList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-4);
+  max-width: 40rem;
+}
+
+.teamList li {
+  display: grid;
+  gap: var(--space-1);
+  justify-items: start;
+}
+
+/* A completed part: a short summary and the way to change it. */
+.summary {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-3) var(--space-5);
+  margin: 0;
+}
+
+.summary dt {
+  font-weight: 700;
+}
+
+.summary dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 40rem) {
+  .summary {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-1);
+  }
+
+  .summary dd {
+    margin-bottom: var(--space-3);
+  }
+}
+
+.changeLink {
+  justify-self: start;
+  min-height: 44px;
+  padding: 0 var(--space-1);
+  border: 0;
+  background: none;
+  color: var(--c-primary);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.changeLink:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+/* The technical details: a real disclosure with a visible chevron, closed until opened. */
+.disclosure {
+  margin-top: calc(-1 * var(--space-2));
+}
+
+.disclosure summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 44px;
+  color: var(--c-primary);
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+
+.disclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.disclosure summary::before {
+  content: '';
+  flex: none;
+  box-sizing: border-box;
+  width: 10px;
+  height: 10px;
+  margin: 0 var(--space-1) 0 var(--space-2);
+  border-right: 3px solid currentColor;
+  border-bottom: 3px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform var(--dur-press) var(--ease-out);
+}
+
+.disclosure[open] summary::before {
+  transform: rotate(45deg);
+}
+
+.disclosure summary:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.disclosureBody {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-3) 0 var(--space-2);
+}
+
+/* Go live. */
+.ready {
+  display: grid;
+  gap: var(--space-4);
+  justify-items: start;
+  padding: var(--space-5);
+  border: 2px solid var(--c-primary);
+  border-radius: var(--radius-card);
+  background: var(--c-tint);
+}
+
+.leftList,
+.theirList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.leftList li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  min-height: 44px;
+  align-content: center;
+}
+
+.leftLink {
+  color: var(--c-primary);
+  font-weight: 700;
+  text-underline-offset: 3px;
+}
+
+.leftLink:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.theirs {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: 2px dashed var(--c-unknown);
+  border-radius: var(--radius-card);
+}
+
+.theirList {
+  list-style: disc;
+  padding-left: var(--space-5);
+  gap: var(--space-1);
+}
+
+.blockTitle {
+  margin: 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  font-weight: 700;
+}
+
+/* Under the two columns: what suspending or closing does. */
+.lifecycle {
+  max-width: 72rem;
+}
+
+.footerSpace {
+  min-width: 0;
+}
+
+.summaryRow {
+  display: contents;
+}

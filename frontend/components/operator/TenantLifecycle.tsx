@@ -8,9 +8,10 @@ import { Dialog } from '@/components/ui/Dialog';
 import { operatorSend } from '@/lib/operator/browser';
 import { useSubmitKey } from '@/lib/tenantAdmin/browser';
 import { whenText } from '@/lib/tenantAdmin/words';
-import type { Funnel, FunnelStep } from '@/lib/operator/funnel';
+import type { Funnel, FunnelStep, PhaseId } from '@/lib/operator/funnel';
 import type { Detail } from './TenantPanels';
 import styles from '@/components/admin/admin.module.css';
+import ts from './Tenant.module.css';
 
 // The last step of the Go live page, and the life of an organisation (TEN-083): go live, suspend, resume and start closing.
 // Each is asked for in a dialog that says what it does, and sent once with one idempotency key per submit.
@@ -52,7 +53,7 @@ function useStep({ tenantId, onChanged, onNotice, onUnrecorded }: Props) {
   return { run, busy };
 }
 
-export function GoLiveStep(props: Props & { funnel: Funnel; step: FunnelStep }) {
+export function GoLiveStep(props: Props & { funnel: Funnel; step: FunnelStep; onSelectPhase: (phase: PhaseId) => void }) {
   const [asking, setAsking] = useState(false);
   const { run, busy } = useStep(props);
   const { funnel, step } = props;
@@ -61,48 +62,74 @@ export function GoLiveStep(props: Props & { funnel: Funnel; step: FunnelStep }) 
     setAsking(false);
     await run('POST', 'activation', undefined, () => 'The organisation is live.', () => 'It cannot go live yet. The page has been read again.');
   }
-  const state = step.done ? 'done' : funnel.next === 'golive' ? 'next' : 'todo';
+  const state = step.done ? 'done' : 'todo';
+  const left = funnel.leftByPhase;
   return (
-    <div id="step-golive" data-el="OP-STEP-GOLIVE" data-state={state}>
-      <Card heading={step.title}>
-        <p className={styles.row}>
-          <span className={styles.muted}>{`Step ${step.number} of ${funnel.total}`}</span>
-          <span className={step.done ? styles.tag : `${styles.tag} ${styles.tagDashed}`}>{state === 'done' ? 'Done' : state === 'next' ? 'Next' : 'To do'}</span>
-        </p>
-        {status !== 'provisioning' ? (
-          <p className={styles.ok}>{`This organisation is live${props.detail.tenant.activatedAt !== null ? ` since ${whenText(props.detail.tenant.activatedAt)}` : ''}.`}</p>
-        ) : funnel.canGoLive ? (
-          <>
-            <p className={styles.text}>Every step is done. Once it is live, their people can sign in.</p>
-            <div className={styles.actions}>
-              <Button variant="primary" busy={busy} onClick={() => setAsking(true)} dataEl="OP-ACTIVATE-BTN">
-                Go live
-              </Button>
+    <div id="step-golive" className={ts.step} data-el="OP-STEP-GOLIVE" data-state={state}>
+      {status !== 'provisioning' ? (
+        <p className={styles.ok}>{`This organisation is live${props.detail.tenant.activatedAt !== null ? ` since ${whenText(props.detail.tenant.activatedAt)}` : ''}.`}</p>
+      ) : funnel.canGoLive ? (
+        <div className={ts.ready}>
+          <p className={ts.text}>Everything is ready. Once it is live, their people can sign in.</p>
+          <div className={styles.actions}>
+            <Button variant="primary" busy={busy} onClick={() => setAsking(true)} dataEl="OP-ACTIVATE-BTN">
+              Go live
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {left.length > 0 ? (
+            <>
+              <h3 className={ts.blockTitle}>What is left for you</h3>
+              <ul className={ts.leftList} aria-label="Still to do">
+                {left.map((item) => (
+                  <li key={item.phase}>
+                    <a
+                      className={ts.leftLink}
+                      href={`#phase-${item.phase}`}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        props.onSelectPhase(item.phase);
+                      }}
+                    >
+                      {item.title}
+                    </a>{' '}
+                    <span>{item.waiting ? 'waiting for their administrator' : `${item.count} ${item.count === 1 ? 'thing' : 'things'} left`}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p className={styles.ok}>Everything you have to do is done.</p>
+          )}
+          {funnel.byThem.length > 0 ? (
+            <div className={ts.theirs}>
+              <h3 className={ts.blockTitle}>Their administrators finish these after they sign in</h3>
+              <ul className={ts.theirList} aria-label="Their administrators finish these">
+                {funnel.byThem.map((words) => (
+                  <li key={words}>{words}</li>
+                ))}
+              </ul>
+              <p className={styles.muted}>Overwatch will make Go live available when these are done.</p>
             </div>
-          </>
-        ) : (
-          <>
-            <p className={styles.text}>Going live is not available until every step above is done. Still to do:</p>
-            <ul className={styles.list} aria-label="Still to do">
-              {funnel.missing.map((m) => (
-                <li key={`${m.step}-${m.words}`}>{`${m.words} (${funnel.steps.find((s) => s.id === m.step)?.title ?? 'Go live'}, step ${funnel.steps.find((s) => s.id === m.step)?.number ?? funnel.total})`}</li>
-              ))}
-            </ul>
-          </>
-        )}
-        {asking ? (
-          <Dialog title="Go live with this organisation?" sub="Its people will be able to sign in." onClose={() => setAsking(false)}>
-            <div className={styles.actions}>
-              <Button variant="primary" onClick={() => void goLive()}>
-                Yes, go live
-              </Button>
-              <Button variant="neutral" onClick={() => setAsking(false)}>
-                Cancel
-              </Button>
-            </div>
-          </Dialog>
-        ) : null}
-      </Card>
+          ) : left.length === 0 ? (
+            <p className={styles.muted}>Overwatch will make Go live available when it has checked everything.</p>
+          ) : null}
+        </>
+      )}
+      {asking ? (
+        <Dialog title="Go live with this organisation?" sub="Its people will be able to sign in." onClose={() => setAsking(false)}>
+          <div className={styles.actions}>
+            <Button variant="primary" onClick={() => void goLive()}>
+              Yes, go live
+            </Button>
+            <Button variant="neutral" onClick={() => setAsking(false)}>
+              Cancel
+            </Button>
+          </div>
+        </Dialog>
+      ) : null}
     </div>
   );
 }
@@ -226,7 +253,7 @@ export function LifecyclePanel(props: Props) {
           <p className={styles.warn}>
             Its people cannot sign in from now on. A notice period of 30 days starts. Exporting its data is not built yet, so nothing can be handed back to them.
           </p>
-          <TextField id="confirm-tenant" label="Type the organisation id to confirm (shown under Details in step 1)" value={typed} onChange={setTyped} requirement="none" autoComplete="off" />
+          <TextField id="confirm-tenant" label="Type the organisation id to confirm (shown under Technical details in Organisation and sign-in)" value={typed} onChange={setTyped} requirement="none" autoComplete="off" />
           <div className={styles.actions}>
             <Button variant="primary" disabled={typed !== tenant.id} onClick={() => void closing()}>
               Start closing

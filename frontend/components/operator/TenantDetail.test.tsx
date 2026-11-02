@@ -8,10 +8,12 @@ import { OPERATOR_SAMPLE_CSRF, resetOperatorWrites, seenOperatorWrites } from '@
 import { server } from '@/test/msw/server';
 import { TenantDetail } from './TenantDetail';
 
-// One partner organisation's page (TEN-083) as a guided "Go live" funnel: eight steps in order, each with one next
-// action and its identifiers under Details; Go live only when every step is done. Every write is the operator's own,
-// with its CSRF token and one idempotency key per submit, and is the same write as before the funnel. A step that was
-// done and not recorded by the platform chain is said so, and is never offered again. No secret is ever shown.
+// One partner organisation's page (TEN-083) as a guided "Go live": a task list of five parts (each a link with its
+// status in words and one line on where it stands) and only the selected part beside it, by default the first that is
+// not completed. A completed part shows a short summary and a Change link. Its identifiers are under a closed
+// "Technical details" disclosure; Go live only when everything is done. Every write is the operator's own, with its
+// CSRF token and one idempotency key per submit, and is the same write as before. A step that was done and not
+// recorded by the platform chain is said so, and is never offered again. No secret is ever shown.
 
 beforeEach(() => resetOperatorWrites());
 
@@ -20,64 +22,132 @@ const serveConsent = (body: unknown) => server.use(http.get('/api/bff/platform/t
 function serve(detail: unknown) {
   server.use(http.get('/api/bff/platform/tenants/:id', () => HttpResponse.json(detail as Record<string, unknown>)));
 }
-async function open(detail: unknown = VIEW_DETAIL_PROVISIONING, consent?: unknown) {
+const PHASES = ['Organisation and sign-in', 'Administrator approval', 'Teams and people', 'Reach and agreements', 'Go live'];
+/** Opens the page, and (when a part is named) chooses it in the task list. */
+async function open(detail: unknown = VIEW_DETAIL_PROVISIONING, consent?: unknown, phase?: string) {
   serve(detail);
   if (consent !== undefined) serveConsent(consent);
   const user = userEvent.setup();
   render(<TenantDetail tenantId="trust-b" />);
   await screen.findByRole('heading', { level: 1, name: 'Sample Area B' });
+  if (phase !== undefined) {
+    await choose(user, phase);
+    await waitFor(() => expect(screen.queryByText('Loading.')).not.toBeInTheDocument());
+    // A part that is already completed shows its summary; these tests work on its steps.
+    const change = screen.queryByRole('button', { name: /^Change/ });
+    if (change !== null) await user.click(change);
+  }
   return user;
 }
-const lastWrite = () => seenOperatorWrites[seenOperatorWrites.length - 1];
-const step = (name: string) => screen.getByRole('region', { name });
-/** What a step shows with its collapsed Details taken out. */
-function headline(name: string): string {
-  const clone = step(name).cloneNode(true) as HTMLElement;
+const choose = (user: ReturnType<typeof userEvent.setup>, phase: string) => user.click(within(screen.getByRole('navigation', { name: 'Go live tasks' })).getByRole('link', { name: new RegExp(`^${phase}`) }));
+/** The steps shown now. */
+const shownSteps = () => Array.from(document.querySelectorAll('[data-el^="OP-STEP-"]')) as HTMLElement[];
+/** An element's text with its closed disclosures taken out. */
+const bare = (el: HTMLElement) => {
+  const clone = el.cloneNode(true) as HTMLElement;
   clone.querySelectorAll('details').forEach((d) => d.remove());
   return clone.textContent ?? '';
-}
-const detailsOf = (name: string) => within(step(name).querySelector('details') as HTMLElement);
+};
+const lastWrite = () => seenOperatorWrites[seenOperatorWrites.length - 1];
+const step = (name: string) => screen.getByRole('region', { name });
+/** What a step shows with its closed technical details taken out. */
+const headline = (name: string): string => bare(step(name));
+const detailsOf = (name: string) => within(Array.from(step(name).querySelectorAll('details')).find((d) => d.querySelector('summary')?.textContent === 'Technical details') as HTMLElement);
 const ready = (over: Partial<Detail> = {}): Detail => ({ ...VIEW_DETAIL_READY, ...over });
 const withRefs = (refs: Partial<Detail['tenant']['references']>): Detail => ({ ...VIEW_DETAIL_READY, tenant: { ...VIEW_DETAIL_READY.tenant, references: { ...VIEW_DETAIL_READY.tenant.references, ...refs } } });
 
-const TITLES = ['Confirm the organisation', 'Connect their sign-in', 'Invite their administrator', 'Set up their administrators’ team', 'Who can do what', 'How people reach them', 'Agreements', 'Go live'];
-
 describe('what the page shows', () => {
-  it('has one h1 with the organisation’s name, its status in words, and the headings of the steps in order', async () => {
+  it('has one h1 with the organisation’s name, its status in words, and one h2: the selected part', async () => {
     await open();
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     expect(screen.getByText('Being set up')).toBeInTheDocument();
-    expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual(TITLES);
+    expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual(['Organisation and sign-in']);
+    expect(screen.getByText('0 of 5 parts completed')).toBeInTheDocument();
   });
 
-  it('shows the progress as a list of the eight steps, each with its state in a word, and says which is next', async () => {
+  it('shows the five parts as a task list, each a link with its status in words and a line on where it stands', async () => {
     await open();
-    const nav = screen.getByRole('navigation', { name: 'Go live progress' });
+    const nav = screen.getByRole('navigation', { name: 'Go live tasks' });
     const items = within(nav).getAllByRole('listitem');
-    expect(items).toHaveLength(8);
-    expect(items[0]).toHaveTextContent('1. Confirm the organisation');
-    expect(items[0]).toHaveTextContent('Done');
-    expect(items[1]).toHaveTextContent('2. Connect their sign-in');
-    expect(items[1]).toHaveTextContent('Next');
-    expect(items[1]).toHaveAttribute('aria-current', 'step');
-    expect(items[2]).toHaveTextContent('To do');
-    expect(screen.getByText('2 of 8 steps done')).toBeInTheDocument();
+    expect(items).toHaveLength(5);
+    items.forEach((li, i) => expect(within(li).getByRole('link').textContent?.replace(/^\d/, '').startsWith(PHASES[i]!)).toBe(true));
+    expect(items[0]).toHaveTextContent('In progress');
+    expect(items[0]).toHaveTextContent('A Microsoft work account is waiting for you to confirm it.');
+    expect(items[1]).toHaveTextContent('Not started');
+    expect(items[1]).toHaveTextContent('Connect their Microsoft work accounts first.');
+    expect(items[4]).toHaveTextContent('Not started');
   });
 
-  it('names the next step in one line, with a link to it', async () => {
+  it('marks the selected part with aria-current, opens on the first that is not completed, and moves with the choice', async () => {
+    const user = await open(ready({ bindings: VIEW_DETAIL_PROVISIONING.bindings.map((b) => ({ ...b, status: 'verified' as const })) }));
+    const nav = screen.getByRole('navigation', { name: 'Go live tasks' });
+    const link = (name: string) => within(nav).getByRole('link', { name: new RegExp(`^${name}`) });
+    expect(link('Administrator approval')).toHaveAttribute('aria-current', 'step');
+    expect(link('Organisation and sign-in')).not.toHaveAttribute('aria-current');
+    expect(link('Organisation and sign-in')).toHaveTextContent('Completed');
+    expect(screen.getByRole('heading', { level: 2, name: 'Administrator approval' })).toBeInTheDocument();
+    await user.click(link('Reach and agreements'));
+    expect(link('Reach and agreements')).toHaveAttribute('aria-current', 'step');
+    expect(link('Administrator approval')).not.toHaveAttribute('aria-current');
+    expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual(['Reach and agreements']);
+  });
+
+  it('moves focus to the heading of the part that was chosen', async () => {
+    const user = await open();
+    await choose(user, 'Teams and people');
+    expect(screen.getByRole('heading', { level: 2, name: 'Teams and people' })).toHaveFocus();
+  });
+
+  it('has at most one primary button in the selected part, and it is the next thing to do', async () => {
+    const user = await open();
+    const primaries = () => Array.from(document.querySelectorAll('button[data-variant="primary"]')).map((b) => b.textContent);
+    expect(primaries()).toEqual(['Confirm this is their Microsoft account']);
+    for (const phase of ['Teams and people', 'Reach and agreements', 'Go live']) {
+      await choose(user, phase);
+      expect(primaries().length).toBeLessThanOrEqual(1);
+    }
+    await choose(user, 'Reach and agreements');
+    expect(primaries()).toEqual(['Save web address']);
+  });
+
+  it('keeps fields to a readable width, in a form of their own', async () => {
+    await open(VIEW_DETAIL_PROVISIONING, undefined, 'Reach and agreements');
+    const form = screen.getByRole('form', { name: 'Set the web address' });
+    expect(form.className).toMatch(/form/);
+  });
+
+  it('has no axe violations in any part', async () => {
+    const user = await open(VIEW_DETAIL_PROVISIONING, CONSENTED);
+    for (const phase of PHASES) {
+      await choose(user, phase);
+      expect(await runAxe(document.body)).toHaveNoViolations();
+    }
+  });
+
+  it('says a part is waiting for them while the approval link is out', async () => {
+    await open(ready({ bindings: VIEW_DETAIL_PROVISIONING.bindings.map((b) => ({ ...b, status: 'verified' as const })) }), { invitation: { emailMasked: 'j***@example-trust.test', status: 'pending', createdAt: '2026-11-01T09:00:00Z', expiresAt: '2026-11-08T09:00:00Z', consentedAt: null, reason: null } });
+    const nav = screen.getByRole('navigation', { name: 'Go live tasks' });
+    const item = within(nav).getByRole('link', { name: /^Administrator approval/ }).closest('li') as HTMLElement;
+    await waitFor(() => expect(item).toHaveTextContent('Waiting for them'));
+    expect(item).toHaveTextContent('Approval link sent. Waiting for their administrator.');
+  });
+
+  it('shows a completed part as a short summary with a Change link, and the steps only once Change is chosen', async () => {
+    const user = await open(VIEW_DETAIL_READY, CONSENTED);
+    await choose(user, 'Teams and people');
+    const change = await screen.findByRole('button', { name: /^Change/ });
+    const panel = screen.getByRole('region', { name: 'Teams and people' });
+    expect(within(panel).getByText('Administrators’ team')).toBeInTheDocument();
+    expect(within(panel).getByText('Shift leads')).toBeInTheDocument();
+    expect(within(panel).queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(within(panel).queryByRole('button', { name: 'Add to team' })).not.toBeInTheDocument();
+    await user.click(change);
+    expect(await within(panel).findByRole('button', { name: 'Add to team' })).toBeInTheDocument();
+  });
+
+  it('confirms the organisation with the NHS code and plain words, and keeps the identifiers under technical details', async () => {
     await open();
-    expect(screen.getByRole('link', { name: 'Connect their sign-in', description: '' })).toHaveAttribute('href', '#step-signin');
-    expect(document.querySelector('[data-el="OP-NEXT-STEP"]')).toHaveTextContent('Next: Connect their sign-in');
-  });
-
-  it('moves the next step on as steps are done', async () => {
-    await open(ready({ bindings: VIEW_DETAIL_PROVISIONING.bindings.map((b) => ({ ...b, status: 'verified' as const })) }));
-    expect(document.querySelector('[data-el="OP-NEXT-STEP"]')).toHaveTextContent('Next: Invite their administrator');
-  });
-
-  it('confirms the organisation with the NHS code and plain words, and keeps the identifiers under Details', async () => {
-    await open();
-    const text = headline('Confirm the organisation');
+    const text = headline('Check the organisation');
     expect(text).toContain('NHS code');
     expect(text).toContain('RYY02');
     expect(text).toContain('Sample Area B Organisation');
@@ -85,32 +155,50 @@ describe('what the page shows', () => {
     expect(text).toContain('United Kingdom');
     expect(text).toContain('Europe/London');
     expect(text).not.toMatch(/ODS|trust-b/);
-    expect(detailsOf('Confirm the organisation').getByText('trust-b')).toBeInTheDocument();
-    expect(detailsOf('Confirm the organisation').getByText('ODS code')).toBeInTheDocument();
+    expect(detailsOf('Check the organisation').getByText('trust-b')).toBeInTheDocument();
+    expect(detailsOf('Check the organisation').getByText('ODS code')).toBeInTheDocument();
   });
 
-  it('holds every technical identifier under Details and none in the headline of a step', async () => {
-    await open(VIEW_DETAIL_PROVISIONING, CONSENTED);
+  it('has the technical details as a real disclosure that is closed by default', async () => {
+    await open();
+    const summary = within(step('Check the organisation')).getByText('Technical details');
+    expect(summary.tagName).toBe('SUMMARY');
+    expect(summary.closest('details')).not.toHaveAttribute('open');
+    expect(screen.queryByText('Details', { exact: true })).not.toBeInTheDocument();
+  });
+
+  it('holds every technical identifier under technical details and none on the face of a part, whichever part is chosen', async () => {
+    const user = await open(VIEW_DETAIL_PROVISIONING, CONSENTED);
     const ids = ['11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222', 'trust-b', 'ACsampleaccount00000000000000000001'];
-    for (const name of TITLES) {
-      for (const id of ids) expect(headline(name)).not.toContain(id);
+    for (const phase of PHASES) {
+      await choose(user, phase);
+      for (const el of shownSteps()) {
+        for (const id of ids) expect(bare(el)).not.toContain(id);
+        expect(el.querySelector('details[open]')).toBeNull();
+      }
     }
-    expect(detailsOf('Connect their sign-in').getByText('11111111-1111-4111-8111-111111111111')).toBeInTheDocument();
-    expect(detailsOf('Who can do what').getByText('22222222-2222-4222-8222-222222222222')).toBeInTheDocument();
-    expect(detailsOf('How people reach them').getByText('ACsampleaccount00000000000000000001')).toBeInTheDocument();
-    expect(detailsOf('Confirm the organisation').getByText('trust-b')).toBeInTheDocument();
-    for (const name of TITLES.slice(0, 7)) expect(step(name).querySelector('details[open]')).toBeNull();
+    await choose(user, 'Organisation and sign-in');
+    expect(detailsOf('Connect their Microsoft work accounts').getByText('11111111-1111-4111-8111-111111111111')).toBeInTheDocument();
+    await choose(user, 'Teams and people');
+    expect(detailsOf('Other teams').getByText('22222222-2222-4222-8222-222222222222')).toBeInTheDocument();
+    await choose(user, 'Reach and agreements');
+    expect(detailsOf('Web address and text number').getByText('ACsampleaccount00000000000000000001')).toBeInTheDocument();
     expect(step('Agreements').querySelector('details')).toBeNull();
   });
 
-  it('uses no jargon in what a step says on its face', async () => {
-    await open(VIEW_DETAIL_PROVISIONING, CONSENTED);
-    for (const name of TITLES) expect(headline(name)).not.toMatch(/\b(directory|Entra|tenant|group object|role mapping|ODS)\b/i);
+  it('uses no jargon on the face of any part or of the task list', async () => {
+    const user = await open(VIEW_DETAIL_PROVISIONING, CONSENTED);
+    const jargon = /\b(directory|Entra|tenant|group object|role mapping|ODS)\b/i;
+    for (const phase of PHASES) {
+      await choose(user, phase);
+      expect(bare(screen.getByRole('region', { name: phase }))).not.toMatch(jargon);
+    }
+    expect(bare(screen.getByRole('navigation', { name: 'Go live tasks' }))).not.toMatch(jargon);
   });
 
   it('shows a number with its state and whether it has been tested, and never a secret', async () => {
-    await open();
-    const table = within(step('How people reach them')).getByRole('table', { name: 'Text numbers' });
+    await open(VIEW_DETAIL_PROVISIONING, undefined, 'Reach and agreements');
+    const table = within(step('Web address and text number')).getByRole('table', { name: 'Text numbers' });
     const row = within(table).getByRole('row', { name: /\+441632960002/ });
     expect(within(row).getByText('In use')).toBeInTheDocument();
     expect(within(row).getByText('Not tested')).toBeInTheDocument();
@@ -118,7 +206,7 @@ describe('what the page shows', () => {
   });
 
   it('shows the agreements held', async () => {
-    await open();
+    await open(VIEW_DETAIL_PROVISIONING, undefined, 'Reach and agreements');
     const refs = step('Agreements');
     expect(within(refs).getByText('DSA-2026-014')).toBeInTheDocument();
     expect(within(refs).getAllByText('Not recorded')).toHaveLength(2);
@@ -141,11 +229,11 @@ describe('what the page shows', () => {
 });
 
 describe('Go live', () => {
-  it('shows the button only when every step is done and the back end agrees, and asks first', async () => {
+  it('shows the button only when everything is done and the back end agrees, and asks first', async () => {
     const user = await open(VIEW_DETAIL_READY, CONSENTED);
     await within(step('Go live')).findByRole('button', { name: 'Go live' });
-    expect(within(step('Go live')).getByText('Every step is done. Once it is live, their people can sign in.')).toBeInTheDocument();
-    expect(screen.getByText('7 of 8 steps done')).toBeInTheDocument();
+    expect(within(step('Go live')).getByText('Everything is ready. Once it is live, their people can sign in.')).toBeInTheDocument();
+    expect(screen.getByText('4 of 5 parts completed')).toBeInTheDocument();
     await user.click(within(step('Go live')).getByRole('button', { name: 'Go live' }));
     const dialog = await screen.findByRole('dialog', { name: 'Go live with this organisation?' });
     await user.click(within(dialog).getByRole('button', { name: 'Yes, go live' }));
@@ -154,15 +242,26 @@ describe('Go live', () => {
     expect(await screen.findByText('The organisation is live.')).toBeInTheDocument();
   });
 
-  it('has no button, and lists what is missing in plain words, while a step is not done', async () => {
-    await open();
+  it('has the one primary button on the Go live part when it is ready, and none that looks blocked', async () => {
+    await open(VIEW_DETAIL_READY, CONSENTED);
+    const panel = step('Go live');
+    expect(await within(panel).findByRole('button', { name: 'Go live' })).toBeEnabled();
+    expect(within(panel).getAllByRole('button')).toHaveLength(1);
+  });
+
+  it('has no button, and a short list of what is left by part with a count, while a step is not done', async () => {
+    await open(VIEW_DETAIL_PROVISIONING, undefined, 'Go live');
     const card = step('Go live');
     expect(within(card).queryByRole('button', { name: 'Go live' })).not.toBeInTheDocument();
-    const missing = within(card).getByRole('list', { name: 'Still to do' });
-    const lines = within(missing).getAllByRole('listitem').map((li) => li.textContent);
-    expect(lines).toContain('Their Microsoft work accounts are not connected and confirmed yet. (Connect their sign-in, step 2)');
-    expect(lines).toContain('The web address is not set. (How people reach them, step 6)');
-    expect(lines).toContain('A text number has not been tested yet. (How people reach them, step 6)');
+    const left = within(card).getByRole('list', { name: 'Still to do' });
+    const lines = within(left).getAllByRole('listitem').map((li) => li.textContent);
+    expect(lines).toEqual(['Organisation and sign-in 1 thing left', 'Administrator approval 1 thing left', 'Teams and people 1 thing left', 'Reach and agreements 3 things left']);
+  });
+
+  it('takes the operator to a part from the list of what is left', async () => {
+    const user = await open(VIEW_DETAIL_PROVISIONING, undefined, 'Go live');
+    await user.click(within(within(step('Go live')).getByRole('list', { name: 'Still to do' })).getByRole('link', { name: 'Reach and agreements' }));
+    expect(screen.getByRole('heading', { level: 2, name: 'Reach and agreements' })).toHaveFocus();
   });
 
   it.each<[string, () => Detail, unknown]>([
@@ -173,16 +272,28 @@ describe('Go live', () => {
     ['the web address is not set', () => ready({ host: null }), CONSENTED],
     ['no number has been tested', () => ready({ numbers: VIEW_DETAIL_READY.numbers.map((n) => ({ ...n, testedAt: null })) }), CONSENTED],
     ['an agreement is missing', () => withRefs({ dpia: null }), CONSENTED],
-    ['the back end is not ready', () => ready({ activation: { ready: false, blockers: ['Area districts set'] } }), CONSENTED],
-  ])('has no Go live button when %s', async (_name, make, consent) => {
-    await open(make(), consent);
-    await screen.findByText(/steps done/);
+  ])('has no Go live button when %s, and lists what is left', async (_name, make, consent) => {
+    await open(make(), consent, 'Go live');
+    await screen.findByText(/parts completed/);
     await waitFor(() => expect(screen.queryByText('Loading.')).not.toBeInTheDocument());
     expect(screen.queryByRole('button', { name: 'Go live' })).not.toBeInTheDocument();
     expect(within(step('Go live')).getByRole('list', { name: 'Still to do' })).toBeInTheDocument();
   });
 
-  it('never shows the back end’s own blocker text, and maps each blocker to the step it belongs to', async () => {
+  it('does not make the button look blocked by what only their administrators can do: it says Overwatch will open it', async () => {
+    await open(ready({ activation: { ready: false, blockers: ['Area districts set', 'Network agreement accepted'] } }), CONSENTED, 'Go live');
+    const card = step('Go live');
+    await within(card).findByText('Everything you have to do is done.');
+    expect(within(card).queryByRole('list', { name: 'Still to do' })).not.toBeInTheDocument();
+    expect(within(card).queryByRole('button')).not.toBeInTheDocument();
+    const theirs = within(card).getByRole('list', { name: 'Their administrators finish these' });
+    expect(within(theirs).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['Set the area’s districts', 'Accept the network agreement']);
+    expect(within(card).getByRole('heading', { name: 'Their administrators finish these after they sign in' })).toBeInTheDocument();
+    expect(within(card).getByText('Overwatch will make Go live available when these are done.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /^Go live/ })).toHaveTextContent('Waiting for them');
+  });
+
+  it('never shows the back end’s own blocker text, merges blockers that say the same thing, and keeps their administrators’ items apart', async () => {
     const blockers = [
       'Configuration version approved',
       'Time zone set',
@@ -200,17 +311,22 @@ describe('Go live', () => {
       'Host set',
       'Something nobody has thought of',
     ];
-    await open({ ...VIEW_DETAIL_PROVISIONING, activation: { ready: false, blockers } });
+    await open({ ...VIEW_DETAIL_PROVISIONING, activation: { ready: false, blockers } }, undefined, 'Go live');
     const text = document.body.textContent ?? '';
     for (const blocker of blockers) expect(text).not.toContain(blocker);
     expect(text).not.toContain('Number tested');
-    const missing = within(step('Go live')).getByRole('list', { name: 'Still to do' }).textContent ?? '';
-    expect(missing).toContain('Their administrator has not accepted the network agreement yet. (Go live, step 8)');
-    expect(missing).toContain('Overwatch cannot send email for this organisation yet. Tell the Overwatch team. (Invite their administrator, step 3)');
-    expect(missing).toContain('The time zone is not set. (Confirm the organisation, step 1)');
-    expect(missing).toContain('Something else still has to be finished. Tell the Overwatch team. (Go live, step 8)');
-    expect(missing).toContain('(Go live, step 8)');
-    expect(within(step('Go live')).getAllByRole('listitem').length).toBeGreaterThan(8);
+    const card = step('Go live');
+    const lines = within(within(card).getByRole('list', { name: 'Still to do' })).getAllByRole('listitem').map((li) => li.textContent);
+    expect(lines).toEqual([
+      'Organisation and sign-in 2 things left',
+      'Administrator approval 2 things left',
+      'Teams and people 2 things left',
+      'Reach and agreements 3 things left',
+      'Go live 1 thing left',
+    ]);
+    const theirs = within(within(card).getByRole('list', { name: 'Their administrators finish these' })).getAllByRole('listitem').map((li) => li.textContent);
+    expect(theirs).toEqual(['Approve their settings', 'Set the support contacts', 'Set how long records are kept', 'Set the names they use for their systems', 'Set the area’s districts', 'Accept the network agreement']);
+    expect(text).not.toContain('No team has been given anything to do yet');
   });
 
   it('says what is still missing when the back end refuses with a 409', async () => {
@@ -229,11 +345,11 @@ describe('Go live', () => {
     expect(seenOperatorWrites).toEqual([]);
   });
 
-  it('says a live organisation is live, with no Go live button', async () => {
+  it('opens a live organisation on Go live, says it is live, and has no Go live button', async () => {
     await open(VIEW_DETAIL_ACTIVE);
+    expect(screen.getByRole('heading', { level: 2, name: 'Go live' })).toBeInTheDocument();
     expect(within(step('Go live')).getByText(/This organisation is live since 22 Oct 2026/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Go live' })).not.toBeInTheDocument();
-    expect(document.querySelector('[data-el="OP-NEXT-STEP"]')).not.toBeInTheDocument();
   });
 
   it('has no axe violations when ready', async () => {
@@ -245,31 +361,31 @@ describe('Go live', () => {
 
 describe('step 2: connect their sign-in', () => {
   it('confirms the Microsoft account the organisation named, with one button', async () => {
-    const user = await open();
-    await user.click(within(step('Connect their sign-in')).getByRole('button', { name: 'Confirm this is their Microsoft account' }));
+    const user = await open(VIEW_DETAIL_PROVISIONING, undefined, 'Organisation and sign-in');
+    await user.click(within(step('Connect their Microsoft work accounts')).getByRole('button', { name: 'Confirm this is their Microsoft account' }));
     await waitFor(() => expect(seenOperatorWrites).toHaveLength(1));
     expect(lastWrite()).toMatchObject({ method: 'POST', path: '/api/bff/platform/tenants/trust-b/directory/verification', body: { directoryId: '11111111-1111-4111-8111-111111111111' } });
     expect(lastWrite()?.key).toBeTruthy();
   });
 
   it('says the connection in words once confirmed, and offers no button', async () => {
-    await open(VIEW_DETAIL_READY, CONSENTED);
-    const card = step('Connect their sign-in');
+    await open(VIEW_DETAIL_READY, CONSENTED, 'Organisation and sign-in');
+    const card = step('Connect their Microsoft work accounts');
     expect(within(card).getByText('Connected to Sample Area B’s Microsoft accounts.')).toBeInTheDocument();
     expect(within(card).queryByRole('button', { name: 'Confirm this is their Microsoft account' })).not.toBeInTheDocument();
   });
 
   it('says nothing is connected when no account is named, and offers no button', async () => {
-    await open({ ...VIEW_DETAIL_PROVISIONING, directoryId: null, bindings: [], roleMappings: [] });
-    const card = step('Connect their sign-in');
+    await open({ ...VIEW_DETAIL_PROVISIONING, directoryId: null, bindings: [], roleMappings: [] }, undefined, 'Organisation and sign-in');
+    const card = step('Connect their Microsoft work accounts');
     expect(within(card).getByText('No Microsoft account is connected yet.', { selector: 'p' })).toBeInTheDocument();
     expect(within(card).queryByRole('button', { name: 'Confirm this is their Microsoft account' })).not.toBeInTheDocument();
   });
 
   it('looks up their Microsoft account from the domain as a card, and says whether it is the one named, and saves nothing', async () => {
     server.use(http.get('/api/bff/platform/directory-lookup', () => HttpResponse.json({ domain: 'example-trust.test', directoryId: '11111111-1111-4111-8111-111111111111' })));
-    const user = await open();
-    const card = step('Connect their sign-in');
+    const user = await open(VIEW_DETAIL_PROVISIONING, undefined, 'Organisation and sign-in');
+    const card = step('Connect their Microsoft work accounts');
     await user.type(within(card).getByLabelText('Their email domain'), 'example-trust.test');
     await user.click(within(card).getByRole('button', { name: 'Look up their Microsoft account' }));
     const found = await waitFor(() => {
@@ -284,8 +400,8 @@ describe('step 2: connect their sign-in', () => {
 
   it('says when the account found is not the one named, and when none was found', async () => {
     server.use(http.get('/api/bff/platform/directory-lookup', () => HttpResponse.json({ domain: 'other.test', directoryId: '99999999-9999-4999-8999-999999999999' })));
-    const user = await open();
-    const card = step('Connect their sign-in');
+    const user = await open(VIEW_DETAIL_PROVISIONING, undefined, 'Organisation and sign-in');
+    const card = step('Connect their Microsoft work accounts');
     await user.type(within(card).getByLabelText('Their email domain'), 'other.test');
     await user.click(within(card).getByRole('button', { name: 'Look up their Microsoft account' }));
     expect(await within(card).findByText('It is not the one that is connected here. Check before you confirm.')).toBeInTheDocument();
@@ -299,15 +415,15 @@ describe('step 3: invite their administrator', () => {
   const invitation = (status: string, extra: Record<string, unknown> = {}) => ({
     invitation: { emailMasked: 'j***@example-trust.test', status, createdAt: '2026-11-01T09:00:00Z', expiresAt: '2026-11-08T09:00:00Z', consentedAt: null, reason: null, ...extra },
   });
-  const card = () => step('Invite their administrator');
+  const card = () => step('Ask their administrator to approve');
 
   it('explains in plain words what approval allows', async () => {
-    await open();
+    await open(VIEW_DETAIL_PROVISIONING, undefined, 'Administrator approval');
     expect(card()).toHaveTextContent('Approving lets Overwatch make teams there, add people to them and find people by email address. It does not let Overwatch read anyone’s email or files.');
   });
 
   it('says no link has been sent, and emails their administrator on a valid address', async () => {
-    const user = await open();
+    const user = await open(VIEW_DETAIL_PROVISIONING, undefined, 'Administrator approval');
     expect(await within(card()).findByText('No approval link has been sent yet.')).toBeInTheDocument();
     await user.type(within(card()).getByLabelText('Their administrator’s work email'), 'jane.admin@example-trust.test');
     await user.click(within(card()).getByRole('button', { name: 'Send the approval link to their administrator' }));
@@ -319,7 +435,7 @@ describe('step 3: invite their administrator', () => {
   });
 
   it('refuses something that is not an email address before any call', async () => {
-    const user = await open();
+    const user = await open(VIEW_DETAIL_PROVISIONING, undefined, 'Administrator approval');
     await user.type(await within(card()).findByLabelText('Their administrator’s work email'), 'not an address');
     await user.click(within(card()).getByRole('button', { name: 'Send the approval link to their administrator' }));
     expect(await within(card()).findByText('Enter the administrator’s work email address, for example name@organisation.nhs.uk.', { selector: 'p' })).toBeInTheDocument();
@@ -327,75 +443,78 @@ describe('step 3: invite their administrator', () => {
   });
 
   it('says it is waiting for approval, with the masked address, and offers to send the link again', async () => {
-    await open(VIEW_DETAIL_PROVISIONING, invitation('pending', { reason: 'Overwatch is not installed in your directory yet.' }));
+    await open(VIEW_DETAIL_PROVISIONING, invitation('pending', { reason: 'Overwatch is not installed in your directory yet.' }), 'Administrator approval');
     expect(await within(card()).findByText(/Waiting for approval\. The link went to j\*\*\*@example-trust\.test and works until/)).toBeInTheDocument();
     expect(within(card()).getByRole('button', { name: 'Send the link again' })).toBeInTheDocument();
-    expect(headline('Invite their administrator')).not.toContain('is not installed');
-    expect(detailsOf('Invite their administrator').getByText('Overwatch is not installed in your directory yet.')).toBeInTheDocument();
+    expect(headline('Ask their administrator to approve')).not.toContain('is not installed');
+    expect(detailsOf('Ask their administrator to approve').getByText('Overwatch is not installed in your directory yet.')).toBeInTheDocument();
   });
 
   it('says the link has expired, and offers to send it again', async () => {
-    await open(VIEW_DETAIL_PROVISIONING, invitation('expired'));
+    await open(VIEW_DETAIL_PROVISIONING, invitation('expired'), 'Administrator approval');
     expect(await within(card()).findByText('The approval link has expired. Send a new one.')).toBeInTheDocument();
     expect(within(card()).getByRole('button', { name: 'Send the link again' })).toBeInTheDocument();
   });
 
   it('says it is approved, and offers no form', async () => {
-    await open(VIEW_DETAIL_PROVISIONING, invitation('consented', { consentedAt: '2026-11-02T10:00:00Z' }));
-    expect(await within(card()).findByText(/Approved on 2 Nov 2026/)).toBeInTheDocument();
-    expect(within(card()).queryByRole('button', { name: /Send/ })).not.toBeInTheDocument();
+    const user = await open(VIEW_DETAIL_PROVISIONING, invitation('consented', { consentedAt: '2026-11-02T10:00:00Z' }));
+    await choose(user, 'Administrator approval');
+    const panel = screen.getByRole('region', { name: 'Administrator approval' });
+    expect(await within(panel).findByText(/2 Nov 2026/)).toBeInTheDocument();
+    expect(within(panel).getByText('Approved')).toBeInTheDocument();
+    expect(within(panel).queryByRole('button')).not.toBeInTheDocument();
   });
 
   it('does not offer the form until their sign-in is connected', async () => {
-    await open({ ...VIEW_DETAIL_PROVISIONING, bindings: [] });
-    expect(await within(card()).findByText('Connect their sign-in first (step 2). The approval link is for their Microsoft account.')).toBeInTheDocument();
+    await open({ ...VIEW_DETAIL_PROVISIONING, bindings: [] }, undefined, 'Administrator approval');
+    expect(await within(card()).findByText('Connect their Microsoft work accounts first. The approval link is for their Microsoft account.')).toBeInTheDocument();
     expect(within(card()).queryByRole('button', { name: /Send/ })).not.toBeInTheDocument();
   });
 
   it('says it could not be sent, without the address, when the back end refuses', async () => {
     server.use(http.post('/api/bff/platform/tenants/:id/admin-consent-invitation', () => HttpResponse.json({ code: 'conflict' }, { status: 409 })));
-    const user = await open();
+    const user = await open(VIEW_DETAIL_PROVISIONING, undefined, 'Administrator approval');
     await user.type(await within(card()).findByLabelText('Their administrator’s work email'), 'jane.admin@example-trust.test');
     await user.click(within(card()).getByRole('button', { name: 'Send the approval link to their administrator' }));
-    expect(await within(card()).findByRole('alert')).toHaveTextContent('The link could not be sent. Connect their sign-in first (step 2), and check that Overwatch can send email.');
+    expect(await within(card()).findByRole('alert')).toHaveTextContent('The link could not be sent. Connect their Microsoft work accounts first, and check that Overwatch can send email.');
   });
 });
 
 describe('step 4: their administrators’ team', () => {
-  const card = () => step('Set up their administrators’ team');
+  const card = () => step('Administrators’ team');
   const withAdmin = ready();
 
   it('offers nothing until their administrator has approved', async () => {
-    await open();
-    expect(await within(card()).findByText('You can create their administrators’ team once their administrator has approved Overwatch (step 3).')).toBeInTheDocument();
+    await open(VIEW_DETAIL_PROVISIONING, undefined, 'Teams and people');
+    expect(await within(card()).findByText('You can create their administrators’ team once their administrator has approved Overwatch.')).toBeInTheDocument();
     expect(within(card()).queryByRole('button')).not.toBeInTheDocument();
   });
 
   it('explains that this team is the only route to administrator rights', async () => {
-    await open();
+    await open(VIEW_DETAIL_PROVISIONING, undefined, 'Teams and people');
     expect(card()).toHaveTextContent('The administrators’ team is the only way anyone gets administrator rights in Overwatch.');
   });
 
   it('creates the team once, sending no roles and no name, and lists what was made under Details', async () => {
-    const user = await open(VIEW_DETAIL_PROVISIONING, CONSENTED);
+    const user = await open(VIEW_DETAIL_PROVISIONING, CONSENTED, 'Teams and people');
     await user.click(await within(card()).findByRole('button', { name: 'Create their administrators’ team' }));
     await waitFor(() => expect(seenOperatorWrites).toHaveLength(1));
     expect(lastWrite()).toMatchObject({ method: 'POST', path: '/api/bff/platform/tenants/trust-b/entra-groups', csrf: OPERATOR_SAMPLE_CSRF, body: { roles: [] } });
     expect(lastWrite()?.key).toBeTruthy();
     expect(await within(card()).findByText('Their administrators’ team is in place.')).toBeInTheDocument();
-    expect(detailsOf('Set up their administrators’ team').getByRole('row', { name: /Administrators RXX01_overwatch_tenant-admin Made now/ })).toBeInTheDocument();
-    expect(headline('Set up their administrators’ team')).not.toContain('RXX01_overwatch');
+    expect(detailsOf('Administrators’ team').getByRole('row', { name: /Administrators RXX01_overwatch_tenant-admin Made now/ })).toBeInTheDocument();
+    expect(headline('Administrators’ team')).not.toContain('RXX01_overwatch');
   });
 
   it('says the directory could not be reached, in words', async () => {
     server.use(http.post('/api/bff/platform/tenants/:id/entra-groups', () => HttpResponse.json({ code: 'transient' }, { status: 503 })));
-    const user = await open(VIEW_DETAIL_PROVISIONING, CONSENTED);
+    const user = await open(VIEW_DETAIL_PROVISIONING, CONSENTED, 'Teams and people');
     await user.click(await within(card()).findByRole('button', { name: 'Create their administrators’ team' }));
     expect(await within(card()).findByRole('alert')).toHaveTextContent('Their Microsoft account could not be reached. Try again in a minute.');
   });
 
   it('once the team exists, says so and adds the first administrator by email, never showing or keeping the address', async () => {
-    const user = await open(withAdmin, CONSENTED);
+    const user = await open(withAdmin, CONSENTED, 'Teams and people');
     expect(await within(card()).findByText('Their administrators’ team is added to Overwatch.')).toBeInTheDocument();
     expect(within(card()).queryByRole('button', { name: 'Create their administrators’ team' })).not.toBeInTheDocument();
     await user.type(within(card()).getByLabelText('Administrator’s work email'), 'jane.member@example-trust.test');
@@ -409,7 +528,7 @@ describe('step 4: their administrators’ team', () => {
 
   it('refuses a non-address first, and says no one has that address when their Microsoft account does not know it', async () => {
     server.use(http.post('/api/bff/platform/tenants/:id/entra-groups/members', () => HttpResponse.json({ code: 'invalid' }, { status: 400 })));
-    const user = await open(withAdmin, CONSENTED);
+    const user = await open(withAdmin, CONSENTED, 'Teams and people');
     await user.type(await within(card()).findByLabelText('Administrator’s work email'), 'nonsense');
     await user.click(within(card()).getByRole('button', { name: 'Add the first administrator by email' }));
     expect(await within(card()).findByText('Enter the person’s work email address, for example name@organisation.nhs.uk.', { selector: 'p' })).toBeInTheDocument();
@@ -421,24 +540,24 @@ describe('step 4: their administrators’ team', () => {
   });
 
   it('has no first administrator section by another name, and no mobile invitation', async () => {
-    await open();
+    await open(VIEW_DETAIL_PROVISIONING, undefined, 'Teams and people');
     expect(screen.queryByRole('region', { name: 'First administrator' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Send invitation' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Mobile number')).not.toBeInTheDocument();
   });
 
   it('has no axe violations once approved', async () => {
-    await open(withAdmin, CONSENTED);
+    await open(withAdmin, CONSENTED, 'Teams and people');
     await within(card()).findByRole('button', { name: 'Add the first administrator by email' });
     expect(await runAxe(document.body)).toHaveNoViolations();
   });
 });
 
 describe('step 5: who can do what', () => {
-  const card = () => step('Who can do what');
+  const card = () => step('Other teams');
 
   it('lists the six teams in plain words with what each can do, each added to Overwatch only when it exists', async () => {
-    await open();
+    await open(VIEW_DETAIL_PROVISIONING, undefined, 'Teams and people');
     const list = within(card()).getAllByRole('listitem');
     expect(list.map((li) => li.querySelector('strong')?.textContent)).toEqual(['Advisors', 'Shift leads', 'Clinical leads', 'Planning', 'Audit', 'Criteria owners']);
     expect(within(list[1]!).getByText('Added to Overwatch')).toBeInTheDocument();
@@ -447,19 +566,19 @@ describe('step 5: who can do what', () => {
   });
 
   it('says the administrators’ team is the only route to administrator rights', async () => {
-    await open();
+    await open(VIEW_DETAIL_PROVISIONING, undefined, 'Teams and people');
     expect(card()).toHaveTextContent('The administrators’ team above is the only route to administrator rights: none of these teams gives them.');
   });
 
   it('offers nothing to tick until their administrator has approved', async () => {
-    await open();
-    expect(await within(card()).findByText('Teams can be added once their administrator has approved Overwatch (step 3).')).toBeInTheDocument();
+    await open(VIEW_DETAIL_PROVISIONING, undefined, 'Teams and people');
+    expect(await within(card()).findByText('Teams can be added once their administrator has approved Overwatch.')).toBeInTheDocument();
     expect(within(card()).queryByRole('checkbox')).not.toBeInTheDocument();
     expect(within(card()).queryByRole('button', { name: 'Add the ticked teams' })).not.toBeInTheDocument();
   });
 
   it('adds the teams that were ticked, sending only roles (no name, no group id), and says so', async () => {
-    const user = await open(VIEW_DETAIL_PROVISIONING, CONSENTED);
+    const user = await open(VIEW_DETAIL_PROVISIONING, CONSENTED, 'Teams and people');
     const add = await within(card()).findByRole('button', { name: 'Add the ticked teams' });
     expect(add).toBeDisabled();
     expect(within(card()).queryByRole('checkbox', { name: 'Shift leads' })).not.toBeInTheDocument();
@@ -472,7 +591,7 @@ describe('step 5: who can do what', () => {
   });
 
   it('adds a person to an added team by email, offering only teams that exist', async () => {
-    const user = await open(VIEW_DETAIL_PROVISIONING, CONSENTED);
+    const user = await open(VIEW_DETAIL_PROVISIONING, CONSENTED, 'Teams and people');
     const select = await within(card()).findByRole('combobox', { name: 'Team' });
     expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual(['Shift leads']);
     await user.type(within(card()).getByLabelText('Person’s work email'), 'sam.lead@example-trust.test');
@@ -485,7 +604,7 @@ describe('step 5: who can do what', () => {
 
   it('says a team already giving a different role was not changed, on a 409', async () => {
     server.use(http.post('/api/bff/platform/tenants/:id/entra-groups', () => HttpResponse.json({ code: 'conflict' }, { status: 409 })));
-    const user = await open(VIEW_DETAIL_PROVISIONING, CONSENTED);
+    const user = await open(VIEW_DETAIL_PROVISIONING, CONSENTED, 'Teams and people');
     await user.click(await within(card()).findByRole('checkbox', { name: 'Planning' }));
     await user.click(within(card()).getByRole('button', { name: 'Add the ticked teams' }));
     expect(await within(card()).findByRole('alert')).toHaveTextContent('A team already gives a different role. Nothing was changed.');
@@ -493,10 +612,10 @@ describe('step 5: who can do what', () => {
 });
 
 describe('step 6: how people reach them', () => {
-  const card = () => step('How people reach them');
+  const card = () => step('Web address and text number');
 
   it('sets the web address', async () => {
-    const user = await open();
+    const user = await open(VIEW_DETAIL_PROVISIONING, undefined, 'Reach and agreements');
     await user.type(within(card()).getByLabelText('Web address'), 'tenant-b.example.test');
     await user.click(within(card()).getByRole('button', { name: 'Save web address' }));
     await waitFor(() => expect(seenOperatorWrites).toHaveLength(1));
@@ -506,12 +625,12 @@ describe('step 6: how people reach them', () => {
   });
 
   it('says the web address in words once set', async () => {
-    await open(VIEW_DETAIL_READY, CONSENTED);
+    await open(VIEW_DETAIL_READY, CONSENTED, 'Reach and agreements');
     expect(within(card()).getByText('Their web address is tenant-b.example.test.')).toBeInTheDocument();
   });
 
   it('records a text number in international form with the sender name, and refuses one that is not', async () => {
-    const user = await open();
+    const user = await open(VIEW_DETAIL_PROVISIONING, undefined, 'Reach and agreements');
     await user.type(within(card()).getByLabelText('Text number'), '01632 960003');
     await user.type(within(card()).getByLabelText('Text account'), 'ACsample2');
     await user.type(within(card()).getByLabelText('Sender name'), 'SampleB');
@@ -527,7 +646,7 @@ describe('step 6: how people reach them', () => {
   });
 
   it('marks a text number tested', async () => {
-    const user = await open();
+    const user = await open(VIEW_DETAIL_PROVISIONING, undefined, 'Reach and agreements');
     await user.click(within(card()).getByRole('button', { name: 'Mark +441632960002 as tested' }));
     await waitFor(() => expect(seenOperatorWrites).toHaveLength(1));
     expect(lastWrite()).toMatchObject({ path: '/api/bff/platform/tenants/trust-b/numbers/tested', body: { e164: '+441632960002' } });
@@ -535,7 +654,7 @@ describe('step 6: how people reach them', () => {
 
   it('says a web address or number another organisation holds could not be saved, on a 409', async () => {
     server.use(http.put('/api/bff/platform/tenants/:id/host', () => HttpResponse.json({ code: 'conflict' }, { status: 409 })));
-    const user = await open();
+    const user = await open(VIEW_DETAIL_PROVISIONING, undefined, 'Reach and agreements');
     await user.type(within(card()).getByLabelText('Web address'), 'taken.example.test');
     await user.click(within(card()).getByRole('button', { name: 'Save web address' }));
     expect(await within(card()).findByRole('alert')).toHaveTextContent('That web address is used by another organisation.');
@@ -543,7 +662,7 @@ describe('step 6: how people reach them', () => {
 
   it('says a write could not be made, and keeps what was typed', async () => {
     server.use(http.put('/api/bff/platform/tenants/:id/host', () => HttpResponse.json({}, { status: 503 })));
-    const user = await open();
+    const user = await open(VIEW_DETAIL_PROVISIONING, undefined, 'Reach and agreements');
     await user.type(within(card()).getByLabelText('Web address'), 'tenant-b.example.test');
     await user.click(within(card()).getByRole('button', { name: 'Save web address' }));
     expect(await within(card()).findByRole('alert')).toHaveTextContent('The web address could not be saved. Try again.');
@@ -553,7 +672,7 @@ describe('step 6: how people reach them', () => {
 
 describe('step 7: agreements', () => {
   it('records the references that were filled in and needs at least one', async () => {
-    const user = await open();
+    const user = await open(VIEW_DETAIL_PROVISIONING, undefined, 'Reach and agreements');
     const card = step('Agreements');
     await user.click(within(card).getByRole('button', { name: 'Save agreements' }));
     expect(await within(card).findByText('Enter at least one reference.')).toBeInTheDocument();
@@ -615,7 +734,7 @@ describe('suspending, resuming and starting to close', () => {
     expect(within(dialog).getByText(/Exporting its data is not built yet/)).toBeInTheDocument();
     const confirm = within(dialog).getByRole('button', { name: 'Start closing' });
     expect(confirm).toBeDisabled();
-    const field = () => within(dialog).getByLabelText('Type the organisation id to confirm (shown under Details in step 1)');
+    const field = () => within(dialog).getByLabelText('Type the organisation id to confirm (shown under Technical details in Organisation and sign-in)');
     await user.type(field(), 'trust-a');
     expect(confirm).toBeDisabled();
     await user.clear(field());

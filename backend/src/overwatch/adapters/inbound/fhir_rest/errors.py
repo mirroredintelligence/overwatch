@@ -117,6 +117,14 @@ def _fixed(status: int, code: str, text: str) -> DomainHandler:
     return handler
 
 
+def _conflict(request: Request, exc: Any) -> Response:
+    # The 409 says nothing about which rule refused; the log does. The domain's messages are fixed
+    # phrases that name the rule and keep every value out, so the phrase is safe to log.
+    assert isinstance(exc, Conflict)
+    log.info("conflict: %s", str(exc)[:200])
+    return operation_outcome(409, "conflict", CONFLICT_TEXT)
+
+
 def _validation_failed(request: Request, exc: Any) -> Response:
     # The domain message is plain words that name the rule. The domain must keep values out of it.
     assert isinstance(exc, ValidationFailed)
@@ -215,7 +223,7 @@ def install_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(ProfileRejected, _profile_rejected)
     app.add_exception_handler(NotFound, _fixed(404, "not-found", NOT_FOUND_TEXT))
     app.add_exception_handler(NotAllowed, _fixed(404, "not-found", NOT_FOUND_TEXT))
-    app.add_exception_handler(Conflict, _fixed(409, "conflict", CONFLICT_TEXT))
+    app.add_exception_handler(Conflict, _conflict)
     app.add_exception_handler(InvalidTransition, _fixed(409, "business-rule", TRANSITION_TEXT))
     app.add_exception_handler(RequestValidationError, _request_invalid)
     app.add_exception_handler(StarletteHTTPException, _http_error)

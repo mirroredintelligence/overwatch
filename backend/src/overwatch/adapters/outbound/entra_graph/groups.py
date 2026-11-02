@@ -17,6 +17,7 @@ No response body, token, secret or directory id is put in an error or a log line
 groups, appRoleAssignedTo, members/$ref); none has been called from the build session.
 """
 
+import asyncio
 import logging
 import re
 import time
@@ -40,6 +41,11 @@ GRAPH_SCOPE: Final = "https://graph.microsoft.com/.default"
 _TIMEOUT_S: Final = 20.0
 _MAX_PAGES: Final = 10
 _EARLY_S: Final = 120
+# A group made a moment ago is not yet visible to the service that assigns app roles: it answers
+# 400 (Request_BadRequest) until it is. Assigning waits and tries again, a few times, for that case
+# only.
+_ASSIGN_ATTEMPTS: Final = 6
+_ASSIGN_WAIT_S: Final = 5.0
 _GUID: Final = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 _NAME: Final = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,119}")
 _ADDRESS: Final = re.compile(r"[A-Za-z0-9._%+'-]{1,64}@[A-Za-z0-9][A-Za-z0-9.-]{0,251}")
@@ -86,8 +92,10 @@ class GraphEntraGroups:
         client_id: str,
         *,
         clock: Any = time.monotonic,
+        sleep: Any = asyncio.sleep,
     ) -> None:
         self._http = http
+        self._sleep = sleep
         self._secrets = secrets
         self._client_id = client_id
         self._clock = clock
@@ -165,15 +173,22 @@ class GraphEntraGroups:
                 str(item.get("appRoleId", "")).lower() == role
             ):
                 return False
-        await self._request(
-            directory_id,
-            "POST",
-            url,
-            json={"principalId": group, "resourceId": principal, "appRoleId": role},
-            ok=(201,),
-            missing_is_group=True,
-        )
-        return True
+        body = {"principalId": group, "resourceId": principal, "appRoleId": role}
+        for attempt in range(1, _ASSIGN_ATTEMPTS + 1):
+            response = await self._send(directory_id, "POST", url, json=body)
+            if response.status_code == 201:
+                return True
+            if response.status_code == 404:
+                raise GroupMissing
+            if (
+                response.status_code == 400
+                and _error_code(response) == "Request_BadRequest"
+                and attempt < _ASSIGN_ATTEMPTS
+            ):
+                await self._sleep(_ASSIGN_WAIT_S)
+                continue
+            self._refused("POST", url, response)
+        raise GraphUnavailable("the directory refused the request")
 
     async def find_user(self, directory_id: str, address: str) -> str | None:
         if _ADDRESS.fullmatch(address) is None:
@@ -306,6 +321,20 @@ class GraphEntraGroups:
         except httpx.HTTPError:
             raise GraphUnavailable("the directory could not be reached") from None
 
+    @staticmethod
+    def _refused(method: str, url: str, response: httpx.Response) -> None:
+        """Log what was asked and Graph's own error code, so a refusal can be told from a delay:
+        never the message (it can name a group or a person) and never the token. Then refuse."""
+        _log.warning(
+            "graph refused: %s %s status %s code %s request-id %s",
+            method,
+            _shape(url),
+            response.status_code,
+            _error_code(response),
+            _request_id(response),
+        )
+        raise GraphUnavailable("the directory refused the request")
+
     async def _request(
         self,
         directory_id: str,
@@ -321,17 +350,7 @@ class GraphEntraGroups:
         if response.status_code == 404 and missing_is_group:
             raise GroupMissing
         if response.status_code not in ok:
-            # What was asked and Graph's own error code, so a refusal can be told from a delay:
-            # never the message (it can name a group or a person) and never the token.
-            _log.warning(
-                "graph refused: %s %s status %s code %s request-id %s",
-                method,
-                _shape(url),
-                response.status_code,
-                _error_code(response),
-                _request_id(response),
-            )
-            raise GraphUnavailable("the directory refused the request")
+            self._refused(method, url, response)
         body = _json(response)
         if body is None:
             raise GraphUnavailable("the directory answered with an unexpected body")

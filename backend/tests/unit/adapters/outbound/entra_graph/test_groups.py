@@ -37,7 +37,7 @@ Handler = Callable[[httpx.Request], httpx.Response]
 
 
 def _adapter(
-    handler: Handler, secret: bytes | None = CLIENT_SECRET
+    handler: Handler, secret: bytes | None = CLIENT_SECRET, sleep: Any = None
 ) -> tuple[GraphEntraGroups, list]:
     seen: list[httpx.Request] = []
 
@@ -51,7 +51,8 @@ def _adapter(
 
     store = FixedSecretStore({} if secret is None else {CLIENT_SECRET_NAME: secret})
     http = httpx.AsyncClient(transport=httpx.MockTransport(recording))
-    return GraphEntraGroups(http, store, CLIENT), seen
+    extra = {} if sleep is None else {"sleep": sleep}
+    return GraphEntraGroups(http, store, CLIENT, **extra), seen
 
 
 def _graph_calls(seen: list[httpx.Request]) -> list[httpx.Request]:
@@ -161,6 +162,68 @@ async def test_the_role_assignment_is_posted_to_the_service_principals_app_role_
         == f"https://graph.microsoft.com/v1.0/servicePrincipals/{SP}/appRoleAssignedTo"
     )
     assert posted == [{"principalId": GROUP, "resourceId": SP, "appRoleId": ROLE}]
+
+
+def _bad_request() -> httpx.Response:
+    return httpx.Response(400, json={"error": {"code": "Request_BadRequest", "message": "x"}})
+
+
+async def test_a_new_group_not_yet_visible_is_assigned_after_waiting_and_trying_again() -> None:
+    # Graph answers 400 Request_BadRequest to an assignment for a group made a moment ago (seen on
+    # the pilot): the assignment waits and tries again, and the third answer is the success.
+    posts: list[int] = []
+    sleeps: list[float] = []
+
+    async def sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET":
+            return httpx.Response(200, json={"value": []})
+        posts.append(1)
+        return _bad_request() if len(posts) < 3 else httpx.Response(201, json={"id": "x"})
+
+    adapter, _ = _adapter(handler, sleep=sleep)
+    assert await adapter.assign_app_role(DIRECTORY, SP, GROUP, ROLE) is True
+    assert len(posts) == 3 and sleeps == [5.0, 5.0]
+
+
+async def test_an_assignment_that_is_always_refused_gives_up_after_six_tries() -> None:
+    posts: list[int] = []
+    sleeps: list[float] = []
+
+    async def sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET":
+            return httpx.Response(200, json={"value": []})
+        posts.append(1)
+        return _bad_request()
+
+    adapter, _ = _adapter(handler, sleep=sleep)
+    with pytest.raises(GraphUnavailable):
+        await adapter.assign_app_role(DIRECTORY, SP, GROUP, ROLE)
+    assert len(posts) == 6 and len(sleeps) == 5
+
+
+async def test_any_other_refusal_of_an_assignment_is_not_retried() -> None:
+    posts: list[int] = []
+    sleeps: list[float] = []
+
+    async def sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET":
+            return httpx.Response(200, json={"value": []})
+        posts.append(1)
+        return httpx.Response(403, json={"error": {"code": "Authorization_RequestDenied"}})
+
+    adapter, _ = _adapter(handler, sleep=sleep)
+    with pytest.raises(GraphUnavailable):
+        await adapter.assign_app_role(DIRECTORY, SP, GROUP, ROLE)
+    assert len(posts) == 1 and sleeps == []
 
 
 async def test_a_role_assignment_that_exists_is_left_and_nothing_is_posted() -> None:

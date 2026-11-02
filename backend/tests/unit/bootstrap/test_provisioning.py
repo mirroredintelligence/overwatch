@@ -45,7 +45,7 @@ def _fakes() -> Any:
     return SimpleNamespace(
         create=_Recorder(SimpleNamespace(tenant_id=TENANT, created=True)),
         number=_Recorder("sms-447700900123"),
-        tested=_Recorder(),
+        retire=_Recorder(),
         host=_Recorder(),
         references=_Recorder(("dsa_ref",)),
         directory=_Recorder(),
@@ -78,7 +78,7 @@ def test_the_operator_is_required_and_the_command_is_one_of_the_eleven() -> None
         "create",
         "host",
         "number",
-        "number-tested",
+        "number-retire",
         "references",
         "verify-directory",
         "activate",
@@ -139,7 +139,7 @@ async def test_a_command_runs_bound_to_the_tenant_it_names_and_to_nothing_after(
             "number",
             "number recorded as channel sms-447700900123",
         ),
-        (("number-tested", TENANT, "+447700900123"), "tested", "number marked as tested"),
+        (("number-retire", TENANT, "+447700900123"), "retire", "number no longer in use"),
         (("references", TENANT, "--dsa", "D-1"), "references", "recorded dsa_ref"),
         (
             ("verify-directory", TENANT, "0f5a7c1e-3b2d-4c6a-9e8f-1a2b3c4d5e6f"),

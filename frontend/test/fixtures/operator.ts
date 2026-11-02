@@ -46,6 +46,7 @@ function detail(over: Record<string, unknown> = {}, tenantOver: Record<string, u
     bindings: [{ directoryId: '11111111-1111-4111-8111-111111111111', status: 'pending', verifiedAt: null }],
     roleMappings: [{ groupObjectId: '22222222-2222-4222-8222-222222222222', role: 'lead', status: 'active' }],
     numbers: [{ e164: '+441632960002', accountSid: 'ACsampleaccount00000000000000000001', status: 'active', testedAt: null, quarantineUntil: null, hasSecret: true, authTokenRef: 'tenants/trust-b/twilio' }],
+    sharedLine: null as null | { status: string; testedAt: string | null },
     activation: { ready: false, blockers: ['Host set', 'Number tested'] },
     ...over,
   };
@@ -97,6 +98,7 @@ export function viewOf(raw: ReturnType<typeof detail>) {
     bindings: raw.bindings,
     roleMappings: raw.roleMappings,
     numbers: raw.numbers.map((n) => ({ e164: n.e164, accountSid: n.accountSid, status: n.status, testedAt: n.testedAt, quarantineUntil: n.quarantineUntil, hasSecret: n.hasSecret })),
+    sharedLine: raw.sharedLine,
     activation: raw.activation,
   };
 }

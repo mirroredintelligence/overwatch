@@ -71,7 +71,6 @@ def passing_facts(**overrides: Any) -> ActivationFacts:
             {ContactKind.COORDINATION_PHONE, ContactKind.CLINICAL_SAFETY_OFFICER}
         ),
         retention_classes_set=frozenset(RetentionClass),
-        references_recorded=frozenset({"dsa", "dpia", "dcb0160"}),
         wording_complete=True,
         registers_services=True,
         area_districts_set=True,

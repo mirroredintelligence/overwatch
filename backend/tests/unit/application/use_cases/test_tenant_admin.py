@@ -20,8 +20,6 @@ from overwatch.application.use_cases.tenant_admin import (
     ActivateTenantCommand,
     CreateTenant,
     CreateTenantCommand,
-    MarkNumberTested,
-    MarkNumberTestedCommand,
     RecordNumberCommand,
     RecordReferencesCommand,
     RecordTenantNumber,
@@ -290,17 +288,10 @@ async def test_a_number_for_a_tenant_nobody_created_is_not_found() -> None:
         )
 
 
-async def test_a_test_text_is_marked_only_on_a_number_the_tenant_holds() -> None:
-    platform, world = FakePlatform(provisioning_tenant()), FakeWorld()
-    use_case = MarkNumberTested(platform, platform, world.factory(), FixedNow())  # type: ignore[arg-type]
-    with as_tenant(TENANT):
-        with pytest.raises(NotFound):
-            await use_case.execute(MarkNumberTestedCommand(operator(), NUMBER))
-        await _record_number(platform, world).execute(
-            RecordNumberCommand(operator(), NUMBER, SID, "Sample sender")
-        )
-        await use_case.execute(MarkNumberTestedCommand(operator(), NUMBER))
-    assert platform.numbers_by_tenant[TENANT][NUMBER].tested_at == NOW
+def test_there_is_no_way_left_to_say_a_test_text_was_delivered_by_hand() -> None:
+    """DEC-1319: the honour-system `MarkNumberTested` is gone; only a real send marks a line."""
+    assert not hasattr(tenant_admin, "MarkNumberTested")
+    assert not hasattr(tenant_admin, "MarkNumberTestedCommand")
 
 
 def _set_host(platform: FakePlatform, world: FakeWorld) -> SetTenantHost:
@@ -508,6 +499,20 @@ async def test_a_ready_tenant_is_activated_once_judged_and_seeded(seeded: list[s
     assert seeded == [TENANT]
 
 
+async def test_a_tenant_with_no_agreement_recorded_is_activated(seeded: list[str]) -> None:
+    """DEC-1319: the agreements are optional, so none of the three is needed."""
+    platform, world = FakePlatform(), FakeWorld()
+    await _ready(platform, world)
+    platform.tenants[TENANT] = provisioning_tenant()  # no dsa, dpia or dcb0160 reference
+
+    with as_tenant(TENANT):
+        result = await _activate(platform, world).execute(ActivateTenantCommand(operator()))
+
+    assert result.tenant_id == TENANT
+    assert platform.tenants[TENANT].status is TenantStatus.ACTIVE
+    assert platform.tenants[TENANT].dsa_ref is None
+
+
 async def test_activation_does_not_ask_for_an_invited_first_administrator(
     seeded: list[str],
 ) -> None:
@@ -537,12 +542,12 @@ async def test_a_tenant_with_nothing_set_lists_every_blocker_in_fixed_words_and_
         "At least one role mapping",
         "Support contacts set",
         "Retention set for every data class",
-        "references recorded",
         "System, referral system and coordination team names set",
         "Area districts set",
         "Host set",
     ):
         assert blocker in text, blocker
+    assert "reference" not in text.lower()  # the three references are recommended (DEC-1319)
     assert TENANT not in text and "New Organisation" not in text
     assert platform.calls == [] and world.audit == [] and seeded == []
     assert platform.tenants[TENANT].status is TenantStatus.PROVISIONING

@@ -399,10 +399,10 @@ PLATFORM_STATEMENTS: Final[Mapping[str, str]] = MappingProxyType(
             "dfc4def5a3d9af616f9898d1c9967a606adb070005984e503e0820d9d5efbf85"
         ),
         "Q-TENANT-REG-MARK-TESTED": (
-            "797ca905a9d0a4b6b990edc1c33e5848283852dadc98899b386d95a732f470dd"
+            "df2c610a0b06e02406e412402a4e051924c56ae033c98b0e462ca083992a9c48"
         ),
         "Q-TENANT-REG-NUMBERS": (
-            "4d79b14ddb793344cadceda9973790d53551f1e8e1730e8bba2e13b69853c6eb"
+            "2fdefd73f7404e06bb4cea50f2aa680af7af96b8dddff4a1b02dce29cd3c8aed"
         ),
         "Q-TENANT-REG-LIST": ("ac2dce20e0c19f359f2cdc4450d09356326ab89cbc9e65d1e703bd67368aec6e"),
         "Q-TENANT-REG-GET": ("73f61ba62534e1e5a48eeab6d353982534fd33f666d23484766673621bac7be0"),

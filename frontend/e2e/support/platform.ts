@@ -27,6 +27,8 @@ type Tenant = {
   bindings: Binding[];
   roleMappings: Mapping[];
   directoryId: string | null;
+  numbers?: { e164: string; accountSid: string; status: 'active' | 'retired'; testedAt: string | null }[];
+  sharedLine?: { status: 'active'; testedAt: string | null };
   invitation?: { emailMasked: string; createdAt: string; expiresAt: string };
 };
 
@@ -88,7 +90,8 @@ function detail(t: Tenant) {
     directoryId: t.directoryId,
     bindings: t.bindings,
     roleMappings: t.roleMappings,
-    numbers: [],
+    numbers: (t.numbers ?? []).map((n) => ({ ...n, quarantineUntil: null, hasSecret: true })),
+    sharedLine: t.sharedLine ?? null,
     activation: { ready: false, blockers: ['Host set', 'Number tested'] },
   };
 }
@@ -115,7 +118,7 @@ export async function handlePlatformRoute(request: IncomingMessage, response: Se
     send(response, 200, { tenants: support ? all.map(({ id, displayName, status }) => ({ id, displayName, status })) : all.map(listed) });
     return true;
   }
-  const one = /^\/platform\/tenants\/([a-z0-9][a-z0-9-]{0,30})(\/directory\/verification|\/admin-consent|\/admin-consent-invitation)?$/.exec(pathname);
+  const one = /^\/platform\/tenants\/([a-z0-9][a-z0-9-]{0,30})(\/directory\/verification|\/admin-consent|\/admin-consent-invitation|\/numbers|\/numbers\/retire|\/numbers\/shared|\/numbers\/test-text)?$/.exec(pathname);
   if (one === null) return false;
   const id = one[1]!;
   if (support) {
@@ -182,6 +185,50 @@ export async function handlePlatformRoute(request: IncomingMessage, response: Se
       directoryId: null,
     });
     send(response, 201, { tenantId: id, created: true, recorded: true });
+    return true;
+  }
+
+  // The text number routes (DEC-1319). The stand-in has no text provider: a test text is accepted whenever the line is in
+  // use and the mobile is a UK mobile, and the mobile is never kept.
+  if (request.method === 'POST' && one[2]?.startsWith('/numbers')) {
+    const body = await bodyOf(request);
+    const found = store.get(id);
+    if (found === undefined) {
+      send(response, 404, NOT_FOUND);
+      return true;
+    }
+    const numbers = (found.numbers ??= []);
+    if (one[2] === '/numbers' && typeof body.e164 === 'string' && typeof body.accountSid === 'string') {
+      numbers.push({ e164: body.e164, accountSid: body.accountSid, status: 'active', testedAt: null });
+      send(response, 201, { channelId: 'sms-e2e', recorded: true });
+      return true;
+    }
+    if (one[2] === '/numbers/shared') {
+      found.sharedLine ??= { status: 'active', testedAt: null };
+      send(response, 201, { channelId: 'sms-shared', recorded: true });
+      return true;
+    }
+    if (one[2] === '/numbers/retire') {
+      const held = numbers.find((n) => n.e164 === body.e164);
+      if (held === undefined) {
+        send(response, 404, NOT_FOUND);
+        return true;
+      }
+      held.status = 'retired';
+      send(response, 200, { recorded: true });
+      return true;
+    }
+    if (one[2] === '/numbers/test-text' && typeof body.to === 'string') {
+      const held = body.e164 === undefined ? found.sharedLine : numbers.find((n) => n.e164 === body.e164 && n.status === 'active');
+      if (held === undefined) {
+        send(response, 409, { resourceType: 'OperationOutcome', issue: [{ severity: 'error', code: 'conflict', diagnostics: 'The organisation’s text account is not set up yet.' }] });
+        return true;
+      }
+      held.testedAt = new Date().toISOString();
+      send(response, 200, { sent: true, recorded: true });
+      return true;
+    }
+    send(response, 422, { resourceType: 'OperationOutcome', issue: [{ severity: 'error', code: 'invalid' }] });
     return true;
   }
 

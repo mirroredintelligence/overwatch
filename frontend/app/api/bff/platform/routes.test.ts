@@ -101,7 +101,10 @@ const CASES: Case[] = [
     status: 201,
     view: { recorded: true },
   },
-  { name: 'mark a number tested', module: () => import('./tenants/[id]/numbers/tested/route'), verb: 'POST', url: `${T}/numbers/tested`, params: P, roles: OPERATOR, body: { e164: '+441632960002' }, backendBody: { e164: '+441632960002' }, backend: { path: '/platform/tenants/trust-b/numbers/tested', reply: { recorded: true } }, view: { recorded: true } },
+  { name: 'stop using a number', module: () => import('./tenants/[id]/numbers/retire/route'), verb: 'POST', url: `${T}/numbers/retire`, params: P, roles: OPERATOR, body: { e164: '+441632960002' }, backendBody: { e164: '+441632960002' }, backend: { path: '/platform/tenants/trust-b/numbers/retire', reply: { recorded: true } }, view: { recorded: true } },
+  { name: 'send a test text from the organisation’s number', module: () => import('./tenants/[id]/numbers/test-text/route'), verb: 'POST', url: `${T}/numbers/test-text`, params: P, roles: OPERATOR, body: { e164: '+441632960002', to: '07700 900456' }, backendBody: { e164: '+441632960002', to: '07700 900456' }, backend: { path: '/platform/tenants/trust-b/numbers/test-text', reply: { sent: true, recorded: true } }, view: { sent: true, recorded: true } },
+  { name: 'send a test text from the shared line', module: () => import('./tenants/[id]/numbers/test-text/route'), verb: 'POST', url: `${T}/numbers/test-text`, params: P, roles: OPERATOR, body: { to: '+447700900456' }, backendBody: { to: '+447700900456' }, backend: { path: '/platform/tenants/trust-b/numbers/test-text', reply: { sent: true, recorded: true } }, view: { sent: true, recorded: true } },
+  { name: 'use the shared line', module: () => import('./tenants/[id]/numbers/shared/route'), verb: 'POST', url: `${T}/numbers/shared`, params: P, roles: OPERATOR, body: {}, backendBody: {}, backend: { path: '/platform/tenants/trust-b/numbers/shared', status: 201, reply: { recorded: true } }, status: 201, view: { recorded: true } },
   {
     name: 'references',
     module: () => import('./tenants/[id]/references/route'),

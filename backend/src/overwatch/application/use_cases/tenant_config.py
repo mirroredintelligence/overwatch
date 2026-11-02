@@ -202,6 +202,10 @@ class ConfigurationFacts:
     entra_binding_verified: bool
     active_sms_channels: int
     active_email_channels: int
+    shared_lines_tested: int = 0
+    """Active shared sending lines (DEC-1319) that a test text has been sent on. A shared line is
+    outgoing only and holds no number of the tenant's own, so it is counted here, not in the
+    registry's numbers, and only once its test text was accepted."""
 
 
 # ---------------------------------------------------------------- the rules (pure)
@@ -327,6 +331,11 @@ def configuration_facts(
         entra_binding_verified=any(b.status is BindingStatus.VERIFIED for b in bindings),
         active_sms_channels=_active(channels, ChannelKind.SMS),
         active_email_channels=_active(channels, ChannelKind.EMAIL),
+        shared_lines_tested=sum(
+            1
+            for c in channels
+            if c.shared and c.status is NumberStatus.ACTIVE and c.tested_at is not None
+        ),
     )
 
 

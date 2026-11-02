@@ -106,6 +106,9 @@ class Settings(BaseSettings):
     # the tenant cannot send yet (the Twilio account SID is an identifier, not a secret; its auth
     # token is the secret `twilio-auth-token`). Unset: no platform fallback.
     platform_twilio_account_sid: str | None = None
+    # DEC-1319: the platform's shared sending number (E.164), for a tenant that has no number of its
+    # own yet. Outgoing only: it is never a tenant's number. Unset: no shared line.
+    platform_sms_from: str | None = None
     platform_email_from: str = "noreply@mirroredintelligence.com"
     # B8 (DEC-1304): where the platform's secrets come from. With `key_vault_url` set (a URL, not a
     # secret) the process reads them from Azure Key Vault through its managed identity

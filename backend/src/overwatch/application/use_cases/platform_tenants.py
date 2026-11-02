@@ -32,7 +32,7 @@ from overwatch.application.use_cases.tenant_admin import (
 )
 from overwatch.domain.errors import NotFound
 from overwatch.domain.model.tenant import TenantStatus
-from overwatch.domain.model.tenant_records import EntraBinding, RoleMapping
+from overwatch.domain.model.tenant_records import EntraBinding, RoleMapping, TenantChannel
 
 
 class ListPlatformTenants:
@@ -53,6 +53,8 @@ class PlatformTenantDetail:
     """The directories the tenant has bound, with their state (`pending` until the operator verifies
     one): the registry's directory is the verified one only."""
     role_mappings: tuple[RoleMapping, ...] = ()
+    channels: tuple[TenantChannel, ...] = ()
+    """The tenant's text and email channels: the detail shows whether it uses the shared line."""
     """The directory groups mapped to a role, group object id and role only."""
 
 
@@ -83,10 +85,12 @@ class ReadPlatformTenant(OperatorUseCase):
         async with self._uow_factory() as uow:
             bindings = await uow.tenant_config.bindings()
             mappings = await uow.tenant_config.role_mappings()
+            channels = await uow.tenant_config.channels()
         return PlatformTenantDetail(
             tenant=found,
             numbers=numbers,
             activation=assessment,
             bindings=bindings,
             role_mappings=mappings,
+            channels=channels,
         )

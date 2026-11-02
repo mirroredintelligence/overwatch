@@ -62,12 +62,13 @@ EXPECTED_TEXT = {
     ),
     "Q-TENANT-REG-MARK-TESTED": (
         "MATCH (:Tenant {id: $id})-[:HAS_NUMBER]->(n:TenantNumber {e164: $e164}) "
-        "SET n.testedAt = $at RETURN n.e164 AS e164"
+        "SET n.testedAt = $at, n.testMessageId = $messageId RETURN n.e164 AS e164"
     ),
     "Q-TENANT-REG-NUMBERS": (
         "MATCH (:Tenant {id: $id})-[:HAS_NUMBER]->(n:TenantNumber) "
         "RETURN n.e164 AS e164, n.accountSid AS accountSid, n.secretRef AS secretRef, "
-        "n.status AS status, n.testedAt AS testedAt, n.quarantineUntil AS quarantineUntil "
+        "n.status AS status, n.testedAt AS testedAt, n.testMessageId AS testMessageId, "
+        "n.quarantineUntil AS quarantineUntil "
         "ORDER BY n.e164"
     ),
 }
@@ -139,7 +140,7 @@ EXPECTED_PARAMETERS = {
     "Q-TENANT-REG-SET-HOST": {"id", "host"},
     "Q-TENANT-REG-SET-DIRECTORY": {"id", "directoryId"},
     "Q-TENANT-REG-PUT-NUMBER": {"id", "e164", "props"},
-    "Q-TENANT-REG-MARK-TESTED": {"id", "e164", "at"},
+    "Q-TENANT-REG-MARK-TESTED": {"id", "e164", "at", "messageId"},
     "Q-TENANT-REG-NUMBERS": {"id"},
     "Q-TENANT-REG-LIST": set(),
     "Q-TENANT-REG-GET": {"id"},

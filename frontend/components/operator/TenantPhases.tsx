@@ -18,7 +18,7 @@ const LEDE: Record<PhaseId, string> = {
   organisation: 'Check this is the right organisation, then connect the Microsoft work accounts its people sign in with.',
   approval: '',
   teams: 'What a person can do in Overwatch comes from the teams they are in. Start with the administrators’ team.',
-  reach: 'Set the web address people use and the number their texts come from, and record the agreements that are in place.',
+  reach: 'Set the web address people use and the number their texts come from, and record the agreements that are in place (recommended, not required).',
   golive: 'Check what is left. When everything is ready you can make the organisation live.',
 };
 
@@ -27,7 +27,7 @@ export const phaseTagClass = (state: FunnelPhase['state']): string =>
 
 type FactRow = readonly [string, ReactNode];
 
-function facts(phase: PhaseId, detail: Detail, consent: ConsentRead): FactRow[] {
+function facts(phase: PhaseId, detail: Detail, consent: ConsentRead, funnel: Funnel): FactRow[] {
   const t = detail.tenant;
   if (phase === 'organisation')
     return [
@@ -48,11 +48,13 @@ function facts(phase: PhaseId, detail: Detail, consent: ConsentRead): FactRow[] 
     ];
   }
   if (phase === 'reach') {
-    const tested = detail.numbers.filter((n) => n.testedAt !== null).map((n) => n.e164);
+    const tested = detail.numbers.filter((n) => n.status === 'active' && n.testedAt !== null).map((n) => n.e164);
+    const shared = detail.sharedLine !== null && detail.sharedLine.status === 'active' && detail.sharedLine.testedAt !== null;
+    const recorded = 3 - funnel.recommended;
     return [
       ['Web address', detail.host ?? 'Not set'],
-      ['Text number', tested.length > 0 ? `${tested.join(', ')} (tested)` : 'Not tested'],
-      ['Agreements', 'All three recorded'],
+      ['Text number', tested.length > 0 ? `${tested.join(', ')} (tested)` : shared ? 'Overwatch’s shared line, sending only (tested)' : 'Not tested'],
+      ['Agreements (recommended)', recorded === 3 ? 'All three recorded' : `${recorded} of 3 recorded`],
     ];
   }
   return [];
@@ -136,7 +138,7 @@ export const PhasePanel = forwardRef<HTMLHeadingElement, Props>(function PhasePa
       ) : (
         <>
           <dl className={ts.summary}>
-            {facts(phase.id, detail, consent).map(([label, value]) => (
+            {facts(phase.id, detail, consent, funnel).map(([label, value]) => (
               <div key={label} className={ts.summaryRow}>
                 <dt>{label}</dt>
                 <dd>{value}</dd>

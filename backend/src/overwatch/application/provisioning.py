@@ -37,8 +37,6 @@ from overwatch.domain.rules.tenant_lifecycle import ActivationFacts
 OPERATOR_ROLE_MESSAGE: Final = "only the platform operator runs a tenant's lifecycle"
 OPERATOR_UNNAMED_MESSAGE: Final = "the operator must be named"
 
-# What the registry's references say. The three references the activation needs (DEC-136 item 10).
-REFERENCE_NAMES: Final = ("dsa", "dpia", "dcb0160")
 
 # The one blocker added to the domain's list: a tenant with no host cannot be sent a link, and the
 # host of a request is what chooses its tenant (DEC-134 item 3).
@@ -102,19 +100,9 @@ def same_creation(existing: Tenant, wanted: Tenant) -> bool:
 
 
 def count_tested_numbers(numbers: tuple[TenantNumberRecord, ...]) -> int:
-    """How many numbers are active and have delivered a test text (an activation fact)."""
+    """How many numbers are active and have had a test text accepted (an activation fact). A retired
+    or quarantined number counts for nothing, tested or not (DEC-1319)."""
     return sum(1 for number in numbers if number.status is NumberStatus.ACTIVE and number.tested_at)
-
-
-def references_recorded(tenant: Tenant) -> frozenset[str]:
-    """The references the operator has recorded (an operator asserts them; the system does not prove
-    them)."""
-    found = {
-        "dsa": tenant.dsa_ref,
-        "dpia": tenant.dpia_ref,
-        "dcb0160": tenant.dcb0160_ref,
-    }
-    return frozenset(name for name, value in found.items() if value is not None)
 
 
 def activation_facts(
@@ -132,7 +120,7 @@ def activation_facts(
     return ActivationFacts(
         config_approved=configuration.config_approved,
         time_zone=tenant.time_zone,
-        active_numbers_tested=count_tested_numbers(numbers),
+        active_numbers_tested=count_tested_numbers(numbers) + configuration.shared_lines_tested,
         email_in_use=configuration.active_email_channels > 0,
         email_sender_verified=configuration.active_email_channels > 0,
         tenant_admin_group_mapped=tenant_admin_group_mapped,
@@ -140,7 +128,6 @@ def activation_facts(
         role_mappings=configuration.role_mappings,
         contact_kinds=configuration.contact_kinds,
         retention_classes_set=configuration.retention_classes_set,
-        references_recorded=references_recorded(tenant),
         wording_complete=configuration.wording_complete,
         registers_services=True,
         area_districts_set=area_districts_set,

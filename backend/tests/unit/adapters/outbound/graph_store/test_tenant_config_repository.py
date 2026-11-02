@@ -461,8 +461,57 @@ def test_a_text_channel_round_trips() -> None:
         "secretRef": "twilio/example-icb/auth-token",
         "fromAddress": None,
         "fromDisplayName": None,
+        "shared": False,
+        "testedAt": None,
+        "testMessageId": None,
     }
     assert channel_from_props({k: v for k, v in params.items() if v is not None}) == channel
+
+
+def test_a_shared_channel_round_trips_with_its_test_and_holds_no_account_or_secret() -> None:
+    tested = datetime(2026, 10, 29, 9, 0, tzinfo=UTC)
+    channel = TenantChannel(
+        id="sms-shared",
+        kind=ChannelKind.SMS,
+        provider=ChannelProvider.TWILIO,
+        status=NumberStatus.ACTIVE,
+        sender_label="Overwatch shared line",
+        shared=True,
+        tested_at=tested,
+        test_message_id="SM" + "1" * 32,
+    )
+
+    params = channel_params(channel)
+
+    assert params["shared"] is True
+    assert params["accountSid"] is None and params["secretRef"] is None
+    assert params["testedAt"] == tested and params["testMessageId"] == "SM" + "1" * 32
+    assert channel_from_props({k: v for k, v in params.items() if v is not None}) == channel
+    # A stored row that says shared but holds an account is a record fault, not a shared line.
+    with pytest.raises(TenantRecordInvalid):
+        channel_from_props(
+            {**{k: v for k, v in params.items() if v is not None}, "accountSid": "AC" + "1" * 32}
+        )
+
+
+def test_a_channel_row_with_no_shared_property_is_not_shared() -> None:
+    """Rows written before DEC-1319 have no `shared`: they read as an ordinary channel."""
+    channel = TenantChannel(
+        id="ch-1",
+        kind=ChannelKind.SMS,
+        provider=ChannelProvider.TWILIO,
+        status=NumberStatus.ACTIVE,
+        sender_label="Example capacity",
+        account_sid="AC" + "1" * 32,
+        secret_ref="twilio/example-icb/auth-token",
+    )
+    old = {
+        k: v
+        for k, v in channel_params(channel).items()
+        if v is not None and k not in {"shared", "testedAt", "testMessageId"}
+    }
+
+    assert channel_from_props(old) == channel
 
 
 def test_an_email_channel_round_trips_and_a_damaged_one_is_a_record_fault() -> None:

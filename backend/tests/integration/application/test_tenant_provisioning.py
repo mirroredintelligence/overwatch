@@ -42,6 +42,7 @@ from overwatch.adapters.outbound.graph_store.tenant_registry import Neo4jTenantR
 from overwatch.adapters.testing.fixed_clock import FixedClock
 from overwatch.adapters.testing.fixed_ids import SequentialIds
 from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.recording_senders import FixedSenderResolver, RecordingSmsSender
 from overwatch.application.actor import Actor
 from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from overwatch.application.tenancy import bind_tenant
@@ -50,12 +51,12 @@ from overwatch.application.use_cases.tenant_admin import (
     ActivateTenantCommand,
     CreateTenant,
     CreateTenantCommand,
-    MarkNumberTested,
-    MarkNumberTestedCommand,
     RecordNumberCommand,
     RecordReferencesCommand,
     RecordTenantNumber,
     RecordTenantReferences,
+    SendTestText,
+    SendTestTextCommand,
     SetHostCommand,
     SetTenantHost,
     VerifyDirectoryCommand,
@@ -281,9 +282,12 @@ async def _operator_steps(world: World, tenant: str) -> None:
         await RecordTenantNumber(world.directory, world.registry, factory, world.clock).execute(
             RecordNumberCommand(_operator(tenant), NUMBER, SID, "Sample sender")
         )
-        await MarkNumberTested(world.directory, world.registry, factory, world.clock).execute(
-            MarkNumberTestedCommand(_operator(tenant), NUMBER)
-        )
+        # A real send through the tenant's sender (a recording one stands in for the provider): the
+        # provider accepts the text, so the number is marked tested, with the provider's id.
+        senders = FixedSenderResolver({tenant: RecordingSmsSender("line")})
+        await SendTestText(
+            world.directory, world.registry, factory, world.clock, world.ids, senders
+        ).execute(SendTestTextCommand(_operator(tenant), "07700 900456", NUMBER))
         await RecordTenantReferences(world.directory, world.registry, factory, world.clock).execute(
             RecordReferencesCommand(
                 _operator(tenant), dsa_ref="DSA-1", dpia_ref="DPIA-1", dcb0160_ref="CS-1"

@@ -18,7 +18,6 @@ from overwatch.application.provisioning import (
     extra_blockers,
     new_tenant,
     provision_scope,
-    references_recorded,
     same_creation,
     seed_recurring_work,
 )
@@ -136,11 +135,36 @@ def test_only_an_active_number_that_has_delivered_a_test_text_counts() -> None:
     assert count_tested_numbers(()) == 0
 
 
-def test_the_references_are_the_ones_the_operator_recorded() -> None:
-    assert references_recorded(provisioning_tenant()) == frozenset()
-    assert references_recorded(provisioning_tenant(dsa_ref="D-1", dcb0160_ref="C-1")) == frozenset(
-        {"dsa", "dcb0160"}
+def test_a_retired_number_counts_for_nothing_even_when_it_was_tested() -> None:
+    retired = _number(tested_at=NOW, status=NumberStatus.RETIRED)
+    facts = activation_facts(
+        provisioning_tenant(),
+        _configuration(),
+        (retired,),
+        tenant_admin_group_mapped=True,
+        area_districts_set=True,
     )
+    assert facts.active_numbers_tested == 0
+    assert "At least one sender number active with a test text delivered" in activation_blockers(
+        facts
+    )
+
+
+def test_the_shared_line_counts_only_once_a_test_text_was_sent_on_it() -> None:
+    def blockers(shared: int) -> list[str]:
+        return activation_blockers(
+            activation_facts(
+                provisioning_tenant(),
+                _configuration(shared_lines_tested=shared),
+                (),
+                tenant_admin_group_mapped=True,
+                area_districts_set=True,
+            )
+        )
+
+    number_sentence = "At least one sender number active with a test text delivered"
+    assert number_sentence in blockers(0)
+    assert number_sentence not in blockers(1)
 
 
 def _facts(**fields: object) -> ActivationFacts:
@@ -183,8 +207,10 @@ def test_email_is_checked_only_when_the_tenant_has_an_email_channel() -> None:
     assert activation_blockers(_facts(configuration=_configuration(active_email_channels=1))) == []
 
 
-def test_a_tenant_without_references_is_blocked_and_the_zone_is_the_records() -> None:
+def test_a_tenant_without_references_is_not_blocked_and_the_zone_is_the_records() -> None:
+    """DEC-1319: the three references are recommended, so none of them is a blocker."""
     bare = provisioning_tenant()
+    assert (bare.dsa_ref, bare.dpia_ref, bare.dcb0160_ref) == (None,) * 3
     facts = activation_facts(
         bare,
         _configuration(),
@@ -193,9 +219,7 @@ def test_a_tenant_without_references_is_blocked_and_the_zone_is_the_records() ->
         area_districts_set=True,
     )
     assert facts.time_zone == "Europe/London"
-    assert activation_blockers(facts) == [
-        "Data sharing, data protection and clinical safety references recorded"
-    ]
+    assert activation_blockers(facts) == []
 
 
 def test_a_tenant_is_not_a_network_member_until_the_network_work_says_so() -> None:

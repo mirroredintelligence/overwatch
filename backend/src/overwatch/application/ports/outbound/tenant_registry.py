@@ -12,6 +12,7 @@ across tenants by constraint: a second claim is a `Conflict`, never a move from 
 another (a retired number stays quarantined, DEC-136 item 10).
 """
 
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
@@ -24,6 +25,13 @@ from overwatch.application.ports.outbound.tenants import (
 from overwatch.domain.errors import ValidationFailed
 from overwatch.domain.model.tenant import NumberStatus, Tenant, TenantStatus
 
+_MESSAGE_ID = re.compile(r"[A-Za-z0-9_-]{2,64}")
+
+
+def valid_message_id(value: object) -> bool:
+    """A provider message id as it is stored: short, plain letters and digits."""
+    return type(value) is str and _MESSAGE_ID.fullmatch(value) is not None
+
 
 @dataclass(frozen=True, slots=True)
 class TenantNumberRecord:
@@ -35,8 +43,10 @@ class TenantNumberRecord:
     secret_ref: str
     status: NumberStatus = NumberStatus.ACTIVE
     tested_at: datetime | None = None
-    """When a test text was delivered from this number (the activation fact), or None."""
+    """When the provider accepted a test text sent from this number (the activation fact)."""
     quarantine_until: datetime | None = None
+    test_message_id: str | None = None
+    """The provider's id of that test text. Never the number it was sent to (DEC-1319)."""
 
     def __post_init__(self) -> None:
         if normalise_e164(self.e164) is None:
@@ -47,6 +57,8 @@ class TenantNumberRecord:
             raise ValidationFailed("secret_ref", "must be a secret reference")
         if type(self.status) is not NumberStatus:
             raise ValidationFailed("status", "has the wrong type")
+        if self.test_message_id is not None and not valid_message_id(self.test_message_id):
+            raise ValidationFailed("test_message_id", "must be a provider message id")
         for name in ("tested_at", "quarantine_until"):
             value = getattr(self, name)
             if value is not None and (not isinstance(value, datetime) or value.utcoffset() is None):
@@ -95,9 +107,11 @@ class TenantRegistry(Protocol):
         tenant holds, in any status, is `Conflict`."""
         ...
 
-    async def mark_number_tested(self, tenant_id: str, e164: str, at: datetime) -> None:
-        """Record that a test text was delivered from the tenant's number. A number the tenant does
-        not hold is `NotFound`."""
+    async def mark_number_tested(
+        self, tenant_id: str, e164: str, at: datetime, provider_message_id: str
+    ) -> None:
+        """Record that the provider accepted a test text sent from the tenant's number, with the
+        provider's id of that text. A number the tenant does not hold is `NotFound`."""
         ...
 
     async def numbers(self, tenant_id: str) -> tuple[TenantNumberRecord, ...]:

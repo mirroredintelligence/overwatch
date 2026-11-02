@@ -42,9 +42,6 @@ OFFBOARDING_NOTICE: Final = timedelta(days=30)
 # Audit C proposed 7 days earlier; DEC-136 is later and wins.
 NUMBER_QUARANTINE: Final = timedelta(days=90)
 PURGE_OPERATORS_REQUIRED: Final = 2
-# The references an operator records for activation: a data sharing agreement, a data protection
-# impact assessment and a clinical safety case. The system records that they were asserted.
-REQUIRED_REFERENCES: Final = frozenset({"dsa", "dpia", "dcb0160"})
 
 _T = TenantStatus
 _C = ConfigStatus
@@ -82,8 +79,10 @@ BLOCKER_HOLD: Final = "Retention hold has not passed"
 BLOCKER_OPERATORS: Final = "Two different operators are needed"
 BLOCKER_TYPED_ID: Final = "The tenant id was not typed correctly"
 
-# Activation blockers (audit F section 2.4), in this order. They describe what is missing. The
-# references are asserted by an operator, not proved: no sentence says approved or certified.
+# Activation blockers (audit F section 2.4), in this order. They describe what is missing. No
+# sentence says approved or certified. The data sharing agreement, the privacy impact assessment and
+# the clinical safety case are recommended, never a blocker (DEC-1319): an operator still records
+# them (`Tenant.dsa_ref`, `dpia_ref`, `dcb0160_ref`), and nothing here reads them.
 MISSING_CONFIG: Final = "Configuration version approved"
 MISSING_ZONE: Final = "Time zone set"
 MISSING_NUMBER: Final = "At least one sender number active with a test text delivered"
@@ -93,7 +92,6 @@ MISSING_DIRECTORY: Final = "Sign-in directory bound and verified"
 MISSING_ROLE: Final = "At least one role mapping"
 MISSING_CONTACTS: Final = "Support contacts set: coordination phone and clinical safety officer"
 MISSING_RETENTION: Final = "Retention set for every data class"
-MISSING_REFERENCES: Final = "Data sharing, data protection and clinical safety references recorded"
 MISSING_WORDING: Final = "System, referral system and coordination team names set"
 MISSING_DISTRICTS: Final = "Area districts set"
 MISSING_AGREEMENT: Final = "Network agreement accepted"
@@ -114,7 +112,6 @@ class ActivationFacts:
     role_mappings: int
     contact_kinds: frozenset[ContactKind]
     retention_classes_set: frozenset[RetentionClass]
-    references_recorded: frozenset[str]
     wording_complete: bool
     registers_services: bool
     area_districts_set: bool
@@ -351,12 +348,6 @@ def _exact_members(values: object, enum_type: type[StrEnum]) -> frozenset[object
     return frozenset(value for value in values if type(value) is enum_type)
 
 
-def _plain_strings(values: object) -> frozenset[object]:
-    if not isinstance(values, frozenset):
-        return frozenset()
-    return frozenset(value for value in values if type(value) is str)
-
-
 def _at_least_one(count: object) -> bool:
     return type(count) is int and count >= 1
 
@@ -386,8 +377,6 @@ def activation_blockers(facts: ActivationFacts) -> list[str]:
     retention = _exact_members(facts.retention_classes_set, RetentionClass)
     if not retention >= REQUIRED_RETENTION_CLASSES:
         missing.append(MISSING_RETENTION)
-    if not _plain_strings(facts.references_recorded) >= REQUIRED_REFERENCES:
-        missing.append(MISSING_REFERENCES)
     if facts.wording_complete is not True:
         missing.append(MISSING_WORDING)
     if facts.registers_services is not False and facts.area_districts_set is not True:

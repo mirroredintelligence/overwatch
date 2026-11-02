@@ -162,6 +162,59 @@ test.describe('the platform console', () => {
     expect(await axe(page)).toEqual([]);
   });
 
+  test('the text number part: send a test text, stop using a number, choose the shared line, and pass axe at 360 and 1280', async ({ page }) => {
+    await signInOperator(page.context(), SITE_URL, 'platform-operator', liveToken());
+    await page.goto('/operator/tenants/new');
+    await page.getByLabel('Tenant id').fill('example-texts');
+    await page.getByLabel('Display name').fill('Example Texts');
+    await page.getByLabel('Legal name').fill('Example Texts Organisation');
+    await page.getByLabel('ODS code').fill('RZZ04');
+    await page.getByRole('button', { name: 'Create tenant' }).click();
+    await expect(page.getByRole('status')).toContainText('Tenant created.');
+    await page.goto('/operator/tenants/example-texts');
+    await page.getByRole('navigation', { name: 'Go live tasks' }).getByRole('link', { name: /Reach and agreements/ }).click();
+    const reach = page.getByRole('region', { name: 'Web address and text number' });
+
+    // Record the organisation's own number, then send a real test text from it: the page says the provider accepted it.
+    await reach.getByRole('textbox', { name: 'Text number', exact: true }).fill('+441632960011');
+    await reach.getByLabel('Text account').fill('ACe2e');
+    await reach.getByLabel('Sender name').fill('ExampleTexts');
+    await reach.getByRole('button', { name: 'Record text number' }).click();
+    const line = reach.getByRole('list', { name: 'Text numbers' }).getByRole('listitem');
+    await expect(line).toContainText('+441632960011 · In use · Not tested');
+    await expect(reach.getByRole('button', { name: /Mark .* as tested/ })).toHaveCount(0);
+    const form = reach.getByRole('form', { name: 'Send a test text from +441632960011' });
+    await form.getByLabel('Mobile phone to send the test to').fill('07700 900456');
+    await form.getByRole('button', { name: 'Send a test text' }).click();
+    await expect(form.getByRole('status')).toContainText('the text provider accepted the text');
+    await expect(line).toContainText('Tested');
+    await expect(page.locator('body')).not.toContainText('07700 900456');
+
+    // The shared line is for sending only, and it says so.
+    await expect(reach.getByText('People cannot reply by text until the organisation has its own number.', { exact: false })).toBeVisible();
+    await reach.getByRole('button', { name: 'Use Overwatch’s shared line (sending only)' }).click();
+    await expect(reach.getByRole('form', { name: 'Send a test text from the shared line' })).toBeVisible();
+
+    // Stopping a number asks first, then says it is stopped and held.
+    await reach.getByRole('button', { name: 'Stop using +441632960011' }).click();
+    await expect(reach.getByRole('group', { name: 'Stop using +441632960011' })).toContainText('no other organisation can take it');
+    await page.mouse.move(0, 0);
+    await page.waitForTimeout(400);
+    expect(await axe(page)).toEqual([]);
+    await reach.getByRole('button', { name: 'Yes, stop using it' }).click();
+    await expect(line).toContainText('Stopped');
+    await expect(reach.getByText('held for this organisation', { exact: false })).toBeVisible();
+
+    for (const width of [360, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.mouse.move(0, 0);
+      await page.waitForTimeout(400);
+      expect(await axe(page)).toEqual([]);
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      expect(overflow).toBeLessThanOrEqual(0);
+    }
+  });
+
   test('refuses a directory id that is not a directory id, in words, and creates nothing', async ({ page }) => {
     await signInOperator(page.context(), SITE_URL, 'platform-operator', liveToken());
     await page.goto('/operator/tenants/new');

@@ -14,7 +14,7 @@ command that hashes a mobile (`invite`): a process that has none refuses it, clo
     provision_tenant.py --operator NAME create TENANT --display-name X --legal-name Y --type icb
     provision_tenant.py --operator NAME host TENANT HOST
     provision_tenant.py --operator NAME number TENANT E164 ACCOUNT-SID --label SENDER-LABEL
-    provision_tenant.py --operator NAME number-tested TENANT E164
+    provision_tenant.py --operator NAME number-retire TENANT E164
     provision_tenant.py --operator NAME references TENANT [--dsa REF] [--dpia REF] [--dcb0160 REF]
     provision_tenant.py --operator NAME verify-directory TENANT DIRECTORY-ID
     provision_tenant.py --operator NAME invite TENANT MOBILE
@@ -46,12 +46,12 @@ from overwatch.application.use_cases.tenant_admin import (
     ActivateTenantCommand,
     CreateTenant,
     CreateTenantCommand,
-    MarkNumberTested,
-    MarkNumberTestedCommand,
     RecordNumberCommand,
     RecordReferencesCommand,
     RecordTenantNumber,
     RecordTenantReferences,
+    RetireNumberCommand,
+    RetireTenantNumber,
     SetHostCommand,
     SetTenantHost,
     VerifyDirectoryCommand,
@@ -79,7 +79,7 @@ COMMANDS: Final = (
     "create",
     "host",
     "number",
-    "number-tested",
+    "number-retire",
     "references",
     "verify-directory",
     "activate",
@@ -106,7 +106,7 @@ class Provisioning:
 
     create: CreateTenant
     number: RecordTenantNumber
-    tested: MarkNumberTested
+    retire: RetireTenantNumber
     host: SetTenantHost
     references: RecordTenantReferences
     directory: VerifyEntraBinding
@@ -132,7 +132,7 @@ def build_provisioning(
     return Provisioning(
         create=CreateTenant(tenants, registry, AuditHeads(container.neo4j), factory, clock),
         number=RecordTenantNumber(tenants, registry, factory, clock),
-        tested=MarkNumberTested(tenants, registry, factory, clock),
+        retire=RetireTenantNumber(tenants, registry, factory, clock),
         host=SetTenantHost(tenants, registry, factory, clock),
         references=RecordTenantReferences(tenants, registry, factory, clock),
         directory=VerifyEntraBinding(tenants, registry, factory, clock),
@@ -187,9 +187,9 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     number.add_argument("account_sid")
     number.add_argument("--label", required=True, help="the sender label")
 
-    tested = commands.add_parser("number-tested", help="record a delivered test text")
-    tested.add_argument("tenant_id")
-    tested.add_argument("e164")
+    retire = commands.add_parser("number-retire", help="stop using one of the tenant's numbers")
+    retire.add_argument("tenant_id")
+    retire.add_argument("e164")
 
     references = commands.add_parser("references", help="record the references asserted")
     references.add_argument("tenant_id")
@@ -252,9 +252,9 @@ async def run_command(provisioning: Provisioning, args: argparse.Namespace) -> l
                     RecordNumberCommand(actor, args.e164, args.account_sid, args.label)
                 )
                 return [f"tenant {tenant_id}: number recorded as channel {channel}"]
-            case "number-tested":
-                await provisioning.tested.execute(MarkNumberTestedCommand(actor, args.e164))
-                return [f"tenant {tenant_id}: number marked as tested"]
+            case "number-retire":
+                await provisioning.retire.execute(RetireNumberCommand(actor, args.e164))
+                return [f"tenant {tenant_id}: number no longer in use"]
             case "references":
                 recorded = await provisioning.references.execute(
                     RecordReferencesCommand(

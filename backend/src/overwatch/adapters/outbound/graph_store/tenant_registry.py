@@ -27,7 +27,11 @@ from overwatch.adapters.outbound.graph_store.tenant_directory import (
     tenant_from_properties,
     tenant_properties,
 )
-from overwatch.application.ports.outbound.tenant_registry import RegistryTenant, TenantNumberRecord
+from overwatch.application.ports.outbound.tenant_registry import (
+    RegistryTenant,
+    TenantNumberRecord,
+    valid_message_id,
+)
 from overwatch.application.ports.outbound.tenants import (
     TenantRecordInvalid,
     check_secret_ref,
@@ -85,7 +89,7 @@ _MARK_TESTED = NamedQuery(
     id="Q-TENANT-REG-MARK-TESTED",
     cypher=(
         "MATCH (:Tenant {id: $id})-[:HAS_NUMBER]->(n:TenantNumber {e164: $e164}) "
-        "SET n.testedAt = $at RETURN n.e164 AS e164"
+        "SET n.testedAt = $at, n.testMessageId = $messageId RETURN n.e164 AS e164"
     ),
     mode="write",
     scope="platform",
@@ -95,7 +99,8 @@ _NUMBERS = NamedQuery(
     cypher=(
         "MATCH (:Tenant {id: $id})-[:HAS_NUMBER]->(n:TenantNumber) "
         "RETURN n.e164 AS e164, n.accountSid AS accountSid, n.secretRef AS secretRef, "
-        "n.status AS status, n.testedAt AS testedAt, n.quarantineUntil AS quarantineUntil "
+        "n.status AS status, n.testedAt AS testedAt, n.testMessageId AS testMessageId, "
+        "n.quarantineUntil AS quarantineUntil "
         "ORDER BY n.e164"
     ),
     mode="read",
@@ -170,6 +175,7 @@ def number_properties(number: TenantNumberRecord) -> dict[str, Any]:
         "secretRef": number.secret_ref,
         "status": number.status.value,
         "testedAt": number.tested_at,
+        "testMessageId": number.test_message_id,
         "quarantineUntil": number.quarantine_until,
     }
 
@@ -194,6 +200,7 @@ def number_from_row(row: Mapping[str, Any], tenant_id: str) -> TenantNumberRecor
             status=NumberStatus(str(row["status"])),
             tested_at=_instant(row.get("testedAt")),
             quarantine_until=_instant(row.get("quarantineUntil")),
+            test_message_id=row.get("testMessageId"),
         )
     except ValidationFailed, ValueError, KeyError, TypeError:
         raise TenantRecordInvalid(NUMBER_RECORD_MESSAGE) from None
@@ -271,14 +278,20 @@ class Neo4jTenantRegistry:
         if not rows:
             raise NotFound(NO_TENANT_MESSAGE)
 
-    async def mark_number_tested(self, tenant_id: str, e164: str, at: datetime) -> None:
+    async def mark_number_tested(
+        self, tenant_id: str, e164: str, at: datetime, provider_message_id: str
+    ) -> None:
         check_tenant_id(tenant_id)
         number = normalise_e164(e164)
         if number is None:
             raise ValidationFailed("e164", "must be a number in E.164 form")
         if at.utcoffset() is None:
             raise ValidationFailed("at", "must be a timezone-aware datetime")
-        rows = await self._write(_MARK_TESTED, id=tenant_id, e164=number, at=at)
+        if not valid_message_id(provider_message_id):
+            raise ValidationFailed("provider_message_id", "must be a provider message id")
+        rows = await self._write(
+            _MARK_TESTED, id=tenant_id, e164=number, at=at, messageId=provider_message_id
+        )
         if not rows:
             raise NotFound(NO_NUMBER_MESSAGE)
 

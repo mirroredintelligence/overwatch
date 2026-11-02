@@ -24,6 +24,7 @@ from overwatch.domain.model.tenant import (
     Tenant,
     TenantStatus,
 )
+from overwatch.domain.rules import tenant_lifecycle
 from overwatch.domain.rules.tenant_lifecycle import (
     NUMBER_QUARANTINE,
     OFFBOARDING_NOTICE,
@@ -570,7 +571,6 @@ ENTRA = "Sign-in directory bound and verified"
 ROLE = "At least one role mapping"
 CONTACTS = "Support contacts set: coordination phone and clinical safety officer"
 RETENTION = "Retention set for every data class"
-REFERENCES = "Data sharing, data protection and clinical safety references recorded"
 WORDING = "System, referral system and coordination team names set"
 DISTRICTS = "Area districts set"
 AGREEMENT = "Network agreement accepted"
@@ -584,7 +584,6 @@ ALL_SENTENCES = [
     ROLE,
     CONTACTS,
     RETENTION,
-    REFERENCES,
     WORDING,
     DISTRICTS,
     AGREEMENT,
@@ -641,11 +640,6 @@ SINGLE_FAILURES: list[tuple[str, dict[str, Any], str]] = [
         RETENTION,
     ),
     ("retention not a set", {"retention_classes_set": None}, RETENTION),
-    ("no dsa", {"references_recorded": frozenset({"dpia", "dcb0160"})}, REFERENCES),
-    ("no dpia", {"references_recorded": frozenset({"dsa", "dcb0160"})}, REFERENCES),
-    ("no dcb0160", {"references_recorded": frozenset({"dsa", "dpia"})}, REFERENCES),
-    ("no references", {"references_recorded": frozenset()}, REFERENCES),
-    ("references not a set", {"references_recorded": "dsa dpia dcb0160"}, REFERENCES),
     ("wording incomplete", {"wording_complete": False}, WORDING),
     ("wording complete is 1", {"wording_complete": 1}, WORDING),
     ("services without districts", {"area_districts_set": False}, DISTRICTS),
@@ -692,6 +686,16 @@ def test_email_is_checked_only_when_in_use() -> None:
     ]
 
 
+def test_the_three_references_are_recommended_and_never_block_activation() -> None:
+    """DEC-1319: a data sharing agreement, a privacy impact assessment and a clinical safety case
+    are recorded and shown but are not a fact the activation rule reads."""
+    assert "references_recorded" not in {f.name for f in dataclasses.fields(ActivationFacts)}
+    assert activation_blockers(passing_facts()) == []
+    assert not any("reference" in sentence.lower() for sentence in ALL_SENTENCES)
+    assert not hasattr(tenant_lifecycle, "REQUIRED_REFERENCES")
+    assert not hasattr(tenant_lifecycle, "MISSING_REFERENCES")
+
+
 def test_the_agreement_is_checked_only_for_a_network_member() -> None:
     assert activation_blockers(passing_facts(network_member=False, agreement_accepted=False)) == []
     assert activation_blockers(passing_facts(network_member=True, agreement_accepted=False)) == [
@@ -711,7 +715,6 @@ def test_a_tenant_with_nothing_done_lists_every_sentence_in_order() -> None:
         role_mappings=0,
         contact_kinds=frozenset(),
         retention_classes_set=frozenset(),
-        references_recorded=frozenset(),
         wording_complete=False,
         registers_services=True,
         area_districts_set=False,
@@ -733,7 +736,7 @@ def test_activation_facts_have_no_defaults_and_are_frozen() -> None:
         f.default is dataclasses.MISSING and f.default_factory is dataclasses.MISSING
         for f in dataclasses.fields(ActivationFacts)
     )
-    assert len(dataclasses.fields(ActivationFacts)) == 16
+    assert len(dataclasses.fields(ActivationFacts)) == 15
     with pytest.raises(dataclasses.FrozenInstanceError):
         passing_facts().config_approved = False  # type: ignore[misc]
 
@@ -750,7 +753,6 @@ def test_the_facts_are_listed_in_the_decided_order() -> None:
         "role_mappings",
         "contact_kinds",
         "retention_classes_set",
-        "references_recorded",
         "wording_complete",
         "registers_services",
         "area_districts_set",
@@ -771,7 +773,6 @@ FACT_VALUES = st.fixed_dictionaries(
         "role_mappings": st.one_of(st.integers(-1, 3), st.booleans()),
         "contact_kinds": st.frozensets(st.sampled_from([*ContactKind, "coordination-phone"])),
         "retention_classes_set": st.frozensets(st.sampled_from([*RetentionClass, "bookings"])),
-        "references_recorded": st.frozensets(st.sampled_from(["dsa", "dpia", "dcb0160", "x"])),
         "wording_complete": st.one_of(st.booleans(), st.integers(0, 1)),
         "registers_services": st.one_of(st.booleans(), st.none()),
         "area_districts_set": st.one_of(st.booleans(), st.integers(0, 1)),
@@ -803,7 +804,6 @@ def test_property_blockers_are_a_deterministic_ordered_subset_and_empty_only_whe
         and {k for k in values["contact_kinds"] if type(k) is ContactKind} >= {PHONE, CSO}
         and {k for k in values["retention_classes_set"] if type(k) is RetentionClass}
         == ALL_RETENTION
-        and values["references_recorded"] >= {"dsa", "dpia", "dcb0160"}
         and values["wording_complete"] is True
         and (values["registers_services"] is False or values["area_districts_set"] is True)
         and (values["network_member"] is False or values["agreement_accepted"] is True)

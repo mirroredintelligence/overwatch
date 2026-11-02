@@ -194,8 +194,22 @@ async def test_a_number_is_put_with_the_properties_of_its_node_and_no_token() ->
         "secretRef": f"twilio/{SAMPLE_ID}/auth-token",
         "status": "active",
         "testedAt": None,
+        "testMessageId": None,
         "quarantineUntil": None,
     }
+
+
+async def test_a_retired_number_is_put_as_retired_and_stays_the_tenants_number() -> None:
+    """DEC-1319: stopping a number never deletes it. It is the same node, status retired, so the
+    unique number constraint still refuses every other tenant."""
+    connection = RecordingWriteConnection({"Q-TENANT-REG-PUT-NUMBER": [{"e164": NUMBER}]})
+    await _registry(connection).put_number(
+        SAMPLE_ID, _number(status=NumberStatus.RETIRED, quarantine_until=NOW)
+    )
+    [(_, _, parameters)] = connection.calls
+    assert parameters["id"] == SAMPLE_ID and parameters["e164"] == NUMBER
+    assert parameters["props"]["status"] == "retired"
+    assert parameters["props"]["quarantineUntil"] == NOW
 
 
 async def test_a_number_that_points_at_another_tenants_secret_is_refused_before_a_write() -> None:
@@ -222,20 +236,30 @@ async def test_a_number_for_a_tenant_that_does_not_exist_is_not_found() -> None:
 
 async def test_a_test_text_is_marked_on_the_tenants_own_number_only() -> None:
     connection = RecordingWriteConnection({"Q-TENANT-REG-MARK-TESTED": [{"e164": NUMBER}]})
-    await _registry(connection).mark_number_tested(SAMPLE_ID, NUMBER, NOW)
-    assert connection.calls[0][2] == {"id": SAMPLE_ID, "e164": NUMBER, "at": NOW}
+    await _registry(connection).mark_number_tested(SAMPLE_ID, NUMBER, NOW, "SM123")
+    assert connection.calls[0][2] == {
+        "id": SAMPLE_ID,
+        "e164": NUMBER,
+        "at": NOW,
+        "messageId": "SM123",
+    }
 
     connection = RecordingWriteConnection({"Q-TENANT-REG-MARK-TESTED": []})
     with pytest.raises(NotFound):
-        await _registry(connection).mark_number_tested(SAMPLE_ID, NUMBER, NOW)
+        await _registry(connection).mark_number_tested(SAMPLE_ID, NUMBER, NOW, "SM123")
 
 
-async def test_a_naive_instant_or_a_bad_number_is_refused_before_a_write() -> None:
+async def test_a_naive_instant_a_bad_number_or_a_bad_message_id_is_refused_before_a_write() -> None:
     connection = RecordingWriteConnection()
     with pytest.raises(ValidationFailed):
-        await _registry(connection).mark_number_tested(SAMPLE_ID, NUMBER, datetime(2026, 1, 1))
+        await _registry(connection).mark_number_tested(
+            SAMPLE_ID, NUMBER, datetime(2026, 1, 1), "SM123"
+        )
     with pytest.raises(ValidationFailed):
-        await _registry(connection).mark_number_tested(SAMPLE_ID, "07700900123", NOW)
+        await _registry(connection).mark_number_tested(SAMPLE_ID, "07700900123", NOW, "SM123")
+    for bad in ("", "has space", "x" * 65, "SM1/2"):
+        with pytest.raises(ValidationFailed):
+            await _registry(connection).mark_number_tested(SAMPLE_ID, NUMBER, NOW, bad)
     assert connection.calls == []
 
 
@@ -246,6 +270,7 @@ async def test_the_numbers_are_read_through_the_platform_read() -> None:
         "secretRef": twilio_token_ref(SAMPLE_ID),
         "status": "active",
         "testedAt": DateTime.from_native(NOW),
+        "testMessageId": "SM123",
         "quarantineUntil": None,
     }
     connection = RecordingWriteConnection({"Q-TENANT-REG-NUMBERS": [row]})
@@ -253,7 +278,7 @@ async def test_the_numbers_are_read_through_the_platform_read() -> None:
     [number] = await _registry(connection).numbers(SAMPLE_ID)
 
     assert connection.calls[0][1] == "read"
-    assert number == _number(tested_at=NOW)
+    assert number == _number(tested_at=NOW, test_message_id="SM123")
     assert number.status is NumberStatus.ACTIVE
 
 

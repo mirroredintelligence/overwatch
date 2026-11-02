@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Automatic checks every state</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.ok{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:12px;background:#E3F1F8;color:#0B3F61;font-weight:700;font-size:15px;line-height:1.3}
+.no{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:12px;background:#FFF1DC;border:2px solid #A34700;color:#5C2800;font-weight:700;font-size:15px;line-height:1.3}
+.cell{padding:14px 16px;display:flex;flex-direction:column;gap:8px;align-items:flex-start;border-top:1px solid #DDE3E6}
+.nm{font-size:19px;font-weight:700}
+.ds{font-size:15px;color:#44555D;line-height:1.35}
+</style>
+</helmet>
+<div style="width:1280px;height:800px;box-sizing:border-box;padding:28px 32px;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;display:flex;flex-direction:column;gap:16px;overflow:hidden">
+
+  <div style="display:flex;align-items:baseline;gap:16px"><h1 style="margin:0;font-size:30px">The automatic checks</h1><span style="font-size:17px;color:#44555D">What the system checks before a shift lead looks. Words and shapes, never colour alone. A check that needs attention does not stop the review: the shift lead decides.</span></div>
+
+  <div style="background:#fff;border-radius:24px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07);overflow:hidden;display:flex;flex-direction:column">
+    <div style="display:grid;grid-template-columns:170px minmax(0,1fr) minmax(0,1.5fr) minmax(0,1fr);background:#0B2A3D;color:#fff;font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase">
+      <div style="padding:12px 16px">Check</div><div style="padding:12px 16px">Passes</div><div style="padding:12px 16px">Needs attention</div><div style="padding:12px 16px">The shift lead</div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:170px minmax(0,1fr) minmax(0,1.5fr) minmax(0,1fr)">
+      <div class="cell"><span class="nm">ODS code</span><span class="ds">Looked up on the NHS register</span></div>
+      <div class="cell"><span class="ok">✓ ODS code found, active, NHS organisation</span></div>
+      <div class="cell"><span class="no">▲ ODS code has not been checked</span><span class="no">▲ ODS code not found</span><span class="no">▲ ODS code is not active</span><span class="no">▲ ODS code is not an NHS organisation</span></div>
+      <div class="cell"><span class="ds">Not found or not NHS: ask the applicant, or decide it is out of scope.</span></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:170px minmax(0,1fr) minmax(0,1.5fr) minmax(0,1fr)">
+      <div class="cell"><span class="nm">Name</span><span class="ds">Against the register's name</span></div>
+      <div class="cell"><span class="ok">✓ Organisation name matches the ODS name</span></div>
+      <div class="cell"><span class="no">▲ Organisation name does not match the ODS name</span><span class="no">▲ Organisation name cannot be checked without an ODS record</span></div>
+      <div class="cell"><span class="ds">Ask which is right during the call-back.</span></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:170px minmax(0,1fr) minmax(0,1.5fr) minmax(0,1fr);background:#F7FAFB">
+      <div class="cell"><span class="nm">Address</span><span class="ds">A fixed site, or a visiting service's districts</span></div>
+      <div class="cell"><span class="ok">✓ Address district is in the area</span><span class="ok">✓ Every district is in the area</span><span class="ok" style="border:2px solid #0B5C8C">✓ No area limit is set: any address is accepted</span></div>
+      <div class="cell"><span class="no">▲ Address not found</span><span class="no">▲ Address district is outside the area</span><span class="no">▲ A district is outside the area</span><span class="no">▲ No districts given</span></div>
+      <div class="cell"><span class="ds"><strong>With no area set on the organisation</strong>, where the address is never counts against it: providers can join from anywhere. It still has to be a real address.</span></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:170px minmax(0,1fr) minmax(0,1.5fr) minmax(0,1fr)">
+      <div class="cell"><span class="nm">Reporting phone</span><span class="ds">The invited number</span></div>
+      <div class="cell"><span class="ok">✓ Reporting phone is the invited number</span></div>
+      <div class="cell"><span class="no">▲ Reporting phone is not the invited number</span></div>
+      <div class="cell"><span class="ds">Confirm on the call-back, or send back with a note.</span></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:170px minmax(0,1fr) minmax(0,1.5fr) minmax(0,1fr)">
+      <div class="cell"><span class="nm">Criteria owner</span><span class="ds">Who owns the rules</span></div>
+      <div class="cell"><span class="ok">✓ Criteria owner email is an organisation address</span></div>
+      <div class="cell"><span class="no">▲ Criteria owner email is not an organisation address</span></div>
+      <div class="cell"><span class="ds">Ask for an organisation address: send back with a note.</span></div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:18px;align-items:flex-start">
+    <div style="flex:1;background:#fff;border-radius:20px;padding:14px 18px;font-size:16px;line-height:1.45"><strong>Where it shows.</strong> In the queue as one line (the first problem), in the overview as the full list, and on the phone as a short list with the problem first.</div>
+    <div style="flex:1;background:#fff;border-radius:20px;padding:14px 18px;font-size:16px;line-height:1.45"><strong>Never a gate.</strong> The back end lists what is still missing before Approve; these checks inform the call-back, they do not replace it.</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

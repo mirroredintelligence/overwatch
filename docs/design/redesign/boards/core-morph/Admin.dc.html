@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Administration people and roles</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width:1280px;height:800px;display:flex;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden">
+
+  <nav aria-label="Administration" style="width:84px;flex:none;background:#0B2A3D;display:flex;flex-direction:column;align-items:center;padding:20px 0;gap:4px">
+    <div style="width:44px;height:44px;border-radius:14px;background:#0B5C8C;display:flex;align-items:center;justify-content:center;margin-bottom:14px">
+      <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#fff"/><path d="M3 13h20" stroke="#fff" stroke-width="2.4"/></svg>
+    </div>
+    <a href="#" style="width:68px;padding:9px 0 7px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:3px;color:#B9D0DC;text-decoration:none;font-size:13px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11l8-7 8 7v9H4z"/></svg>Overview</a>
+    <a href="#" aria-current="page" style="width:68px;padding:9px 0 7px;border-radius:14px;background:rgba(255,255,255,.14);display:flex;flex-direction:column;align-items:center;gap:3px;color:#fff;text-decoration:none;font-size:13px;font-weight:700"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0M16 5a3.2 3.2 0 0 1 0 6.2M18 20a6 6 0 0 0-3-5.2"/></svg>People</a>
+    <a href="#" style="width:68px;padding:9px 0 7px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:3px;color:#B9D0DC;text-decoration:none;font-size:13px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v14H4zM4 9l8 5 8-5"/></svg>Contacts</a>
+    <a href="#" style="width:68px;padding:9px 0 7px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:3px;color:#B9D0DC;text-decoration:none;font-size:13px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>Settings</a>
+    <a href="#" style="width:68px;padding:9px 0 7px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:3px;color:#B9D0DC;text-decoration:none;font-size:13px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></svg>Retention</a>
+    <a href="#" style="width:68px;padding:9px 0 7px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:3px;color:#B9D0DC;text-decoration:none;font-size:13px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg>Access</a>
+    <a href="#" style="margin-top:auto;width:68px;padding:9px 0 7px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:3px;color:#B9D0DC;text-decoration:none;font-size:13px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/></svg>Help</a>
+  </nav>
+
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column;position:relative">
+    <header style="height:72px;flex:none;display:flex;align-items:center;gap:16px;padding:0 28px;border-bottom:1px solid #DDE3E6;background:#fff">
+      <div style="display:flex;flex-direction:column;line-height:1.2"><span style="font-size:14px;color:#44555D">FORTRUS LIMITED</span><span style="font-size:20px;font-weight:700">People and roles</span></div>
+      <button type="button" style="margin-left:auto;height:44px;padding:0 16px;border:2px solid #0B5C8C;border-radius:999px;background:#E3F1F8;color:#0B3F61;font-family:inherit;font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px">Tenant administrator <svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 12l5-5 5 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button type="button" style="height:44px;padding:0 18px;border:2px solid #14232B;border-radius:14px;background:#fff;font-family:inherit;font-size:16px;font-weight:700">Sign out</button>
+    </header>
+
+    <div style="position:absolute;right:112px;top:62px;width:290px;background:#fff;border-radius:20px;padding:10px;box-shadow:0 18px 48px rgba(11,42,61,.22),0 2px 6px rgba(11,42,61,.08);border:1px solid #DDE3E6;z-index:5">
+      <div style="padding:6px 12px 8px;font-size:14px;color:#44555D">Sign in again as</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;border-radius:12px;background:#E3F1F8;font-weight:700;font-size:17px">Tenant administrator <span aria-hidden="true" style="color:#0B5C8C">✓</span></div>
+      <div style="padding:12px;font-size:17px">Shift lead</div>
+      <div style="padding:12px;font-size:17px">Clinical lead</div>
+      <div style="padding:12px;font-size:17px">Advisor</div>
+      <div style="padding:12px;font-size:17px">Planning</div>
+    </div>
+
+    <main style="flex:1;min-height:0;display:grid;grid-template-columns:360px minmax(0,1fr);gap:22px;padding:22px 28px">
+
+      <section aria-label="Roles" style="display:flex;flex-direction:column;gap:10px;overflow:hidden">
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:18px;background:#fff;color:#44555D;font-size:16px"><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M13 13l4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Find a person in any role</div>
+        <div style="padding:14px 16px;border-radius:18px;background:#fff;display:flex;align-items:center;gap:12px"><div style="flex:1"><div style="font-weight:700;font-size:18px">Administrators</div><div style="font-size:15px;color:#44555D">Rob Smith</div></div><span style="font-size:15px;color:#26343B">1 person</span></div>
+        <div style="padding:14px 16px;border-radius:18px;background:#fff;display:flex;align-items:center;gap:12px;border:2px solid #0B5C8C;box-shadow:0 10px 28px rgba(11,92,140,.16)"><div style="flex:1"><div style="font-weight:700;font-size:18px">Shift lead</div><div style="font-size:15px;color:#44555D">Rob Smith, Sam Second and 3 more</div></div><span style="font-size:15px;color:#26343B">5 people</span></div>
+        <div style="padding:14px 16px;border-radius:18px;background:#fff;display:flex;align-items:center;gap:12px"><div style="flex:1"><div style="font-weight:700;font-size:18px">Clinical lead</div><div style="font-size:15px;color:#44555D">Sam Second</div></div><span style="font-size:15px;color:#26343B">1 person</span></div>
+        <div style="padding:14px 16px;border-radius:18px;background:#fff;display:flex;align-items:center;gap:12px"><div style="flex:1"><div style="font-weight:700;font-size:18px">Advisor</div><div style="font-size:15px;color:#44555D">No one yet</div></div><span style="font-size:15px;color:#26343B">0</span></div>
+        <div style="padding:14px 16px;border-radius:18px;background:#fff;display:flex;align-items:center;gap:12px"><div style="flex:1"><div style="font-weight:700;font-size:18px">Planning</div><div style="font-size:15px;color:#44555D">No one yet</div></div><span style="font-size:15px;color:#26343B">0</span></div>
+        <div style="padding:14px 16px;border-radius:18px;background:#fff;display:flex;align-items:center;gap:12px"><div style="flex:1"><div style="font-weight:700;font-size:18px">Audit</div><div style="font-size:15px;color:#44555D">No one yet</div></div><span style="font-size:15px;color:#26343B">0</span></div>
+      </section>
+
+      <section aria-label="Shift lead" style="background:#fff;border-radius:26px;padding:26px 30px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07);display:flex;flex-direction:column;gap:16px;overflow:hidden">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between">
+          <div><h2 style="margin:0;font-size:30px">Shift lead</h2><div style="font-size:17px;color:#44555D;margin-top:2px">Run the board for a shift and keep service figures up to date.</div></div>
+          <span style="padding:7px 14px;border-radius:999px;background:#E3F1F8;color:#0B3F61;font-weight:700;font-size:15px">5 people</span>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px;max-height:214px;overflow:hidden">
+          <div style="display:flex;align-items:center;gap:12px;padding:8px 14px;border-radius:14px;border:1px solid #DDE3E6"><span style="width:38px;height:38px;border-radius:50%;background:#D5E5EE;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">RS</span><span style="flex:1"><span style="font-weight:700">Rob Smith</span><br><span style="font-size:15px;color:#44555D">rob.smith@mirroredintelligence.com</span></span><button type="button" style="height:42px;padding:0 16px;border:2px solid #14232B;border-radius:12px;background:#fff;font-family:inherit;font-weight:700;font-size:15px">Remove</button></div>
+          <div style="display:flex;align-items:center;gap:12px;padding:8px 14px;border-radius:14px;border:1px solid #DDE3E6"><span style="width:38px;height:38px;border-radius:50%;background:#F1DFD2;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">SS</span><span style="flex:1"><span style="font-weight:700">Sam Second</span><br><span style="font-size:15px;color:#44555D">sam.second@example.nhs.uk</span></span><button type="button" style="height:42px;padding:0 16px;border:2px solid #14232B;border-radius:12px;background:#fff;font-family:inherit;font-weight:700;font-size:15px">Remove</button></div>
+          <div style="display:flex;align-items:center;gap:12px;padding:8px 14px;border-radius:14px;border:1px solid #DDE3E6"><span style="width:38px;height:38px;border-radius:50%;background:#E4D9EC;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">PN</span><span style="flex:1"><span style="font-weight:700">Priya Natarajan</span><br><span style="font-size:15px;color:#44555D">priya.natarajan@example.nhs.uk</span></span><button type="button" style="height:42px;padding:0 16px;border:2px solid #14232B;border-radius:12px;background:#fff;font-family:inherit;font-weight:700;font-size:15px">Remove</button></div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="font-weight:700;font-size:17px">Search your directory</div>
+          <div style="height:54px;border:2px solid #0B5C8C;border-radius:14px;display:flex;align-items:center;gap:10px;padding:0 16px;box-shadow:0 0 0 4px rgba(11,92,140,.2);font-size:19px"><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true" style="color:#44555D"><circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M13 13l4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>ro</div>
+          <div style="border:1px solid #DDE3E6;border-radius:18px;padding:8px;display:flex;flex-direction:column;gap:4px;background:#fff">
+            <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:12px;opacity:.6"><span style="width:34px;height:34px;border-radius:50%;background:#D5E5EE;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">RS</span><span style="flex:1"><span style="font-weight:700">Rob Smith</span><br><span style="font-size:14px;color:#44555D">rob.smith@mirroredintelligence.com</span></span><span style="padding:3px 10px;border:1px dashed #26343B;border-radius:999px;font-size:14px">Already in this role</span></div>
+            <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:12px;background:#E3F1F8;outline:2px solid #0B5C8C;outline-offset:-2px"><span style="width:34px;height:34px;border-radius:50%;background:#E6EDDC;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">RH</span><span style="flex:1"><span style="font-weight:700">Robin Hartley</span><br><span style="font-size:14px;color:#44555D">robin.hartley@example.nhs.uk</span></span></div>
+            <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:12px"><span style="width:34px;height:34px;border-radius:50%;background:#F1DFD2;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">RQ</span><span style="flex:1"><span style="font-weight:700">Roberta Quinn</span><br><span style="font-size:14px;color:#44555D">roberta.quinn@example.nhs.uk</span></span></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

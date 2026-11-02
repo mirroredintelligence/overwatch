@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Settings grouped</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font-family:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:3px solid #14232B;outline-offset:2px}
+@media (prefers-reduced-motion: reduce){*{transition:none !important}}
+</style>
+</helmet>
+<div style="width:1280px;height:800px;display:flex;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden">
+  <dc-import name="Rail" portal="admin" active="settings" hint-size="84px,800px"></dc-import>
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <dc-import name="Top" org="FORTRUS LIMITED" title="Settings" hint-size="100%,72px"></dc-import>
+
+    <main style="flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:22px;padding:20px 28px">
+
+      <section aria-label="Settings" style="display:flex;flex-direction:column;gap:12px;min-width:0;min-height:0">
+        <div style="display:flex;gap:12px;align-items:center">
+          <div style="flex:1;position:relative">
+            <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true" style="position:absolute;left:16px;top:17px;color:#44555D"><circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M13 13l4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            <label for="find" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Find a setting</label>
+            <input id="find" type="text" value="{{q}}" onChange="{{setQ}}" placeholder="Find a setting" autocomplete="off" style="width:100%;box-sizing:border-box;height:52px;padding:0 16px 0 46px;border:2px solid #26343B;border-radius:14px;background:#fff;font-family:inherit;font-size:18px;color:#14232B">
+          </div>
+          <span style="font-size:15px;color:#44555D;white-space:nowrap">{{shown}}</span>
+        </div>
+
+        <sc-for list="{{groups}}" as="g" hint-placeholder-count="3">
+          <section aria-label="{{ g.title }}" style="{{ g.cardStyle }}">
+            <button type="button" onClick="{{ g.toggle }}" aria-expanded="{{ g.isOpen }}" style="width:100%;box-sizing:border-box;display:flex;align-items:center;gap:14px;padding:16px 20px;border:0;background:transparent;text-align:left;color:inherit;font-size:19px">
+              <span style="flex:1"><span style="font-weight:700;font-size:21px">{{ g.title }}</span><br><span style="font-size:15px;color:#44555D">{{ g.about }}</span></span>
+              <span style="{{ g.badgeStyle }}">{{ g.badge }}</span>
+              <span style="font-size:15px;color:#44555D;min-width:84px;text-align:right">{{ g.count }}</span>
+              <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true" style="{{ g.chevronStyle }}"><path d="M5 8l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div style="{{ g.panelStyle }}">
+              <div style="min-height:0;overflow:hidden">
+                <div style="padding:2px 20px 16px;display:flex;flex-direction:column;gap:10px;border-top:1px solid #DDE3E6;padding-top:14px">
+                  <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="3">
+                    <div style="{{ it.rowStyle }}">
+                      <div style="flex:1;min-width:0">
+                        <div style="font-size:18px;font-weight:700">{{ it.label }}</div>
+                        <div style="font-size:15px;color:#44555D">Now {{ it.now }} · Default {{ it.def }}</div>
+                        <sc-if value="{{ it.isCodes }}" hint-placeholder-val="{{ false }}">
+                          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">
+                            <sc-for list="{{ it.chips }}" as="c" hint-placeholder-count="4">
+                              <button type="button" onClick="{{ c.toggle }}" aria-pressed="{{ c.on }}" style="{{ c.style }}">{{ c.mark }} {{ c.label }}</button>
+                            </sc-for>
+                          </div>
+                        </sc-if>
+                      </div>
+                      <sc-if value="{{ it.hasValue }}" hint-placeholder-val="{{ true }}">
+                        <span style="flex:none;padding:8px 14px;border-radius:12px;border:2px solid #DDE3E6;background:#F4F6F5;font-weight:700;font-size:17px">{{ it.now }}</span>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                  <sc-if value="{{ g.empty }}" hint-placeholder-val="{{ false }}">
+                    <div style="font-size:16px;color:#44555D">No setting here matches what you typed.</div>
+                  </sc-if>
+                </div>
+              </div>
+            </div>
+          </section>
+        </sc-for>
+
+        <div style="{{noticeStyle}}">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7A3500" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/></svg>
+          <div style="font-size:17px;line-height:1.35"><b>This changes a clinical setting.</b> It needs 2 approvals from people other than you before it takes effect.</div>
+        </div>
+
+        <div style="margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:4px">
+          <span style="font-size:16px;color:#44555D">{{saveHint}}</span>
+          <button type="button" style="{{saveStyle}}">Save draft</button>
+        </div>
+      </section>
+
+      <aside aria-label="Versions" style="background:#fff;border-radius:22px;padding:20px 22px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06);display:flex;flex-direction:column;gap:14px;min-height:0">
+        <div style="font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D">Versions</div>
+        <ol style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:18px">
+          <li style="display:flex;gap:12px"><span style="width:14px;height:14px;border-radius:50%;border:2px dashed #A34700;margin-top:6px;flex:none;box-sizing:border-box" aria-hidden="true"></span><span><b>Version 3</b> <span style="padding:2px 10px;border-radius:999px;background:#FFF1DC;color:#7A3500;font-size:14px;font-weight:700">◐ 1 of 2 approvals</span><br><span style="font-size:15px;color:#44555D">Clinical · written 2 Nov</span><br><a href="A3.dc.html" style="font-size:15px;font-weight:700;color:#0B5C8C">See what changed</a></span></li>
+          <li style="display:flex;gap:12px"><span style="width:14px;height:14px;border-radius:50%;background:#0B5C8C;margin-top:6px;flex:none" aria-hidden="true"></span><span><b>Version 2</b> <span style="padding:2px 10px;border-radius:999px;background:#E3F1F8;color:#0B3F61;font-size:14px;font-weight:700">● In force</span><br><span style="font-size:15px;color:#44555D">Operational · since 2 Nov 20:46</span></span></li>
+          <li style="display:flex;gap:12px"><span style="width:14px;height:14px;border-radius:50%;background:#C9DCE6;margin-top:6px;flex:none" aria-hidden="true"></span><span><b>Version 1</b> <span style="font-size:14px;color:#44555D">Replaced</span><br><span style="font-size:15px;color:#44555D">2 Nov</span></span></li>
+        </ol>
+        <div style="margin-top:auto;font-size:15px;line-height:1.4;color:#26343B;background:#F4F6F5;border-radius:14px;padding:12px 14px">A change to a clinical setting is written as a draft and needs two other people. A change to anything else needs one.</div>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { open: 'clinical', q: '', codes: ['service-closed', 'system-pressure'] };
+  }
+  renderVals() {
+    const { open, q, codes } = this.state;
+    const DEFAULT = ['service-closed', 'system-pressure'];
+    const ALL = ['not-updated', 'over-capacity', 'service-closed', 'system-pressure'];
+    const same = codes.length === DEFAULT.length && DEFAULT.every((c) => codes.includes(c));
+    const changed = !same;
+    const term = q.trim().toLowerCase();
+    const SPRING = 'cubic-bezier(0.34,1.56,0.64,1)';
+    const DRAWER = 'cubic-bezier(0.32,0.72,0,1)';
+    const toggleCode = (c) => () => this.setState((s) => ({ codes: s.codes.includes(c) ? s.codes.filter((x) => x !== c) : [...s.codes, c] }));
+    const chips = ALL.map((c) => {
+      const on = codes.includes(c);
+      return { label: c, on, mark: on ? '✓' : '+', toggle: toggleCode(c), style: 'height:44px;padding:0 16px;border-radius:999px;font-size:16px;font-weight:700;border:2px ' + (on ? 'solid #0B5C8C' : 'dashed #6B7B83') + ';background:' + (on ? '#E3F1F8' : '#fff') + ';color:#14232B;transition:background-color 240ms ease, transform 300ms ' + SPRING };
+    });
+    const SETTINGS = [
+      { g: 'clinical', label: 'Critical alert kinds', now: codes.slice().sort().join(', ') || 'none', def: 'service-closed, system-pressure', codes: true },
+      { g: 'clinical', label: 'Clinical take timeout', now: '30 minutes', def: '30 minutes' },
+      { g: 'clinical', label: 'Re-verify every', now: '30 days', def: '30 days' },
+      { g: 'ops', label: 'Not-updated alert after', now: '2 hours', def: '2 hours' },
+      { g: 'ops', label: 'Alert kinds on by default', now: 'all kinds', def: 'all kinds' },
+      { g: 'words', label: 'System name', now: 'Overwatch', def: 'not set' },
+      { g: 'words', label: 'Referral system name', now: 'Overwatch', def: 'not set' },
+      { g: 'words', label: 'Coordination team name', now: 'coordination team', def: 'not set' }
+    ];
+    const G = [
+      { id: 'clinical', title: 'Clinical settings', about: 'A change needs two approvals from other people.' },
+      { id: 'ops', title: 'Operational settings', about: 'A change needs one approval.' },
+      { id: 'words', title: 'The names your messages use', about: 'Printed in texts and on screens.' }
+    ];
+    const withItems = G.map((g) => {
+      const items = SETTINGS.filter((s) => s.g === g.id && (term === '' || s.label.toLowerCase().includes(term) || s.now.toLowerCase().includes(term)));
+      return { ...g, items };
+    });
+    const firstMatch = term === '' ? null : (withItems.find((g) => g.items.length > 0) || {}).id || null;
+    const openId = term === '' ? open : firstMatch;
+    const total = withItems.reduce((n, g) => n + g.items.length, 0);
+    const groups = withItems.map((g) => {
+      const isOpen = g.id === openId;
+      const changedHere = g.id === 'clinical' && changed;
+      return {
+        title: g.title, about: g.about, isOpen, empty: isOpen && g.items.length === 0,
+        toggle: () => this.setState({ open: open === g.id ? '' : g.id, q: '' }),
+        count: term === '' ? SETTINGS.filter((s) => s.g === g.id).length + ' settings' : g.items.length + ' match',
+        badge: changedHere ? '● 1 changed' : '',
+        badgeStyle: changedHere ? 'padding:5px 12px;border-radius:999px;background:#FFF1DC;color:#7A3500;font-weight:700;font-size:14px' : 'display:none',
+        cardStyle: 'background:#fff;border-radius:22px;border:2px solid ' + (isOpen ? '#0B5C8C' : '#fff') + ';box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06);transition:border-color 240ms ease, box-shadow 280ms ease',
+        chevronStyle: 'flex:none;transition:transform 280ms ' + SPRING + ';transform:' + (isOpen ? 'rotate(180deg)' : 'none'),
+        panelStyle: 'display:grid;grid-template-rows:' + (isOpen ? '1fr' : '0fr') + ';transition:grid-template-rows 320ms ' + DRAWER,
+        items: g.items.map((s) => ({
+          label: s.label, now: s.now, def: s.def,
+          isCodes: !!s.codes, hasValue: !s.codes, chips,
+          rowStyle: 'display:flex;align-items:flex-start;gap:14px;padding:12px 14px;border-radius:16px;background:#F4F6F5;border:2px solid ' + (s.codes && changed ? '#A34700' : 'transparent') + ';transition:border-color 240ms ease'
+        }))
+      };
+    });
+    return {
+      q, groups,
+      shown: term === '' ? '8 settings' : total + ' of 8 shown',
+      setQ: (e) => this.setState({ q: e.target.value }),
+      noticeStyle: 'display:' + (changed ? 'flex' : 'none') + ';gap:12px;align-items:flex-start;background:#FFF1DC;border-radius:16px;padding:14px 18px;color:#14232B;border:2px solid #A34700',
+      saveHint: changed ? '1 setting changed. It will be a draft until two other people approve.' : 'Nothing changed yet.',
+      saveStyle: 'height:56px;padding:0 28px;border:0;border-radius:16px;font-size:19px;font-weight:700;background:' + (changed ? '#0B5C8C' : '#C9DCE6') + ';color:' + (changed ? '#fff' : '#26343B') + ';box-shadow:' + (changed ? '0 6px 16px rgba(11,92,140,.28)' : 'none') + ';transition:background-color 240ms ease'
+    };
+  }
+}
+</script>
+</body>
+</html>

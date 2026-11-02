@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Data retention</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width:1280px;height:800px;display:flex;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden">
+  <dc-import name="Rail" portal="admin" active="retention" hint-size="84px,800px"></dc-import>
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <dc-import name="Top" org="FORTRUS LIMITED" title="Data retention" hint-size="100%,72px"></dc-import>
+
+    <main style="flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:22px;padding:20px 28px">
+
+      <section aria-label="Retention" style="display:flex;flex-direction:column;gap:14px;min-width:0">
+
+        <div style="background:#fff;border-radius:24px;padding:22px 26px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07);display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="width:40px;height:40px;border-radius:50%;background:#E3F1F8;display:flex;align-items:center;justify-content:center" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0B5C8C" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+            <h2 style="margin:0;font-size:28px">The platform defaults are in use</h2>
+          </div>
+          <div style="font-size:17px;line-height:1.45;color:#26343B">Every kind of data has a rule. Nothing here needs you unless your information governance team wants something different.</div>
+          <div style="display:flex;flex-wrap:wrap;gap:10px">
+            <span style="padding:8px 14px;border-radius:999px;background:#F4F6F5;border:2px solid #DDE3E6;font-size:16px;font-weight:700">Case audit: 7 years, then deleted</span>
+            <span style="padding:8px 14px;border-radius:999px;background:#F4F6F5;border:2px solid #DDE3E6;font-size:16px;font-weight:700">Bookings: 2 years, then deleted</span>
+            <span style="padding:8px 14px;border-radius:999px;background:#F4F6F5;border:2px solid #DDE3E6;font-size:16px;font-weight:700">Capacity reports: 2 years, then summarised</span>
+            <span style="padding:8px 14px;border-radius:999px;background:#F4F6F5;border:2px solid #DDE3E6;font-size:16px;font-weight:700">Messages: 2 years, then deleted</span>
+            <span style="padding:8px 14px;border-radius:999px;background:#F4F6F5;border:2px solid #DDE3E6;font-size:16px;font-weight:700">Raw usage data: 90 days, then deleted</span>
+            <span style="padding:8px 14px;border-radius:999px;background:#F4F6F5;border:2px solid #DDE3E6;font-size:16px;font-weight:700">Usage totals: 2 years, then deleted</span>
+            <span style="padding:8px 14px;border-radius:999px;background:#E3F1F8;border:2px solid #0B5C8C;font-size:16px;font-weight:700">Audit chain: kept, no time limit</span>
+            <span style="padding:8px 14px;border-radius:999px;background:#E3F1F8;border:2px solid #0B5C8C;font-size:16px;font-weight:700">Safety concerns: kept, no time limit</span>
+          </div>
+        </div>
+
+        <div style="background:#fff;border-radius:22px;border:2px solid #0B5C8C;box-shadow:0 10px 28px rgba(11,92,140,.14);overflow:hidden">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 22px"><span style="font-size:19px;font-weight:700">Review or change</span><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true" style="transform:rotate(180deg)"><path d="M5 8l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <div style="border-top:1px solid #DDE3E6;padding:6px 22px 16px;display:flex;flex-direction:column;gap:8px;max-height:300px;overflow:hidden">
+            <div style="display:grid;grid-template-columns:minmax(0,1.4fr) 140px 160px 90px;gap:12px;padding:10px 4px;font-size:14px;font-weight:700;color:#44555D;letter-spacing:.04em;text-transform:uppercase"><span>Kind of data</span><span>Keep for</span><span>Then</span><span></span></div>
+            <div style="display:grid;grid-template-columns:minmax(0,1.4fr) 140px 160px 90px;gap:12px;align-items:center;padding:6px 4px;border-top:1px solid #EEF2F3;font-size:17px"><b>Case audit</b><span>2555 days</span><span>Deleted</span><button type="button" style="height:44px;border:2px solid #14232B;border-radius:12px;background:#fff;font-family:inherit;font-weight:700;font-size:15px">Edit</button></div>
+            <div style="display:grid;grid-template-columns:minmax(0,1.4fr) 140px 160px 90px;gap:12px;align-items:center;padding:8px 4px;border-radius:14px;background:#E3F1F8;border:2px solid #0B5C8C;font-size:17px"><b>Bookings</b><span style="height:44px;border:2px solid #26343B;border-radius:12px;background:#fff;display:flex;align-items:center;padding:0 12px">730 days</span><span style="height:44px;border:2px solid #26343B;border-radius:12px;background:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 12px">Deleted <span aria-hidden="true">▾</span></span><button type="button" style="height:44px;border:0;border-radius:12px;background:#0B5C8C;color:#fff;font-family:inherit;font-weight:700;font-size:15px">Save</button></div>
+            <div style="display:grid;grid-template-columns:minmax(0,1.4fr) 140px 160px 90px;gap:12px;align-items:center;padding:6px 4px;border-top:1px solid #EEF2F3;font-size:17px"><b>Capacity reports</b><span>730 days</span><span>Summarised</span><button type="button" style="height:44px;border:2px solid #14232B;border-radius:12px;background:#fff;font-family:inherit;font-weight:700;font-size:15px">Edit</button></div>
+            <div style="display:grid;grid-template-columns:minmax(0,1.4fr) 140px 160px 90px;gap:12px;align-items:center;padding:6px 4px;border-top:1px solid #EEF2F3;font-size:17px"><b>Audit chain</b><span>Kept</span><span>No time limit</span><span style="font-size:14px;color:#44555D">Fixed</span></div>
+          </div>
+        </div>
+
+        <div style="margin-top:auto;display:flex;align-items:center;gap:14px;justify-content:space-between">
+          <span style="font-size:16px;color:#44555D">Changing a rule applies to data from now on. Nothing already deleted comes back.</span>
+          <button type="button" style="height:52px;padding:0 22px;border:2px solid #0B5C8C;border-radius:14px;background:#fff;color:#0B5C8C;font-family:inherit;font-size:17px;font-weight:700">Use the platform defaults</button>
+        </div>
+      </section>
+
+      <aside aria-label="Before you change" style="display:flex;flex-direction:column;gap:14px">
+        <div style="background:#FFF1DC;border-radius:22px;padding:18px 22px;border:2px solid #A34700">
+          <div style="font-size:15px;font-weight:700;color:#7A3500;margin-bottom:6px">◐ Check before go-live</div>
+          <div style="font-size:17px;line-height:1.4">These defaults are the platform's proposal. Your information governance team should confirm them, especially the 7 years for case audit.</div>
+        </div>
+        <div style="background:#fff;border-radius:22px;padding:18px 22px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06)">
+          <div style="font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D;margin-bottom:8px">What each choice does</div>
+          <div style="font-size:16px;line-height:1.5;color:#26343B"><b>Deleted</b>: gone after the time.<br><b>Summarised</b>: counts are kept, the detail goes.<br><b>Kept</b>: stays until your organisation leaves.</div>
+        </div>
+        <div style="background:#E3F1F8;border-radius:22px;padding:16px 22px;display:flex;gap:12px;align-items:center">
+          <span aria-hidden="true" style="font-size:20px;color:#0B5C8C">●</span><span style="font-size:16px;line-height:1.4"><b>Saved.</b> Bookings now keep for 2 years.</span>
+        </div>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

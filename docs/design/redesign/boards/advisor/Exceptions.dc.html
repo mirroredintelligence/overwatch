@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Withdrawn and cancelled bookings</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.app{width:1280px;height:800px;box-sizing:border-box;padding:36px 40px;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden;display:flex;flex-direction:column;gap:18px}
+.card{background:#fff;border-radius:26px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07)}
+.opt{padding:13px 16px;border-radius:14px;border:2px solid #DDE3E6;font-size:18px;font-weight:700;background:#fff}
+.opt.on{border-color:#0B5C8C;background:#E3F1F8}
+.pri{height:58px;padding:0 28px;border:0;border-radius:16px;background:#0B5C8C;color:#fff;font:700 19px 'Atkinson Hyperlegible',system-ui,sans-serif;box-shadow:0 6px 16px rgba(11,92,140,.28)}
+.out{height:56px;padding:0 24px;border:2px solid #0B5C8C;border-radius:16px;background:#fff;color:#0B5C8C;font:700 18px 'Atkinson Hyperlegible',system-ui,sans-serif}
+.sec{height:50px;border:0;background:transparent;color:#26343B;font:700 17px 'Atkinson Hyperlegible',system-ui,sans-serif;text-decoration:underline}
+.step{display:flex;align-items:center;gap:12px;font-size:17px;line-height:1.35}
+.step b{width:28px;height:28px;border-radius:50%;background:#6B2C91;color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;flex:none}
+</style>
+</helmet>
+<div class="app">
+  <div style="display:flex;align-items:baseline;justify-content:space-between">
+    <h1 style="margin:0;font-size:28px">When a booking changes after it was agreed</h1>
+    <span style="font-size:16px;color:#44555D">The advisor side. The service's own screens are on the provider onboarding surface.</span>
+  </div>
+  <div style="display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:22px;flex:1;min-height:0">
+
+    <section class="card" role="alert" aria-labelledby="w1" style="padding:30px 34px;display:flex;flex-direction:column;gap:16px;border:3px solid #6B2C91">
+      <div style="display:flex;align-items:center;gap:14px">
+        <span style="width:34px;height:34px;background:#6B2C91;clip-path:polygon(50% 4%,100% 96%,0 96%);flex:none" aria-hidden="true"></span>
+        <span style="padding:5px 14px;border-radius:999px;background:#6B2C91;color:#fff;font-weight:700;font-size:15px">Withdrawn</span>
+      </div>
+      <h2 id="w1" style="margin:0;font-size:30px;line-height:1.15">UCR West can no longer take this patient</h2>
+      <p style="margin:0;font-size:18px;line-height:1.45;color:#26343B">Reason: staffing. Withdrawn 14:41. The patient is not left without a plan: the booking is back with you.</p>
+      <div style="background:#F1E8F7;border-radius:18px;padding:16px 20px;display:flex;flex-direction:column;gap:12px">
+        <div class="step"><b>1</b><span><strong>Phone the caller now.</strong></span></div>
+        <div class="step"><b>2</b><span>Tell them another service is being found.</span></div>
+        <div class="step"><b>3</b><span>If nobody acts within 10 minutes, the shift lead is alerted.</span></div>
+      </div>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:auto">
+        <button type="button" class="pri">See options again</button>
+        <button type="button" class="out">Ask a clinical advisor</button>
+        <button type="button" class="out">Phone the caller</button>
+      </div>
+    </section>
+
+    <div style="display:flex;flex-direction:column;gap:18px;min-height:0">
+      <section class="card" aria-labelledby="c1" style="padding:26px 28px;display:flex;flex-direction:column;gap:12px;flex:1">
+        <h2 id="c1" style="margin:0;font-size:24px;line-height:1.2">Cancel the booking with UCR West?</h2>
+        <div style="font-size:16px;color:#44555D;line-height:1.4">Booking 4821 · confirmed 14:19</div>
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px"><span class="opt">Caller declined</span><span class="opt on">No longer needed</span><span class="opt">Other route found</span><span class="opt">Entered in error</span></div>
+        <div style="font-size:16px;line-height:1.4;color:#26343B">The service is told by its own channel. The slot goes back to available.</div>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:auto"><button type="button" class="pri" style="background:#14232B;box-shadow:none">Cancel booking</button><button type="button" class="out">Keep booking</button></div>
+      </section>
+      <section class="card" aria-label="Not reached" style="padding:20px 26px;display:flex;flex-direction:column;gap:8px;background:#fff">
+        <div style="font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D">Also reaches the advisor</div>
+        <div style="font-size:18px;line-height:1.4"><strong>Patient not found or not there.</strong> The SPOA is told and phones the caller. The reason is one of: not at the address, no answer at the door, gone to hospital, other.</div>
+      </section>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

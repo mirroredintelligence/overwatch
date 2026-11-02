@@ -1,0 +1,48 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-11-03T10:00:00Z" },
+  "title": "Overwatch redesign: provider onboarding",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 1280, "h": 900, "title": "Index: every route and the board that shows it" },
+    "LI1.dc.html": { "x": 0, "y": 1300, "w": 1280, "h": 800, "title": "Shift lead: invite a reporter" },
+    "LI2.dc.html": { "x": 1360, "y": 1300, "w": 1280, "h": 800, "title": "Shift lead: track set-up and fix a stuck one" },
+    "R1.dc.html": { "x": 0, "y": 2500, "w": 390, "h": 844, "title": "1 The invitation text" },
+    "R2.dc.html": { "x": 470, "y": 2500, "w": 390, "h": 844, "title": "2 Welcome" },
+    "R3.dc.html": { "x": 940, "y": 2500, "w": 390, "h": 844, "title": "3 Check your number" },
+    "R4.dc.html": { "x": 1410, "y": 2500, "w": 390, "h": 844, "title": "4 How we contact you" },
+    "R5.dc.html": { "x": 1880, "y": 2500, "w": 390, "h": 844, "title": "5 Home screen" },
+    "R6.dc.html": { "x": 2350, "y": 2500, "w": 390, "h": 844, "title": "6 Notifications" },
+    "R7.dc.html": { "x": 2820, "y": 2500, "w": 390, "h": 844, "title": "7 PIN" },
+    "R8.dc.html": { "x": 3290, "y": 2500, "w": 390, "h": 844, "title": "8 All set" },
+    "Reg.dc.html": { "x": 0, "y": 3750, "w": 1280, "h": 800, "title": "Prototype: register a service, one screen that morphs", "is_interactive": true },
+    "RP1.dc.html": { "x": 1360, "y": 3750, "w": 390, "h": 844, "title": "Phone: sign in with the invitation" },
+    "RP2.dc.html": { "x": 1830, "y": 3750, "w": 390, "h": 844, "title": "Phone: a step with problems" },
+    "RP3.dc.html": { "x": 2300, "y": 3750, "w": 390, "h": 844, "title": "Phone: review and submit" },
+    "RegStatus.dc.html": { "x": 2770, "y": 3750, "w": 1280, "h": 860, "title": "After submitting: every status, and My services" },
+    "Rev1.dc.html": { "x": 0, "y": 5000, "w": 1280, "h": 800, "title": "Prototype: review a registration, queue to go-live", "is_interactive": true },
+    "RevChecks.dc.html": { "x": 1360, "y": 5000, "w": 1280, "h": 800, "title": "The automatic checks, every state" },
+    "RvP1.dc.html": { "x": 2720, "y": 5000, "w": 390, "h": 844, "title": "Phone: the queue" },
+    "RvP2.dc.html": { "x": 3190, "y": 5000, "w": 390, "h": 844, "title": "Phone: review and decide" },
+    "States.dc.html": { "x": 0, "y": 6200, "w": 1280, "h": 800, "title": "Loading, empty, error and success" }
+  },
+  "order": [
+    "Main.dc.html", "LI1.dc.html", "LI2.dc.html",
+    "R1.dc.html", "R2.dc.html", "R3.dc.html", "R4.dc.html", "R5.dc.html", "R6.dc.html", "R7.dc.html", "R8.dc.html",
+    "Reg.dc.html", "RP1.dc.html", "RP2.dc.html", "RP3.dc.html", "RegStatus.dc.html",
+    "Rev1.dc.html", "RevChecks.dc.html", "RvP1.dc.html", "RvP2.dc.html", "States.dc.html"
+  ],
+  "notes": {
+    "t1": { "x": 0, "y": 1000, "text": "Inviting a provider: the shift lead", "kind": "title1", "maxW": 2640 },
+    "t2": { "x": 0, "y": 2200, "text": "What the provider sees: invitation to first report (phone)", "kind": "title1", "maxW": 3680 },
+    "t3": { "x": 0, "y": 3450, "text": "Registering a service", "kind": "title1", "maxW": 4050 },
+    "t4": { "x": 0, "y": 4700, "text": "Reviewing a registration: the shift lead", "kind": "title1", "maxW": 3580 },
+    "t5": { "x": 0, "y": 5900, "text": "States everyone meets", "kind": "title1", "maxW": 1280 },
+    "n1": { "x": 2720, "y": 1300, "w": 340, "fill": "blue", "text": "Invite, track and fix are three states of one page. The list of invitations stays; the right side changes." },
+    "n2": { "x": 3760, "y": 2500, "w": 340, "fill": "teal", "text": "Anchors on every set-up step: the service chip, the five-segment progress and the one big button at the bottom. Only the middle changes." },
+    "n3": { "x": 4130, "y": 3750, "w": 340, "fill": "teal", "text": "Press the section names on the left, or Continue. The checklist is always there, so nobody loses their place or their answers." },
+    "n4": { "x": 3660, "y": 5000, "w": 340, "fill": "teal", "text": "Press the steps. The queue narrows to make room; the checks the reviewer does come one at a time." }
+  },
+  "designSystems": []
+}

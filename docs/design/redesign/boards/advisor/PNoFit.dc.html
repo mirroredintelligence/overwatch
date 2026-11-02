@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Phone no service fits</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.ph{width:390px;height:844px;position:relative;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden}
+.go{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:18px;border:2px solid #DDE3E6;background:#fff;text-align:left;font:700 18px 'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;width:100%;box-sizing:border-box;min-height:64px}
+.go.first{border-color:#0B5C8C;background:#E3F1F8}
+.go small{display:block;font-size:14px;font-weight:400;color:#44555D;margin-top:2px;line-height:1.3}
+.go .ar{margin-left:auto;color:#0B5C8C;font-size:22px}
+</style>
+</helmet>
+<div class="ph">
+  <header style="height:60px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:#0B2A3D;color:#fff">
+    <div style="display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#fff"/><path d="M3 13h20" stroke="#fff" stroke-width="2.4"/></svg>Overwatch</div>
+    <span style="font-weight:700;font-size:15px">On call 05:41</span>
+  </header>
+  <div style="display:flex;gap:6px;padding:12px 16px 8px" aria-hidden="true"><span style="flex:1;height:6px;border-radius:3px;background:#0B5C8C"></span><span style="flex:1;height:6px;border-radius:3px;background:#0B5C8C"></span><span style="flex:1;height:6px;border-radius:3px;background:#C9DCE6"></span><span style="flex:1;height:6px;border-radius:3px;background:#C9DCE6"></span></div>
+  <div style="margin:0 16px;background:#fff;border-radius:16px;padding:10px 14px;display:flex;align-items:center;gap:10px"><div style="flex:1;font-size:15px;line-height:1.3"><strong>80+ · DT4 8XX</strong><br><span style="color:#44555D">IV therapy · Within 2 hrs</span></div><button type="button" style="height:40px;padding:0 16px;border:2px solid #0B5C8C;border-radius:12px;background:#fff;color:#0B5C8C;font:700 16px 'Atkinson Hyperlegible',system-ui,sans-serif">Edit</button></div>
+  <div style="padding:16px 16px 0;display:flex;flex-direction:column;gap:12px">
+    <div style="background:#fff;border-radius:22px;padding:18px 18px 16px">
+      <h1 style="margin:0;font-size:25px;line-height:1.15">No service fits right now</h1>
+      <p style="margin:6px 0 0;font-size:16px;line-height:1.4;color:#26343B">Every service is not accepting, outside the criteria, or not updated. This is not the end of the call.</p>
+    </div>
+    <button type="button" class="go first"><span>Widen the time to today<small>Within 2 hrs becomes today. You can change it back.</small></span><span class="ar" aria-hidden="true">›</span></button>
+    <button type="button" class="go"><span>Phone a service you know has space<small>Then record what they told you.</small></span><span class="ar" aria-hidden="true">›</span></button>
+    <button type="button" class="go"><span>Ask a clinical advisor<small>The summary goes with the call. No name is sent.</small></span><span class="ar" aria-hidden="true">›</span></button>
+    <button type="button" class="go"><span>Other routes under local protocol</span><span class="ar" aria-hidden="true">›</span></button>
+    <div style="font-size:15px;color:#44555D;padding:2px 4px">Why none fit: 6 services ▾</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

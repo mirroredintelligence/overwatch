@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Phone clinical advice requested</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.ph{width:390px;height:844px;position:relative;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden;background:linear-gradient(180deg,#0B2A3D 0%,#123F58 100%)}
+.n{background:rgba(255,255,255,.96);border-radius:22px;padding:14px 16px;display:flex;flex-direction:column;gap:6px;box-shadow:0 12px 32px rgba(0,0,0,.28)}
+.card{background:#fff;border-radius:20px;padding:16px 18px;display:flex;flex-direction:column;gap:8px}
+.take{height:52px;border:0;border-radius:14px;background:#0B5C8C;color:#fff;font:700 18px 'Atkinson Hyperlegible',system-ui,sans-serif}
+</style>
+</helmet>
+<div class="ph">
+  <div style="padding:70px 22px 0;text-align:center;color:#fff"><div style="font-size:64px;font-weight:700;line-height:1">14:13</div><div style="font-size:18px;margin-top:4px;color:#D7E6EE">Friday 23 October</div></div>
+  <div style="padding:40px 14px 0;display:flex;flex-direction:column;gap:12px">
+    <div class="n" role="alert">
+      <div style="display:flex;align-items:center;justify-content:space-between;font-size:14px;color:#44555D"><span style="display:flex;align-items:center;gap:8px;font-weight:700"><span style="width:18px;height:18px;border-radius:5px;background:#0B5C8C;display:inline-block"></span>Overwatch</span><span>now</span></div>
+      <div style="font-size:19px;font-weight:700;line-height:1.2">Clinical advice requested: now</div>
+      <div style="font-size:16px;line-height:1.35;color:#26343B">80+, fall and frailty. Waiting 1 min.</div>
+      <div style="display:flex;gap:8px;margin-top:6px"><button type="button" class="take" style="flex:1">Take it</button><button type="button" style="flex:1;height:52px;border:2px solid #0B5C8C;border-radius:14px;background:#fff;color:#0B5C8C;font:700 18px 'Atkinson Hyperlegible',system-ui,sans-serif">Open queue</button></div>
+    </div>
+    <div class="n" style="opacity:.82;padding:12px 16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;font-size:14px;color:#44555D"><span style="display:flex;align-items:center;gap:8px;font-weight:700"><span style="width:18px;height:18px;border-radius:5px;background:#0B5C8C;display:inline-block"></span>Overwatch</span><span>6 min</span></div>
+      <div style="font-size:17px;font-weight:700">Clinical advice requested: within 15 min</div>
+    </div>
+  </div>
+  <div style="position:absolute;left:22px;right:22px;bottom:34px;text-align:center;color:#B9D0DC;font-size:15px;line-height:1.4">No name and no postcode are in an alert. They appear only after you take the request, and only on the case screen.</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

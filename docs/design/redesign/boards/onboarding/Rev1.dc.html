@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Review a registration</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font-family:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid #14232B;outline-offset:2px}
+.card{background:#fff;border-radius:26px;padding:24px 28px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07);display:flex;flex-direction:column;gap:14px}
+.lb{font-size:17px;font-weight:700;margin-bottom:6px;display:block}
+.ch{padding:11px 18px;border:2px solid #DDE3E6;border-radius:14px;font-size:17px;font-weight:700;background:#fff}
+.co{padding:11px 18px;border:2px solid #0B5C8C;border-radius:14px;font-size:17px;font-weight:700;background:#E3F1F8}
+.row{display:flex;flex-wrap:wrap;gap:10px}
+.fld{height:52px;border:2px solid #26343B;border-radius:14px;display:flex;align-items:center;padding:0 16px;font-size:18px;background:#fff}
+.pri{height:54px;padding:0 26px;border:0;border-radius:16px;background:#0B5C8C;color:#fff;font-size:18px;font-weight:700;box-shadow:0 6px 16px rgba(11,92,140,.28)}
+.sec{height:54px;padding:0 20px;border:0;border-radius:16px;background:transparent;color:#26343B;font-size:17px;font-weight:700;text-decoration:underline}
+.ck{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid #DDE3E6;font-size:17px;line-height:1.35}
+@media (prefers-reduced-motion: reduce){*{transition:none !important}}
+</style>
+</helmet>
+<div style="width:1280px;height:800px;display:flex;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden">
+
+  <nav aria-label="Shift lead" style="width:84px;flex:none;background:#0B2A3D;display:flex;flex-direction:column;align-items:center;padding:20px 0;gap:4px">
+    <div style="width:44px;height:44px;border-radius:14px;background:#0B5C8C;display:flex;align-items:center;justify-content:center;margin-bottom:14px"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#fff"/><path d="M3 13h20" stroke="#fff" stroke-width="2.4"/></svg></div>
+    <a href="#" style="width:68px;padding:9px 0 7px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:3px;color:#B9D0DC;text-decoration:none;font-size:13px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Board</a>
+    <a href="#" style="width:68px;padding:9px 0 7px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:3px;color:#B9D0DC;text-decoration:none;font-size:13px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0M16 5a3.2 3.2 0 0 1 0 6.2M18 20a6 6 0 0 0-3-5.2"/></svg>People</a>
+    <a href="#" style="width:68px;padding:9px 0 7px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:3px;color:#B9D0DC;text-decoration:none;font-size:13px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-5.6 7-11a7 7 0 0 0-14 0c0 5.4 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Services</a>
+    <a href="#" aria-current="page" style="width:68px;padding:9px 0 7px;border-radius:14px;background:rgba(255,255,255,.14);display:flex;flex-direction:column;align-items:center;gap:3px;color:#fff;text-decoration:none;font-size:13px;font-weight:700"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4h6l1 2h3v14H5V6h3zM9 13l2 2 4-4"/></svg>Review</a>
+    <a href="#" style="width:68px;padding:9px 0 7px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:3px;color:#B9D0DC;text-decoration:none;font-size:13px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>Phones</a>
+  </nav>
+
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <header style="height:72px;flex:none;display:flex;align-items:center;gap:16px;padding:0 28px;border-bottom:1px solid #DDE3E6;background:#fff">
+      <div style="display:flex;flex-direction:column;line-height:1.2"><span style="font-size:14px;color:#44555D">Urgent care capacity</span><span style="font-size:20px;font-weight:700">Registrations</span></div>
+      <button type="button" style="margin-left:auto;height:44px;padding:0 16px;border:2px solid #14232B;border-radius:999px;background:#fff;font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px">Shift lead <svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 8l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </header>
+
+    <div style="flex:none;display:flex;align-items:center;gap:8px;padding:12px 28px 4px" role="group" aria-label="Review steps, press to see each layout">
+      <sc-for list="{{steps}}" as="s" hint-placeholder-count="6">
+        <button type="button" onClick="{{ s.go }}" aria-pressed="{{ s.on }}" style="{{ s.style }}">{{ s.label }}</button>
+      </sc-for>
+      <span style="margin-left:auto;font-size:15px;color:#44555D">{{hint}}</span>
+    </div>
+
+    <main style="{{gridStyle}}">
+
+      <section aria-label="Queue" style="{{listStyle}}">
+        <div style="{{listInner}}">
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <span style="padding:8px 14px;border-radius:999px;background:#0B3F61;color:#fff;font-weight:700;font-size:15px">To review 2</span>
+            <span style="padding:8px 14px;border-radius:999px;background:#fff;border:2px solid #DDE3E6;font-weight:700;font-size:15px">Waiting 1</span>
+            <span style="padding:8px 14px;border-radius:999px;background:#fff;border:2px solid #DDE3E6;font-weight:700;font-size:15px">Go live 1</span>
+            <span style="padding:8px 14px;border-radius:999px;background:#fff;border:2px solid #DDE3E6;font-weight:700;font-size:15px">Done</span>
+          </div>
+          <div style="{{rowSelected}}">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div><div style="font-weight:700;font-size:20px">UCR East</div><div style="font-size:15px;color:#44555D">Submitted 14:30 by Duty manager</div></div><span style="padding:4px 10px;border:2px solid #0B5C8C;border-radius:999px;color:#0B3F61;font-weight:700;font-size:14px;white-space:nowrap">◔ In review</span></div>
+            <div style="margin-top:8px;font-size:15px;color:#7A3500;font-weight:700">▲ Criteria owner email is not an organisation address</div>
+          </div>
+          <div style="background:#fff;border-radius:20px;padding:16px 18px;border:2px solid #fff">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div><div style="font-weight:700;font-size:20px">SDEC · Site 1</div><div style="font-size:15px;color:#44555D">Submitted 13:05 by Clinical coordinator</div></div><span style="padding:4px 10px;border:2px solid #0B5C8C;border-radius:999px;color:#0B3F61;font-weight:700;font-size:14px;white-space:nowrap">◔ In review</span></div>
+          </div>
+          <div style="font-size:15px;color:#44555D;padding:4px 4px">Reviewing one registration takes about 10 minutes, with a call.</div>
+        </div>
+      </section>
+
+      <section aria-label="Registration" style="position:relative;min-width:0">
+
+        <div style="{{l1}}"><div class="card" style="gap:12px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start"><div><h2 style="margin:0;font-size:30px">UCR East</h2><div style="font-size:16px;color:#44555D">Registered by Alex Morgan, duty manager · NHS trust</div></div></div>
+          <div style="display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:26px">
+            <div>
+              <div style="font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D;margin-bottom:2px">Checks the system did</div>
+              <div class="ck"><span style="color:#0B3F61;font-weight:700">✓</span><span>ODS code found, active, NHS trust. The name matches.</span></div>
+              <div class="ck"><span style="color:#0B3F61;font-weight:700">✓</span><span>Address found. <strong>No area limit is set, so any address is accepted.</strong></span></div>
+              <div class="ck"><span style="color:#0B3F61;font-weight:700">✓</span><span>Reporting phone is the one we invited.</span></div>
+              <div class="ck" style="border-bottom:0"><span style="color:#7A3500;font-weight:700">▲</span><span>Criteria owner email is not an organisation address. <strong>Ask for an organisation address.</strong></span></div>
+            </div>
+            <div>
+              <div style="font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D;margin-bottom:6px">Checks you do</div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <button type="button" onClick="{{go2}}" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:2px solid #0B5C8C;border-radius:16px;background:#E3F1F8;text-align:left;font-size:17px;font-weight:700"><span style="width:28px;height:28px;border-radius:50%;border:2px dashed #0B3F61;flex:none;box-sizing:border-box"></span>1 Call the service back</button>
+                <button type="button" onClick="{{go3}}" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:2px solid #DDE3E6;border-radius:16px;background:#fff;text-align:left;font-size:17px;font-weight:700"><span style="width:28px;height:28px;border-radius:50%;border:2px dashed #6B7B83;flex:none;box-sizing:border-box"></span>2 Is it in scope?</button>
+                <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:2px dashed #6B7B83;border-radius:16px;background:#fff;font-size:17px;font-weight:700;color:#26343B"><span style="width:28px;height:28px;border-radius:50%;border:2px dashed #6B7B83;flex:none;box-sizing:border-box"></span><span>3 Criteria second approval<br><span style="font-weight:400;font-size:15px">Waiting for the clinical lead</span></span></div>
+                <button type="button" onClick="{{go4}}" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:2px dashed #6B7B83;border-radius:16px;background:#F4F6F5;text-align:left;font-size:17px;font-weight:700;color:#44555D"><span style="width:28px;height:28px;border-radius:50%;border:2px dashed #6B7B83;flex:none;box-sizing:border-box"></span><span>4 Decide<br><span style="font-weight:400;font-size:15px">Opens when 1 to 3 are done</span></span></button>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;gap:12px;align-items:center;margin-top:4px"><button type="button" onClick="{{go2}}" class="pri">Start with the call-back</button></div>
+        </div></div>
+
+        <div style="{{l2}}"><div class="card">
+          <div><div style="font-size:15px;color:#44555D">Check 1 of 4 · UCR East</div><h2 style="margin:0;font-size:30px">Call the service back</h2></div>
+          <div style="padding:12px 16px;border-radius:16px;background:#FFF1DC;font-size:17px;line-height:1.4">Phone the number on the NHS register. <strong>Do not use the number the applicant gave.</strong></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px"><div style="background:#F4F6F5;border-radius:16px;padding:12px 16px"><div style="font-size:14px;color:#44555D">Number from the register</div><div style="font-size:22px;font-weight:700">01305 111111</div></div><div style="background:#F4F6F5;border-radius:16px;padding:12px 16px"><div style="font-size:14px;color:#44555D">Number the applicant gave</div><div style="font-size:22px;font-weight:700">01305 000000</div></div></div>
+          <ol style="margin:0;padding:0 0 0 22px;font-size:17px;line-height:1.55"><li>Ask for Alex Morgan, or the person in charge.</li><li>Ask: is Alex a duty manager at UCR East?</li><li>Ask: did they register for Overwatch today?</li><li><strong>Do not talk about any patient.</strong></li></ol>
+          <div><label class="lb">Result</label><div class="row"><span class="co">Confirmed</span><span class="ch">Not confirmed</span><span class="ch">No answer</span></div></div>
+          <div style="display:flex;gap:12px;align-items:center"><button type="button" onClick="{{go1}}" class="pri">Save result</button><button type="button" onClick="{{go1}}" class="sec">Back</button></div>
+        </div></div>
+
+        <div style="{{l3}}"><div class="card" style="gap:12px">
+          <div><div style="font-size:15px;color:#44555D">Check 2 of 4 · UCR East</div><h2 style="margin:0;font-size:30px">Is it in scope?</h2></div>
+          <div style="display:grid;grid-template-columns:1fr auto;gap:10px 16px;align-items:center;font-size:17px">
+            <span>Is it part of the urgent care pathway?</span><span class="row"><span class="co" style="padding:8px 16px">Yes</span><span class="ch" style="padding:8px 16px">No</span><span class="ch" style="padding:8px 16px">Not sure</span></span>
+            <span>Does it take referrals from the shift lead's team?</span><span class="row"><span class="co" style="padding:8px 16px">Yes</span><span class="ch" style="padding:8px 16px">No</span><span class="ch" style="padding:8px 16px">Not sure</span></span>
+            <span>Can it report by app, text or email?</span><span class="row"><span class="co" style="padding:8px 16px">Yes</span><span class="ch" style="padding:8px 16px">No</span><span class="ch" style="padding:8px 16px">Not sure</span></span>
+            <span>Is its category on the pilot list?</span><span class="row"><span class="co" style="padding:8px 16px">Yes</span><span class="ch" style="padding:8px 16px">No</span><span class="ch" style="padding:8px 16px">Not sure</span></span>
+          </div>
+          <div><label class="lb">Your decision</label><div class="row"><span class="co">In scope: pilot</span><span class="ch">In scope: later</span><span class="ch">Out of scope</span></div></div>
+          <div style="font-size:15px;color:#44555D">A reason is needed only if the decision is not the pilot.</div>
+          <div style="display:flex;gap:12px;align-items:center"><button type="button" onClick="{{go1}}" class="pri">Save</button><button type="button" onClick="{{go1}}" class="sec">Back</button></div>
+        </div></div>
+
+        <div style="{{l4}}"><div class="card">
+          <div><div style="font-size:15px;color:#44555D">Check 4 of 4 · UCR East</div><h2 style="margin:0;font-size:30px">Decide</h2></div>
+          <div style="background:#F4F6F5;border-radius:18px;padding:6px 18px">
+            <div class="ck"><span style="color:#0B3F61;font-weight:700">✓</span>Automatic checks passed or explained</div>
+            <div class="ck"><span style="color:#0B3F61;font-weight:700">✓</span>Call-back done</div>
+            <div class="ck"><span style="color:#0B3F61;font-weight:700">✓</span>Scope decided: in scope, pilot</div>
+            <div class="ck" style="border-bottom:0"><span style="color:#7A3500;font-weight:700">◔</span>Criteria second approval. <strong>Waiting for the clinical lead.</strong></div>
+          </div>
+          <div><label class="lb">Note to the applicant <span style="font-weight:400;color:#44555D;font-size:15px">Needed to send back or not approve. No patient information.</span></label><div class="fld" style="height:76px;align-items:flex-start;padding-top:12px;color:#6B7B83">Ask for an organisation email address for the criteria owner.</div></div>
+          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><button type="button" disabled style="height:54px;padding:0 26px;border:0;border-radius:16px;background:#C9DCE6;color:#44555D;font-size:18px;font-weight:700">Approve (waiting for the clinical lead)</button><button type="button" onClick="{{go1}}" style="height:54px;padding:0 22px;border:2px solid #0B5C8C;border-radius:16px;background:#fff;color:#0B5C8C;font-size:17px;font-weight:700">Send back with a note</button><button type="button" onClick="{{go1}}" class="sec">Not approved: out of scope</button></div>
+        </div></div>
+
+        <div style="{{l5}}"><div class="card" style="max-width:700px">
+          <div><div style="font-size:15px;color:#44555D">After approval · UCR East</div><h2 style="margin:0;font-size:30px">Go live</h2></div>
+          <ol style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px;font-size:18px">
+            <li style="display:flex;gap:12px;align-items:center"><span style="width:28px;height:28px;border-radius:50%;background:#0B5C8C;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:14px;flex:none">✓</span>Approved today 15:00</li>
+            <li style="display:flex;gap:12px;align-items:center"><span style="width:28px;height:28px;border-radius:50%;background:#0B5C8C;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:14px;flex:none">✓</span>Test notification sent 15:02</li>
+            <li style="display:flex;gap:12px;align-items:center"><span style="width:28px;height:28px;border-radius:50%;background:#0B5C8C;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:14px;flex:none">✓</span>Test answered 15:05 from the registered phone</li>
+          </ol>
+          <div style="border:2px solid #DDE3E6;border-radius:18px;padding:14px 16px"><div style="font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D">How it will look on the board</div><div style="margin-top:8px;display:flex;align-items:center;gap:12px"><strong style="font-size:20px">UCR East</strong><span style="padding:4px 12px;border-radius:999px;background:#0B5C8C;color:#fff;font-weight:700;font-size:15px">Accepting</span><span style="font-size:15px;color:#44555D">A status, until they report a number.</span></div></div>
+          <div style="display:flex;gap:12px;align-items:center"><button type="button" class="pri">Set live</button><button type="button" onClick="{{go1}}" class="sec">Back</button></div>
+        </div></div>
+      </section>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"stage":{"editor":"int","default":0,"min":0,"max":5,"step":1},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { stage: Math.min(5, Math.max(0, Number((props && props.stage) || 0))) };
+  }
+  renderVals() {
+    const s = this.state.stage;
+    const go = (n) => () => this.setState({ stage: n });
+    const SPRING = 'cubic-bezier(0.34,1.56,0.64,1)';
+    const DRAWER = 'cubic-bezier(0.32,0.72,0,1)';
+    const labels = ['Queue', 'Overview', 'Call back', 'In scope?', 'Decide', 'Go live'];
+    const steps = labels.map((label, i) => ({
+      label, on: s === i, go: go(i),
+      style: 'height:44px;padding:0 18px;border-radius:999px;font-size:16px;font-weight:700;border:2px solid ' + (s === i ? '#0B5C8C' : '#DDE3E6') + ';background:' + (s === i ? '#0B5C8C' : '#fff') + ';color:' + (s === i ? '#fff' : '#14232B') + ';transition:background-color 240ms ease, color 240ms ease, border-color 240ms ease'
+    }));
+    const cols = s === 0 ? 'minmax(0,1fr) 0px' : s === 1 ? '380px minmax(0,1fr)' : '300px minmax(0,1fr)';
+    const layer = (i) => 'position:absolute;inset:0;overflow:hidden;padding:4px 6px 20px 2px;opacity:' + (s === i ? 1 : 0) + ';transform:' + (s === i ? 'none' : (i < s ? 'translateY(-14px) scale(0.985)' : 'translateY(16px) scale(0.985)')) + ';pointer-events:' + (s === i ? 'auto' : 'none') + ';transition:opacity 280ms ease ' + (s === i ? '160ms' : '0ms') + ', transform 520ms ' + SPRING + ' ' + (s === i ? '120ms' : '0ms');
+    const hints = ['The queue is the focus.', 'Pick one: the queue narrows and the registration opens.', 'Check 1: one check at a time, with the queue still beside it.', 'Check 2: four answers and a decision.', 'Check 4: everything the back end still lists as missing.', 'After approval and an answered test: set live.'];
+    return {
+      steps, hint: hints[s],
+      gridStyle: 'flex:1;min-height:0;display:grid;grid-template-columns:' + cols + ';column-gap:' + (s === 0 ? '0' : '22px') + ';padding:12px 28px 24px;transition:grid-template-columns 560ms ' + DRAWER + ', column-gap 560ms ' + DRAWER,
+      listStyle: 'min-width:0;overflow:hidden',
+      listInner: 'display:flex;flex-direction:column;gap:12px;width:' + (s === 0 ? '760px' : (s === 1 ? '380px' : '300px')) + ';max-width:100%;transition:width 560ms ' + DRAWER,
+      rowSelected: 'background:#fff;border-radius:20px;padding:16px 18px;border:2px solid ' + (s >= 1 ? '#0B5C8C' : '#fff') + ';box-shadow:' + (s >= 1 ? '0 10px 28px rgba(11,92,140,.16)' : '0 1px 2px rgba(20,35,43,.06)') + ';transition:border-color 240ms ease, box-shadow 320ms ease',
+      l1: layer(1), l2: layer(2), l3: layer(3), l4: layer(4), l5: layer(5),
+      go1: go(1), go2: go(2), go3: go(3), go4: go(4)
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Senders and sharing</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width:1280px;height:800px;display:flex;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden">
+  <dc-import name="Rail" portal="admin" active="email" hint-size="84px,800px"></dc-import>
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <dc-import name="Top" org="FORTRUS LIMITED" title="Email sender and sharing" hint-size="100%,72px"></dc-import>
+
+    <main style="flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px;padding:20px 28px">
+
+      <section aria-label="Senders" style="display:flex;flex-direction:column;gap:14px;min-width:0">
+        <h2 style="margin:0;font-size:26px">Who messages come from</h2>
+
+        <div style="background:#fff;border-radius:22px;padding:18px 22px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06);display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:20px;font-weight:700">Text messages</span><span style="padding:5px 12px;border-radius:999px;background:#E3F1F8;color:#0B3F61;font-weight:700;font-size:14px">● Using the shared line</span></div>
+          <div style="font-size:16px;line-height:1.45;color:#26343B">Texts go out from Overwatch's shared line until your organisation has its own number. People cannot reply by text yet. To change this, ask the platform team.</div>
+        </div>
+
+        <div style="background:#fff;border-radius:22px;padding:18px 22px;box-shadow:0 10px 28px rgba(11,92,140,.14);border:2px solid #0B5C8C;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:20px;font-weight:700">Email</span><span style="padding:5px 12px;border-radius:999px;border:2px dashed #44555D;font-weight:700;font-size:14px;color:#26343B">○ Not set up</span></div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:16px;background:#E3F1F8;border:2px solid #0B5C8C">
+              <span style="width:22px;height:22px;border-radius:50%;border:6px solid #0B5C8C;box-sizing:border-box;flex:none;margin-top:2px" aria-hidden="true"></span>
+              <div><div style="font-size:18px;font-weight:700">Use Overwatch's sender <span style="font-size:14px;color:#0B3F61">Recommended</span></div><div style="font-size:16px;line-height:1.4;color:#26343B">Emails come from noreply@mirroredintelligence.com as "Overwatch". Nothing to set up.</div></div>
+            </div>
+            <div style="display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:16px;background:#fff;border:2px solid #DDE3E6">
+              <span style="width:22px;height:22px;border-radius:50%;border:2px solid #44555D;box-sizing:border-box;flex:none;margin-top:2px" aria-hidden="true"></span>
+              <div><div style="font-size:18px;font-weight:700">Use your own address</div><div style="font-size:16px;line-height:1.4;color:#44555D">Choose the sender name and address. We check it before it is used.</div></div>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:flex-end"><button type="button" style="height:52px;padding:0 24px;border:0;border-radius:14px;background:#0B5C8C;color:#fff;font-family:inherit;font-size:18px;font-weight:700">Save choice</button></div>
+        </div>
+      </section>
+
+      <section aria-label="Sharing with the network" style="display:flex;flex-direction:column;gap:14px;min-width:0">
+        <h2 style="margin:0;font-size:26px">Sharing with the network</h2>
+        <div style="font-size:16px;line-height:1.45;color:#26343B">You share only what you agree to, and you can end it at any time. Each kind of sharing needs two approvals: one from you and one from the network owner.</div>
+
+        <div style="background:#fff;border-radius:22px;padding:16px 22px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06);display:flex;align-items:center;gap:14px">
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D">Your organisation code</div><div style="font-size:24px;font-weight:700;letter-spacing:.04em">8HT86-FORTRUS</div></div>
+          <button type="button" style="height:48px;padding:0 18px;border:2px solid #0B5C8C;border-radius:12px;background:#fff;color:#0B5C8C;font-family:inherit;font-size:16px;font-weight:700">Copy</button>
+        </div>
+        <div style="font-size:15px;color:#44555D;margin-top:-6px">Give this code to the network owner so they can invite you. You are not in a network yet.</div>
+
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="background:#fff;border-radius:20px;padding:14px 20px;display:flex;align-items:center;gap:14px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06)"><div style="flex:1"><div style="font-size:18px;font-weight:700">Capacity</div><div style="font-size:15px;color:#44555D">How many places each service has now</div></div><span style="padding:5px 12px;border-radius:999px;border:2px dashed #44555D;font-weight:700;font-size:14px">○ Not shared</span></div>
+          <div style="background:#fff;border-radius:20px;padding:14px 20px;display:flex;align-items:center;gap:14px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06)"><div style="flex:1"><div style="font-size:18px;font-weight:700">Service directory</div><div style="font-size:15px;color:#44555D">Which services you run and where</div></div><span style="padding:5px 12px;border-radius:999px;background:#FFF1DC;color:#7A3500;font-weight:700;font-size:14px">◐ 1 of 2 approvals</span></div>
+          <div style="background:#fff;border-radius:20px;padding:14px 20px;display:flex;align-items:center;gap:14px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06)"><div style="flex:1"><div style="font-size:18px;font-weight:700">Criteria</div><div style="font-size:15px;color:#44555D">Which patients each service takes</div></div><span style="padding:5px 12px;border-radius:999px;background:#E3F1F8;color:#0B3F61;font-weight:700;font-size:14px">● Shared since 12 Sep</span></div>
+        </div>
+
+        <div style="margin-top:auto;background:#fff;border-radius:18px;padding:14px 20px;border:1px solid #DDE3E6;display:flex;align-items:center;justify-content:space-between"><span style="font-size:17px;font-weight:700">History</span><span style="font-size:15px;color:#44555D">3 changes ▾</span></div>
+      </section>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

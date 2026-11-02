@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Index of routes and boards</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0B5C8C;font-weight:700;text-decoration:none}
+a:hover{text-decoration:underline}
+.row{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1.6fr) minmax(0,1.25fr);gap:14px;padding:9px 0;border-top:1px solid #DDE3E6;font-size:15px;line-height:1.35;align-items:start}
+.route{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px;color:#14232B;word-break:break-all}
+.grp{margin:0 0 6px;font-size:14px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#44555D}
+.card{background:#fff;border-radius:22px;padding:20px 24px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07)}
+</style>
+</helmet>
+<div style="width:1280px;height:900px;box-sizing:border-box;padding:36px 44px;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;display:flex;flex-direction:column;gap:18px;overflow:hidden">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px">
+    <div>
+      <div style="font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#44555D">Overwatch redesign</div>
+      <h1 style="margin:2px 0 0;font-size:38px;line-height:1.1">Advisor, clinical and wall screen</h1>
+    </div>
+    <div style="font-size:16px;line-height:1.4;color:#26343B;max-width:520px">Every route in these three surfaces, and the board that designs it. Each name is a link. The first canvas holds the shell, the morph rules and the administration pages.</div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;flex:1;min-height:0">
+    <div class="card" style="overflow:hidden">
+      <p class="grp">Advisor: the call</p>
+      <div class="row"><span class="route">/advisor</span><span>Ready for calls, start a call</span><span><a href="Call.dc.html">The call</a> (step 1)</span></div>
+      <div class="row"><span class="route">/advisor/case/[ref]</span><span>Patient needs, with a live count of matches</span><span><a href="Call.dc.html">The call</a> (step 2)</span></div>
+      <div class="row"><span class="route">…/options</span><span>The services that meet the criteria, request a booking</span><span><a href="Call.dc.html">The call</a> (steps 3 and 4), <a href="Actions.dc.html">Actions</a></span></div>
+      <div class="row"><span class="route">…/compare</span><span>Options lined up, no score, no rank</span><span><a href="Compare.dc.html">Compare</a></span></div>
+      <div class="row"><span class="route">…/map</span><span>Options on a map, postcode not found state</span><span><a href="Map.dc.html">Map</a>, <a href="MapLost.dc.html">Map: not found</a></span></div>
+      <div class="row"><span class="route">…/radar</span><span>Who covers this area</span><span><a href="Radar.dc.html">Radar</a></span></div>
+      <div class="row"><span class="route">…/ways</span><span>Three ways to meet the need</span><span><a href="Ways.dc.html">Ways</a>, <a href="PWays.dc.html">Phone</a></span></div>
+      <div class="row"><span class="route">…/network-options<br>…/network-map</span><span>Other organisations' services, read only, list or map</span><span><a href="NetworkOptions.dc.html">Network</a></span></div>
+      <div class="row"><span class="route">(empty state)</span><span>No service fits right now</span><span><a href="NoFit.dc.html">No fit</a>, <a href="PNoFit.dc.html">Phone</a></span></div>
+      <div class="row"><span class="route">…/finish</span><span>Outcome, summary for SystmOne, call closed</span><span><a href="Finish.dc.html">Finish</a>, <a href="Closed.dc.html">Closed</a>, <a href="PFinish.dc.html">Phone</a></span></div>
+      <div class="row"><span class="route">(booking exceptions)</span><span>Withdrawn by a service, cancelled by the SPOA</span><span><a href="Exceptions.dc.html">Exceptions</a></span></div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:18px;min-height:0">
+      <div class="card" style="overflow:hidden">
+        <p class="grp">The board, and the wall</p>
+        <div class="row"><span class="route">/advisor/board</span><span>The live board: normal, surge, overnight, offline, loading</span><span><a href="BoardNormal.dc.html">Live</a>, <a href="BoardSurge.dc.html">Surge</a>, <a href="BoardQuiet.dc.html">Quiet</a>, <a href="BoardDown.dc.html">Offline</a>, <a href="BoardLoading.dc.html">Loading</a>, <a href="PBoard.dc.html">Phone</a></span></div>
+        <div class="row"><span class="route">/screen</span><span>The wall board, large format</span><span><a href="WallBoard.dc.html">Wall board</a></span></div>
+        <div class="row"><span class="route">/screen/pair</span><span>The code on the wall, and connecting it</span><span><a href="WallPair.dc.html">Pairing</a></span></div>
+        <div class="row"><span class="route">/screen/reconnect</span><span>Offline and last-known handling</span><span><a href="WallReconnect.dc.html">Reconnect</a></span></div>
+      </div>
+      <div class="card" style="overflow:hidden;flex:1">
+        <p class="grp">Clinical advisor</p>
+        <div class="row"><span class="route">/clinical</span><span>Go on duty: available, busy, away</span><span><a href="ClinDuty.dc.html">On duty</a></span></div>
+        <div class="row"><span class="route">/clinical/requests</span><span>The queue: waiting and mine. The alert on a phone</span><span><a href="ClinQueue.dc.html">Queue</a>, <a href="PClinAlert.dc.html">Alert</a></span></div>
+        <div class="row"><span class="route">/clinical/requests/[id]</span><span>Review the case, give advice, advice sent</span><span><a href="ClinCase.dc.html">Case</a>, <a href="ClinSent.dc.html">Sent</a></span></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:14px;align-items:center;font-size:15px;color:#26343B;line-height:1.4">
+    <span style="padding:8px 14px;border-radius:999px;background:#0B5C8C;color:#fff;font-weight:700">Not here</span>
+    Service-side booking pages (/l/[token]/booking) belong to the provider onboarding surface. Adding a wall screen (/lead/screens/new) belongs to the shift lead surface.
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

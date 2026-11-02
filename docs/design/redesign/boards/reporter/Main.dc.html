@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Index of routes and boards</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.grp{display:flex;flex-direction:column;gap:6px}
+.rowx{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1.6fr) 150px;gap:16px;align-items:center;background:#fff;border-radius:14px;padding:12px 18px}
+</style>
+</helmet>
+<div style="width:1400px;height:1500px;box-sizing:border-box;padding:56px 64px;background:#0B2A3D;color:#fff;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;display:flex;flex-direction:column;gap:22px">
+
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:40px">
+    <div style="max-width:760px">
+      <div style="font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#9FC3D6">Overwatch redesign · reporter app and capacity links</div>
+      <h1 style="margin:8px 0 0;font-size:44px;line-height:1.08">The people who report capacity and answer bookings, on a phone, mid-shift</h1>
+    </div>
+    <div style="font-size:17px;line-height:1.45;color:#D7E6EE;max-width:440px">Phone first, 320px up. One primary action per screen. The figure never moves or animates. Every route below has a board, and every board names the states it shows.</div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px;align-items:start">
+
+    <div class="grp">
+      <div style="font-size:19px;font-weight:700;margin:0 0 4px">Capacity links (public, no login)</div>
+      <sc-for list="{{links}}" as="r" hint-placeholder-count="4">
+        <div class="rowx"><div style="font-weight:700;color:#0B3F61;font-size:16px;overflow-wrap:anywhere">{{ r.route }}</div><div style="color:#26343B;font-size:16px;line-height:1.3">{{ r.what }}</div><div style="font-weight:700;color:#0B5C8C;font-size:15px">{{ r.board }}</div></div>
+      </sc-for>
+
+      <div style="font-size:19px;font-weight:700;margin:18px 0 4px">Booking requests</div>
+      <sc-for list="{{bookings}}" as="r" hint-placeholder-count="2">
+        <div class="rowx"><div style="font-weight:700;color:#0B3F61;font-size:16px;overflow-wrap:anywhere">{{ r.route }}</div><div style="color:#26343B;font-size:16px;line-height:1.3">{{ r.what }}</div><div style="font-weight:700;color:#0B5C8C;font-size:15px">{{ r.board }}</div></div>
+      </sc-for>
+
+      <div style="font-size:19px;font-weight:700;margin:18px 0 4px">Practitioner</div>
+      <sc-for list="{{prac}}" as="r" hint-placeholder-count="5">
+        <div class="rowx"><div style="font-weight:700;color:#0B3F61;font-size:16px;overflow-wrap:anywhere">{{ r.route }}</div><div style="color:#26343B;font-size:16px;line-height:1.3">{{ r.what }}</div><div style="font-weight:700;color:#0B5C8C;font-size:15px">{{ r.board }}</div></div>
+      </sc-for>
+    </div>
+
+    <div class="grp">
+      <div style="font-size:19px;font-weight:700;margin:0 0 4px">The installed app (after the PIN)</div>
+      <sc-for list="{{app}}" as="r" hint-placeholder-count="12">
+        <div class="rowx"><div style="font-weight:700;color:#0B3F61;font-size:16px;overflow-wrap:anywhere">{{ r.route }}</div><div style="color:#26343B;font-size:16px;line-height:1.3">{{ r.what }}</div><div style="font-weight:700;color:#0B5C8C;font-size:15px">{{ r.board }}</div></div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="margin-top:auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px">
+    <div style="background:rgba(255,255,255,.08);border-radius:18px;padding:18px 22px;font-size:16px;line-height:1.5;color:#D7E6EE"><strong style="color:#fff">Shared by every board.</strong> Desktop laptop view (D1) and the states every screen shares: loading shimmer, bad signal, error, success (St).</div>
+    <div style="background:rgba(255,255,255,.08);border-radius:18px;padding:18px 22px;font-size:16px;line-height:1.5;color:#D7E6EE"><strong style="color:#fff">Not on this canvas.</strong> First-run set-up (<span style="white-space:nowrap">/setup/*</span>, <span style="white-space:nowrap">/i/[token]</span>) and service self-registration (<span style="white-space:nowrap">/register/*</span>) belong to the onboarding canvas, and the shift lead's pages to the lead canvas.</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1400,"height":1500}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      links: [
+        { route: '/l/[token]', what: 'The text or email link: still right, a new number, or closed to referrals', board: 'B1, B2, B3' },
+        { route: '/l/thanks', what: 'Thank you after answering from a link, and the way to change it', board: 'B1' }
+      ],
+      bookings: [
+        { route: '/l/[token]/booking', what: 'A booking request: confirm, or decline with a reason', board: 'B4' },
+        { route: '/l/[token]/booking/change', what: 'A booked booking: we cannot take this patient, or could not reach them', board: 'B5' }
+      ],
+      prac: [
+        { route: '/app/practitioner', what: 'My shift: status, new offers, today', board: 'B10' },
+        { route: '/app/practitioner/round', what: 'Today’s round', board: 'B10' },
+        { route: '/app/practitioner/location', what: 'Share location on visits: only while travelling, or never', board: 'B10' },
+        { route: '/app/practitioner/offers/[id]', what: 'A new visit offer, before the address is shown', board: 'B11' },
+        { route: '/app/practitioner/visits/[id]', what: 'An accepted visit: address, status, estimate; and the closed states', board: 'B11' }
+      ],
+      app: [
+        { route: '/app', what: 'Front door: sends each person to the right screen', board: 'B6 (note)' },
+        { route: '/app/pin', what: 'Enter the PIN', board: 'B6' },
+        { route: '/app/respond/[serviceId]', what: 'Update one service', board: 'B6, B2' },
+        { route: '/app/respond/[serviceId]/thanks', what: 'Thank you, with today’s reports', board: 'B6' },
+        { route: '/app/update', what: 'Update every service at once', board: 'B6' },
+        { route: '/app/booking/[ref]', what: 'A booking request inside the app', board: 'B4' },
+        { route: '/app/services', what: 'My services: confirmed, due, paused', board: 'B7' },
+        { route: '/app/services/[id]/added', what: 'A service was added to my account', board: 'B7' },
+        { route: '/app/services/[id]/cover', what: 'Hand over one service to cover', board: 'B7' },
+        { route: '/app/settings', what: 'How we contact me, cover number, sign out', board: 'B8' },
+        { route: '/app/verify', what: 'Every 30 days: check it is you', board: 'B8' },
+        { route: '/app/locked', what: 'PIN locked after five wrong tries', board: 'B8' },
+        { route: '/app/lost-phone', what: 'Lost your phone: use the new one', board: 'B9' },
+        { route: '/app/notifications-off', what: 'Notifications are off: turn on or use text', board: 'B9' },
+        { route: '/app/sign-out-all', what: 'Sign out of every phone', board: 'B9' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

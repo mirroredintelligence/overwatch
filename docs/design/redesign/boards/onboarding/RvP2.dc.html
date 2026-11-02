@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Phone review a registration</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width:390px;height:844px;position:relative;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden">
+
+  <header style="height:60px;display:flex;align-items:center;gap:10px;padding:0 12px;background:#0B2A3D;color:#fff">
+    <a href="#" aria-label="Back to registrations" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#fff"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a>
+    <span style="font-weight:700;font-size:18px">Registration</span>
+  </header>
+
+  <div style="padding:14px 16px 0;display:flex;flex-direction:column;gap:12px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div><h1 style="margin:0;font-size:28px">UCR East</h1><div style="font-size:15px;color:#44555D">Alex Morgan, duty manager · NHS trust</div></div><span style="padding:4px 10px;border:2px solid #0B5C8C;border-radius:999px;color:#0B3F61;font-weight:700;font-size:14px;white-space:nowrap">◔ In review</span></div>
+
+    <div style="background:#fff;border-radius:22px;padding:14px 16px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06)">
+      <div style="font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D;margin-bottom:6px">Checks the system did</div>
+      <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #DDE3E6;font-size:16px;line-height:1.35"><span style="color:#0B3F61;font-weight:700">✓</span><span>ODS code found, active, NHS organisation</span></div>
+      <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #DDE3E6;font-size:16px;line-height:1.35"><span style="color:#0B3F61;font-weight:700">✓</span><span>Address found. No area limit is set.</span></div>
+      <div style="display:flex;gap:10px;padding:8px 0;font-size:16px;line-height:1.35"><span style="color:#7A3500;font-weight:700">▲</span><span><strong>Criteria owner email is not an organisation address</strong></span></div>
+      <div style="font-size:15px;color:#44555D;padding-top:4px">▾ Show 2 more checks that passed</div>
+    </div>
+
+    <div style="font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D;padding:2px 4px 0">Checks you do</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <a href="#" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border:2px solid #0B5C8C;border-radius:18px;background:#E3F1F8;text-decoration:none;color:inherit"><span style="width:30px;height:30px;border-radius:50%;border:2px dashed #0B3F61;flex:none;box-sizing:border-box"></span><span style="flex:1;font-size:18px;font-weight:700">1 Call the service back</span><span aria-hidden="true">›</span></a>
+      <a href="#" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border:2px solid #DDE3E6;border-radius:18px;background:#fff;text-decoration:none;color:inherit"><span style="width:30px;height:30px;border-radius:50%;border:2px dashed #6B7B83;flex:none;box-sizing:border-box"></span><span style="flex:1;font-size:18px;font-weight:700">2 Is it in scope?</span><span aria-hidden="true">›</span></a>
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border:2px dashed #6B7B83;border-radius:18px;background:#fff"><span style="width:30px;height:30px;border-radius:50%;border:2px dashed #6B7B83;flex:none;box-sizing:border-box"></span><span style="flex:1;font-size:17px;font-weight:700">3 Criteria second approval<br><span style="font-weight:400;font-size:15px;color:#44555D">Waiting for the clinical lead</span></span></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border:2px dashed #6B7B83;border-radius:18px;background:#F4F6F5;color:#44555D"><span style="width:30px;height:30px;border-radius:50%;border:2px dashed #6B7B83;flex:none;box-sizing:border-box"></span><span style="flex:1;font-size:17px;font-weight:700">4 Decide<br><span style="font-weight:400;font-size:15px">Opens when 1 to 3 are done</span></span></div>
+    </div>
+  </div>
+
+  <div style="position:absolute;left:0;right:0;bottom:0;padding:12px 16px 22px;background:linear-gradient(180deg,rgba(238,242,243,0),#EEF2F3 30%)">
+    <button type="button" style="width:100%;height:58px;border:0;border-radius:16px;background:#0B5C8C;color:#fff;font-family:inherit;font-size:19px;font-weight:700;box-shadow:0 6px 16px rgba(11,92,140,.28)">Start with the call-back</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

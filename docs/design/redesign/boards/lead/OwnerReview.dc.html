@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Criteria owner review</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font-family:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid #14232B;outline-offset:2px}
+@media (prefers-reduced-motion: reduce){*{transition:none !important}}
+.app{width:1280px;height:800px;display:flex;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden}
+.rail{width:84px;flex:none;background:#0B2A3D;display:flex;flex-direction:column;align-items:center;padding:20px 0;gap:4px}
+.logo{width:44px;height:44px;border-radius:14px;background:#0B5C8C;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.ri{width:68px;padding:9px 0 7px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:3px;color:#B9D0DC;text-decoration:none;font-size:13px}
+.on{background:rgba(255,255,255,.14);color:#fff;font-weight:700}
+.col{flex:1;min-width:0;display:flex;flex-direction:column}
+.top{height:72px;flex:none;display:flex;align-items:center;gap:16px;padding:0 28px;border-bottom:1px solid #DDE3E6;background:#fff}
+.ctx{display:flex;flex-direction:column;line-height:1.2}.ctx small{font-size:14px;color:#44555D}.ctx b{font-size:20px}
+.role{margin-left:auto;height:44px;padding:0 16px;border:2px solid #14232B;border-radius:999px;background:#fff;color:#14232B;font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px}
+.card{background:#fff;border-radius:24px;padding:24px 28px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07)}
+.btn{height:54px;padding:0 28px;border:0;border-radius:14px;background:#0B5C8C;color:#fff;font-size:18px;font-weight:700;box-shadow:0 6px 16px rgba(11,92,140,.24)}
+.btn2{height:54px;padding:0 24px;border:2px solid #0B5C8C;border-radius:14px;background:#fff;color:#0B5C8C;font-size:17px;font-weight:700}
+.btn3{height:54px;padding:0 16px;border:0;border-radius:14px;background:transparent;color:#26343B;font-size:17px;font-weight:700;text-decoration:underline}
+.k{font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D}
+.lab{font-size:17px;font-weight:700;margin-bottom:8px}
+.fld{height:52px;border:2px solid #26343B;border-radius:14px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;font-size:19px;background:#fff}
+.opt{padding:10px 16px;border-radius:14px;border:2px solid #DDE3E6;font-weight:700;font-size:16px;background:#fff}
+.sel{border-color:#0B5C8C;background:#E3F1F8}
+.row{display:flex;flex-wrap:wrap;gap:8px}
+.chg{display:inline-block;margin-left:8px;padding:3px 10px;border-radius:999px;background:#FFF1DC;border:2px solid #A34700;color:#4A2300;font-size:13px;font-weight:700}
+</style>
+</helmet>
+<div class="app">
+  <nav class="rail" aria-label="Criteria owner">
+    <div class="logo"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#fff"/><path d="M3 13h20" stroke="#fff" stroke-width="2.4"/></svg></div>
+    <a class="ri on" href="#" aria-current="page"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-5.6 7-11a7 7 0 0 0-14 0c0 5.4 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Services</a>
+    <a class="ri" href="#"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>History</a>
+    <a class="ri" href="#" style="margin-top:auto"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/></svg>Help</a>
+  </nav>
+
+  <div class="col">
+    <header class="top">
+      <div class="ctx"><small>Community hospital · Ward A</small><b>{{title}}</b></div>
+      <button type="button" class="role">Criteria owner <svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 8l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </header>
+
+    <div style="flex:none;display:flex;align-items:center;gap:10px;padding:16px 28px 4px" role="group" aria-label="Steps, press to see each">
+      <sc-for list="{{steps}}" as="s" hint-placeholder-count="6">
+        <button type="button" onClick="{{ s.go }}" aria-pressed="{{ s.on }}" style="{{ s.style }}">{{ s.label }}</button>
+      </sc-for>
+      <span style="margin-left:auto;font-size:15px;color:#44555D">{{hint}}</span>
+    </div>
+
+    <main style="flex:1;min-height:0;display:grid;grid-template-columns:330px minmax(0,1fr);gap:22px;padding:14px 28px 24px">
+
+      <section class="card" aria-label="The criteria now" style="padding:22px;display:flex;flex-direction:column;gap:12px;align-self:start">
+        <div class="k">Live criteria</div>
+        <div style="font-size:24px;font-weight:700;line-height:1.15">Version 2</div>
+        <div style="{{chipStyle}}"><span style="{{dotStyle}}"></span>{{chipText}}</div>
+        <div style="font-size:16px;line-height:1.45;color:#26343B">{{chipNote}}</div>
+        <div style="border-top:1px solid #EEF2F3;padding-top:12px"><div style="font-size:14px;color:#44555D">Accepts</div><div style="font-size:16px;line-height:1.4">Rehab and frailty beds · age 65+ · DT1 to DT6</div></div>
+        <div><div style="font-size:14px;color:#44555D">Does not accept</div><div style="font-size:16px;line-height:1.4">Suspected fracture · needs IV therapy</div></div>
+      </section>
+
+      <section aria-label="Stage" style="position:relative;min-width:0">
+
+        <div style="{{layer0}}">
+          <div class="card" style="display:flex;flex-direction:column;gap:18px">
+            <div style="display:flex;gap:14px;align-items:flex-start;padding:16px 20px;border-radius:18px;background:#FFF1DC;border:2px solid #A34700"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#7A3500" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;margin-top:2px"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><div><div style="font-size:21px;font-weight:700;color:#4A2300">Criteria review due in 7 days</div><div style="font-size:17px;line-height:1.4;color:#4A2300;margin-top:2px">Due 30 Oct. Confirm or update in about two minutes. If they are out of date, advisors see a flag on your service.</div></div></div>
+            <h1 style="margin:0;font-size:30px;line-height:1.1">Community hospital · Ward A criteria</h1>
+            <p style="margin:0;font-size:19px;line-height:1.45;color:#26343B">Advisors rely on these. They are the rules that decide whether a patient is offered to your service.</p>
+            <div style="display:flex;align-items:center;gap:12px;border-top:1px solid #DDE3E6;padding-top:16px"><button type="button" onClick="{{go1}}" class="btn">Still right</button><button type="button" onClick="{{go2}}" class="btn2">Change them</button><button type="button" class="btn3" style="margin-left:auto">See the history</button></div>
+          </div>
+        </div>
+
+        <div style="{{layer1}}">
+          <div class="card" style="display:flex;flex-direction:column;gap:18px">
+            <h1 style="margin:0;font-size:30px;line-height:1.1">Are these still right?</h1>
+            <p style="margin:0;font-size:19px;line-height:1.45;color:#26343B">By confirming, you say the criteria are current and safe for advisors to rely on.</p>
+            <div><div class="lab">Review again in</div><div class="row"><span class="opt sel">3 months</span><span class="opt">6 months</span><span class="opt">12 months</span></div></div>
+            <div style="font-size:16px;color:#44555D">We log your confirmation, the date and your role.</div>
+            <div style="display:flex;align-items:center;gap:12px;border-top:1px solid #DDE3E6;padding-top:16px"><button type="button" class="btn">I confirm</button><button type="button" onClick="{{go0}}" class="btn3">Back</button></div>
+          </div>
+        </div>
+
+        <div style="{{layer2}}">
+          <div class="card" style="display:flex;flex-direction:column;gap:16px">
+            <h1 style="margin:0;font-size:30px;line-height:1.1">Change the criteria</h1>
+            <div><div class="lab">Needs you accept <span style="font-weight:400;color:#44555D">(required)</span></div><div class="row"><span class="opt sel">Rehab</span><span class="opt sel">Frailty</span><span class="opt">Wound care</span><span class="opt">Palliative</span><span class="opt sel">Weight-bearing assessment</span></div></div>
+            <div><div class="lab">Needs you do not accept <span style="font-weight:400;color:#44555D">(required)</span></div><div class="row"><span class="opt sel">Suspected fracture</span><span class="opt sel">Needs IV therapy</span><span class="opt">Infection isolation</span></div></div>
+            <div style="display:flex;gap:16px"><div style="width:230px"><div class="lab">Youngest age <span class="chg">Changed</span></div><div class="fld" style="border-color:#A34700"><span>60</span><span style="font-size:15px;color:#44555D">was 65</span></div></div><div style="flex:1"><div class="lab">Postcode districts</div><div class="row"><span class="opt sel">DT1</span><span class="opt sel">DT2</span><span class="opt sel">DT3</span><span class="opt sel">DT4</span><span class="opt sel">DT5</span><span class="opt sel">DT6</span><span class="opt" style="border-style:dashed">+ Add</span></div></div></div>
+            <div style="display:flex;align-items:center;gap:12px;border-top:1px solid #DDE3E6;padding-top:14px"><button type="button" onClick="{{go3}}" class="btn">Preview the change</button><button type="button" onClick="{{go0}}" class="btn3">Cancel</button></div>
+          </div>
+        </div>
+
+        <div style="{{layer3}}">
+          <div class="card" style="display:flex;flex-direction:column;gap:16px">
+            <h1 style="margin:0;font-size:30px;line-height:1.1">Preview</h1>
+            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">
+              <div style="border:2px solid #DDE3E6;border-radius:18px;padding:18px"><div class="k" style="margin-bottom:8px">What advisors will see</div><div style="font-size:21px;font-weight:700">Community hospital · Ward A</div><div style="font-size:16px;line-height:1.5;color:#26343B;margin-top:6px"><b>Accepts</b> rehab, frailty, weight-bearing assessment · age 60+ · DT1 to DT6<br><b>Does not accept</b> suspected fracture, needs IV therapy</div></div>
+              <div style="background:#FFF1DC;border:2px solid #A34700;border-radius:18px;padding:18px"><div class="k" style="margin-bottom:8px;color:#7A3500">What changed</div><div style="font-size:19px;font-weight:700;color:#4A2300">Youngest age</div><div style="font-size:18px;color:#4A2300;margin-top:4px">65 <span aria-hidden="true">→</span> <b>60</b></div><div style="font-size:15px;color:#4A2300;margin-top:10px;line-height:1.4">1 change. Everything else is as in version 2.</div></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;border-top:1px solid #DDE3E6;padding-top:14px"><button type="button" onClick="{{go4}}" class="btn">Continue</button><button type="button" onClick="{{go2}}" class="btn3">Back to editing</button></div>
+          </div>
+        </div>
+
+        <div style="{{layer4}}">
+          <div class="card" style="display:flex;flex-direction:column;gap:18px">
+            <h1 style="margin:0;font-size:30px;line-height:1.1">Send for second approval</h1>
+            <p style="margin:0;font-size:18px;line-height:1.45;color:#26343B">A change to criteria needs a second person to approve it. You cannot approve your own change.</p>
+            <div><div class="lab">Why are you changing this?</div><div style="min-height:84px;border:2px solid #26343B;border-radius:14px;padding:12px 16px;font-size:18px;line-height:1.35">The ward now takes frailty patients from 60 after the geriatric review.</div><div style="font-size:14px;color:#44555D;margin-top:6px">No patient information. Up to 280 characters.</div></div>
+            <div><div class="lab">Review again in</div><div class="row"><span class="opt sel">3 months</span><span class="opt">6 months</span><span class="opt">12 months</span></div></div>
+            <div style="display:flex;align-items:center;gap:12px;border-top:1px solid #DDE3E6;padding-top:14px"><button type="button" onClick="{{go5}}" class="btn">Send for second approval</button><button type="button" onClick="{{go3}}" class="btn3">Back</button></div>
+          </div>
+        </div>
+
+        <div style="{{layer5}}">
+          <div class="card" style="display:flex;flex-direction:column;gap:16px;align-items:flex-start;max-width:720px">
+            <div style="width:72px;height:72px;border-radius:50%;background:#FFF1DC;border:2px solid #A34700;display:flex;align-items:center;justify-content:center;box-sizing:border-box" aria-hidden="true"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#7A3500" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+            <h1 style="margin:0;font-size:32px;line-height:1.1">Waiting for approval</h1>
+            <p style="margin:0;font-size:19px;line-height:1.45;color:#26343B">Version 2 stays live until someone else approves version 3. You will be told when they have, or if they send it back with a note.</p>
+            <ol style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;font-size:18px"><li style="display:flex;gap:12px;align-items:center"><span style="width:24px;height:24px;border-radius:50%;background:#0B5C8C;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px">✓</span>Sent by you at 14:20</li><li style="display:flex;gap:12px;align-items:center"><span style="width:24px;height:24px;border-radius:50%;border:2px dashed #6B7B83;box-sizing:border-box"></span>Waiting for a second approver</li><li style="display:flex;gap:12px;align-items:center;color:#44555D"><span style="width:24px;height:24px;border-radius:50%;border:2px dashed #C9CFD3;box-sizing:border-box"></span>Live for advisors</li></ol>
+            <button type="button" onClick="{{go0}}" class="btn3" style="padding:0">Start again</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { s: 0 };
+  }
+  renderVals() {
+    const s = this.state.s;
+    const go = (n) => () => this.setState({ s: n });
+    const SPRING = 'cubic-bezier(0.34,1.56,0.64,1)';
+    const labels = ['1 Review', '2 Confirm', '3 Change', '4 Preview', '5 Send', '6 Waiting'];
+    const steps = labels.map((label, i) => ({
+      label, on: s === i, go: go(i),
+      style: 'height:46px;padding:0 18px;border-radius:999px;font-size:16px;font-weight:700;border:2px solid ' + (s === i ? '#0B5C8C' : '#DDE3E6') + ';background:' + (s === i ? '#0B5C8C' : '#fff') + ';color:' + (s === i ? '#fff' : '#14232B') + ';transition:background-color 240ms ease,color 240ms ease,border-color 240ms ease'
+    }));
+    const layer = (i) => 'position:absolute;inset:0;overflow:hidden;padding:4px 6px 20px 2px;opacity:' + (s === i ? 1 : 0) + ';transform:' + (s === i ? 'none' : (i < s ? 'translateY(-14px) scale(0.985)' : 'translateY(16px) scale(0.985)')) + ';pointer-events:' + (s === i ? 'auto' : 'none') + ';transition:opacity 280ms ease ' + (s === i ? '160ms' : '0ms') + ',transform 520ms ' + SPRING + ' ' + (s === i ? '120ms' : '0ms');
+    const waiting = s === 5;
+    const hints = ['A review is due. Still right, or change.', 'Confirming is one deliberate step, and it is logged.', 'Changed fields say so, and what they were.', 'The owner sees what advisors will see, and what changed.', 'A second person must approve. Not you.', 'The live version stays live until then.'];
+    return {
+      steps, hint: hints[s],
+      title: ['Review the criteria', 'Confirm', 'Change the criteria', 'Preview', 'Send for approval', 'Waiting for approval'][s],
+      chipText: waiting ? 'Change waiting for approval' : (s >= 2 ? 'Live · change not sent yet' : 'Live · review due in 7 days'),
+      chipNote: waiting ? 'Advisors still see version 2.' : 'Advisors see this version now.',
+      chipStyle: 'display:inline-flex;align-self:flex-start;align-items:center;gap:10px;padding:8px 16px;border-radius:999px;font-size:16px;font-weight:700;border:2px solid ' + (waiting ? '#6B7B83' : '#A34700') + ';background:' + (waiting ? '#fff' : '#FFF1DC') + ';color:#4A2300;transition:background-color 300ms ease,border-color 300ms ease',
+      dotStyle: 'width:12px;height:12px;background:' + (waiting ? '#6B7B83' : '#A34700') + ';border-radius:' + (waiting ? '50%' : '3px') + ';transition:border-radius 400ms ' + SPRING,
+      layer0: layer(0), layer1: layer(1), layer2: layer(2), layer3: layer(3), layer4: layer(4), layer5: layer(5),
+      go0: go(0), go1: go(1), go2: go(2), go3: go(3), go4: go(4), go5: go(5)
+    };
+  }
+}
+</script>
+</body>
+</html>

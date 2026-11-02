@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Index of routes and boards</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width:1280px;height:1100px;box-sizing:border-box;padding:48px 56px;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;display:flex;flex-direction:column;gap:22px">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px">
+    <div>
+      <div style="font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#44555D">Overwatch redesign · surface 2 of the set</div>
+      <h1 style="margin:6px 0 0;font-size:40px;line-height:1.1">Shift lead, service setup and criteria owner</h1>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;max-width:420px">
+      <span style="padding:6px 14px;border-radius:999px;background:#0B5C8C;color:#fff;font-weight:700;font-size:14px">▶ Interactive board</span>
+      <span style="padding:6px 14px;border-radius:999px;background:#fff;border:2px solid #DDE3E6;font-weight:700;font-size:14px">Static board</span>
+    </div>
+  </div>
+
+  <div style="background:#fff;border-radius:22px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07);overflow:hidden;flex:1;min-height:0;display:flex;flex-direction:column">
+    <div style="display:grid;grid-template-columns:300px 1fr 330px;gap:16px;padding:14px 24px;background:#0B2A3D;color:#fff;font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase">
+      <span>Route</span><span>What the person does there</span><span>Board</span>
+    </div>
+    <div style="flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column">
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="21">
+        <div style="{{ r.style }}">
+          <span style="font-size:15px;font-weight:700;font-family:ui-monospace,Consolas,monospace;color:#0B3F61">{{ r.route }}</span>
+          <span style="font-size:16px;line-height:1.3;color:#26343B">{{ r.what }}</span>
+          <span style="font-size:15px;font-weight:700;color:#14232B">{{ r.board }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="font-size:15px;line-height:1.45;color:#44555D">Not on this canvas, because they belong to the provider onboarding surface: <b style="color:#14232B">/lead/registrations</b> (review a self-registration), <b style="color:#14232B">/lead/reporters</b> (set-up progress), <b style="color:#14232B">/lead/reporters/invite</b> and <b style="color:#14232B">/lead/reporters/number</b>. This surface links to them from the overview and the phones list.</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1100}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const data = [
+      ['/lead', 'Starts the shift: sees what needs chasing first, who is covering, how the board stands', 'Overview, A service to chase opens, A quiet shift, Loading and a failed read, Phone: the shift'],
+      ['/lead/services/new', 'Sets up a service that reports for itself: details, where, who reports, criteria', '▶ Add a service: four steps that morph'],
+      ['/lead/scope', 'Sees the pilot scope list, adds a service to it, starts an invitation', 'Services in scope'],
+      ['/lead/coverage/[serviceId]', 'Says which districts and days a visiting service covers, and sees overlaps', 'Where a service goes'],
+      ['/lead/phones', 'Sees which phone holds which service, who is flagged, and where cover is set', 'Phones and services'],
+      ['/lead/phones/move', 'Moves a service to another phone for good or for a time', 'Move a service'],
+      ['/lead/services/[id]/suspend', 'Suspends a service that cannot be trusted, then resumes it after a call', '▶ Suspend and resume a service'],
+      ['/lead/people/remove', 'Removes someone’s access when they leave, change role or lose a phone', 'Remove someone’s access'],
+      ['/lead/flags', 'Checks reports that look wrong: phones, accepts, suspends', 'Reports to check, Phone: reports to check'],
+      ['/lead/audit', 'Finds a case or booking by reference', 'Audit replay (search state)'],
+      ['/lead/audit/[ref]', 'Replays what the advisor saw, with timeline and integrity check', 'Audit replay (replay state)'],
+      ['/lead/screens', 'Sees the wall screens, changes the board each shows, unpairs one', 'Wall screens'],
+      ['/lead/screens/new', 'Pairs a new wall screen with the code it shows', '▶ Add a wall screen'],
+      ['/criteria', 'Owner with several services picks one; with one goes straight in', 'Patterns (landing, empty), Criteria owner: review, change, send'],
+      ['/criteria/[serviceId]', 'Reviews the criteria, confirms they are still right, or changes them', '▶ Criteria owner: review, change, send, Phone: review due'],
+      ['/criteria/[serviceId]/approve', 'Second person approves or sends back a change', 'Second approval, Phone: second approval'],
+      ['/criteria/[serviceId]/history', 'Reads every version that has been live, and who approved it', 'Criteria history']
+    ];
+    const rows = data.map((d, i) => ({
+      route: d[0], what: d[1], board: d[2],
+      style: 'display:grid;grid-template-columns:300px 1fr 330px;gap:16px;align-items:center;padding:13px 24px;border-bottom:1px solid #EEF2F3;background:' + (i % 2 ? '#FBFCFC' : '#fff')
+    }));
+    return { rows };
+  }
+}
+</script>
+</body>
+</html>

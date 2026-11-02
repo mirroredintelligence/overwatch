@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Help</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width:1280px;height:800px;box-sizing:border-box;padding:36px 48px;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;display:flex;flex-direction:column;gap:20px;overflow:hidden">
+
+  <header style="display:flex;align-items:center;gap:14px"><span style="width:44px;height:44px;border-radius:14px;background:#0B2A3D;display:flex;align-items:center;justify-content:center"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#fff"/><path d="M3 13h20" stroke="#fff" stroke-width="2.4"/></svg></span><h1 style="margin:0;font-size:34px">Help</h1><span style="margin-left:auto;font-size:16px;color:#44555D">Works signed in or out. Nothing here asks for patient details.</span></header>
+
+  <div style="flex:1;min-height:0;display:grid;grid-template-columns:340px minmax(0,1fr) 340px;gap:20px">
+
+    <section aria-label="Choose" style="display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#44555D">What do you need?</div>
+      <a href="#" style="display:flex;flex-direction:column;gap:4px;padding:18px 20px;border-radius:22px;background:#0B5C8C;color:#fff;text-decoration:none;box-shadow:0 8px 20px rgba(11,92,140,.28)"><span style="font-size:20px;font-weight:700">Report a safety concern</span><span style="font-size:15px;color:#D7E8F2">Goes to the clinical safety officer</span></a>
+      <a href="#" style="display:flex;flex-direction:column;gap:4px;padding:18px 20px;border-radius:22px;background:#fff;color:#14232B;text-decoration:none;border:2px solid #DDE3E6"><span style="font-size:20px;font-weight:700">Something is wrong with the tool</span><span style="font-size:15px;color:#44555D">A page, a figure, a message</span></a>
+      <a href="#" style="display:flex;flex-direction:column;gap:4px;padding:18px 20px;border-radius:22px;background:#fff;color:#14232B;text-decoration:none;border:2px solid #DDE3E6"><span style="font-size:20px;font-weight:700">Share my session with support</span><span style="font-size:15px;color:#44555D">Makes a code you read out</span></a>
+      <div style="margin-top:auto;font-size:15px;line-height:1.4;color:#44555D">Urgent and a patient is at risk? Use your usual phone process first.</div>
+    </section>
+
+    <section aria-label="Report a safety concern" style="background:#fff;border-radius:26px;padding:24px 28px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07);display:flex;flex-direction:column;gap:14px;min-width:0;border:2px solid #0B5C8C">
+      <h2 style="margin:0;font-size:26px">Report a safety concern</h2>
+      <div><div style="font-size:17px;font-weight:700;margin-bottom:8px">What is it about?</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px"><span style="padding:11px 16px;border-radius:14px;border:2px solid #0B5C8C;background:#E3F1F8;font-weight:700;font-size:16px">A figure looks wrong</span><span style="padding:11px 16px;border-radius:14px;border:2px solid #DDE3E6;font-weight:700;font-size:16px">A service took someone it should not</span><span style="padding:11px 16px;border-radius:14px;border:2px solid #DDE3E6;font-weight:700;font-size:16px">A delay</span><span style="padding:11px 16px;border-radius:14px;border:2px solid #DDE3E6;font-weight:700;font-size:16px">Something else</span></div></div>
+      <div><div style="font-size:17px;font-weight:700;margin-bottom:6px">Case or booking reference <span style="font-weight:400;color:#44555D">(optional)</span></div><div style="height:50px;border:2px solid #26343B;border-radius:14px;display:flex;align-items:center;padding:0 14px;font-size:17px">BK-20418</div></div>
+      <div><div style="font-size:17px;font-weight:700;margin-bottom:6px">What happened?</div><div style="height:92px;border:2px solid #26343B;border-radius:14px;padding:12px 14px;font-size:17px;line-height:1.35">The count for UCR West showed 4 but they were closed.</div><div style="display:flex;justify-content:space-between;font-size:14px;color:#44555D;margin-top:4px"><span>No patient names or details.</span><span>56 of 1000</span></div></div>
+      <div style="background:#FFF1DC;border-radius:14px;padding:10px 14px;font-size:15px;line-height:1.4;border:2px solid #A34700"><b>Before you send:</b> this is read by a person. For something urgent, phone first.</div>
+      <div style="margin-top:auto;display:flex;gap:12px;align-items:center"><button type="button" style="height:56px;padding:0 26px;border:0;border-radius:16px;background:#0B5C8C;color:#fff;font-family:inherit;font-size:18px;font-weight:700">Send to the clinical safety officer</button></div>
+    </section>
+
+    <section aria-label="Your support code" style="display:flex;flex-direction:column;gap:14px;min-width:0">
+      <div style="background:#fff;border-radius:26px;padding:22px 24px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07);display:flex;flex-direction:column;gap:10px">
+        <h2 style="margin:0;font-size:22px">Your support code</h2>
+        <div style="background:#E3F1F8;border-radius:18px;padding:16px;text-align:center"><div style="font-size:38px;font-weight:700;letter-spacing:.14em;color:#0B3F61">482 915</div><div style="font-size:14px;color:#26343B">Read it to the support person</div></div>
+        <div style="font-size:15px;line-height:1.4;color:#26343B">It lets them see your screen state for 30 minutes. They cannot change anything.</div>
+        <button type="button" style="height:48px;border:2px solid #0B5C8C;border-radius:12px;background:#fff;color:#0B5C8C;font-family:inherit;font-size:16px;font-weight:700">Check again</button>
+      </div>
+      <div style="background:#E3F1F8;border-radius:22px;padding:16px 20px;font-size:16px;line-height:1.4"><b>● Thanks. We have your report.</b><br>The confirmation after any form, in the same place.</div>
+      <div style="background:#fff;border-radius:22px;padding:16px 20px;border:2px solid #6B2C91;font-size:15px;line-height:1.4"><b style="color:#4B1C69">▲ We could not send that.</b> Nothing was lost: your words are still here. Try again.</div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

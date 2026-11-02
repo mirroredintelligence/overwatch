@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Practitioner shift round location</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.bd{box-sizing:border-box;padding:40px 48px;background:#DCE5E8;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;display:flex;gap:56px;align-items:flex-start}
+.col{display:flex;flex-direction:column;gap:16px;width:390px;flex:none}
+.cap{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:700;color:#26343B}
+.cap b{width:28px;height:28px;border-radius:50%;background:#0B2A3D;color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;flex:none}
+.ph{width:390px;height:780px;position:relative;overflow:hidden;background:#EEF2F3;border-radius:38px;box-shadow:0 0 0 10px #0B2A3D,0 24px 56px rgba(11,42,61,.32)}
+.at{height:60px;display:flex;align-items:center;gap:12px;padding:0 16px;background:#0B2A3D;color:#fff;font-weight:700;font-size:18px}
+.back{width:44px;height:44px;border-radius:14px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;flex:none}
+.card{background:#fff;border-radius:24px;padding:18px 20px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 26px rgba(20,35,43,.07)}
+.btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:58px;border:0;border-radius:16px;background:#0B5C8C;color:#fff;font-family:inherit;font-size:19px;font-weight:700;box-shadow:0 6px 16px rgba(11,92,140,.28)}
+.btn2{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:54px;border:2px solid #0B5C8C;border-radius:14px;background:#fff;color:#0B5C8C;font-family:inherit;font-size:18px;font-weight:700}
+.tag{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;font-weight:700;font-size:14px}
+.chip{padding:11px 14px;border:2px solid #DDE3E6;border-radius:14px;background:#fff;font-weight:700;font-size:16px}
+.on{border-color:#0B5C8C;background:#E3F1F8}
+.bar{position:absolute;left:0;right:0;bottom:0;padding:12px 16px 20px;background:linear-gradient(180deg,rgba(238,242,243,0),#EEF2F3 24%);display:flex;flex-direction:column;gap:10px}
+.visit{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#fff;border-radius:20px;padding:14px 16px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06);min-height:68px;box-sizing:border-box}
+.opt{display:flex;align-items:center;gap:12px;padding:16px 18px;border:2px solid #DDE3E6;border-radius:16px;background:#fff;font-weight:700;font-size:18px;min-height:56px;box-sizing:border-box}
+.radio{width:26px;height:26px;border-radius:50%;border:3px solid #6B7B83;box-sizing:border-box;flex:none}
+.radio.f{border-color:#0B5C8C;background:radial-gradient(circle,#0B5C8C 0 38%,#fff 42%)}
+</style>
+</helmet>
+<div class="bd" style="width:1400px;height:920px">
+
+  <div class="col">
+    <div class="cap"><b>1</b>My shift · /app/practitioner</div>
+    <div class="ph">
+      <div class="at"><span class="back" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></span><span>My shift</span></div>
+      <div style="padding:16px;display:flex;flex-direction:column;gap:14px">
+        <h1 style="margin:2px 2px 0;font-size:30px">Good morning</h1>
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin:0 2px 8px"><span style="font-size:17px;font-weight:700">Status</span><span style="font-size:14px;color:#44555D">Optional</span></div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px"><span class="chip on">Available</span><span class="chip">On a visit</span><span class="chip">Break</span><span class="chip">Off shift</span></div>
+        </div>
+        <div class="card" style="border:2px solid #0B5C8C;display:flex;flex-direction:column;gap:4px">
+          <span class="tag" style="background:#0B5C8C;color:#fff;align-self:flex-start"><svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="3.5" fill="currentColor"/><circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="2"/></svg>1 new offer</span>
+          <div style="font-size:20px;font-weight:700;margin-top:4px">Fall and frailty</div>
+          <div style="font-size:16px;color:#44555D">Sector B · within 2 hours</div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;gap:2px">
+          <div style="font-size:19px;font-weight:700">Today: 3 visits</div>
+          <div style="font-size:17px;color:#26343B">Next: 11:30, sector B</div>
+        </div>
+        <p style="margin:0 4px;font-size:15px;line-height:1.4;color:#44555D">Your location is not shared unless you turn it on for a visit.</p>
+      </div>
+      <div class="bar"><button type="button" class="btn">See today’s round</button><button type="button" class="btn2">Share location during visits</button></div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="cap"><b>2</b>Today’s round · /app/practitioner/round</div>
+    <div class="ph">
+      <div class="at"><span class="back" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></span><span>Today’s round</span></div>
+      <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
+        <div style="font-size:15px;font-weight:700;color:#44555D;text-transform:uppercase;letter-spacing:.05em;margin:2px 2px 0">Next</div>
+        <div class="visit" style="border:2px solid #0B5C8C"><div><div style="font-size:20px;font-weight:700">11:30 · sector B</div><div style="font-size:16px;color:#44555D">Within 2 hrs</div></div><span class="tag" style="background:#0B5C8C;color:#fff"><svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Accepted</span></div>
+        <div style="font-size:15px;font-weight:700;color:#44555D;text-transform:uppercase;letter-spacing:.05em;margin:6px 2px 0">Later</div>
+        <div class="visit"><div><div style="font-size:20px;font-weight:700">14:00 · sector D</div><div style="font-size:16px;color:#44555D">Today</div></div><span class="tag" style="background:#FFF1DC;color:#7A3500"><svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 5.5V10l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Offered</span></div>
+        <div class="visit"><div><div style="font-size:20px;font-weight:700">16:15 · sector A</div><div style="font-size:16px;color:#44555D">Planned</div></div><span class="tag" style="background:#0B5C8C;color:#fff"><svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Accepted</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;background:#fff;border-radius:18px;padding:14px 18px;min-height:56px;box-sizing:border-box;margin-top:6px"><span style="font-size:18px;font-weight:700">Done today (1)</span><span aria-hidden="true" style="font-size:22px">▾</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="cap"><b>3</b>Share location? · /app/practitioner/location</div>
+    <div class="ph">
+      <div class="at"><span class="back" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></span><span>Location</span></div>
+      <div style="padding:16px;display:flex;flex-direction:column;gap:14px">
+        <h1 style="margin:2px 2px 0;font-size:28px;line-height:1.15">Share your location on visits?</h1>
+        <div class="opt" style="border-color:#0B5C8C;background:#E3F1F8"><span class="radio f"></span>Only while I travel to a visit</div>
+        <div class="opt"><span class="radio"></span>Never</div>
+        <div class="card" style="display:flex;flex-direction:column;gap:10px;font-size:17px;line-height:1.4;color:#26343B">
+          <div style="display:flex;gap:10px"><span aria-hidden="true">•</span>The coordinator sees your estimated arrival, not a trail.</div>
+          <div style="display:flex;gap:10px"><span aria-hidden="true">•</span>It stops when you arrive.</div>
+          <div style="display:flex;gap:10px"><span aria-hidden="true">•</span>It is not used to time or rank you.</div>
+        </div>
+        <p style="margin:0 4px;font-size:15px;color:#44555D">You can change this at any time in Settings.</p>
+      </div>
+      <div class="bar"><button type="button" class="btn">Save my choice</button></div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1400,"height":920}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

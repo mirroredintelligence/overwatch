@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Contacts</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width:1280px;height:800px;display:flex;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden">
+  <dc-import name="Rail" portal="admin" active="contacts" hint-size="84px,800px"></dc-import>
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <dc-import name="Top" org="FORTRUS LIMITED" title="Contacts" hint-size="100%,72px"></dc-import>
+
+    <main style="flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:22px;padding:20px 28px">
+
+      <section aria-label="Contacts" style="display:flex;flex-direction:column;gap:12px;min-width:0">
+        <p style="margin:0;font-size:18px;line-height:1.45;color:#26343B;max-width:640px">Staff see these where a page says who to phone or write to. Use your organisation's own lines, never a person's.</p>
+
+        <div style="background:#fff;border-radius:22px;padding:16px 20px;display:flex;align-items:center;gap:16px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06)">
+          <span style="width:44px;height:44px;border-radius:14px;background:#E3F1F8;display:flex;align-items:center;justify-content:center;flex:none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0B5C8C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg></span>
+          <div style="flex:1;min-width:0"><div style="font-size:19px;font-weight:700">Coordination phone</div><div style="font-size:16px;color:#26343B">Access team A · <b>01632 960001</b></div></div>
+          <span style="padding:5px 12px;border-radius:999px;background:#E3F1F8;color:#0B3F61;font-weight:700;font-size:14px">● Set</span>
+          <button type="button" style="height:48px;padding:0 20px;border:2px solid #14232B;border-radius:12px;background:#fff;font-family:inherit;font-size:16px;font-weight:700">Edit</button>
+        </div>
+
+        <div style="background:#fff;border-radius:22px;padding:16px 20px;display:flex;align-items:center;gap:16px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06)">
+          <span style="width:44px;height:44px;border-radius:14px;background:#E3F1F8;display:flex;align-items:center;justify-content:center;flex:none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0B5C8C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v14H4zM4 9l8 5 8-5"/></svg></span>
+          <div style="flex:1;min-width:0"><div style="font-size:19px;font-weight:700">Support email</div><div style="font-size:16px;color:#26343B">Support desk · <b>support@fortrus.example</b></div></div>
+          <span style="padding:5px 12px;border-radius:999px;background:#E3F1F8;color:#0B3F61;font-weight:700;font-size:14px">● Set</span>
+          <button type="button" style="height:48px;padding:0 20px;border:2px solid #14232B;border-radius:12px;background:#fff;font-family:inherit;font-size:16px;font-weight:700">Edit</button>
+        </div>
+
+        <div style="background:#fff;border-radius:22px;padding:16px 20px;box-shadow:0 10px 28px rgba(11,92,140,.16);border:2px solid #0B5C8C;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;align-items:center;gap:16px">
+            <span style="width:44px;height:44px;border-radius:14px;background:#E3F1F8;display:flex;align-items:center;justify-content:center;flex:none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0B5C8C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg></span>
+            <div style="flex:1"><div style="font-size:19px;font-weight:700">Shift lead escalation</div><div style="font-size:16px;color:#44555D">Staff are told to phone this line when a report is late.</div></div>
+            <span style="padding:5px 12px;border-radius:999px;border:2px dashed #44555D;font-weight:700;font-size:14px;color:#26343B">○ Not set</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+            <div><div style="font-size:16px;font-weight:700;margin-bottom:6px">Label</div><div style="height:52px;border:2px solid #26343B;border-radius:14px;display:flex;align-items:center;padding:0 14px;font-size:18px">Shift lead desk</div></div>
+            <div><div style="font-size:16px;font-weight:700;margin-bottom:6px">Phone number</div><div style="height:52px;border:2px solid #6B2C91;border-radius:14px;display:flex;align-items:center;padding:0 14px;font-size:18px">lead@example.nhs.uk</div><div style="font-size:15px;line-height:1.35;color:#4B1C69;font-weight:700;margin-top:6px">▲ Enter a phone number, such as 01632 960001. An email address does not work here.</div></div>
+          </div>
+          <div style="display:flex;gap:12px;align-items:center">
+            <button type="button" style="height:52px;padding:0 24px;border:0;border-radius:14px;background:#0B5C8C;color:#fff;font-family:inherit;font-size:18px;font-weight:700">Save</button>
+            <button type="button" style="height:52px;padding:0 20px;border:0;border-radius:14px;background:transparent;color:#26343B;font-family:inherit;font-size:17px;font-weight:700;text-decoration:underline">Cancel</button>
+          </div>
+        </div>
+
+        <div style="background:#fff;border-radius:22px;padding:16px 20px;display:flex;align-items:center;gap:16px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06)">
+          <span style="width:44px;height:44px;border-radius:14px;background:#E3F1F8;display:flex;align-items:center;justify-content:center;flex:none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0B5C8C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v14H4zM4 9l8 5 8-5"/></svg></span>
+          <div style="flex:1;min-width:0"><div style="font-size:19px;font-weight:700">Clinical safety officer</div><div style="font-size:16px;color:#44555D">An email address. Needed to go live.</div></div>
+          <span style="padding:5px 12px;border-radius:999px;background:#FFF1DC;color:#7A3500;font-weight:700;font-size:14px">◐ Needed to go live</span>
+          <button type="button" style="height:48px;padding:0 20px;border:2px solid #0B5C8C;border-radius:12px;background:#fff;color:#0B5C8C;font-family:inherit;font-size:16px;font-weight:700">Add</button>
+        </div>
+      </section>
+
+      <aside aria-label="How staff see it" style="background:#fff;border-radius:22px;padding:20px 22px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06);display:flex;flex-direction:column;gap:14px;align-self:start">
+        <div style="font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D">How staff will see it</div>
+        <div style="border:2px dashed #C9DCE6;border-radius:18px;padding:16px">
+          <div style="font-size:15px;font-weight:700;color:#7A3500;margin-bottom:6px">◐ Criteria review is overdue</div>
+          <div style="font-size:17px;line-height:1.4">Phone the shift lead: <b>Shift lead desk, 01632 960001</b>. No message is sent.</div>
+        </div>
+        <div style="font-size:15px;line-height:1.45;color:#44555D">The line you save is shown exactly like this. Nothing about a person is stored.</div>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

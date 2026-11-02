@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Phone record outcome</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.ph{width:390px;height:844px;position:relative;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden}
+.opt{padding:15px 16px;border-radius:16px;border:2px solid #DDE3E6;font-size:18px;font-weight:700;background:#fff;display:flex;align-items:center;gap:12px;min-height:26px}
+.opt.on{border-color:#0B5C8C;background:#E3F1F8}
+.rd{width:22px;height:22px;border-radius:50%;border:2px solid #6B7B83;box-sizing:border-box;flex:none}
+.opt.on .rd{border:7px solid #0B5C8C}
+.kv{display:grid;grid-template-columns:104px 1fr;gap:8px;padding:8px 0;border-top:1px solid #DDE3E6;font-size:15px;line-height:1.3}
+.kv span:first-child{color:#44555D;font-weight:700}
+</style>
+</helmet>
+<div class="ph">
+  <header style="height:60px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:#0B2A3D;color:#fff">
+    <div style="display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#fff"/><path d="M3 13h20" stroke="#fff" stroke-width="2.4"/></svg>Overwatch</div>
+    <span style="font-weight:700;font-size:15px">On call 09:12</span>
+  </header>
+  <div style="display:flex;gap:6px;padding:12px 16px 8px" aria-hidden="true"><span style="flex:1;height:6px;border-radius:3px;background:#0B5C8C"></span><span style="flex:1;height:6px;border-radius:3px;background:#0B5C8C"></span><span style="flex:1;height:6px;border-radius:3px;background:#0B5C8C"></span><span style="flex:1;height:6px;border-radius:3px;background:#0B5C8C"></span></div>
+  <div style="padding:8px 16px 0;display:flex;flex-direction:column;gap:12px">
+    <div><h1 style="margin:0;font-size:26px">Record outcome</h1><div style="font-size:15px;color:#44555D">Reference 4821 · UCR West</div></div>
+    <div style="font-size:17px;font-weight:700">What happened?</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div class="opt on"><span class="rd"></span>Accepted and booked</div>
+      <div class="opt"><span class="rd"></span>Declined</div>
+      <div class="opt"><span class="rd"></span>Redirected</div>
+      <div class="opt"><span class="rd"></span>Caller cancelled</div>
+    </div>
+    <details style="background:#fff;border-radius:16px;padding:4px 16px">
+      <summary style="cursor:pointer;font-weight:700;font-size:17px;padding:12px 0;display:flex;justify-content:space-between">Summary for SystmOne<span aria-hidden="true">▾</span></summary>
+      <div style="padding-bottom:10px"><div class="kv"><span>Referrer</span><span>Ambulance crew</span></div><div class="kv"><span>Age band</span><span>80+</span></div><div class="kv"><span>Needs</span><span>Fall, frailty</span></div><div class="kv"><span>Destination</span><span>UCR West, confirmed 14:19</span></div></div>
+    </details>
+  </div>
+  <div style="position:absolute;left:0;right:0;bottom:0;padding:12px 16px 22px;background:linear-gradient(180deg,rgba(238,242,243,0),#EEF2F3 28%);display:flex;flex-direction:column;gap:8px">
+    <button type="button" style="height:58px;border:0;border-radius:16px;background:#0B5C8C;color:#fff;font:700 19px 'Atkinson Hyperlegible',system-ui,sans-serif;box-shadow:0 6px 16px rgba(11,92,140,.28)">Save outcome</button>
+    <button type="button" style="height:48px;border:2px solid #0B5C8C;border-radius:14px;background:#fff;color:#0B5C8C;font:700 17px 'Atkinson Hyperlegible',system-ui,sans-serif">Copy summary for SystmOne</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Shift lead overview</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.app{width:1280px;height:800px;display:flex;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden}
+.rail{width:84px;flex:none;background:#0B2A3D;display:flex;flex-direction:column;align-items:center;padding:20px 0;gap:4px}
+.logo{width:44px;height:44px;border-radius:14px;background:#0B5C8C;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.ri{width:68px;padding:9px 0 7px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:3px;color:#B9D0DC;text-decoration:none;font-size:13px}
+.on{background:rgba(255,255,255,.14);color:#fff;font-weight:700}
+.col{flex:1;min-width:0;display:flex;flex-direction:column}
+.top{height:72px;flex:none;display:flex;align-items:center;gap:16px;padding:0 28px;border-bottom:1px solid #DDE3E6;background:#fff}
+.ctx{display:flex;flex-direction:column;line-height:1.2}.ctx small{font-size:14px;color:#44555D}.ctx b{font-size:20px}
+.role{margin-left:auto;height:44px;padding:0 16px;border:2px solid #14232B;border-radius:999px;background:#fff;color:#14232B;font-family:inherit;font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px}
+.card{background:#fff;border-radius:22px;padding:20px 22px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07)}
+.btn{height:52px;padding:0 24px;border:0;border-radius:14px;background:#0B5C8C;color:#fff;font-family:inherit;font-size:18px;font-weight:700;box-shadow:0 6px 16px rgba(11,92,140,.24)}
+.btn2{height:48px;padding:0 20px;border:2px solid #0B5C8C;border-radius:14px;background:#fff;color:#0B5C8C;font-family:inherit;font-size:17px;font-weight:700}
+.btn3{height:48px;padding:0 14px;border:0;border-radius:14px;background:transparent;color:#26343B;font-family:inherit;font-size:17px;font-weight:700;text-decoration:underline}
+.k{font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D}
+.tag{display:inline-block;padding:5px 12px;border-radius:999px;font-weight:700;font-size:14px}
+.step{display:flex;flex-direction:column;gap:4px;font-size:14px;color:#44555D;flex:1;min-width:0}
+.dot{width:14px;height:14px;border-radius:50%;box-sizing:border-box}
+</style>
+</helmet>
+<div class="app">
+  <nav class="rail" aria-label="Shift lead">
+    <div class="logo"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#fff"/><path d="M3 13h20" stroke="#fff" stroke-width="2.4"/></svg></div>
+    <a class="ri on" href="#" aria-current="page"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11l8-7 8 7v9H4z"/></svg>Shift</a>
+    <a class="ri" href="#"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-5.6 7-11a7 7 0 0 0-14 0c0 5.4 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Services</a>
+    <a class="ri" href="#"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>Phones</a>
+    <a class="ri" href="#"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4m0 0h11l-2 4 2 4H5"/></svg>Flags</a>
+    <a class="ri" href="#"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>Screens</a>
+    <a class="ri" href="#"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>Audit</a>
+  </nav>
+
+  <div class="col">
+    <header class="top">
+      <div class="ctx"><small>Friday 23 October · 14:12</small><b>Your shift</b></div>
+      <button type="button" class="role">Shift lead <svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 8l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </header>
+
+    <main style="flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:22px;padding:22px 28px">
+
+      <section aria-label="Needs you first" style="display:flex;flex-direction:column;gap:14px;min-width:0">
+        <div style="display:flex;gap:12px">
+          <div class="card" style="flex:1;padding:14px 18px;display:flex;align-items:center;gap:12px;border:2px solid #A34700"><span style="font-size:34px;font-weight:700;line-height:1;color:#7A3500">2</span><span style="font-size:16px;line-height:1.2">services to chase<br><span class="muted" style="color:#44555D">overdue now</span></span></div>
+          <div class="card" style="flex:1;padding:14px 18px;display:flex;align-items:center;gap:12px"><span style="font-size:34px;font-weight:700;line-height:1;color:#0B3F61">1</span><span style="font-size:16px;line-height:1.2">report to check<br><span style="color:#44555D">looks wrong</span></span></div>
+          <div class="card" style="flex:1;padding:14px 18px;display:flex;align-items:center;gap:12px"><span style="font-size:34px;font-weight:700;line-height:1;color:#0B3F61">2</span><span style="font-size:16px;line-height:1.2">criteria reviews<br><span style="color:#44555D">due soon</span></span></div>
+        </div>
+
+        <div class="card" style="display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+            <div><div style="font-size:22px;font-weight:700">Virtual ward · frailty</div><div style="font-size:16px;color:#44555D">Report was due 12:00 · overdue by 2 hrs 12 min · last figure 3 beds free</div></div>
+            <span class="tag" style="border:2px dashed #6B7B83;color:#26343B">Shown as unknown on the board</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:flex-start" aria-label="What has been tried">
+            <div class="step"><span class="dot" style="background:#0B5C8C"></span><b style="color:#14232B">12:00</b>Text sent</div>
+            <div class="step"><span class="dot" style="background:#0B5C8C"></span><b style="color:#14232B">12:30</b>Reminder sent</div>
+            <div class="step"><span class="dot" style="border:2px dashed #6B7B83"></span><b style="color:#14232B">13:00</b>Advisor phone task, not done</div>
+            <div class="step"><span class="dot" style="border:2px solid #A34700;background:#FFF1DC"></span><b style="color:#14232B">13:30</b>Escalated to you</div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <button type="button" class="btn">Enter what they told me by phone</button>
+            <button type="button" class="btn2">Send reminder again</button>
+            <button type="button" class="btn3">Change number</button>
+          </div>
+        </div>
+
+        <div class="card" style="display:flex;align-items:center;gap:16px">
+          <div style="flex:1;min-width:0"><div style="font-size:20px;font-weight:700">Community hospital · Ward A</div><div style="font-size:16px;color:#44555D">Reported 2 hrs 10 min ago · next due 17:00 · on schedule, but the figure is getting old</div></div>
+          <span class="tag" style="background:#FFF1DC;color:#7A3500;border:2px solid #A34700">Limited</span>
+          <button type="button" class="btn2">Ask for an update now</button>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:auto">
+          <button type="button" style="display:flex;align-items:center;justify-content:space-between;height:56px;padding:0 20px;border:2px solid #DDE3E6;border-radius:16px;background:#fff;font-family:inherit;font-size:17px;font-weight:700;color:#14232B"><span>Criteria to review <span style="font-weight:400;color:#44555D">· 2 services, the soonest in 7 days</span></span><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 8l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button type="button" style="display:flex;align-items:center;justify-content:space-between;height:56px;padding:0 20px;border:2px solid #DDE3E6;border-radius:16px;background:#fff;font-family:inherit;font-size:17px;font-weight:700;color:#14232B"><span>Declined despite showing capacity <span style="font-weight:400;color:#44555D">· 2 cases today</span></span><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 8l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        </div>
+      </section>
+
+      <aside aria-label="The board and cover" style="display:flex;flex-direction:column;gap:14px;min-width:0">
+        <section class="card" aria-label="System now">
+          <div class="k" style="margin-bottom:12px">System now</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:center;gap:10px"><span style="width:12px;height:12px;border-radius:50%;background:#0B5C8C"></span><span style="flex:1;font-size:17px">Accepting</span><b style="font-size:24px;color:#0B3F61">4</b></div>
+            <div style="display:flex;align-items:center;gap:10px"><span style="width:12px;height:12px;border-radius:3px;background:#A34700"></span><span style="flex:1;font-size:17px">Limited</span><b style="font-size:24px;color:#7A3500">2</b></div>
+            <div style="display:flex;align-items:center;gap:10px"><span style="width:12px;height:12px;transform:rotate(45deg);background:#6B2C91"></span><span style="flex:1;font-size:17px">Over capacity</span><b style="font-size:24px;color:#4B1C69">1</b></div>
+            <div style="display:flex;align-items:center;gap:10px"><span style="width:12px;height:12px;border-radius:50%;background:#3A4750"></span><span style="flex:1;font-size:17px">Not accepting</span><b style="font-size:24px;color:#3A4750">1</b></div>
+            <div style="display:flex;align-items:center;gap:10px"><span style="width:12px;height:12px;border-radius:50%;border:2px dashed #6B7B83;box-sizing:border-box"></span><span style="flex:1;font-size:17px">Not updated</span><b style="font-size:24px;color:#44555D">1</b></div>
+          </div>
+          <div style="margin-top:12px;padding-top:12px;border-top:1px solid #DDE3E6;font-size:15px;color:#44555D">9 services reporting today</div>
+        </section>
+        <section class="card" aria-label="Covering today" style="display:flex;flex-direction:column;gap:12px">
+          <div class="k">Covering today</div>
+          <div style="font-size:15px;color:#44555D;line-height:1.35">Reports go to a registered number. Change it for leave or cover.</div>
+          <div style="display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:17px">UCR East</div><div style="font-size:15px;color:#44555D">ending 4821 · cover until 20:00</div></div><button type="button" class="btn2" style="height:44px;padding:0 14px;font-size:16px">Change</button></div>
+          <div style="display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:17px">Reablement</div><div style="font-size:15px;color:#44555D">ending 0377 · usual contact</div></div><button type="button" class="btn2" style="height:44px;padding:0 14px;font-size:16px">Change</button></div>
+        </section>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

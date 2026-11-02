@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Add a wall screen</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font-family:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid #14232B;outline-offset:2px}
+@media (prefers-reduced-motion: reduce){*{transition:none !important}}
+.app{width:1280px;height:800px;display:flex;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden}
+.rail{width:84px;flex:none;background:#0B2A3D;display:flex;flex-direction:column;align-items:center;padding:20px 0;gap:4px}
+.logo{width:44px;height:44px;border-radius:14px;background:#0B5C8C;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.ri{width:68px;padding:9px 0 7px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:3px;color:#B9D0DC;text-decoration:none;font-size:13px}
+.on{background:rgba(255,255,255,.14);color:#fff;font-weight:700}
+.col{flex:1;min-width:0;display:flex;flex-direction:column}
+.top{height:72px;flex:none;display:flex;align-items:center;gap:16px;padding:0 28px;border-bottom:1px solid #DDE3E6;background:#fff}
+.ctx{display:flex;flex-direction:column;line-height:1.2}.ctx small{font-size:14px;color:#44555D}.ctx b{font-size:20px}
+.role{margin-left:auto;height:44px;padding:0 16px;border:2px solid #14232B;border-radius:999px;background:#fff;color:#14232B;font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px}
+.card{background:#fff;border-radius:24px;padding:26px 30px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07)}
+.btn{height:54px;padding:0 28px;border:0;border-radius:14px;background:#0B5C8C;color:#fff;font-size:18px;font-weight:700;box-shadow:0 6px 16px rgba(11,92,140,.24)}
+.btn2{height:54px;padding:0 24px;border:2px solid #0B5C8C;border-radius:14px;background:#fff;color:#0B5C8C;font-size:17px;font-weight:700}
+.btn3{height:54px;padding:0 16px;border:0;border-radius:14px;background:transparent;color:#26343B;font-size:17px;font-weight:700;text-decoration:underline}
+.k{font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D}
+.lab{font-size:17px;font-weight:700;margin-bottom:8px}
+.fld{height:54px;border:2px solid #26343B;border-radius:14px;display:flex;align-items:center;padding:0 16px;font-size:20px;background:#fff}
+.t{display:block;height:44px;border-radius:8px;background:#fff;opacity:.92}
+</style>
+</helmet>
+<div class="app">
+  <nav class="rail" aria-label="Shift lead">
+    <div class="logo"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#fff"/><path d="M3 13h20" stroke="#fff" stroke-width="2.4"/></svg></div>
+    <a class="ri" href="#"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11l8-7 8 7v9H4z"/></svg>Shift</a>
+    <a class="ri" href="#"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-5.6 7-11a7 7 0 0 0-14 0c0 5.4 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Services</a>
+    <a class="ri" href="#"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>Phones</a>
+    <a class="ri" href="#"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4m0 0h11l-2 4 2 4H5"/></svg>Flags</a>
+    <a class="ri on" href="#" aria-current="page"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>Screens</a>
+    <a class="ri" href="#"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>Audit</a>
+  </nav>
+
+  <div class="col">
+    <header class="top">
+      <div class="ctx"><small>Wall screens</small><b>Add a wall screen</b></div>
+      <button type="button" class="role">Shift lead <svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 8l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </header>
+
+    <div style="flex:none;display:flex;align-items:center;gap:10px;padding:16px 28px 4px" role="group" aria-label="States, press to see each">
+      <sc-for list="{{steps}}" as="s" hint-placeholder-count="4">
+        <button type="button" onClick="{{ s.go }}" aria-pressed="{{ s.on }}" style="{{ s.style }}">{{ s.label }}</button>
+      </sc-for>
+      <span style="margin-left:auto;font-size:15px;color:#44555D">{{hint}}</span>
+    </div>
+
+    <main style="flex:1;min-height:0;display:grid;grid-template-columns:420px minmax(0,1fr);gap:22px;padding:14px 28px 24px">
+
+      <section class="card" aria-label="The screen" style="padding:22px;display:flex;flex-direction:column;gap:16px;align-self:start">
+        <div class="k">The wall screen</div>
+        <div style="{{tvStyle}}">
+          <div style="{{tvCodeStyle}}"><div style="font-size:15px;letter-spacing:.08em;text-transform:uppercase;color:#9FC3D6;margin-bottom:6px">Pair this screen</div><div style="font-size:44px;font-weight:700;letter-spacing:.14em;color:#fff">4F7K 92QA</div></div>
+          <div style="{{tvBoardStyle}}"><span class="t"></span><span class="t"></span><span class="t"></span><span class="t"></span><span class="t"></span><span class="t"></span></div>
+        </div>
+        <div style="font-size:16px;line-height:1.4;color:#26343B">{{tvNote}}</div>
+      </section>
+
+      <section aria-label="Stage" style="position:relative;min-width:0">
+
+        <div style="{{layer0}}">
+          <div class="card" style="display:flex;flex-direction:column;gap:20px">
+            <h1 style="margin:0;font-size:30px;line-height:1.1">Type the code the screen shows</h1>
+            <div><div class="lab">Code</div><div class="fld" style="letter-spacing:.12em;font-weight:700">4F7K 92QA</div></div>
+            <div style="display:flex;gap:16px"><div style="flex:1"><div class="lab">Name this screen</div><div class="fld">Reception wall</div></div><div style="flex:1"><div class="lab">Where is it? <span style="font-weight:400;color:#44555D">(optional)</span></div><div class="fld">Ground floor, SPOA</div></div></div>
+            <div style="font-size:16px;line-height:1.4;color:#44555D">A screen shows capacity only, never patient information.</div>
+            <div style="display:flex;align-items:center;gap:12px;border-top:1px solid #DDE3E6;padding-top:16px"><button type="button" onClick="{{go2}}" class="btn">Check the code</button><button type="button" onClick="{{go1}}" class="btn3">See what a wrong code looks like</button></div>
+          </div>
+        </div>
+
+        <div style="{{layer1}}">
+          <div class="card" style="display:flex;flex-direction:column;gap:20px">
+            <h1 style="margin:0;font-size:30px;line-height:1.1">Type the code the screen shows</h1>
+            <div role="alert" style="display:flex;gap:14px;align-items:flex-start;padding:14px 18px;border-radius:16px;background:#FFF1DC;border:2px solid #A34700"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7A3500" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg><div style="font-size:17px;line-height:1.4;color:#4A2300"><b>That code is not valid or has expired.</b> Check the screen for a new code.</div></div>
+            <div><div class="lab">Code</div><div class="fld" style="letter-spacing:.12em;font-weight:700;border-color:#A34700">4F7K 92QB</div></div>
+            <div style="display:flex;align-items:center;gap:12px;border-top:1px solid #DDE3E6;padding-top:16px"><button type="button" onClick="{{go2}}" class="btn">Check the code again</button><button type="button" onClick="{{go0}}" class="btn3">Back</button></div>
+          </div>
+        </div>
+
+        <div style="{{layer2}}">
+          <div class="card" style="display:flex;flex-direction:column;gap:18px">
+            <h1 style="margin:0;font-size:30px;line-height:1.1">Is this the right screen?</h1>
+            <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px">
+              <div style="background:#F4F6F5;border-radius:16px;padding:16px"><div class="k" style="margin-bottom:4px">For</div><div style="font-size:21px;font-weight:700;line-height:1.2">Your organisation</div></div>
+              <div style="background:#F4F6F5;border-radius:16px;padding:16px"><div class="k" style="margin-bottom:4px">Asked for a code</div><div style="font-size:21px;font-weight:700;line-height:1.2">2 minutes ago</div></div>
+              <div style="background:#F4F6F5;border-radius:16px;padding:16px"><div class="k" style="margin-bottom:4px">It is a</div><div style="font-size:21px;font-weight:700;line-height:1.2">Wall display</div></div>
+            </div>
+            <p style="margin:0;font-size:18px;line-height:1.45;color:#26343B">If you did not just start this screen, do not connect it. Anyone with the code could ask for the board.</p>
+            <div style="display:flex;align-items:center;gap:12px;border-top:1px solid #DDE3E6;padding-top:16px"><button type="button" onClick="{{go3}}" class="btn">Yes, connect it</button><button type="button" onClick="{{go0}}" class="btn3">No, go back</button></div>
+          </div>
+        </div>
+
+        <div style="{{layer3}}">
+          <div class="card" style="display:flex;flex-direction:column;gap:16px;align-items:flex-start;max-width:700px">
+            <div style="width:72px;height:72px;border-radius:50%;background:#E3F1F8;display:flex;align-items:center;justify-content:center" aria-hidden="true"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#0B5C8C" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+            <h1 style="margin:0;font-size:32px;line-height:1.1">Reception wall is connected</h1>
+            <p style="margin:0;font-size:19px;line-height:1.45;color:#26343B">It is showing your organisation's board now. You can change which board it shows, or unpair it, from the list of screens.</p>
+            <div style="display:flex;gap:12px"><button type="button" class="btn">See all screens</button><button type="button" onClick="{{go0}}" class="btn3">Add another</button></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { s: 0 };
+  }
+  renderVals() {
+    const s = this.state.s;
+    const go = (n) => () => this.setState({ s: n });
+    const SPRING = 'cubic-bezier(0.34,1.56,0.64,1)';
+    const labels = ['1 Enter the code', '2 Code refused', '3 Check', '4 Connected'];
+    const steps = labels.map((label, i) => ({
+      label, on: s === i, go: go(i),
+      style: 'height:48px;padding:0 22px;border-radius:999px;font-size:17px;font-weight:700;border:2px solid ' + (s === i ? '#0B5C8C' : '#DDE3E6') + ';background:' + (s === i ? '#0B5C8C' : '#fff') + ';color:' + (s === i ? '#fff' : '#14232B') + ';transition:background-color 240ms ease,color 240ms ease,border-color 240ms ease'
+    }));
+    const layer = (i) => 'position:absolute;inset:0;overflow:hidden;padding:4px 6px 20px 2px;opacity:' + (s === i ? 1 : 0) + ';transform:' + (s === i ? 'none' : (i < s ? 'translateY(-14px) scale(0.985)' : 'translateY(16px) scale(0.985)')) + ';pointer-events:' + (s === i ? 'auto' : 'none') + ';transition:opacity 280ms ease ' + (s === i ? '160ms' : '0ms') + ',transform 520ms ' + SPRING + ' ' + (s === i ? '120ms' : '0ms');
+    const live = s === 3;
+    const hints = ['The code on the screen is typed here, with a name.', 'A wrong or old code says so in words and keeps what was typed.', 'Say what the code belongs to before anything is connected.', 'The screen on the left changes from a code to the live board.'];
+    return {
+      steps, hint: hints[s],
+      tvStyle: 'position:relative;height:210px;border-radius:18px;background:#0B2A3D;overflow:hidden;display:flex;align-items:center;justify-content:center;box-shadow:inset 0 0 0 6px #14232B',
+      tvCodeStyle: 'text-align:center;opacity:' + (live ? 0 : 1) + ';transform:' + (live ? 'scale(0.9)' : 'none') + ';transition:opacity 300ms ease,transform 520ms ' + SPRING,
+      tvBoardStyle: 'position:absolute;inset:14px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-content:start;opacity:' + (live ? 1 : 0) + ';transform:' + (live ? 'none' : 'scale(1.06)') + ';transition:opacity 400ms ease 120ms,transform 520ms ' + SPRING,
+      tvNote: live ? 'Showing the board for your organisation.' : 'This is what is on the wall now. The screen asks for a new code every few minutes.',
+      layer0: layer(0), layer1: layer(1), layer2: layer(2), layer3: layer(3),
+      go0: go(0), go1: go(1), go2: go(2), go3: go(3)
+    };
+  }
+}
+</script>
+</body>
+</html>

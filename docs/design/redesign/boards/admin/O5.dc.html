@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Operator support requests</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width:1280px;height:800px;display:flex;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden;position:relative">
+  <dc-import name="Rail" portal="operator" active="support" hint-size="84px,800px"></dc-import>
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <dc-import name="Top" org="Platform console" title="Support requests" role="Platform operator" hint-size="100%,72px"></dc-import>
+
+    <main style="flex:1;min-height:0;display:grid;grid-template-columns:420px minmax(0,1fr);gap:22px;padding:20px 28px">
+
+      <section aria-label="Requests" style="display:flex;flex-direction:column;gap:10px;min-height:0">
+        <div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:16px;color:#26343B">You can ask to look into one organisation at a time.</span></div>
+        <button type="button" style="height:56px;border:0;border-radius:16px;background:#0B5C8C;color:#fff;font-family:inherit;font-size:18px;font-weight:700;box-shadow:0 6px 16px rgba(11,92,140,.28)">Ask for access</button>
+
+        <div style="background:#fff;border-radius:20px;padding:14px 18px;border:2px solid #0B5C8C;box-shadow:0 10px 28px rgba(11,92,140,.14);display:flex;gap:12px;align-items:center">
+          <div style="flex:1;min-width:0"><div style="font-size:18px;font-weight:700">SR-0412 · FORTRUS LIMITED</div><div style="font-size:15px;color:#44555D">Capacity figures not arriving · today 14:12</div></div>
+          <span style="padding:4px 12px;border-radius:999px;background:#FFF1DC;color:#7A3500;font-weight:700;font-size:14px;white-space:nowrap">◐ Waiting</span>
+        </div>
+        <div style="background:#fff;border-radius:20px;padding:14px 18px;display:flex;gap:12px;align-items:center;box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.05)">
+          <div style="flex:1;min-width:0"><div style="font-size:18px;font-weight:700">SR-0409 · The Ardleigh Surgery</div><div style="font-size:15px;color:#44555D">Wrong district on a service · 1 Nov</div></div>
+          <span style="padding:4px 12px;border-radius:999px;background:#E3F1F8;color:#0B3F61;font-weight:700;font-size:14px;white-space:nowrap">● Ended</span>
+        </div>
+        <div style="background:#fff;border-radius:20px;padding:14px 18px;display:flex;gap:12px;align-items:center;box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.05)">
+          <div style="flex:1;min-width:0"><div style="font-size:18px;font-weight:700">SR-0401 · Dorset Community Care</div><div style="font-size:15px;color:#44555D">Alert not sent · 28 Oct</div></div>
+          <span style="padding:4px 12px;border-radius:999px;border:2px dashed #44555D;font-weight:700;font-size:14px;white-space:nowrap">○ Refused</span>
+        </div>
+        <div style="margin-top:auto;font-size:15px;line-height:1.4;color:#44555D">Nothing opens until the organisation's administrator approves and gives you a code.</div>
+      </section>
+
+      <section aria-label="Request SR-0412" style="background:#fff;border-radius:26px;padding:24px 28px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07);display:flex;flex-direction:column;gap:14px;min-width:0">
+        <div style="display:flex;align-items:center;justify-content:space-between"><h2 style="margin:0;font-size:28px">Request SR-0412</h2><span style="padding:6px 14px;border-radius:999px;background:#FFF1DC;color:#7A3500;font-weight:700;font-size:15px">◐ Waiting for their administrator</span></div>
+
+        <ol style="margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
+          <li style="padding:12px 14px;border-radius:14px;background:#E3F1F8"><div style="font-size:14px;color:#0B3F61;font-weight:700">● 1 Asked</div><div style="font-size:15px">14:12</div></li>
+          <li style="padding:12px 14px;border-radius:14px;border:2px solid #0B5C8C"><div style="font-size:14px;color:#0B5C8C;font-weight:700">◐ 2 They approve</div><div style="font-size:15px">Waiting</div></li>
+          <li style="padding:12px 14px;border-radius:14px;border:2px dashed #6B7B83"><div style="font-size:14px;color:#44555D;font-weight:700">○ 3 You open it</div><div style="font-size:15px;color:#44555D">With their code</div></li>
+        </ol>
+
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:17px;padding:14px 16px;background:#F4F6F5;border-radius:16px"><span style="color:#44555D">Organisation</span><span>FORTRUS LIMITED</span><span style="color:#44555D">Why</span><span>Capacity figures are not arriving from one service.</span><span style="color:#44555D">Help-desk ref</span><span>HD-2291</span></div>
+
+        <div style="border:2px solid #0B5C8C;border-radius:18px;padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:19px;font-weight:700">Open the access</div>
+          <div style="font-size:15px;color:#44555D">Enter the code their administrator gave you. It works for 4 hours and opens one access for 1 hour.</div>
+          <div style="display:flex;gap:12px"><div style="flex:1;height:56px;border:2px solid #26343B;border-radius:14px;display:flex;align-items:center;padding:0 16px;font-size:24px;letter-spacing:.14em;color:#44555D">____-____</div><button type="button" style="height:56px;padding:0 26px;border:0;border-radius:14px;background:#C9DCE6;color:#26343B;font-family:inherit;font-size:18px;font-weight:700">Open</button></div>
+        </div>
+        <div style="display:flex;gap:12px;margin-top:auto"><button type="button" style="height:48px;padding:0 18px;border:2px solid #14232B;border-radius:12px;background:#fff;font-family:inherit;font-size:16px;font-weight:700">Cancel this request</button></div>
+      </section>
+    </main>
+  </div>
+
+  <div style="position:absolute;inset:0;background:rgba(11,42,61,.28)" aria-hidden="true"></div>
+  <section aria-label="Ask for access" style="position:absolute;right:0;top:0;bottom:0;width:460px;background:#fff;box-shadow:-18px 0 48px rgba(11,42,61,.25);padding:28px 30px;display:flex;flex-direction:column;gap:14px;border-radius:26px 0 0 26px">
+    <div style="display:flex;align-items:center;justify-content:space-between"><h2 style="margin:0;font-size:26px">Ask for access</h2><button type="button" aria-label="Close" style="width:44px;height:44px;border:0;border-radius:12px;background:#F4F6F5;font-size:22px;font-family:inherit">×</button></div>
+    <div style="font-size:16px;line-height:1.4;color:#26343B">Choose a live organisation. Nothing opens until its administrator approves.</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="padding:12px 14px;border-radius:14px;border:2px solid #0B5C8C;background:#E3F1F8;font-weight:700;font-size:17px">The Ardleigh Surgery<div style="font-size:14px;font-weight:400;color:#44555D">GP practice · live</div></div>
+      <div style="padding:12px 14px;border-radius:14px;border:2px solid #DDE3E6;font-weight:700;font-size:17px">Dorset Community Care<div style="font-size:14px;font-weight:400;color:#44555D">NHS trust · live</div></div>
+    </div>
+    <div><div style="font-size:16px;font-weight:700;margin-bottom:6px">Why, in a sentence</div><div style="height:84px;border:2px solid #26343B;border-radius:14px;padding:12px 14px;font-size:17px;line-height:1.35">A service shows the wrong district.</div></div>
+    <div><div style="font-size:16px;font-weight:700;margin-bottom:6px">Help-desk reference <span style="font-weight:400;color:#44555D">(optional)</span></div><div style="height:52px;border:2px solid #26343B;border-radius:14px;display:flex;align-items:center;padding:0 14px;font-size:17px">HD-2302</div></div>
+    <div style="margin-top:auto;display:flex;gap:12px"><button type="button" style="flex:1;height:56px;border:0;border-radius:16px;background:#0B5C8C;color:#fff;font-family:inherit;font-size:19px;font-weight:700">Send the request</button><button type="button" style="height:56px;padding:0 22px;border:2px solid #14232B;border-radius:16px;background:#fff;font-family:inherit;font-size:17px;font-weight:700">Cancel</button></div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

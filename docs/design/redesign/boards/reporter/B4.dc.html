@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Booking request decide</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.bd{box-sizing:border-box;padding:40px 48px;background:#DCE5E8;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;display:flex;gap:56px;align-items:flex-start}
+.col{display:flex;flex-direction:column;gap:16px;width:390px}
+.cap{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:700;color:#26343B}
+.cap b{width:28px;height:28px;border-radius:50%;background:#0B2A3D;color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px}
+.ph{width:390px;height:780px;position:relative;overflow:hidden;background:#EEF2F3;border-radius:38px;box-shadow:0 0 0 10px #0B2A3D,0 24px 56px rgba(11,42,61,.32)}
+.lt{height:60px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;background:#fff;border-bottom:1px solid #DDE3E6;font-weight:700;font-size:18px}
+.card{background:#fff;border-radius:24px;padding:20px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 26px rgba(20,35,43,.07)}
+.btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:58px;border:0;border-radius:16px;background:#0B5C8C;color:#fff;font-family:inherit;font-size:19px;font-weight:700;box-shadow:0 6px 16px rgba(11,92,140,.28)}
+.btn2{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:54px;border:2px solid #0B5C8C;border-radius:14px;background:#fff;color:#0B5C8C;font-family:inherit;font-size:18px;font-weight:700}
+.btnd{display:flex;align-items:center;justify-content:center;width:100%;height:54px;border:2px solid #26343B;border-radius:14px;background:#fff;color:#14232B;font-family:inherit;font-size:18px;font-weight:700}
+.tag{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;font-weight:700;font-size:14px}
+.chip{padding:12px 16px;border:2px solid #DDE3E6;border-radius:14px;background:#fff;font-weight:700;font-size:17px}
+.on{border-color:#0B5C8C;background:#E3F1F8}
+.fact{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-top:1px solid #DDE3E6;font-size:18px}
+.fact span:first-child{color:#44555D}
+.fact span:last-child{font-weight:700;text-align:right}
+</style>
+</helmet>
+<div class="bd" style="width:1400px;height:920px">
+
+  <div class="col">
+    <div class="cap"><b>1</b>The request · /l/[token]/booking · /app/booking/[ref]</div>
+    <div class="ph">
+      <div class="lt"><span style="display:flex;align-items:center;gap:10px"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#14232B" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#0B5C8C"/><path d="M3 13h20" stroke="#14232B" stroke-width="2.4"/></svg>Overwatch</span><span class="tag" style="background:#E3F1F8;color:#0B3F61">No login needed</span></div>
+      <div style="padding:18px 16px;display:flex;flex-direction:column;gap:14px">
+        <div class="card" style="display:flex;flex-direction:column;gap:2px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-size:15px;color:#44555D;font-weight:700">Booking request 4821</span><span class="tag" style="background:#FFF1DC;color:#7A3500"><svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 5.5V10l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Reply by 14:26</span></div>
+          <h1 style="margin:0 0 8px;font-size:30px;line-height:1.1">UCR West</h1>
+          <div class="fact"><span>Age band</span><span>80+</span></div>
+          <div class="fact"><span>Need</span><span>Fall and frailty</span></div>
+          <div class="fact"><span>Wanted</span><span>Within 2 hrs</span></div>
+          <div style="font-size:16px;line-height:1.4;color:#44555D;border-top:1px solid #DDE3E6;padding-top:12px">Referral details follow in SystmOne. No patient name is shown here.</div>
+        </div>
+        <button type="button" class="btn">Confirm booking</button>
+        <button type="button" class="btnd">Decline</button>
+        <p style="margin:2px 4px 0;font-size:15px;line-height:1.4;color:#44555D">Opening this page booked nothing. It is booked when you press Confirm.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="cap"><b>2</b>Decline · the reason opens, optional</div>
+    <div class="ph">
+      <div class="lt"><span style="display:flex;align-items:center;gap:10px"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#14232B" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#0B5C8C"/><path d="M3 13h20" stroke="#14232B" stroke-width="2.4"/></svg>Overwatch</span><span class="tag" style="background:#E3F1F8;color:#0B3F61">No login needed</span></div>
+      <div style="padding:18px 16px;display:flex;flex-direction:column;gap:14px">
+        <div class="card" style="display:flex;flex-direction:column;gap:4px">
+          <div style="font-size:15px;color:#44555D;font-weight:700">Booking request 4821 · UCR West</div>
+          <div style="font-size:18px;color:#26343B">80+ · Fall and frailty · Within 2 hrs</div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;gap:12px">
+          <h1 style="margin:0;font-size:26px;line-height:1.15">Why can you not take this patient?</h1>
+          <div style="font-size:16px;color:#44555D">Optional. It helps the advisor choose again.</div>
+          <div style="display:flex;flex-wrap:wrap;gap:10px"><span class="chip on">We are full</span><span class="chip">Outside our criteria</span><span class="chip">Staffing or transport</span><span class="chip">Other</span></div>
+        </div>
+        <button type="button" class="btnd" style="border-color:#14232B;background:#14232B;color:#fff">Decline booking</button>
+        <button type="button" class="btn2">Back to the request</button>
+        <p style="margin:2px 4px 0;font-size:15px;line-height:1.4;color:#44555D">The advisor is told at once and will choose another service.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="cap"><b>3</b>Booked · the confirmation</div>
+    <div class="ph">
+      <div class="lt"><span style="display:flex;align-items:center;gap:10px"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#14232B" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#0B5C8C"/><path d="M3 13h20" stroke="#14232B" stroke-width="2.4"/></svg>Overwatch</span></div>
+      <div style="padding:22px 16px;display:flex;flex-direction:column;gap:14px">
+        <div class="card" style="display:flex;flex-direction:column;gap:12px;align-items:flex-start">
+          <div style="width:60px;height:60px;border-radius:50%;background:#0B5C8C;display:flex;align-items:center;justify-content:center" aria-hidden="true"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+          <h1 style="margin:0;font-size:32px">Booked</h1>
+          <div style="font-size:19px;line-height:1.4;color:#26343B">Reference 4821, UCR West. Confirmed 14:19. The advisor has been told.</div>
+          <div style="font-size:17px;line-height:1.4;color:#44555D">Referral details follow in SystmOne.</div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:18px;font-weight:700">Something changed?</div>
+          <div style="font-size:17px;line-height:1.4;color:#26343B">Tell us here so the shift lead can act at once. Or phone the SPOA on [SPOA phone number].</div>
+          <button type="button" class="btn2">Tell us something changed</button>
+        </div>
+        <p style="margin:0 4px;font-size:16px;color:#44555D">You can close this page.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1400,"height":920}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

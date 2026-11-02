@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Practitioner offer visit closed</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.bd{box-sizing:border-box;padding:40px 48px;background:#DCE5E8;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;display:flex;gap:56px;align-items:flex-start}
+.col{display:flex;flex-direction:column;gap:16px;width:390px;flex:none}
+.cap{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:700;color:#26343B}
+.cap b{width:28px;height:28px;border-radius:50%;background:#0B2A3D;color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;flex:none}
+.ph{width:390px;height:780px;position:relative;overflow:hidden;background:#EEF2F3;border-radius:38px;box-shadow:0 0 0 10px #0B2A3D,0 24px 56px rgba(11,42,61,.32)}
+.at{height:60px;display:flex;align-items:center;gap:12px;padding:0 16px;background:#0B2A3D;color:#fff;font-weight:700;font-size:18px}
+.back{width:44px;height:44px;border-radius:14px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;flex:none}
+.card{background:#fff;border-radius:24px;padding:18px 20px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 26px rgba(20,35,43,.07)}
+.btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:58px;border:0;border-radius:16px;background:#0B5C8C;color:#fff;font-family:inherit;font-size:19px;font-weight:700;box-shadow:0 6px 16px rgba(11,92,140,.28)}
+.btn2{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:54px;border:2px solid #0B5C8C;border-radius:14px;background:#fff;color:#0B5C8C;font-family:inherit;font-size:18px;font-weight:700}
+.btnn{display:flex;align-items:center;justify-content:center;width:100%;height:54px;border:2px solid #26343B;border-radius:14px;background:#fff;color:#14232B;font-family:inherit;font-size:18px;font-weight:700}
+.tag{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;font-weight:700;font-size:14px}
+.chip{padding:11px 14px;border:2px solid #DDE3E6;border-radius:14px;background:#fff;font-weight:700;font-size:16px}
+.on{border-color:#0B5C8C;background:#E3F1F8}
+.bar{position:absolute;left:0;right:0;bottom:0;padding:12px 16px 20px;background:linear-gradient(180deg,rgba(238,242,243,0),#EEF2F3 24%);display:flex;flex-direction:column;gap:10px}
+.fact{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-top:1px solid #DDE3E6;font-size:18px}
+.fact span:first-child{color:#44555D}
+.fact span:last-child{font-weight:700;text-align:right}
+.opt{display:flex;align-items:center;gap:12px;padding:14px 16px;border:2px solid #DDE3E6;border-radius:16px;background:#fff;font-weight:700;font-size:18px;min-height:54px;box-sizing:border-box}
+.radio{width:26px;height:26px;border-radius:50%;border:3px solid #6B7B83;box-sizing:border-box;flex:none}
+.radio.f{border-color:#0B5C8C;background:radial-gradient(circle,#0B5C8C 0 38%,#fff 42%)}
+</style>
+</helmet>
+<div class="bd" style="width:1400px;height:920px">
+
+  <div class="col">
+    <div class="cap"><b>1</b>A new offer · /app/practitioner/offers/[id]</div>
+    <div class="ph">
+      <div class="at"><span class="back" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></span><span>Visit offer</span></div>
+      <div style="padding:16px;display:flex;flex-direction:column;gap:14px">
+        <span class="tag" style="background:#0B5C8C;color:#fff;align-self:flex-start"><svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="3.5" fill="currentColor"/><circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="2"/></svg>New offer</span>
+        <h1 style="margin:0 2px;font-size:32px;line-height:1.1">Fall and frailty</h1>
+        <div class="card">
+          <div class="fact" style="border-top:0"><span>Area</span><span>Sector B</span></div>
+          <div class="fact"><span>Wanted</span><span>Within 2 hours</span></div>
+          <div class="fact"><span>Fits your round</span><span>+12 min to your next visit</span></div>
+          <div class="fact"><span>Offer expires in</span><span style="font-variant-numeric:tabular-nums">08:42</span></div>
+        </div>
+        <p style="margin:0 4px;font-size:16px;line-height:1.45;color:#44555D">The address and contact appear only after you accept.</p>
+      </div>
+      <div class="bar"><button type="button" class="btn">Accept visit</button><button type="button" class="btnn">Decline</button></div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="cap"><b>2</b>An accepted visit · /app/practitioner/visits/[id]</div>
+    <div class="ph">
+      <div class="at"><span class="back" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></span><span>Visit accepted</span></div>
+      <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
+        <h1 style="margin:0 2px;font-size:28px;line-height:1.1">Visit 4821</h1>
+        <div class="card" style="display:flex;flex-direction:column;gap:4px;padding:14px 18px">
+          <div style="font-size:19px;font-weight:700">[Address line, town, postcode]</div>
+          <div style="font-size:16px;color:#44555D">Contact: [name and number]</div>
+          <button type="button" class="btn2" style="height:48px;margin-top:8px;font-size:17px">Open in maps</button>
+        </div>
+        <div style="font-size:17px;font-weight:700;margin:2px 2px 0">Status</div>
+        <div class="opt" style="border-color:#0B5C8C;background:#E3F1F8"><span class="radio f"></span>On my way</div>
+        <div class="opt"><span class="radio"></span>Arrived</div>
+        <div class="opt"><span class="radio"></span>Visit done</div>
+        <div class="opt"><span class="radio"></span>Could not reach the patient</div>
+        <div>
+          <div style="font-size:17px;font-weight:700;margin:2px 2px 8px">About how long?</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap"><span class="chip">10 min</span><span class="chip on">20 min</span><span class="chip">30 min</span><span class="chip">45 min</span><span class="chip">60 min</span></div>
+        </div>
+      </div>
+      <div class="bar" style="padding-top:20px"><button type="button" class="btn">Update status</button></div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="cap"><b>3</b>When it has closed</div>
+    <div class="ph">
+      <div class="at"><span class="back" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></span><span>Visit</span></div>
+      <div style="padding:20px 16px;display:flex;flex-direction:column;gap:14px">
+        <div class="card" style="display:flex;flex-direction:column;gap:12px;align-items:flex-start">
+          <span class="tag" style="background:#E6ECEE;color:#26343B;border:2px dashed #6B7B83"><svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 5.5V10l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Closed</span>
+          <h1 style="margin:0;font-size:28px;line-height:1.15">Offer expired</h1>
+          <div style="font-size:18px;line-height:1.45;color:#26343B">The time to answer this offer has passed.</div>
+        </div>
+        <div class="card" style="box-shadow:none;border:1px solid #DDE3E6;display:flex;flex-direction:column;gap:8px">
+          <div style="font-size:15px;font-weight:700;color:#44555D;text-transform:uppercase;letter-spacing:.05em">The same page says, in words</div>
+          <div style="font-size:17px;line-height:1.5;color:#26343B"><strong>Visit done.</strong> Thank you. The details of this visit have been removed from the app.<br><strong>Could not reach the patient.</strong> The coordination team has been told.<br><strong>Offer declined.</strong> Your colleagues’ offers are not affected.<br><strong>No longer open.</strong> Taken by a colleague, or the booking was cancelled.</div>
+        </div>
+      </div>
+      <div class="bar"><button type="button" class="btn">Back to my shift</button></div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1400,"height":920}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

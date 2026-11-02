@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Settings version detail</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width:1280px;height:800px;display:flex;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden">
+  <dc-import name="Rail" portal="admin" active="settings" hint-size="84px,800px"></dc-import>
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <dc-import name="Top" org="FORTRUS LIMITED" title="Settings · Version 3" hint-size="100%,72px"></dc-import>
+
+    <main style="flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:22px;padding:20px 28px">
+
+      <section aria-label="What changed" style="display:flex;flex-direction:column;gap:14px;min-width:0">
+        <a href="#" style="font-size:16px;font-weight:700;color:#0B5C8C;text-decoration:none">‹ All versions</a>
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+          <h2 style="margin:0;font-size:32px">Version 3</h2>
+          <span style="padding:6px 14px;border-radius:999px;background:#FFF1DC;color:#7A3500;font-weight:700;font-size:16px">◐ Waiting for approval · 1 of 2</span>
+          <span style="padding:6px 14px;border-radius:999px;border:2px solid #A34700;font-weight:700;font-size:16px;color:#7A3500">Clinical</span>
+        </div>
+        <div style="font-size:16px;color:#44555D">Written 2 Nov 2026, 20:46 · replaces version 2, in force since 2 Nov</div>
+
+        <div style="font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D;margin-top:6px">What changed · 2 settings</div>
+
+        <div style="background:#fff;border-radius:22px;padding:20px 22px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06);border:2px solid #A34700;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:21px;font-weight:700">Critical alert kinds</span><span style="padding:4px 12px;border-radius:999px;border:2px solid #A34700;color:#7A3500;font-weight:700;font-size:14px">Clinical</span></div>
+          <div style="display:grid;grid-template-columns:1fr 36px 1fr;gap:12px;align-items:start">
+            <div>
+              <div style="font-size:14px;font-weight:700;color:#44555D;margin-bottom:8px">WAS</div>
+              <div style="display:flex;flex-wrap:wrap;gap:8px"><span style="padding:8px 14px;border-radius:999px;background:#F4F6F5;border:2px solid #DDE3E6;font-weight:700;font-size:16px">service-closed</span><span style="padding:8px 14px;border-radius:999px;background:#F4F6F5;border:2px solid #DDE3E6;font-weight:700;font-size:16px">system-pressure</span></div>
+            </div>
+            <div aria-hidden="true" style="font-size:26px;text-align:center;color:#44555D;padding-top:26px">→</div>
+            <div>
+              <div style="font-size:14px;font-weight:700;color:#44555D;margin-bottom:8px">NOW</div>
+              <div style="display:flex;flex-wrap:wrap;gap:8px"><span style="padding:8px 14px;border-radius:999px;background:#F4F6F5;border:2px solid #DDE3E6;font-weight:700;font-size:16px">service-closed</span><span style="padding:8px 14px;border-radius:999px;background:#F4F6F5;border:2px solid #DDE3E6;font-weight:700;font-size:16px">system-pressure</span><span style="padding:8px 14px;border-radius:999px;background:#E3F1F8;border:2px solid #0B5C8C;font-weight:700;font-size:16px">+ not-updated</span><span style="padding:8px 14px;border-radius:999px;background:#E3F1F8;border:2px solid #0B5C8C;font-weight:700;font-size:16px">+ over-capacity</span></div>
+            </div>
+          </div>
+          <div style="font-size:16px;line-height:1.4;color:#26343B;background:#F4F6F5;border-radius:14px;padding:12px 14px">In words: two more kinds of alert are treated as critical. Staff will see them more prominently.</div>
+        </div>
+
+        <div style="background:#fff;border-radius:22px;padding:18px 22px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06);display:flex;align-items:center;gap:18px">
+          <div style="flex:1"><div style="font-size:19px;font-weight:700">Coordination team name</div><div style="font-size:15px;color:#44555D">not set → <b style="color:#14232B">coordination team</b></div></div>
+          <span style="padding:4px 12px;border-radius:999px;border:2px dashed #44555D;font-weight:700;font-size:14px;color:#26343B">Operational</span>
+        </div>
+      </section>
+
+      <aside aria-label="Approval" style="display:flex;flex-direction:column;gap:14px;min-width:0">
+        <div style="background:#fff;border-radius:22px;padding:20px 22px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06);display:flex;flex-direction:column;gap:14px">
+          <div style="font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D">Approval</div>
+          <div style="display:flex;gap:8px" aria-label="1 of 2 approvals"><span style="flex:1;height:10px;border-radius:5px;background:#0B5C8C"></span><span style="flex:1;height:10px;border-radius:5px;background:#DDE3E6"></span></div>
+          <div style="font-size:17px;line-height:1.4"><b>1 of 2 approvals given.</b> Both must come from people other than the one who wrote it.</div>
+          <ol style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px">
+            <li style="display:flex;gap:12px;align-items:center"><span style="width:38px;height:38px;border-radius:50%;background:#D5E5EE;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">SS</span><span style="font-size:16px"><b>Sam Second</b><br><span style="color:#44555D">Approved 2 Nov, 21:02</span></span></li>
+            <li style="display:flex;gap:12px;align-items:center"><span style="width:38px;height:38px;border-radius:50%;border:2px dashed #6B7B83;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#44555D;box-sizing:border-box">?</span><span style="font-size:16px"><b>One more person</b><br><span style="color:#44555D">Not yet asked</span></span></li>
+          </ol>
+        </div>
+
+        <div style="background:#FFF1DC;border-radius:22px;padding:18px 22px;border:2px solid #A34700">
+          <div style="font-size:17px;line-height:1.4"><b>You wrote this change.</b> You cannot approve it. Ask another administrator, or someone in a role that can approve.</div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:auto">
+          <button type="button" style="height:56px;border:0;border-radius:16px;background:#C9DCE6;color:#26343B;font-family:inherit;font-size:18px;font-weight:700" disabled>Approve (not for the author)</button>
+          <button type="button" style="height:52px;border:2px solid #14232B;border-radius:14px;background:#fff;color:#14232B;font-family:inherit;font-size:17px;font-weight:700">Withdraw this draft</button>
+        </div>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

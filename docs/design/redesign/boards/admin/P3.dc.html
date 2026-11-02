@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>No access and no connection</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width:1280px;height:800px;box-sizing:border-box;padding:56px;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:32px;align-items:center;overflow:hidden">
+
+  <section aria-label="No access" style="background:#fff;border-radius:30px;padding:44px 44px 40px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 18px 44px rgba(20,35,43,.1);display:flex;flex-direction:column;gap:16px">
+    <span style="width:68px;height:68px;border-radius:50%;background:#F4F6F5;display:flex;align-items:center;justify-content:center" aria-hidden="true"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#3A4750" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span>
+    <h1 style="margin:0;font-size:38px;line-height:1.1">You do not have access to this page.</h1>
+    <p style="margin:0;font-size:20px;line-height:1.45;color:#26343B">Ask your shift lead to check your access.</p>
+    <div style="display:flex;gap:12px;margin-top:6px"><a href="#" style="display:inline-flex;align-items:center;height:56px;padding:0 26px;border-radius:16px;background:#0B5C8C;color:#fff;font-size:19px;font-weight:700;text-decoration:none">Back to my home</a><a href="#" style="display:inline-flex;align-items:center;height:56px;padding:0 22px;border-radius:16px;border:2px solid #14232B;color:#14232B;font-size:18px;font-weight:700;text-decoration:none">Sign in as someone else</a></div>
+    <div style="font-size:15px;line-height:1.4;color:#44555D;border-top:1px solid #DDE3E6;padding-top:12px">It never says what the page is or who may see it. That is deliberate.</div>
+  </section>
+
+  <section aria-label="No connection" style="background:#fff;border-radius:30px;padding:44px 44px 40px;border:2px solid #A34700;box-shadow:0 18px 44px rgba(163,71,0,.12);display:flex;flex-direction:column;gap:16px">
+    <span style="width:68px;height:68px;border-radius:50%;background:#FFF1DC;display:flex;align-items:center;justify-content:center" aria-hidden="true"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#7A3500" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5a15 15 0 0 1 20 0M5 12a10 10 0 0 1 14 0M8.5 15.5a5 5 0 0 1 7 0M12 19h.01M3 3l18 18"/></svg></span>
+    <h1 style="margin:0;font-size:38px;line-height:1.1">No connection</h1>
+    <p style="margin:0;font-size:20px;line-height:1.45;color:#26343B">Capacity cannot be shown without a connection. Use the phone process: phone the coordination team on the number your service has on record.</p>
+    <div style="background:#FFF1DC;border-radius:16px;padding:14px 18px;font-size:17px;line-height:1.4"><b>Nothing shown here is current.</b> A figure that cannot be refreshed is never shown as if it were.</div>
+    <div style="display:flex;gap:12px;margin-top:6px"><button type="button" style="height:56px;padding:0 26px;border:0;border-radius:16px;background:#0B5C8C;color:#fff;font-family:inherit;font-size:19px;font-weight:700">Try again</button></div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

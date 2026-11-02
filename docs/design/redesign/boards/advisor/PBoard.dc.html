@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Phone board</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.ph{width:390px;height:844px;position:relative;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:14px;font-weight:700;background:#0B5C8C;color:#fff}
+.chip.lim{background:#A34700}.chip.closed{background:#3A4750}.chip.surge{background:#6B2C91}
+.chip.unk{background:#fff;color:#26343B;border:2px dashed #6B7B83}
+.sh{width:10px;height:10px;display:inline-block;box-sizing:border-box}
+.open .sh{border-radius:50%;background:currentColor}
+.lim .sh{border-radius:50%;border:2px solid currentColor;background:linear-gradient(90deg,currentColor 50%,transparent 50%)}
+.closed .sh{background:currentColor;border-radius:2px}
+.surge .sh{background:currentColor;clip-path:polygon(50% 0,100% 100%,0 100%)}
+.unk .sh{border:2px dashed currentColor;border-radius:50%}
+.tl{background:#fff;border-radius:18px;border:2px solid #0B5C8C;padding:12px 14px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 6px 16px rgba(20,35,43,.06)}
+.tl.lim{border-color:#A34700}.tl.closed{border-color:#3A4750;background:#E9EDEF}.tl.surge{border-color:#6B2C91}
+.tl.unk{border:2px dashed #6B7B83;background:repeating-linear-gradient(135deg,#F1F3F4 0 10px,#E4E8EA 10px 20px)}
+.nm{font-size:17px;font-weight:700;line-height:1.15}
+.big{font-size:34px;font-weight:700;line-height:1;min-width:52px;text-align:right}
+.n-open{color:#0B3F61}.n-lim{color:#7A3500}.n-closed{color:#3A4750}.n-surge{color:#4B1C69}.n-unk{color:#26343B}
+</style>
+</helmet>
+<div class="ph">
+  <header style="height:60px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:#0B2A3D;color:#fff">
+    <div style="display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#fff"/><path d="M3 13h20" stroke="#fff" stroke-width="2.4"/></svg>Overwatch</div>
+    <button type="button" style="height:40px;padding:0 12px;border:2px solid rgba(255,255,255,.7);border-radius:999px;background:transparent;color:#fff;font:700 15px 'Atkinson Hyperlegible',system-ui,sans-serif">Advisor ▾</button>
+  </header>
+  <div style="padding:14px 16px 8px"><h1 style="margin:0;font-size:26px">Board right now</h1><div style="font-size:15px;color:#44555D">14:12 · Friday 23 October</div></div>
+  <div style="display:flex;gap:8px;padding:0 16px 10px;overflow:hidden">
+    <span style="padding:9px 14px;border-radius:999px;background:#E3F1F8;border:2px solid #0B5C8C;font-size:15px;font-weight:700;white-space:nowrap">All 9</span>
+    <span style="padding:9px 14px;border-radius:999px;background:#fff;border:2px solid #DDE3E6;font-size:15px;font-weight:700;white-space:nowrap">Accepting 4</span>
+    <span style="padding:9px 14px;border-radius:999px;background:#fff;border:2px solid #DDE3E6;font-size:15px;font-weight:700;white-space:nowrap">Needs a phone call 3</span>
+  </div>
+  <div style="padding:0 16px;display:flex;flex-direction:column;gap:9px">
+    <div class="tl"><div style="flex:1;min-width:0"><div class="nm">UCR West</div><span class="chip open" style="margin-top:4px"><i class="sh"></i>Accepting</span></div><div class="big n-open">4</div></div>
+    <div class="tl" style="flex-wrap:wrap;gap:10px"><div style="flex:1;min-width:0"><div class="nm">UCR East</div><span class="chip lim" style="margin-top:4px"><i class="sh"></i>Limited</span></div><div class="big n-lim">1</div>
+      <div style="flex-basis:100%;border-top:1px solid #DDE3E6;padding-top:8px;font-size:15px;color:#26343B;line-height:1.4">1 referral in the next 2 hrs · Response about 2 hrs<br>Used 7 of 8 · Updated 31 min ago<br><strong>Phone to confirm.</strong></div></div>
+    <div class="tl"><div style="flex:1;min-width:0"><div class="nm">SDEC · Site 1</div><span class="chip open" style="margin-top:4px"><i class="sh"></i>Accepting</span></div><div class="big n-open">6</div></div>
+    <div class="tl closed"><div style="flex:1;min-width:0"><div class="nm">SDEC · Site 2</div><span class="chip closed" style="margin-top:4px"><i class="sh"></i>Not accepting</span></div><div class="big n-closed">0</div></div>
+    <div class="tl surge"><div style="flex:1;min-width:0"><div class="nm">Hospital at home</div><span class="chip surge" style="margin-top:4px"><i class="sh"></i>Over capacity</span></div><div class="big n-surge">+2</div></div>
+    <div class="tl unk"><div style="flex:1;min-width:0"><div class="nm">Virtual ward · frailty</div><span class="chip unk" style="margin-top:4px"><i class="sh"></i>Not updated · 4 hrs</span></div><div class="big n-unk">?</div></div>
+    <div style="font-size:15px;color:#44555D;padding:2px 4px">3 more · scroll</div>
+  </div>
+  <div style="position:absolute;left:0;right:0;bottom:0;padding:12px 16px 22px;background:linear-gradient(180deg,rgba(238,242,243,0),#EEF2F3 30%)">
+    <button type="button" style="width:100%;height:58px;border:0;border-radius:16px;background:#0B5C8C;color:#fff;font:700 19px 'Atkinson Hyperlegible',system-ui,sans-serif;box-shadow:0 6px 16px rgba(11,92,140,.28)">Start a new call</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

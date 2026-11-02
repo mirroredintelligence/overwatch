@@ -1,0 +1,60 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-11-03T10:00:00Z" },
+  "title": "Overwatch redesign: administration, operator and public pages",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 1280, "h": 900, "title": "Index: every route and the board that shows it" },
+    "Rail.dc.html": { "x": 1360, "y": 0, "w": 84, "h": 800, "title": "Shared: rail" },
+    "Top.dc.html": { "x": 1524, "y": 0, "w": 1196, "h": 72, "title": "Shared: top bar" },
+
+    "A1.dc.html": { "x": 0, "y": 1700, "w": 1280, "h": 800, "title": "Overview: what needs you" },
+    "A2.dc.html": { "x": 1360, "y": 1700, "w": 1280, "h": 800, "title": "Settings: grouped, with find and approvals", "is_interactive": true },
+    "A3.dc.html": { "x": 2720, "y": 1700, "w": 1280, "h": 800, "title": "Settings: one version, what changed" },
+    "A4.dc.html": { "x": 4080, "y": 1700, "w": 1280, "h": 800, "title": "Contacts" },
+    "A5.dc.html": { "x": 0, "y": 2900, "w": 1280, "h": 800, "title": "Data retention" },
+    "A6.dc.html": { "x": 1360, "y": 2900, "w": 1280, "h": 800, "title": "Email sender and sharing with the network" },
+    "A7.dc.html": { "x": 2720, "y": 2900, "w": 1280, "h": 800, "title": "Access log and support requests" },
+
+    "O1.dc.html": { "x": 0, "y": 4400, "w": 1280, "h": 800, "title": "Operator: sign in" },
+    "O2.dc.html": { "x": 1360, "y": 4400, "w": 1280, "h": 800, "title": "Operator: organisations" },
+    "O3.dc.html": { "x": 2720, "y": 4400, "w": 1280, "h": 800, "title": "Operator: create an organisation" },
+    "O4.dc.html": { "x": 4080, "y": 4400, "w": 1280, "h": 800, "title": "Operator: the go-live funnel (prototype)", "is_interactive": true },
+    "O5.dc.html": { "x": 0, "y": 5600, "w": 1280, "h": 800, "title": "Operator: support requests" },
+    "O6.dc.html": { "x": 1360, "y": 5600, "w": 1280, "h": 800, "title": "Operator: audit chain" },
+    "C1.dc.html": { "x": 2720, "y": 5600, "w": 1280, "h": 800, "title": "Administrator approval: return page" },
+
+    "P1.dc.html": { "x": 0, "y": 7100, "w": 1280, "h": 800, "title": "Home and splash" },
+    "P2.dc.html": { "x": 1360, "y": 7100, "w": 1280, "h": 800, "title": "Staff sign-in" },
+    "P3.dc.html": { "x": 2720, "y": 7100, "w": 1280, "h": 800, "title": "No access and no connection" },
+    "P4.dc.html": { "x": 4080, "y": 7100, "w": 1280, "h": 800, "title": "Help: hub, problem, safety, share" },
+    "P5.dc.html": { "x": 0, "y": 8300, "w": 1280, "h": 800, "title": "Learn: library and lesson" },
+    "P6.dc.html": { "x": 1360, "y": 8300, "w": 1280, "h": 800, "title": "Tour: six steps" },
+    "P7.dc.html": { "x": 2720, "y": 8300, "w": 1280, "h": 800, "title": "Value case" },
+
+    "Ph1.dc.html": { "x": 0, "y": 9500, "w": 390, "h": 844, "title": "Phone: sign in" },
+    "Ph2.dc.html": { "x": 470, "y": 9500, "w": 390, "h": 844, "title": "Phone: help" },
+    "Ph3.dc.html": { "x": 940, "y": 9500, "w": 390, "h": 844, "title": "Phone: learn" },
+    "Ph4.dc.html": { "x": 1410, "y": 9500, "w": 390, "h": 844, "title": "Phone: tour" }
+  },
+  "order": [
+    "Main.dc.html", "Rail.dc.html", "Top.dc.html",
+    "A1.dc.html", "A2.dc.html", "A3.dc.html", "A4.dc.html", "A5.dc.html", "A6.dc.html", "A7.dc.html",
+    "O1.dc.html", "O2.dc.html", "O3.dc.html", "O4.dc.html", "O5.dc.html", "O6.dc.html", "C1.dc.html",
+    "P1.dc.html", "P2.dc.html", "P3.dc.html", "P4.dc.html", "P5.dc.html", "P6.dc.html", "P7.dc.html",
+    "Ph1.dc.html", "Ph2.dc.html", "Ph3.dc.html", "Ph4.dc.html"
+  ],
+  "notes": {
+    "t0": { "x": 0, "y": -300, "text": "Index and the shared shell", "kind": "title1", "maxW": 2720 },
+    "t1": { "x": 0, "y": 1400, "text": "Administration: the organisation's own pages", "kind": "title1", "maxW": 5360 },
+    "t2": { "x": 0, "y": 4100, "text": "Operator console: creating and onboarding organisations", "kind": "title1", "maxW": 5360 },
+    "t3": { "x": 0, "y": 6800, "text": "Public and cross-cutting pages", "kind": "title1", "maxW": 5360 },
+    "t4": { "x": 0, "y": 9200, "text": "The same pages on a phone", "kind": "title1", "maxW": 1800 },
+    "s0": { "x": 0, "y": 940, "w": 340, "fill": "blue", "text": "People and roles (/admin/users) is on the first canvas, the Administration board. It is not repeated here." },
+    "s1": { "x": 1360, "y": 840, "w": 340, "fill": "gray", "text": "One rail and one top bar for every signed-in surface. Each board imports these two, so a change here changes everywhere." },
+    "s2": { "x": 1360, "y": 2540, "w": 340, "fill": "teal", "text": "Press the group headers. One group opens at a time. Change a clinical setting and the two-approvals notice appears before you save." },
+    "s3": { "x": 4080, "y": 5240, "w": 340, "fill": "teal", "text": "The funnel is the page that morphs. Press the parts on the left; the right changes to that part, and a finished part folds to one line." }
+  },
+  "designSystems": []
+}

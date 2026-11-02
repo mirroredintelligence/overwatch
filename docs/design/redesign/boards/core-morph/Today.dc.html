@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Today's advisor call</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width:1280px;height:800px;background:#F4F6F5;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden">
+
+  <header style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 24px;padding:8px 16px;border-bottom:1px solid #DDE3E6;background:#fff">
+    <div style="display:flex;align-items:center;gap:10px;min-height:44px;font-weight:700;font-size:20px">
+      <svg width="30" height="30" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#14232B" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#0B5C8C"/><path d="M3 13h20" stroke="#14232B" stroke-width="2.4"/></svg>Overwatch</div>
+    <span style="padding:0 12px;border:2px solid #0B5C8C;border-radius:999px;font-size:16px;line-height:26px;font-weight:700">Advisor</span>
+    <span style="margin-left:auto;font-size:16px;color:#26343B">Signed in as clinical advisor</span>
+    <button type="button" style="height:44px;padding:0 18px;border:2px solid #14232B;border-radius:14px;background:#fff;font-size:16px;font-weight:700;font-family:inherit">Sign out</button>
+    <nav aria-label="Advisor" style="order:3;width:100%;display:flex;flex-wrap:wrap;gap:4px">
+      <a href="#" style="padding:10px 14px;font-size:17px;font-weight:700;color:#0B5C8C;border-bottom:3px solid #0B5C8C;text-decoration:none">Call</a>
+      <a href="#" style="padding:10px 14px;font-size:17px;font-weight:700;color:#0B5C8C;text-decoration:none">Board</a>
+      <a href="#" style="padding:10px 14px;font-size:17px;font-weight:700;color:#0B5C8C;text-decoration:none">Services</a>
+      <a href="#" style="padding:10px 14px;font-size:17px;font-weight:700;color:#0B5C8C;text-decoration:none">Bookings</a>
+      <a href="#" style="padding:10px 14px;font-size:17px;font-weight:700;color:#0B5C8C;text-decoration:none">Help</a>
+    </nav>
+  </header>
+
+  <div style="max-width:880px;margin:0 auto;padding:16px;display:flex;flex-direction:column;gap:16px">
+
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-radius:14px;background:#E3F1F8;font-weight:700">Call in progress · 02:14 · Ambulance crew</div>
+
+    <ol style="display:flex;gap:12px;margin:0;padding:0;list-style:none;font-size:17px">
+      <li style="font-weight:700">1 Needs</li><li style="color:#44555D">2 Options</li><li style="color:#44555D">3 Request</li><li style="color:#44555D">4 Outcome</li>
+    </ol>
+
+    <section style="background:#F4F6F5;border:1px solid #DDE3E6;border-radius:24px;padding:20px;display:flex;flex-direction:column;gap:14px">
+      <h2 style="margin:0;font-size:22px">Patient needs</h2>
+      <div style="font-weight:700">Age</div>
+      <div style="display:flex;gap:10px">
+        <span style="padding:12px 18px;border:2px solid #14232B;border-radius:14px;font-weight:700">0 to 15</span>
+        <span style="padding:12px 18px;border:2px solid #14232B;border-radius:14px;font-weight:700">16 to 64</span>
+        <span style="padding:12px 18px;border:2px solid #14232B;border-radius:14px;font-weight:700">65 to 79</span>
+        <span style="padding:12px 18px;border:2px solid #0B5C8C;background:#E3F1F8;border-radius:14px;font-weight:700">80+</span>
+      </div>
+      <div style="font-weight:700">Where is the patient? Postcode</div>
+      <div style="height:52px;border:2px solid #14232B;border-radius:14px;display:flex;align-items:center;padding:0 14px;max-width:260px">DT4 8XX</div>
+      <div style="font-weight:700">What do they need?</div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px">
+        <span style="padding:12px 18px;border:2px solid #0B5C8C;background:#E3F1F8;border-radius:14px;font-weight:700">Fall, no injury</span>
+        <span style="padding:12px 18px;border:2px solid #0B5C8C;background:#E3F1F8;border-radius:14px;font-weight:700">Frailty</span>
+        <span style="padding:12px 18px;border:2px solid #14232B;border-radius:14px;font-weight:700">IV therapy</span>
+        <span style="padding:12px 18px;border:2px solid #14232B;border-radius:14px;font-weight:700">Wound care</span>
+        <span style="padding:12px 18px;border:2px solid #14232B;border-radius:14px;font-weight:700">Palliative</span>
+      </div>
+      <div style="font-weight:700">How soon?</div>
+      <div style="display:flex;gap:10px">
+        <span style="padding:12px 18px;border:2px solid #0B5C8C;background:#E3F1F8;border-radius:14px;font-weight:700">Within 2 hrs</span>
+        <span style="padding:12px 18px;border:2px solid #14232B;border-radius:14px;font-weight:700">Today</span>
+        <span style="padding:12px 18px;border:2px solid #14232B;border-radius:14px;font-weight:700">Planned</span>
+      </div>
+      <div style="font-weight:700">Score from the referrer (optional)</div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;color:#44555D">NHS Pathways Dx · Ambulance category · Manchester triage · NEWS2 · Frailty scale · Not given</div>
+    </section>
+
+    <section style="background:#F4F6F5;border:1px solid #DDE3E6;border-radius:24px;padding:20px;display:flex;flex-direction:column;gap:10px">
+      <h2 style="margin:0;font-size:22px">3 services meet this patient's criteria</h2>
+      <div style="border:1px solid #DDE3E6;border-radius:24px;padding:16px">UCR West · Accepting · 4 referrals in the next 2 hrs</div>
+      <div style="border:2px solid #6B2C91;border-radius:24px;padding:16px">Hospital at home · Over capacity · +2</div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

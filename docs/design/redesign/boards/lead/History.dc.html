@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Criteria history</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.app{width:1280px;height:800px;display:flex;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden}
+.rail{width:84px;flex:none;background:#0B2A3D;display:flex;flex-direction:column;align-items:center;padding:20px 0;gap:4px}
+.logo{width:44px;height:44px;border-radius:14px;background:#0B5C8C;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.ri{width:68px;padding:9px 0 7px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:3px;color:#B9D0DC;text-decoration:none;font-size:13px}
+.on{background:rgba(255,255,255,.14);color:#fff;font-weight:700}
+.col{flex:1;min-width:0;display:flex;flex-direction:column}
+.top{height:72px;flex:none;display:flex;align-items:center;gap:16px;padding:0 28px;border-bottom:1px solid #DDE3E6;background:#fff}
+.ctx{display:flex;flex-direction:column;line-height:1.2}.ctx small{font-size:14px;color:#44555D}.ctx b{font-size:20px}
+.role{margin-left:auto;height:44px;padding:0 16px;border:2px solid #14232B;border-radius:999px;background:#fff;color:#14232B;font-family:inherit;font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px}
+.card{background:#fff;border-radius:24px;padding:24px 28px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07)}
+.btn2{height:52px;padding:0 22px;border:2px solid #0B5C8C;border-radius:14px;background:#fff;color:#0B5C8C;font-family:inherit;font-size:17px;font-weight:700}
+.k{font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D}
+.v{display:flex;gap:18px}
+.rl{display:flex;flex-direction:column;align-items:center;width:24px;flex:none}
+.pt{width:22px;height:22px;border-radius:50%;box-sizing:border-box;flex:none}
+.ln{flex:1;width:2px;background:#C9DCE6;margin:4px 0}
+.vc{flex:1;border-radius:20px;padding:18px 22px;background:#fff;border:2px solid #DDE3E6;margin-bottom:14px;min-width:0}
+.tg{display:inline-flex;align-items:center;gap:8px;padding:5px 14px;border-radius:999px;font-weight:700;font-size:15px}
+</style>
+</helmet>
+<div class="app">
+  <nav class="rail" aria-label="Criteria owner">
+    <div class="logo"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#fff"/><path d="M3 13h20" stroke="#fff" stroke-width="2.4"/></svg></div>
+    <a class="ri" href="#"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-5.6 7-11a7 7 0 0 0-14 0c0 5.4 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Services</a>
+    <a class="ri on" href="#" aria-current="page"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>History</a>
+    <a class="ri" href="#" style="margin-top:auto"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/></svg>Help</a>
+  </nav>
+
+  <div class="col">
+    <header class="top">
+      <div class="ctx"><small>Community hospital · Ward A</small><b>History</b></div>
+      <button type="button" class="role">Criteria owner <svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 8l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </header>
+
+    <main style="flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:22px;padding:22px 28px">
+      <section aria-label="Versions" style="min-width:0;overflow:hidden">
+        <div class="v">
+          <div class="rl"><span class="pt" style="border:3px dashed #6B7B83;margin-top:20px"></span><span class="ln"></span></div>
+          <div class="vc"><div style="display:flex;align-items:center;gap:12px;justify-content:space-between"><div style="font-size:22px;font-weight:700">Version 3</div><span class="tg" style="background:#fff;border:2px dashed #6B7B83">Waiting for approval</span></div><div style="font-size:16px;color:#44555D;margin-top:2px">Sent today at 14:20 · review by 23 Jan</div></div>
+        </div>
+        <div class="v">
+          <div class="rl"><span class="pt" style="background:#0B5C8C;margin-top:20px"></span><span class="ln"></span></div>
+          <div class="vc" style="border-color:#0B5C8C;box-shadow:0 10px 28px rgba(11,92,140,.14)">
+            <div style="display:flex;align-items:center;gap:12px;justify-content:space-between"><div style="font-size:22px;font-weight:700">Version 2</div><span class="tg" style="background:#E3F1F8;color:#0B3F61;border:2px solid #0B5C8C"><span style="width:10px;height:10px;border-radius:50%;background:#0B5C8C"></span>Live now</span></div>
+            <div style="font-size:16px;color:#44555D;margin-top:2px">Review by 30 Oct</div>
+            <div style="margin-top:14px;padding-top:14px;border-top:1px solid #EEF2F3;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px">
+              <div><div class="k" style="margin-bottom:4px">What changed from version 1</div><div style="font-size:17px;line-height:1.4;color:#26343B">Added weight-bearing assessment to the needs accepted. Districts now run to DT6.</div></div>
+              <div><div class="k" style="margin-bottom:4px">Approved</div><div style="font-size:17px;line-height:1.4;color:#26343B">By the Ward A manager and a clinical lead.</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="v">
+          <div class="rl"><span class="pt" style="background:#C9CFD3;margin-top:20px"></span></div>
+          <div class="vc" style="background:#F6F8F8"><div style="display:flex;align-items:center;gap:12px;justify-content:space-between"><div style="font-size:22px;font-weight:700">Version 1</div><span class="tg" style="background:#EEF2F3;color:#26343B">At registration</span></div><div style="font-size:16px;color:#44555D;margin-top:2px">Replaced by version 2</div></div>
+        </div>
+      </section>
+
+      <aside style="display:flex;flex-direction:column;gap:14px" aria-label="What you can do">
+        <section class="card" style="padding:22px">
+          <div class="k" style="margin-bottom:8px">Start a change</div>
+          <div style="font-size:17px;line-height:1.45;color:#26343B;margin-bottom:14px">You can start a new draft from the live version. It goes to a second person before advisors see it.</div>
+          <button type="button" class="btn2" style="width:100%">Start a new draft from version 2</button>
+        </section>
+        <section class="card" style="padding:22px;background:#0B2A3D;color:#fff">
+          <div class="k" style="color:#9FC3D6;margin-bottom:6px">The record</div>
+          <div style="font-size:17px;line-height:1.45;color:#D7E6EE">Every version stays in the audit record, with who sent it and who approved it. Nothing is ever deleted.</div>
+        </section>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

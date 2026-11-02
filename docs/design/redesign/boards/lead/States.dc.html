@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Patterns for empty loading error success and destructive</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+@property --sk-sweep{syntax:'<number>';inherits:true;initial-value:-0.3}
+@keyframes sk-sweep{to{--sk-sweep:1.3}}
+.app{width:1280px;height:800px;box-sizing:border-box;padding:28px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:20px;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden;animation:sk-sweep 1.7s linear infinite}
+.pn{background:#fff;border-radius:22px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07);display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.cap{padding:12px 20px;background:#0B2A3D;color:#fff;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.bd{padding:18px 20px;display:flex;flex-direction:column;gap:12px;flex:1}
+.sk{--b:#E1E7E9;--h:#FAFBFB;--p:calc(var(--sk-sweep) * 100vw);display:block;border-radius:10px;background-color:var(--b);background-image:linear-gradient(100deg,var(--b) calc(var(--p) - 14vw),var(--h) var(--p),var(--b) calc(var(--p) + 14vw));background-attachment:fixed}
+.btn{height:50px;padding:0 22px;border:0;border-radius:14px;background:#0B5C8C;color:#fff;font-family:inherit;font-size:17px;font-weight:700}
+.btn2{height:46px;padding:0 18px;border:2px solid #0B5C8C;border-radius:12px;background:#fff;color:#0B5C8C;font-family:inherit;font-size:16px;font-weight:700}
+.btnd{height:50px;padding:0 20px;border:0;border-radius:14px;background:#7A3500;color:#fff;font-family:inherit;font-size:17px;font-weight:700}
+.rule{font-size:14px;line-height:1.4;color:#44555D;margin-top:auto}
+@media (prefers-reduced-motion: reduce){.app{animation:none}}
+</style>
+</helmet>
+<div class="app">
+
+  <section class="pn" aria-label="Empty">
+    <div class="cap">Empty: say why, and what to do</div>
+    <div class="bd" style="align-items:flex-start">
+      <div style="width:56px;height:56px;border-radius:50%;background:#E3F1F8;display:flex;align-items:center;justify-content:center" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0B5C8C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+      <div style="font-size:22px;font-weight:700;line-height:1.2">No reports to check</div>
+      <div style="font-size:16px;line-height:1.45;color:#26343B">Every report is inside its usual range. This page updates by itself, so you do not need to refresh it.</div>
+      <div class="rule">An empty list is a good answer, written as one. Never a blank card.</div>
+    </div>
+  </section>
+
+  <section class="pn" aria-label="Loading">
+    <div class="cap">Loading: placeholders in the shape of the page</div>
+    <div class="bd" role="status" aria-busy="true">
+      <span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Loading the screens.</span>
+      <div aria-hidden="true" style="display:flex;gap:12px;align-items:center"><span class="sk" style="width:40px;height:40px;border-radius:50%"></span><div style="flex:1;display:flex;flex-direction:column;gap:8px"><span class="sk" style="height:16px;width:60%"></span><span class="sk" style="height:12px;width:85%"></span></div><span class="sk" style="width:70px;height:36px;border-radius:999px"></span></div>
+      <div aria-hidden="true" style="display:flex;gap:12px;align-items:center"><span class="sk" style="width:40px;height:40px;border-radius:50%"></span><div style="flex:1;display:flex;flex-direction:column;gap:8px"><span class="sk" style="height:16px;width:48%"></span><span class="sk" style="height:12px;width:70%"></span></div><span class="sk" style="width:70px;height:36px;border-radius:999px"></span></div>
+      <div class="rule">One band of light crosses every placeholder at once. Still under reduced motion. Spoken as "Loading the screens."</div>
+    </div>
+  </section>
+
+  <section class="pn" aria-label="Error">
+    <div class="cap">Error: keep what you have, offer one way forward</div>
+    <div class="bd">
+      <div role="alert" style="display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:16px;background:#FFF1DC;border:2px solid #A34700"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7A3500" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;margin-top:1px"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/></svg><div style="font-size:16px;line-height:1.4;color:#4A2300"><b>The phones could not be loaded.</b> Try again shortly. Nothing you entered has been lost.</div></div>
+      <div><button type="button" class="btn2" style="border-color:#7A3500;color:#7A3500">Try again</button></div>
+      <div class="rule">Say what failed in plain words, not a code. A failed read never shows an empty list as if nothing were wrong.</div>
+    </div>
+  </section>
+
+  <section class="pn" aria-label="Success">
+    <div class="cap">Success: confirm in words, say what is next</div>
+    <div class="bd">
+      <div role="status" style="display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:16px;background:#E3F1F8;border:2px solid #0B5C8C"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0B5C8C" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;margin-top:1px"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><div style="font-size:16px;line-height:1.4;color:#0B3F61"><b>Added Reablement · North to the scope list.</b> It can be invited now.</div></div>
+      <div style="display:flex;gap:10px"><button type="button" class="btn">Invite them</button><button type="button" class="btn2">Add another</button></div>
+      <div class="rule">The banner stays until the person moves on. It is not a toast that disappears while they are reading it.</div>
+    </div>
+  </section>
+
+  <section class="pn" aria-label="Destructive confirmation">
+    <div class="cap">Destructive: name what will happen first</div>
+    <div class="bd" style="background:#FFF1DC">
+      <div style="font-size:21px;font-weight:700;line-height:1.2;color:#4A2300">Unpair Day room?</div>
+      <div style="font-size:16px;line-height:1.45;color:#4A2300">It stops showing the board at once and goes back to asking for a code. You can pair it again later.</div>
+      <div style="display:flex;gap:10px"><button type="button" class="btnd">Unpair Day room</button><button type="button" class="btn2" style="border-color:#7A3500;color:#7A3500;background:transparent">Keep it</button></div>
+      <div class="rule" style="color:#4A2300">The button names the act and the thing. The safe choice is the same size. Never "OK" and "Cancel".</div>
+    </div>
+  </section>
+
+  <section class="pn" aria-label="Owner landing">
+    <div class="cap">Owner with several services</div>
+    <div class="bd">
+      <div style="font-size:20px;font-weight:700">Your services</div>
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;border:2px solid #A34700;background:#FFF1DC"><div style="flex:1;min-width:0"><div style="font-size:17px;font-weight:700;color:#4A2300">Community hospital · Ward A</div><div style="font-size:14px;color:#4A2300">Review due in 7 days</div></div><span style="font-size:20px" aria-hidden="true">›</span></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;border:2px solid #DDE3E6"><div style="flex:1;min-width:0"><div style="font-size:17px;font-weight:700">SDEC · Site 1</div><div style="font-size:14px;color:#44555D">Review by 18 Nov</div></div><span style="font-size:20px" aria-hidden="true">›</span></div>
+      <div class="rule">One service goes straight in. None says "No services to review" and points to Help.</div>
+    </div>
+  </section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

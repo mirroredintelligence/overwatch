@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Shift lead loading and error</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+@property --sk-sweep{syntax:'<number>';inherits:true;initial-value:-0.3}
+@keyframes sk-sweep{to{--sk-sweep:1.3}}
+.app{width:1280px;height:800px;box-sizing:border-box;padding:28px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden;animation:sk-sweep 1.7s linear infinite}
+.panel{background:#EEF2F3;border:2px solid #DDE3E6;border-radius:26px;overflow:hidden;display:flex;flex-direction:column;min-width:0}
+.cap{padding:14px 22px;background:#0B2A3D;color:#fff;font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.body{padding:20px;display:flex;flex-direction:column;gap:14px;flex:1}
+.sk{--b:#E1E7E9;--h:#FAFBFB;--p:calc(var(--sk-sweep) * 100vw);display:block;border-radius:12px;background-color:var(--b);background-image:linear-gradient(100deg,var(--b) calc(var(--p) - 14vw),var(--h) var(--p),var(--b) calc(var(--p) + 14vw));background-attachment:fixed}
+.card{background:#fff;border-radius:22px;padding:18px 20px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07)}
+.btn2{height:48px;padding:0 20px;border:2px solid #0B5C8C;border-radius:14px;background:#fff;color:#0B5C8C;font-family:inherit;font-size:17px;font-weight:700}
+@media (prefers-reduced-motion: reduce){.app{animation:none}}
+</style>
+</helmet>
+<div class="app">
+
+  <section class="panel" aria-label="Loading">
+    <div class="cap">Loading: one band of light crosses every placeholder at once</div>
+    <div class="body" role="status" aria-busy="true">
+      <span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Loading the services to chase.</span>
+      <div style="display:flex;gap:12px" aria-hidden="true"><span class="sk" style="flex:1;height:68px"></span><span class="sk" style="flex:1;height:68px"></span><span class="sk" style="flex:1;height:68px"></span></div>
+      <div class="card" aria-hidden="true" style="display:flex;flex-direction:column;gap:12px">
+        <span class="sk" style="height:24px;width:62%"></span>
+        <span class="sk" style="height:16px;width:88%"></span>
+        <div style="display:flex;gap:12px"><span class="sk" style="flex:1;height:44px"></span><span class="sk" style="flex:1;height:44px"></span><span class="sk" style="flex:1;height:44px"></span><span class="sk" style="flex:1;height:44px"></span></div>
+        <div style="display:flex;gap:10px"><span class="sk" style="width:250px;height:52px"></span><span class="sk" style="width:170px;height:52px"></span></div>
+      </div>
+      <div class="card" aria-hidden="true" style="display:flex;align-items:center;gap:14px">
+        <div style="flex:1;display:flex;flex-direction:column;gap:10px"><span class="sk" style="height:20px;width:55%"></span><span class="sk" style="height:14px;width:80%"></span></div>
+        <span class="sk" style="width:90px;height:34px;border-radius:999px"></span>
+      </div>
+      <div style="font-size:15px;color:#44555D;margin-top:auto">Placeholders keep the shape of the page so nothing jumps when the real content arrives. Reduced motion shows them still.</div>
+    </div>
+  </section>
+
+  <section class="panel" aria-label="Read failed">
+    <div class="cap">The read failed: keep the last good page, say so</div>
+    <div class="body">
+      <div role="alert" style="display:flex;align-items:flex-start;gap:14px;padding:16px 18px;border-radius:18px;background:#FFF1DC;border:2px solid #A34700">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#7A3500" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;margin-top:2px"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/></svg>
+        <div style="flex:1"><div style="font-size:19px;font-weight:700;color:#4A2300">We could not refresh this page</div><div style="font-size:16px;line-height:1.4;color:#4A2300;margin-top:2px">You are looking at what we had at 14:08. Figures may have changed.</div></div>
+        <button type="button" class="btn2" style="flex:none;border-color:#7A3500;color:#7A3500">Try again</button>
+      </div>
+      <div class="card" style="opacity:.78;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div><div style="font-size:21px;font-weight:700">Virtual ward · frailty</div><div style="font-size:16px;color:#44555D">Overdue by 2 hrs 4 min · last figure 3 beds free</div></div><span style="display:inline-block;padding:5px 12px;border-radius:999px;font-weight:700;font-size:14px;border:2px dashed #6B7B83">As of 14:08</span></div>
+        <div style="display:flex;gap:10px"><button type="button" class="btn2" disabled style="opacity:.55">Enter what they told me</button><button type="button" class="btn2" disabled style="opacity:.55">Send reminder again</button></div>
+      </div>
+      <div class="card" style="opacity:.78;display:flex;align-items:center;gap:14px"><div style="flex:1"><div style="font-size:19px;font-weight:700">Community hospital · Ward A</div><div style="font-size:16px;color:#44555D">Reported 2 hrs ago · next due 17:00</div></div><span style="display:inline-block;padding:5px 12px;border-radius:999px;font-weight:700;font-size:14px;background:#FFF1DC;color:#7A3500;border:2px solid #A34700">Limited</span></div>
+      <div style="font-size:15px;color:#44555D;margin-top:auto;line-height:1.4">A failed read never shows an empty list as if nothing were wrong. If there is nothing earlier to show, the page says it could not load and offers the same button. Actions that need fresh data are switched off until the read works.</div>
+    </div>
+  </section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

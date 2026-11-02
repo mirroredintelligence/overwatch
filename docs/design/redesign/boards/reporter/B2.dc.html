@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>First report and unusual figures</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.bd{box-sizing:border-box;padding:40px 48px;background:#DCE5E8;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;display:flex;gap:56px;align-items:flex-start}
+.col{display:flex;flex-direction:column;gap:16px;width:390px}
+.cap{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:700;color:#26343B}
+.cap b{width:28px;height:28px;border-radius:50%;background:#0B2A3D;color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px}
+.ph{width:390px;height:780px;position:relative;overflow:hidden;background:#EEF2F3;border-radius:38px;box-shadow:0 0 0 10px #0B2A3D,0 24px 56px rgba(11,42,61,.32)}
+.lt{height:60px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;background:#fff;border-bottom:1px solid #DDE3E6;font-weight:700;font-size:18px}
+.card{background:#fff;border-radius:24px;padding:20px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 26px rgba(20,35,43,.07)}
+.btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:58px;border:0;border-radius:16px;background:#0B5C8C;color:#fff;font-family:inherit;font-size:19px;font-weight:700;box-shadow:0 6px 16px rgba(11,92,140,.28)}
+.btnoff{display:flex;align-items:center;justify-content:center;width:100%;height:58px;border:2px dashed #6B7B83;border-radius:16px;background:#E6ECEE;color:#44555D;font-family:inherit;font-size:18px;font-weight:700}
+.btn2{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:54px;border:2px solid #0B5C8C;border-radius:14px;background:#fff;color:#0B5C8C;font-family:inherit;font-size:18px;font-weight:700}
+.btn3{display:flex;align-items:center;justify-content:center;width:100%;height:50px;border:2px dashed #6B7B83;border-radius:14px;background:transparent;color:#26343B;font-family:inherit;font-size:17px;font-weight:700}
+.tag{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;font-weight:700;font-size:14px}
+.step{width:76px;height:76px;border-radius:20px;border:2px solid #0B5C8C;background:#fff;color:#0B5C8C;font-family:inherit;font-size:40px;font-weight:700;display:flex;align-items:center;justify-content:center}
+</style>
+</helmet>
+<div class="bd" style="width:1400px;height:920px">
+
+  <div class="col">
+    <div class="cap"><b>1</b>First report: nothing recorded yet</div>
+    <div class="ph">
+      <div class="lt"><span style="display:flex;align-items:center;gap:10px"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#14232B" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#0B5C8C"/><path d="M3 13h20" stroke="#14232B" stroke-width="2.4"/></svg>Overwatch</span><span class="tag" style="background:#E3F1F8;color:#0B3F61">No login needed</span></div>
+      <div style="padding:18px 16px;display:flex;flex-direction:column;gap:14px">
+        <div class="card" style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:15px;color:#44555D;font-weight:700">First update</span><span class="tag" style="background:#FFF1DC;color:#7A3500"><svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 5.5V10l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Reply by 08:30</span></div>
+          <h1 style="margin:2px 0 0;font-size:30px;line-height:1.1">UCR West</h1>
+          <div style="font-size:20px;line-height:1.35;color:#26343B">How many referrals can you take in the next 2 hours?</div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;gap:14px;align-items:center">
+          <div style="display:flex;align-items:center;gap:16px"><button type="button" class="step" aria-label="Decrease by one">−</button><div style="width:104px;height:76px;border:3px dashed #6B7B83;border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:52px;font-weight:700;color:#6B7B83">–</div><button type="button" class="step" aria-label="Increase by one">+</button></div>
+          <div style="font-size:15px;color:#44555D">referrals · usual range 0 to 8</div>
+        </div>
+        <div class="btnoff" aria-disabled="true">Choose a number to send</div>
+        <button type="button" class="btn3">We are closed to referrals</button>
+        <p style="margin:2px 4px 0;font-size:15px;line-height:1.4;color:#44555D">This link works once and closes at 08:30. Next update due 10:00.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="cap"><b>2</b>Far outside the usual range: ask once</div>
+    <div class="ph">
+      <div class="lt"><span style="display:flex;align-items:center;gap:10px"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#14232B" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#0B5C8C"/><path d="M3 13h20" stroke="#14232B" stroke-width="2.4"/></svg>Overwatch</span><span class="tag" style="background:#E3F1F8;color:#0B3F61">No login needed</span></div>
+      <div style="padding:18px 16px;display:flex;flex-direction:column;gap:14px">
+        <div class="card" style="display:flex;flex-direction:column;gap:8px">
+          <h1 style="margin:0;font-size:30px;line-height:1.1">UCR West</h1>
+          <div style="display:flex;align-items:baseline;gap:12px"><span style="font-size:96px;font-weight:700;line-height:.95;color:#0B3F61">40</span><span style="font-size:19px;line-height:1.3;color:#26343B">referrals in the<br>next 2 hours</span></div>
+        </div>
+        <div style="background:#FFF1DC;border-radius:20px;padding:16px 18px;display:flex;gap:14px;align-items:flex-start">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#7A3500" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18.2h.01"/></svg>
+          <div><div style="font-size:19px;font-weight:700;color:#4B2200">Is 40 right?</div><div style="font-size:17px;line-height:1.4;color:#4B2200;margin-top:4px">That is far above your usual range of 0 to 8. If it is right, send it. The shift lead will be told so they can check.</div></div>
+        </div>
+        <button type="button" class="btn">Yes, send 40</button>
+        <button type="button" class="btn2">Change the number</button>
+        <p style="margin:2px 4px 0;font-size:15px;line-height:1.4;color:#44555D">Nothing is recorded until you press a button.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="cap"><b>3</b>Closed to referrals: confirm once</div>
+    <div class="ph">
+      <div class="lt"><span style="display:flex;align-items:center;gap:10px"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#14232B" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#0B5C8C"/><path d="M3 13h20" stroke="#14232B" stroke-width="2.4"/></svg>Overwatch</span><span class="tag" style="background:#E3F1F8;color:#0B3F61">No login needed</span></div>
+      <div style="padding:22px 16px;display:flex;flex-direction:column;gap:14px">
+        <div class="card" style="display:flex;flex-direction:column;gap:12px">
+          <span class="tag" style="background:#3A4750;color:#fff;align-self:flex-start"><svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3" width="14" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7 7l6 6M13 7l-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Closed to referrals</span>
+          <h1 style="margin:0;font-size:30px;line-height:1.15">Tell advisors UCR West is closed?</h1>
+          <div style="font-size:18px;line-height:1.45;color:#26343B">Advisors will not be offered UCR West. It shows as closed on the board until you send a number.</div>
+        </div>
+        <button type="button" class="btn" style="background:#3A4750;box-shadow:none">Yes, we are closed</button>
+        <button type="button" class="btn2">No, go back</button>
+        <p style="margin:2px 4px 0;font-size:15px;line-height:1.4;color:#44555D">You can send a number later from the next prompt, or phone the shift lead.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1400,"height":920}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

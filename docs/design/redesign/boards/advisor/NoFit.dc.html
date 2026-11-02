@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>No service fits right now</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.app{width:1280px;height:800px;display:flex;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden}
+.rail{width:84px;flex:none;background:#0B2A3D;display:flex;flex-direction:column;align-items:center;padding:20px 0;gap:6px}
+.lg{width:44px;height:44px;border-radius:14px;background:#0B5C8C;display:flex;align-items:center;justify-content:center;margin-bottom:18px}
+.ri{width:68px;padding:10px 0 8px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:4px;color:#B9D0DC;text-decoration:none;font-size:13px}
+.ri.on{background:rgba(255,255,255,.14);color:#fff;font-weight:700}
+.col{flex:1;min-width:0;display:flex;flex-direction:column}
+.top{height:72px;flex:none;display:flex;align-items:center;gap:16px;padding:0 28px;border-bottom:1px solid #DDE3E6;background:#fff}
+.role{height:44px;padding:0 16px;border:2px solid #14232B;border-radius:999px;background:#fff;color:#14232B;font:700 16px 'Atkinson Hyperlegible',system-ui,sans-serif;display:flex;align-items:center;gap:8px}
+.callchip{display:flex;align-items:center;gap:10px;height:44px;padding:0 18px;border-radius:999px;background:#E3F1F8;color:#0B3F61;font-size:16px;font-weight:700;margin-left:auto}
+.steps{display:flex;gap:10px;padding:14px 28px 4px;align-items:center}
+.st{display:flex;align-items:center;gap:8px;height:44px;padding:0 18px 0 8px;border-radius:999px;font-size:16px;font-weight:700;border:2px solid #DDE3E6;background:#fff}
+.st b{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;background:#E3F1F8;color:#0B3F61}
+.st.now{background:#0B5C8C;border-color:#0B5C8C;color:#fff}.st.now b{background:rgba(255,255,255,.22);color:#fff}
+.card{background:#fff;border-radius:22px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07)}
+.go{display:flex;align-items:center;gap:16px;padding:16px 20px;border-radius:18px;border:2px solid #DDE3E6;background:#fff;text-align:left;font:700 19px 'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;width:100%;box-sizing:border-box;min-height:64px}
+.go.first{border-color:#0B5C8C;background:#E3F1F8}
+.go small{display:block;font-size:15px;font-weight:400;color:#44555D;margin-top:2px}
+.go .ar{margin-left:auto;color:#0B5C8C;font-size:22px}
+.btn2{height:48px;padding:0 18px;border:2px solid #0B5C8C;border-radius:14px;background:#fff;color:#0B5C8C;font:700 16px 'Atkinson Hyperlegible',system-ui,sans-serif}
+</style>
+</helmet>
+<div class="app">
+  <nav class="rail" aria-label="Main">
+    <div class="lg"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#fff"/><path d="M3 13h20" stroke="#fff" stroke-width="2.4"/></svg></div>
+    <a class="ri on" href="#" aria-current="page"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>Calls</a>
+    <a class="ri" href="#"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Board</a>
+    <a class="ri" href="#"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-5.6 7-11a7 7 0 0 0-14 0c0 5.4 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Services</a>
+    <a class="ri" href="#" style="margin-top:auto"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/></svg>Help</a>
+  </nav>
+  <div class="col">
+    <header class="top">
+      <div style="display:flex;flex-direction:column;line-height:1.2"><span style="font-size:14px;color:#44555D">Urgent care capacity</span><span style="font-size:20px;font-weight:700">Advisor</span></div>
+      <div class="callchip"><span style="width:9px;height:9px;border-radius:50%;background:#0B5C8C"></span>Call in progress · 05:41 · Ambulance crew</div>
+      <button type="button" class="role">Clinical advisor <svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 8l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </header>
+    <div class="steps" role="group" aria-label="Call steps"><span class="st"><b>✓</b>Needs · done</span><span class="st now" aria-current="step"><b>2</b>Options</span><span class="st"><b>3</b>Request</span><span class="st"><b>4</b>Outcome</span></div>
+    <main style="flex:1;min-height:0;display:grid;grid-template-columns:300px minmax(0,1fr);gap:22px;padding:10px 28px 22px">
+      <section class="card" aria-label="This patient" style="padding:22px;display:flex;flex-direction:column;gap:12px;align-self:start">
+        <div style="font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D">This patient</div>
+        <div style="font-size:26px;font-weight:700;line-height:1.1">80+ · DT4 8XX</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px"><span style="padding:6px 12px;border-radius:999px;background:#E3F1F8;font-weight:700;font-size:15px">IV therapy</span><span style="padding:6px 12px;border-radius:999px;background:#E3F1F8;font-weight:700;font-size:15px">Within 2 hrs</span></div>
+        <button type="button" class="btn2">Edit needs</button>
+      </section>
+      <section style="min-width:0;display:flex;flex-direction:column;gap:16px">
+        <div class="card" style="padding:26px 30px;display:flex;flex-direction:column;gap:6px">
+          <h1 style="margin:0;font-size:32px;line-height:1.15">No service fits right now</h1>
+          <p style="margin:0;font-size:18px;line-height:1.45;color:#26343B">Every service is either not accepting, outside the criteria, or not updated. That is the board's answer, not the end of the call. Choose what to do next.</p>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <button type="button" class="go first"><span>Widen the time: today instead of within 2 hrs<small>Reads the options again with the new time. You can change it back.</small></span><span class="ar" aria-hidden="true">›</span></button>
+          <button type="button" class="go"><span>Phone a service you know has space<small>Then record what they told you, so the board is right for everyone.</small></span><span class="ar" aria-hidden="true">›</span></button>
+          <button type="button" class="go"><span>Ask a clinical advisor<small>The case summary goes with the call. No name is sent.</small></span><span class="ar" aria-hidden="true">›</span></button>
+          <button type="button" class="go"><span>Other routes under local protocol<small>For example the emergency route.</small></span><span class="ar" aria-hidden="true">›</span></button>
+        </div>
+        <details style="font-size:16px;color:#26343B"><summary style="cursor:pointer;font-weight:700;padding:6px 0">Why none fit: 6 services</summary>
+          <div style="padding:4px 0 0 4px;line-height:1.7">SDEC · Site 2: not accepting since 13:30 · Virtual ward · frailty: not updated for 4 hrs 10 min · UCR West: needs IV therapy, outside criteria · Reablement: not for a same-day need · and 2 more</div>
+        </details>
+      </section>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

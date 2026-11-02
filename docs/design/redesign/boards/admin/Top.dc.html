@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Top bar</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<header style="width:100%;height:72px;box-sizing:border-box;display:flex;align-items:center;gap:16px;padding:0 28px;border-bottom:1px solid #DDE3E6;background:#fff;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B">
+  <div style="display:flex;flex-direction:column;line-height:1.2;min-width:0">
+    <span style="font-size:14px;color:#44555D">{{org}}</span>
+    <span style="font-size:20px;font-weight:700">{{title}}</span>
+  </div>
+  <sc-if value="{{hasRole}}" hint-placeholder-val="{{ true }}">
+    <button type="button" style="margin-left:auto;height:44px;padding:0 16px;border:2px solid #0B5C8C;border-radius:999px;background:#E3F1F8;color:#0B3F61;font-family:inherit;font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px">{{role}}
+      <svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 8l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  </sc-if>
+  <button type="button" style="{{signOutStyle}}">Sign out</button>
+</header>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"org":{"editor":"text","default":"FORTRUS LIMITED"},"title":{"editor":"text","default":"Overview"},"role":{"editor":"text","default":"Tenant administrator"},"$preview":{"width":1196,"height":72}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const role = this.props.role === undefined ? 'Tenant administrator' : this.props.role;
+    const hasRole = role !== '';
+    return {
+      org: this.props.org || 'FORTRUS LIMITED',
+      title: this.props.title || 'Overview',
+      role,
+      hasRole,
+      signOutStyle: (hasRole ? '' : 'margin-left:auto;') + 'height:44px;padding:0 18px;border:2px solid #14232B;border-radius:14px;background:#fff;font-family:inherit;font-size:16px;font-weight:700;cursor:pointer'
+    };
+  }
+}
+</script>
+</body>
+</html>

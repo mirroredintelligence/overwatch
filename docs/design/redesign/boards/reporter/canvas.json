@@ -1,0 +1,42 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-11-03T10:00:00Z" },
+  "title": "Overwatch redesign: reporter app and capacity links",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 1400, "h": 1500, "title": "Index: every route and the board that shows it" },
+    "B1.dc.html": { "x": 0, "y": 1800, "w": 1400, "h": 920, "title": "Capacity link: the one-tap loop" },
+    "B2.dc.html": { "x": 1480, "y": 1800, "w": 1400, "h": 920, "title": "Capacity link: first report and unusual figures" },
+    "B3.dc.html": { "x": 2960, "y": 1800, "w": 1400, "h": 920, "title": "Capacity link: closed, loading, bad signal" },
+    "B4.dc.html": { "x": 0, "y": 3040, "w": 1400, "h": 920, "title": "Booking request: decide" },
+    "B5.dc.html": { "x": 1480, "y": 3040, "w": 2270, "h": 920, "title": "Booking: change, withdraw, not reached, closed" },
+    "B6.dc.html": { "x": 0, "y": 4280, "w": 1850, "h": 920, "title": "App: PIN, update, thanks" },
+    "B7.dc.html": { "x": 1930, "y": 4280, "w": 1400, "h": 920, "title": "App: my services, added, cover" },
+    "B8.dc.html": { "x": 3410, "y": 4280, "w": 1850, "h": 920, "title": "App: settings, 30-day check, PIN locked" },
+    "B9.dc.html": { "x": 5340, "y": 4280, "w": 1850, "h": 920, "title": "App: lost phone, sign out, notifications off" },
+    "B10.dc.html": { "x": 0, "y": 5520, "w": 1400, "h": 920, "title": "Practitioner: shift, round, location" },
+    "B11.dc.html": { "x": 1480, "y": 5520, "w": 1400, "h": 920, "title": "Practitioner: offer, visit, closed" },
+    "D1.dc.html": { "x": 0, "y": 6760, "w": 1280, "h": 800, "title": "On a desk: the email link on a laptop" },
+    "St.dc.html": { "x": 1360, "y": 6760, "w": 1280, "h": 900, "title": "States: loading, offline, error, success" }
+  },
+  "order": [
+    "Main.dc.html", "B1.dc.html", "B2.dc.html", "B3.dc.html", "B4.dc.html", "B5.dc.html",
+    "B6.dc.html", "B7.dc.html", "B8.dc.html", "B9.dc.html", "B10.dc.html", "B11.dc.html",
+    "D1.dc.html", "St.dc.html"
+  ],
+  "notes": {
+    "t1": { "x": 0, "y": 1540, "text": "Capacity links: the text or email a reporter opens (no login)", "kind": "title1", "maxW": 4360 },
+    "t2": { "x": 0, "y": 2790, "text": "Booking requests: decide, then change if things change", "kind": "title1", "maxW": 3750 },
+    "t3": { "x": 0, "y": 4040, "text": "The installed reporter app", "kind": "title1", "maxW": 7190 },
+    "t4": { "x": 0, "y": 5280, "text": "Practitioner: the visit round", "kind": "title1", "maxW": 2880 },
+    "t5": { "x": 0, "y": 6520, "text": "On a desk, and the states every screen shares", "kind": "title1", "maxW": 2640 },
+    "n1": { "x": 0, "y": 2740, "w": 380, "fill": "blue", "text": "The figure never moves or animates. It sits in the same place in every step. Only the controls around it open and close." },
+    "n2": { "x": 1480, "y": 2740, "w": 380, "fill": "orange", "text": "A figure far outside the usual range asks once, in plain words, before it is recorded. It is never silently refused." },
+    "n3": { "x": 2960, "y": 2740, "w": 380, "fill": "gray", "text": "Nothing is lost on bad signal: the page says what happened and what to do, and never leaves a spinner." },
+    "n4": { "x": 0, "y": 3980, "w": 380, "fill": "teal", "text": "Opening a booking link books nothing. The person confirms on the next screen." },
+    "n5": { "x": 1930, "y": 5220, "w": 380, "fill": "teal", "text": "More than one service on a phone: one notification, one screen, each service confirmed on its own line." },
+    "n6": { "x": 0, "y": 6460, "w": 380, "fill": "purple", "text": "The practitioner never shares a trail. The coordinator sees an estimate the person chose." }
+  },
+  "designSystems": []
+}

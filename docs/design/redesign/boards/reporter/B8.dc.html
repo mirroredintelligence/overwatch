@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>App settings verify locked</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.bd{box-sizing:border-box;padding:40px 48px;background:#DCE5E8;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;display:flex;gap:56px;align-items:flex-start}
+.col{display:flex;flex-direction:column;gap:16px;width:390px;flex:none}
+.cap{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:700;color:#26343B}
+.cap b{width:28px;height:28px;border-radius:50%;background:#0B2A3D;color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;flex:none}
+.ph{width:390px;height:780px;position:relative;overflow:hidden;background:#EEF2F3;border-radius:38px;box-shadow:0 0 0 10px #0B2A3D,0 24px 56px rgba(11,42,61,.32)}
+.at{height:60px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:#0B2A3D;color:#fff;font-weight:700;font-size:18px}
+.tab{position:absolute;left:0;right:0;bottom:0;height:70px;background:#fff;border-top:1px solid #DDE3E6;display:flex;justify-content:space-around;align-items:center}
+.tb{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:13px;font-weight:700;color:#44555D;min-width:70px}
+.tb.cur{color:#0B5C8C}
+.card{background:#fff;border-radius:24px;padding:20px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 26px rgba(20,35,43,.07)}
+.btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:58px;border:0;border-radius:16px;background:#0B5C8C;color:#fff;font-family:inherit;font-size:19px;font-weight:700;box-shadow:0 6px 16px rgba(11,92,140,.28)}
+.btn2{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:54px;border:2px solid #0B5C8C;border-radius:14px;background:#fff;color:#0B5C8C;font-family:inherit;font-size:18px;font-weight:700}
+.btn3{display:flex;align-items:center;justify-content:center;width:100%;height:50px;border:0;background:transparent;color:#26343B;font-family:inherit;font-size:17px;font-weight:700;text-decoration:underline}
+.tag{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;font-weight:700;font-size:14px}
+.set{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 4px;border-top:1px solid #DDE3E6;min-height:52px;box-sizing:border-box}
+.set span:first-child{font-size:17px;color:#44555D}
+.set span:last-child{font-size:18px;font-weight:700;text-align:right}
+.box{width:48px;height:60px;border:2px solid #26343B;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;background:#fff}
+</style>
+</helmet>
+<div class="bd" style="width:1850px;height:920px">
+
+  <div class="col">
+    <div class="cap"><b>1</b>Settings · /app/settings</div>
+    <div class="ph">
+      <div class="at"><span>Settings</span></div>
+      <div style="padding:16px;display:flex;flex-direction:column;gap:14px">
+        <div class="card" style="padding:8px 16px">
+          <div class="set" style="border-top:0"><span>Contact me by</span><span>App notification</span></div>
+          <div class="set"><span>Notifications</span><span class="tag" style="background:#0B5C8C;color:#fff"><svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>On</span></div>
+          <div class="set"><span>Phone</span><span>07xxx xxx456</span></div>
+          <div class="set"><span>Cover number</span><span class="tag" style="background:#E6ECEE;color:#26343B;border:2px dashed #6B7B83">Not set</span></div>
+          <div class="set"><span>Text code needed again</span><span>In 21 days</span></div>
+        </div>
+        <button type="button" class="btn2">Change how we contact me</button>
+        <button type="button" class="btn2">Add a cover number</button>
+        <button type="button" class="btn3" style="text-decoration:none;border:2px solid #26343B;border-radius:14px;height:54px;color:#14232B">Sign out of this phone</button>
+        <button type="button" class="btn3">Sign out of every phone</button>
+      </div>
+      <div class="tab"><span class="tb"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>Update</span><span class="tb"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Services</span><span class="tb cur"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>Settings</span><span class="tb"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/></svg>Help</span></div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="cap"><b>2</b>Every 30 days: check it is you · /app/verify</div>
+    <div class="ph">
+      <div class="at"><span>Check it is you</span></div>
+      <div style="padding:20px 16px;display:flex;flex-direction:column;gap:14px">
+        <div class="card" style="display:flex;flex-direction:column;gap:12px">
+          <h1 style="margin:0;font-size:28px;line-height:1.15">Check it is you</h1>
+          <div style="font-size:18px;line-height:1.45;color:#26343B">It has been 30 days. We will text a code to 07xxx xxx456.</div>
+          <div style="font-size:16px;line-height:1.45;color:#44555D">You do not need to do this again for another 30 days.</div>
+        </div>
+        <button type="button" class="btn">Send code</button>
+        <button type="button" class="btn3">Not my number? Phone the shift lead</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="cap"><b>3</b>Same screen, after Send code</div>
+    <div class="ph">
+      <div class="at"><span>Check it is you</span></div>
+      <div style="padding:20px 16px;display:flex;flex-direction:column;gap:14px">
+        <div class="card" style="display:flex;flex-direction:column;gap:14px">
+          <h1 style="margin:0;font-size:28px;line-height:1.15">Enter your code</h1>
+          <div style="font-size:18px;line-height:1.45;color:#26343B">We sent a code to 07xxx xxx456.</div>
+          <div style="display:flex;gap:8px;justify-content:space-between" role="img" aria-label="Code, 3 of 6 digits entered"><span class="box">4</span><span class="box">8</span><span class="box">2</span><span class="box" style="border-color:#0B5C8C;box-shadow:0 0 0 4px rgba(11,92,140,.2)"></span><span class="box"></span><span class="box"></span></div>
+          <div style="font-size:16px;color:#44555D">Send a new code in 0:42. The code works for 10 minutes.</div>
+        </div>
+        <button type="button" class="btn">Check code</button>
+        <p style="margin:0 4px;font-size:15px;line-height:1.4;color:#44555D">After 5 wrong tries you must ask for a new code.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="cap"><b>4</b>PIN locked · /app/locked</div>
+    <div class="ph">
+      <div class="at"><span>PIN locked</span></div>
+      <div style="padding:20px 16px;display:flex;flex-direction:column;gap:14px">
+        <div class="card" style="display:flex;flex-direction:column;gap:12px;align-items:flex-start">
+          <span class="tag" style="background:#3A4750;color:#fff"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Locked</span>
+          <h1 style="margin:0;font-size:28px;line-height:1.15">Your PIN is locked</h1>
+          <div style="font-size:18px;line-height:1.45;color:#26343B">That was 5 wrong tries. Get a code by text to set a new PIN.</div>
+          <div style="font-size:16px;line-height:1.45;color:#44555D">Nothing was sent or changed.</div>
+        </div>
+        <button type="button" class="btn">Text me a code</button>
+        <button type="button" class="btn2">Use text or email instead</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1850,"height":920}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

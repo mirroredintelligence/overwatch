@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Closed, loading, bad signal</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.bd{box-sizing:border-box;padding:40px 48px;background:#DCE5E8;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;display:flex;gap:56px;align-items:flex-start}
+.col{display:flex;flex-direction:column;gap:16px;width:390px}
+.cap{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:700;color:#26343B}
+.cap b{width:28px;height:28px;border-radius:50%;background:#0B2A3D;color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px}
+.ph{width:390px;height:780px;position:relative;overflow:hidden;background:#EEF2F3;border-radius:38px;box-shadow:0 0 0 10px #0B2A3D,0 24px 56px rgba(11,42,61,.32)}
+.lt{height:60px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;background:#fff;border-bottom:1px solid #DDE3E6;font-weight:700;font-size:18px}
+.card{background:#fff;border-radius:24px;padding:20px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 26px rgba(20,35,43,.07)}
+.btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:58px;border:0;border-radius:16px;background:#0B5C8C;color:#fff;font-family:inherit;font-size:19px;font-weight:700;box-shadow:0 6px 16px rgba(11,92,140,.28)}
+.btn2{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:54px;border:2px solid #0B5C8C;border-radius:14px;background:#fff;color:#0B5C8C;font-family:inherit;font-size:18px;font-weight:700}
+.tag{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;font-weight:700;font-size:14px}
+.sk{display:block;border-radius:12px;background:linear-gradient(100deg,#DDE5E8 0%,#DDE5E8 35%,#F6F9FA 50%,#DDE5E8 65%,#DDE5E8 100%)}
+</style>
+</helmet>
+<div class="bd" style="width:1400px;height:920px">
+
+  <div class="col">
+    <div class="cap"><b>1</b>Closed link · expired or already used</div>
+    <div class="ph">
+      <div class="lt"><span style="display:flex;align-items:center;gap:10px"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#14232B" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#0B5C8C"/><path d="M3 13h20" stroke="#14232B" stroke-width="2.4"/></svg>Overwatch</span></div>
+      <div style="padding:22px 16px;display:flex;flex-direction:column;gap:16px">
+        <div class="card" style="display:flex;flex-direction:column;gap:12px;align-items:flex-start">
+          <span class="tag" style="background:#E6ECEE;color:#26343B;border:2px dashed #6B7B83"><svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 5.5V10l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Link closed</span>
+          <h1 style="margin:0;font-size:30px;line-height:1.15">This link has expired</h1>
+          <div style="font-size:18px;line-height:1.45;color:#26343B">It closed at 12:30, so nothing was recorded from it.</div>
+        </div>
+        <button type="button" class="btn">Send me a new link</button>
+        <div style="font-size:17px;line-height:1.4;color:#26343B;padding:0 4px">Or reply to the text message instead.</div>
+        <div class="card" style="padding:16px 18px;display:flex;flex-direction:column;gap:6px;box-shadow:none;border:1px solid #DDE3E6">
+          <div style="font-size:15px;font-weight:700;color:#44555D;text-transform:uppercase;letter-spacing:.05em">If it says “already used”</div>
+          <div style="font-size:17px;line-height:1.4;color:#26343B">A link works once. If you already sent your update, you will find it on the board.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="cap"><b>2</b>Loading · one shimmer across every block</div>
+    <div class="ph">
+      <div class="lt"><span style="display:flex;align-items:center;gap:10px"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#14232B" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#0B5C8C"/><path d="M3 13h20" stroke="#14232B" stroke-width="2.4"/></svg>Overwatch</span><span class="tag" style="background:#E3F1F8;color:#0B3F61">No login needed</span></div>
+      <div style="padding:18px 16px;display:flex;flex-direction:column;gap:14px" aria-busy="true">
+        <span class="sr" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Opening your link.</span>
+        <div class="card" style="display:flex;flex-direction:column;gap:12px">
+          <span class="sk" style="height:20px;width:46%"></span>
+          <span class="sk" style="height:34px;width:62%"></span>
+          <div style="display:flex;gap:14px;align-items:center"><span class="sk" style="height:92px;width:96px"></span><span class="sk" style="height:60px;flex:1"></span></div>
+          <span class="sk" style="height:18px;width:70%"></span>
+        </div>
+        <span class="sk" style="height:58px;border-radius:16px"></span>
+        <span class="sk" style="height:54px;border-radius:14px"></span>
+        <span class="sk" style="height:50px;border-radius:14px"></span>
+        <p style="margin:4px 4px 0;font-size:15px;color:#44555D">Opening your link. This takes a few seconds on a slow signal.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="cap"><b>3</b>Bad signal: it says so and never spins</div>
+    <div class="ph">
+      <div class="lt"><span style="display:flex;align-items:center;gap:10px"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#14232B" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#0B5C8C"/><path d="M3 13h20" stroke="#14232B" stroke-width="2.4"/></svg>Overwatch</span><span class="tag" style="background:#E3F1F8;color:#0B3F61">No login needed</span></div>
+      <div style="padding:18px 16px;display:flex;flex-direction:column;gap:14px">
+        <div style="background:#FFF1DC;border-radius:20px;padding:14px 16px;display:flex;gap:12px;align-items:flex-start">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#7A3500" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none"><path d="M2 8.5a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16.5a5 5 0 0 1 7 0M12 20h.01"/><path d="M3 3l18 18"/></svg>
+          <div><div style="font-size:18px;font-weight:700;color:#4B2200">No signal. Not sent yet.</div><div style="font-size:16px;line-height:1.4;color:#4B2200;margin-top:2px">Nothing has been lost. Your number is still here.</div></div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;gap:8px">
+          <h1 style="margin:0;font-size:28px;line-height:1.1">UCR West</h1>
+          <div style="display:flex;align-items:baseline;gap:12px"><span style="font-size:96px;font-weight:700;line-height:.95;color:#0B3F61">4</span><span style="font-size:19px;line-height:1.3;color:#26343B">referrals in the<br>next 2 hours</span></div>
+          <span class="tag" style="background:#E6ECEE;color:#26343B;border:2px dashed #6B7B83;align-self:flex-start">Not sent yet</span>
+        </div>
+        <button type="button" class="btn">Try again now</button>
+        <button type="button" class="btn2">Send it by text instead</button>
+        <p style="margin:2px 4px 0;font-size:15px;line-height:1.4;color:#44555D">The link stays open until 10:30. Keep this page open, or reply to the text with the number.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1400,"height":920}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

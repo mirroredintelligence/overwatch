@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Operator sign in</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width:1280px;height:800px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden">
+
+  <section aria-label="Overwatch" style="background:#0B2A3D;color:#fff;padding:56px 64px;display:flex;flex-direction:column;justify-content:space-between">
+    <div style="display:flex;align-items:center;gap:14px;font-weight:700;font-size:26px">
+      <span style="width:52px;height:52px;border-radius:16px;background:#0B5C8C;display:flex;align-items:center;justify-content:center"><svg width="30" height="30" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#fff"/><path d="M3 13h20" stroke="#fff" stroke-width="2.4"/></svg></span>Overwatch</div>
+    <div>
+      <div style="font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#9FC3D6">Platform console</div>
+      <h1 style="margin:10px 0 0;font-size:56px;line-height:1.05;letter-spacing:-.01em">Set up organisations and keep them running</h1>
+      <p style="margin:18px 0 0;font-size:20px;line-height:1.45;color:#D7E6EE;max-width:520px">For the people who run the platform. Every step you take here is recorded in a chain that cannot be changed afterwards.</p>
+    </div>
+    <div style="font-size:15px;color:#9FC3D6">Staff of an organisation sign in at their own address, not here.</div>
+  </section>
+
+  <section aria-label="Sign in" style="background:#EEF2F3;display:flex;align-items:center;justify-content:center;padding:48px">
+    <div style="width:100%;max-width:460px;display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;gap:12px;align-items:flex-start;background:#FFF1DC;border:2px solid #A34700;border-radius:16px;padding:14px 16px">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7A3500" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/></svg>
+        <span style="font-size:16px;line-height:1.4"><b>We could not sign you in.</b> Try again, or ask the person who runs the platform to check your access.</span>
+      </div>
+      <div style="background:#fff;border-radius:26px;padding:32px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 14px 36px rgba(20,35,43,.1);display:flex;flex-direction:column;gap:14px">
+        <h2 style="margin:0;font-size:30px">Sign in</h2>
+        <p style="margin:0;font-size:18px;line-height:1.45;color:#26343B">This is for the people who run the platform. Use your platform account. There is no new password.</p>
+        <button type="button" style="height:60px;border:0;border-radius:16px;background:#0B5C8C;color:#fff;font-family:inherit;font-size:20px;font-weight:700;box-shadow:0 6px 16px rgba(11,92,140,.28);display:flex;align-items:center;justify-content:center;gap:12px">
+          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="2" width="9.5" height="9.5" fill="#fff"/><rect x="12.5" y="2" width="9.5" height="9.5" fill="#fff"/><rect x="2" y="12.5" width="9.5" height="9.5" fill="#fff"/><rect x="12.5" y="12.5" width="9.5" height="9.5" fill="#fff"/></svg>
+          Sign in with your platform account</button>
+        <p style="margin:0;font-size:16px;color:#44555D">Having trouble? Ask the person who runs the platform to check your access.</p>
+      </div>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-11-03T10:00:00Z" },
+  "title": "Overwatch redesign: advisor, clinical and wall screen",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 1280, "h": 900, "title": "Index: every route and where it is designed" },
+    "Call.dc.html": { "x": 1360, "y": 0, "w": 1280, "h": 800, "title": "The call: four steps in one screen (from the first canvas)", "is_interactive": true },
+
+    "BoardNormal.dc.html": { "x": 0, "y": 1300, "w": 1280, "h": 800, "title": "/advisor/board: live" },
+    "BoardSurge.dc.html": { "x": 1360, "y": 1300, "w": 1280, "h": 800, "title": "/advisor/board: system under pressure" },
+    "BoardQuiet.dc.html": { "x": 2720, "y": 1300, "w": 1280, "h": 800, "title": "/advisor/board: overnight" },
+    "BoardDown.dc.html": { "x": 4080, "y": 1300, "w": 1280, "h": 800, "title": "/advisor/board: tool offline, figures are last known" },
+    "BoardLoading.dc.html": { "x": 5440, "y": 1300, "w": 1280, "h": 800, "title": "/advisor/board: loading" },
+
+    "Compare.dc.html": { "x": 0, "y": 2500, "w": 1280, "h": 800, "title": "/compare" },
+    "Map.dc.html": { "x": 1360, "y": 2500, "w": 1280, "h": 800, "title": "/map" },
+    "MapLost.dc.html": { "x": 2720, "y": 2500, "w": 1280, "h": 800, "title": "/map: postcode not found" },
+    "Radar.dc.html": { "x": 4080, "y": 2500, "w": 1280, "h": 800, "title": "/radar" },
+    "Ways.dc.html": { "x": 5440, "y": 2500, "w": 1280, "h": 800, "title": "/ways" },
+    "NetworkOptions.dc.html": { "x": 6800, "y": 2500, "w": 1280, "h": 800, "title": "/network-options and /network-map" },
+    "NoFit.dc.html": { "x": 8160, "y": 2500, "w": 1280, "h": 800, "title": "No service fits right now" },
+
+    "Actions.dc.html": { "x": 0, "y": 3700, "w": 1280, "h": 800, "title": "I phoned, They declined, Ask a clinical advisor" },
+    "Exceptions.dc.html": { "x": 1360, "y": 3700, "w": 1280, "h": 800, "title": "Withdrawn and cancelled bookings" },
+    "Finish.dc.html": { "x": 2720, "y": 3700, "w": 1280, "h": 800, "title": "/finish: outcome and summary" },
+    "Closed.dc.html": { "x": 4080, "y": 3700, "w": 1280, "h": 800, "title": "/finish: call closed" },
+
+    "PBoard.dc.html": { "x": 0, "y": 4900, "w": 390, "h": 844, "title": "Phone: board" },
+    "PWays.dc.html": { "x": 470, "y": 4900, "w": 390, "h": 844, "title": "Phone: ways" },
+    "PNoFit.dc.html": { "x": 940, "y": 4900, "w": 390, "h": 844, "title": "Phone: no service fits" },
+    "PFinish.dc.html": { "x": 1410, "y": 4900, "w": 390, "h": 844, "title": "Phone: record outcome" },
+    "PClinAlert.dc.html": { "x": 1880, "y": 4900, "w": 390, "h": 844, "title": "Phone: clinical advice requested" },
+
+    "ClinDuty.dc.html": { "x": 0, "y": 6200, "w": 1280, "h": 800, "title": "/clinical: go on duty" },
+    "ClinQueue.dc.html": { "x": 1360, "y": 6200, "w": 1280, "h": 800, "title": "/clinical/requests: queue" },
+    "ClinCase.dc.html": { "x": 2720, "y": 6200, "w": 1280, "h": 800, "title": "/clinical/requests/[id]: case and advice" },
+    "ClinSent.dc.html": { "x": 4080, "y": 6200, "w": 1280, "h": 800, "title": "/clinical/requests/[id]: advice sent" },
+
+    "WallBoard.dc.html": { "x": 0, "y": 7500, "w": 1600, "h": 900, "title": "/screen: the wall board" },
+    "WallPair.dc.html": { "x": 1680, "y": 7500, "w": 1600, "h": 900, "title": "/screen/pair" },
+    "WallReconnect.dc.html": { "x": 3360, "y": 7500, "w": 1600, "h": 900, "title": "/screen/reconnect" }
+  },
+  "order": [
+    "Main.dc.html", "Call.dc.html",
+    "BoardNormal.dc.html", "BoardSurge.dc.html", "BoardQuiet.dc.html", "BoardDown.dc.html", "BoardLoading.dc.html",
+    "Compare.dc.html", "Map.dc.html", "MapLost.dc.html", "Radar.dc.html", "Ways.dc.html", "NetworkOptions.dc.html", "NoFit.dc.html",
+    "Actions.dc.html", "Exceptions.dc.html", "Finish.dc.html", "Closed.dc.html",
+    "PBoard.dc.html", "PWays.dc.html", "PNoFit.dc.html", "PFinish.dc.html", "PClinAlert.dc.html",
+    "ClinDuty.dc.html", "ClinQueue.dc.html", "ClinCase.dc.html", "ClinSent.dc.html",
+    "WallBoard.dc.html", "WallPair.dc.html", "WallReconnect.dc.html"
+  ],
+  "notes": {
+    "t0": { "x": 0, "y": -300, "text": "Start here: the index, and the call itself", "kind": "title1", "maxW": 2640 },
+    "t1": { "x": 0, "y": 1000, "text": "The live board: five honest states", "kind": "title1", "maxW": 6720 },
+    "t2": { "x": 0, "y": 2200, "text": "Case views: compare, map, radar, ways, network, and what to do when nothing fits", "kind": "title1", "maxW": 9440 },
+    "t3": { "x": 0, "y": 3400, "text": "Requests, exceptions and finishing the call", "kind": "title1", "maxW": 5360 },
+    "t4": { "x": 0, "y": 4600, "text": "The same journey on a phone", "kind": "title1", "maxW": 2300 },
+    "t5": { "x": 0, "y": 5900, "text": "Clinical advisor: on duty, queue, case, advice", "kind": "title1", "maxW": 5360 },
+    "t6": { "x": 0, "y": 7200, "text": "Wall screen: readable from three metres", "kind": "title1", "maxW": 4960 },
+    "n0": { "x": 1360, "y": 840, "w": 360, "fill": "blue", "text": "This is the morph prototype from the first canvas, reused unchanged. Every board here is a step, a sub-view or an exception of it, in the same shell." },
+    "n1": { "x": 0, "y": 2140, "w": 340, "fill": "gray", "text": "A shape and a word say each status, never colour alone: filled circle Accepting, half Limited, square Not accepting, triangle Over capacity, dashed ring Not updated." },
+    "n2": { "x": 0, "y": 3340, "w": 340, "fill": "teal", "text": "Compare does not score or rank. Rows that need data we do not hold say Not available, never zero." },
+    "n3": { "x": 4080, "y": 3340, "w": 340, "fill": "teal", "text": "Drive-time rings and traffic have no data yet, so the radar shows them as off and says so." },
+    "n4": { "x": 8160, "y": 3340, "w": 340, "fill": "orange", "text": "Never end a call on a refusal: this empty state always offers a next step, and Ask a clinical advisor is one." },
+    "n5": { "x": 0, "y": 8460, "w": 340, "fill": "gray", "text": "The wall board shows capacity only. No patient information appears here, ever." }
+  },
+  "designSystems": []
+}

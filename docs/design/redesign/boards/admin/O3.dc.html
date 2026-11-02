@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Create an organisation</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width:1280px;height:800px;display:flex;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden">
+  <dc-import name="Rail" portal="operator" active="orgs" hint-size="84px,800px"></dc-import>
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <dc-import name="Top" org="Organisations ›" title="Create an organisation" role="Platform operator" hint-size="100%,72px"></dc-import>
+
+    <main style="flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:22px;padding:20px 28px">
+
+      <section aria-label="Steps" style="display:flex;flex-direction:column;gap:12px;min-width:0">
+        <p style="margin:0;font-size:17px;line-height:1.45;color:#26343B;max-width:640px">An organisation starts being set up and does nothing until it goes live. Three short parts, one at a time.</p>
+
+        <div style="background:#fff;border-radius:22px;padding:14px 20px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06);display:flex;align-items:center;gap:14px">
+          <span style="width:34px;height:34px;border-radius:50%;background:#0B5C8C;color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px" aria-hidden="true">✓</span>
+          <div style="flex:1"><div style="font-size:19px;font-weight:700">1 The organisation</div><div style="font-size:15px;color:#44555D">FORTRUS LIMITED · NHS record 8HT86 checked · type: Other</div></div>
+          <button type="button" style="height:44px;padding:0 18px;border:2px solid #14232B;border-radius:12px;background:#fff;font-family:inherit;font-size:15px;font-weight:700">Change</button>
+        </div>
+
+        <div style="background:#fff;border-radius:22px;padding:20px 22px;box-shadow:0 10px 28px rgba(11,92,140,.14);border:2px solid #0B5C8C;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;align-items:center;gap:14px"><span style="width:34px;height:34px;border-radius:50%;border:3px solid #0B5C8C;color:#0B5C8C;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;box-sizing:border-box">2</span><div style="font-size:21px;font-weight:700">Their Microsoft work accounts</div></div>
+          <div style="font-size:16px;color:#26343B;line-height:1.45">Type the organisation's email domain. We find the directory their staff sign in with.</div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:end">
+            <div><div style="font-size:16px;font-weight:700;margin-bottom:6px">Email domain</div><div style="height:54px;border:2px solid #0B5C8C;border-radius:14px;display:flex;align-items:center;padding:0 16px;font-size:19px;box-shadow:0 0 0 4px rgba(11,92,140,.2)">mirroredintelligence.com</div></div>
+            <button type="button" style="height:54px;padding:0 24px;border:0;border-radius:14px;background:#0B5C8C;color:#fff;font-family:inherit;font-size:18px;font-weight:700">Look it up</button>
+          </div>
+          <div style="display:flex;gap:14px;align-items:center;background:#E3F1F8;border-radius:16px;padding:14px 16px">
+            <span aria-hidden="true" style="font-size:20px;color:#0B5C8C">●</span>
+            <div style="flex:1"><div style="font-size:17px;font-weight:700">Directory found</div><div style="font-size:15px;color:#26343B">c5901e0b-8d43-4ae8-97c3-ca6c52573a33 · you can check it with them before going on</div></div>
+            <button type="button" style="height:44px;padding:0 18px;border:2px solid #0B5C8C;border-radius:12px;background:#fff;color:#0B5C8C;font-family:inherit;font-size:15px;font-weight:700">Use this directory</button>
+          </div>
+          <details style="font-size:16px"><summary style="cursor:pointer;font-weight:700;color:#0B5C8C;min-height:44px;display:flex;align-items:center">I already have the directory id</summary></details>
+        </div>
+
+        <div style="background:#fff;border-radius:22px;padding:14px 20px;border:1px dashed #6B7B83;display:flex;align-items:center;gap:14px;opacity:.85">
+          <span style="width:34px;height:34px;border-radius:50%;border:2px dashed #6B7B83;color:#44555D;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;box-sizing:border-box">3</span>
+          <div style="flex:1"><div style="font-size:19px;font-weight:700">Who gets which role</div><div style="font-size:15px;color:#44555D">Optional. Overwatch makes the teams once their administrator approves, so most organisations skip this.</div></div>
+          <span style="font-size:15px;color:#44555D">Skip</span>
+        </div>
+
+        <div style="margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <span style="font-size:16px;color:#44555D">Nothing is created until you press the button.</span>
+          <button type="button" style="height:58px;padding:0 30px;border:0;border-radius:16px;background:#0B5C8C;color:#fff;font-family:inherit;font-size:20px;font-weight:700;box-shadow:0 6px 16px rgba(11,92,140,.28)">Create FORTRUS LIMITED</button>
+        </div>
+      </section>
+
+      <aside aria-label="What will be created" style="display:flex;flex-direction:column;gap:14px">
+        <div style="background:#fff;border-radius:22px;padding:20px 22px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06);display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D">What will be created</div>
+          <div style="font-size:24px;font-weight:700;line-height:1.15">FORTRUS LIMITED</div>
+          <dl style="margin:0;display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:16px">
+            <dt style="color:#44555D">NHS record</dt><dd style="margin:0">8HT86 · active</dd>
+            <dt style="color:#44555D">Address</dt><dd style="margin:0">SG1 2DX</dd>
+            <dt style="color:#44555D">Type</dt><dd style="margin:0">Other</dd>
+            <dt style="color:#44555D">Id</dt><dd style="margin:0">fortrus-limited</dd>
+            <dt style="color:#44555D">Directory</dt><dd style="margin:0">found, not yet approved</dd>
+          </dl>
+          <div style="font-size:15px;line-height:1.4;color:#44555D;border-top:1px solid #DDE3E6;padding-top:10px">The NHS record is kept in the organisation's own records. The id cannot be changed later.</div>
+        </div>
+        <div style="background:#fff;border-radius:22px;padding:16px 22px;border:1px solid #DDE3E6">
+          <div style="font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D;margin-bottom:8px">Part 1 looked like this</div>
+          <div style="height:48px;border:2px solid #26343B;border-radius:12px;display:flex;align-items:center;padding:0 14px;font-size:17px;margin-bottom:8px">fortrus</div>
+          <div style="border:2px solid #0B5C8C;background:#E3F1F8;border-radius:12px;padding:10px 14px;font-size:16px"><b>FORTRUS LIMITED</b><br><span style="color:#44555D;font-size:14px">8HT86 · SG1 2DX</span></div>
+        </div>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

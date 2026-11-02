@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Route index</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width:1280px;height:900px;box-sizing:border-box;padding:40px 48px;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;display:flex;flex-direction:column;gap:22px">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between">
+    <div>
+      <div style="font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#44555D">Overwatch redesign</div>
+      <h1 style="margin:4px 0 0;font-size:36px;line-height:1.1">Administration, operator console and public pages</h1>
+    </div>
+    <div style="font-size:16px;color:#26343B;text-align:right;line-height:1.4">33 routes · 25 boards on desktop and phone<br>Every route below has a board. Boards import one rail and one top bar.</div>
+  </div>
+
+  <div style="flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px">
+
+    <section aria-label="Administration" style="background:#fff;border-radius:22px;padding:20px 22px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07);display:flex;flex-direction:column;gap:6px">
+      <h2 style="margin:0 0 6px;font-size:22px">Administration <span style="font-size:15px;font-weight:400;color:#44555D">10 routes</span></h2>
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid #DDE3E6"><span style="font-size:15px"><b>/admin</b><br><span style="color:#44555D">Overview, what needs you</span></span><span style="font-size:14px;font-weight:700;color:#0B3F61;background:#E3F1F8;border-radius:999px;padding:4px 10px;height:fit-content">A1</span></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid #DDE3E6"><span style="font-size:15px"><b>/admin/users</b><br><span style="color:#44555D">People and roles</span></span><span style="font-size:14px;font-weight:700;color:#44555D;border:1px dashed #44555D;border-radius:999px;padding:4px 10px;height:fit-content">first canvas</span></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid #DDE3E6"><span style="font-size:15px"><b>/admin/config</b><br><span style="color:#44555D">Settings, grouped</span></span><span style="font-size:14px;font-weight:700;color:#0B3F61;background:#E3F1F8;border-radius:999px;padding:4px 10px;height:fit-content">A2</span></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid #DDE3E6"><span style="font-size:15px"><b>/admin/config/[n]</b><br><span style="color:#44555D">One version and its changes</span></span><span style="font-size:14px;font-weight:700;color:#0B3F61;background:#E3F1F8;border-radius:999px;padding:4px 10px;height:fit-content">A3</span></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid #DDE3E6"><span style="font-size:15px"><b>/admin/contacts</b><br><span style="color:#44555D">Phones and addresses staff see</span></span><span style="font-size:14px;font-weight:700;color:#0B3F61;background:#E3F1F8;border-radius:999px;padding:4px 10px;height:fit-content">A4</span></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid #DDE3E6"><span style="font-size:15px"><b>/admin/retention</b><br><span style="color:#44555D">How long records are kept</span></span><span style="font-size:14px;font-weight:700;color:#0B3F61;background:#E3F1F8;border-radius:999px;padding:4px 10px;height:fit-content">A5</span></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid #DDE3E6"><span style="font-size:15px"><b>/admin/email</b><br><span style="color:#44555D">Email and text senders</span></span><span style="font-size:14px;font-weight:700;color:#0B3F61;background:#E3F1F8;border-radius:999px;padding:4px 10px;height:fit-content">A6</span></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid #DDE3E6"><span style="font-size:15px"><b>/admin/sharing</b><br><span style="color:#44555D">Sharing with the network</span></span><span style="font-size:14px;font-weight:700;color:#0B3F61;background:#E3F1F8;border-radius:999px;padding:4px 10px;height:fit-content">A6</span></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid #DDE3E6"><span style="font-size:15px"><b>/admin/access</b><br><span style="color:#44555D">Who has accessed your organisation</span></span><span style="font-size:14px;font-weight:700;color:#0B3F61;background:#E3F1F8;border-radius:999px;padding:4px 10px;height:fit-content">A7</span></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid #DDE3E6"><span style="font-size:15px"><b>/admin/support</b><br><span style="color:#44555D">Support requests to approve</span></span><span style="font-size:14px;font-weight:700;color:#0B3F61;background:#E3F1F8;border-radius:999px;padding:4px 10px;height:fit-content">A7</span></div>
+    </section>
+
+    <section aria-label="Operator console" style="background:#fff;border-radius:22px;padding:20px 22px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07);display:flex;flex-direction:column;gap:6px">
+      <h2 style="margin:0 0 6px;font-size:22px">Operator console <span style="font-size:15px;font-weight:400;color:#44555D">9 routes</span></h2>
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid #DDE3E6"><span style="font-size:15px"><b>/operator/sign-in</b><br><span style="color:#44555D">Sign in for platform staff</span></span><span style="font-size:14px;font-weight:700;color:#0B3F61;background:#E3F1F8;border-radius:999px;padding:4px 10px;height:fit-content">O1</span></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid #DDE3E6"><span style="font-size:15px"><b>/operator</b><br><span style="color:#44555D">Organisations</span></span><span style="font-size:14px;font-weight:700;color:#0B3F61;background:#E3F1F8;border-radius:999px;padding:4px 10px;height:fit-content">O2</span></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid #DDE3E6"><span style="font-size:15px"><b>/operator/tenants/new</b><br><span style="color:#44555D">Create an organisation</span></span><span style="font-size:14px;font-weight:700;color:#0B3F61;background:#E3F1F8;border-radius:999px;padding:4px 10px;height:fit-content">O3</span></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid #DDE3E6"><span style="font-size:15px"><b>/operator/tenants/[id]</b><br><span style="color:#44555D">The go-live funnel</span></span><span style="font-size:14px;font-weight:700;color:#0B3F61;background:#E3F1F8;border-radius:999px;padding:4px 10px;height:fit-content">O4</span></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid #DDE3E6"><span style="font-size:15px"><b>/operator/support</b><br><span style="color:#44555D">Requests to look into an organisation</span></span><span style="font-size:14px;font-weight:700;color:#0B3F61;background:#E3F1F8;border-radius:999px;padding:4px 10px;height:fit-content">O5</span></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid #DDE3E6"><span style="font-size:15px"><b>/operator/support/new</b><br><span style="color:#44555D">Ask for access</span></span><span style="font-size:14px;font-weight:700;color:#0B3F61;background:#E3F1F8;border-radius:999px;padding:4px 10px;height:fit-content">O5</span></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid #DDE3E6"><span style="font-size:15px"><b>/operator/support/tickets/[id]</b><br><span style="color:#44555D">One request, open with the code</span></span><span style="font-size:14px;font-weight:700;color:#0B3F61;background:#E3F1F8;border-radius:999px;padding:4px 10px;height:fit-content">O5</span></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid #DDE3E6"><span style="font-size:15px"><b>/operator/audit</b><br><span style="color:#44555D">Audit chain</span></span><span style="font-size:14px;font-weight:700;color:#0B3F61;background:#E3F1F8;border-radius:999px;padding:4px 10px;height:fit-content">O6</span></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid #DDE3E6"><span style="font-size:15px"><b>/admin-consent/return</b><br><span style="color:#44555D">Where an administrator lands after approving</span></span><span style="font-size:14px;font-weight:700;color:#0B3F61;background:#E3F1F8;border-radius:999px;padding:4px 10px;height:fit-content">C1</span></div>
+    </section>
+
+    <section aria-label="Public and cross-cutting" style="background:#fff;border-radius:22px;padding:20px 22px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07);display:flex;flex-direction:column;gap:2px">
+      <h2 style="margin:0 0 6px;font-size:22px">Public and cross-cutting <span style="font-size:15px;font-weight:400;color:#44555D">14 routes</span></h2>
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid #DDE3E6;font-size:15px"><span><b>/</b> and <b>/splash-preview</b></span><span style="font-weight:700;color:#0B3F61">P1</span></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid #DDE3E6;font-size:15px"><span><b>/sign-in</b></span><span style="font-weight:700;color:#0B3F61">P2, Ph1</span></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid #DDE3E6;font-size:15px"><span><b>/forbidden</b> and <b>/offline</b></span><span style="font-weight:700;color:#0B3F61">P3</span></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid #DDE3E6;font-size:15px"><span><b>/help</b></span><span style="font-weight:700;color:#0B3F61">P4, Ph2</span></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid #DDE3E6;font-size:15px"><span><b>/help/problem</b></span><span style="font-weight:700;color:#0B3F61">P4</span></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid #DDE3E6;font-size:15px"><span><b>/help/safety</b></span><span style="font-weight:700;color:#0B3F61">P4</span></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid #DDE3E6;font-size:15px"><span><b>/help/share</b></span><span style="font-weight:700;color:#0B3F61">P4</span></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid #DDE3E6;font-size:15px"><span><b>/learn</b></span><span style="font-weight:700;color:#0B3F61">P5, Ph3</span></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid #DDE3E6;font-size:15px"><span><b>/learn/[lessonId]</b></span><span style="font-weight:700;color:#0B3F61">P5, Ph3</span></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid #DDE3E6;font-size:15px"><span><b>/learn/[lessonId]/practice</b></span><span style="font-weight:700;color:#0B3F61">P5</span></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid #DDE3E6;font-size:15px"><span><b>/tour</b></span><span style="font-weight:700;color:#0B3F61">P6, Ph4</span></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid #DDE3E6;font-size:15px"><span><b>/value</b></span><span style="font-weight:700;color:#0B3F61">P7</span></div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

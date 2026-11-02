@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Wall board</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.wall{width:1600px;height:900px;box-sizing:border-box;padding:22px 32px 18px;background:#0B2A3D;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#fff;display:flex;flex-direction:column;gap:14px;overflow:hidden}
+.tile{box-sizing:border-box;background:#fff;color:#14232B;border:6px solid #0B5C8C;border-radius:26px;padding:14px 22px;display:flex;flex-direction:column;gap:2px;min-width:0;height:230px}
+.tile.lim{border-color:#A34700}
+.tile.closed{background:#E9EDEF;border-color:#3A4750}
+.tile.surge{border-color:#6B2C91}
+.tile.unk{border:6px dashed #6B7B83;background:repeating-linear-gradient(135deg,#F1F3F4 0 16px,#E4E8EA 16px 32px)}
+.nm{font-size:30px;font-weight:700;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ty{font-size:21px;color:#44555D}
+.chip{flex:none;display:inline-flex;align-items:center;gap:10px;padding:5px 16px;border-radius:999px;font-size:22px;font-weight:700;background:#0B5C8C;color:#fff}
+.chip.lim{background:#A34700}.chip.closed{background:#3A4750}.chip.surge{background:#6B2C91}
+.chip.unk{background:#fff;color:#26343B;border:3px dashed #6B7B83}
+.sh{width:16px;height:16px;display:inline-block;box-sizing:border-box}
+.open .sh{border-radius:50%;background:currentColor}
+.lim .sh{border-radius:50%;border:3px solid currentColor;background:linear-gradient(90deg,currentColor 50%,transparent 50%)}
+.closed .sh{background:currentColor;border-radius:3px}
+.surge .sh{background:currentColor;clip-path:polygon(50% 0,100% 100%,0 100%)}
+.unk .sh{border:3px dashed currentColor;border-radius:50%}
+.big{font-size:104px;font-weight:700;line-height:.95}
+.n-open{color:#0B3F61}.n-lim{color:#7A3500}.n-closed{color:#3A4750}.n-surge{color:#4B1C69}.n-unk{color:#26343B}
+.bar{height:12px;border-radius:6px;background:#DDE3E6;overflow:hidden}
+.bar i{display:block;height:100%}
+.ft{display:flex;justify-content:space-between;font-size:21px;color:#26343B}
+</style>
+</helmet>
+<div class="wall">
+  <header style="display:flex;align-items:center;justify-content:space-between">
+    <div style="display:flex;align-items:center;gap:20px">
+      <svg width="52" height="52" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#fff" stroke-width="2.2"/><circle cx="13" cy="13" r="4.2" fill="#fff"/><path d="M3 13h20" stroke="#fff" stroke-width="2.2"/></svg>
+      <div><h1 style="margin:0;font-size:38px;line-height:1.05">Urgent care capacity</h1><div style="font-size:22px;color:#B9D0DC">Single point of access</div></div>
+    </div>
+    <div style="text-align:right"><div style="font-size:54px;font-weight:700;line-height:1">14:12</div><div style="font-size:22px;color:#B9D0DC">Friday 23 October · Sample data</div></div>
+  </header>
+  <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;flex:1;min-height:0">
+    <sc-for list="{{tiles}}" as="t" hint-placeholder-count="9">
+      <div class="tile {{ t.k }}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div style="min-width:0"><div class="nm">{{ t.name }}</div><div class="ty">{{ t.type }}</div></div><span class="chip {{ t.k }}"><i class="sh"></i>{{ t.status }}</span></div>
+        <div style="display:flex;align-items:baseline;gap:16px"><span class="big n-{{ t.k }}">{{ t.big }}</span><span style="font-size:24px;line-height:1.1;color:#26343B">{{ t.unit }}</span></div>
+        <div class="bar"><i style="width:{{ t.pct }}%;background:{{ t.fill }}"></i></div>
+        <div class="ft"><span>{{ t.bar }}</span><span style="{{ t.ageStyle }}">{{ t.age }}</span></div>
+      </div>
+    </sc-for>
+  </div>
+  <footer style="display:flex;align-items:center;justify-content:space-between;font-size:20px;color:#D7E6EE">
+    <div style="display:flex;gap:26px;align-items:center"><span><span class="chip open" style="font-size:19px;padding:3px 14px"><i class="sh" style="width:13px;height:13px"></i>Accepting</span></span><span>Limited: phone to confirm</span><span>Not accepting</span><span>Over capacity</span><span>Not updated: treat as unknown, phone</span></div>
+    <strong style="color:#fff">No patient information on this screen</strong>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1600,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const FILL = { open: '#0B5C8C', lim: '#A34700', closed: '#3A4750', surge: 'repeating-linear-gradient(135deg,#6B2C91 0 8px,#B58BD0 8px 16px)', unk: '#6B7B83' };
+    const STAT = { open: 'Accepting', lim: 'Limited', closed: 'Not accepting', surge: 'Over capacity', unk: 'Not updated' };
+    const raw = [
+      ['UCR West', 'Urgent community response', 'open', '4', 'referrals in the next 2 hrs', 50, 'Used 4 of 8 · 1 pending', 'Updated 9 min ago', 0],
+      ['UCR East', 'Urgent community response', 'lim', '1', 'referral in the next 2 hrs', 88, 'Used 7 of 8', 'Updated 31 min ago', 0],
+      ['SDEC · Site 1', 'Same day emergency care', 'open', '6', 'slots left today', 40, 'Used 4 of 10', 'Updated 1 hr 5 min ago', 0],
+      ['SDEC · Site 2', 'Same day emergency care', 'closed', '0', 'slots left today', 100, 'Used 8 of 8', 'Updated 42 min ago', 0],
+      ['Community hospital · Ward A', 'Inpatient beds', 'lim', '2', 'beds free', 83, 'Used 10 of 12', 'Updated 2 hrs 5 min ago · old', 1],
+      ['Community hospital · Ward B', 'Inpatient beds', 'open', '5', 'beds free', 58, 'Used 7 of 12', 'Updated 2 hrs 10 min ago · old', 1],
+      ['Hospital at home', 'Virtual beds', 'surge', '+2', 'over established capacity', 100, 'Used 14 of 12', 'Updated 14 min ago', 0],
+      ['Virtual ward · frailty', 'Virtual beds', 'unk', '?', 'Phone to confirm', 100, 'Last reported 3 beds free', 'Not updated for 4 hrs 10 min', 1],
+      ['Reablement', 'Care packages', 'open', '3', 'packages today', 70, 'Used 7 of 10', 'Updated 3 hrs ago · old', 1]
+    ];
+    return { tiles: raw.map((r) => ({ name: r[0], type: r[1], k: r[2], status: STAT[r[2]], big: r[3], unit: r[4], pct: r[5], fill: FILL[r[2]], bar: r[6], age: r[7], ageStyle: r[8] ? 'font-weight:700;color:#7A3500' : '' })) };
+  }
+}
+</script>
+</body>
+</html>

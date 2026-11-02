@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Invitation text</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width:390px;height:844px;position:relative;background:#F4F6F5;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden">
+
+  <div style="height:76px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:12px;background:#fff;border-bottom:1px solid #DDE3E6">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+      <div style="width:36px;height:36px;border-radius:50%;background:#0B5C8C;display:flex;align-items:center;justify-content:center" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 26 26"><circle cx="13" cy="13" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#fff"/><path d="M3 13h20" stroke="#fff" stroke-width="2.4"/></svg></div>
+      <span style="font-size:14px;font-weight:700">Overwatch</span>
+    </div>
+  </div>
+
+  <div style="padding:20px 16px;display:flex;flex-direction:column;gap:12px">
+    <div style="text-align:center;font-size:14px;color:#44555D">Today 09:00</div>
+    <div style="max-width:310px;background:#fff;border-radius:20px 20px 20px 6px;padding:14px 16px;font-size:17px;line-height:1.45;box-shadow:0 1px 2px rgba(20,35,43,.1)">
+      Overwatch: you are invited to report capacity for UCR West. Setting up takes about 3 minutes:
+      <a href="#" style="color:#0B5C8C;font-weight:700;word-break:break-all">overwatch.example/i/Qx82</a>
+      The link works for 48 hours.
+    </div>
+    <div style="font-size:14px;color:#44555D;padding-left:6px">Sent by your shift lead through Overwatch</div>
+  </div>
+
+  <div style="position:absolute;left:0;right:0;bottom:0;padding:10px 14px 28px;background:#fff;border-top:1px solid #DDE3E6;display:flex;gap:10px;align-items:center">
+    <div style="flex:1;height:44px;border:1px solid #C9DCE6;border-radius:22px;display:flex;align-items:center;padding:0 16px;color:#6B7B83;font-size:16px">Text message</div>
+    <span style="width:44px;height:44px;border-radius:50%;background:#C9DCE6" aria-hidden="true"></span>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

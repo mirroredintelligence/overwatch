@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Three ways to meet the need</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.app{width:1280px;height:800px;display:flex;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden}
+.rail{width:84px;flex:none;background:#0B2A3D;display:flex;flex-direction:column;align-items:center;padding:20px 0;gap:6px}
+.lg{width:44px;height:44px;border-radius:14px;background:#0B5C8C;display:flex;align-items:center;justify-content:center;margin-bottom:18px}
+.ri{width:68px;padding:10px 0 8px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:4px;color:#B9D0DC;text-decoration:none;font-size:13px}
+.ri.on{background:rgba(255,255,255,.14);color:#fff;font-weight:700}
+.col{flex:1;min-width:0;display:flex;flex-direction:column}
+.top{height:72px;flex:none;display:flex;align-items:center;gap:16px;padding:0 28px;border-bottom:1px solid #DDE3E6;background:#fff}
+.role{height:44px;padding:0 16px;border:2px solid #14232B;border-radius:999px;background:#fff;color:#14232B;font:700 16px 'Atkinson Hyperlegible',system-ui,sans-serif;display:flex;align-items:center;gap:8px}
+.callchip{display:flex;align-items:center;gap:10px;height:44px;padding:0 18px;border-radius:999px;background:#E3F1F8;color:#0B3F61;font-size:16px;font-weight:700;margin-left:auto}
+.steps{display:flex;gap:10px;padding:14px 28px 4px;align-items:center}
+.st{display:flex;align-items:center;gap:8px;height:44px;padding:0 18px 0 8px;border-radius:999px;font-size:16px;font-weight:700;border:2px solid #DDE3E6;background:#fff}
+.st b{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;background:#E3F1F8;color:#0B3F61}
+.st.now{background:#0B5C8C;border-color:#0B5C8C;color:#fff}.st.now b{background:rgba(255,255,255,.22);color:#fff}
+.card{background:#fff;border-radius:22px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07)}
+.seg{display:inline-flex;padding:4px;background:#fff;border-radius:16px;border:1px solid #DDE3E6;gap:2px}
+.seg a{height:44px;padding:0 18px;border-radius:12px;display:flex;align-items:center;font-size:16px;font-weight:700;color:#26343B;text-decoration:none}
+.seg a.on{background:#E3F1F8;color:#0B3F61;box-shadow:inset 0 0 0 2px #0B5C8C}
+.chip{display:inline-flex;align-items:center;gap:7px;padding:3px 11px;border-radius:999px;font-size:14px;font-weight:700;background:#0B5C8C;color:#fff}
+.chip.surge{background:#6B2C91}
+.sh{width:11px;height:11px;display:inline-block;box-sizing:border-box}
+.open .sh{border-radius:50%;background:currentColor}
+.surge .sh{background:currentColor;clip-path:polygon(50% 0,100% 100%,0 100%)}
+.btn2{height:44px;padding:0 18px;border:2px solid #0B5C8C;border-radius:14px;background:#fff;color:#0B5C8C;font:700 16px 'Atkinson Hyperlegible',system-ui,sans-serif}
+.lane{display:flex;flex-direction:column;gap:12px;min-width:0}
+.lh{padding:0 4px}
+.lt{font-size:20px;font-weight:700}
+.ls{font-size:15px;color:#44555D}
+.opt{padding:10px 20px;border-radius:12px;border:2px solid #DDE3E6;font-size:16px;font-weight:700;background:#fff}
+.opt.on{border-color:#0B5C8C;background:#E3F1F8}
+</style>
+</helmet>
+<div class="app">
+  <nav class="rail" aria-label="Main">
+    <div class="lg"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#fff"/><path d="M3 13h20" stroke="#fff" stroke-width="2.4"/></svg></div>
+    <a class="ri on" href="#" aria-current="page"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>Calls</a>
+    <a class="ri" href="#"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Board</a>
+    <a class="ri" href="#"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-5.6 7-11a7 7 0 0 0-14 0c0 5.4 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Services</a>
+    <a class="ri" href="#" style="margin-top:auto"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/></svg>Help</a>
+  </nav>
+  <div class="col">
+    <header class="top">
+      <div style="display:flex;flex-direction:column;line-height:1.2"><span style="font-size:14px;color:#44555D">Urgent care capacity</span><span style="font-size:20px;font-weight:700">Advisor</span></div>
+      <div class="callchip"><span style="width:9px;height:9px;border-radius:50%;background:#0B5C8C"></span>Call in progress · 02:14 · Ambulance crew</div>
+      <button type="button" class="role">Clinical advisor <svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 8l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </header>
+    <div class="steps" role="group" aria-label="Call steps"><span class="st"><b>✓</b>Needs · done</span><span class="st now" aria-current="step"><b>2</b>Options</span><span class="st"><b>3</b>Request</span><span class="st"><b>4</b>Outcome</span></div>
+    <main style="flex:1;min-height:0;display:flex;flex-direction:column;gap:14px;padding:10px 28px 22px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:16px">
+        <nav class="seg" aria-label="Ways to see the options"><a href="#">List</a><a href="Compare.dc.html">Compare</a><a href="Map.dc.html">Map</a><a href="Radar.dc.html">Radar</a><a href="#" class="on" aria-current="page">Ways</a><a href="NetworkOptions.dc.html">Other organisations</a></nav>
+        <div style="display:flex;align-items:center;gap:12px"><span style="font-size:16px;font-weight:700">Can the patient travel? (optional)</span><span style="display:inline-flex;gap:8px"><span class="opt">Yes</span><span class="opt">With help</span><span class="opt on">No</span></span></div>
+      </div>
+      <div style="font-size:15px;color:#44555D;margin-top:-6px">This only changes which way is shown first. It never hides a way or a service.</div>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;flex:1;min-height:0">
+        <section class="lane" aria-labelledby="l1">
+          <div class="lh"><div class="lt" id="l1">Comes to the patient</div><div class="ls">Someone visits</div></div>
+          <div class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:8px">
+            <div style="font-size:19px;font-weight:700">UCR West</div><div style="font-size:15px;color:#44555D">Visits about 1 hr 20 · 9 min ago</div>
+            <span class="chip open" style="align-self:flex-start"><i class="sh"></i>Accepting · 4 in the next 2 hrs</span>
+            <button type="button" class="btn2" style="align-self:flex-start">Open</button>
+          </div>
+        </section>
+        <section class="lane" aria-labelledby="l2">
+          <div class="lh"><div class="lt" id="l2">Remote</div><div class="ls">The patient stays where they are</div></div>
+          <div class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:8px;border:2px solid #6B2C91">
+            <div style="font-size:19px;font-weight:700">Hospital at home</div><div style="font-size:15px;color:#44555D">Review in about 3 hrs · 14 min ago</div>
+            <span class="chip surge" style="align-self:flex-start"><i class="sh"></i>Over capacity · +2</span>
+            <div style="font-size:15px;color:#4B1C69">Phone to confirm before offering.</div>
+            <button type="button" class="btn2" style="align-self:flex-start">Open</button>
+          </div>
+        </section>
+        <section class="lane" aria-labelledby="l3">
+          <div class="lh"><div class="lt" id="l3">Goes to a place</div><div class="ls">Needs transport</div></div>
+          <div class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:8px">
+            <div style="font-size:19px;font-weight:700">Community hospital · Ward B</div><div style="font-size:15px;color:#44555D">35 to 50 min by road · <strong style="color:#7A3500">2 hrs 10 min · old</strong></div>
+            <span class="chip open" style="align-self:flex-start"><i class="sh"></i>Accepting · 5 beds free</span>
+            <button type="button" class="btn2" style="align-self:flex-start">Open</button>
+          </div>
+        </section>
+      </div>
+      <details style="font-size:16px;color:#26343B"><summary style="cursor:pointer;font-weight:700;padding:8px 0">3 services left out, and why</summary>
+        <div style="padding:4px 0 0 4px;line-height:1.6">SDEC · Site 2: not accepting since 13:30 · Virtual ward · frailty: not updated for 4 hrs 10 min, phone to confirm · Reablement: not for a same-day need</div>
+      </details>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

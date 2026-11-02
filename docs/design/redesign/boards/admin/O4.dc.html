@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Go-live funnel</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font-family:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid #14232B;outline-offset:2px}
+@media (prefers-reduced-motion: reduce){*{transition:none !important}}
+</style>
+</helmet>
+<div style="width:1280px;height:800px;display:flex;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden">
+  <dc-import name="Rail" portal="operator" active="orgs" hint-size="84px,800px"></dc-import>
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <dc-import name="Top" org="Organisations › FORTRUS LIMITED" title="Getting FORTRUS LIMITED live" role="Platform operator" hint-size="100%,72px"></dc-import>
+
+    <main style="flex:1;min-height:0;display:grid;grid-template-columns:400px minmax(0,1fr);gap:22px;padding:20px 28px">
+
+      <section aria-label="The five parts" style="display:flex;flex-direction:column;gap:10px;min-height:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:0 4px 2px">
+          <span style="font-size:16px;color:#26343B"><b>{{progress}}</b></span>
+          <span style="{{liveChip}}">{{liveWord}}</span>
+        </div>
+        <sc-for list="{{phases}}" as="p" hint-placeholder-count="5">
+          <button type="button" onClick="{{ p.open }}" aria-current="{{ p.current }}" style="{{ p.style }}">
+            <span style="{{ p.dotStyle }}">{{ p.dot }}</span>
+            <span style="flex:1;min-width:0">
+              <span style="display:block;font-size:19px;font-weight:700">{{ p.title }}</span>
+              <span style="{{ p.subStyle }}">{{ p.sub }}</span>
+            </span>
+            <span style="{{ p.tagStyle }}">{{ p.tag }}</span>
+          </button>
+        </sc-for>
+        <div style="margin-top:auto;font-size:15px;line-height:1.4;color:#44555D;padding:0 4px">Parts you finish fold to one line. You can reopen any of them.</div>
+      </section>
+
+      <section aria-label="The open part" style="position:relative;min-height:0;min-width:0">
+
+        <div style="{{layer0}}">
+          <div style="{{card}}">
+            <div style="display:flex;align-items:baseline;justify-content:space-between"><h2 style="margin:0;font-size:30px">Organisation and sign-in</h2><span style="font-size:15px;color:#44555D">Part 1 of 5</span></div>
+            <div style="font-size:17px;line-height:1.45;color:#26343B">Check we have the right organisation, and the directory its staff sign in with.</div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div style="display:flex;gap:14px;align-items:center;padding:14px 16px;border-radius:16px;background:#F4F6F5"><span style="color:#0B5C8C;font-size:20px" aria-hidden="true">●</span><div style="flex:1"><b>NHS record checked</b><div style="font-size:15px;color:#44555D">FORTRUS LIMITED · 8HT86 · active · SG1 2DX</div></div></div>
+              <div style="display:flex;gap:14px;align-items:center;padding:14px 16px;border-radius:16px;background:#F4F6F5"><span style="color:#0B5C8C;font-size:20px" aria-hidden="true">●</span><div style="flex:1"><b>Microsoft work accounts connected</b><div style="font-size:15px;color:#44555D">Directory c5901e0b… verified on 2 Nov</div></div></div>
+            </div>
+            <div style="margin-top:auto;display:flex;justify-content:flex-end"><button type="button" onClick="{{ a0 }}" style="{{ btn0 }}">{{ btn0Text }}</button></div>
+          </div>
+        </div>
+
+        <div style="{{layer1}}">
+          <div style="{{card}}">
+            <div style="display:flex;align-items:baseline;justify-content:space-between"><h2 style="margin:0;font-size:30px">Administrator approval</h2><span style="font-size:15px;color:#44555D">Part 2 of 5</span></div>
+            <div style="font-size:17px;line-height:1.45;color:#26343B">Their Microsoft administrator approves Overwatch once. We check it with Microsoft, so a redirect is never taken as proof.</div>
+            <div style="padding:16px 18px;border-radius:18px;background:#F4F6F5;display:flex;flex-direction:column;gap:6px">
+              <div style="font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D">Invitation</div>
+              <div style="font-size:18px"><b>rob.smith@mirroredintelligence.com</b></div>
+              <div style="font-size:15px;color:#44555D">Emailed 2 Nov, 14:02 · the link works for 7 days</div>
+            </div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap"><button type="button" style="height:48px;padding:0 18px;border:2px solid #14232B;border-radius:12px;background:#fff;font-family:inherit;font-size:16px;font-weight:700">Send it again</button><button type="button" style="height:48px;padding:0 18px;border:2px solid #14232B;border-radius:12px;background:#fff;font-family:inherit;font-size:16px;font-weight:700">Use another address</button></div>
+            <div style="margin-top:auto;display:flex;justify-content:flex-end"><button type="button" onClick="{{ a1 }}" style="{{ btn1 }}">{{ btn1Text }}</button></div>
+          </div>
+        </div>
+
+        <div style="{{layer2}}">
+          <div style="{{card}}">
+            <div style="display:flex;align-items:baseline;justify-content:space-between"><h2 style="margin:0;font-size:30px">Teams and people</h2><span style="font-size:15px;color:#44555D">Part 3 of 5</span></div>
+            <div style="font-size:17px;line-height:1.45;color:#26343B">We make the teams in their directory. Whoever is in a team gets that role.</div>
+            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">
+              <div style="padding:12px 14px;border-radius:14px;background:#E3F1F8;border:2px solid #0B5C8C"><b>✓ Administrators</b><div style="font-size:14px;color:#44555D">Run the organisation</div></div>
+              <div style="padding:12px 14px;border-radius:14px;background:#E3F1F8;border:2px solid #0B5C8C"><b>✓ Advisors</b><div style="font-size:14px;color:#44555D">Find and book services</div></div>
+              <div style="padding:12px 14px;border-radius:14px;background:#E3F1F8;border:2px solid #0B5C8C"><b>✓ Shift leads</b><div style="font-size:14px;color:#44555D">Run the board for a shift</div></div>
+              <div style="padding:12px 14px;border-radius:14px;background:#E3F1F8;border:2px solid #0B5C8C"><b>✓ Clinical leads</b><div style="font-size:14px;color:#44555D">Decide what is safe</div></div>
+              <div style="padding:12px 14px;border-radius:14px;background:#E3F1F8;border:2px solid #0B5C8C"><b>✓ Planning</b><div style="font-size:14px;color:#44555D">See pressure over time</div></div>
+              <div style="padding:12px 14px;border-radius:14px;background:#E3F1F8;border:2px solid #0B5C8C"><b>✓ Audit</b><div style="font-size:14px;color:#44555D">Read only</div></div>
+            </div>
+            <div style="margin-top:auto;display:flex;justify-content:flex-end"><button type="button" onClick="{{ a2 }}" style="{{ btn2 }}">{{ btn2Text }}</button></div>
+          </div>
+        </div>
+
+        <div style="{{layer3}}">
+          <div style="{{card}}">
+            <div style="display:flex;align-items:baseline;justify-content:space-between"><h2 style="margin:0;font-size:30px">Reach and agreements</h2><span style="font-size:15px;color:#44555D">Part 4 of 5</span></div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div style="display:flex;gap:14px;align-items:center;padding:14px 16px;border-radius:16px;background:#F4F6F5"><span style="color:#0B5C8C;font-size:20px" aria-hidden="true">●</span><div style="flex:1"><b>Web address</b><div style="font-size:15px;color:#44555D">overwatch.mirroredintelligence.com</div></div></div>
+              <div style="display:flex;gap:14px;align-items:center;padding:14px 16px;border-radius:16px;background:#F4F6F5"><span style="color:#0B5C8C;font-size:20px" aria-hidden="true">●</span><div style="flex:1"><b>Text number</b><div style="font-size:15px;color:#44555D">Shared line, test text delivered. Sending only.</div></div><button type="button" style="height:44px;padding:0 16px;border:2px solid #14232B;border-radius:12px;background:#fff;font-family:inherit;font-size:15px;font-weight:700">Send another test</button></div>
+              <div style="display:flex;gap:14px;align-items:center;padding:14px 16px;border-radius:16px;border:2px dashed #6B7B83"><span style="font-size:18px;color:#44555D" aria-hidden="true">○</span><div style="flex:1"><b>Agreements</b> <span style="font-size:14px;color:#44555D">recommended, not required</span><div style="font-size:15px;color:#44555D">Data sharing, privacy impact, clinical safety · 0 of 3 recorded</div></div></div>
+            </div>
+            <div style="margin-top:auto;display:flex;justify-content:flex-end"><button type="button" onClick="{{ a3 }}" style="{{ btn3 }}">{{ btn3Text }}</button></div>
+          </div>
+        </div>
+
+        <div style="{{layer4}}">
+          <div style="{{card}}">
+            <div style="display:flex;align-items:baseline;justify-content:space-between"><h2 style="margin:0;font-size:30px">Go live</h2><span style="font-size:15px;color:#44555D">Part 5 of 5</span></div>
+            <div style="{{liveBanner}}"><b>FORTRUS LIMITED is live.</b> Staff of every role can sign in at their address. The workers now serve this organisation.</div>
+            <div style="font-size:17px;line-height:1.45;color:#26343B">{{goLiveLede}}</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <sc-for list="{{tasks}}" as="t" hint-placeholder-count="4">
+                <div style="display:flex;gap:12px;align-items:center;padding:12px 16px;border-radius:14px;background:#F4F6F5"><span style="{{ t.tag }}">{{ t.word }}</span><span style="font-size:17px">{{ t.text }}</span></div>
+              </sc-for>
+            </div>
+            <div style="display:flex;align-items:center;gap:14px;margin-top:auto">
+              <button type="button" onClick="{{ pretend }}" style="height:44px;padding:0 16px;border:2px dashed #44555D;border-radius:12px;background:transparent;font-family:inherit;font-size:14px;font-weight:700;color:#44555D">Prototype only: their administrators finish</button>
+              <button type="button" onClick="{{ goLive }}" style="{{ liveBtn }}">Go live</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { open: 0, done: 0, adminDone: false, live: false };
+  }
+  renderVals() {
+    const { open, done, adminDone, live } = this.state;
+    const SPRING = 'cubic-bezier(0.34,1.56,0.64,1)';
+    const DRAWER = 'cubic-bezier(0.32,0.72,0,1)';
+    const P = [
+      { title: 'Organisation and sign-in', hint: 'Check the NHS record and the directory', sum: 'NHS record checked. Microsoft work accounts connected.' },
+      { title: 'Administrator approval', hint: 'Their administrator approves Overwatch', sum: 'Their administrator has approved Overwatch.' },
+      { title: 'Teams and people', hint: 'Make the teams in their directory', sum: 'Administrators’ team and 5 other teams added.' },
+      { title: 'Reach and agreements', hint: 'Web address and text number', sum: 'Web address set. Text number tested.' },
+      { title: 'Go live', hint: 'What is left, then go live', sum: 'Live.' }
+    ];
+    const doneCount = live ? 5 : done;
+    const advance = (i) => () => { if (i === this.state.done && !live) this.setState({ done: i + 1, open: Math.min(i + 1, 4) }); };
+    const phases = P.map((p, i) => {
+      const isDone = i < doneCount;
+      const isCurrent = i === doneCount && !live;
+      const selected = i === open;
+      return {
+        title: p.title,
+        sub: isDone ? p.sum : p.hint,
+        subStyle: 'display:block;font-size:15px;line-height:1.35;color:' + (isDone ? '#26343B' : '#44555D'),
+        dot: isDone ? '✓' : String(i + 1),
+        dotStyle: 'flex:none;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;box-sizing:border-box;' + (isDone ? 'background:#0B5C8C;color:#fff;border:2px solid #0B5C8C' : isCurrent ? 'background:#fff;color:#0B5C8C;border:3px solid #0B5C8C' : 'background:#fff;color:#44555D;border:2px dashed #6B7B83') + ';transition:background-color 240ms ease, transform 320ms ' + SPRING + ';transform:' + (isDone ? 'scale(1)' : 'scale(1)'),
+        tag: isDone ? 'Done' : isCurrent ? 'Next' : 'Later',
+        tagStyle: 'flex:none;padding:4px 12px;border-radius:999px;font-size:14px;font-weight:700;' + (isDone ? 'background:#E3F1F8;color:#0B3F61' : isCurrent ? 'background:#0B5C8C;color:#fff' : 'border:2px dashed #6B7B83;color:#44555D'),
+        current: isCurrent ? 'step' : undefined,
+        open: () => this.setState({ open: i }),
+        style: 'display:flex;align-items:center;gap:14px;width:100%;box-sizing:border-box;text-align:left;border-radius:20px;padding:' + (isDone ? '12px 16px' : '16px') + ';background:#fff;color:inherit;border:2px solid ' + (selected ? '#0B5C8C' : 'transparent') + ';box-shadow:' + (selected ? '0 10px 28px rgba(11,92,140,.16)' : '0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.05)') + ';transition:padding 320ms ' + DRAWER + ', border-color 240ms ease, box-shadow 280ms ease;opacity:' + (isDone || isCurrent || selected ? 1 : 0.8)
+      };
+    });
+    const layer = (i) => 'position:absolute;inset:0;opacity:' + (open === i ? 1 : 0) + ';transform:' + (open === i ? 'none' : (i < open ? 'translateY(-14px) scale(0.985)' : 'translateY(16px) scale(0.985)')) + ';pointer-events:' + (open === i ? 'auto' : 'none') + ';transition:opacity 260ms ease ' + (open === i ? '140ms' : '0ms') + ', transform 480ms ' + SPRING + ' ' + (open === i ? '100ms' : '0ms');
+    const card = 'height:100%;box-sizing:border-box;background:#fff;border-radius:26px;padding:26px 30px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07);display:flex;flex-direction:column;gap:16px';
+    const btn = (i, text, doneText) => {
+      const can = i === this.state.done && !live;
+      const isDone = i < doneCount;
+      return {
+        style: 'height:56px;padding:0 28px;border:0;border-radius:16px;font-size:19px;font-weight:700;background:' + (can ? '#0B5C8C' : isDone ? '#E3F1F8' : '#C9DCE6') + ';color:' + (can ? '#fff' : isDone ? '#0B3F61' : '#26343B') + ';box-shadow:' + (can ? '0 6px 16px rgba(11,92,140,.28)' : 'none') + ';transition:background-color 240ms ease',
+        text: isDone ? doneText : text
+      };
+    };
+    const b0 = btn(0, 'Looks right, continue', '✓ Done'), b1 = btn(1, 'Their administrator has approved', '✓ Approved'), b2 = btn(2, 'Teams added, continue', '✓ Done'), b3 = btn(3, 'Continue to go live', '✓ Done');
+    const tasksDone = adminDone;
+    const T = [['Approve their settings', 'Settings'], ['Set the support contacts', 'Contacts'], ['Set how long records are kept', 'Retention'], ['Set the names they use for their systems', 'Names']];
+    const tasks = T.map(([text]) => ({ text, word: tasksDone ? '● Done' : '○ To do', tag: 'flex:none;padding:4px 12px;border-radius:999px;font-size:14px;font-weight:700;' + (tasksDone ? 'background:#E3F1F8;color:#0B3F61' : 'border:2px dashed #6B7B83;color:#44555D') }));
+    const ready = doneCount >= 4 && adminDone && !live;
+    return {
+      phases, tasks,
+      progress: live ? 'All 5 parts done' : doneCount + ' of 5 parts done',
+      liveWord: live ? '● Live' : '◐ Being set up',
+      liveChip: 'padding:5px 12px;border-radius:999px;font-weight:700;font-size:14px;' + (live ? 'background:#E3F1F8;color:#0B3F61' : 'background:#FFF1DC;color:#7A3500'),
+      layer0: layer(0), layer1: layer(1), layer2: layer(2), layer3: layer(3), layer4: layer(4), card,
+      btn0: b0.style, btn0Text: b0.text, btn1: b1.style, btn1Text: b1.text, btn2: b2.style, btn2Text: b2.text, btn3: b3.style, btn3Text: b3.text,
+      a0: advance(0), a1: advance(1), a2: advance(2), a3: advance(3),
+      goLiveLede: 'Their administrators finish these after they sign in. Go live is available when every one is done and the four parts before it are finished.',
+      liveBanner: 'display:' + (live ? 'block' : 'none') + ';padding:14px 18px;border-radius:16px;background:#E3F1F8;border:2px solid #0B5C8C;font-size:17px;line-height:1.4',
+      pretend: () => this.setState({ adminDone: !this.state.adminDone }),
+      liveBtn: 'height:60px;padding:0 34px;border:0;border-radius:16px;margin-left:auto;font-size:20px;font-weight:700;background:' + (ready ? '#0B5C8C' : '#C9DCE6') + ';color:' + (ready ? '#fff' : '#26343B') + ';box-shadow:' + (ready ? '0 6px 16px rgba(11,92,140,.28)' : 'none') + ';transition:background-color 240ms ease',
+      goLive: () => { if (ready) this.setState({ live: true }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

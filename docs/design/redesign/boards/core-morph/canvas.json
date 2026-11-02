@@ -1,0 +1,36 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-11-03T09:00:00Z" },
+  "title": "Overwatch morphing layouts",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 1280, "h": 800, "title": "Prototype: one call, one screen that morphs", "is_interactive": true },
+    "Today.dc.html": { "x": 1360, "y": 0, "w": 1280, "h": 800, "title": "Today: the advisor call as built" },
+    "S1.dc.html": { "x": 0, "y": 1200, "w": 1280, "h": 800, "title": "1 Overview" },
+    "S2.dc.html": { "x": 1360, "y": 1200, "w": 1280, "h": 800, "title": "2 Needs" },
+    "S3.dc.html": { "x": 2720, "y": 1200, "w": 1280, "h": 800, "title": "3 Options" },
+    "S4.dc.html": { "x": 4080, "y": 1200, "w": 1280, "h": 800, "title": "4 Request" },
+    "P1.dc.html": { "x": 0, "y": 2400, "w": 390, "h": 844, "title": "Phone: needs" },
+    "P2.dc.html": { "x": 470, "y": 2400, "w": 390, "h": 844, "title": "Phone: options" },
+    "P3.dc.html": { "x": 940, "y": 2400, "w": 390, "h": 844, "title": "Phone: detail sheet" },
+    "P4.dc.html": { "x": 1410, "y": 2400, "w": 390, "h": 844, "title": "Phone: requested" },
+    "Admin.dc.html": { "x": 1980, "y": 2400, "w": 1280, "h": 800, "title": "Administration: same shell, same morph" },
+    "Rules.dc.html": { "x": 3340, "y": 2400, "w": 840, "h": 800, "title": "The rules of the morph" }
+  },
+  "order": [
+    "Main.dc.html", "Today.dc.html", "S1.dc.html", "S2.dc.html", "S3.dc.html", "S4.dc.html",
+    "P1.dc.html", "P2.dc.html", "P3.dc.html", "P4.dc.html", "Admin.dc.html", "Rules.dc.html"
+  ],
+  "notes": {
+    "t1": { "x": 0, "y": -300, "text": "The idea, and what we have now", "kind": "title1", "maxW": 2640 },
+    "t2": { "x": 0, "y": 900, "text": "One call, four layout states (desktop)", "kind": "title1", "maxW": 5360 },
+    "t3": { "x": 0, "y": 2100, "text": "The same call on a phone, then administration, then the rules", "kind": "title1", "maxW": 4200 },
+    "n1": { "x": 0, "y": 840, "w": 360, "fill": "blue", "text": "Press the four steps under the call bar. Every region you see is the same element in every step: it grows, shrinks or hands over, nothing is thrown away and redrawn." },
+    "n2": { "x": 1360, "y": 840, "w": 360, "fill": "gray", "text": "Today: a white strip, wrapping text links, one column of cards. Everything is the same weight, so nothing says what to do next." },
+    "n3": { "x": 0, "y": 2040, "w": 360, "fill": "teal", "text": "Anchors never move: rail, top bar, call bar, role chip. The live board shrinks into a strip once the call starts." },
+    "n4": { "x": 2720, "y": 2040, "w": 360, "fill": "teal", "text": "The needs collapse into a pinned summary, so the options can have the room. Edit puts them back." },
+    "n5": { "x": 4080, "y": 2040, "w": 360, "fill": "teal", "text": "One option takes the stage. The others fold into a rail, still one tap away. A request needs one confirmation." }
+  },
+  "designSystems": []
+}

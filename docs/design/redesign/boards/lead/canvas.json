@@ -1,0 +1,62 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-11-03T10:00:00Z" },
+  "title": "Overwatch redesign: shift lead, service setup and criteria",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 1280, "h": 1100, "title": "Index: every route and the board that shows it" },
+
+    "Overview.dc.html": { "x": 0, "y": 1500, "w": 1280, "h": 800, "title": "Shift lead: the home of the shift" },
+    "OverviewChase.dc.html": { "x": 1360, "y": 1500, "w": 1280, "h": 800, "title": "A service to chase opens" },
+    "OverviewQuiet.dc.html": { "x": 2720, "y": 1500, "w": 1280, "h": 800, "title": "A quiet shift" },
+    "OverviewLoading.dc.html": { "x": 4080, "y": 1500, "w": 1280, "h": 800, "title": "Loading and a failed read" },
+    "PhoneOverview.dc.html": { "x": 5440, "y": 1500, "w": 390, "h": 844, "title": "Phone: the shift" },
+
+    "AddService.dc.html": { "x": 0, "y": 2900, "w": 1280, "h": 800, "title": "Add a service: four steps that morph", "is_interactive": true },
+    "Scope.dc.html": { "x": 1360, "y": 2900, "w": 1280, "h": 800, "title": "Services in scope" },
+    "Coverage.dc.html": { "x": 2720, "y": 2900, "w": 1280, "h": 800, "title": "Where a service goes" },
+    "Phones.dc.html": { "x": 4080, "y": 2900, "w": 1280, "h": 800, "title": "Phones and services" },
+    "Move.dc.html": { "x": 5440, "y": 2900, "w": 1280, "h": 800, "title": "Move a service" },
+
+    "Suspend.dc.html": { "x": 0, "y": 4300, "w": 1280, "h": 800, "title": "Suspend and resume a service", "is_interactive": true },
+    "RemoveAccess.dc.html": { "x": 1360, "y": 4300, "w": 1280, "h": 800, "title": "Remove someone's access" },
+    "Flags.dc.html": { "x": 2720, "y": 4300, "w": 1280, "h": 800, "title": "Reports to check" },
+    "PhoneFlags.dc.html": { "x": 4080, "y": 4300, "w": 390, "h": 844, "title": "Phone: reports to check" },
+    "Audit.dc.html": { "x": 4550, "y": 4300, "w": 1280, "h": 800, "title": "Audit replay" },
+
+    "Screens.dc.html": { "x": 0, "y": 5700, "w": 1280, "h": 800, "title": "Wall screens" },
+    "ScreenPair.dc.html": { "x": 1360, "y": 5700, "w": 1280, "h": 800, "title": "Add a wall screen", "is_interactive": true },
+
+    "OwnerReview.dc.html": { "x": 0, "y": 7100, "w": 1280, "h": 800, "title": "Criteria owner: review, change, send", "is_interactive": true },
+    "Approve.dc.html": { "x": 1360, "y": 7100, "w": 1280, "h": 800, "title": "Second approval" },
+    "History.dc.html": { "x": 2720, "y": 7100, "w": 1280, "h": 800, "title": "Criteria history" },
+    "ApprovePhone.dc.html": { "x": 4080, "y": 7100, "w": 390, "h": 844, "title": "Phone: second approval" },
+    "OwnerPhone.dc.html": { "x": 4550, "y": 7100, "w": 390, "h": 844, "title": "Phone: review due" },
+
+    "States.dc.html": { "x": 0, "y": 8500, "w": 1280, "h": 800, "title": "Patterns: empty, loading, error, success, destructive" }
+  },
+  "order": [
+    "Main.dc.html",
+    "Overview.dc.html", "OverviewChase.dc.html", "OverviewQuiet.dc.html", "OverviewLoading.dc.html", "PhoneOverview.dc.html",
+    "AddService.dc.html", "Scope.dc.html", "Coverage.dc.html", "Phones.dc.html", "Move.dc.html",
+    "Suspend.dc.html", "RemoveAccess.dc.html", "Flags.dc.html", "PhoneFlags.dc.html", "Audit.dc.html",
+    "Screens.dc.html", "ScreenPair.dc.html",
+    "OwnerReview.dc.html", "Approve.dc.html", "History.dc.html", "ApprovePhone.dc.html", "OwnerPhone.dc.html",
+    "States.dc.html"
+  ],
+  "notes": {
+    "t0": { "x": 0, "y": -300, "text": "Shift lead, service setup and criteria", "kind": "title1", "maxW": 1280 },
+    "t1": { "x": 0, "y": 1200, "text": "The home of the shift", "kind": "title1", "maxW": 5830 },
+    "t2": { "x": 0, "y": 2600, "text": "Setting up and keeping services", "kind": "title1", "maxW": 6720 },
+    "t3": { "x": 0, "y": 4000, "text": "Keeping reports honest and people safe", "kind": "title1", "maxW": 5830 },
+    "t4": { "x": 0, "y": 5400, "text": "Wall screens", "kind": "title1", "maxW": 2640 },
+    "t5": { "x": 0, "y": 6800, "text": "The criteria owner", "kind": "title1", "maxW": 4940 },
+    "t6": { "x": 0, "y": 8200, "text": "Patterns for this surface", "kind": "title1", "maxW": 1280 },
+    "n1": { "x": 0, "y": 2340, "w": 380, "fill": "blue", "text": "What needs attention comes first and is ordered by urgency. The ladder of a chase opens in place; the live counts stay fixed on the right." },
+    "n2": { "x": 0, "y": 3740, "w": 380, "fill": "teal", "text": "Adding a service is one screen that changes shape across four steps. The summary of what has been entered pins on the left, so nothing is lost and nothing is retyped." },
+    "n3": { "x": 0, "y": 5140, "w": 380, "fill": "orange", "text": "Suspending is a three-state screen: ask why, say what happened, then ask two things before resuming. The destructive step always names what will happen first." },
+    "n4": { "x": 0, "y": 7940, "w": 380, "fill": "purple", "text": "The two-person pattern: the owner sends, a second person approves or sends back. The diff is the main thing on the approver's screen." }
+  },
+  "designSystems": []
+}

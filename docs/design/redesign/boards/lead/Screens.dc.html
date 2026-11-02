@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Wall screens</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.app{width:1280px;height:800px;display:flex;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden}
+.rail{width:84px;flex:none;background:#0B2A3D;display:flex;flex-direction:column;align-items:center;padding:20px 0;gap:4px}
+.logo{width:44px;height:44px;border-radius:14px;background:#0B5C8C;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.ri{width:68px;padding:9px 0 7px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:3px;color:#B9D0DC;text-decoration:none;font-size:13px}
+.on{background:rgba(255,255,255,.14);color:#fff;font-weight:700}
+.col{flex:1;min-width:0;display:flex;flex-direction:column}
+.top{height:72px;flex:none;display:flex;align-items:center;gap:16px;padding:0 28px;border-bottom:1px solid #DDE3E6;background:#fff}
+.ctx{display:flex;flex-direction:column;line-height:1.2}.ctx small{font-size:14px;color:#44555D}.ctx b{font-size:20px}
+.role{margin-left:auto;height:44px;padding:0 16px;border:2px solid #14232B;border-radius:999px;background:#fff;color:#14232B;font-family:inherit;font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px}
+.card{background:#fff;border-radius:22px;padding:18px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07);display:flex;flex-direction:column;gap:12px}
+.btn{height:52px;padding:0 24px;border:0;border-radius:14px;background:#0B5C8C;color:#fff;font-family:inherit;font-size:18px;font-weight:700;box-shadow:0 6px 16px rgba(11,92,140,.24)}
+.btn2{height:46px;padding:0 16px;border:2px solid #0B5C8C;border-radius:12px;background:#fff;color:#0B5C8C;font-family:inherit;font-size:16px;font-weight:700}
+.btn3{height:46px;padding:0 12px;border:0;border-radius:12px;background:transparent;color:#26343B;font-family:inherit;font-size:16px;font-weight:700;text-decoration:underline}
+.btnd{height:46px;padding:0 16px;border:0;border-radius:12px;background:#7A3500;color:#fff;font-family:inherit;font-size:16px;font-weight:700}
+.thumb{height:120px;border-radius:14px;background:#0B2A3D;padding:10px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;align-content:start}
+.tl{height:36px;border-radius:8px;background:#fff;opacity:.92}
+.st{display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:15px}
+.k{font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D}
+</style>
+</helmet>
+<div class="app">
+  <nav class="rail" aria-label="Shift lead">
+    <div class="logo"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#fff"/><path d="M3 13h20" stroke="#fff" stroke-width="2.4"/></svg></div>
+    <a class="ri" href="#"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11l8-7 8 7v9H4z"/></svg>Shift</a>
+    <a class="ri" href="#"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-5.6 7-11a7 7 0 0 0-14 0c0 5.4 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Services</a>
+    <a class="ri" href="#"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>Phones</a>
+    <a class="ri" href="#"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4m0 0h11l-2 4 2 4H5"/></svg>Flags</a>
+    <a class="ri on" href="#" aria-current="page"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>Screens</a>
+    <a class="ri" href="#"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>Audit</a>
+  </nav>
+
+  <div class="col">
+    <header class="top">
+      <div class="ctx"><small>Screens</small><b>Wall screens</b></div>
+      <button type="button" class="role">Shift lead <svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 8l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </header>
+
+    <main style="flex:1;min-height:0;display:flex;flex-direction:column;gap:16px;padding:22px 28px">
+      <div style="display:flex;align-items:center;gap:16px">
+        <p style="margin:0;flex:1;font-size:18px;line-height:1.4;color:#26343B">The screens that show a live board. A screen shows capacity only, never patient information.</p>
+        <button type="button" class="btn">Add a wall screen</button>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;flex:1;min-height:0">
+
+        <section class="card" aria-label="Reception wall">
+          <div class="thumb" aria-hidden="true"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="tl"></span></div>
+          <div style="display:flex;align-items:flex-start;justify-content:space-between"><div><div style="font-size:21px;font-weight:700">Reception wall</div><div style="font-size:15px;color:#44555D">Ground floor, SPOA</div></div><span class="st"><span style="width:12px;height:12px;border-radius:50%;background:#0B5C8C"></span>Online</span></div>
+          <div style="font-size:16px;color:#26343B">Shows <b>Our organisation</b> · seen just now</div>
+          <div style="display:flex;gap:8px;margin-top:auto"><button type="button" class="btn2">Change the board</button><button type="button" class="btn3">Unpair</button></div>
+        </section>
+
+        <section class="card" aria-label="SPOA room">
+          <div class="thumb" aria-hidden="true" style="background:#2A1840"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="tl"></span></div>
+          <div style="display:flex;align-items:flex-start;justify-content:space-between"><div><div style="font-size:21px;font-weight:700">SPOA room</div><div style="font-size:15px;color:#44555D">First floor</div></div><span class="st"><span style="width:12px;height:12px;border-radius:50%;background:#0B5C8C"></span>Online</span></div>
+          <div style="font-size:16px;color:#26343B">Shows <b>Network, Wessex urgent care</b> · seen 2 min ago</div>
+          <div style="display:flex;gap:8px;margin-top:auto"><button type="button" class="btn2">Change the board</button><button type="button" class="btn3">Unpair</button></div>
+        </section>
+
+        <section class="card" aria-label="Ward A corridor" style="border:2px solid #A34700">
+          <div class="thumb" aria-hidden="true" style="background:#3A4750;opacity:.7"></div>
+          <div style="display:flex;align-items:flex-start;justify-content:space-between"><div><div style="font-size:21px;font-weight:700">Ward A corridor</div><div style="font-size:15px;color:#44555D">Community hospital</div></div><span class="st" style="color:#4A2300"><span style="width:12px;height:12px;border-radius:3px;background:#A34700"></span>Not showing the board</span></div>
+          <div style="font-size:16px;color:#26343B">Last seen 2 days ago. Shows Our organisation.</div>
+          <div style="display:flex;gap:8px;margin-top:auto"><button type="button" class="btn2">Pair again</button><button type="button" class="btn3">Unpair</button></div>
+        </section>
+
+        <section class="card" aria-label="Unpair Day room" style="background:#FFF1DC;border:2px solid #A34700;box-shadow:none">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between"><div><div class="k" style="color:#7A3500">Unpair this screen?</div><div style="font-size:21px;font-weight:700;color:#4A2300;margin-top:2px">Day room</div></div><span class="st" style="color:#4A2300"><span style="width:12px;height:12px;border-radius:50%;background:#0B5C8C"></span>Online</span></div>
+          <div style="font-size:17px;line-height:1.45;color:#4A2300">It stops showing the board at once and goes back to asking for a code. You can pair it again later.</div>
+          <div style="display:flex;gap:8px;margin-top:auto"><button type="button" class="btnd">Unpair Day room</button><button type="button" class="btn2" style="border-color:#7A3500;color:#7A3500;background:transparent">Keep it</button></div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Options on a map</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.app{width:1280px;height:800px;display:flex;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden}
+.rail{width:84px;flex:none;background:#0B2A3D;display:flex;flex-direction:column;align-items:center;padding:20px 0;gap:6px}
+.lg{width:44px;height:44px;border-radius:14px;background:#0B5C8C;display:flex;align-items:center;justify-content:center;margin-bottom:18px}
+.ri{width:68px;padding:10px 0 8px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:4px;color:#B9D0DC;text-decoration:none;font-size:13px}
+.ri.on{background:rgba(255,255,255,.14);color:#fff;font-weight:700}
+.col{flex:1;min-width:0;display:flex;flex-direction:column}
+.top{height:72px;flex:none;display:flex;align-items:center;gap:16px;padding:0 28px;border-bottom:1px solid #DDE3E6;background:#fff}
+.role{height:44px;padding:0 16px;border:2px solid #14232B;border-radius:999px;background:#fff;color:#14232B;font:700 16px 'Atkinson Hyperlegible',system-ui,sans-serif;display:flex;align-items:center;gap:8px}
+.callchip{display:flex;align-items:center;gap:10px;height:44px;padding:0 18px;border-radius:999px;background:#E3F1F8;color:#0B3F61;font-size:16px;font-weight:700;margin-left:auto}
+.steps{display:flex;gap:10px;padding:14px 28px 4px;align-items:center}
+.st{display:flex;align-items:center;gap:8px;height:44px;padding:0 18px 0 8px;border-radius:999px;font-size:16px;font-weight:700;border:2px solid #DDE3E6;background:#fff}
+.st b{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;background:#E3F1F8;color:#0B3F61}
+.st.now{background:#0B5C8C;border-color:#0B5C8C;color:#fff}.st.now b{background:rgba(255,255,255,.22);color:#fff}
+.card{background:#fff;border-radius:22px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07)}
+.seg{display:inline-flex;padding:4px;background:#fff;border-radius:16px;border:1px solid #DDE3E6;gap:2px}
+.seg a{height:44px;padding:0 18px;border-radius:12px;display:flex;align-items:center;font-size:16px;font-weight:700;color:#26343B;text-decoration:none}
+.seg a.on{background:#E3F1F8;color:#0B3F61;box-shadow:inset 0 0 0 2px #0B5C8C}
+.chip{display:inline-flex;align-items:center;gap:7px;padding:3px 11px;border-radius:999px;font-size:14px;font-weight:700;background:#0B5C8C;color:#fff}
+.chip.surge{background:#6B2C91}
+.sh{width:11px;height:11px;display:inline-block;box-sizing:border-box}
+.open .sh{border-radius:50%;background:currentColor}
+.surge .sh{background:currentColor;clip-path:polygon(50% 0,100% 100%,0 100%)}
+.btn2{height:48px;padding:0 18px;border:2px solid #0B5C8C;border-radius:14px;background:#fff;color:#0B5C8C;font:700 16px 'Atkinson Hyperlegible',system-ui,sans-serif}
+.pin{position:absolute;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;gap:4px}
+.pl{padding:5px 10px;border-radius:10px;background:#fff;border:2px solid #0B5C8C;font-size:14px;font-weight:700;white-space:nowrap;box-shadow:0 4px 12px rgba(11,42,61,.18)}
+</style>
+</helmet>
+<div class="app">
+  <nav class="rail" aria-label="Main">
+    <div class="lg"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#fff"/><path d="M3 13h20" stroke="#fff" stroke-width="2.4"/></svg></div>
+    <a class="ri on" href="#" aria-current="page"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>Calls</a>
+    <a class="ri" href="#"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Board</a>
+    <a class="ri" href="#"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-5.6 7-11a7 7 0 0 0-14 0c0 5.4 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Services</a>
+    <a class="ri" href="#" style="margin-top:auto"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/></svg>Help</a>
+  </nav>
+  <div class="col">
+    <header class="top">
+      <div style="display:flex;flex-direction:column;line-height:1.2"><span style="font-size:14px;color:#44555D">Urgent care capacity</span><span style="font-size:20px;font-weight:700">Advisor</span></div>
+      <div class="callchip"><span style="width:9px;height:9px;border-radius:50%;background:#0B5C8C"></span>Call in progress · 02:14 · Ambulance crew</div>
+      <button type="button" class="role">Clinical advisor <svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 8l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </header>
+    <div class="steps" role="group" aria-label="Call steps"><span class="st"><b>✓</b>Needs · done</span><span class="st now" aria-current="step"><b>2</b>Options</span><span class="st"><b>3</b>Request</span><span class="st"><b>4</b>Outcome</span></div>
+    <main style="flex:1;min-height:0;display:flex;flex-direction:column;gap:14px;padding:10px 28px 22px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:16px">
+        <nav class="seg" aria-label="Ways to see the options"><a href="#">List</a><a href="Compare.dc.html">Compare</a><a href="#" class="on" aria-current="page">Map</a><a href="Radar.dc.html">Radar</a><a href="Ways.dc.html">Ways</a><a href="NetworkOptions.dc.html">Other organisations</a></nav>
+        <span style="font-size:15px;color:#44555D">80+ · DT4 8XX · Fall, Frailty · Within 2 hrs</span>
+      </div>
+      <div style="flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 350px;gap:18px">
+        <section class="card" aria-label="Map" style="position:relative;overflow:hidden;background:#E6EEEA">
+          <svg width="100%" height="100%" viewBox="0 0 800 560" preserveAspectRatio="xMidYMid slice" aria-hidden="true" style="position:absolute;inset:0">
+            <rect width="800" height="560" fill="#E6EEEA"/>
+            <path d="M0 360 C120 330 200 400 320 380 C440 360 520 440 640 420 C720 405 770 430 800 440 L800 560 L0 560Z" fill="#C9DDE8"/>
+            <path d="M0 120 C100 90 180 140 260 110 C340 80 420 100 500 70" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round"/>
+            <path d="M120 0 C160 120 140 220 220 300 C280 360 330 420 340 560" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round"/>
+            <path d="M400 0 C420 100 520 160 560 260 C590 340 700 360 800 330" fill="none" stroke="#fff" stroke-width="12" stroke-linecap="round"/>
+            <circle cx="340" cy="250" r="120" fill="#0B5C8C" fill-opacity="0.09" stroke="#0B5C8C" stroke-opacity="0.35" stroke-width="2" stroke-dasharray="8 6"/>
+          </svg>
+          <div class="pin" style="left:42%;top:46%"><span style="width:30px;height:30px;border-radius:50%;background:#14232B;border:4px solid #fff;box-shadow:0 4px 12px rgba(11,42,61,.3)"></span><span class="pl" style="border-color:#14232B">Patient · DT4 centre</span></div>
+          <div class="pin" style="left:30%;top:30%"><span class="chip open"><i class="sh"></i></span><span class="pl">UCR West · 4</span></div>
+          <div class="pin" style="left:62%;top:58%"><span class="chip open"><i class="sh"></i></span><span class="pl">Ward B · 5</span></div>
+          <div class="pin" style="left:54%;top:26%"><span class="chip surge"><i class="sh"></i></span><span class="pl" style="border-color:#6B2C91">Hospital at home · +2</span></div>
+          <div style="position:absolute;left:16px;bottom:14px;padding:8px 14px;border-radius:12px;background:rgba(255,255,255,.94);font-size:14px;color:#26343B;max-width:420px;line-height:1.35">Places are shown at their postcode centre. Drive-time rings and traffic are <strong>off</strong>: there is no data behind them yet.</div>
+        </section>
+        <section style="display:flex;flex-direction:column;gap:10px;overflow:hidden" aria-label="The same services as a list">
+          <div class="card" style="padding:14px 18px;border:2px solid #DDE3E6"><div style="font-size:18px;font-weight:700">UCR West</div><div style="font-size:14px;color:#44555D">Visits, about 1 hr 20 · 9 min ago</div><div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px"><span class="chip open"><i class="sh"></i>Accepting · 4</span><button type="button" class="btn2" style="height:44px">Open</button></div></div>
+          <div class="card" style="padding:14px 18px;border:2px solid #6B2C91"><div style="font-size:18px;font-weight:700">Hospital at home</div><div style="font-size:14px;color:#44555D">Review in about 3 hrs · 14 min ago</div><div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px"><span class="chip surge"><i class="sh"></i>Over capacity · +2</span><button type="button" class="btn2" style="height:44px">Open</button></div></div>
+          <div class="card" style="padding:14px 18px;border:2px solid #DDE3E6"><div style="font-size:18px;font-weight:700">Community hospital · Ward B</div><div style="font-size:14px;color:#44555D">35 to 50 min by road · <strong style="color:#7A3500">2 hrs 10 min · old</strong></div><div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px"><span class="chip open"><i class="sh"></i>Accepting · 5</span><button type="button" class="btn2" style="height:44px">Open</button></div></div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

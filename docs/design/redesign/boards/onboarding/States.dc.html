@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Loading empty error and success states</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.st{background:#fff;border-radius:24px;padding:20px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07);display:flex;flex-direction:column;gap:12px;box-sizing:border-box;min-height:0;overflow:hidden}
+.st h2{margin:0;font-size:20px;line-height:1.2}
+.st p{margin:0;font-size:16px;line-height:1.45;color:#26343B}
+.wh{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D}
+.sk{display:block;border-radius:12px;background:linear-gradient(100deg,#E4EAED 30%,#F7FAFB 50%,#E4EAED 70%);background-size:300% 100%;animation:sweep 1.7s linear infinite}
+@keyframes sweep{from{background-position:100% 0}to{background-position:0 0}}
+@media (prefers-reduced-motion: reduce){.sk{animation:none}}
+.bp{height:48px;border:0;border-radius:14px;background:#0B5C8C;color:#fff;font-family:inherit;font-size:17px;font-weight:700;padding:0 20px;align-self:flex-start}
+.bs{height:46px;border:2px solid #0B5C8C;border-radius:14px;background:#fff;color:#0B5C8C;font-family:inherit;font-size:16px;font-weight:700;padding:0 18px;align-self:flex-start}
+</style>
+</helmet>
+<div style="width:1280px;height:800px;box-sizing:border-box;padding:28px;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;display:flex;flex-direction:column;gap:16px;overflow:hidden">
+
+  <div style="display:flex;align-items:baseline;gap:16px"><h1 style="margin:0;font-size:30px">States everyone meets</h1><span style="font-size:17px;color:#44555D">Loading is a shimmer in the shape of what is coming, one band across the whole page. Every state says what happened and what to do, in plain words.</span></div>
+
+  <div style="flex:1;min-height:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:16px">
+
+    <section class="st" aria-label="Loading">
+      <div class="wh">Loading · set-up progress</div>
+      <div role="status" aria-busy="true"><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Loading the set-up progress.</span></div>
+      <div aria-hidden="true" style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;gap:12px;align-items:center;padding:12px;border:1px solid #DDE3E6;border-radius:16px"><span class="sk" style="width:12px;height:44px;border-radius:6px"></span><div style="flex:1;display:flex;flex-direction:column;gap:8px"><span class="sk" style="height:16px;width:60%"></span><span class="sk" style="height:12px;width:85%"></span></div><span class="sk" style="width:70px;height:28px;border-radius:999px"></span></div>
+        <div style="display:flex;gap:12px;align-items:center;padding:12px;border:1px solid #DDE3E6;border-radius:16px"><span class="sk" style="width:12px;height:44px;border-radius:6px"></span><div style="flex:1;display:flex;flex-direction:column;gap:8px"><span class="sk" style="height:16px;width:48%"></span><span class="sk" style="height:12px;width:72%"></span></div><span class="sk" style="width:70px;height:28px;border-radius:999px"></span></div>
+        <div style="display:flex;gap:12px;align-items:center;padding:12px;border:1px solid #DDE3E6;border-radius:16px"><span class="sk" style="width:12px;height:44px;border-radius:6px"></span><div style="flex:1;display:flex;flex-direction:column;gap:8px"><span class="sk" style="height:16px;width:66%"></span><span class="sk" style="height:12px;width:55%"></span></div><span class="sk" style="width:70px;height:28px;border-radius:999px"></span></div>
+      </div>
+    </section>
+
+    <section class="st" aria-label="Empty">
+      <div class="wh">Empty · nobody invited yet</div>
+      <h2>No one has been invited yet</h2>
+      <p>Invite the first person who reports capacity for a service. They set up in about 3 minutes on their own phone.</p>
+      <button type="button" class="bp">Invite someone</button>
+    </section>
+
+    <section class="st" aria-label="Error" style="border:2px solid #A34700">
+      <div class="wh">Error · could not load</div>
+      <h2 style="color:#5C2800">▲ We could not load set-up progress</h2>
+      <p>Nothing has been lost. Check your connection and try again. If it keeps happening, tell the Overwatch team.</p>
+      <button type="button" class="bs">Try again</button>
+    </section>
+
+    <section class="st" aria-label="Send refused">
+      <div class="wh">Error · invitation not sent</div>
+      <div><div style="font-size:16px;font-weight:700;margin-bottom:6px">Mobile number</div><div style="height:48px;border:2px solid #A34700;border-radius:14px;display:flex;align-items:center;padding:0 14px;font-size:17px">0123</div><div style="margin-top:6px;font-size:15px;font-weight:700;color:#7A3500">▲ Enter a UK mobile number, like 07700 900123</div></div>
+      <div style="padding:10px 12px;border-radius:12px;background:#FFF1DC;font-size:15px;font-weight:700;color:#5C2800">▲ This service is not on the pilot scope list.</div>
+    </section>
+
+    <section class="st" aria-label="Sent">
+      <div class="wh">Success · invitation sent</div>
+      <div style="display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:16px;background:#E3F1F8"><span style="width:28px;height:28px;border-radius:50%;background:#0B5C8C;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none" aria-hidden="true">✓</span><div style="font-size:16px;line-height:1.4"><strong>Invitation sent to 07xxx xxx123.</strong><br>The link works for 48 hours.</div></div>
+      <p>It appears in the list as Invited. You can resend it from there.</p>
+    </section>
+
+    <section class="st" aria-label="Expired link">
+      <div class="wh">Phone · invitation link expired</div>
+      <div style="width:44px;height:44px;border-radius:50%;background:#F4F6F5;border:2px solid #3A4750;color:#3A4750;display:flex;align-items:center;justify-content:center;font-weight:700" aria-hidden="true">✕</div>
+      <h2>This invitation has expired</h2>
+      <p>Invitations work for 48 hours. Ask your shift lead to send you a new one.</p>
+    </section>
+
+    <section class="st" aria-label="Set up by text or email">
+      <div class="wh">Phone · set up by text or email</div>
+      <div style="width:44px;height:44px;border-radius:50%;background:#E3F1F8;color:#0B5C8C;display:flex;align-items:center;justify-content:center;font-weight:700" aria-hidden="true">✓</div>
+      <h2>You are set up</h2>
+      <p>We will text you at 16:00 and then every 2 hours. Reply with your number. There is nothing else to do.</p>
+    </section>
+
+    <section class="st" aria-label="Queue empty">
+      <div class="wh">Empty · nothing to review</div>
+      <h2>Nothing to review</h2>
+      <p>New registrations appear here as soon as a service submits one. You will see a number on Review in the menu.</p>
+      <button type="button" class="bs">Invite a service</button>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

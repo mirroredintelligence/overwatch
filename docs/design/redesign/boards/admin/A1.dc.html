@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Administration overview</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width:1280px;height:800px;display:flex;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden">
+  <dc-import name="Rail" portal="admin" active="overview" hint-size="84px,800px"></dc-import>
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <dc-import name="Top" org="FORTRUS LIMITED" title="Overview" hint-size="100%,72px"></dc-import>
+
+    <main style="flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:22px;padding:22px 28px">
+
+      <section aria-label="What needs you" style="display:flex;flex-direction:column;gap:12px;min-width:0">
+        <div style="display:flex;align-items:baseline;gap:12px">
+          <h2 style="margin:0;font-size:28px">What needs you</h2>
+          <span style="padding:5px 12px;border-radius:999px;background:#FFF1DC;color:#7A3500;font-weight:700;font-size:15px">3 things</span>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:16px;background:#fff;border-radius:22px;padding:16px 20px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06);border:2px solid #A34700">
+          <span style="flex:none;padding:6px 12px;border-radius:999px;background:#FFF1DC;color:#7A3500;font-weight:700;font-size:15px">◐ Waiting for you</span>
+          <div style="flex:1;min-width:0"><div style="font-size:19px;font-weight:700">A support person is asking to look into your organisation</div><div style="font-size:16px;color:#44555D">Approve or refuse. Nothing opens until you give them the code.</div></div>
+          <button type="button" style="flex:none;height:52px;padding:0 24px;border:0;border-radius:14px;background:#0B5C8C;color:#fff;font-family:inherit;font-size:18px;font-weight:700;box-shadow:0 6px 16px rgba(11,92,140,.28)">Review request</button>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:16px;background:#fff;border-radius:22px;padding:16px 20px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06)">
+          <span style="flex:none;padding:6px 12px;border-radius:999px;border:2px dashed #44555D;font-weight:700;font-size:15px;color:#26343B">○ To do</span>
+          <div style="flex:1;min-width:0"><div style="font-size:19px;font-weight:700">Add the coordination phone</div><div style="font-size:16px;color:#44555D">Staff see it on any page that says who to phone.</div></div>
+          <button type="button" style="flex:none;height:52px;padding:0 24px;border:2px solid #0B5C8C;border-radius:14px;background:#fff;color:#0B5C8C;font-family:inherit;font-size:18px;font-weight:700">Add phone</button>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:16px;background:#fff;border-radius:22px;padding:16px 20px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06)">
+          <span style="flex:none;padding:6px 12px;border-radius:999px;border:2px dashed #44555D;font-weight:700;font-size:15px;color:#26343B">○ To do</span>
+          <div style="flex:1;min-width:0"><div style="font-size:19px;font-weight:700">Approve version 3 of your settings</div><div style="font-size:16px;color:#44555D">It changes a clinical setting, so it needs 2 approvals from other people. 1 given.</div></div>
+          <button type="button" style="flex:none;height:52px;padding:0 24px;border:2px solid #0B5C8C;border-radius:14px;background:#fff;color:#0B5C8C;font-family:inherit;font-size:18px;font-weight:700">Open version</button>
+        </div>
+
+        <details style="background:#fff;border-radius:18px;padding:0 20px;border:1px solid #DDE3E6">
+          <summary style="height:56px;display:flex;align-items:center;justify-content:space-between;font-size:17px;font-weight:700;cursor:pointer;list-style:none"><span>Done <span style="font-weight:400;color:#44555D">· 4 steps</span></span><span aria-hidden="true">▾</span></summary>
+        </details>
+
+        <div style="margin-top:auto;display:flex;flex-direction:column;gap:8px">
+          <div style="font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D">The other states of this page</div>
+          <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
+            <div style="background:#fff;border-radius:18px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;min-height:104px">
+              <div style="font-weight:700;font-size:15px">Loading</div>
+              <div style="height:14px;border-radius:7px;width:70%;background:linear-gradient(100deg,#DDE3E6 30%,#F4F7F8 50%,#DDE3E6 70%)"></div>
+              <div style="height:14px;border-radius:7px;width:90%;background:linear-gradient(100deg,#DDE3E6 30%,#F4F7F8 50%,#DDE3E6 70%)"></div>
+              <div style="height:14px;border-radius:7px;width:55%;background:linear-gradient(100deg,#DDE3E6 30%,#F4F7F8 50%,#DDE3E6 70%)"></div>
+            </div>
+            <div style="background:#fff;border-radius:18px;padding:14px 16px;min-height:104px;border:2px solid #6B2C91">
+              <div style="font-weight:700;font-size:15px;color:#4B1C69">▲ Could not load</div>
+              <div style="font-size:15px;line-height:1.4;margin:4px 0 8px">We could not load your organisation. Nothing has changed.</div>
+              <button type="button" style="height:44px;padding:0 16px;border:2px solid #14232B;border-radius:12px;background:#fff;font-family:inherit;font-weight:700;font-size:15px">Try again</button>
+            </div>
+            <div style="background:#E3F1F8;border-radius:18px;padding:14px 16px;min-height:104px">
+              <div style="font-weight:700;font-size:15px;color:#0B3F61">● All done</div>
+              <div style="font-size:15px;line-height:1.4;margin-top:4px">Nothing needs you. The list comes back when something does.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside aria-label="Your organisation" style="display:flex;flex-direction:column;gap:14px;min-width:0">
+        <div style="background:#fff;border-radius:22px;padding:20px 22px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06)">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><span style="font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D">Your organisation</span><span style="padding:4px 10px;border-radius:999px;background:#FFF1DC;color:#7A3500;font-weight:700;font-size:14px">◐ Being set up</span></div>
+          <div style="font-size:22px;font-weight:700;line-height:1.2">FORTRUS LIMITED</div>
+          <dl style="margin:12px 0 0;display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:16px">
+            <dt style="color:#44555D">ODS code</dt><dd style="margin:0;font-weight:700">8HT86</dd>
+            <dt style="color:#44555D">Time zone</dt><dd style="margin:0">Europe/London</dd>
+            <dt style="color:#44555D">Address</dt><dd style="margin:0;overflow-wrap:anywhere">overwatch.mirroredintelligence.com</dd>
+          </dl>
+          <div style="margin-top:12px;font-size:15px;line-height:1.4;color:#26343B">Going live is done by the platform team once everything here is finished.</div>
+        </div>
+        <div style="background:#fff;border-radius:22px;padding:20px 22px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06)">
+          <div style="font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D;margin-bottom:10px">People and roles</div>
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="display:flex"><span style="width:36px;height:36px;border-radius:50%;background:#D5E5EE;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">RS</span><span style="width:36px;height:36px;border-radius:50%;background:#F1DFD2;border:2px solid #fff;margin-left:-10px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">SS</span><span style="width:36px;height:36px;border-radius:50%;background:#E4D9EC;border:2px solid #fff;margin-left:-10px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">PN</span></div>
+            <span style="font-size:16px">7 roles in use · 5 people</span>
+          </div>
+          <a href="#" style="display:inline-block;margin-top:12px;font-size:16px;font-weight:700;color:#0B5C8C">Open people and roles</a>
+        </div>
+        <div style="background:#fff;border-radius:22px;padding:20px 22px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06)">
+          <div style="font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D;margin-bottom:8px">Sharing with the network</div>
+          <div style="font-size:16px;line-height:1.4;color:#26343B">Your organisation is not in a network. You share only what you agree to.</div>
+        </div>
+        <div style="background:#fff;border-radius:22px;padding:20px 22px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06)">
+          <div style="font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D;margin-bottom:8px">Settings in force</div>
+          <div style="font-size:16px;line-height:1.4;color:#26343B"><b>Version 2</b>, since 2 Nov 2026</div>
+        </div>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

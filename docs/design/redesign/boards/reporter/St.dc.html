@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Shared states</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.sp{background:#fff;border-radius:24px;padding:22px 24px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 26px rgba(20,35,43,.07);display:flex;flex-direction:column;gap:12px}
+.hd{font-size:14px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#44555D}
+.mo{font-size:15px;line-height:1.4;color:#44555D;border-top:1px solid #DDE3E6;padding-top:10px;margin-top:auto}
+.tag{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;font-weight:700;font-size:14px}
+.sk{display:block;border-radius:12px;background:linear-gradient(100deg,#DDE5E8 0%,#DDE5E8 35%,#F6F9FA 50%,#DDE5E8 65%,#DDE5E8 100%)}
+.btn{display:flex;align-items:center;justify-content:center;height:52px;border:0;border-radius:14px;background:#0B5C8C;color:#fff;font-family:inherit;font-size:18px;font-weight:700}
+.btn2{display:flex;align-items:center;justify-content:center;height:50px;border:2px solid #0B5C8C;border-radius:14px;background:#fff;color:#0B5C8C;font-family:inherit;font-size:17px;font-weight:700}
+</style>
+</helmet>
+<div style="width:1280px;height:900px;box-sizing:border-box;padding:40px 48px;background:#DCE5E8;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:24px">
+
+  <div class="sp">
+    <div class="hd">Loading</div>
+    <span class="sk" style="height:18px;width:50%"></span>
+    <span class="sk" style="height:30px;width:70%"></span>
+    <div style="display:flex;gap:14px;align-items:center"><span class="sk" style="height:70px;width:84px"></span><span class="sk" style="height:44px;flex:1"></span></div>
+    <span class="sk" style="height:50px;border-radius:14px"></span>
+    <div class="mo">One shimmer sweeps every block together. The words “Opening your link.” are spoken. Nothing else moves.</div>
+  </div>
+
+  <div class="sp">
+    <div class="hd">Empty</div>
+    <div style="width:56px;height:56px;border-radius:50%;background:#E3F1F8;display:flex;align-items:center;justify-content:center" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0B5C8C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
+    <div style="font-size:22px;font-weight:700;line-height:1.2">You have no services yet</div>
+    <div style="font-size:17px;line-height:1.45;color:#26343B">To add one, ask the SPOA shift lead. New services are added by invitation and checked.</div>
+    <div class="mo">Says what is true, then the one next step. No empty table.</div>
+  </div>
+
+  <div class="sp">
+    <div class="hd">Bad signal</div>
+    <div style="background:#FFF1DC;border-radius:18px;padding:14px 16px;display:flex;gap:12px;align-items:flex-start">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#7A3500" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none"><path d="M2 8.5a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16.5a5 5 0 0 1 7 0M12 20h.01"/><path d="M3 3l18 18"/></svg>
+      <div style="font-size:17px;line-height:1.4;color:#4B2200"><strong>No signal. Not sent yet.</strong> Nothing has been lost.</div>
+    </div>
+    <div class="btn">Try again now</div>
+    <div class="mo">Slides in from the top over 200 ms. It stays until the signal returns, then says “Back online” once.</div>
+  </div>
+
+  <div class="sp">
+    <div class="hd">Something went wrong</div>
+    <div style="background:#FFF1DC;border-radius:18px;padding:14px 16px;display:flex;gap:12px;align-items:flex-start">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#7A3500" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18.2h.01"/></svg>
+      <div style="font-size:17px;line-height:1.4;color:#4B2200"><strong>We could not send that.</strong> Your number is still here. Try again, or phone the shift lead.</div>
+    </div>
+    <div style="display:flex;gap:10px"><div class="btn" style="flex:1">Try again</div><div class="btn2" style="flex:1">Phone</div></div>
+    <div class="mo">Plain words, what was kept, two ways forward. Never a code or a stack.</div>
+  </div>
+
+  <div class="sp">
+    <div class="hd">Success</div>
+    <div style="display:flex;gap:14px;align-items:center;background:#E3F1F8;border-radius:18px;padding:14px 16px">
+      <div style="width:40px;height:40px;border-radius:50%;background:#0B5C8C;display:flex;align-items:center;justify-content:center;flex:none" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+      <div style="font-size:18px;line-height:1.35;color:#0B3F61"><strong>Recorded at 10:12.</strong> Next update due 12:00.</div>
+    </div>
+    <div style="display:flex;align-items:baseline;gap:12px"><span style="font-size:64px;font-weight:700;line-height:1;color:#0B3F61">4</span><span style="font-size:18px;color:#26343B">referrals in the next 2 hours</span></div>
+    <div class="mo">The message springs in once (280 ms). The figure beside it does not move or count up.</div>
+  </div>
+
+  <div class="sp">
+    <div class="hd">Status words: always shape and word</div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px">
+      <span class="tag" style="background:#0B5C8C;color:#fff"><svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Confirmed</span>
+      <span class="tag" style="background:#FFF1DC;color:#7A3500"><svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 5.5V10l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Due now</span>
+      <span class="tag" style="background:#E6ECEE;color:#26343B;border:2px dashed #6B7B83">Paused</span>
+      <span class="tag" style="background:#3A4750;color:#fff"><svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3" width="14" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7 7l6 6M13 7l-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Closed</span>
+      <span class="tag" style="background:#6B2C91;color:#fff"><svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3l8 14H2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Over capacity</span>
+    </div>
+    <div class="mo">Colour is never the only signal. Each word has its own mark, and “not updated” is a dashed outline.</div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

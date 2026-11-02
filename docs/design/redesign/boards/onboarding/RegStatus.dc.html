@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Registration statuses and my services</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pc{background:#fff;border-radius:24px;padding:20px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07);display:flex;flex-direction:column;gap:12px;box-sizing:border-box}
+.pc h2{margin:0;font-size:24px;line-height:1.15}
+.pc p{margin:0;font-size:16px;line-height:1.45;color:#26343B}
+.tg{align-self:flex-start;padding:5px 12px;border-radius:999px;font-weight:700;font-size:14px}
+.bp{height:50px;border:0;border-radius:14px;background:#0B5C8C;color:#fff;font-family:inherit;font-size:17px;font-weight:700}
+.bs{height:46px;border:2px solid #0B5C8C;border-radius:14px;background:#fff;color:#0B5C8C;font-family:inherit;font-size:16px;font-weight:700}
+</style>
+</helmet>
+<div style="width:1280px;height:860px;box-sizing:border-box;padding:28px;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;display:flex;flex-direction:column;gap:18px;overflow:hidden">
+
+  <div style="display:flex;align-items:baseline;gap:16px"><h1 style="margin:0;font-size:30px">After submitting</h1><span style="font-size:17px;color:#44555D">One screen per state at /register/[id]/status, and My services at /register/services. The status is a word and a shape, never colour alone.</span></div>
+
+  <div style="flex:1;min-height:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:16px">
+
+    <section class="pc" aria-label="In review">
+      <span class="tg" style="background:#E3F1F8;color:#0B3F61">◔ In review</span>
+      <h2>Submitted. We are checking.</h2>
+      <ol style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px;font-size:16px">
+        <li><strong>✓ Submitted</strong> 23 Oct 14:30</li>
+        <li><strong>◔ Checks</strong> in progress. Your shift lead may phone you.</li>
+        <li style="color:#44555D">○ Test text</li><li style="color:#44555D">○ Live</li>
+      </ol>
+      <p>We aim to review within a working day. We will tell you by text.</p>
+      <button type="button" class="bs" style="margin-top:auto">Back to my services</button>
+    </section>
+
+    <section class="pc" aria-label="Needs changes" style="border:2px solid #A34700">
+      <span class="tg" style="background:#FFF1DC;color:#7A3500;border:2px solid #A34700">▲ Needs changes</span>
+      <h2>A few things to fix</h2>
+      <ol style="margin:0;padding:0 0 0 20px;font-size:16px;line-height:1.5"><li>The criteria owner email must be an organisation address.</li><li>Add a cover number.</li></ol>
+      <p style="font-size:15px;color:#44555D">From Alex, shift lead, 14:52.</p>
+      <button type="button" class="bp" style="margin-top:auto">Fix and resubmit</button>
+      <button type="button" class="bs">Phone the shift lead</button>
+    </section>
+
+    <section class="pc" aria-label="Approved">
+      <span class="tg" style="background:#E3F1F8;color:#0B3F61;border:2px solid #0B3F61">✓ Approved</span>
+      <h2>One last step: a test</h2>
+      <p>We send a test notification to your phone. Answer it as you normally would. This proves you receive and answer requests.</p>
+      <p style="font-weight:700">You are not on the board until the test is answered.</p>
+      <button type="button" class="bp" style="margin-top:auto">Send my test notification</button>
+    </section>
+
+    <section class="pc" aria-label="Live">
+      <span class="tg" style="background:#0B5C8C;color:#fff">● Live</span>
+      <h2>You are live</h2>
+      <p>Advisors can now see UCR East on the board. Your first request arrives at 16:00.</p>
+      <div style="border:2px solid #DDE3E6;border-radius:16px;padding:12px 14px"><div style="font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D">How it looks on the board</div><div style="margin-top:6px;display:flex;align-items:center;gap:10px"><strong style="font-size:18px">UCR East</strong><span style="padding:3px 10px;border-radius:999px;background:#0B5C8C;color:#fff;font-weight:700;font-size:14px">Accepting</span></div></div>
+      <button type="button" class="bp" style="margin-top:auto">Go to the app</button>
+    </section>
+
+    <section class="pc" aria-label="Not approved">
+      <span class="tg" style="background:#F4F6F5;color:#3A4750;border:2px solid #3A4750">✕ Not approved</span>
+      <h2>We cannot add this service yet</h2>
+      <p><strong>Reason:</strong> outside the scope of the pilot.</p>
+      <p>You do not need to do anything. We will contact you if the scope changes.</p>
+      <button type="button" class="bs" style="margin-top:auto">Ask for a review</button>
+      <button type="button" class="bs" style="border-color:#DDE3E6;color:#26343B">Close</button>
+    </section>
+
+    <section class="pc" aria-label="Confirm your details" style="border:2px dashed #A34700">
+      <span class="tg" style="background:#FFF1DC;color:#7A3500">◆ Review due</span>
+      <h2>Confirm your details</h2>
+      <p>Your criteria review is due on 30 Oct. Check these are still right, so advisors keep relying on them.</p>
+      <div style="font-size:16px;line-height:1.5"><strong>Accepts</strong> falls, frailty, age 18+<br><strong>Does not accept</strong> suspected fracture</div>
+      <button type="button" class="bp" style="margin-top:auto">These are still right</button>
+    </section>
+
+    <section class="pc" aria-label="My services" style="grid-column:span 2;gap:10px">
+      <h2>My services</h2>
+      <div style="display:flex;align-items:center;gap:14px;padding:10px 14px;border:2px solid #DDE3E6;border-radius:16px"><div style="flex:1"><strong style="font-size:18px">UCR West</strong><div style="font-size:15px;color:#44555D">Reporting every 2 hrs by text</div></div><span class="tg" style="background:#0B5C8C;color:#fff">● Active</span><button type="button" class="bs" style="height:44px;padding:0 14px">Edit</button><button type="button" class="bs" style="height:44px;padding:0 14px;border-color:#DDE3E6;color:#26343B">Pause</button></div>
+      <div style="display:flex;align-items:center;gap:14px;padding:10px 14px;border:2px solid #DDE3E6;border-radius:16px"><div style="flex:1"><strong style="font-size:18px">Reablement</strong><div style="font-size:15px;color:#44555D">Submitted 23 Oct</div></div><span class="tg" style="background:#E3F1F8;color:#0B3F61">◔ Pending approval</span><button type="button" class="bs" style="height:44px;padding:0 14px">Open</button></div>
+      <div style="display:flex;align-items:center;gap:14px;padding:10px 14px;border:2px solid #A34700;background:#FFF1DC;border-radius:16px"><div style="flex:1"><strong style="font-size:18px">Community hospital · Ward A</strong><div style="font-size:15px;color:#26343B">Criteria review due 30 Oct</div></div><span class="tg" style="background:#fff;color:#7A3500;border:2px solid #A34700">◆ Review due</span><button type="button" class="bp" style="height:44px;padding:0 14px;font-size:16px">Review</button></div>
+      <p style="font-size:15px;color:#44555D">A new service comes by invitation from your shift lead.</p>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":860}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

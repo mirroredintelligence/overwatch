@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Advisor action dialogs</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.app{width:1280px;height:800px;box-sizing:border-box;padding:36px 40px;background:#0B2A3D;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden;display:flex;flex-direction:column;gap:20px}
+.dlg{background:#fff;border-radius:26px;padding:26px 26px 22px;display:flex;flex-direction:column;gap:14px;box-shadow:0 24px 60px rgba(0,0,0,.35)}
+.dlg h2{margin:0;font-size:24px;line-height:1.15}
+.sub{font-size:16px;color:#44555D;line-height:1.4}
+.opt{padding:13px 16px;border-radius:14px;border:2px solid #DDE3E6;font-size:18px;font-weight:700;background:#fff;min-height:24px}
+.opt.on{border-color:#0B5C8C;background:#E3F1F8}
+.pri{height:56px;border:0;border-radius:16px;background:#0B5C8C;color:#fff;font:700 18px 'Atkinson Hyperlegible',system-ui,sans-serif;box-shadow:0 6px 16px rgba(11,92,140,.28)}
+.sec{height:50px;border:0;border-radius:14px;background:transparent;color:#26343B;font:700 17px 'Atkinson Hyperlegible',system-ui,sans-serif;text-decoration:underline}
+.tag{align-self:flex-start;padding:4px 12px;border-radius:999px;background:#E3F1F8;color:#0B3F61;font-weight:700;font-size:14px}
+</style>
+</helmet>
+<div class="app">
+  <div style="display:flex;align-items:baseline;justify-content:space-between;color:#fff">
+    <h1 style="margin:0;font-size:28px">Three dialogs over the options screen</h1>
+    <span style="font-size:16px;color:#B9D0DC">Each opens in place over the call and closes back to it. The call bar and the pinned patient stay visible behind.</span>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;flex:1;min-height:0">
+
+    <section class="dlg" aria-labelledby="d1">
+      <span class="tag">Updates the board for everyone</span>
+      <h2 id="d1">I phoned UCR West</h2>
+      <div class="sub">What did UCR West tell you?</div>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px"><span class="opt on" style="text-align:center;padding:13px 4px;font-size:16px">Accepting</span><span class="opt" style="text-align:center;padding:13px 4px;font-size:16px">Limited</span><span class="opt" style="text-align:center;padding:13px 4px;font-size:16px">Not accepting</span></div>
+      <div><label for="n" style="display:block;font-size:17px;font-weight:700;margin-bottom:6px">How many can they take?</label><input id="n" type="text" value="3" style="box-sizing:border-box;width:120px;height:54px;border:2px solid #26343B;border-radius:14px;padding:0 14px;font:400 20px 'Atkinson Hyperlegible',system-ui,sans-serif"></div>
+      <div class="sub">Recorded as "advisor phoned". It shows on the board with the time.</div>
+      <div style="margin-top:auto;display:flex;flex-direction:column;gap:6px"><button type="button" class="pri">Save position</button><button type="button" class="sec">Cancel</button></div>
+    </section>
+
+    <section class="dlg" aria-labelledby="d2">
+      <span class="tag">Not used to assess advisors</span>
+      <h2 id="d2">UCR West declined</h2>
+      <div class="sub">The board showed capacity. Why did UCR West decline?</div>
+      <div style="display:flex;flex-direction:column;gap:8px"><span class="opt">Full, not yet reported</span><span class="opt on">Outside their criteria</span><span class="opt">Staffing or transport</span><span class="opt">Other</span></div>
+      <div class="sub">This is for a conversation with the service. It feeds the data, not a score.</div>
+      <div style="margin-top:auto;display:flex;flex-direction:column;gap:6px"><button type="button" class="pri">Save</button><button type="button" class="sec">Cancel</button></div>
+    </section>
+
+    <section class="dlg" aria-labelledby="d3">
+      <span class="tag">No name is sent</span>
+      <h2 id="d3">Ask a clinical advisor</h2>
+      <div style="background:#F4F6F5;border-radius:14px;padding:12px 14px;font-size:16px;line-height:1.45"><strong>80+ · DT4 8XX</strong><br>Fall, Frailty · Within 2 hrs<br>NEWS2 2 · Frailty scale 6 · Options shown: 3</div>
+      <div style="font-size:17px;font-weight:700">How soon do you need them?</div>
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px"><span class="opt on" style="text-align:center">Now</span><span class="opt" style="text-align:center;font-size:16px">Within 15 min</span></div>
+      <div style="display:flex;align-items:center;gap:10px;font-size:16px"><span style="width:12px;height:12px;border-radius:50%;background:#0B5C8C"></span>2 clinical advisors available</div>
+      <div style="margin-top:auto;display:flex;flex-direction:column;gap:6px"><button type="button" class="pri">Call clinical advisor</button><button type="button" class="sec">Cancel</button></div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

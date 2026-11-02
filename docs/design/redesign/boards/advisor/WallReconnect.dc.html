@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Wall screen reconnecting</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+@keyframes turn{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.spin{animation:none !important}}
+.wall{width:1600px;height:900px;box-sizing:border-box;padding:22px 32px 18px;background:#0B2A3D;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#fff;display:flex;flex-direction:column;gap:14px;overflow:hidden}
+.tile{box-sizing:border-box;color:#14232B;border:6px dashed #6B7B83;border-radius:26px;padding:12px 22px;display:flex;flex-direction:column;gap:2px;min-width:0;height:196px;background:repeating-linear-gradient(135deg,#F7F8F8 0 16px,#ECEFF0 16px 32px)}
+.nm{font-size:28px;font-weight:700;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip{flex:none;display:inline-flex;align-items:center;gap:10px;padding:4px 14px;border-radius:999px;font-size:21px;font-weight:700;background:#0B5C8C;color:#fff}
+.chip.lim{background:#A34700}.chip.closed{background:#3A4750}.chip.surge{background:#6B2C91}
+.chip.unk{background:#fff;color:#26343B;border:3px dashed #6B7B83}
+.sh{width:15px;height:15px;display:inline-block;box-sizing:border-box}
+.open .sh{border-radius:50%;background:currentColor}
+.lim .sh{border-radius:50%;border:3px solid currentColor;background:linear-gradient(90deg,currentColor 50%,transparent 50%)}
+.closed .sh{background:currentColor;border-radius:3px}
+.surge .sh{background:currentColor;clip-path:polygon(50% 0,100% 100%,0 100%)}
+.unk .sh{border:3px dashed currentColor;border-radius:50%}
+.big{font-size:88px;font-weight:700;line-height:.95;color:#26343B}
+.lk{padding:3px 14px;border-radius:999px;background:#fff;border:3px dashed #14232B;font-size:21px;font-weight:700}
+</style>
+</helmet>
+<div class="wall">
+  <header style="display:flex;align-items:center;justify-content:space-between">
+    <div style="display:flex;align-items:center;gap:20px">
+      <svg width="52" height="52" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#fff" stroke-width="2.2"/><circle cx="13" cy="13" r="4.2" fill="#fff"/><path d="M3 13h20" stroke="#fff" stroke-width="2.2"/></svg>
+      <div><div style="margin:0;font-size:38px;line-height:1.05;font-weight:700">Urgent care capacity</div><div style="font-size:22px;color:#B9D0DC">Single point of access</div></div>
+    </div>
+    <div style="text-align:right"><div style="font-size:54px;font-weight:700;line-height:1">14:12</div><div style="font-size:22px;color:#B9D0DC">Friday 23 October</div></div>
+  </header>
+  <div role="alert" style="display:flex;align-items:center;gap:26px;padding:20px 30px;border-radius:24px;background:#FFF1DC;color:#4A2300;border:5px solid #A34700">
+    <svg class="spin" width="64" height="64" viewBox="0 0 64 64" aria-hidden="true" style="flex:none;animation:turn 1.6s linear infinite"><circle cx="32" cy="32" r="24" fill="none" stroke="rgba(163,71,0,.25)" stroke-width="8"/><path d="M32 8a24 24 0 0 1 24 24" fill="none" stroke="#A34700" stroke-width="8" stroke-linecap="round"/></svg>
+    <div style="flex:1"><div style="font-size:40px;font-weight:700;line-height:1.1">Reconnecting. These figures are the last known, from 14:02.</div><div style="font-size:26px;line-height:1.3;margin-top:4px">They may be wrong. Use the whiteboard and phone process. Trying again in 8 seconds.</div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;flex:1;min-height:0">
+    <sc-for list="{{tiles}}" as="t" hint-placeholder-count="9">
+      <div class="tile">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div class="nm">{{ t.name }}</div><span class="chip {{ t.k }}"><i class="sh"></i>{{ t.status }}</span></div>
+        <div style="display:flex;align-items:baseline;gap:16px;margin-top:6px"><span class="big">{{ t.big }}</span><span style="font-size:23px;line-height:1.1;color:#26343B">{{ t.unit }}</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto"><span class="lk">Last known</span><span style="font-size:21px;color:#26343B">{{ t.age }}</span></div>
+      </div>
+    </sc-for>
+  </div>
+  <footer style="font-size:20px;color:#D7E6EE;display:flex;justify-content:space-between"><span>When the connection returns, this banner goes and the figures update at once.</span><strong style="color:#fff">No patient information on this screen</strong></footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1600,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const STAT = { open: 'Accepting', lim: 'Limited', closed: 'Not accepting', surge: 'Over capacity', unk: 'Not updated' };
+    const raw = [
+      ['UCR West', 'open', '4', 'referrals in the next 2 hrs', 'as of 13:58'],
+      ['UCR East', 'lim', '1', 'referral in the next 2 hrs', 'as of 13:41'],
+      ['SDEC · Site 1', 'open', '6', 'slots left today', 'as of 13:07'],
+      ['SDEC · Site 2', 'closed', '0', 'slots left today', 'as of 13:30'],
+      ['Community hospital · Ward A', 'lim', '2', 'beds free', 'as of 12:07'],
+      ['Community hospital · Ward B', 'open', '5', 'beds free', 'as of 12:02'],
+      ['Hospital at home', 'surge', '+2', 'over established capacity', 'as of 13:58'],
+      ['Virtual ward · frailty', 'unk', '?', 'Phone to confirm', 'as of 10:00'],
+      ['Reablement', 'open', '3', 'packages today', 'as of 11:10']
+    ];
+    return { tiles: raw.map((r) => ({ name: r[0], k: r[1], status: STAT[r[1]], big: r[2], unit: r[3], age: r[4] })) };
+  }
+}
+</script>
+</body>
+</html>

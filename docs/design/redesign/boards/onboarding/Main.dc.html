@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Index of routes and boards</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width:1280px;height:900px;box-sizing:border-box;padding:40px 48px;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;display:flex;flex-direction:column;gap:22px;overflow:hidden">
+
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px">
+    <div>
+      <div style="font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#44555D">Overwatch redesign</div>
+      <h1 style="margin:4px 0 0;font-size:40px;line-height:1.1">Provider onboarding and registration</h1>
+    </div>
+    <div style="font-size:16px;line-height:1.4;color:#26343B;max-width:460px;text-align:right">Every route in this surface, and the board that shows it. A route with several states shows each as a state of the same screen, never a new page.</div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;flex:1;min-height:0">
+
+    <section style="background:#fff;border-radius:22px;padding:20px 24px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06);display:flex;flex-direction:column;gap:10px">
+      <h2 style="margin:0;font-size:22px">Shift lead: invite and track</h2>
+      <div style="display:grid;grid-template-columns:1fr 1.15fr;gap:8px 18px;font-size:16px;line-height:1.35">
+        <span style="font-weight:700">/lead/reporters</span><span>Set-up progress: the list and the stuck-one detail</span>
+        <span style="font-weight:700">/lead/reporters/invite</span><span>Invite: the compose state (board 1)</span>
+        <span style="font-weight:700">/lead/reporters/number</span><span>Change a reporter's number (board 2, inline)</span>
+      </div>
+      <div style="font-size:15px;color:#44555D;margin-top:4px">Boards: Shift lead: invite a reporter · Shift lead: track set-up and fix a stuck one</div>
+    </section>
+
+    <section style="background:#fff;border-radius:22px;padding:20px 24px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06);display:flex;flex-direction:column;gap:10px">
+      <h2 style="margin:0;font-size:22px">Provider set-up on a phone</h2>
+      <div style="display:grid;grid-template-columns:1fr 1.15fr;gap:8px 18px;font-size:16px;line-height:1.35">
+        <span style="font-weight:700">/i/[token]</span><span>The text (1), then the welcome (2); expired is in States</span>
+        <span style="font-weight:700">/setup?step=welcome</span><span>2 Welcome</span>
+        <span style="font-weight:700">/setup?step=number, code</span><span>3 Check your number and enter the code</span>
+        <span style="font-weight:700">/setup?step=channel</span><span>4 How we contact you</span>
+        <span style="font-weight:700">/setup/home-screen</span><span>5 Home screen</span>
+        <span style="font-weight:700">/setup/notifications</span><span>6 Notifications</span>
+        <span style="font-weight:700">/setup/pin</span><span>7 PIN</span>
+        <span style="font-weight:700">/setup/all-set</span><span>8 All set (app)</span>
+        <span style="font-weight:700">/setup/done</span><span>States: set up by text or email</span>
+      </div>
+    </section>
+
+    <section style="background:#fff;border-radius:22px;padding:20px 24px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06);display:flex;flex-direction:column;gap:10px">
+      <h2 style="margin:0;font-size:22px">Registering a service</h2>
+      <div style="display:grid;grid-template-columns:1fr 1.15fr;gap:8px 18px;font-size:16px;line-height:1.35">
+        <span style="font-weight:700">/register</span><span>Sign in with the invitation (phone) and the start of the prototype</span>
+        <span style="font-weight:700">/register/[id]/start</span><span>Prototype: Start</span>
+        <span style="font-weight:700">…/organisation, /location</span><span>Prototype: steps 1 and 2</span>
+        <span style="font-weight:700">…/service, /reporting</span><span>Prototype: steps 3 and 4; phone: a step with problems</span>
+        <span style="font-weight:700">…/review, /submitted</span><span>Prototype: review and submitted; phone: review</span>
+        <span style="font-weight:700">…/status</span><span>After submitting: every status</span>
+        <span style="font-weight:700">/register/services</span><span>After submitting: My services</span>
+      </div>
+    </section>
+
+    <section style="background:#fff;border-radius:22px;padding:20px 24px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06);display:flex;flex-direction:column;gap:10px">
+      <h2 style="margin:0;font-size:22px">Reviewing a registration</h2>
+      <div style="display:grid;grid-template-columns:1fr 1.15fr;gap:8px 18px;font-size:16px;line-height:1.35">
+        <span style="font-weight:700">/lead/registrations</span><span>Prototype: the queue; phone: the queue</span>
+        <span style="font-weight:700">…/[id]</span><span>Prototype: overview; phone: review and decide</span>
+        <span style="font-weight:700">…/[id]?step=callback</span><span>Prototype: check 1, call back</span>
+        <span style="font-weight:700">…/[id]?step=scope</span><span>Prototype: check 2, in scope?</span>
+        <span style="font-weight:700">…/[id]?step=decide</span><span>Prototype: check 4, decide</span>
+        <span style="font-weight:700">…/[id]?step=go-live</span><span>Prototype: test answered, set live</span>
+        <span style="font-weight:700">Automatic checks</span><span>Every state, including the address check with no area set</span>
+      </div>
+    </section>
+  </div>
+
+  <div style="display:flex;gap:12px;align-items:center;font-size:15px;color:#44555D">
+    <span style="padding:6px 14px;border-radius:999px;background:#0B2A3D;color:#fff;font-weight:700">Not on these boards</span>
+    The shift lead's scope list and service set-up (/lead/scope, /lead/services/new) belong to the service set-up surface.
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

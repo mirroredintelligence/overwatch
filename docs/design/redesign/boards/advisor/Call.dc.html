@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Morphing advisor call</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font-family:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid #14232B;outline-offset:2px}
+@media (prefers-reduced-motion: reduce){*{transition:none !important}}
+</style>
+</helmet>
+<div style="width:1280px;height:800px;display:flex;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden">
+
+  <nav aria-label="Main" style="width:84px;flex:none;background:#0B2A3D;display:flex;flex-direction:column;align-items:center;padding:20px 0;gap:6px">
+    <div style="width:44px;height:44px;border-radius:14px;background:#0B5C8C;display:flex;align-items:center;justify-content:center;margin-bottom:18px">
+      <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#fff"/><path d="M3 13h20" stroke="#fff" stroke-width="2.4"/></svg>
+    </div>
+    <a href="#" style="width:68px;padding:10px 0 8px;border-radius:14px;background:rgba(255,255,255,.14);display:flex;flex-direction:column;align-items:center;gap:4px;color:#fff;text-decoration:none;font-size:13px;font-weight:700">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>Calls</a>
+    <a href="#" style="width:68px;padding:10px 0 8px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:4px;color:#B9D0DC;text-decoration:none;font-size:13px">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Board</a>
+    <a href="#" style="width:68px;padding:10px 0 8px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:4px;color:#B9D0DC;text-decoration:none;font-size:13px">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-5.6 7-11a7 7 0 0 0-14 0c0 5.4 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Services</a>
+    <a href="#" style="margin-top:auto;width:68px;padding:10px 0 8px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:4px;color:#B9D0DC;text-decoration:none;font-size:13px">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/></svg>Help</a>
+  </nav>
+
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+
+    <header style="height:72px;flex:none;display:flex;align-items:center;gap:16px;padding:0 28px;border-bottom:1px solid #DDE3E6;background:#fff">
+      <div style="display:flex;flex-direction:column;line-height:1.2">
+        <span style="font-size:14px;color:#44555D">Urgent care capacity</span>
+        <span style="font-size:20px;font-weight:700">Advisor</span>
+      </div>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:14px">
+        <div style="{{callChipStyle}}">
+          <span style="width:9px;height:9px;border-radius:50%;background:#0B5C8C"></span>
+          <span>Call in progress · 02:14 · Ambulance crew</span>
+        </div>
+        <button type="button" style="height:44px;padding:0 16px;border:2px solid #14232B;border-radius:999px;background:#fff;color:#14232B;font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px">Clinical advisor
+          <svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 8l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      </div>
+    </header>
+
+    <div style="flex:none;display:flex;align-items:center;gap:10px;padding:14px 28px 6px" role="group" aria-label="Call steps, press to see each layout">
+      <sc-for list="{{steps}}" as="s" hint-placeholder-count="4">
+        <button type="button" onClick="{{ s.go }}" aria-pressed="{{ s.on }}" style="{{ s.style }}">
+          <span style="{{ s.numStyle }}">{{ s.n }}</span>{{ s.label }}</button>
+      </sc-for>
+      <span style="margin-left:auto;font-size:15px;color:#44555D">{{hint}}</span>
+    </div>
+
+    <div style="{{stripStyle}}" role="group" aria-label="Services by state">
+      <sc-for list="{{tiles}}" as="t" hint-placeholder-count="5">
+        <div style="{{ t.style }}">
+          <span style="{{ t.numStyle }}">{{ t.n }}</span>
+          <span style="{{ t.labelStyle }}">{{ t.label }}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <main style="{{gridStyle}}">
+
+      <section aria-label="This patient" style="{{summaryStyle}}">
+        <div style="width:300px;box-sizing:border-box;background:#fff;border-radius:22px;padding:22px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07);display:flex;flex-direction:column;gap:12px">
+          <div style="font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D">This patient</div>
+          <div style="font-size:26px;font-weight:700;line-height:1.1">80+ · DT4 8XX</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <span style="padding:6px 12px;border-radius:999px;background:#E3F1F8;font-weight:700;font-size:15px">Fall, no injury</span>
+            <span style="padding:6px 12px;border-radius:999px;background:#E3F1F8;font-weight:700;font-size:15px">Frailty</span>
+            <span style="padding:6px 12px;border-radius:999px;background:#E3F1F8;font-weight:700;font-size:15px">Within 2 hrs</span>
+          </div>
+          <div style="font-size:16px;color:#26343B">NEWS2 2 · Clinical Frailty Scale 6</div>
+          <button type="button" onClick="{{go1}}" style="height:48px;border:2px solid #0B5C8C;border-radius:14px;background:#fff;color:#0B5C8C;font-size:17px;font-weight:700">Edit needs</button>
+        </div>
+      </section>
+
+      <section aria-label="Stage" style="position:relative;min-width:0">
+
+        <div style="{{layer0}}">
+          <div style="background:#fff;border-radius:26px;padding:34px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07);display:flex;flex-direction:column;gap:18px;align-items:flex-start;max-width:640px">
+            <h2 style="margin:0;font-size:34px;line-height:1.1">Ready for calls</h2>
+            <p style="margin:0;font-size:19px;line-height:1.45;color:#26343B">The board above is live. When a call starts, it folds into a strip and the call takes the room.</p>
+            <button type="button" onClick="{{go1}}" style="height:60px;padding:0 30px;border:0;border-radius:16px;background:#0B5C8C;color:#fff;font-size:20px;font-weight:700;box-shadow:0 6px 16px rgba(11,92,140,.28)">Start a new call</button>
+          </div>
+        </div>
+
+        <div style="{{layer1}}">
+          <div style="background:#fff;border-radius:26px;padding:28px 32px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07);display:flex;flex-direction:column;gap:20px">
+            <h2 style="margin:0;font-size:28px">Patient needs</h2>
+            <div>
+              <div style="font-size:17px;font-weight:700;margin-bottom:8px">Age</div>
+              <div style="display:flex;gap:10px">
+                <span style="padding:12px 20px;border-radius:14px;border:2px solid #DDE3E6;font-size:18px;font-weight:700">0 to 15</span>
+                <span style="padding:12px 20px;border-radius:14px;border:2px solid #DDE3E6;font-size:18px;font-weight:700">16 to 64</span>
+                <span style="padding:12px 20px;border-radius:14px;border:2px solid #DDE3E6;font-size:18px;font-weight:700">65 to 79</span>
+                <span style="padding:12px 20px;border-radius:14px;border:2px solid #0B5C8C;background:#E3F1F8;font-size:18px;font-weight:700">80+</span>
+              </div>
+            </div>
+            <div style="display:flex;gap:20px">
+              <div style="width:220px">
+                <div style="font-size:17px;font-weight:700;margin-bottom:8px">Postcode</div>
+                <div style="height:52px;border:2px solid #26343B;border-radius:14px;display:flex;align-items:center;padding:0 16px;font-size:20px">DT4 8XX</div>
+              </div>
+              <div style="flex:1">
+                <div style="font-size:17px;font-weight:700;margin-bottom:8px">How soon</div>
+                <div style="display:flex;gap:10px">
+                  <span style="padding:12px 20px;border-radius:14px;border:2px solid #0B5C8C;background:#E3F1F8;font-size:18px;font-weight:700">Within 2 hrs</span>
+                  <span style="padding:12px 20px;border-radius:14px;border:2px solid #DDE3E6;font-size:18px;font-weight:700">Today</span>
+                  <span style="padding:12px 20px;border-radius:14px;border:2px solid #DDE3E6;font-size:18px;font-weight:700">Planned</span>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:17px;font-weight:700;margin-bottom:8px">What do they need?</div>
+              <div style="display:flex;flex-wrap:wrap;gap:10px">
+                <span style="padding:12px 20px;border-radius:14px;border:2px solid #0B5C8C;background:#E3F1F8;font-size:18px;font-weight:700">Fall, no injury</span>
+                <span style="padding:12px 20px;border-radius:14px;border:2px solid #0B5C8C;background:#E3F1F8;font-size:18px;font-weight:700">Frailty</span>
+                <span style="padding:12px 20px;border-radius:14px;border:2px solid #DDE3E6;font-size:18px;font-weight:700">IV therapy</span>
+                <span style="padding:12px 20px;border-radius:14px;border:2px solid #DDE3E6;font-size:18px;font-weight:700">Wound care</span>
+                <span style="padding:12px 20px;border-radius:14px;border:2px solid #DDE3E6;font-size:18px;font-weight:700">Palliative</span>
+                <span style="padding:12px 20px;border-radius:14px;border:2px dashed #6B7B83;font-size:18px;font-weight:700">More needs</span>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #DDE3E6;padding-top:16px">
+              <span style="font-size:17px;color:#26343B">Score from the referrer (optional) <span style="font-weight:700">NEWS2 2 · CFS 6</span></span>
+              <button type="button" onClick="{{go2}}" style="height:56px;padding:0 28px;border:0;border-radius:16px;background:#0B5C8C;color:#fff;font-size:19px;font-weight:700">See 3 matching services</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="{{layer2}}">
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div style="display:flex;align-items:baseline;gap:14px">
+              <h2 style="margin:0;font-size:28px">3 services meet this patient's criteria</h2>
+              <span style="font-size:16px;color:#44555D">Sorted by travel time. Not ranked.</span>
+            </div>
+            <sc-for list="{{options}}" as="o" hint-placeholder-count="3">
+              <div style="{{ o.style }}">
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:21px;font-weight:700">{{ o.name }}</div>
+                  <div style="font-size:16px;color:#44555D">{{ o.type }} · {{ o.travel }} · updated {{ o.age }}</div>
+                  <span style="{{ o.chip }}">{{ o.status }}</span>
+                </div>
+                <div style="text-align:right">
+                  <div style="{{ o.numStyle }}">{{ o.big }}</div>
+                  <div style="font-size:15px;color:#44555D">{{ o.unit }}</div>
+                </div>
+                <button type="button" onClick="{{go3}}" style="height:52px;padding:0 22px;border:2px solid #0B5C8C;border-radius:14px;background:#fff;color:#0B5C8C;font-size:17px;font-weight:700">Open</button>
+              </div>
+            </sc-for>
+            <div style="font-size:16px;color:#44555D;padding:6px 4px">3 services not suitable, and why</div>
+          </div>
+        </div>
+
+        <div style="{{layer3}}">
+          <div style="background:#fff;border-radius:26px;padding:30px 34px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07);display:flex;flex-direction:column;gap:18px">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between">
+              <div>
+                <h2 style="margin:0;font-size:32px">UCR West</h2>
+                <div style="font-size:17px;color:#44555D">Urgent community response · reported by text at 14:03, next due 14:30</div>
+              </div>
+              <span style="padding:8px 16px;border-radius:999px;background:#0B5C8C;color:#fff;font-weight:700;font-size:16px">Accepting</span>
+            </div>
+            <div style="display:flex;align-items:baseline;gap:14px"><span style="font-size:72px;font-weight:700;color:#0B3F61;line-height:1">4</span><span style="font-size:20px;color:#26343B">referrals in the next 2 hrs · response about 1 hr 20</span></div>
+            <div style="display:flex;gap:24px">
+              <div style="flex:1;background:#F4F6F5;border-radius:16px;padding:16px 18px"><div style="font-weight:700;margin-bottom:6px">Accepts</div><div style="font-size:16px;line-height:1.5;color:#26343B">Falls without injury · Frailty · Age 18+ · Postcodes DT1 to DT4 · 08:00 to 20:00</div></div>
+              <div style="flex:1;background:#F4F6F5;border-radius:16px;padding:16px 18px"><div style="font-weight:700;margin-bottom:6px">Does not accept</div><div style="font-size:16px;line-height:1.5;color:#26343B">Suspected fracture · Head injury on anticoagulants · Needs IV therapy</div></div>
+            </div>
+            <div style="font-size:15px;color:#44555D">Criteria version 3 · last reviewed 12 Sep · review by 12 Dec · owner: UCR clinical lead</div>
+            <div style="display:flex;gap:12px;align-items:center">
+              <button type="button" style="height:58px;padding:0 30px;border:0;border-radius:16px;background:#0B5C8C;color:#fff;font-size:19px;font-weight:700;box-shadow:0 6px 16px rgba(11,92,140,.28)">Request booking</button>
+              <button type="button" style="height:58px;padding:0 24px;border:2px solid #0B5C8C;border-radius:16px;background:#fff;color:#0B5C8C;font-size:18px;font-weight:700">I phoned</button>
+              <button type="button" onClick="{{go2}}" style="height:58px;padding:0 24px;border:0;border-radius:16px;background:transparent;color:#26343B;font-size:18px;font-weight:700;text-decoration:underline">Back to options</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside aria-label="Alongside" style="{{sideStyle}}">
+        <div style="{{side0}}">
+          <div style="background:#fff;border-radius:22px;padding:22px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07)">
+            <div style="font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D;margin-bottom:10px">Open cases</div>
+            <div style="font-size:17px;line-height:1.45;color:#26343B">No open cases. Nothing from earlier calls is shown here.</div>
+          </div>
+        </div>
+        <div style="{{side1}}">
+          <div style="background:#fff;border-radius:22px;padding:22px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07)">
+            <div style="font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D;margin-bottom:6px">As you fill this in</div>
+            <div style="display:flex;align-items:baseline;gap:10px"><span style="font-size:56px;font-weight:700;color:#0B3F61;line-height:1">3</span><span style="font-size:18px;color:#26343B">services meet the criteria so far</span></div>
+            <div style="font-size:15px;color:#44555D;margin-top:8px">The count follows every choice. Nothing is offered until you press the button.</div>
+          </div>
+        </div>
+        <div style="{{side3}}">
+          <div style="background:#fff;border-radius:22px;padding:18px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07);display:flex;flex-direction:column;gap:10px">
+            <div style="font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#44555D">Other options</div>
+            <div style="border:2px solid #6B2C91;border-radius:14px;padding:12px 14px"><div style="font-weight:700">Hospital at home</div><div style="font-size:15px;color:#4B1C69">Over capacity · +2</div></div>
+            <div style="border:2px solid #DDE3E6;border-radius:14px;padding:12px 14px"><div style="font-weight:700">Community hospital · Ward B</div><div style="font-size:15px;color:#0B3F61">Accepting · 5 beds free</div></div>
+          </div>
+        </div>
+      </aside>
+
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"stage":{"editor":"int","default":0,"min":0,"max":3,"step":1},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { stage: Math.min(3, Math.max(0, Number((props && props.stage) || 0))) };
+  }
+  renderVals() {
+    const s = this.state.stage;
+    const go = (n) => () => this.setState({ stage: n });
+    const SPRING = 'cubic-bezier(0.34,1.56,0.64,1)';
+    const DRAWER = 'cubic-bezier(0.32,0.72,0,1)';
+    const labels = ['Overview', 'Needs', 'Options', 'Request'];
+    const steps = labels.map((label, i) => ({
+      n: String(i + 1),
+      label,
+      on: s === i,
+      go: go(i),
+      style: 'display:flex;align-items:center;gap:10px;height:48px;padding:0 20px 0 10px;border-radius:999px;font-size:17px;font-weight:700;border:2px solid ' + (s === i ? '#0B5C8C' : '#DDE3E6') + ';background:' + (s === i ? '#0B5C8C' : '#fff') + ';color:' + (s === i ? '#fff' : '#14232B') + ';transition:background-color 240ms ease, color 240ms ease, border-color 240ms ease',
+      numStyle: 'width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;background:' + (s === i ? 'rgba(255,255,255,.22)' : '#E3F1F8') + ';color:' + (s === i ? '#fff' : '#0B3F61')
+    }));
+    const big = s === 0;
+    const raw = [
+      { n: '4', label: 'Accepting', c: '#0B5C8C', d: 'solid' },
+      { n: '2', label: 'Limited', c: '#A34700', d: 'solid' },
+      { n: '1', label: 'Over capacity', c: '#6B2C91', d: 'solid' },
+      { n: '1', label: 'Not accepting', c: '#3A4750', d: 'solid' },
+      { n: '1', label: 'Not updated', c: '#6B7B83', d: 'dashed' }
+    ];
+    const tiles = raw.map((t, i) => ({
+      n: t.n,
+      label: t.label,
+      style: 'flex:1;min-width:0;box-sizing:border-box;display:flex;flex-direction:' + (big ? 'column' : 'row') + ';align-items:' + (big ? 'flex-start' : 'center') + ';justify-content:' + (big ? 'flex-end' : 'flex-start') + ';gap:' + (big ? '2px' : '10px') + ';height:' + (big ? '124px' : '48px') + ';padding:' + (big ? '16px 20px' : '0 16px') + ';border-radius:' + (big ? '22px' : '14px') + ';background:#fff;border:2px ' + t.d + ' ' + t.c + ';box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06);transition:height 520ms ' + DRAWER + ', padding 520ms ' + DRAWER + ', border-radius 520ms ' + DRAWER + ', transform 520ms ' + SPRING + ';transform:' + (big ? 'none' : 'translateY(0)'),
+      numStyle: 'font-weight:700;line-height:1;color:' + t.c + ';font-size:' + (big ? '52px' : '24px') + ';transition:font-size 520ms ' + SPRING,
+      labelStyle: 'font-size:' + (big ? '17px' : '15px') + ';font-weight:700;color:#26343B;transition:font-size 520ms ' + DRAWER
+    }));
+    const cols = ['0px minmax(0,1fr) 340px', '0px minmax(0,1fr) 320px', '300px minmax(0,1fr) 0px', '270px minmax(0,1fr) 300px'][s];
+    const layer = (i) => 'position:absolute;inset:0;overflow:hidden;padding:4px 6px 20px 2px;opacity:' + (s === i ? 1 : 0) + ';transform:' + (s === i ? 'none' : (i < s ? 'translateY(-14px) scale(0.985)' : 'translateY(16px) scale(0.985)')) + ';pointer-events:' + (s === i ? 'auto' : 'none') + ';transition:opacity 280ms ease ' + (s === i ? '160ms' : '0ms') + ', transform 520ms ' + SPRING + ' ' + (s === i ? '120ms' : '0ms');
+    const sideLayer = (i) => 'position:absolute;inset:0;opacity:' + (s === i ? 1 : 0) + ';transform:' + (s === i ? 'none' : 'translateX(18px)') + ';pointer-events:' + (s === i ? 'auto' : 'none') + ';transition:opacity 260ms ease ' + (s === i ? '200ms' : '0ms') + ', transform 520ms ' + SPRING;
+    const optionRaw = [
+      { name: 'UCR West', type: 'Urgent community response', travel: 'visits, about 1 hr 20', age: '9 min', status: 'Accepting', big: '4', unit: 'referrals in next 2 hrs', c: '#0B5C8C', num: '#0B3F61', border: '#DDE3E6', chipBg: '#0B5C8C' },
+      { name: 'Hospital at home', type: 'Virtual beds', travel: 'review in about 3 hrs', age: '14 min', status: 'Over capacity', big: '+2', unit: 'over established capacity', c: '#6B2C91', num: '#4B1C69', border: '#6B2C91', chipBg: '#6B2C91' },
+      { name: 'Community hospital · Ward B', type: 'Inpatient beds', travel: '35 to 50 min by road', age: '2 hrs 10 min', status: 'Accepting', big: '5', unit: 'beds free', c: '#0B5C8C', num: '#0B3F61', border: '#DDE3E6', chipBg: '#0B5C8C' }
+    ];
+    const options = optionRaw.map((o) => ({
+      ...o,
+      style: 'display:flex;align-items:center;gap:20px;background:#fff;border-radius:22px;padding:18px 22px;border:2px solid ' + o.border + ';box-shadow:0 1px 2px rgba(20,35,43,.06),0 8px 22px rgba(20,35,43,.06)',
+      chip: 'display:inline-block;margin-top:8px;padding:5px 12px;border-radius:999px;background:' + o.chipBg + ';color:#fff;font-weight:700;font-size:15px',
+      numStyle: 'font-size:44px;font-weight:700;line-height:1;color:' + o.num
+    }));
+    const hints = ['Step 1: the board is the focus.', 'Step 2: the board folds into a strip, the form takes the room.', 'Step 3: the needs pin to the left, the options fill the stage.', 'Step 4: one option takes the stage, the others fold into a rail.'];
+    return {
+      steps, tiles, options,
+      hint: hints[s],
+      stripStyle: 'flex:none;display:flex;gap:12px;padding:6px 28px 12px;transition:padding 520ms ' + DRAWER,
+      gridStyle: 'flex:1;min-height:0;display:grid;grid-template-columns:' + cols + ';column-gap:' + (s === 0 || s === 1 ? '0' : '22px') + ';padding:4px 28px 24px;transition:grid-template-columns 560ms ' + DRAWER + ', column-gap 560ms ' + DRAWER,
+      summaryStyle: 'min-width:0;overflow:hidden;opacity:' + (s >= 2 ? 1 : 0) + ';transform:' + (s >= 2 ? 'none' : 'translateX(-24px)') + ';transition:opacity 300ms ease ' + (s >= 2 ? '200ms' : '0ms') + ', transform 520ms ' + SPRING + ';padding:4px 2px 20px 2px',
+      sideStyle: 'position:relative;min-width:0;overflow:hidden;margin-left:' + (s === 2 ? '0' : '22px') + ';transition:margin-left 560ms ' + DRAWER,
+      callChipStyle: 'display:flex;align-items:center;gap:10px;height:44px;padding:0 18px;border-radius:999px;background:#E3F1F8;color:#0B3F61;font-size:16px;font-weight:700;opacity:' + (s >= 1 ? 1 : 0) + ';transform:' + (s >= 1 ? 'none' : 'translateY(-8px) scale(0.96)') + ';transition:opacity 300ms ease, transform 520ms ' + SPRING,
+      layer0: layer(0), layer1: layer(1), layer2: layer(2), layer3: layer(3),
+      side0: sideLayer(0), side1: sideLayer(1), side3: sideLayer(3),
+      go1: go(1), go2: go(2), go3: go(3)
+    };
+  }
+}
+</script>
+</body>
+</html>

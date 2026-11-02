@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Check your number</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width:390px;height:844px;position:relative;background:#EEF2F3;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B;overflow:hidden">
+
+  <header style="height:60px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:#0B2A3D;color:#fff">
+    <div style="display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#fff"/><path d="M3 13h20" stroke="#fff" stroke-width="2.4"/></svg>Overwatch</div>
+    <span style="padding:7px 14px;border-radius:999px;background:rgba(255,255,255,.16);font-weight:700;font-size:15px">UCR West</span>
+  </header>
+  <div style="display:flex;gap:6px;padding:14px 16px 6px" aria-hidden="true"><span style="flex:1;height:6px;border-radius:3px;background:#0B5C8C"></span><span style="flex:1;height:6px;border-radius:3px;background:#C9DCE6"></span><span style="flex:1;height:6px;border-radius:3px;background:#C9DCE6"></span><span style="flex:1;height:6px;border-radius:3px;background:#C9DCE6"></span><span style="flex:1;height:6px;border-radius:3px;background:#C9DCE6"></span></div>
+
+  <div style="padding:10px 16px 0;display:flex;flex-direction:column;gap:16px">
+    <div style="font-size:15px;color:#44555D">Step 1 of 5 · Check your number</div>
+
+    <div style="background:#fff;border-radius:18px;padding:12px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 2px rgba(20,35,43,.06)">
+      <span style="width:30px;height:30px;border-radius:50%;background:#0B5C8C;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none" aria-hidden="true">✓</span>
+      <span style="flex:1;font-size:17px"><strong>07xxx xxx456</strong><br><span style="font-size:15px;color:#44555D">Code sent just now</span></span>
+    </div>
+
+    <div style="background:#fff;border-radius:26px;padding:22px 20px;box-shadow:0 1px 2px rgba(20,35,43,.06),0 10px 28px rgba(20,35,43,.07);display:flex;flex-direction:column;gap:16px">
+      <h1 style="margin:0;font-size:28px">Enter your code</h1>
+      <div style="font-size:17px;line-height:1.4;color:#26343B">We sent a 6-digit code to 07xxx xxx456.</div>
+      <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px" aria-label="6-digit code, 3 digits entered" role="group">
+        <span style="height:62px;border:2px solid #26343B;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700">4</span>
+        <span style="height:62px;border:2px solid #26343B;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700">8</span>
+        <span style="height:62px;border:2px solid #26343B;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700">2</span>
+        <span style="height:62px;border:2px solid #0B5C8C;border-radius:14px;box-shadow:0 0 0 4px rgba(11,92,140,.2);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700"></span>
+        <span style="height:62px;border:2px solid #DDE3E6;border-radius:14px"></span>
+        <span style="height:62px;border:2px solid #DDE3E6;border-radius:14px"></span>
+      </div>
+      <div style="font-size:16px;color:#44555D;line-height:1.4">Send a new code in 0:42. The code works for 10 minutes. After 5 wrong tries, ask for a new one.</div>
+      <details style="font-size:16px;color:#26343B"><summary style="cursor:pointer;font-weight:700;min-height:44px;display:flex;align-items:center">This is not my number</summary><div style="padding:0 0 4px;line-height:1.45">Ask the shift lead to send a new invitation to the right number. Do not carry on.</div></details>
+    </div>
+  </div>
+
+  <div style="position:absolute;left:0;right:0;bottom:0;padding:12px 16px 24px;background:linear-gradient(180deg,rgba(238,242,243,0),#EEF2F3 30%)">
+    <button type="button" disabled style="width:100%;height:60px;border:0;border-radius:16px;background:#C9DCE6;color:#44555D;font-family:inherit;font-size:20px;font-weight:700">Check code</button>
+    <div style="text-align:center;font-size:14px;color:#44555D;margin-top:8px">The button wakes up when all 6 digits are in.</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

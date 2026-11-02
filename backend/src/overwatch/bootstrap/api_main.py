@@ -88,9 +88,10 @@ from overwatch.application.ports.outbound.identity_verifier import (
     IdentityVerifier,
     VerifiedIdentity,
 )
-from overwatch.application.ports.outbound.tenants import normalise_directory_id
+from overwatch.application.ports.outbound.tenant_lines import InboundLineDirectory
+from overwatch.application.ports.outbound.tenants import TenantDirectory, normalise_directory_id
 from overwatch.application.ports.outbound.tokens import SecretStore, SecretStoreUnavailable
-from overwatch.application.tenant_resolution import DirectoryInboundLines
+from overwatch.application.tenant_resolution import DemoInboundLines, DirectoryInboundLines
 from overwatch.application.use_cases.exchange_token import ACCOUNT_REF_SECRET, SIGNING_SECRET
 from overwatch.bootstrap.admin_consent import install_admin_consent
 from overwatch.bootstrap.container import (
@@ -116,6 +117,11 @@ from overwatch.bootstrap.secret_store import (
 )
 from overwatch.bootstrap.settings import Settings
 from overwatch.bootstrap.telemetry import api_instrumentation
+from overwatch.bootstrap.tenant_senders import (
+    PLATFORM_SMS_TOKEN_SECRET,
+    demo_inbound_problem,
+    platform_sms_identity,
+)
 from overwatch.domain.errors import NotFound
 from overwatch.domain.rules.browser_insight import MARKER_SECRET
 from overwatch.domain.rules.tenant_keys import PER_TENANT_KEY_NAMES
@@ -257,6 +263,32 @@ def check_settings(settings: Settings) -> None:
         normalise_directory_id(settings.operator_directory_id) is None
     ):
         raise ApiConfigError("OVERWATCH_OPERATOR_DIRECTORY_ID must be a directory id (a GUID)")
+    check_demo_inbound(settings)
+
+
+def check_demo_inbound(settings: Settings) -> None:
+    """TEMPORARY DEMO (DEC-1320): a demo tenant that is not a tenant id, or with no shared line to
+    take texts on, stops the process; it is never ignored."""
+    problem = demo_inbound_problem(settings)
+    if problem is not None:
+        raise ApiConfigError(problem)
+
+
+def demo_inbound_lines(
+    settings: Settings, base: InboundLineDirectory, directory: TenantDirectory
+) -> InboundLineDirectory:
+    """The inbound directory: the plain one, or with the demo route when the setting is set."""
+    identity = platform_sms_identity(settings)
+    if settings.demo_inbound_tenant is None or identity is None:
+        return base
+    return DemoInboundLines(
+        base,
+        directory,
+        tenant_id=settings.demo_inbound_tenant,
+        shared_number=identity.from_number,
+        account_sid=identity.account_sid,
+        token_secret=PLATFORM_SMS_TOKEN_SECRET,
+    )
 
 
 def _ranges_from_file(path: Path) -> tuple[IPNetwork, ...]:
@@ -306,6 +338,11 @@ def edge_for(settings: Settings, secrets: SecretStore) -> CloudflareEdge:
 def startup_warnings(settings: Settings, container: Container, parts: ApiParts) -> list[str]:
     """What the process starts without. Each one fails closed in use, so none stops the process."""
     found: list[str] = []
+    if settings.demo_inbound_tenant is not None:
+        found.append(
+            f"DEMO inbound routing is ON: texts to the shared line go to tenant "
+            f"{settings.demo_inbound_tenant}. Not for production."
+        )
     if isinstance(container.postcodes, NoPostcodes):
         found.append(
             "no postcode centroid file (OVERWATCH_POSTCODE_CENTROIDS_PATH): no position is located"
@@ -385,7 +422,9 @@ def build_api(
         event_bus=parts.event_bus,
         hasher=HmacPhoneHasher(container.secrets),
         secrets=container.secrets,
-        lines=DirectoryInboundLines(container.tenants),
+        lines=demo_inbound_lines(
+            settings, DirectoryInboundLines(container.tenants), container.tenants
+        ),
         public_base_url=settings.base_url,
     )
     app.state.network_services = build_network_services(container)

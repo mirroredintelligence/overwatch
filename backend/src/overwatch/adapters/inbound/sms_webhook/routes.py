@@ -24,6 +24,13 @@ Order of work, and why it is this order:
    queue send fails the marker is removed and the route answers 500, so Twilio's retry is not
    mistaken for a replay.
 
+TEMPORARY DEMO (DEC-1320): when the process was started with `OVERWATCH_DEMO_INBOUND_TENANT`, the
+directory also answers the platform's shared number under the platform's account with that one
+tenant and the PLATFORM auth token (`InboundLine.demo_number` marks it). Everything above then runs
+unchanged for that tenant. A receipt on such a line is applied only to a message the demo tenant
+holds and is otherwise answered 200 and ignored. With the setting unset the directory is the plain
+one and both routes refuse the shared number as before.
+
 No number, message text, phone hash or token is logged: a log line carries a reason and the Twilio
 message id. The collaborators are set on `app.state.sms_webhook` by the process that serves the app
 (as for the live stream, DEC-096); a missing one is a 500, never a pass.
@@ -186,6 +193,10 @@ async def _verified(
         line = await deps.lines.for_account(account_sid)
     if line is None:
         return _refused("line-unknown")
+    if not by_number and line.demo_number is not None and form.get("From") != line.demo_number:
+        # TEMPORARY DEMO (DEC-1320): a receipt on the platform account counts only for a text
+        # sent from the shared number.
+        return _refused("line-unknown")
     try:
         ScopeId.tenant(line.tenant_id)
     except ScopeInvalid:
@@ -279,13 +290,25 @@ async def _release(cache: Cache, key: str) -> None:
 
 @router.post(STATUS_PATH)
 async def sms_status(request: Request) -> Response:
-    deps, _ = _deps(request)
+    deps, container = _deps(request)
     verified = await _verified(request, deps, STATUS_PATH, by_number=False)
     if isinstance(verified, Response):
         return verified
     line, form = verified
     with bind_tenant(line.tenant_id):
+        if line.demo_number is not None and not await _demo_message_known(container, form):
+            # TEMPORARY DEMO (DEC-1320): the platform account carries every tenant's shared-line
+            # texts, so a receipt is applied only to a message of the demo tenant.
+            return _dropped("demo-receipt-no-message", form.get("MessageSid", ""))
         return await _accept_receipt(deps, form)
+
+
+async def _demo_message_known(container: _Container, form: Mapping[str, str]) -> bool:
+    sid = form.get("MessageSid", "")
+    if _SID.fullmatch(sid) is None:
+        return False
+    async with container.uow_factory() as uow:
+        return await uow.communications.by_provider_id(sid) is not None
 
 
 async def _accept_receipt(deps: SmsWebhookDeps, form: Mapping[str, str]) -> Response:

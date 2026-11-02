@@ -33,6 +33,11 @@ param platformTwilioAccountSid string
 // Left empty, the shared line is not offered. It sends from the platform account above, with the secret twilio-auth-token.
 param platformSmsFrom string = ''
 
+// TEMPORARY DEMO (DEC-1320): one tenant id. When set, a text that arrives on the shared number above is handled as if it
+// had arrived on that tenant's own line, and replies to it go out from the shared line. Empty means off, which is the
+// production setting. Never put a value in the repo; pass it at deploy time for a demo and remove it afterwards.
+param demoInboundTenant string = ''
+
 resource environment 'Microsoft.App/managedEnvironments@2024-03-01' existing = {
   name: environmentName
 }
@@ -92,6 +97,8 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'OVERWATCH_OPERATOR_DIRECTORY_ID', value: operatorDirectoryId }
             { name: 'OVERWATCH_PLATFORM_TWILIO_ACCOUNT_SID', value: platformTwilioAccountSid }
             { name: 'OVERWATCH_PLATFORM_SMS_FROM', value: platformSmsFrom }
+            // TEMPORARY DEMO (DEC-1320): empty means off.
+            { name: 'OVERWATCH_DEMO_INBOUND_TENANT', value: demoInboundTenant }
             { name: 'OVERWATCH_POSTCODE_CENTROIDS_PATH', value: '/app/data/postcodes/centroids-dt-bh.csv' }
           ]
           resources: {
@@ -139,6 +146,14 @@ resource workers 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'AZURE_CLIENT_ID', value: workersIdentity.properties.clientId }
             { name: 'OVERWATCH_NEO4J_URI', value: neo4jUri }
             { name: 'OVERWATCH_NEO4J_USER', value: neo4jUser }
+            // The workers send the replies. The shared line (platform account and number) and the public URL (the
+            // status callback of a text) are what a send from the shared line needs; the demo tenant makes the
+            // replies to a demo text go out from it.
+            { name: 'OVERWATCH_BASE_URL', value: baseUrl }
+            { name: 'OVERWATCH_PLATFORM_TWILIO_ACCOUNT_SID', value: platformTwilioAccountSid }
+            { name: 'OVERWATCH_PLATFORM_SMS_FROM', value: platformSmsFrom }
+            // TEMPORARY DEMO (DEC-1320): empty means off.
+            { name: 'OVERWATCH_DEMO_INBOUND_TENANT', value: demoInboundTenant }
           ]
           resources: {
             cpu: json('0.25')

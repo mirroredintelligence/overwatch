@@ -17,6 +17,9 @@ from typing import Protocol
 class InboundLine:
     tenant_id: str
     token_secret: str
+    # TEMPORARY DEMO (DEC-1320): set only on the line the demo route makes, to the platform's shared
+    # number. A receipt on such a line must come from that number. A tenant's own line never has it.
+    demo_number: str | None = None
 
 
 class InboundLineDirectory(Protocol):

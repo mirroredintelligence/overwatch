@@ -168,6 +168,7 @@ def install_number_tools(
         platform_email_identity(settings),
         platform_sms=identity,
         shared_line=shared_line_check(container.uow_factory),
+        demo_tenant=settings.demo_inbound_tenant,
     )
     app.state.platform_services = dataclasses.replace(
         app.state.platform_services,

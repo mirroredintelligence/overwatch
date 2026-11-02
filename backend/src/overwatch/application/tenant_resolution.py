@@ -33,7 +33,7 @@ from typing import Final
 
 from overwatch.application.ports.outbound.clock import Clock
 from overwatch.application.ports.outbound.identity import DEVICE_TOKEN_SECRET
-from overwatch.application.ports.outbound.tenant_lines import InboundLine
+from overwatch.application.ports.outbound.tenant_lines import InboundLine, InboundLineDirectory
 from overwatch.application.ports.outbound.tenants import (
     TenantDirectory,
     TenantLine,
@@ -48,7 +48,7 @@ from overwatch.application.tenancy import ScopeKind, TenantNotBound
 from overwatch.application.use_cases.text_code import INVITATION_PURPOSE
 from overwatch.domain.errors import Conflict, NotFound, ValidationFailed
 from overwatch.domain.model.device import Device, DeviceStatus
-from overwatch.domain.model.tenant import Tenant, TenantStatus
+from overwatch.domain.model.tenant import Tenant, TenantStatus, check_tenant_id
 from overwatch.domain.rules.tokens import LinkCheck, LinkTokenRecord, check_link, hash_token
 
 log = logging.getLogger(__name__)
@@ -117,6 +117,76 @@ class DirectoryInboundLines:
             log.warning("inbound line refused: reason=tenant-record")
             return None
         return _line_of(line)
+
+
+class DemoInboundLines:
+    """TEMPORARY DEMO (DEC-1320). The directory above, plus one more line: the platform's shared
+    number under the platform's account is the configured demo tenant's.
+
+    A tenant's own line always wins: the demo route is asked only when the real directory knows
+    nothing of the number or account, so it never applies to a tenant's own number and never to
+    another tenant. Only the exact shared number under exactly the platform account matches (a
+    receipt: the platform account, and the route checks the sender is the shared number through
+    `InboundLine.demo_number`). The configured tenant must exist and be provisioning or active;
+    otherwise there is no line, so the caller gets the one 403, and one WARNING that names no id.
+    The line's token is the platform's, never a tenant's."""
+
+    def __init__(
+        self,
+        base: InboundLineDirectory,
+        directory: TenantDirectory,
+        *,
+        tenant_id: str,
+        shared_number: str,
+        account_sid: str,
+        token_secret: str,
+    ) -> None:
+        self._base = base
+        self._directory = directory
+        self._tenant_id = check_tenant_id(tenant_id)
+        number = normalise_e164(shared_number)
+        account = normalise_account_sid(account_sid)
+        if number is None or account is None:
+            raise ValueError("the demo route needs the platform's shared number and account")
+        self._number = number
+        self._account = account
+        self._token_secret = token_secret
+
+    async def for_number(self, to_number: str, account_sid: str) -> InboundLine | None:
+        known = await self._base.for_number(to_number, account_sid)
+        if known is not None:
+            return known
+        if to_number != self._number or account_sid != self._account:
+            return None
+        return await self._demo_line()
+
+    async def for_account(self, account_sid: str) -> InboundLine | None:
+        known = await self._base.for_account(account_sid)
+        if known is not None:
+            return known
+        if account_sid != self._account:
+            return None
+        return await self._demo_line()
+
+    async def _demo_line(self) -> InboundLine | None:
+        try:
+            tenant = await self._directory.get(self._tenant_id)
+        except TenantRecordInvalid:
+            tenant = None
+        usable = (
+            type(tenant) is Tenant
+            and tenant.id == self._tenant_id
+            and tenant.status in _DEMO_STATUSES
+        )
+        if not usable:
+            log.warning("demo inbound route refused: reason=demo-tenant-unusable")
+            return None
+        return InboundLine(
+            tenant_id=self._tenant_id, token_secret=self._token_secret, demo_number=self._number
+        )
+
+
+_DEMO_STATUSES: Final = frozenset({TenantStatus.PROVISIONING, TenantStatus.ACTIVE})
 
 
 def _line_of(line: object) -> InboundLine | None:

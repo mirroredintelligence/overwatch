@@ -109,6 +109,10 @@ class Settings(BaseSettings):
     # DEC-1319: the platform's shared sending number (E.164), for a tenant that has no number of its
     # own yet. Outgoing only: it is never a tenant's number. Unset: no shared line.
     platform_sms_from: str | None = None
+    # TEMPORARY DEMO (DEC-1320): one tenant id. When set, a text that arrives on the platform's
+    # shared number (and the receipts for texts sent from it) is handled as if it had arrived on
+    # that tenant's own line. Unset (the production state): such a text is refused with a 403.
+    demo_inbound_tenant: str | None = None
     platform_email_from: str = "noreply@mirroredintelligence.com"
     # B8 (DEC-1304): where the platform's secrets come from. With `key_vault_url` set (a URL, not a
     # secret) the process reads them from Azure Key Vault through its managed identity

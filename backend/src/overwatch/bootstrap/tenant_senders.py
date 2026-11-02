@@ -49,7 +49,7 @@ from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from overwatch.application.tenancy import current_tenant
 from overwatch.bootstrap.settings import Settings
 from overwatch.domain.errors import NotFound, ValidationFailed
-from overwatch.domain.model.tenant import NumberStatus, TenantStatus
+from overwatch.domain.model.tenant import NumberStatus, TenantStatus, check_tenant_id
 from overwatch.domain.model.tenant_records import ChannelKind, ChannelProvider, TenantChannel
 
 PLATFORM_EMAIL_TOKEN_SECRET: Final = "twilio-auth-token"
@@ -96,6 +96,24 @@ def platform_sms_identity(settings: Settings) -> PlatformSmsIdentity | None:
     return PlatformSmsIdentity(account, number)
 
 
+def demo_inbound_problem(settings: Settings) -> str | None:
+    """TEMPORARY DEMO (DEC-1320): what is wrong with `OVERWATCH_DEMO_INBOUND_TENANT`, in plain
+    words, or None when it is unset or good. The value is never repeated."""
+    tenant = settings.demo_inbound_tenant
+    if tenant is None:
+        return None
+    try:
+        check_tenant_id(tenant)
+    except ValidationFailed:
+        return "OVERWATCH_DEMO_INBOUND_TENANT must be a tenant id (or be left unset)"
+    if platform_sms_identity(settings) is None:
+        return (
+            "OVERWATCH_DEMO_INBOUND_TENANT is set but the shared line is not: set "
+            "OVERWATCH_PLATFORM_TWILIO_ACCOUNT_SID and OVERWATCH_PLATFORM_SMS_FROM, or unset it"
+        )
+    return None
+
+
 def shared_line_check(uow_factory: UnitOfWorkFactory) -> SharedLineCheck:
     """The check over the tenant's own channels, in the bound tenant's scope."""
 
@@ -138,6 +156,7 @@ class TenantSenderResolver:
         platform_email: PlatformEmailIdentity | None = None,
         platform_sms: PlatformSmsIdentity | None = None,
         shared_line: SharedLineCheck | None = None,
+        demo_tenant: str | None = None,
     ) -> None:
         self._directory = directory
         self._secrets = secrets
@@ -147,6 +166,7 @@ class TenantSenderResolver:
         self._platform_email = platform_email
         self._platform_sms = platform_sms
         self._shared_line = shared_line
+        self._demo_tenant = demo_tenant
 
     async def admin_email_for(self, channel: TenantChannel | None) -> EmailSender:
         """One rule for every platform-admin email (DEC-1316): the tenant's own email sender when
@@ -180,6 +200,8 @@ class TenantSenderResolver:
         gap to fall back from."""
         tenant = current_tenant()
         unavailable = ChannelUnavailable(f"no {TEXT_CHANNEL} channel for tenant {tenant}")
+        if self._demo_tenant is not None and tenant == self._demo_tenant:
+            return await self._demo_sender(tenant, unavailable)
         try:
             line = await self._directory.active_line(tenant)
         except TenantRecordInvalid:
@@ -205,6 +227,21 @@ class TenantSenderResolver:
             raise unavailable from None
         token = self._secret_text(number.secret_ref, unavailable)
         return TwilioSms(self._http, number.account_sid, token, number.e164, self._status_url)
+
+    async def _demo_sender(self, tenant: str, unavailable: ChannelUnavailable) -> SmsSender:
+        """TEMPORARY DEMO (DEC-1320). A text came in on the shared line for the demo tenant, so its
+        texts go out from the shared line: the person texted that number and expects the answer
+        from it. It needs no shared channel and no number of its own, only a tenant that exists and
+        is provisioning or active, and the platform's identity; anything else is unavailable."""
+        found = await self._directory.get(tenant)
+        usable = (
+            found is not None
+            and found.id == tenant
+            and found.status in (TenantStatus.PROVISIONING, TenantStatus.ACTIVE)
+        )
+        if not usable:
+            raise unavailable
+        return self._platform_sms_sender(unavailable)
 
     async def _shared_sender(self, tenant: str, unavailable: ChannelUnavailable) -> SmsSender:
         if self._shared_line is None or self._platform_sms is None:

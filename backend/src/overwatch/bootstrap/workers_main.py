@@ -119,6 +119,7 @@ from overwatch.bootstrap.settings import Settings
 from overwatch.bootstrap.telemetry import start_telemetry
 from overwatch.bootstrap.tenant_senders import (
     TenantSenderResolver,
+    demo_inbound_problem,
     platform_sms_identity,
     shared_line_check,
     status_callback_url,
@@ -330,6 +331,15 @@ async def serve(
     """Open every connection, run the workers until `stop` is set, and close them again.
     `secrets` is the process's secret store (None: every secret is not found)."""
     connection = service_bus_connection(settings)
+    problem = demo_inbound_problem(settings)
+    if problem is not None:
+        raise RuntimeError(problem)
+    if settings.demo_inbound_tenant is not None:
+        log.warning(
+            "DEMO inbound routing is ON: replies to texts on the shared line go from the shared "
+            "line for tenant %s. Not for production.",
+            settings.demo_inbound_tenant,
+        )
     container = build(settings, secrets=secrets)
     await container.startup()  # refuses to start when Neo4j cannot be reached
     tenants = container.tenants
@@ -378,6 +388,7 @@ async def serve(
             status_callback_url(settings),
             platform_sms=platform_sms_identity(settings),
             shared_line=shared_line_check(container.uow_factory),
+            demo_tenant=settings.demo_inbound_tenant,
         )
         sealer = AesGcmContentSealer(container.secrets)
         registry = Neo4jNetworkRegistry(container.neo4j)

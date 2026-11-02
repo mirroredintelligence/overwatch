@@ -19,15 +19,14 @@ function page(role: Parameters<typeof AppShell>[0]['role'], extra: Partial<Param
 }
 
 describe('AppShell', () => {
-  it('has the logo, the role, the organisation, the role navigation, Help and Sign out', () => {
+  it('has the mark, the role, the organisation, the role navigation, Help and Sign out', () => {
     path.current = '/lead';
     page('lead', { organisation: 'Dorset system' });
-    const header = screen.getByRole('banner');
-    expect(within(header).getByRole('link', { name: 'Overwatch home' })).toHaveAttribute('href', '/lead');
-    expect(within(header).getByRole('img', { name: 'Overwatch' })).toBeInTheDocument();
-    expect(within(header).getByText('Shift lead')).toBeInTheDocument();
-    expect(within(header).getByText('Dorset system')).toBeInTheDocument();
-    const nav = within(header).getByRole('navigation', { name: 'Main' });
+    const top = screen.getByRole('banner');
+    expect(screen.getByRole('link', { name: 'Overwatch home' })).toHaveAttribute('href', '/lead');
+    expect(within(top).getByText('Shift lead')).toBeInTheDocument();
+    expect(within(top).getByText('Dorset system')).toBeInTheDocument();
+    const nav = screen.getByRole('navigation', { name: 'Main' });
     expect(within(nav).getAllByRole('link').map((a) => a.textContent)).toEqual([
       'Overview',
       'Phones and services',
@@ -35,16 +34,23 @@ describe('AppShell', () => {
       'Registrations',
       'Audit replay',
     ]);
-    expect(within(header).getByRole('link', { name: 'Help' })).toHaveAttribute('href', '/help');
-    expect(within(header).getByRole('button', { name: 'Sign out' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Help' })).toHaveAttribute('href', '/help');
+    expect(within(top).getByRole('button', { name: 'Sign out' })).toBeInTheDocument();
   });
 
-  it('marks the current page in the markup, only one', () => {
+  it('marks the current page in the markup, only one, and names it in the top bar', () => {
     path.current = '/lead/phones/move';
     page('lead');
     const current = screen.getAllByRole('link', { current: 'page' });
     expect(current).toHaveLength(1);
     expect(current[0]).toHaveTextContent('Phones and services');
+    expect(within(screen.getByRole('banner')).getByText('Phones and services')).toBeInTheDocument();
+  });
+
+  it('marks the role’s home only on its own page', () => {
+    path.current = '/lead/audit';
+    page('lead');
+    expect(screen.getAllByRole('link', { current: 'page' }).map((a) => a.textContent)).toEqual(['Audit replay']);
   });
 
   it('adds no main landmark and no heading of its own, and holds the page', () => {
@@ -54,13 +60,12 @@ describe('AppShell', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'The page' })).toBeInTheDocument();
   });
 
-  it('is the logo and Help only when nobody is signed in', () => {
+  it('is the mark and Help only when nobody is signed in', () => {
     page(null);
-    const header = screen.getByRole('banner');
-    expect(within(header).getByRole('link', { name: 'Overwatch home' })).toHaveAttribute('href', '/');
-    expect(within(header).getByRole('link', { name: 'Help' })).toBeInTheDocument();
-    expect(within(header).queryByRole('navigation')).toBeNull();
-    expect(within(header).queryByRole('button', { name: 'Sign out' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Overwatch home' })).toHaveAttribute('href', '/');
+    expect(screen.getByRole('link', { name: 'Help' })).toBeInTheDocument();
+    expect(screen.queryByRole('navigation')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Sign out' })).toBeNull();
   });
 
   it('has no navigation for a role with no staff pages, but still signs out', () => {
@@ -79,13 +84,13 @@ describe('AppShell', () => {
   it('shows the role as a chip, in the header’s own words, when the person holds more than one', () => {
     path.current = '/clinical';
     page('clinical', { roles: ['lead', 'clinical', 'audit'] });
-    const header = screen.getByRole('banner');
-    expect(within(header).getByText('Clinical advisor', { selector: 'summary span' })).toBeInTheDocument();
-    const menu = within(header).getByRole('form', { name: 'Sign in as another role', hidden: true });
+    const top = screen.getByRole('banner');
+    expect(within(top).getByText('Clinical advisor', { selector: 'summary span' })).toBeInTheDocument();
+    const menu = within(top).getByRole('form', { name: 'Sign in as another role', hidden: true });
     expect(within(menu).getAllByRole('button', { hidden: true }).map((b) => b.textContent)).toEqual(['Shift lead', 'Clinical advisor', 'Audit']);
     // The navigation, Help and Sign out are still there.
-    expect(within(header).getByRole('navigation', { name: 'Main' })).toBeInTheDocument();
-    expect(within(header).getByRole('button', { name: 'Sign out' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Main' })).toBeInTheDocument();
+    expect(within(top).getByRole('button', { name: 'Sign out' })).toBeInTheDocument();
   });
 
   it('keeps the plain role words with one role, with none known, or with a list that does not hold the role', () => {

@@ -37,7 +37,7 @@ describe('StaffShell', () => {
     const header = screen.getByRole('banner');
     expect(within(header).getByText('Clinical advisor')).toBeInTheDocument();
     expect(within(header).getByText('Dorset system')).toBeInTheDocument();
-    expect(within(header).getByRole('link', { name: 'Requests' })).toHaveAttribute('href', '/clinical/requests');
+    expect(screen.getByRole('link', { name: 'Requests' })).toHaveAttribute('href', '/clinical/requests');
     expect(screen.getByText('content')).toBeInTheDocument();
   });
 
@@ -62,10 +62,9 @@ describe('StaffShell', () => {
 
   it('is the logo and Help alone with no session and no profile', async () => {
     await shell();
-    const header = screen.getByRole('banner');
-    expect(within(header).queryByRole('navigation')).toBeNull();
-    expect(within(header).queryByRole('button', { name: 'Sign out' })).toBeNull();
-    expect(within(header).getByRole('link', { name: 'Help' })).toBeInTheDocument();
+    expect(screen.queryByRole('navigation')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Sign out' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Help' })).toBeInTheDocument();
   });
 
   it('treats a session that cannot be read as no session', async () => {

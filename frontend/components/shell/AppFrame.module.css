@@ -1,0 +1,317 @@
+/* The frame (AppFrame, Rail, TopBar, PageHeader). Sizes are the artboards' (admin/Rail, Top, A1): an 84px rail,
+   a 72px top bar. Colours, spacing, radius, type and motion are the tokens (app/tokens.css); the white marks on
+   the rail and the pale pill (white at 14%) are the board's own, drawn over the dark rail colour. */
+
+.frame {
+  display: flex;
+  min-height: 100dvh;
+  background: var(--c-ground);
+  color: var(--c-ink);
+}
+
+.column {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---- Rail ---------------------------------------------------------------------------------------------- */
+
+.rail {
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  box-sizing: border-box;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  width: 84px;
+  height: 100dvh;
+  padding: 20px 0;
+  overflow-y: auto;
+  background: var(--c-rail);
+  color: var(--c-rail-ink);
+}
+
+.mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 14px;
+  border-radius: var(--radius);
+  background: var(--c-primary);
+}
+
+.nav {
+  width: 100%;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.help {
+  margin-top: auto;
+}
+
+.item {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 68px;
+  min-height: 56px;
+  padding: 9px 0 7px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--c-rail-ink);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.2;
+  text-decoration: none;
+  text-align: center;
+  cursor: pointer;
+  list-style: none;
+  transition: background-color var(--dur-state) var(--ease-hover);
+}
+
+.item::-webkit-details-marker {
+  display: none;
+}
+
+.item:hover {
+  background: rgb(255 255 255 / 0.07);
+}
+
+/* The current page: a pale pill and heavier, whiter text, and aria-current in the markup. */
+.item[aria-current='page'],
+.item[data-active='true'] {
+  background: rgb(255 255 255 / 0.14);
+  color: #fff;
+  font-weight: 700;
+}
+
+.mark:focus-visible,
+.item:focus-visible {
+  outline: 3px solid var(--c-ground);
+  outline-offset: 2px;
+}
+
+.more {
+  position: relative;
+}
+
+.morePanel {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + var(--space-2));
+  z-index: 30;
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-2);
+  min-width: 96px;
+  list-style: none;
+  border-radius: var(--radius);
+  background: var(--c-rail);
+  box-shadow: var(--shadow-lift);
+  transform-origin: bottom right;
+  animation: morePanelIn var(--dur-menu) var(--ease-out);
+}
+
+@keyframes morePanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+}
+
+/* ---- Top bar ------------------------------------------------------------------------------------------- */
+
+.top {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  min-height: 72px;
+  padding: var(--space-2) 28px;
+  border-bottom: 1px solid var(--c-line);
+  background: Canvas;
+}
+
+.heading {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.small {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-2);
+  color: var(--c-muted);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.crumbs a {
+  color: var(--c-primary-dark);
+  text-decoration: underline;
+}
+
+.crumbs a:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.title {
+  margin: 0;
+  color: var(--c-ink);
+  font-size: 20px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-left: auto;
+}
+
+.roleLabel {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border: 2px solid var(--c-primary);
+  border-radius: var(--radius-chip);
+  background: var(--c-tint);
+  color: var(--c-primary-dark);
+  font-size: var(--type-caption-size);
+  font-weight: 700;
+}
+
+/* ---- Page header (in the body) --------------------------------------------------------------------------- */
+
+.pageHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-4);
+}
+
+.pageHeaderText {
+  min-width: 0;
+}
+
+.pageTitle {
+  margin: 0;
+  font-size: var(--type-heading-size);
+  line-height: var(--type-heading-lh);
+  font-weight: var(--type-heading-weight);
+  letter-spacing: var(--type-heading-tracking);
+}
+
+.pageActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+/* ---- Narrow: the rail is a bottom bar --------------------------------------------------------------------- */
+
+@media (max-width: 899.98px) {
+  .frame {
+    flex-direction: column;
+  }
+
+  .column {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .rail {
+    position: fixed;
+    inset: auto 0 0;
+    z-index: 20;
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: stretch;
+    gap: 0;
+    width: 100%;
+    height: auto;
+    padding: var(--space-1) var(--space-1) calc(var(--space-1) + env(safe-area-inset-bottom, 0px));
+    overflow: visible;
+  }
+
+  .mark {
+    display: none;
+  }
+
+  .nav {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .list {
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: stretch;
+  }
+
+  .list > li {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .help {
+    margin-top: 0;
+    flex: 1;
+  }
+
+  .item {
+    width: 100%;
+    min-height: 56px;
+    padding: var(--space-2) 0 var(--space-1);
+  }
+
+  .top {
+    padding: var(--space-2) var(--space-4);
+  }
+}

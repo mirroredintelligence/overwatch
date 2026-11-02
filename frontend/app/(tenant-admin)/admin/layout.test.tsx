@@ -34,7 +34,7 @@ describe('the administration layout and the role chip', () => {
   it('says the plain words for one role, for a session made before the chip, and with no session', async () => {
     state.session = { role: 'tenant-admin', roles: ['tenant-admin'] };
     await layout();
-    expect(screen.getByText('Signed in as tenant administrator')).toBeInTheDocument();
+    expect(within(screen.getByRole('banner')).getByText('Tenant administrator')).toBeInTheDocument();
     expect(document.querySelector('details')).toBeNull();
     document.body.innerHTML = '';
     state.session = { role: 'tenant-admin' };
@@ -43,6 +43,6 @@ describe('the administration layout and the role chip', () => {
     document.body.innerHTML = '';
     state.session = null;
     await layout();
-    expect(screen.getByText('Signed in as tenant administrator')).toBeInTheDocument();
+    expect(within(screen.getByRole('banner')).getByText('Tenant administrator')).toBeInTheDocument();
   });
 });

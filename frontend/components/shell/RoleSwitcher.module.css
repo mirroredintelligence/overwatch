@@ -23,7 +23,7 @@
 
 .caret {
   display: inline-block;
-  transition: transform 180ms ease;
+  transition: transform var(--dur-sheet) cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .switcher[open] .caret {
@@ -39,12 +39,12 @@
   min-width: 14rem;
   margin-top: var(--space-2);
   padding: var(--space-2);
-  border: 1px solid var(--c-edge, #dde3e6);
+  border: 1px solid var(--c-line);
   border-radius: 12px;
-  background: var(--c-surface, #fff);
+  background: var(--c-bg);
   box-shadow: 0 12px 32px rgb(20 35 43 / 0.16);
   transform-origin: top right;
-  animation: open 180ms ease-out;
+  animation: open var(--dur-sheet) cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .hint {
@@ -64,17 +64,17 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background-color 120ms ease;
+  transition: background-color var(--dur-menu) var(--ease-out);
 }
 
 .item:hover,
 .item:focus-visible {
-  background: var(--c-surface-2, #f1f4f5);
+  background: var(--c-tint);
 }
 
 .itemCurrent {
   font-weight: 700;
-  background: var(--c-surface-2, #f1f4f5);
+  background: var(--c-tint);
 }
 
 @keyframes open {

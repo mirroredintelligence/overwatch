@@ -31,6 +31,7 @@ from overwatch.application.use_cases.entra_groups import (
     ProvisionEntraGroups,
     ProvisionEntraGroupsCommand,
     ReadManagedGroups,
+    SearchDirectoryPeople,
 )
 from overwatch.domain.codes import Role
 from overwatch.domain.errors import Conflict, NotAllowed, ValidationFailed
@@ -166,6 +167,9 @@ class _Rig:
 
     def reader(self) -> ReadManagedGroups:
         return ReadManagedGroups(self.platform, self.factory(), self.directory)  # type: ignore[arg-type]
+
+    def searcher(self) -> SearchDirectoryPeople:
+        return SearchDirectoryPeople(self.platform, self.factory(), self.directory)  # type: ignore[arg-type]
 
     def changer(self) -> ChangeGroupMember:
         return ChangeGroupMember(
@@ -563,7 +567,8 @@ async def test_nothing_about_a_member_is_stored_in_the_graph() -> None:
     with as_tenant(TENANT):
         await rig.changer().add(ChangeMemberCommand(rig.admin(), ids[Role.LEAD], SAM))
     assert rig.world.config.mapping_list == before  # only the group-to-role mappings exist
-    assert {k for k in vars(rig.world.config) if k != "current"} == {
+    # `versions` is the configuration versions the platform defaults write (DEC-1322), not a member.
+    assert {k for k in vars(rig.world.config) if k not in ("current", "versions")} == {
         "contact_list",
         "channel_list",
         "retention_list",
@@ -731,3 +736,64 @@ async def test_another_tenants_administrator_cannot_change_this_tenants_group() 
             ChangeMemberCommand(operator(OTHER, "b-admin", Role.TENANT_ADMIN), ids[Role.LEAD], SAM)
         )
     assert directory.members_of.get((DIRECTORY_ID, ids[Role.LEAD]), []) == []
+
+
+# ------------------------------------------------------------------ the administrator: the lookup
+
+
+async def test_the_administrator_finds_people_by_the_start_of_a_name_or_address() -> None:
+    rig = _Rig()
+    rig.directory.add_user(DIRECTORY_ID, JANE, "Jane Member")
+    rig.directory.add_user(DIRECTORY_ID, SAM, "Sam Second")
+    with as_tenant(TENANT):
+        by_name = await rig.searcher().execute(rig.admin(), "jan")
+        by_address = await rig.searcher().execute(rig.admin(), " sam.sec ")
+
+    assert [(m.display_name, m.mail) for m in by_name] == [("Jane Member", JANE.lower())]
+    assert [m.display_name for m in by_address] == ["Sam Second"]
+    # The consent's directory is the one asked, and nothing the request says chooses another.
+    assert [c for c in rig.directory.calls if c[0] == "search_users"] == [
+        ("search_users", (DIRECTORY_ID,)),
+        ("search_users", (DIRECTORY_ID,)),
+    ]
+
+
+async def test_a_search_from_anyone_but_the_administrator_is_refused_and_asks_nothing() -> None:
+    rig = _Rig()
+    rig.directory.add_user(DIRECTORY_ID, JANE, "Jane Member")
+    with as_tenant(TENANT), pytest.raises(NotAllowed):
+        await rig.searcher().execute(operator(TENANT, "lead-ref", Role.LEAD), "jan")
+    assert rig.directory.calls == []
+
+
+async def test_a_search_for_another_tenants_administrator_is_refused() -> None:
+    rig = _Rig()
+    with as_tenant(TENANT), pytest.raises(Exception) as refused:  # noqa: PT011
+        await rig.searcher().execute(operator(OTHER, "admin-ref-1", Role.TENANT_ADMIN), "jan")
+    assert type(refused.value).__name__ in {"TenantMismatch", "NotAllowed"}
+    assert rig.directory.calls == []
+
+
+@pytest.mark.parametrize("term", ["", "a", "x" * 65, "ja<n>"])
+async def test_a_bad_term_is_refused_before_the_directory_is_asked(term: str) -> None:
+    rig = _Rig()
+    with as_tenant(TENANT), pytest.raises(ValidationFailed):
+        await rig.searcher().execute(rig.admin(), term)
+    assert rig.directory.calls == []
+
+
+async def test_without_the_organisations_consent_there_is_nothing_to_search() -> None:
+    rig = _Rig(consent=None)
+    with as_tenant(TENANT), pytest.raises(NotAllowed):
+        await rig.searcher().execute(rig.admin(), "jan")
+    assert rig.directory.calls == []
+
+
+async def test_a_directory_that_cannot_be_reached_is_the_graph_refusal_and_nothing_is_logged(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    rig = _Rig()
+    rig.directory.unavailable = True
+    with as_tenant(TENANT), pytest.raises(GraphUnavailable):
+        await rig.searcher().execute(rig.admin(), "jane.secret")
+    assert "jane.secret" not in caplog.text

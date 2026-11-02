@@ -54,6 +54,20 @@ REFUSED_NAME: Final = "that group name is not one Overwatch manages"
 REFUSED_ROLE: Final = "that role does not have a group"
 
 
+SEARCH_RESULTS_MAX: Final = 8
+_SEARCH_TERM: Final = re.compile(r"[A-Za-z0-9 .'@+_-]{2,64}")
+
+
+def check_search_term(value: object) -> str:
+    """The term to look people up by (DEC-1325): the start of a name or an address, trimmed. Plain
+    letters, digits, space and . ' - _ @ + only, 2 to 64 characters. The refusal does not echo
+    it."""
+    term = value.strip() if type(value) is str else ""
+    if _SEARCH_TERM.fullmatch(term) is None:
+        raise ValidationFailed("q", "must be 2 to 64 plain characters")
+    return term
+
+
 def group_prefix(ods_code: str | None, tenant_id: str) -> str:
     """`<ods>_overwatch_`: the ODS code when the tenant has one, else its id."""
     part = ods_code if ods_code else tenant_id

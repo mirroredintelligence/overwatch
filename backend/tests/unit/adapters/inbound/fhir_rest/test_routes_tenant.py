@@ -100,6 +100,7 @@ ROUTES: list[tuple[str, str, Any]] = [
     ("PUT", "/tenant/directory", {"directoryId": DIRECTORY}),
     ("PUT", "/tenant/role-mappings", {"groupObjectId": GROUP, "role": "lead"}),
     ("GET", "/tenant/groups", None),
+    ("GET", "/tenant/people?q=ja", None),
     ("POST", f"/tenant/groups/{GROUP_A}/members", {"email": "sam@example.org"}),
     ("DELETE", f"/tenant/groups/{GROUP_A}/members/{USER_A}", None),
     ("GET", "/tenant/support-tickets", None),
@@ -621,6 +622,38 @@ async def test_the_administrator_reads_the_groups_and_who_is_in_them() -> None:
             }
         ],
     }
+
+
+async def test_the_administrator_looks_people_up_by_the_start_of_a_name() -> None:
+    async with routes() as (r, client):
+        response = await client.get("/tenant/people", params={"q": "jan"}, headers=admin())
+
+    assert response.status_code == 200
+    assert response.headers["Cache-Control"] == "no-store"
+    assert response.json() == {
+        "people": [{"userId": USER_A, "displayName": "Jane Member", "mail": "jane@example.org"}]
+    }
+    assert r.stubs.people_search.terms == ["jan"]
+
+
+@pytest.mark.parametrize("term", ["", "a", "x" * 65, "jane<script>", "a;b", "na'me}"])
+async def test_a_term_that_is_too_short_or_not_plain_text_is_refused_before_any_search(
+    term: str,
+) -> None:
+    async with routes() as (r, client):
+        response = await client.get("/tenant/people", params={"q": term}, headers=admin())
+
+    assert response.status_code in (400, 422)
+    assert r.stubs.people_search.terms == []
+
+
+async def test_the_directory_being_down_for_a_search_is_a_503_and_leaks_nothing() -> None:
+    async with routes() as (r, client):
+        r.stubs.people_search.error = GraphUnavailable("token endpoint refused")
+        response = await client.get("/tenant/people", params={"q": "jan"}, headers=admin())
+
+    assert response.status_code == 503 and response.headers["Retry-After"] == "30"
+    assert "token endpoint" not in response.text and "jan" not in response.text
 
 
 async def test_a_member_is_added_by_address_to_the_group_named_in_the_path() -> None:

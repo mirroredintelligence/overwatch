@@ -279,6 +279,17 @@ export function parseGroups(value: unknown) {
   };
 }
 
+/** The people a directory search found (DEC-1325): at most eight, by display name, as the directory shows them now. */
+export function parsePeople(value: unknown) {
+  const v = obj(value);
+  return {
+    people: list(v.people ?? [], 8).map((item) => {
+      const m = obj(item);
+      return { userId: str(m.userId, 64), displayName: strOrNull(m.displayName, 200), mail: strOrNull(m.mail, 320) };
+    }),
+  };
+}
+
 export function parseMemberChange(value: unknown) {
   const v = obj(value);
   return { groupId: str(v.groupId, 64), changed: bool(v.changed) };

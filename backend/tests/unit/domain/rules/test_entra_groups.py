@@ -8,6 +8,7 @@ from overwatch.domain.rules.entra_groups import (
     OPERATOR_GROUP_ROLES,
     OVERWATCH_MEMBER_APP_ROLE_ID,
     OVERWATCH_MEMBER_APP_ROLE_VALUE,
+    check_search_term,
     group_name,
     group_prefix,
     hash_user_ref,
@@ -106,3 +107,34 @@ def test_a_user_reference_is_a_keyed_hash_that_differs_by_secret_and_holds_no_id
     assert one == hash_user_ref(user.upper(), SECRET)
     assert one != hash_user_ref(user, SECRET + b"x")
     assert len(one) == 64 and user not in one
+
+
+# -- the people lookup (DEC-1325) ---------------------------------------------------------------
+
+
+@pytest.mark.parametrize("term", ["ja", "jane", "O'Neil", "jane.m@example", "j+x_y-z", " jane "])
+def test_a_plain_search_term_is_kept_trimmed(term: str) -> None:
+    assert check_search_term(term) == term.strip()
+
+
+@pytest.mark.parametrize(
+    "term",
+    [
+        "",
+        " ",
+        "a",
+        " a ",
+        "x" * 65,
+        "jane;drop",
+        "a<b",
+        "name}",
+        "jane" + chr(10) + "x",
+        "j" + chr(233),
+        None,
+        7,
+    ],
+)
+def test_a_term_that_is_short_long_or_not_plain_is_refused_without_echoing_it(term: object) -> None:
+    with pytest.raises(ValidationFailed) as refused:
+        check_search_term(term)
+    assert "drop" not in str(refused.value) and "x" * 65 not in str(refused.value)

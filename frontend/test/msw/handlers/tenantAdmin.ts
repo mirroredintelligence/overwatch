@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import { GROUP_ADMIN, ONE_TIME_CODE, RAW_GROUPS, RAW_SETTINGS, VIEW_LOG, VIEW_OVERVIEW, VIEW_TICKETS, VIEW_VERSIONS } from '@/test/fixtures/tenantAdmin';
+import { GROUP_ADMIN, MEMBER_JANE, MEMBER_SAM, ONE_TIME_CODE, RAW_GROUPS, RAW_SETTINGS, VIEW_LOG, VIEW_OVERVIEW, VIEW_TICKETS, VIEW_VERSIONS } from '@/test/fixtures/tenantAdmin';
 
 // The tenant administrator's BFF routes for component tests (TEN-076): the answers are what the BFF gives
 // the browser (test/fixtures/tenantAdmin.ts, VIEW_*). A write is recorded with the CSRF token and the
@@ -40,6 +40,17 @@ export const tenantAdminHandlers = [
   }),
   http.get('/api/bff/tenant/access-log', () => HttpResponse.json(VIEW_LOG, { headers: NO_STORE })),
   http.get('/api/bff/tenant/groups', () => HttpResponse.json(RAW_GROUPS, { headers: NO_STORE })),
+  // The directory search (DEC-1325): people whose name or address starts with the words typed.
+  http.get('/api/bff/tenant/people', ({ request }) => {
+    const term = (new URL(request.url).searchParams.get('q') ?? '').toLowerCase();
+    const everyone = [
+      { userId: MEMBER_JANE, displayName: 'Jane Sample', mail: 'jane.sample@example.test' },
+      { userId: MEMBER_SAM, displayName: 'Sam Second', mail: null },
+      { userId: 'eeeeeeee-0000-4000-8000-000000000003', displayName: 'Jasmine Newcomer', mail: 'jasmine.newcomer@example.test' },
+    ];
+    const people = everyone.filter((p) => (p.displayName ?? '').toLowerCase().startsWith(term) || (p.mail ?? '').startsWith(term));
+    return HttpResponse.json({ people }, { headers: NO_STORE });
+  }),
   http.get('/api/bff/tenant/support-tickets', () => HttpResponse.json(VIEW_TICKETS, { headers: NO_STORE })),
   http.post('/api/bff/tenant/config/drafts', async ({ request }) => {
     await recorded(request);

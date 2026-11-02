@@ -257,7 +257,8 @@ async def test_a_signed_in_member_gets_a_token_the_edge_accepts_for_the_hosts_te
         probe = await c.get("/probe", headers={"Authorization": f"Bearer {body['token']}"})
 
     assert response.status_code == 200
-    assert set(body) == {"token", "expiresAt", "role"}
+    assert set(body) == {"token", "expiresAt", "role", "roles"}
+    assert body["roles"] == ["lead"]
     assert body["role"] == "lead"
     assert body["expiresAt"] == "2026-10-30T17:00:00Z"
     claims = decode_bff_token(body["token"], SIGNING, NOW)
@@ -406,7 +407,8 @@ async def test_an_unknown_or_suspended_host_is_the_404_of_a_path_that_is_not_the
         {"idToken": 7},
         {"idToken": None},
         {"idToken": "x" * 8193},
-        {"idToken": CREDENTIAL, "role": "lead"},
+        {"idToken": CREDENTIAL, "role": 7},
+        {"idToken": CREDENTIAL, "role": "x" * 41},
         {"idToken": CREDENTIAL, "tenant": "tenant-b"},
         {"idToken": CREDENTIAL, "audience": "operator"},
     ],
@@ -751,3 +753,20 @@ async def test_no_credential_token_or_id_reaches_a_log_line(
 
 def test_the_signing_secret_name_is_the_one_the_edge_reads() -> None:
     assert SIGNING_SECRET == BFF_SECRET_NAME
+
+
+async def test_the_role_asked_for_is_given_when_held_and_refused_when_it_is_not_a_staff_role() -> (
+    None
+):
+    app, _ = build(verifier=accepting())
+
+    async with client(app) as c:
+        held = await c.post(STAFF_PATH, json={"idToken": CREDENTIAL, "role": "lead"})
+        unheld = await c.post(STAFF_PATH, json={"idToken": CREDENTIAL, "role": "advisor"})
+        unknown = await c.post(
+            STAFF_PATH, json={"idToken": CREDENTIAL, "role": "platform-operator"}
+        )
+
+    assert held.status_code == 200 and held.json()["role"] == "lead"
+    assert unheld.status_code == unknown.status_code == 403
+    assert unheld.content == unknown.content

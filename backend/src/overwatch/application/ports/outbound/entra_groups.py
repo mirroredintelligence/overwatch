@@ -60,6 +60,11 @@ class EntraGroupDirectory(Protocol):
         None. More than one is a refusal (`GraphUnavailable`)."""
         ...
 
+    async def search_users(self, directory_id: str, term: str) -> tuple[DirectoryMember, ...]:
+        """The member accounts whose name or address starts with the term, by display name, at most
+        eight. Guests are left out. Never kept and never logged."""
+        ...
+
     async def add_member(self, directory_id: str, group_id: str, user_id: str) -> bool:
         """True when added, False when already a member. Raises GroupMissing."""
         ...

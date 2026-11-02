@@ -29,6 +29,7 @@ from overwatch.application.use_cases.entra_groups import (
     ChangeGroupMember,
     ProvisionEntraGroups,
     ReadManagedGroups,
+    SearchDirectoryPeople,
 )
 from overwatch.bootstrap.container import Container
 from overwatch.bootstrap.settings import Settings
@@ -107,6 +108,7 @@ def install_admin_consent(
     app.state.tenant_admin_services = dataclasses.replace(
         app.state.tenant_admin_services,
         groups_read=ReadManagedGroups(container.tenants, container.uow_factory, directory),
+        people_search=SearchDirectoryPeople(container.tenants, container.uow_factory, directory),
         groups_change=ChangeGroupMember(
             container.tenants, container.uow_factory, clock, directory, container.secrets
         ),

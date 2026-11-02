@@ -29,6 +29,7 @@ from overwatch.application.ports.outbound.admin_consent import GraphUnavailable
 from overwatch.application.ports.outbound.entra_groups import DirectoryMember, GroupMissing
 from overwatch.application.ports.outbound.tokens import SecretStore
 from overwatch.domain.errors import NotFound
+from overwatch.domain.rules.entra_groups import SEARCH_RESULTS_MAX
 
 _log = logging.getLogger(__name__)
 for _name in ("httpx", "httpcore"):
@@ -49,6 +50,7 @@ _ASSIGN_WAIT_S: Final = 5.0
 _GUID: Final = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 _NAME: Final = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,119}")
 _ADDRESS: Final = re.compile(r"[A-Za-z0-9._%+'-]{1,64}@[A-Za-z0-9][A-Za-z0-9.-]{0,251}")
+_SEARCH_TERM: Final = re.compile(r"[A-Za-z0-9 .'@+_-]{2,64}")
 
 
 def _guid(value: str) -> str:
@@ -208,6 +210,42 @@ class GraphEntraGroups:
         if len(ids) > 1:
             raise GraphUnavailable("more than one person has that address")
         return next(iter(ids), None)
+
+    async def search_users(self, directory_id: str, term: str) -> tuple[DirectoryMember, ...]:
+        if _SEARCH_TERM.fullmatch(term) is None:
+            raise GraphUnavailable("a search term is not in the form we accept")
+        quoted = _odata_quote(term)
+        body = await self._request(
+            directory_id,
+            "GET",
+            f"{GRAPH}/users",
+            params={
+                "$filter": (
+                    f"startswith(displayName,'{quoted}') or startswith(mail,'{quoted}') "
+                    f"or startswith(userPrincipalName,'{quoted}')"
+                ),
+                "$select": "id,displayName,mail,userPrincipalName,userType",
+                # More than the eight kept, so leaving out guests and sorting still fills them.
+                "$top": "25",
+            },
+        )
+        assert body is not None
+        found: list[DirectoryMember] = []
+        for item in _values(body):
+            object_id = item.get("id")
+            if type(object_id) is not str or item.get("userType") == "Guest":
+                continue
+            name = item.get("displayName")
+            mail = item.get("mail") or item.get("userPrincipalName")
+            found.append(
+                DirectoryMember(
+                    _guid(object_id),
+                    name if type(name) is str else None,
+                    mail if type(mail) is str else None,
+                )
+            )
+        found.sort(key=lambda m: ((m.display_name or m.mail or "").lower(), m.object_id))
+        return tuple(found[:SEARCH_RESULTS_MAX])
 
     async def add_member(self, directory_id: str, group_id: str, user_id: str) -> bool:
         group = _guid(group_id)

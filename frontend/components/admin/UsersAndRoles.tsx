@@ -10,6 +10,7 @@ import { GroupMembers } from './GroupMembers';
 import type { Overview } from './AdminOverview';
 import { whenText } from '@/lib/tenantAdmin/words';
 import styles from './admin.module.css';
+import people from './People.module.css';
 
 // Users and roles (TEN-076): the directory the organisation signs in with and which of its groups gets which
 // role. A directory is bound as pending and stays so until the platform operator verifies it; a group is
@@ -25,6 +26,7 @@ export function UsersAndRoles() {
   return (
     <main className={styles.page}>
       <h1 className={styles.title}>Users and roles</h1>
+      <GroupMembers />
       {state.status === 'loading' ? <p className={styles.muted}>Loading the directory and roles.</p> : null}
       {state.status === 'failed' ? (
         <p role="alert" className={styles.problem}>
@@ -32,12 +34,15 @@ export function UsersAndRoles() {
         </p>
       ) : null}
       {state.status === 'ok' ? (
-        <>
-          <DirectoryCard bindings={state.data.bindings} onSaved={reload} />
-          <MappingCard mappings={state.data.mappings} onSaved={reload} />
-        </>
+        <details className={people.advanced}>
+          <summary className={people.advancedSummary}>Directory and group settings</summary>
+          <div className={people.advancedBody}>
+            <p className={styles.muted}>Set once when your organisation is set up. You only need these to change which directory people sign in with, or to map a group you made yourself.</p>
+            <DirectoryCard bindings={state.data.bindings} onSaved={reload} />
+            <MappingCard mappings={state.data.mappings} onSaved={reload} />
+          </div>
+        </details>
       ) : null}
-      <GroupMembers />
     </main>
   );
 }

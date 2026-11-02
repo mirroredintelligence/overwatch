@@ -447,3 +447,85 @@ async def test_no_secret_token_address_or_body_is_logged(caplog: pytest.LogCaptu
     text = caplog.text
     for canary in (CLIENT_SECRET.decode(), BEARER, ADDRESS, "body canary", DIRECTORY):
         assert canary not in text
+
+
+async def test_people_are_searched_by_the_start_of_a_name_or_address_members_only_and_sorted() -> (
+    None
+):
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "value": [
+                    {
+                        "id": USER.upper(),
+                        "displayName": "Zoe Zed",
+                        "mail": None,
+                        "userPrincipalName": "zoe@x.test",
+                        "userType": "Member",
+                    },
+                    {
+                        "id": GROUP,
+                        "displayName": "A Guest",
+                        "mail": "g@y.test",
+                        "userType": "Guest",
+                    },
+                    {
+                        "id": SP,
+                        "displayName": "Adam Able",
+                        "mail": "adam@x.test",
+                        "userType": "Member",
+                    },
+                    {"displayName": "No Id"},
+                ]
+            },
+        )
+
+    adapter, seen = _adapter(handler)
+    found = await adapter.search_users(DIRECTORY, "O'Neil")
+
+    [call] = _graph_calls(seen)
+    assert call.url.path == "/v1.0/users"
+    assert call.url.params["$filter"] == (
+        "startswith(displayName,'O''Neil') or startswith(mail,'O''Neil') "
+        "or startswith(userPrincipalName,'O''Neil')"
+    )
+    assert "userType" in call.url.params["$select"]
+    assert [(m.object_id, m.display_name, m.mail) for m in found] == [
+        (SP, "Adam Able", "adam@x.test"),
+        (USER, "Zoe Zed", "zoe@x.test"),
+    ]
+
+
+async def test_no_more_than_eight_people_are_kept() -> None:
+    people = [
+        {
+            "id": f"cccccccc-0000-4000-8000-{n:012d}",
+            "displayName": f"Person {n:02d}",
+            "userType": "Member",
+        }
+        for n in range(20)
+    ]
+    adapter, _ = _adapter(lambda r: httpx.Response(200, json={"value": people}))
+
+    found = await adapter.search_users(DIRECTORY, "Person")
+
+    assert [m.display_name for m in found] == [f"Person {n:02d}" for n in range(8)]
+
+
+@pytest.mark.parametrize("term", ["a", "x" * 65, "jane<", "o;r"])
+async def test_a_term_not_in_the_accepted_form_is_refused_without_a_call(term: str) -> None:
+    adapter, seen = _adapter(lambda r: httpx.Response(200, json={"value": []}))
+    with pytest.raises(GraphUnavailable):
+        await adapter.search_users(DIRECTORY, term)
+    assert seen == []
+
+
+async def test_a_refused_search_logs_no_term_and_no_name(caplog: pytest.LogCaptureFixture) -> None:
+    adapter, _ = _adapter(
+        lambda r: httpx.Response(403, json={"error": {"code": "Authorization_RequestDenied"}})
+    )
+    caplog.set_level(logging.DEBUG)
+    with pytest.raises(GraphUnavailable):
+        await adapter.search_users(DIRECTORY, "jane.secret")
+    assert "jane.secret" not in caplog.text

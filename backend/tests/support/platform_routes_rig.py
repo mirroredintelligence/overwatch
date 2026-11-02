@@ -133,6 +133,21 @@ class Recording:
         return self.result
 
 
+class RecordingSearch:
+    """The directory search takes the actor and the term, not a command."""
+
+    def __init__(self, result: Any = None, error: Exception | None = None) -> None:
+        self.terms: list[Any] = []
+        self.result = result
+        self.error = error
+
+    async def execute(self, actor: Any, term: Any) -> Any:
+        self.terms.append(term)
+        if self.error is not None:
+            raise self.error
+        return self.result
+
+
 class RecordingChanger(Recording):
     """The membership use case has two entry points; both record into the same list."""
 
@@ -265,6 +280,9 @@ def build(*, with_services: bool = True) -> Rigs:
             )
         ),
         groups_change=RecordingChanger(MemberChange(GROUP_A, True)),
+        people_search=RecordingSearch(
+            (DirectoryMember(USER_A, "Jane Member", "jane@example.org"),)
+        ),
         resume=Recording(
             SimpleNamespace(
                 tenant_id="act-org",
@@ -336,6 +354,7 @@ def build(*, with_services: bool = True) -> Rigs:
         tickets=ticket_services,
         groups_read=stubs.groups_read,  # type: ignore[arg-type]
         groups_change=stubs.groups_change,  # type: ignore[arg-type]
+        people_search=stubs.people_search,  # type: ignore[arg-type]
     )
     container = SimpleNamespace(
         clock=clock,

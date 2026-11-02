@@ -44,6 +44,7 @@ from overwatch.application.use_cases.entra_groups import (
     ChangeGroupMember,
     ProvisionEntraGroups,
     ReadManagedGroups,
+    SearchDirectoryPeople,
 )
 from overwatch.application.use_cases.platform_tenants import ListPlatformTenants, ReadPlatformTenant
 from overwatch.application.use_cases.tenant_admin import (
@@ -176,3 +177,4 @@ class TenantAdminServices:
     tickets: SupportTicketServices
     groups_read: ReadManagedGroups | None = None
     groups_change: ChangeGroupMember | None = None
+    people_search: SearchDirectoryPeople | None = None

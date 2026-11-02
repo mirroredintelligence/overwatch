@@ -17,6 +17,7 @@ class FakeEntraGroups:
         self.members_of: dict[tuple[str, str], list[str]] = {}
         self.assignments: set[tuple[str, str, str, str]] = set()
         self.users: dict[str, dict[str, str]] = {}
+        self.names: dict[str, str] = {}
         self.calls: list[tuple[str, tuple[str, ...]]] = []
         self.unavailable = False
         self._ids = count(1)
@@ -24,9 +25,11 @@ class FakeEntraGroups:
     def new_id(self, kind: str) -> str:
         return f"{next(self._ids):08x}-0000-4000-8000-{kind[:1].encode().hex():0>12}"
 
-    def add_user(self, directory_id: str, address: str) -> str:
+    def add_user(self, directory_id: str, address: str, name: str | None = None) -> str:
         user_id = self.new_id("user")
         self.users.setdefault(directory_id, {})[address.lower()] = user_id
+        if name is not None:
+            self.names[user_id] = name
         return user_id
 
     def delete_group(self, directory_id: str, group_id: str) -> None:
@@ -74,6 +77,17 @@ class FakeEntraGroups:
     async def find_user(self, directory_id: str, address: str) -> str | None:
         self._call("find_user", directory_id)
         return self.users.get(directory_id, {}).get(address.lower())
+
+    async def search_users(self, directory_id: str, term: str) -> tuple[DirectoryMember, ...]:
+        self._call("search_users", directory_id)
+        start = term.lower()
+        found = [
+            DirectoryMember(user_id, self.names.get(user_id), address)
+            for address, user_id in self.users.get(directory_id, {}).items()
+            if address.startswith(start) or self.names.get(user_id, "").lower().startswith(start)
+        ]
+        found.sort(key=lambda m: (m.display_name or m.mail or "").lower())
+        return tuple(found[:8])
 
     async def add_member(self, directory_id: str, group_id: str, user_id: str) -> bool:
         self._call("add_member", directory_id, group_id, user_id)

@@ -156,6 +156,14 @@ const CASES: Case[] = [
     backend: { path: '/tenant/role-mappings', status: 204 },
     status: 204,
   },
+  {
+    name: 'people lookup',
+    module: () => import('./people/route'),
+    verb: 'GET',
+    url: '/api/bff/tenant/people?q=jan',
+    backend: { path: '/tenant/people', reply: { people: [{ userId: MEMBER_JANE, displayName: 'Jane Member', mail: 'jane.member@example.test' }] } },
+    view: { people: [{ userId: MEMBER_JANE, displayName: 'Jane Member', mail: 'jane.member@example.test' }] },
+  },
   { name: 'groups', module: () => import('./groups/route'), verb: 'GET', url: '/api/bff/tenant/groups', backend: { path: '/tenant/groups', reply: RAW_GROUPS }, view: VIEW_GROUPS },
   {
     name: 'add a member to a group',
@@ -452,6 +460,22 @@ describe('the access log window', () => {
       seen = [];
       await call({ ...log, url }, 'tenant-admin');
       expect(seen[0]?.search, url).toBe(`?days=${days}`);
+    }
+  });
+});
+
+describe('the people lookup term', () => {
+  it('passes the term on as it is, encoded, and refuses one that is too short or not plain text before any call', async () => {
+    const lookup = CASES.find((c) => c.name === 'people lookup')!;
+    handleBackend(lookup);
+    seen = [];
+    expect((await call({ ...lookup, url: "/api/bff/tenant/people?q=O'Neil%20J" }, 'tenant-admin')).status).toBe(200);
+    expect(seen[0]?.search).toBe('?q=O%27Neil%20J');
+    for (const url of ['/api/bff/tenant/people', '/api/bff/tenant/people?q=a', '/api/bff/tenant/people?q=%3Cscript%3E', `/api/bff/tenant/people?q=${'x'.repeat(65)}`]) {
+      seen = [];
+      const response = await call({ ...lookup, url }, 'tenant-admin');
+      expect(response.status, url).toBe(400);
+      expect(seen, url).toEqual([]);
     }
   });
 });

@@ -29,6 +29,8 @@ every write); a blocked, offboarding or purged tenant is closed at the edge.
   PUT  /tenant/role-mappings                      map a directory group to a staff role
   GET  /tenant/groups                             the groups Overwatch made in the organisation's
                                                   directory, and who is in each (DEC-1317)
+  GET  /tenant/people?q=                          look people up in the directory by the start of a
+                                                  name or address, at most eight (DEC-1325)
   POST /tenant/groups/{group}/members             add a person, by address, to one of those groups
   DELETE /tenant/groups/{group}/members/{user}    remove a person from one of those groups
   GET  /tenant/access-log                         what the platform's own people did here
@@ -609,6 +611,22 @@ async def read_groups(request: Request, actor: Admin) -> Response:
     services = _group_services(request)
     assert services.groups_read is not None
     return _json(200, managed_groups_to_dict(await services.groups_read.execute(actor)))
+
+
+@router.get("/people")
+async def search_people(
+    request: Request,
+    actor: Admin,
+    q: Annotated[str, Query(min_length=2, max_length=64, pattern=r"^[A-Za-z0-9 .'@+_-]+$")],
+) -> Response:
+    """Look people up in the organisation's own directory by the start of a name or address, for
+    the add-a-person box. The term and the people found are not stored or logged (DEC-1325)."""
+    services = _services(request)
+    if services.people_search is None:
+        raise RuntimeError("the directory search is not configured")
+    found = await services.people_search.execute(actor, q)
+    people = [{"userId": m.object_id, "displayName": m.display_name, "mail": m.mail} for m in found]
+    return _json(200, {"people": people})
 
 
 @router.post("/groups/{group_id}/members")

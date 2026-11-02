@@ -61,6 +61,7 @@ from overwatch.domain.rules.admin_consent import check_email, hash_email
 from overwatch.domain.rules.entra_groups import (
     OPERATOR_GROUP_ROLES,
     OVERWATCH_MEMBER_APP_ROLE_ID,
+    check_search_term,
     group_name,
     group_prefix,
     hash_user_ref,
@@ -429,6 +430,22 @@ class ReadManagedGroups(_Managed):
             members = await self._directory.members(directory_id, group_id)
             groups.append(ManagedGroup(group_id, name, mapping.role, False, members))
         return ManagedGroups(True, tuple(groups))
+
+
+class SearchDirectoryPeople(_Managed):
+    """Look people up in the organisation's own directory by the start of a name or address, for
+    the add-a-person box (DEC-1325). The administrator only, in the bound tenant's directory (the
+    one its consent names) and nothing else; the term and the people found are not kept or
+    logged."""
+
+    async def execute(self, actor: Actor, term: object) -> tuple[DirectoryMember, ...]:
+        check_administrator(actor)
+        require_actor_in_bound_tenant(actor)
+        wanted = check_search_term(term)
+        _tenant, _prefix, _mappings, directory_id = await self._context()
+        if directory_id is None:
+            raise NotAllowed(NOT_SET_UP)
+        return await self._directory.search_users(directory_id, wanted)
 
 
 @dataclass(frozen=True, slots=True)

@@ -103,7 +103,8 @@ export function CreateTenantForm() {
     setDisplayName(record.name);
     setLegalName(record.name);
     setOds(record.code);
-    if (record.suggestedOrganisationType !== null) setType(record.suggestedOrganisationType);
+    // No NHS type for this record: not the form's NHS default. The operator chooses; 'Other' until then.
+    setType(record.suggestedOrganisationType ?? 'other');
     setCountry('GB');
     setZone('Europe/London');
     if (id.trim() === '') setId(suggestedTenantId(record.name));

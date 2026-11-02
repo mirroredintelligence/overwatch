@@ -9,6 +9,47 @@ import { server } from './msw/server';
 
 expect.extend(axeMatchers);
 
+// Node 26 ships its own `localStorage` and `sessionStorage` (experimental web storage), and with no
+// `--localstorage-file` they are undefined: they shadow jsdom's and every test that touches storage fails on that
+// Node. When the environment's storage is not usable, give the tests jsdom's own (or, failing that, a plain in-memory one).
+function memoryStorage(): Storage {
+  const data = new Map<string, string>();
+  return {
+    get length() {
+      return data.size;
+    },
+    clear: () => data.clear(),
+    getItem: (key: string) => data.get(String(key)) ?? null,
+    key: (index: number) => Array.from(data.keys())[index] ?? null,
+    removeItem: (key: string) => void data.delete(String(key)),
+    setItem: (key: string, value: string) => void data.set(String(key), String(value)),
+  } as Storage;
+}
+
+// Tests that run in the plain Node environment have no window and no storage to repair.
+for (const name of typeof window === 'undefined' ? [] : (['localStorage', 'sessionStorage'] as const)) {
+  let usable = false;
+  try {
+    usable = typeof window[name]?.getItem === 'function';
+  } catch {
+    usable = false;
+  }
+  if (!usable) {
+    // jsdom's own storage is the real thing (tests spy on `Storage.prototype`); the plain one is the last resort.
+    const own = (globalThis as { jsdom?: { window: Window } }).jsdom?.window;
+    let jsdomStore: Storage | undefined;
+    try {
+      jsdomStore = own?.[name];
+    } catch {
+      jsdomStore = undefined;
+    }
+    const store = jsdomStore ?? memoryStorage();
+    for (const target of [window, globalThis]) {
+      Object.defineProperty(target, name, { value: store, configurable: true, writable: true });
+    }
+  }
+}
+
 // Every request a test makes must have a handler. An unmocked request fails
 // the test instead of reaching the network.
 beforeAll(() => {

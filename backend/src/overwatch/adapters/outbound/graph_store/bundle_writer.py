@@ -125,10 +125,14 @@ def resolve_bundle(bundle: dict[str, Any]) -> list[BundleEntry]:
     return resolved
 
 
-async def write_bundle(store: _Store, bundle: dict[str, Any]) -> dict[str, str]:
+async def write_bundle(
+    store: _Store, bundle: dict[str, Any], *, create_missing: bool = False
+) -> dict[str, str]:
     """Write every entry through the store, in order, and return each full URL against
     `<Type>/<id>`. A PUT for a resource that does not exist is NotFound, with the entries before it
-    already written in the caller's transaction (which the caller rolls back)."""
+    already written in the caller's transaction (which the caller rolls back). `create_missing` is
+    for a bundle whose PUT means "make it if it is not there": the tenant's own organisation
+    (DEC-1314)."""
     written: dict[str, str] = {}
     for entry in resolve_bundle(bundle):
         if entry.method == "POST":
@@ -136,7 +140,10 @@ async def write_bundle(store: _Store, bundle: dict[str, Any]) -> dict[str, str]:
         else:
             current = await store.get(entry.type, entry.id)
             if current is None:
-                raise NotFound(f"{entry.type} to replace")
-            await store.put(entry.resource, str(current["meta"]["versionId"]))
+                if not create_missing:
+                    raise NotFound(f"{entry.type} to replace")
+                await store.put(entry.resource, None)
+            else:
+                await store.put(entry.resource, str(current["meta"]["versionId"]))
         written[entry.full_url] = f"{entry.type}/{entry.id}"
     return written

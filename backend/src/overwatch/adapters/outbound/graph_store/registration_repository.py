@@ -567,8 +567,10 @@ class Neo4jRegistrationRepository:
         )
         return await self._many(rows)
 
-    async def write_bundle(self, bundle: dict[str, Any]) -> dict[str, str]:
-        written = await write_resources(self._store, bundle)
+    async def write_bundle(
+        self, bundle: dict[str, Any], *, create_missing: bool = False
+    ) -> dict[str, str]:
+        written = await write_resources(self._store, bundle, create_missing=create_missing)
         for target in written.values():
             if target.startswith(f"{_BASIC}/"):
                 # A criteria version carries the ServiceCriteria label the criteria statements

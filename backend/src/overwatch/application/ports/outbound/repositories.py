@@ -370,7 +370,9 @@ class RegistrationRepository(Protocol):
         """Registrations for this service, newest first."""
         ...
 
-    async def write_bundle(self, bundle: dict[str, Any]) -> dict[str, str]:
+    async def write_bundle(
+        self, bundle: dict[str, Any], *, create_missing: bool = False
+    ) -> dict[str, str]:
         """Write a FHIR transaction bundle (U27) inside this unit of work's transaction: each entry
         through the resource store, in the order given, with `urn:uuid:` references resolved to the
         ids the entries carry. A POST is a new resource; a PUT replaces the stored one. Returns each

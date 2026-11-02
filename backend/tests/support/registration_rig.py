@@ -143,7 +143,9 @@ class StubRegistrations(_Part):
     async def list_by_status(self, status: Any) -> list[Registration]:
         return [item for item in self.held.values() if item.status is status]
 
-    async def write_bundle(self, bundle: dict[str, Any]) -> dict[str, str]:
+    async def write_bundle(
+        self, bundle: dict[str, Any], *, create_missing: bool = False
+    ) -> dict[str, str]:
         self.wrote("write_bundle")
         if self.fail_write is not None:
             raise self.fail_write

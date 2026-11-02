@@ -284,7 +284,8 @@ class CreateTenant(OperatorUseCase):
                         legal_name=command.legal_name,
                         record=record,
                         now=self._clock.now(),
-                    )
+                    ),
+                    create_missing=True,
                 )
             await _audit(
                 uow,

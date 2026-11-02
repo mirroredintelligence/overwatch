@@ -244,7 +244,9 @@ class FakeUnit:
     async def _append(self, entry: Any) -> None:
         self._world.audit.append(entry)
 
-    async def _write_bundle(self, bundle: dict[str, Any]) -> dict[str, str]:
+    async def _write_bundle(
+        self, bundle: dict[str, Any], *, create_missing: bool = False
+    ) -> dict[str, str]:
         """Records the bundle in the scope it was written to; the resource store is not needed."""
         self._world.bundles.append((self.unit_scope, bundle))
         return {}

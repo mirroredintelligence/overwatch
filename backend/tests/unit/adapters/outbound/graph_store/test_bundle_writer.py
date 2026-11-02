@@ -121,6 +121,21 @@ async def test_a_put_for_a_resource_that_does_not_exist_is_not_found_and_writes_
     assert [put[0]["resourceType"] for put in store.puts] == ["Organization", "Location"]
 
 
+async def test_a_put_that_may_create_writes_a_resource_that_does_not_exist_yet() -> None:
+    # The tenant's own organisation is written once with a PUT on its first creation (DEC-1314): the
+    # resource is not there yet, so the write creates it rather than refusing it as not found.
+    store = RecordingStore()
+
+    written = await write_bundle(store, BUNDLE, create_missing=True)
+
+    assert [put[0]["resourceType"] for put in store.puts] == [
+        "Organization",
+        "Location",
+        "HealthcareService",
+    ]
+    assert "Organization/org-1" in written.values()
+
+
 @pytest.mark.parametrize(
     "bundle",
     [

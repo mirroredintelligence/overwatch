@@ -7,7 +7,8 @@ import { SignOutButton, type SignOutFn } from '@/components/session/SignOutButto
 import { signOutOperator } from '@/lib/operator/browser';
 import type { OperatorRole } from '@/lib/operator/session';
 import { roleWord } from '@/lib/tenantAdmin/words';
-import { RoleSwitcher, staffRoleWord } from '@/components/shell/RoleSwitcher';
+import { RoleSwitcher } from '@/components/shell/RoleSwitcher';
+import { staffRoleWord } from '@/lib/shell/roleWords';
 import { ADMIN_PAGES } from './AdminOverview';
 import styles from './AdminShell.module.css';
 

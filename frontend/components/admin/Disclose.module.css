@@ -1,0 +1,493 @@
+/* Rows that open to their detail: Contacts, Retention and Settings. Colour, size and spacing are tokens from
+   app/tokens.css. The motion tokens (--dur-*, --ease-*) are zero under reduced motion, so every transition and
+   animation here is switched off there without a rule of its own. The spring is a short overshoot that settles,
+   used on small things (the chevron, an arriving row, a saved highlight), never on a height. */
+
+.list {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+  background: var(--c-bg);
+  color: var(--c-ink);
+  font-family: var(--font-atkinson, system-ui), system-ui, sans-serif;
+  overflow: clip;
+  transition:
+    border-color var(--dur-menu) var(--ease-out),
+    box-shadow var(--dur-sheet) var(--ease-out);
+}
+
+@supports (transition-timing-function: linear(0, 1)) {
+  .row {
+    --spring: linear(0, 0.009, 0.035 2.1%, 0.141 4.4%, 0.281 6.7%, 0.723 12.9%, 0.938 16.7%, 1.017, 1.077, 1.121, 1.149 24.3%, 1.159, 1.163, 1.161, 1.154 29.9%, 1.129 32.8%, 1.051 39.6%, 1.017 43.1%, 0.991, 0.977 51%, 0.974 53.8%, 0.975 57.1%, 0.997 69.8%, 1.003 76.9%, 1);
+  }
+}
+
+.row[data-open='true'] {
+  border-color: var(--c-primary);
+  box-shadow: 0 10px 28px rgb(20 35 43 / 0.1);
+}
+
+.rowHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--space-4);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--dur-menu) var(--ease-out);
+}
+
+.rowHead:hover {
+  background: var(--c-tint);
+}
+
+.rowHead:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: -3px;
+}
+
+.rowText {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rowTitle {
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: 700;
+}
+
+.rowHint {
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  color: var(--c-ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowSide {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: none;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-ink-2);
+}
+
+.chevron {
+  flex: none;
+  color: var(--c-ink-2);
+  transition: transform var(--dur-sheet) var(--spring);
+}
+
+.row[data-open='true'] .chevron {
+  transform: rotate(180deg);
+}
+
+/* The panel: the height eases, the content settles with the spring. */
+.panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--dur-sheet) var(--ease-drawer);
+}
+
+.panel[data-open='true'] {
+  grid-template-rows: 1fr;
+}
+
+.panelInner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.panelBody {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border-top: 1px solid var(--c-line);
+  opacity: 0;
+  transform: translateY(-8px);
+  transition:
+    opacity var(--dur-menu) var(--ease-out),
+    transform var(--dur-sheet) var(--spring);
+}
+
+.panel[data-open='true'] .panelBody {
+  opacity: 1;
+  transform: none;
+}
+
+/* ---------------------------------------------------------------- small parts the pages share */
+
+.tag {
+  display: inline-block;
+  padding: 2px var(--space-2);
+  border: 1px solid var(--c-ink-2);
+  border-radius: var(--radius-chip);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  font-weight: 700;
+  color: var(--c-ink);
+  white-space: nowrap;
+}
+
+.tagDashed {
+  border-style: dashed;
+  font-weight: 400;
+  color: var(--c-ink-2);
+}
+
+.tagOn {
+  border-color: var(--c-primary);
+  background: color-mix(in srgb, var(--c-primary) 12%, white);
+  color: var(--c-primary-dark);
+}
+
+.tagClinical {
+  border-color: var(--c-surge);
+  background: var(--c-amber-tint);
+}
+
+.badge {
+  display: inline-block;
+  min-width: 1.4rem;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-chip);
+  background: var(--c-primary);
+  color: white;
+  font-size: var(--type-caption-size);
+  line-height: 1.4rem;
+  font-weight: 700;
+  text-align: center;
+  animation: arrive var(--dur-menu) var(--spring) both;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-chip);
+  background: var(--c-bg);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  animation: arrive var(--dur-sheet) var(--spring) both;
+}
+
+.chip strong {
+  font-weight: 700;
+}
+
+/* A saved value is shown by a brief highlight that springs in and fades, not by a banner alone. */
+.flash {
+  animation: flash 1400ms var(--ease-out) both;
+  border-radius: var(--radius);
+}
+
+@keyframes flash {
+  0% {
+    background: color-mix(in srgb, var(--c-primary) 28%, transparent);
+    transform: scale(1.02);
+  }
+  35% {
+    transform: none;
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+@keyframes arrive {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.notice {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--c-surge);
+  border-left-width: 6px;
+  border-radius: var(--radius);
+  background: var(--c-amber-tint);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  animation: arrive var(--dur-sheet) var(--spring) both;
+}
+
+.muted {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-muted);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The state card that leads a page: one clear answer, then what you can do. */
+.lead {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+  background: var(--c-bg);
+}
+
+.leadState {
+  margin: 0;
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: 700;
+}
+
+.leadActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+/* A table that scrolls inside itself, so a long one never lengthens the page. */
+.inner {
+  max-height: min(24rem, 50dvh);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 40rem) {
+  .rowHead {
+    align-items: flex-start;
+  }
+
+  .rowHint {
+    white-space: normal;
+  }
+}
+
+/* ---------------------------------------------------------------- Settings: the versions and the draft */
+
+.row[data-tone='clinical'] {
+  border-left: 6px solid var(--c-surge);
+}
+
+.arrive {
+  animation: arrive var(--dur-sheet) var(--ease-out) both;
+}
+
+/* The versions as a timeline, newest first: a dot for each, the one in force filled. */
+.timeline {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+  background: var(--c-bg);
+  font-family: var(--font-atkinson, system-ui), system-ui, sans-serif;
+  color: var(--c-ink);
+}
+
+.stop {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-3) calc(var(--space-6) + var(--space-3));
+  animation: arrive var(--dur-sheet) var(--ease-out) both;
+}
+
+.stop + .stop {
+  border-top: 1px solid var(--c-line);
+}
+
+.stop::before {
+  content: '';
+  position: absolute;
+  left: calc(var(--space-4) + 6px);
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--c-line);
+}
+
+.stop:first-child::before {
+  top: 50%;
+}
+
+.stop:last-child::before {
+  bottom: 50%;
+}
+
+.stop:only-child::before {
+  display: none;
+}
+
+.stop::after {
+  content: '';
+  position: absolute;
+  left: var(--space-4);
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin-top: -7px;
+  box-sizing: border-box;
+  border: 2px solid var(--c-ink-2);
+  border-radius: 50%;
+  background: var(--c-bg);
+}
+
+.stopNow::after {
+  border-color: var(--c-primary-dark);
+  background: var(--c-primary);
+}
+
+.stopLink {
+  margin-right: auto;
+  font-weight: 700;
+  color: var(--c-primary-dark);
+}
+
+.stopMeta {
+  min-width: 3.5rem;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-ink-2);
+  text-align: right;
+}
+
+/* A setting in a draft: the bar at its edge says it is changed. */
+.setting {
+  padding: var(--space-3);
+  border-left: 4px solid transparent;
+  border-radius: var(--radius);
+  transition:
+    border-color var(--dur-menu) var(--ease-out),
+    background-color var(--dur-menu) var(--ease-out);
+}
+
+.setting + .setting {
+  margin-top: var(--space-3);
+}
+
+.setting[data-changed='true'] {
+  border-left-color: var(--c-primary);
+  background: color-mix(in srgb, var(--c-primary) 7%, transparent);
+}
+
+.find {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.findLabel {
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-lh);
+  font-weight: 700;
+}
+
+.findInput {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: var(--btn-h);
+  padding: 0 var(--space-4);
+  border: 2px solid var(--c-ink-2);
+  border-radius: var(--radius);
+  background: var(--c-bg);
+  color: var(--c-ink);
+  font: inherit;
+  transition:
+    border-color var(--dur-menu) var(--ease-out),
+    box-shadow var(--dur-menu) var(--ease-out);
+}
+
+.findInput:focus-visible {
+  outline: none;
+  border-color: var(--c-primary);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--c-primary) 22%, transparent);
+}
+
+/* The fieldset inside an open row is the row's own body, not a card inside a card. */
+.panelBody fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+/* Narrow screens: a version is two lines (its name and state, then its approvals and kind), with the dot on the first. */
+@media (max-width: 40rem) {
+  .stop {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      'link status'
+      'meta kind';
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+  }
+
+  .stop::after {
+    top: calc(var(--space-3) + 0.9rem);
+  }
+
+  .stopLink {
+    grid-area: link;
+  }
+
+  .stopStatus {
+    grid-area: status;
+    justify-self: end;
+  }
+
+  .stopMeta {
+    grid-area: meta;
+    min-width: 0;
+    text-align: left;
+  }
+
+  .stopKind {
+    grid-area: kind;
+    justify-self: end;
+  }
+}

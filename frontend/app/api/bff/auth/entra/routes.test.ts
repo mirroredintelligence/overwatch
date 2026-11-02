@@ -213,7 +213,7 @@ describe('GET /api/bff/auth/entra/callback: a good sign-in', () => {
     const { payload } = await jwtDecrypt(outcome.sessionWrite!.value, new Uint8Array(Buffer.from(TEST_SESSION_SECRET, 'base64')));
     const everything = JSON.stringify([payload, outcome.body, [...outcome.response.headers.entries()], cookieWrites.map((w) => w.options)]);
     expect(everything).not.toMatch(/Sample Staff|sample\.staff@example\.test|fake-access-token|id_token|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]/);
-    expect(Object.keys(payload).sort()).toEqual(['backendToken', 'exp', 'expiresAt', 'host', 'iat', 'role', 'services', 'sub', 'tenantId']);
+    expect(Object.keys(payload).sort()).toEqual(['backendToken', 'exp', 'expiresAt', 'host', 'iat', 'role', 'roles', 'services', 'sub', 'tenantId']);
   });
 
   it('answers with a page that moves the browser on, not a redirect, so the strict cookie is sent on the next request', async () => {

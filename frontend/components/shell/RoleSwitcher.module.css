@@ -33,6 +33,7 @@
 .menu {
   position: absolute;
   right: 0;
+  max-width: calc(100vw - 2 * var(--space-4));
   z-index: 20;
   display: grid;
   gap: var(--space-1);
@@ -75,6 +76,13 @@
 .itemCurrent {
   font-weight: 700;
   background: var(--c-tint);
+}
+
+/* At the left of a header (the staff frame) the menu opens rightwards, so it never leaves the screen. */
+.menuStart {
+  right: auto;
+  left: 0;
+  transform-origin: top left;
 }
 
 @keyframes open {

@@ -35,6 +35,27 @@ describe('RetentionForm', () => {
     expect(within(chain).getByLabelText('What happens to Audit chain')).toHaveValue('keep');
   });
 
+  it('leads with one answer and the schedule in words, before any table is opened', async () => {
+    await open();
+    const glance = screen.getByRole('region', { name: 'Retention at a glance' });
+    expect(within(glance).getByText('2 of 8 kinds of data have a rule')).toBeInTheDocument();
+    expect(within(glance).getByText('2 years, then summarised')).toBeInTheDocument();
+    expect(within(glance).getByText('kept, no time limit')).toBeInTheDocument();
+    expect(within(glance).getAllByText('not set')).toHaveLength(6);
+    expect(screen.getByRole('button', { name: /Review or change/ })).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('says the platform defaults are in use, and shows them, right after they are chosen', async () => {
+    const user = await open();
+    await user.click(screen.getByRole('button', { name: 'Use the platform defaults' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Use the platform defaults?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Use the defaults' }));
+    const glance = screen.getByRole('region', { name: 'Retention at a glance' });
+    expect(await within(glance).findByText('The platform defaults are in use', { selector: 'p' })).toBeInTheDocument();
+    expect(within(glance).getByText('7 years, then deleted')).toBeInTheDocument();
+    expect(within(glance).queryByText('not set')).not.toBeInTheDocument();
+  });
+
   it('will not save until every class has an action, and says which is missing', async () => {
     const user = await open();
     await user.click(screen.getByRole('button', { name: 'Save retention rules' }));

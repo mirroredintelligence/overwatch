@@ -44,6 +44,9 @@ const ROLE_ABOUT: Record<string, string> = {
   ...Object.fromEntries(TEAM_WORDS.map(([code, , about]) => [code, about])),
 };
 
+// How long the directory is given to catch up with a change before the list is read a second time.
+const CATCH_UP_MS = 2500;
+
 const ADD_FAILED: Record<number, string> = {
   400: 'No one in your directory has that address.',
   403: 'That group cannot be changed here.',
@@ -110,6 +113,10 @@ function RoleRow({ group, open, onToggle, onChanged }: { group: Group; open: boo
   const [confirming, setConfirming] = useState<string | null>(null);
   const [justAdded, setJustAdded] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  // What this person has just done here, shown at once: the directory's own list of a group lags a few seconds
+  // behind a change, so a re-read straight after would show the old people. The overlay is dropped from view as the
+  // directory catches up (a person it lists is shown once), and a second re-read follows after a pause.
+  const [overlay, setOverlay] = useState<{ added: Member[]; gone: string[] }>({ added: [], gone: [] });
   const row = useRef<HTMLElement>(null);
   const submitKey = useSubmitKey();
   const word = ROLE_WORD[group.role] ?? group.role;
@@ -126,8 +133,13 @@ function RoleRow({ group, open, onToggle, onChanged }: { group: Group; open: boo
     if (result.ok) {
       setJustAdded(person.userId);
       setAdding(false);
+      setOverlay((now) => ({
+        added: [...now.added.filter((p) => p.userId !== person.userId), { userId: person.userId, displayName: person.displayName, mail: person.mail }],
+        gone: now.gone.filter((id) => id !== person.userId),
+      }));
       setMessage({ ok: true, text: result.data.changed ? 'Added to the group.' : 'That person is already in the group.' });
       onChanged();
+      setTimeout(onChanged, CATCH_UP_MS);
     } else setMessage({ ok: false, text: failure(result.status) });
   }
 
@@ -140,8 +152,10 @@ function RoleRow({ group, open, onToggle, onChanged }: { group: Group; open: boo
     submitKey.fresh();
     setConfirming(null);
     if (result.ok) {
+      setOverlay((now) => ({ added: now.added.filter((p) => p.userId !== userId), gone: [...now.gone, userId] }));
       setMessage({ ok: true, text: result.data.changed ? 'Removed from the group.' : 'That person was not in the group.' });
       onChanged();
+      setTimeout(onChanged, CATCH_UP_MS);
     } else setMessage({ ok: false, text: failure(result.status) });
   }
 
@@ -160,7 +174,11 @@ function RoleRow({ group, open, onToggle, onChanged }: { group: Group; open: boo
     );
   }
 
-  const memberIds = new Set(group.members.map((member) => member.userId));
+  const members = [
+    ...group.members.filter((member) => !overlay.gone.includes(member.userId)),
+    ...overlay.added.filter((person) => !group.members.some((member) => member.userId === person.userId)),
+  ];
+  const memberIds = new Set(members.map((member) => member.userId));
   return (
     <section ref={row} className={styles.role} data-open={open} aria-label={title}>
       <button
@@ -177,15 +195,15 @@ function RoleRow({ group, open, onToggle, onChanged }: { group: Group; open: boo
         <span className={styles.roleText}>
           <span className={styles.roleName}>{word}</span>
           <span className={styles.roleAbout}>{ROLE_ABOUT[group.role] ?? ''}</span>
-          <span className={styles.roleWho}>{whoWord(group.members)}</span>
+          <span className={styles.roleWho}>{whoWord(members)}</span>
         </span>
         <span className={styles.roleSide}>
           <span className={styles.stack} aria-hidden="true">
-            {group.members.slice(0, 4).map((member) => (
+            {members.slice(0, 4).map((member) => (
               <Avatar key={member.userId} id={member.userId} name={member.displayName} mail={member.mail} size="sm" />
             ))}
           </span>
-          <span className={styles.count}>{peopleWord(group.members.length)}</span>
+          <span className={styles.count}>{peopleWord(members.length)}</span>
           <svg className={styles.chevron} viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" focusable="false">
             <path d="M5 8l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
@@ -194,11 +212,11 @@ function RoleRow({ group, open, onToggle, onChanged }: { group: Group; open: boo
       <div id={panelId} className={styles.panel} data-open={open} inert={!open}>
         <div className={styles.panelInner}>
           <div className={styles.panelBody}>
-            {group.members.length === 0 ? (
+            {members.length === 0 ? (
               <p className={styles.empty}>No one is in this group.</p>
             ) : (
               <ul className={styles.members} aria-label={`Members of the ${title.toLowerCase()}`}>
-                {group.members.map((member) => {
+                {members.map((member) => {
                   const who = nameOf(member);
                   return (
                     <li key={member.userId} className={`${styles.member} ${justAdded === member.userId ? styles.memberNew : ''}`}>

@@ -79,6 +79,40 @@ describe('ContactsForm', () => {
     expect(within(group).getByLabelText('Label')).toHaveValue('Access team A 2');
   });
 
+  it('says in each closed row what is held, or that nothing is set, with its form behind the row', async () => {
+    await open();
+    const phone = screen.getByRole('button', { name: /Coordination phone/ });
+    expect(phone).toHaveAttribute('aria-expanded', 'false');
+    expect(within(phone).getByText('Access team A · 01632 960001')).toBeInTheDocument();
+    expect(within(phone).getByText('Set')).toBeInTheDocument();
+    const email = screen.getByRole('button', { name: /Support email/ });
+    expect(within(email).getByText('Nothing is set yet.')).toBeInTheDocument();
+    expect(within(email).getByText('Not set')).toBeInTheDocument();
+  });
+
+  it('opens one kind at a time', async () => {
+    const user = await open();
+    const phone = screen.getByRole('button', { name: /Coordination phone/ });
+    const email = screen.getByRole('button', { name: /Support email/ });
+    await user.click(phone);
+    expect(phone).toHaveAttribute('aria-expanded', 'true');
+    await user.click(email);
+    expect(email).toHaveAttribute('aria-expanded', 'true');
+    expect(phone).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('shows what was saved in the row straight away, without a reload', async () => {
+    const user = await open();
+    await user.click(screen.getByRole('button', { name: /Support email/ }));
+    const group = screen.getByRole('group', { name: 'Support email' });
+    await user.type(within(group).getByLabelText('Label'), 'Support desk');
+    await user.type(within(group).getByLabelText('Number or address'), 'support@a.example.test');
+    await user.click(within(group).getByRole('button', { name: 'Save support email' }));
+    const row = screen.getByRole('button', { name: /Support email/ });
+    expect(await within(row).findByText('Support desk · support@a.example.test')).toBeInTheDocument();
+    expect(within(row).getByText('Set')).toBeInTheDocument();
+  });
+
   it('says it could not load when the read fails', async () => {
     server.use(http.get('/api/bff/tenant/overview', () => HttpResponse.json({}, { status: 503 })));
     render(<ContactsForm />);

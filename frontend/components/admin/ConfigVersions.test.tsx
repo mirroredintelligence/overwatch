@@ -18,14 +18,14 @@ beforeEach(() => resetAdminWrites());
 async function open() {
   const user = userEvent.setup();
   render(<ConfigVersions />);
-  await screen.findByRole('table', { name: 'Configuration versions' });
+  await screen.findByRole('list', { name: 'Configuration versions' });
   return user;
 }
 
 describe('the versions', () => {
   it('lists every version, newest first, with its state, its approvals and whether it is clinical', async () => {
     await open();
-    const rows = within(screen.getByRole('table', { name: 'Configuration versions' })).getAllByRole('row').slice(1);
+    const rows = within(screen.getByRole('list', { name: 'Configuration versions' })).getAllByRole('listitem');
     expect(rows).toHaveLength(3);
     expect(within(rows[0]!).getByRole('link', { name: 'Version 3' })).toHaveAttribute('href', '/admin/config/3');
     expect(within(rows[0]!).getByText('Waiting for approval')).toBeInTheDocument();
@@ -192,6 +192,71 @@ describe('drafting a change', () => {
     await user.click(screen.getByRole('button', { name: 'Save draft' }));
     await screen.findByRole('status');
     expect(seenAdminWrites[0]?.key).toBe(seenAdminWrites[1]?.key);
+  });
+});
+
+describe('a draft that does not fill the screen', () => {
+  async function draft() {
+    const user = await open();
+    await user.click(screen.getByRole('button', { name: 'Draft a change' }));
+    await screen.findByRole('group', { name: 'Clinical settings' });
+    return user;
+  }
+
+  it('shows the settings as two collapsed groups with a count, and opens one at a time', async () => {
+    const user = await draft();
+    const clinical = screen.getByRole('button', { name: /Clinical settings/ });
+    const operational = screen.getByRole('button', { name: /Operational settings/ });
+    expect(clinical).toHaveAttribute('aria-expanded', 'false');
+    expect(operational).toHaveAttribute('aria-expanded', 'false');
+    await user.click(clinical);
+    expect(clinical).toHaveAttribute('aria-expanded', 'true');
+    await user.click(operational);
+    expect(operational).toHaveAttribute('aria-expanded', 'true');
+    expect(clinical).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('counts what is changed on the group it is in, and says right in the form that a clinical change needs two other people', async () => {
+    const user = await draft();
+    expect(screen.queryByText(/so it needs two approvals from people other than you/)).not.toBeInTheDocument();
+    const field = screen.getByLabelText('Pressure watch from');
+    await user.clear(field);
+    await user.type(field, '6');
+    expect(within(screen.getByRole('button', { name: /Clinical settings/ })).getByText('1 changed')).toBeInTheDocument();
+    expect(screen.getByText(/This changes a clinical setting \(Pressure watch from\), so it needs two approvals from people other than you\./)).toBeInTheDocument();
+  });
+
+  it('does not warn about approvals for an operational change alone', async () => {
+    const user = await draft();
+    const name = screen.getByLabelText('System name');
+    await user.clear(name);
+    await user.type(name, 'Capacity B');
+    expect(within(screen.getByRole('button', { name: /Operational settings/ })).getByText('1 changed')).toBeInTheDocument();
+    expect(screen.queryByText(/so it needs two approvals from people other than you/)).not.toBeInTheDocument();
+  });
+
+  it('narrows the settings as you type in "Find a setting", opening the groups that match', async () => {
+    const user = await draft();
+    await user.type(screen.getByLabelText('Find a setting'), 'pressure');
+    expect(screen.getByLabelText('Pressure watch from')).toBeInTheDocument();
+    expect(screen.queryByLabelText('System name')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Clinical settings/ })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.queryByRole('button', { name: /Operational settings/ })).not.toBeInTheDocument();
+  });
+
+  it('says so when nothing matches the filter', async () => {
+    const user = await draft();
+    await user.type(screen.getByLabelText('Find a setting'), 'zzzz');
+    expect(await screen.findByText('No setting matches that. Try fewer letters.')).toBeInTheDocument();
+  });
+
+  it('opens the group of a setting with a problem, so the person sees what to fix', async () => {
+    const user = await draft();
+    const field = screen.getByLabelText('Pressure watch from');
+    await user.clear(field);
+    await user.type(field, '99');
+    await user.click(screen.getByRole('button', { name: 'Save draft' }));
+    expect(await screen.findByRole('button', { name: /Clinical settings/ })).toHaveAttribute('aria-expanded', 'true');
   });
 });
 

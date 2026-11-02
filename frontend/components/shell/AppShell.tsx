@@ -4,6 +4,8 @@ import { SignOutButton, type SignOutFn } from '@/components/session/SignOutButto
 import { HelpLink } from '@/components/ui/HelpLink';
 import type { Role } from '@/lib/auth/session';
 import { homeFor, navFor, roleLabel } from '@/lib/shell/nav';
+import { staffRoleWord } from '@/lib/shell/roleWords';
+import { RoleSwitcher } from './RoleSwitcher';
 import { ShellNav } from './ShellNav';
 import styles from './AppShell.module.css';
 
@@ -15,20 +17,29 @@ import styles from './AppShell.module.css';
 // `role` is the signed-in role, or null where nobody is signed in (a registration, the reporter's PIN
 // screen, a help page opened from a link): the header is then the logo and Help only, with no navigation
 // and no sign-out, because there is nothing to sign out of.
+//
+// `roles` is every staff role the person's groups give (DEC-1324). With more than one, the role is a chip that
+// opens a menu to sign in again as another; with one, or none known, it is the plain words as before.
 
 export function AppShell({
   role,
+  roles,
   organisation,
   signOut,
   children,
 }: {
   role: Role | null;
+  /** The roles the person may switch between; the chip shows when there are two or more. */
+  roles?: readonly Role[];
   /** The organisation's display name from its profile, or null when the host has none. */
   organisation?: string | null;
   signOut?: SignOutFn;
   children: ReactNode;
 }) {
   const label = role === null ? null : roleLabel(role);
+  const switchable = role !== null && roles !== undefined && roles.length > 1 && roles.includes(role);
+  // The chip speaks the header's own words for a role where it has them, so the chip and the menu agree.
+  const words = switchable ? Object.fromEntries(roles.map((r) => [r, roleLabel(r) ?? staffRoleWord(r)])) : undefined;
   const home = homeFor(role);
   return (
     <div className={styles.shell} data-el="APP-SHELL">
@@ -37,11 +48,11 @@ export function AppShell({
           <a className={styles.brand} href={home} aria-label="Overwatch home">
             <Logo height={32} />
           </a>
-          {label !== null || organisation ? (
-            <p className={styles.who} data-el="APP-WHO">
-              {label !== null ? <strong className={styles.role}>{label}</strong> : null}
+          {label !== null || organisation || switchable ? (
+            <div className={styles.who} data-el="APP-WHO">
+              {switchable ? <RoleSwitcher current={role} roles={roles} words={words} align="start" /> : label !== null ? <strong className={styles.role}>{label}</strong> : null}
               {organisation ? <span className={styles.org}>{organisation}</span> : null}
-            </p>
+            </div>
           ) : null}
           {role !== null ? <ShellNav items={navFor(role)} home={home} /> : null}
           <div className={styles.actions}>

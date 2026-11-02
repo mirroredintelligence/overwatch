@@ -5,9 +5,11 @@ import { ErrorSummary, type FieldError } from '@/components/lead/ErrorSummary';
 import { TextField } from '@/components/forms/TextField';
 import { Button } from '@/components/ui/Button';
 import { adminSend, useAdminRead, useSubmitKey } from '@/lib/tenantAdmin/browser';
-import { buildDraft, effective, fieldId, hintFor, labelFor, toField, type FieldValue } from '@/lib/tenantAdmin/draft';
+import { buildDraft, effective, fieldId, hintFor, isChanged, labelFor, toField, type FieldValue } from '@/lib/tenantAdmin/draft';
 import type { ConfigView, SettingSpec } from '@/lib/tenantAdmin/views';
+import { Disclose } from './Disclose';
 import styles from './admin.module.css';
+import look from './Disclose.module.css';
 
 // The settings page (TEN-076): the versions of the organisation's settings, which is in force, and a change
 // drafted from it. A change is a new version. A clinical one needs two people who are not its author to
@@ -71,38 +73,19 @@ export function ConfigVersions() {
       {list.length === 0 ? (
         <p className={styles.text}>No version of the settings has been made yet.</p>
       ) : (
-        <div className={styles.scroll}>
-          <table className={styles.table}>
-            <caption>Configuration versions</caption>
-            <thead>
-              <tr>
-                <th scope="col">Version</th>
-                <th scope="col">State</th>
-                <th scope="col">Approvals</th>
-                <th scope="col">Kind</th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.map((v) => (
-                <tr key={v.version}>
-                  <th scope="row">
-                    <a className={styles.link} href={`/admin/config/${v.version}`} aria-label={`Version ${v.version}`}>
-                      {`Version ${v.version}`}
-                    </a>
-                  </th>
-                  <td>
-                    <span className={v.status === 'current' ? styles.tag : `${styles.tag} ${styles.tagDashed}`}>{STATUS_WORD[v.status]}</span>
-                  </td>
-                  <td className={styles.num}>{`${v.approvals} of ${v.approvalsRequired}`}</td>
-                  <td>
-                    <span className={v.clinicalKeys.length > 0 ? `${styles.tag} ${styles.tagClinical}` : `${styles.tag} ${styles.tagDashed}`}>
-                      {v.clinicalKeys.length > 0 ? 'Clinical' : 'Operational'}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className={look.inner}>
+          <ol className={look.timeline} aria-label="Configuration versions">
+            {list.map((v) => (
+              <li key={v.version} className={v.status === 'current' ? `${look.stop} ${look.stopNow}` : look.stop} style={{ animationDelay: `${Math.min(list.indexOf(v), 8) * 35}ms` }}>
+                <a className={look.stopLink} href={`/admin/config/${v.version}`} aria-label={`Version ${v.version}`}>
+                  {`Version ${v.version}`}
+                </a>
+                <span className={`${look.stopStatus} ${v.status === 'current' ? `${look.tag} ${look.tagOn}` : `${look.tag} ${look.tagDashed}`}`}>{STATUS_WORD[v.status]}</span>
+                <span className={look.stopMeta}>{`${v.approvals} of ${v.approvalsRequired}`}</span>
+                <span className={`${look.stopKind} ${v.clinicalKeys.length > 0 ? `${look.tag} ${look.tagClinical}` : `${look.tag} ${look.tagDashed}`}`}>{v.clinicalKeys.length > 0 ? 'Clinical' : 'Operational'}</span>
+              </li>
+            ))}
+          </ol>
         </div>
       )}
 
@@ -145,6 +128,8 @@ function DraftForm({ specs, values, basedOn, onCancel, onSaved }: FormProps) {
   const [errors, setErrors] = useState<FieldError[]>([]);
   const [failure, setFailure] = useState('');
   const [busy, setBusy] = useState(false);
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
+  const [filter, setFilter] = useState('');
   const submitKey = useSubmitKey();
 
   function edit(key: string, value: FieldValue) {
@@ -159,6 +144,9 @@ function DraftForm({ specs, values, basedOn, onCancel, onSaved }: FormProps) {
     const draft = buildDraft(specs, values, fields, useDefault);
     if (draft.problems.length > 0) {
       setErrors(draft.problems.map((p) => ({ field: fieldId(p.key), message: p.message })));
+      // The first problem is in a group that may be shut: open it, so the person sees what to fix.
+      const first = specs.find((spec) => spec.key === draft.problems[0]!.key);
+      if (first !== undefined) setOpenGroup(first.safetyClass);
       return;
     }
     setErrors([]);
@@ -181,43 +169,87 @@ function DraftForm({ specs, values, basedOn, onCancel, onSaved }: FormProps) {
     );
   }
 
-  const clinical = specs.filter((s) => s.safetyClass === 'clinical');
-  const operational = specs.filter((s) => s.safetyClass === 'operational');
   const problemOf = (key: string) => errors.find((e) => e.field === fieldId(key))?.message ?? null;
+  const words = filter.trim().toLowerCase();
+  const matches = (spec: SettingSpec) => words === '' || labelFor(spec.key).toLowerCase().includes(words) || spec.key.toLowerCase().includes(words);
+  // A setting is changed when the person has altered it from what is in force, or asked for its default.
+  const changed = (spec: SettingSpec) => useDefault.has(spec.key) || isChanged(spec, toField(spec, effective(spec, values)), fields[spec.key] ?? '');
+  const clinicalChanged = specs.filter((spec) => spec.safetyClass === 'clinical' && changed(spec));
 
   const control = (spec: SettingSpec) => (
-    <SettingControl
-      key={spec.key}
-      spec={spec}
-      values={values}
-      value={fields[spec.key] ?? ''}
-      error={problemOf(spec.key)}
-      useDefault={useDefault.has(spec.key)}
-      onChange={(value) => edit(spec.key, value)}
-      onUseDefault={(on) => {
-        submitKey.fresh();
-        setUseDefault((current) => {
-          const next = new Set(current);
-          if (on) next.add(spec.key);
-          else next.delete(spec.key);
-          return next;
-        });
-      }}
-    />
+    <div key={spec.key} className={look.setting} data-changed={changed(spec)}>
+      <SettingControl
+        spec={spec}
+        values={values}
+        value={fields[spec.key] ?? ''}
+        error={problemOf(spec.key)}
+        useDefault={useDefault.has(spec.key)}
+        onChange={(value) => edit(spec.key, value)}
+        onUseDefault={(on) => {
+          submitKey.fresh();
+          setUseDefault((current) => {
+            const next = new Set(current);
+            if (on) next.add(spec.key);
+            else next.delete(spec.key);
+            return next;
+          });
+        }}
+      />
+    </div>
   );
 
+  const groups: [string, string, SettingSpec[]][] = [
+    ['clinical', 'Clinical settings', specs.filter((s) => s.safetyClass === 'clinical')],
+    ['operational', 'Operational settings', specs.filter((s) => s.safetyClass === 'operational')],
+  ];
+  const anyMatch = groups.some(([, , list]) => list.some(matches));
+
   return (
-    <form className={styles.stack} onSubmit={submit} noValidate aria-label="Draft a change">
+    <form className={`${styles.stack} ${look.arrive}`} onSubmit={submit} noValidate aria-label="Draft a change">
       <ErrorSummary errors={errors} />
-      <fieldset className={styles.fieldset}>
-        <legend className={styles.legend}>Clinical settings</legend>
-        <p className={styles.muted}>A change to any of these needs two approvals from people other than its author.</p>
-        {clinical.map(control)}
-      </fieldset>
-      <fieldset className={styles.fieldset}>
-        <legend className={styles.legend}>Operational settings</legend>
-        {operational.map(control)}
-      </fieldset>
+      <div className={look.find}>
+        <label htmlFor="find-setting" className={look.findLabel}>
+          Find a setting
+        </label>
+        <input
+          id="find-setting"
+          className={look.findInput}
+          type="search"
+          autoComplete="off"
+          placeholder="Type part of a name, such as pressure"
+          value={filter}
+          onChange={(event) => setFilter(event.target.value)}
+        />
+      </div>
+      <div className={look.list}>
+        {groups.map(([id, name, list]) => {
+          const shown = list.filter(matches);
+          const count = list.filter(changed).length;
+          if (words !== '' && shown.length === 0) return null;
+          return (
+            <Disclose
+              key={id}
+              open={words !== '' ? true : openGroup === id}
+              onToggle={() => setOpenGroup((now) => (now === id ? null : id))}
+              tone={id === 'clinical' ? 'clinical' : undefined}
+              title={name}
+              hint={id === 'clinical' ? 'A change to any of these needs two approvals from people other than its author.' : `${shown.length} ${shown.length === 1 ? 'setting' : 'settings'}`}
+              aside={count > 0 ? <span className={look.badge}>{`${count} changed`}</span> : <span>{shown.length}</span>}
+            >
+              <fieldset className={styles.fieldset}>
+                <legend className={look.srOnly}>{name}</legend>
+                <div className={look.inner}>{shown.map(control)}</div>
+              </fieldset>
+            </Disclose>
+          );
+        })}
+      </div>
+      {words !== '' && !anyMatch ? <p className={look.muted}>No setting matches that. Try fewer letters.</p> : null}
+      {clinicalChanged.length > 0 ? (
+        <p className={look.notice} aria-live="polite">
+          {`This changes ${clinicalChanged.length === 1 ? 'a clinical setting' : 'clinical settings'} (${clinicalChanged.map((spec) => labelFor(spec.key)).join(', ')}), so it needs two approvals from people other than you.`}
+        </p>
+      ) : null}
       {failure !== '' ? (
         <p role="alert" className={styles.problem}>
           {failure}

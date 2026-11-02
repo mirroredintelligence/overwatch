@@ -76,6 +76,30 @@ describe('AppShell', () => {
     expect(signOut).toHaveBeenCalledTimes(1);
   });
 
+  it('shows the role as a chip, in the header’s own words, when the person holds more than one', () => {
+    path.current = '/clinical';
+    page('clinical', { roles: ['lead', 'clinical', 'audit'] });
+    const header = screen.getByRole('banner');
+    expect(within(header).getByText('Clinical advisor', { selector: 'summary span' })).toBeInTheDocument();
+    const menu = within(header).getByRole('form', { name: 'Sign in as another role', hidden: true });
+    expect(within(menu).getAllByRole('button', { hidden: true }).map((b) => b.textContent)).toEqual(['Shift lead', 'Clinical advisor', 'Audit']);
+    // The navigation, Help and Sign out are still there.
+    expect(within(header).getByRole('navigation', { name: 'Main' })).toBeInTheDocument();
+    expect(within(header).getByRole('button', { name: 'Sign out' })).toBeInTheDocument();
+  });
+
+  it('keeps the plain role words with one role, with none known, or with a list that does not hold the role', () => {
+    page('lead', { roles: ['lead'] });
+    expect(document.querySelector('details')).toBeNull();
+    expect(screen.getByText('Shift lead')).toBeInTheDocument();
+    document.body.innerHTML = '';
+    page('lead');
+    expect(document.querySelector('details')).toBeNull();
+    document.body.innerHTML = '';
+    page('lead', { roles: ['advisor', 'audit'] });
+    expect(document.querySelector('details')).toBeNull();
+  });
+
   it('passes the accessibility checks signed in and signed out', async () => {
     path.current = '/planning';
     const signedIn = page('exec', { organisation: 'Dorset system' });

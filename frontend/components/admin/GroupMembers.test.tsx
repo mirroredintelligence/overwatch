@@ -158,6 +158,17 @@ describe('finding and adding a person', () => {
     expect(await within(group).findByText('Added to the group.')).toBeInTheDocument();
   });
 
+  it('shows the person added at once, even while the directory still lists the old people', async () => {
+    // The mock answers the groups read with the same people every time, as the directory does just after a change.
+    const user = await open();
+    const group = await openLead(user);
+    await search(user, group, 'jas');
+    await user.click(await within(group).findByRole('option', { name: /Jasmine Newcomer/ }));
+    const list = await within(group).findByRole('list', { name: 'Members of the shift lead group' });
+    expect(await within(list).findByText('Jasmine Newcomer')).toBeInTheDocument();
+    expect(within(group).getByText('3 people')).toBeInTheDocument();
+  });
+
   it('works from the keyboard: arrow to a person, Enter to add', async () => {
     const user = await open();
     const group = await openLead(user);
@@ -228,6 +239,16 @@ describe('removing a person', () => {
     expect(seenAdminWrites[0]).toMatchObject({ method: 'DELETE', path: `/api/bff/tenant/groups/${GROUP_LEAD}/members/${MEMBER_SAM}`, csrf: SAMPLE_CSRF });
     expect(seenAdminWrites[0]?.key).toBeTruthy();
     expect(await within(group).findByText('Removed from the group.')).toBeInTheDocument();
+  });
+
+  it('takes the person out of the list at once, even while the directory still lists them', async () => {
+    const user = await open();
+    const group = await openLead(user);
+    await user.click(within(group).getByRole('button', { name: 'Remove Sam Second from the shift lead group' }));
+    await user.click(within(group).getByRole('button', { name: /Yes, remove Sam Second/ }));
+    await waitFor(() => expect(within(group).getByText('1 person')).toBeInTheDocument());
+    const list = within(group).getByRole('list', { name: 'Members of the shift lead group' });
+    expect(within(list).queryByText('Sam Second')).not.toBeInTheDocument();
   });
 
   it('can be cancelled without sending anything', async () => {

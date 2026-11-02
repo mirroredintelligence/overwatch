@@ -31,8 +31,13 @@ from overwatch.application.use_cases.tenant_admin import (
 )
 from overwatch.domain.codes import Role
 from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
-from overwatch.domain.model.tenant import OrganisationType, TenantStatus
-from overwatch.domain.model.tenant_records import BindingStatus, MappingStatus, RoleMapping
+from overwatch.domain.model.tenant import ConfigStatus, OrganisationType, TenantStatus
+from overwatch.domain.model.tenant_records import (
+    BindingStatus,
+    MappingStatus,
+    RoleMapping,
+    default_retention,
+)
 from tests.support.provisioning_fakes import (
     DIRECTORY_ID,
     GROUP_ID,
@@ -670,3 +675,34 @@ async def test_assess_writes_nothing_and_names_what_is_missing() -> None:
 
 def test_the_scope_helper_names_the_tenant_scope() -> None:
     assert ScopeId.tenant(TENANT).value == TENANT
+
+
+# -- the platform's defaults (DEC-1322) ----------------------------------------------------------
+
+
+async def test_a_new_tenant_starts_with_the_default_retention_and_an_approved_first_version() -> (
+    None
+):
+    platform, world, heads = FakePlatform(), FakeWorld(), FakeHeads()
+    with as_tenant(TENANT):
+        await _create(platform, world, heads).execute(_command())
+    config = world.config
+    assert {r.data_class for r in config.retention_list} == {
+        r.data_class for r in default_retention()
+    }
+    first = config.current
+    assert first is not None and first.version == 1 and first.status is ConfigStatus.CURRENT
+    assert set(first.values) == {"systemName", "referralSystemName", "coordinationTeamName"}
+    # Every clinical and operational setting is left at its own default: nothing is overridden.
+    assert first.approved_by_refs == ("platform-defaults",)
+
+
+async def test_running_the_creation_again_keeps_what_the_organisation_changed() -> None:
+    platform, world, heads = FakePlatform(), FakeWorld(), FakeHeads()
+    with as_tenant(TENANT):
+        await _create(platform, world, heads).execute(_command())
+        before = world.config.current
+        world.config.retention_list = world.config.retention_list[:1]
+        await _create(platform, world, heads).execute(_command())
+    assert world.config.current is before
+    assert len(world.config.retention_list) == 1

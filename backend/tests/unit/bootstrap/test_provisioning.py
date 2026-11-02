@@ -69,13 +69,14 @@ def _args(*argv: str) -> Any:
 # -- the command line ----------------------------------------------------------------------------
 
 
-def test_the_operator_is_required_and_the_command_is_one_of_the_eleven() -> None:
+def test_the_operator_is_required_and_the_command_is_one_of_the_twelve() -> None:
     with pytest.raises(SystemExit):
         parse_args(["create", TENANT])
     with pytest.raises(SystemExit):
         parse_args(["--operator", "o", "delete", TENANT])
     assert set(COMMANDS) == {
         "create",
+        "defaults",
         "host",
         "number",
         "number-retire",

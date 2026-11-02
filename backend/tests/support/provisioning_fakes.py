@@ -167,12 +167,33 @@ class FakeConfig:
         self.current: TenantConfig | None = None
         self.contact_list: list[TenantContact] = []
         self.channel_list: list[TenantChannel] = []
-        self.retention_list = ()
+        self.retention_list: tuple[Any, ...] = ()
         self.binding_list: list[EntraBinding] = []
         self.mapping_list: list[RoleMapping] = []
+        self.versions: dict[int, TenantConfig] = {}
 
     async def current_version(self) -> TenantConfig | None:
         return self.current
+
+    async def latest_version_number(self) -> int:
+        return max(self.versions, default=0)
+
+    async def add_version(self, config: TenantConfig) -> None:
+        self.versions[config.version] = config
+
+    async def move_version(self, config: TenantConfig, expected: ConfigStatus) -> bool:
+        held = self.versions.get(config.version)
+        if held is None or held.status is not expected:
+            return False
+        self.versions[config.version] = config
+        if config.status is ConfigStatus.CURRENT:
+            self.current = config
+        return True
+
+    async def put_retention(self, rule: Any) -> None:
+        self.retention_list = tuple(
+            r for r in self.retention_list if r.data_class is not rule.data_class
+        ) + (rule,)
 
     async def contacts(self) -> tuple[TenantContact, ...]:
         return tuple(self.contact_list)

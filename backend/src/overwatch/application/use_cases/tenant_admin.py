@@ -59,6 +59,7 @@ from overwatch.application.provisioning import (
     seed_recurring_work,
 )
 from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
+from overwatch.application.use_cases.platform_defaults import apply_platform_defaults
 from overwatch.application.use_cases.tenant_config import configuration_facts, plan_binding
 from overwatch.domain.codes import Role
 from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
@@ -290,6 +291,10 @@ class CreateTenant(OperatorUseCase):
                     ),
                     create_missing=True,
                 )
+            # The platform's standard settings and retention, so nothing waits on accepting a
+            # default by hand (DEC-1322). Idempotent: a resumed creation redoes nothing.
+            _unit_scope(uow)
+            defaults = await apply_platform_defaults(uow, self._clock)
             await _audit(
                 uow,
                 self._clock,
@@ -303,6 +308,7 @@ class CreateTenant(OperatorUseCase):
                     "resumed": not created,
                     "directoryBound": directory is not None,
                     "roleMappings": len(mappings),
+                    "defaults": defaults,
                 },
             )
             await uow.commit()
@@ -310,6 +316,34 @@ class CreateTenant(OperatorUseCase):
 
 
 # ---------------------------------------------------------------- numbers, host, references
+
+
+@dataclass(frozen=True, slots=True)
+class ApplyPlatformDefaultsCommand:
+    actor: Actor
+
+
+class ApplyPlatformDefaults(OperatorUseCase):
+    """Give a tenant made before DEC-1322 the standard settings and retention it would have started
+    with. Writes only what is missing; a tenant that already has either is left as it is."""
+
+    async def execute(self, command: ApplyPlatformDefaultsCommand) -> dict[str, object]:
+        _, scope = self._begin(command.actor)
+        await self._tenant(scope, allowed=_OPEN_FOR_CHANGES)
+        async with self._uow_factory() as uow:
+            _unit_scope(uow)
+            done = await apply_platform_defaults(uow, self._clock)
+            await _audit(
+                uow,
+                self._clock,
+                command.actor,
+                "ApplyPlatformDefaults",
+                AUDIT_UPDATE,
+                "platform-defaults",
+                dict(done),
+            )
+            await uow.commit()
+        return done
 
 
 @dataclass(frozen=True, slots=True)

@@ -44,6 +44,8 @@ from overwatch.application.tenant_settings import DirectoryZones
 from overwatch.application.use_cases.tenant_admin import (
     ActivateTenant,
     ActivateTenantCommand,
+    ApplyPlatformDefaults,
+    ApplyPlatformDefaultsCommand,
     CreateTenant,
     CreateTenantCommand,
     RecordNumberCommand,
@@ -82,6 +84,7 @@ COMMANDS: Final = (
     "number-retire",
     "references",
     "verify-directory",
+    "defaults",
     "activate",
     "status",
     "suspend",
@@ -105,6 +108,7 @@ class Provisioning:
     """The operator's use cases, on one container."""
 
     create: CreateTenant
+    defaults: ApplyPlatformDefaults
     number: RecordTenantNumber
     retire: RetireTenantNumber
     host: SetTenantHost
@@ -131,6 +135,7 @@ def build_provisioning(
 
     return Provisioning(
         create=CreateTenant(tenants, registry, AuditHeads(container.neo4j), factory, clock),
+        defaults=ApplyPlatformDefaults(tenants, factory, clock),
         number=RecordTenantNumber(tenants, registry, factory, clock),
         retire=RetireTenantNumber(tenants, registry, factory, clock),
         host=SetTenantHost(tenants, registry, factory, clock),
@@ -201,6 +206,11 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     directory.add_argument("tenant_id")
     directory.add_argument("directory_id")
 
+    defaults = commands.add_parser(
+        "defaults", help="give the tenant the platform's standard settings and retention"
+    )
+    defaults.add_argument("tenant_id")
+
     activate = commands.add_parser("activate", help="activate the tenant")
     activate.add_argument("tenant_id")
 
@@ -270,6 +280,9 @@ async def run_command(provisioning: Provisioning, args: argparse.Namespace) -> l
                     VerifyDirectoryCommand(actor, args.directory_id)
                 )
                 return [f"tenant {tenant_id}: directory verified"]
+            case "defaults":
+                applied = await provisioning.defaults.execute(ApplyPlatformDefaultsCommand(actor))
+                return [f"tenant {tenant_id}: applied {applied}"]
             case "activate":
                 done = await provisioning.activate.execute(ActivateTenantCommand(actor))
                 return [f"tenant {done.tenant_id}: active, epoch {done.epoch}"]

@@ -11,13 +11,14 @@ import {
   verifyIdToken,
   type Transaction,
 } from './oidc';
-import { exchangeStaffToken } from './exchange';
+import { exchangeStaffToken, STAFF_ROLES } from './exchange';
 import { requestHost } from './host';
 import {
   baseCookieOptions,
   createSession,
   readRequestCookie,
   sessionSecretKey,
+  type Role,
 } from './session';
 import { safeNext } from './staff';
 import { readIssuedToken } from './tokenClaims';
@@ -77,7 +78,9 @@ export async function unsealTransaction(value: string, now: Date, purpose: strin
     if (typeof nonce !== 'string' || !BASE64URL_43.test(nonce)) return null;
     if (typeof verifier !== 'string' || !BASE64URL_43.test(verifier)) return null;
     if (typeof next !== 'string' || (next !== '' && !isSamePathOnly(next))) return null;
-    return { state, nonce, verifier, next };
+    const role = payload.role ?? '';
+    if (typeof role !== 'string' || (role !== '' && !isStaffRoleWord(role))) return null;
+    return { state, nonce, verifier, next, role };
   } catch {
     return null;
   }
@@ -95,20 +98,35 @@ function note(reason: string): void {
   console.warn(`staff sign-in refused: ${reason}`);
 }
 
-export async function nextFrom(request: Request): Promise<string> {
+/** The start form's `next` and `role` (DEC-1324). A role that is not a staff role is ignored, as no role is. */
+export async function startForm(request: Request): Promise<{ next: string; role: string }> {
   try {
-    const next = (await request.formData()).get('next');
-    return typeof next === 'string' && isSamePathOnly(next) ? next : '';
+    const form = await request.formData();
+    const next = form.get('next');
+    const role = form.get('role');
+    return {
+      next: typeof next === 'string' && isSamePathOnly(next) ? next : '',
+      role: typeof role === 'string' && isStaffRoleWord(role) ? role : '',
+    };
   } catch {
-    return '';
+    return { next: '', role: '' };
   }
+}
+
+export async function nextFrom(request: Request): Promise<string> {
+  return (await startForm(request)).next;
+}
+
+function isStaffRoleWord(value: string): value is Role {
+  return (STAFF_ROLES as readonly string[]).includes(value);
 }
 
 /** POST: the browser is sent to Entra. Reads `next` from the form and nothing else from the request. */
 export async function startSignIn(request: Request): Promise<Response> {
   try {
     const config = await loadEntraConfig();
-    const transaction = newTransaction(await nextFrom(request));
+    const { next, role } = await startForm(request);
+    const transaction = newTransaction(next, role);
     const sealed = await sealTransaction(transaction, new Date());
     const store = await cookies();
     store.set(TRANSACTION_COOKIE, sealed, transactionCookie(TRANSACTION_SECONDS));
@@ -158,7 +176,7 @@ export async function completeSignIn(request: Request): Promise<Response> {
     await verifyIdToken(config, idToken, transaction.nonce, now);
 
     // The back end signs the token and says the role. The Host is the one this request came to.
-    const result = await exchangeStaffToken(idToken, hostOf(request), now);
+    const result = await exchangeStaffToken(idToken, hostOf(request), now, transaction.role ? (transaction.role as Role) : undefined);
     if (result.kind === 'refused') return see(NO_ACCESS);
     const { grant } = result;
     // The session is for one tenant and one host (DEC-600): the tenant is the one the back end signed
@@ -175,6 +193,7 @@ export async function completeSignIn(request: Request): Promise<Response> {
       sub: grant.sub,
       backendToken: grant.token,
       expiresAt: grant.expiresAt,
+      roles: grant.roles,
     });
     return moveOn(safeNext(transaction.next, grant.role));
   } catch (error) {

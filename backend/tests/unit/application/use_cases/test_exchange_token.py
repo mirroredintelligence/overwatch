@@ -855,3 +855,50 @@ async def test_a_wall_token_is_never_in_a_repr_or_a_log(caplog: pytest.LogCaptur
 
     assert issued.token not in repr(issued) and DEVICE_TOKEN not in caplog.text
     assert issued.token not in caplog.text
+
+
+# --------------------------------------------- staff: the role asked for (DEC-1324)
+
+
+async def _exchange_as(use_case: ExchangeStaffToken, role: Role | None) -> IssuedToken:
+    with bind_tenant(TENANT_A.id):
+        return await use_case.execute(
+            ExchangeStaffCommand(tenant=TENANT_A, credential=CREDENTIAL, role=role)
+        )
+
+
+async def test_a_person_may_sign_in_as_any_role_their_groups_give_and_is_told_them_all() -> None:
+    built = world(mappings=[mapping(G_ADVISOR, Role.ADVISOR), mapping(G_LEAD, Role.LEAD)])
+    verifier = accepting(identity(groups=(G_ADVISOR, G_LEAD)))
+
+    issued = await _exchange_as(staff_use_case(built, verifier), Role.ADVISOR)
+
+    assert issued.role is Role.ADVISOR
+    assert decode_bff_token(issued.token, SIGNING, NOW).role is Role.ADVISOR
+    assert issued.roles == (Role.LEAD, Role.ADVISOR)
+
+
+async def test_a_role_the_groups_do_not_give_is_refused_whatever_the_person_asks() -> None:
+    built = world(mappings=[mapping(G_ADVISOR, Role.ADVISOR)])
+    verifier = accepting(identity(groups=(G_ADVISOR,)))
+
+    with pytest.raises(ExchangeRefused):
+        await _exchange_as(staff_use_case(built, verifier), Role.LEAD)
+
+
+async def test_network_administrator_asked_for_without_an_owned_network_is_refused() -> None:
+    built = world(mappings=[mapping(G_NETWORK, Role.NETWORK_ADMIN)])
+    verifier = accepting(identity(groups=(G_NETWORK,)))
+
+    with pytest.raises(ExchangeRefused):
+        await _exchange_as(staff_use_case(built, verifier), Role.NETWORK_ADMIN)
+
+
+async def test_with_no_role_asked_the_highest_is_given_as_before_and_all_are_listed() -> None:
+    built = world(mappings=[mapping(G_ADVISOR, Role.ADVISOR), mapping(G_LEAD, Role.LEAD)])
+    verifier = accepting(identity(groups=(G_ADVISOR, G_LEAD)))
+
+    issued = await _exchange_as(staff_use_case(built, verifier), None)
+
+    assert issued.role is Role.LEAD
+    assert issued.roles == (Role.LEAD, Role.ADVISOR)

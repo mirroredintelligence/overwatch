@@ -7066,3 +7066,12 @@ Status: accepted (the owner's request, 2026-11-02, applied under DEC-133) · Aff
 1. **Why.** An organisation invites healthcare providers to take part from anywhere. The area made every address outside it fail the registration review's address check, and a tenant with none failed every address, and could not go live without districts.
 2. **The rule.** A tenant with no area configured has no limit: the address check still needs a real address (one found, or the districts of a visiting service) but where it is does not count. A tenant that does set an area (`OVERWATCH_TENANT_AREAS`, Bicep `tenantAreas`) is checked against it exactly as before, and its districts are then required for go-live; with none, "Area districts set" is not a blocker.
 3. **Unchanged.** The review is still a human decision after the automatic checks; no other check changes.
+
+## DEC-1324 A person may sign in as any staff role their groups give, and switches by signing in again
+
+Status: accepted (the owner's request, 2026-11-02, applied under DEC-133) · Affects: `domain/rules/token_exchange.py` (`staff_roles`, `highest_role`), `application/use_cases/exchange_token.py` (`ExchangeStaffToken`, `ExchangeStaffCommand.role`), `adapters/inbound/fhir_rest/routes_auth.py` (`StaffCredentialBody`), `frontend/lib/auth/{exchange,flow,oidc,session}.ts`, `frontend/components/shell/RoleSwitcher.tsx`, `frontend/components/admin/AdminShell.tsx`
+
+1. **Why.** One person's groups can give several staff roles (a shift lead who also does clinical review). The sign-in gave only the highest, so a person could not test or use the others without another account.
+2. **The rule.** The back end gives a staff sign-in one role. With none asked it is the highest the groups give, as before. With one asked it must be a role the groups give on this tenant, or the one refusal. Network administrator is still given only to the owner of a network. The answer lists every role the groups give (`roles`, highest first) so the front end can offer them. The BFF never decides a role: the list is for the menu only, and the back end checks the choice.
+3. **Switching.** The role chip posts the start of a sign-in with the role. The sign-in is the same Entra sign-in, so Entra may complete it at once; the new session is made only from the back end's answer for that role. No token is changed in place.
+4. **Not built yet.** The chip is on the tenant administration header only. The staff pages' shell (`AppShell`) still shows the single role; it needs the same chip.

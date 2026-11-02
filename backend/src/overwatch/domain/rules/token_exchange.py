@@ -73,6 +73,35 @@ _GUID: Final = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9
 _SUBJECT_HEX: Final = 32
 
 
+def staff_roles(
+    mappings: Iterable[RoleMapping],
+    group_ids: Collection[str],
+    *,
+    owns_network: bool = False,
+) -> frozenset[Role]:
+    """Every staff role the tenant's ACTIVE mappings give for the groups held (DEC-1324). A person
+    may hold several; a sign-in takes one of them, by default the highest (`highest_role`).
+    `network-admin` is given only when `owns_network` is exactly True, as in `staff_role`."""
+    held = {group.lower() for group in group_ids if type(group) is str}
+    given: set[Role] = set()
+    for mapping in mappings:
+        if (
+            type(mapping) is RoleMapping
+            and mapping.status is MappingStatus.ACTIVE
+            and mapping.group_object_id.lower() in held
+        ):
+            given.add(mapping.role)
+    if owns_network is not True:
+        given.discard(Role.NETWORK_ADMIN)
+    return frozenset(given)
+
+
+def highest_role(roles: Iterable[Role]) -> Role | None:
+    """The highest of the roles, in `STAFF_ROLE_PRIORITY`, or None."""
+    given = set(roles)
+    return next((role for role in STAFF_ROLE_PRIORITY if role in given), None)
+
+
 def staff_role(
     mappings: Iterable[RoleMapping],
     group_ids: Collection[str],
@@ -85,18 +114,7 @@ def staff_role(
     runs the sharing of a network, so it is the owner's alone, and a mapping of it on a tenant that
     owns no network gives nothing (the person falls to the next role their groups give). Anything
     but the boolean True is not ownership."""
-    held = {group.lower() for group in group_ids if type(group) is str}
-    given: set[Role] = set()
-    for mapping in mappings:
-        if (
-            type(mapping) is RoleMapping
-            and mapping.status is MappingStatus.ACTIVE
-            and mapping.group_object_id.lower() in held
-        ):
-            given.add(mapping.role)
-    if owns_network is not True:
-        given.discard(Role.NETWORK_ADMIN)
-    return next((role for role in STAFF_ROLE_PRIORITY if role in given), None)
+    return highest_role(staff_roles(mappings, group_ids, owns_network=owns_network))
 
 
 def operator_role(app_roles: Collection[object]) -> Role | None:

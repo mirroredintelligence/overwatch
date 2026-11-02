@@ -32,6 +32,8 @@ export type StaffGrant = {
   role: Role;
   /** The back end's own derived subject (`stf-...`), read from the token it signed. Never the Entra object id. */
   sub: string;
+  /** Every staff role the person's groups give on this tenant, highest first (DEC-1324): what can be switched to. */
+  roles: Role[];
 };
 
 export type StaffExchange = { kind: 'issued'; grant: StaffGrant } | { kind: 'refused' };
@@ -50,13 +52,14 @@ export async function exchangeStaffToken(
   idToken: string,
   host: string | null,
   now: Date = new Date(),
+  role?: Role,
 ): Promise<StaffExchange> {
   if (typeof idToken !== 'string' || idToken.length === 0 || idToken.length > ID_TOKEN_MAX_LENGTH) {
     throw new SignInRefused('bad-token');
   }
   let reply;
   try {
-    reply = await callLinkApi({ method: 'POST', path: '/auth/token', host, body: { idToken } });
+    reply = await callLinkApi({ method: 'POST', path: '/auth/token', host, body: role === undefined ? { idToken } : { idToken, role } });
   } catch (error) {
     if (error instanceof LinkApiError) throw new SignInRefused('exchange-failed');
     throw error; // A missing back-end address is a set-up fault, named by its variable.
@@ -66,17 +69,20 @@ export async function exchangeStaffToken(
 
   const answer = reply.body;
   if (typeof answer !== 'object' || answer === null || Array.isArray(answer)) throw new SignInRefused('exchange-answer');
-  const { token, expiresAt, role } = answer as Record<string, unknown>;
-  if (typeof role !== 'string' || typeof token !== 'string' || typeof expiresAt !== 'string') {
+  const { token, expiresAt, role: given, roles } = answer as Record<string, unknown>;
+  if (typeof given !== 'string' || typeof token !== 'string' || typeof expiresAt !== 'string') {
     throw new SignInRefused('exchange-answer');
   }
-  if (!isStaffRole(role)) throw new SignInRefused('exchange-answer');
+  if (!isStaffRole(given)) throw new SignInRefused('exchange-answer');
+  // Absent in an answer from before DEC-1324: then the role it gave is the only one.
+  const held: string[] = roles === undefined ? [given] : Array.isArray(roles) ? roles : [];
+  if (!held.every(isStaffRole) || !held.includes(given)) throw new SignInRefused('exchange-answer');
 
   const claims = readToken(token);
   if (claims === null) throw new SignInRefused('exchange-answer');
   const ends = sessionEnd(expiresAt, claims.expiresAtMs, now);
   if (ends === null) throw new SignInRefused('exchange-answer');
-  return { kind: 'issued', grant: { token, expiresAt: ends, role, sub: claims.sub } };
+  return { kind: 'issued', grant: { token, expiresAt: ends, role: given, sub: claims.sub, roles: held.filter(isStaffRole) } };
 }
 
 /**

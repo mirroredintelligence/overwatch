@@ -7,6 +7,7 @@ import { SignOutButton, type SignOutFn } from '@/components/session/SignOutButto
 import { signOutOperator } from '@/lib/operator/browser';
 import type { OperatorRole } from '@/lib/operator/session';
 import { roleWord } from '@/lib/tenantAdmin/words';
+import { RoleSwitcher, staffRoleWord } from '@/components/shell/RoleSwitcher';
 import { ADMIN_PAGES } from './AdminOverview';
 import styles from './AdminShell.module.css';
 
@@ -62,14 +63,18 @@ export type AdminShellProps = {
   role?: OperatorRole;
   /** The organisation's display name (tenant and network portals); nothing else about it is shown. */
   organisation?: string | null;
+  /** The staff role the session is signed in as, and every role the person may switch to (DEC-1324). */
+  staffRole?: string;
+  staffRoles?: readonly string[];
   signOut?: SignOutFn;
   children: ReactNode;
 };
 
-export function AdminShell({ portal, role, organisation, signOut, children }: AdminShellProps) {
+export function AdminShell({ portal, role, organisation, staffRole, staffRoles, signOut, children }: AdminShellProps) {
   const pathname = usePathname() ?? '';
   const context = portal === 'operator' ? 'Platform console' : (organisation ?? NAV_LABEL[portal]);
   const who = portal === 'operator' ? roleWord(role ?? 'support').toLowerCase() : SIGNED_IN_AS[portal];
+  const switchable = portal !== 'operator' && staffRole !== undefined && (staffRoles?.length ?? 0) > 1;
   return (
     <div className={styles.shell} data-portal={portal}>
       <header className={styles.header}>
@@ -80,7 +85,13 @@ export function AdminShell({ portal, role, organisation, signOut, children }: Ad
           {context}
         </span>
         <div className={styles.who}>
-          <span data-el="ADMIN-SIGNED-IN-AS">{`Signed in as ${who}`}</span>
+          {switchable ? (
+            <span data-el="ADMIN-SIGNED-IN-AS">
+              Signed in as <RoleSwitcher current={staffRole} roles={staffRoles ?? []} />
+            </span>
+          ) : (
+            <span data-el="ADMIN-SIGNED-IN-AS">{`Signed in as ${staffRole !== undefined && portal !== 'operator' ? staffRoleWord(staffRole).toLowerCase() : who}`}</span>
+          )}
           <SignOutButton signOut={portal === 'operator' ? (signOut ?? signOutOperator) : signOut} />
         </div>
         <nav className={styles.nav} aria-label={NAV_LABEL[portal]}>

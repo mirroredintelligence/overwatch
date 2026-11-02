@@ -84,7 +84,7 @@ describe('exchangeStaffToken: what is made of the answer', () => {
     const result = await exchangeStaffToken(idToken({}), SIGN_IN_HOST, NOW);
     expect(result).toEqual({
       kind: 'issued',
-      grant: { token, expiresAt: '2026-10-30T17:00:00.000Z', role: 'lead', sub: 'stf-0123456789abcdef0123456789abcdef' },
+      grant: { token, expiresAt: '2026-10-30T17:00:00.000Z', role: 'lead', sub: 'stf-0123456789abcdef0123456789abcdef', roles: ['lead'] },
     });
   });
 
@@ -99,11 +99,22 @@ describe('exchangeStaffToken: what is made of the answer', () => {
 
   it('never keeps the Entra object id, a tenant or an epoch: the subject is the back end’s own', async () => {
     const result = await exchangeStaffToken(idToken({}), SIGN_IN_HOST, NOW);
-    expect(Object.keys((result as { grant: object }).grant).sort()).toEqual(['expiresAt', 'role', 'sub', 'token']);
+    expect(Object.keys((result as { grant: object }).grant).sort()).toEqual(['expiresAt', 'role', 'roles', 'sub', 'token']);
     expect(JSON.stringify(result)).not.toContain(OID_ADVISOR);
     answer({ tenant: 'trust-a', epoch: 4, subject: 'x' });
     const again = await exchangeStaffToken(idToken({}), SIGN_IN_HOST, NOW);
-    expect(Object.keys((again as { grant: object }).grant).sort()).toEqual(['expiresAt', 'role', 'sub', 'token']);
+    expect(Object.keys((again as { grant: object }).grant).sort()).toEqual(['expiresAt', 'role', 'roles', 'sub', 'token']);
+  });
+
+  it('lists every role the groups give, and asks for the one the person chose (DEC-1324)', async () => {
+    const token = answer({ role: 'advisor', roles: ['lead', 'advisor'] }, { role: 'advisor' });
+    const result = await exchangeStaffToken(idToken({}), SIGN_IN_HOST, NOW, 'advisor');
+    expect(result).toMatchObject({ kind: 'issued', grant: { token, role: 'advisor', roles: ['lead', 'advisor'] } });
+  });
+
+  it('refuses an answer whose role is not one of the roles it lists', async () => {
+    answer({ role: 'advisor', roles: ['lead'] });
+    expect(await reasonOf(exchangeStaffToken(idToken({}), SIGN_IN_HOST, NOW))).toBe('exchange-answer');
   });
 
   it.each(['advisor', 'clinical', 'lead', 'owner', 'exec', 'audit', 'tenant-admin', 'network-admin'])('accepts the staff role %s', async (role) => {

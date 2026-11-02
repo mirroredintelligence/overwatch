@@ -60,14 +60,16 @@ from overwatch.domain.rules.bff_token import (
 )
 from overwatch.domain.rules.token_exchange import (
     OPERATOR_TOKEN_LIFETIME,
+    STAFF_ROLE_PRIORITY,
     STAFF_TOKEN_LIFETIME,
     WALL_TOKEN_LIFETIME,
     account_ref,
     directory_is_bound,
     expiry,
+    highest_role,
     may_issue,
     operator_role,
-    staff_role,
+    staff_roles,
     staff_subject,
 )
 
@@ -101,6 +103,9 @@ class IssuedToken:
     account_ref: str | None = None
     """The opaque account reference of an operator the token was issued to (an operator exchange
     only): what the platform chain records of a sign-in. Never a name, never printed."""
+    roles: tuple[Role, ...] = ()
+    """Every staff role the person's groups give on this tenant, highest first (DEC-1324): what the
+    front end offers to switch between. Empty except for a staff exchange."""
 
     def __repr__(self) -> str:
         return f"IssuedToken(role={self.role.value!r})"
@@ -113,6 +118,8 @@ class ExchangeStaffCommand:
     tenant: Tenant
     """The tenant the request host names, read by the edge from the directory (TEN-040)."""
     credential: str
+    role: Role | None = None
+    """The role the person asks to sign in as (DEC-1324); None for the highest their groups give."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -181,18 +188,18 @@ class ExchangeStaffToken:
         self._secrets = secrets
         self._ownership = ownership
 
-    async def _role(
+    async def _held(
         self, uow_mappings: Iterable[RoleMapping], groups: Collection[str], tenant_id: str
-    ) -> Role | None:
+    ) -> frozenset[Role]:
         """The tenant's role for the groups held. The registry is asked only when the groups would
         give `network-admin` if the tenant owned a network, so a sign-in of anyone else never
         depends on it; and it is asked about the host's tenant and no other."""
         mappings = tuple(uow_mappings)
-        candidate = staff_role(mappings, groups, owns_network=True)
-        if candidate is not Role.NETWORK_ADMIN:
+        candidate = staff_roles(mappings, groups, owns_network=True)
+        if Role.NETWORK_ADMIN not in candidate:
             return candidate
         owns = self._ownership is not None and await self._ownership.owns_active_network(tenant_id)
-        return staff_role(mappings, groups, owns_network=owns)
+        return staff_roles(mappings, groups, owns_network=owns)
 
     async def execute(self, command: ExchangeStaffCommand) -> IssuedToken:
         signing = _secret(self._secrets, SIGNING_SECRET)
@@ -208,10 +215,13 @@ class ExchangeStaffToken:
                 raise TenantMismatch
             if not directory_is_bound(await uow.tenant_config.bindings(), identity.directory_id):
                 raise _refused("directory")
-            role = await self._role(
+            held = await self._held(
                 await uow.tenant_config.role_mappings(), identity.group_ids, tenant.id
             )
-            if role is None:
+            # The role asked for (DEC-1324) must be one the person's groups give; with none asked,
+            # the highest the groups give, as before.
+            role = highest_role(held) if command.role is None else command.role
+            if role is None or role not in held:
                 raise _refused("role")
             if not may_issue(tenant, role):
                 raise _refused("tenant")
@@ -248,7 +258,12 @@ class ExchangeStaffToken:
                 )
             )
             await uow.commit()
-        return IssuedToken(token=token, expires_at=expires_at, role=role)
+        return IssuedToken(
+            token=token,
+            expires_at=expires_at,
+            role=role,
+            roles=tuple(r for r in STAFF_ROLE_PRIORITY if r in held),
+        )
 
 
 class ExchangeOperatorToken:

@@ -63,8 +63,10 @@ from overwatch.application.use_cases.exchange_token import (
     IssuedToken,
     NetworkOwnership,
 )
+from overwatch.domain.codes import Role
 from overwatch.domain.model.device import Device
 from overwatch.domain.model.tenant import Tenant
+from overwatch.domain.rules.token_exchange import STAFF_ROLE_PRIORITY
 
 log = logging.getLogger(__name__)
 
@@ -127,6 +129,12 @@ class CredentialBody(_Body):
     idToken: str = Field(min_length=1, max_length=MAX_CREDENTIAL_LENGTH)
 
 
+class StaffCredentialBody(CredentialBody):
+    """The staff sign-in: the ID token and, optionally, the role to sign in as (DEC-1324)."""
+
+    role: str | None = Field(default=None, max_length=40)
+
+
 class EmptyBody(_Body):
     pass
 
@@ -177,7 +185,13 @@ def _iso(moment: datetime) -> str:
 
 
 def _issued(issued: IssuedToken) -> Response:
-    body = {"token": issued.token, "expiresAt": _iso(issued.expires_at), "role": issued.role.value}
+    body: dict[str, object] = {
+        "token": issued.token,
+        "expiresAt": _iso(issued.expires_at),
+        "role": issued.role.value,
+    }
+    if issued.roles:
+        body["roles"] = [role.value for role in issued.roles]
     return JSONResponse(body, headers=_HEADERS)
 
 
@@ -185,10 +199,27 @@ def _forbidden() -> Response:
     return operation_outcome(403, "forbidden", FORBIDDEN_TEXT, headers=_HEADERS)
 
 
+def _asked_role(value: str | None) -> Role | None:
+    """The role the body asks for: None when none is asked. A word that is not a staff role raises
+    ValueError, which the route answers with its one 403 (DEC-1324)."""
+    if value is None:
+        return None
+    role = Role(value)
+    if role not in STAFF_ROLE_PRIORITY:
+        raise ValueError(value)
+    return role
+
+
 @router.post(STAFF_PATH, dependencies=[Depends(exchange_rate_limit)])
 async def exchange_staff(
-    request: Request, body: CredentialBody, tenant: Annotated[Tenant, Depends(bind_sign_in_tenant)]
+    request: Request,
+    body: StaffCredentialBody,
+    tenant: Annotated[Tenant, Depends(bind_sign_in_tenant)],
 ) -> Response:
+    try:
+        asked = _asked_role(body.role)
+    except ValueError:
+        return _forbidden()
     container = _container(request)
     use_case = ExchangeStaffToken(
         container.uow_factory,
@@ -199,7 +230,7 @@ async def exchange_staff(
     )
     try:
         issued = await use_case.execute(
-            ExchangeStaffCommand(tenant=tenant, credential=body.idToken)
+            ExchangeStaffCommand(tenant=tenant, credential=body.idToken, role=asked)
         )
     except ExchangeRefused:
         return _forbidden()

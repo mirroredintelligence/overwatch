@@ -51,6 +51,8 @@ export type Session = {
   tokenExpiresAt?: string;
   /** ISO 8601 instant. At or after this instant the session is void. */
   expiresAt: string;
+  /** The staff roles this person may switch between (DEC-1324). Absent means only `role`. */
+  roles?: Role[];
 };
 
 export const SESSION_COOKIE = 'overwatch_session';
@@ -118,6 +120,7 @@ export async function sealSession(session: Session, now: Date = new Date()): Pro
   if (session.device !== undefined) claims.device = session.device;
   if (session.pinSession !== undefined) claims.pinSession = session.pinSession;
   if (session.tokenExpiresAt !== undefined) claims.tokenExpiresAt = session.tokenExpiresAt;
+  if (session.roles !== undefined) claims.roles = session.roles;
 
   return new EncryptJWT(claims)
     .setProtectedHeader(ENCRYPTION)
@@ -144,7 +147,7 @@ export async function unsealSession(value: string, now: Date = new Date()): Prom
       contentEncryptionAlgorithms: ['A256GCM'],
       currentDate: now,
     });
-    const { role, tenantId, host, services, sub, device, backendToken, expiresAt, pinSession, tokenExpiresAt } = payload;
+    const { role, tenantId, host, services, sub, device, backendToken, expiresAt, pinSession, tokenExpiresAt, roles } = payload;
     if (!isRole(role)) return null;
     if (!isTenantId(tenantId)) return null;
     if (typeof host !== 'string' || normaliseHost(host) !== host) return null;
@@ -158,6 +161,7 @@ export async function unsealSession(value: string, now: Date = new Date()): Prom
 
     const session: Session = { role, tenantId, host, services: [...services], sub, backendToken, expiresAt };
     if (device !== undefined) session.device = device;
+    if (Array.isArray(roles) && roles.every(isRole)) session.roles = roles;
     if (typeof pinSession === 'string' && typeof tokenExpiresAt === 'string') {
       session.pinSession = pinSession;
       session.tokenExpiresAt = tokenExpiresAt;

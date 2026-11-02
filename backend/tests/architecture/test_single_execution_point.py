@@ -67,6 +67,13 @@ BINDING_MODULES: frozenset[str] = frozenset(
         # O09: the synthetic test hook binds the one tenant its configuration names, never one the
         # request sends, and is mounted only when the hook is configured.
         "overwatch.adapters.inbound.fhir_rest.routes_synthetic",
+        # DEC-1316: the admin consent return (`POST /admin-consent/confirmation`) has no token and
+        # no tenant host (the administrator opens it from an email). The tenant id inside the
+        # invitation's `state` is only a routing hint: the use case first asks the tenant
+        # directory whether that tenant exists, then finds the invitation by the hash of the WHOLE
+        # state inside that scope. A wrong tenant, an unknown tenant and a wrong state are the one
+        # NotFound, so the hint reveals and reads nothing; the secret in the state finds it.
+        "overwatch.adapters.inbound.fhir_rest.routes_admin_consent",
         # R15: the wall screen pairing routes have no session; like the link pages (DEC-167) they
         # bind the tenant the request host names in the tenant directory, never one it sends.
         "overwatch.adapters.inbound.fhir_rest.routes_screens",

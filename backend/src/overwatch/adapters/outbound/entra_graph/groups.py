@@ -55,6 +55,29 @@ def _odata_quote(value: str) -> str:
     return value.replace("'", "''")
 
 
+_GUID_IN_PATH: Final = re.compile(
+    r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+)
+_CODE: Final = re.compile(r"[A-Za-z][A-Za-z0-9_.]{0,63}")
+
+
+def _shape(url: str) -> str:
+    """The path of a Graph call with every id taken out, for the log."""
+    return _GUID_IN_PATH.sub("{id}", url.removeprefix(GRAPH))
+
+
+def _error_code(response: httpx.Response) -> str:
+    body = _json(response)
+    error = None if body is None else body.get("error")
+    code = error.get("code") if isinstance(error, dict) else None
+    return code if isinstance(code, str) and _CODE.fullmatch(code) else "none"
+
+
+def _request_id(response: httpx.Response) -> str:
+    value = response.headers.get("request-id", "")
+    return value if _GUID_IN_PATH.fullmatch(value) else "none"
+
+
 class GraphEntraGroups:
     def __init__(
         self,
@@ -298,7 +321,16 @@ class GraphEntraGroups:
         if response.status_code == 404 and missing_is_group:
             raise GroupMissing
         if response.status_code not in ok:
-            _log.warning("graph refused: status %s", response.status_code)
+            # What was asked and Graph's own error code, so a refusal can be told from a delay:
+            # never the message (it can name a group or a person) and never the token.
+            _log.warning(
+                "graph refused: %s %s status %s code %s request-id %s",
+                method,
+                _shape(url),
+                response.status_code,
+                _error_code(response),
+                _request_id(response),
+            )
             raise GraphUnavailable("the directory refused the request")
         body = _json(response)
         if body is None:

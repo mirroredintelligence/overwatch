@@ -352,6 +352,27 @@ async def test_an_unreachable_directory_is_graph_unavailable() -> None:
         await adapter.find_user(DIRECTORY, ADDRESS)
 
 
+async def test_a_refusal_logs_what_was_asked_and_graphs_error_code_but_no_message_or_id(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            400,
+            json={"error": {"code": "Request_BadRequest", "message": "Jane Member is not welcome"}},
+            headers={"request-id": "cccccccc-0000-4000-8000-000000000003"},
+        )
+
+    caplog.set_level(logging.WARNING)
+    adapter, _ = _adapter(handler)
+    with pytest.raises(GraphUnavailable):
+        await adapter.create_group(DIRECTORY, "F81044_overwatch_lead", "Overwatch: lead")
+
+    text = caplog.text
+    assert "graph refused: POST /groups status 400 code Request_BadRequest" in text
+    assert "request-id cccccccc-0000-4000-8000-000000000003" in text
+    assert "Jane Member" not in text and BEARER not in text
+
+
 async def test_no_secret_token_address_or_body_is_logged(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.DEBUG)
     adapter, _ = _adapter(lambda r: httpx.Response(500, json={"error": {"message": "body canary"}}))

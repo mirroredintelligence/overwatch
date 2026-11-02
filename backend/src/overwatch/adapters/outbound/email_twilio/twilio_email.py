@@ -25,6 +25,7 @@ import json
 import logging
 import re
 from collections.abc import Mapping
+from html import escape
 from typing import Any, Final
 
 import httpx
@@ -69,13 +70,14 @@ def _is_address(value: object) -> bool:
 def build_body(
     to: str, from_address: str, from_name: str | None, subject: str, text: str, html: str | None
 ) -> dict[str, Any]:
-    """The JSON of one send: the sender, the one recipient and the content. [ASSUMED] shape."""
+    """The JSON of one send: the sender, the one recipient and the content.
+    Twilio rejects a `content` with no HTML part, so with none given the HTML is the text."""
     sender: dict[str, str] = {"address": from_address}
     if from_name is not None:
         sender["name"] = from_name
-    content: dict[str, str] = {"subject": subject, "text": text}
-    if html is not None:
-        content["html"] = html
+    if html is None:
+        html = "<p>" + escape(text).replace(chr(10), "<br>") + "</p>"
+    content: dict[str, str] = {"subject": subject, "text": text, "html": html}
     return {"from": sender, "to": [{"address": to}], "content": content}
 
 

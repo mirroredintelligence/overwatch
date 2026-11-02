@@ -86,14 +86,16 @@ async def test_the_body_names_the_sender_the_one_recipient_the_subject_and_both_
     assert body["content"]["html"] == HTML
 
 
-async def test_with_no_html_the_text_is_sent_alone_and_with_no_name_the_address_is() -> None:
+async def test_with_no_html_the_text_is_also_sent_as_html_and_no_name_is_the_address() -> None:
+    # Twilio rejects a content with no HTML part (checked against the live API).
     seen, transport = _recording(_accepted())
     async with httpx.AsyncClient(transport=transport) as client:
         await _email(client, name=None).send(TO, SUBJECT, TEXT, None)
 
     body = json.loads(seen[0].content)
     assert body["from"] == {"address": FROM}
-    assert "html" not in body["content"]
+    assert body["content"]["html"].startswith("<p>")
+    assert body["content"]["text"] == TEXT
 
 
 async def test_the_202_with_no_operation_id_is_a_fault_not_a_success() -> None:

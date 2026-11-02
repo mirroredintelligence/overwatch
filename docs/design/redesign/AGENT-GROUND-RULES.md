@@ -25,15 +25,13 @@ An artboard (`*.dc.html`) is a high-fidelity HTML mock-up. It is the specificati
 
 ## 3. The workspace
 
-You run in a git worktree on your own branch. `frontend/node_modules` does not exist there. Before anything else, from the worktree's `frontend/` folder:
+Your prompt gives you a WORKSPACE: an absolute path like `C:\github\overwatch\.claude\worktrees\u-<ID>`. It is a git worktree on its own branch `unit/<ID>`, already created from the integration branch `rename-overwatch`, with `frontend/node_modules` already linked to the shared install. Do not create a worktree, do not install anything, do not touch that link.
 
-```
-MSYS_NO_PATHCONV=1 cmd /c "mklink /J node_modules C:\github\overwatch\frontend\node_modules"
-```
+- Use ABSOLUTE paths under your workspace for every file you read or write. Start every Bash command with `cd <workspace>/frontend &&`. NEVER work in `C:\github\overwatch` itself (the primary checkout) or in any other worktree: a change there is lost or lands on the wrong branch.
+- If `git status` shows `frontend/components/lead/Lead.module.css` as modified, that is a known Windows case-name clash and not yours: do not stage it, commit it or touch it.
+- If `frontend/node_modules` is missing or empty, stop and report. Never run `npm install`, `pnpm install` or `rm -rf node_modules`.
 
-That is a junction to the shared install. NEVER run `npm install`, `pnpm install` or `rm -rf node_modules` here. If you ever need to remove the junction use `cmd /c rmdir node_modules` (never `rm -rf`, which would delete the shared install).
-
-Commands, run from the worktree's `frontend/` folder:
+Commands, run from `<workspace>/frontend`:
 
 - tests: `node --no-experimental-webstorage node_modules/vitest/vitest.mjs run <paths>` (the flag is required on this machine)
 - types: `npx tsc --noEmit`
@@ -43,7 +41,7 @@ Tests that already fail on the base branch because of local storage under that f
 
 ## 4. Git and files
 
-- Commit only your own files, on your worktree branch, with a plain message ("Unit <id>: <what>"). Do not push.
+- Commit only your own files, on your worktree branch, with a plain message ("Unit <id>: <what>"). Stage them by explicit path (`git add <path> <path>`), never `git add -A` or `git add .`. Do not push.
 - NEVER run `git reset --hard`, `git clean`, `git checkout -- .`, `git stash`, `git rebase`, `git merge`, or change branch. This repository has a file whose name differs only by case on Windows, and these commands have destroyed work before. If a file looks wrong, tell me; do not "fix" it with git.
 - The warning "LF will be replaced by CRLF" is harmless. Edit with the Edit and Write tools. Do not run a formatter or `sed` over many files.
 - Git Bash: put `MSYS_NO_PATHCONV=1` in front of a command whose argument starts with `/`. Do not write code with quotes through a shell heredoc: use the Write tool.

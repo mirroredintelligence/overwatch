@@ -6,6 +6,7 @@ import { adminSend, useAdminRead, useSubmitKey } from '@/lib/tenantAdmin/browser
 import { TEAM_WORDS } from '@/lib/operator/funnel';
 import { Avatar } from './Avatar';
 import { PersonLookup, type Person } from './PersonLookup';
+import { Loading, SkeletonRows } from '@/components/ui/Skeleton';
 import styles from './People.module.css';
 
 // People and roles (DEC-1317): the groups Overwatch made in the organisation's own directory, as one row per role
@@ -84,7 +85,7 @@ export function GroupMembers() {
         People and roles
       </h2>
       <p className={styles.peopleLede}>Open a role to see who has it and to add people. Changes reach your directory straight away.</p>
-      {state.status === 'loading' ? <p className={styles.note}>Loading the groups.</p> : null}
+      {state.status === 'loading' ? <Loading label="Loading the groups."><SkeletonRows count={3} /></Loading> : null}
       {state.status === 'failed' ? (
         <p role="alert" className={styles.problem}>
           We could not load the groups.

@@ -9,6 +9,7 @@ import { MAPPABLE_ROLE_WORDS } from '@/lib/tenantAdmin/roles';
 import { GroupMembers } from './GroupMembers';
 import type { Overview } from './AdminOverview';
 import { whenText } from '@/lib/tenantAdmin/words';
+import { Loading, SkeletonRows } from '@/components/ui/Skeleton';
 import styles from './admin.module.css';
 import people from './People.module.css';
 
@@ -27,7 +28,7 @@ export function UsersAndRoles() {
     <main className={styles.page}>
       <h1 className={styles.title}>Users and roles</h1>
       <GroupMembers />
-      {state.status === 'loading' ? <p className={styles.muted}>Loading the directory and roles.</p> : null}
+      {state.status === 'loading' ? <Loading label="Loading the directory and roles."><SkeletonRows count={3} /></Loading> : null}
       {state.status === 'failed' ? (
         <p role="alert" className={styles.problem}>
           We could not load the directory and roles.

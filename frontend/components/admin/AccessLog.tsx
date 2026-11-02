@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useAdminRead } from '@/lib/tenantAdmin/browser';
 import type { parseLog } from '@/lib/tenantAdmin/views';
 import { plainAction, roleWord, whenText } from '@/lib/tenantAdmin/words';
+import { Loading, SkeletonRows } from '@/components/ui/Skeleton';
 import styles from './admin.module.css';
 
 // "Who has accessed your organisation" (TEN-076, TEN-084): what the platform's own people did in this
@@ -34,7 +35,7 @@ export function AccessLog() {
           ))}
         </select>
       </div>
-      {state.status === 'loading' ? <p className={styles.muted}>Loading the access log.</p> : null}
+      {state.status === 'loading' ? <Loading label="Loading the access log."><SkeletonRows count={3} /></Loading> : null}
       {state.status === 'failed' ? (
         <p role="alert" className={styles.problem}>
           We could not load the access log.

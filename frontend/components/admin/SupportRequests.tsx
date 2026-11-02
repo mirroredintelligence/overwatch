@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { adminSend, useAdminRead, useSubmitKey } from '@/lib/tenantAdmin/browser';
 import type { parseTicket, parseTicketApproval } from '@/lib/tenantAdmin/views';
 import { reasonWord, stateWord, whenText } from '@/lib/tenantAdmin/words';
+import { Loading, SkeletonRows } from '@/components/ui/Skeleton';
 import styles from './admin.module.css';
 
 // The administrator's side of the support tickets (TEN-076, TEN-084, DEC-1003): a support person asks to
@@ -81,7 +82,7 @@ export function SupportRequests() {
           {problem}
         </p>
       ) : null}
-      {state.status === 'loading' ? <p className={styles.muted}>Loading the support requests.</p> : null}
+      {state.status === 'loading' ? <Loading label="Loading the support requests."><SkeletonRows count={3} /></Loading> : null}
       {state.status === 'failed' ? (
         <p role="alert" className={styles.problem}>
           We could not load the support requests.

@@ -1,0 +1,92 @@
+/* Placeholder shapes. All of them paint the one shared sweep from app/skeleton.css, fixed to the window. The plain
+   fill is a colour of its own, so a browser without registered custom properties still shows calm grey shapes. */
+
+.loading {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.shapes {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.sk {
+  --sk-base: color-mix(in srgb, var(--c-line) 75%, var(--c-bg));
+  --sk-hi: color-mix(in srgb, white 70%, var(--c-bg));
+  --sk-pos: calc(var(--sk-sweep) * 100vw);
+  --sk-band: 14vw;
+  display: block;
+  background-color: var(--sk-base);
+  background-image: linear-gradient(
+    100deg,
+    var(--sk-base) calc(var(--sk-pos) - var(--sk-band)),
+    var(--sk-hi) var(--sk-pos),
+    var(--sk-base) calc(var(--sk-pos) + var(--sk-band))
+  );
+  background-attachment: fixed;
+  border-radius: var(--radius);
+}
+
+.line {
+  height: 0.9rem;
+  width: 100%;
+}
+
+.title {
+  height: 1.15rem;
+  width: 60%;
+}
+
+.chip {
+  height: var(--btn-h);
+  width: 5.5rem;
+  border-radius: var(--radius-chip);
+}
+
+.avatar {
+  flex: none;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+}
+
+.block {
+  height: 6rem;
+  width: 100%;
+  border-radius: var(--radius-card);
+}
+
+.rows {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+  background: var(--c-bg);
+}
+
+.rowText {
+  display: grid;
+  flex: 1;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}

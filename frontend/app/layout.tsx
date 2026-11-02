@@ -8,6 +8,7 @@ import { PRODUCT_NAME } from '@/lib/product';
 import { currentProfile } from '@/lib/tenant/profile';
 import { Telemetry } from './Telemetry';
 import './tokens.css';
+import './skeleton.css';
 
 // Every page is rendered per request, so Next.js can put this request's nonce on its scripts (S01).
 export const dynamic = 'force-dynamic';

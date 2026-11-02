@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { adminSend, useAdminRead, useSubmitKey } from '@/lib/tenantAdmin/browser';
 import type { Overview } from './AdminOverview';
 import { Disclose } from './Disclose';
+import { Loading, SkeletonRows } from '@/components/ui/Skeleton';
 import styles from './admin.module.css';
 import look from './Disclose.module.css';
 
@@ -35,7 +36,7 @@ export function ContactsForm() {
     <main className={styles.page}>
       <h1 className={styles.title}>Contacts</h1>
       <p className={styles.lede}>These are shown to your staff where a page tells them who to phone. Use your organisation’s own lines, not a person’s.</p>
-      {state.status === 'loading' ? <p className={styles.muted}>Loading the contacts.</p> : null}
+      {state.status === 'loading' ? <Loading label="Loading the contacts."><SkeletonRows count={3} /></Loading> : null}
       {state.status === 'failed' ? (
         <p role="alert" className={styles.problem}>
           We could not load the contacts.

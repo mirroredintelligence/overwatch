@@ -9,6 +9,7 @@ import type { ConfigView, SettingSpec } from '@/lib/tenantAdmin/views';
 import { humaniseKey, whenText } from '@/lib/tenantAdmin/words';
 import { ConfigDiff } from './ConfigDiff';
 import { STATUS_WORD } from './ConfigVersions';
+import { Loading, SkeletonRows } from '@/components/ui/Skeleton';
 import styles from './admin.module.css';
 
 // One version of the settings (TEN-076): what it changes against the version it replaces, who has approved
@@ -41,7 +42,7 @@ export function VersionDetail({ version }: { version: number }) {
     return (
       <main className={styles.page}>
         <h1 className={styles.title}>{`Version ${version}`}</h1>
-        <p className={styles.muted}>Loading this version.</p>
+        <Loading label="Loading this version."><SkeletonRows count={3} /></Loading>
       </main>
     );
   }

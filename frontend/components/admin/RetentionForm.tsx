@@ -7,6 +7,7 @@ import { Dialog } from '@/components/ui/Dialog';
 import { adminSend, useAdminRead, useSubmitKey } from '@/lib/tenantAdmin/browser';
 import type { Overview } from './AdminOverview';
 import { Disclose } from './Disclose';
+import { Loading, SkeletonRows } from '@/components/ui/Skeleton';
 import styles from './admin.module.css';
 import look from './Disclose.module.css';
 
@@ -70,7 +71,7 @@ export function RetentionForm() {
     <main className={styles.page}>
       <h1 className={styles.title}>Data retention</h1>
       <p className={styles.lede}>How long each kind of data is kept, and what happens to it when the time is up.</p>
-      {state.status === 'loading' ? <p className={styles.muted}>Loading the retention rules.</p> : null}
+      {state.status === 'loading' ? <Loading label="Loading the retention rules."><SkeletonRows count={3} /></Loading> : null}
       {state.status === 'failed' ? (
         <p role="alert" className={styles.problem}>
           We could not load the retention rules.

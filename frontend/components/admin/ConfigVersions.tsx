@@ -8,6 +8,7 @@ import { adminSend, useAdminRead, useSubmitKey } from '@/lib/tenantAdmin/browser
 import { buildDraft, effective, fieldId, hintFor, isChanged, labelFor, toField, type FieldValue } from '@/lib/tenantAdmin/draft';
 import type { ConfigView, SettingSpec } from '@/lib/tenantAdmin/views';
 import { Disclose } from './Disclose';
+import { Loading, SkeletonRows } from '@/components/ui/Skeleton';
 import styles from './admin.module.css';
 import look from './Disclose.module.css';
 
@@ -33,7 +34,7 @@ export function ConfigVersions() {
     return (
       <main className={styles.page}>
         <h1 className={styles.title}>Settings</h1>
-        <p className={styles.muted}>Loading the settings.</p>
+        <Loading label="Loading the settings."><SkeletonRows count={3} /></Loading>
       </main>
     );
   }

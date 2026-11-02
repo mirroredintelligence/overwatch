@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { adminSend, useAdminRead, useSubmitKey } from '@/lib/tenantAdmin/browser';
 import type { Overview } from './AdminOverview';
+import { Loading, SkeletonRows } from '@/components/ui/Skeleton';
 import styles from './admin.module.css';
 
 // The email channel (TEN-076, DEC-1007 item 3): the organisation manages its own email sender. The TEXT
@@ -21,7 +22,7 @@ export function EmailSender() {
   return (
     <main className={styles.page}>
       <h1 className={styles.title}>Email sender</h1>
-      {state.status === 'loading' ? <p className={styles.muted}>Loading the email sender.</p> : null}
+      {state.status === 'loading' ? <Loading label="Loading the email sender."><SkeletonRows count={3} /></Loading> : null}
       {state.status === 'failed' ? (
         <p role="alert" className={styles.problem}>
           We could not load the email sender.

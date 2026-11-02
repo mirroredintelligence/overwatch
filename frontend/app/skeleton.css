@@ -1,0 +1,31 @@
+/* The one shimmer behind every skeleton on the page (components/ui/Skeleton.tsx).
+
+   Every placeholder paints the same gradient with `background-attachment: fixed`, so the gradient is laid out
+   against the window and not against each block: a block only shows the part of the sweep that is over it, and
+   blocks far apart (a title, a row, an avatar) light up as one band crossing the screen, not as separate pulses.
+   The band's position is one registered custom property, `--sk-sweep` (a number, 0 to 1 across the window),
+   animated on the root only while a skeleton is on the page (`:has([data-skeleton])`), so a page with nothing
+   loading runs no animation at all. Where `@property` is not understood the blocks keep their plain fill, and
+   under reduced motion nothing moves. */
+
+@property --sk-sweep {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: -0.3;
+}
+
+@keyframes sk-sweep {
+  to {
+    --sk-sweep: 1.3;
+  }
+}
+
+:root:has([data-skeleton]) {
+  animation: sk-sweep 1.7s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:has([data-skeleton]) {
+    animation: none;
+  }
+}

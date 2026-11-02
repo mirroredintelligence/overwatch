@@ -6,6 +6,7 @@ import { useAdminRead } from '@/lib/tenantAdmin/browser';
 import { MAPPABLE_ROLE_WORDS } from '@/lib/tenantAdmin/roles';
 import { whenText } from '@/lib/tenantAdmin/words';
 import type { parseOverview } from '@/lib/tenantAdmin/views';
+import { Loading, SkeletonRows } from '@/components/ui/Skeleton';
 import styles from './admin.module.css';
 
 // The administrator's first page (TEN-076): who the organisation is, which settings are in force and the way
@@ -30,7 +31,7 @@ export function AdminOverview() {
   return (
     <main className={styles.page}>
       <h1 className={styles.title}>Administration</h1>
-      {state.status === 'loading' ? <p className={styles.muted}>Loading your organisation.</p> : null}
+      {state.status === 'loading' ? <Loading label="Loading your organisation."><SkeletonRows count={3} /></Loading> : null}
       {state.status === 'failed' ? (
         <p role="alert" className={styles.problem}>
           We could not load your organisation.

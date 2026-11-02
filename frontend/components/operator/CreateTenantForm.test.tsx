@@ -120,7 +120,7 @@ describe('CreateTenantForm', () => {
     expect(screen.getByRole('group', { name: '1 The organisation' })).toBeInTheDocument();
     const directory = screen.getByRole('group', { name: '2 Entra directory' });
     expect(within(directory).getByLabelText('Directory id')).toHaveValue('');
-    expect(within(directory).getByText('Waiting: verified after creation')).toBeInTheDocument();
+    expect(within(directory).getByText('Waiting: you confirm it on the organisation’s page after it is created')).toBeInTheDocument();
     const roles = screen.getByRole('group', { name: '3 Who gets which role' });
     expect(within(roles).getByText(/No group is mapped yet/)).toBeInTheDocument();
     expect(within(roles).getByText(/cannot be given the administrator’s role/)).toBeInTheDocument();
@@ -153,7 +153,7 @@ describe('CreateTenantForm', () => {
       ],
     });
     const done = await screen.findByRole('status');
-    expect(done).toHaveTextContent('The directory is waiting to be verified.');
+    expect(done).toHaveTextContent('Their Microsoft account is waiting for you to confirm it.');
     expect(done).toHaveTextContent('2 groups are mapped to roles.');
   });
 

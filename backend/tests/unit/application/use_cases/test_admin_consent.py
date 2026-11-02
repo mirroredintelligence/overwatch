@@ -226,7 +226,10 @@ async def test_with_no_sender_of_its_own_the_email_goes_from_the_platform() -> N
     assert rig.tenant_email.sent == []
     [sent] = rig.platform_email.sent
     assert sent.to == ADDRESS.lower()
-    assert sent.html is None and sent.tenant == TENANT
+    assert sent.tenant == TENANT
+    # The message is branded HTML with the plain text beside it, and the logo is on our web address.
+    assert sent.html is not None and sent.html.startswith("<!doctype html>")
+    assert "/brand/overwatch-logo-email.png" in sent.html
 
 
 async def test_a_tenant_with_its_own_sender_sends_from_it_not_the_platform() -> None:

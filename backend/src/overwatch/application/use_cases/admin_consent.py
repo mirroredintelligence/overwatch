@@ -22,7 +22,7 @@ from datetime import datetime
 from typing import Final
 
 from overwatch.application.actor import Actor, require_actor_in_bound_tenant, system_actor
-from overwatch.application.admin_consent_email import render_invitation
+from overwatch.application.admin_consent_email import logo_url_for, render_invitation
 from overwatch.application.ports.outbound.admin_consent import (
     AppInstallationCheck,
     GraphUnavailable,
@@ -221,9 +221,12 @@ class InviteAdminConsent:
                 binding.directory_id, self._links.client_id, self._links.redirect_uri, state
             )
             message = render_invitation(
-                organisation=tenant.display_name, ods=tenant.ods_code or tenant.id, link=link
+                organisation=tenant.display_name,
+                ods=tenant.ods_code or tenant.id,
+                link=link,
+                logo_url=logo_url_for(self._links.redirect_uri),
             )
-            receipt = await sender.send(email, message.subject, message.text, None)
+            receipt = await sender.send(email, message.subject, message.text, message.html)
             if not receipt.accepted:
                 raise NotAllowed(NOT_ACCEPTED)
 

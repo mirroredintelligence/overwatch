@@ -38,6 +38,10 @@ param platformSmsFrom string = ''
 // production setting. Never put a value in the repo; pass it at deploy time for a demo and remove it afterwards.
 param demoInboundTenant string = ''
 
+// The postcode districts each tenant serves, as JSON: {"tenant-id": "SG1-SG6,LU1"}. No default: a tenant with no entry has
+// an empty area, which fails every address check and keeps the tenant from going live. Passed at deploy time.
+param tenantAreas string = '{}'
+
 resource environment 'Microsoft.App/managedEnvironments@2024-03-01' existing = {
   name: environmentName
 }
@@ -99,6 +103,7 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'OVERWATCH_PLATFORM_SMS_FROM', value: platformSmsFrom }
             // TEMPORARY DEMO (DEC-1320): empty means off.
             { name: 'OVERWATCH_DEMO_INBOUND_TENANT', value: demoInboundTenant }
+            { name: 'OVERWATCH_TENANT_AREAS', value: tenantAreas }
             { name: 'OVERWATCH_POSTCODE_CENTROIDS_PATH', value: '/app/data/postcodes/centroids-dt-bh.csv' }
           ]
           resources: {
@@ -154,6 +159,7 @@ resource workers 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'OVERWATCH_PLATFORM_SMS_FROM', value: platformSmsFrom }
             // TEMPORARY DEMO (DEC-1320): empty means off.
             { name: 'OVERWATCH_DEMO_INBOUND_TENANT', value: demoInboundTenant }
+            { name: 'OVERWATCH_TENANT_AREAS', value: tenantAreas }
           ]
           resources: {
             cpu: json('0.25')
@@ -204,6 +210,7 @@ resource relay 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'OVERWATCH_NEO4J_USER', value: neo4jUser }
             // TEMPORARY DEMO (DEC-1320): empty means off.
             { name: 'OVERWATCH_DEMO_INBOUND_TENANT', value: demoInboundTenant }
+            { name: 'OVERWATCH_TENANT_AREAS', value: tenantAreas }
           ]
           resources: {
             cpu: json('0.25')

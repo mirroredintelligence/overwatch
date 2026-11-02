@@ -129,7 +129,8 @@ def activation_facts(
         contact_kinds=configuration.contact_kinds,
         retention_classes_set=configuration.retention_classes_set,
         wording_complete=configuration.wording_complete,
-        registers_services=True,
+        # Districts are asked only of a tenant that limits its area; none means anywhere (DEC-1323).
+        registers_services=area_districts_set,
         area_districts_set=area_districts_set,
         network_member=False,
         agreement_accepted=False,

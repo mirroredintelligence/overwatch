@@ -281,7 +281,15 @@ def test_a_fixed_site_outside_the_area_fails() -> None:
 def test_the_area_is_the_districts_given_to_the_check_and_not_a_built_in_default() -> None:
     assert _checks(area=frozenset({"DT4"}))[CHECK_ADDRESS].passed is True
     assert _checks(area=frozenset({"DT5"}))[CHECK_ADDRESS].passed is False
-    assert _checks(area=frozenset())[CHECK_ADDRESS].passed is False
+    # No area at all is no limit (DEC-1323), where an address was found.
+    assert _checks(area=frozenset())[CHECK_ADDRESS].passed is True
+
+
+def test_with_no_area_an_address_that_was_not_found_still_fails() -> None:
+    check = _checks(
+        area=frozenset(), lookups=replace(GOOD, address_found=False, address_district=None)
+    )[CHECK_ADDRESS]
+    assert check.passed is False and check.message == "Address not found"
 
 
 def test_a_visiting_service_passes_when_every_district_is_in_the_area() -> None:

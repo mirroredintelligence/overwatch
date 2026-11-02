@@ -12,7 +12,8 @@ a visiting service, every district is); the number given for reporting is the nu
 criteria owner's email is an organisation address. An explained failure counts as ok. The checks are
 re-run from what is stored every time they are needed, so a number changed after the review started
 is seen. The area is the tenant's own: it comes from `area_districts_for(scope)`, there is no
-built-in default (a tenant that inherited Dorset's districts would be wrong, DEC-317).
+built-in default (a tenant that inherited Dorset's districts would be wrong, DEC-317). A tenant
+with no area takes providers from anywhere (DEC-1323).
 
 The number called is never in the graph's records: it goes to the protected contact store under a
 key of its own, and the Provenance holds only a keyed hash of it. Decisions: DEC-317 to DEC-319.
@@ -334,6 +335,16 @@ def _visiting_districts(draft: RegistrationDraft) -> list[str]:
 def _address(
     draft: RegistrationDraft, lookups: Lookups | None, area: frozenset[str]
 ) -> AutomaticCheck:
+    # No area set means the organisation takes providers from anywhere (DEC-1323): the address
+    # still has to be a real one, but where it is does not count against it.
+    if not area:
+        if draft.location is not None and not draft.location.fixed_site:
+            if not _visiting_districts(draft):
+                return AutomaticCheck(CHECK_ADDRESS, False, "No districts given")
+            return AutomaticCheck(CHECK_ADDRESS, True, "No area limit is set")
+        if lookups is None or not lookups.address_found:
+            return AutomaticCheck(CHECK_ADDRESS, False, "Address not found")
+        return AutomaticCheck(CHECK_ADDRESS, True, "No area limit is set")
     if draft.location is not None and not draft.location.fixed_site:
         districts = _visiting_districts(draft)
         if not districts:

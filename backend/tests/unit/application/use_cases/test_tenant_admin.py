@@ -548,10 +548,10 @@ async def test_a_tenant_with_nothing_set_lists_every_blocker_in_fixed_words_and_
         "Support contacts set",
         "Retention set for every data class",
         "System, referral system and coordination team names set",
-        "Area districts set",
         "Host set",
     ):
         assert blocker in text, blocker
+    assert "Area districts set" not in text  # no area means anywhere (DEC-1323)
     assert "reference" not in text.lower()  # the three references are recommended (DEC-1319)
     assert TENANT not in text and "New Organisation" not in text
     assert platform.calls == [] and world.audit == [] and seeded == []

@@ -7058,3 +7058,11 @@ Status: accepted (the owner's request, 2026-11-02, applied under DEC-133) · Aff
 3. **Idempotent and never overwrites.** Retention is written only when none is stored, the version only when none is in force. A resumed creation, and `provision_tenant.py defaults TENANT` for a tenant made earlier, change nothing the organisation has already set.
 4. **Not defaulted.** Contacts (coordination phone, clinical safety officer), numbers, the directory, and the area's districts: they are the organisation's own facts.
 5. **Still assumed.** The retention figures are `[ASSUMED]` (DEC-271) and need the customer's information governance to confirm them before a real go-live.
+
+## DEC-1323 A tenant's area is optional: no area means providers from anywhere
+
+Status: accepted (the owner's request, 2026-11-02, applied under DEC-133) · Affects: `application/use_cases/review_registration.py` (`_address`), `application/provisioning.py` (`activation_facts`), `infra/azure/apps.bicep` (`tenantAreas`)
+
+1. **Why.** An organisation invites healthcare providers to take part from anywhere. The area made every address outside it fail the registration review's address check, and a tenant with none failed every address, and could not go live without districts.
+2. **The rule.** A tenant with no area configured has no limit: the address check still needs a real address (one found, or the districts of a visiting service) but where it is does not count. A tenant that does set an area (`OVERWATCH_TENANT_AREAS`, Bicep `tenantAreas`) is checked against it exactly as before, and its districts are then required for go-live; with none, "Area districts set" is not a blocker.
+3. **Unchanged.** The review is still a human decision after the automatic checks; no other check changes.

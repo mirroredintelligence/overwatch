@@ -186,7 +186,8 @@ def test_each_fact_comes_from_its_own_source() -> None:
     assert activation_blockers(_facts(tenant_admin_group_mapped=False)) == [
         "Tenant administrator group made and mapped"
     ]
-    assert activation_blockers(_facts(area_districts_set=False)) == ["Area districts set"]
+    # No area means providers from anywhere, so no districts are asked for (DEC-1323).
+    assert activation_blockers(_facts(area_districts_set=False)) == []
     assert activation_blockers(_facts(numbers=())) == [
         "At least one sender number active with a test text delivered"
     ]
@@ -226,6 +227,19 @@ def test_a_tenant_is_not_a_network_member_until_the_network_work_says_so() -> No
     facts = _facts()
     assert facts.network_member is False and facts.agreement_accepted is False
     assert facts.registers_services is True
+
+
+def test_a_tenant_with_no_area_is_asked_for_no_districts() -> None:
+    """DEC-1323: no area means providers from anywhere, so nothing waits on districts."""
+    facts = activation_facts(
+        provisioning_tenant(),
+        _configuration(),
+        (_number(tested_at=NOW),),
+        tenant_admin_group_mapped=True,
+        area_districts_set=False,
+    )
+    assert facts.registers_services is False
+    assert "Area districts set" not in activation_blockers(facts)
 
 
 def test_a_tenant_with_no_host_has_the_one_extra_blocker() -> None:

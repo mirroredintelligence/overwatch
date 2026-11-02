@@ -83,38 +83,53 @@ test.describe('the platform console', () => {
     await expect(page.getByRole('link', { name: 'Create a tenant' })).toBeVisible();
     expect(await axe(page)).toEqual([]);
 
-    // The organisation's page is a guided "Go live" funnel: the sign-in step says it is waiting, the identifiers are
-    // under Details, and confirming it moves the funnel on.
+    // The organisation's page is a guided "Go live": a task list of five parts and only the selected part beside it.
+    // The sign-in is the part to do now, the identifiers are under closed technical details, and confirming it
+    // completes the part and offers the next one.
     await row.getByRole('link', { name: 'Example Trust E2E' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Example Trust E2E' })).toBeVisible();
-    await expect(page.getByRole('navigation', { name: 'Go live progress' }).getByRole('listitem')).toHaveCount(8);
-    await expect(page.locator('[data-el="OP-NEXT-STEP"]')).toContainText('Next: Connect their sign-in');
-    const signin = page.getByRole('region', { name: 'Connect their sign-in' });
+    const tasks = page.getByRole('navigation', { name: 'Go live tasks' });
+    await expect(tasks.getByRole('listitem')).toHaveCount(5);
+    await expect(tasks.getByRole('link', { name: /^Organisation and sign-in/ })).toHaveAttribute('aria-current', 'step');
+    await expect(tasks.getByRole('listitem').first()).toContainText('In progress');
+    await expect(page.getByRole('heading', { level: 2, name: 'Organisation and sign-in' })).toBeVisible();
+    const signin = page.getByRole('region', { name: 'Connect their Microsoft work accounts' });
     await expect(signin.getByText(DIRECTORY)).toBeHidden();
-    await signin.getByText('Details', { exact: true }).click();
+    await signin.getByText('Technical details', { exact: true }).click();
     await expect(signin.getByText(DIRECTORY)).toBeVisible();
     await expect(signin.getByText('Waiting for you to confirm', { exact: true })).toBeVisible();
-    const teams = page.getByRole('region', { name: 'Who can do what' });
-    await teams.getByText('Details', { exact: true }).click();
+    await tasks.getByRole('link', { name: /Teams and people/ }).click();
+    await expect(page.getByRole('heading', { level: 2, name: 'Teams and people' })).toBeFocused();
+    const teams = page.getByRole('region', { name: 'Other teams' });
+    await teams.getByText('Technical details', { exact: true }).click();
     await expect(teams.getByRole('table', { name: 'Teams in Microsoft' }).getByText('Shift leads')).toBeVisible();
     await expect(teams.getByRole('table', { name: 'Teams in Microsoft' }).getByText('Advisors')).toBeVisible();
+    await tasks.getByRole('link', { name: /Go live/ }).click();
     await expect(page.getByRole('button', { name: 'Go live' })).toHaveCount(0);
+    await expect(page.getByRole('list', { name: 'Still to do' }).getByRole('listitem').first()).toContainText('Organisation and sign-in');
     expect(await axe(page)).toEqual([]);
+    await tasks.getByRole('link', { name: /Organisation and sign-in/ }).click();
     await signin.getByRole('button', { name: 'Confirm this is their Microsoft account' }).click();
     await expect(signin.getByText('Connected to Example Trust E2E’s Microsoft accounts.')).toBeVisible();
     await expect(signin.getByRole('button', { name: 'Confirm this is their Microsoft account' })).toHaveCount(0);
-    await expect(page.locator('[data-el="OP-NEXT-STEP"]')).toContainText('Next: Invite their administrator');
+    await expect(tasks.getByRole('listitem').first()).toContainText('Completed');
+    await page.getByRole('button', { name: 'Continue to Administrator approval' }).click();
+    await expect(page.getByRole('heading', { level: 2, name: 'Administrator approval' })).toBeFocused();
 
-    // Step 3: their administrator is named and emailed; the page shows only the masked address and that the link is
+    // Their administrator is named and emailed; the page shows only the masked address and that the link is
     // waiting (it is approved only once the back end sees the app installed).
-    const consent = page.getByRole('region', { name: 'Invite their administrator' });
+    const consent = page.getByRole('region', { name: 'Ask their administrator to approve' });
     await expect(consent.getByText('No approval link has been sent yet.')).toBeVisible();
     await consent.getByLabel('Their administrator’s work email').fill('jane.admin@example-trust.test');
     await consent.getByRole('button', { name: 'Send the approval link to their administrator' }).click();
     await expect(consent.getByText('The approval link was emailed.')).toBeVisible();
     await expect(consent.getByText('Waiting for approval. The link went to j***@example-trust.test', { exact: false })).toBeVisible();
     await expect(consent.getByRole('button', { name: 'Send the link again' })).toBeVisible();
+    await expect(tasks.getByRole('link', { name: /Administrator approval/ })).toContainText('Waiting for them');
     await expect(page.locator('body')).not.toContainText('jane.admin@example-trust.test');
+    // The button under the pointer fades its colour for a moment (design system 5.2): let it settle before axe reads it.
+    await page.mouse.move(0, 0);
+    await page.waitForTimeout(400);
     expect(await axe(page)).toEqual([]);
   });
 
@@ -130,10 +145,21 @@ test.describe('the platform console', () => {
     await page.setViewportSize({ width: 360, height: 800 });
     await page.goto('/operator/tenants/example-narrow');
     await expect(page.getByRole('heading', { level: 1, name: 'Example Narrow' })).toBeVisible();
-    await page.getByText('Details', { exact: true }).first().click();
+    await page.getByText('Technical details', { exact: true }).first().click();
+    await expect(page.getByRole('navigation', { name: 'Go live tasks' })).toBeVisible();
     expect(await axe(page)).toEqual([]);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(0);
+    // On a phone: one column, the task list first and the selected part under it.
+    const list = (await page.getByRole('navigation', { name: 'Go live tasks' }).boundingBox())!;
+    const part = (await page.getByRole('heading', { level: 2, name: 'Organisation and sign-in' }).boundingBox())!;
+    expect(part.y).toBeGreaterThan(list.y + list.height);
+    // On a desktop: two columns, the task list beside the part.
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const wideList = (await page.getByRole('navigation', { name: 'Go live tasks' }).boundingBox())!;
+    const widePart = (await page.getByRole('heading', { level: 2, name: 'Organisation and sign-in' }).boundingBox())!;
+    expect(widePart.x).toBeGreaterThan(wideList.x + wideList.width);
+    expect(await axe(page)).toEqual([]);
   });
 
   test('refuses a directory id that is not a directory id, in words, and creates nothing', async ({ page }) => {

@@ -1,27 +1,37 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useOperatorRead } from '@/lib/operator/browser';
-import { deriveFunnel, type Consent, type FunnelStep } from '@/lib/operator/funnel';
+import { deriveFunnel, PHASE_STATE_WORD, type Consent, type PhaseId } from '@/lib/operator/funnel';
 import type { parseTenantDetail } from '@/lib/operator/views';
 import { TENANT_STATUS_WORD } from '@/lib/operator/words';
-import { GoLiveStep, LifecyclePanel, type Notice } from './TenantLifecycle';
-import { AgreementsStep, InviteStep, OrganisationStep, ReachStep, RolesStep, SignInStep, TeamStep } from './TenantPanels';
+import { LifecyclePanel, type Notice } from './TenantLifecycle';
+import { PhasePanel, phaseTagClass } from './TenantPhases';
 import styles from '@/components/admin/admin.module.css';
+import ts from './Tenant.module.css';
 
-// One partner organisation's page (TEN-083): a guided "Go live" funnel. Eight steps in order, each with one next action
-// and a collapsed Details section for the technical identifiers, then what suspending or closing does. Every write is
-// the operator's own. No secret is shown. The funnel's state is derived from the detail and the approval link the page
-// already reads (`lib/operator/funnel.ts`); nothing new is written or stored for it.
+// One partner organisation's page (TEN-083): a guided "Go live". A task list of five parts (each a link with its
+// status in words and one line on where it stands) and, beside it (under it on a phone), only the selected part:
+// by default the first part that is not completed. A completed part shows a short summary and a "Change" link.
+// Every write is the operator's own. No secret is shown. The state is derived from the detail and the approval link
+// the page already reads (`lib/operator/funnel.ts`); nothing new is written or stored for it.
 
 type Detail = ReturnType<typeof parseTenantDetail>;
-const STATE_WORD = { done: 'Done', next: 'Next', todo: 'To do' } as const;
 
 export function TenantDetail({ tenantId }: { tenantId: string }) {
   const { state, reload } = useOperatorRead<Detail>(`/api/bff/platform/tenants/${tenantId}`);
   const consentRead = useOperatorRead<Consent>(`/api/bff/platform/tenants/${tenantId}/admin-consent`);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [unrecorded, setUnrecorded] = useState(false);
+  // The part the operator chose (null: the first that is not completed), and the completed part kept open.
+  const [chosen, setChosen] = useState<PhaseId | null>(null);
+  const [open, setOpen] = useState<PhaseId | null>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const [focusTick, setFocusTick] = useState(0);
+  useEffect(() => {
+    // Choosing a part moves focus to its heading, so a screen reader hears where it landed.
+    if (focusTick > 0) headingRef.current?.focus();
+  }, [focusTick]);
 
   if (state.status === 'loading') {
     return (
@@ -41,37 +51,31 @@ export function TenantDetail({ tenantId }: { tenantId: string }) {
   }
   const detail = state.data;
   const funnel = deriveFunnel(detail, consentRead.state);
+  const selectedId: PhaseId = chosen ?? (detail.tenant.status === 'provisioning' ? funnel.nextPhase : null) ?? 'golive';
+  const selected = funnel.phases.find((p) => p.id === selectedId)!;
+  const select = (id: PhaseId) => {
+    setChosen(id);
+    setOpen(null);
+    setFocusTick((n) => n + 1);
+  };
   const onChanged = () => {
     reload();
     consentRead.reload();
+    // Stay where the work was done, so what was said stays on screen, even when the part has just been completed.
+    setChosen(selectedId);
+    setOpen(selectedId);
   };
-  const step = (id: FunnelStep['id']): FunnelStep => funnel.steps.find((s) => s.id === id)!;
-  const panel = (id: FunnelStep['id']) => ({ tenantId, detail, consent: consentRead.state, step: step(id), isNext: funnel.next === id, onChanged, onUnrecorded: () => setUnrecorded(true) });
-  const nextStep = funnel.steps.find((s) => s.id === funnel.next);
-  const stateOf = (s: FunnelStep) => (s.done ? 'done' : funnel.next === s.id ? 'next' : 'todo');
-  return (
-    <main className={styles.page}>
-      <h1 className={styles.title}>{detail.tenant.displayName}</h1>
-      <div className={styles.row}>
-        <span className={detail.tenant.status === 'active' ? styles.tag : `${styles.tag} ${styles.tagDashed}`}>{TENANT_STATUS_WORD[detail.tenant.status] ?? detail.tenant.status}</span>
-        <span className={styles.muted}>{`${funnel.doneCount} of ${funnel.total} steps done`}</span>
-      </div>
+  const completed = funnel.phases.filter((p) => p.done).length;
 
-      <nav aria-label="Go live progress">
-        <ol className={styles.progress}>
-          {funnel.steps.map((s) => (
-            <li key={s.id} aria-current={funnel.next === s.id ? 'step' : undefined} data-state={stateOf(s)}>
-              <a className={styles.link} href={`#step-${s.id}`}>{`${s.number}. ${s.title}`}</a>
-              <span className={stateOf(s) === 'done' ? styles.tag : `${styles.tag} ${styles.tagDashed}`}>{STATE_WORD[stateOf(s)]}</span>
-            </li>
-          ))}
-        </ol>
-      </nav>
-      {nextStep !== undefined && detail.tenant.status === 'provisioning' ? (
-        <p className={styles.text} data-el="OP-NEXT-STEP">
-          Next: <a className={styles.link} href={`#step-${nextStep.id}`}>{nextStep.title}</a>
-        </p>
-      ) : null}
+  return (
+    <main className={ts.page}>
+      <div className={ts.head}>
+        <h1 className={styles.title}>{detail.tenant.displayName}</h1>
+        <div className={ts.headRow}>
+          <span className={detail.tenant.status === 'active' ? styles.tag : `${styles.tag} ${styles.tagDashed}`}>{TENANT_STATUS_WORD[detail.tenant.status] ?? detail.tenant.status}</span>
+          {detail.tenant.status === 'provisioning' ? <span className={styles.muted}>{`${completed} of ${funnel.phases.length} parts completed`}</span> : null}
+        </div>
+      </div>
 
       {unrecorded ? (
         <p role="alert" className={styles.problem}>
@@ -84,15 +88,62 @@ export function TenantDetail({ tenantId }: { tenantId: string }) {
         </p>
       ) : null}
 
-      <OrganisationStep {...panel('organisation')} />
-      <SignInStep {...panel('signin')} />
-      <InviteStep {...panel('invite')} />
-      <TeamStep {...panel('team')} />
-      <RolesStep {...panel('roles')} />
-      <ReachStep {...panel('reach')} />
-      <AgreementsStep {...panel('agreements')} />
-      <GoLiveStep tenantId={tenantId} detail={detail} onChanged={onChanged} onUnrecorded={() => setUnrecorded(true)} onNotice={setNotice} funnel={funnel} step={step('golive')} />
-      <LifecyclePanel tenantId={tenantId} detail={detail} onChanged={onChanged} onUnrecorded={() => setUnrecorded(true)} onNotice={setNotice} />
+      <div className={ts.layout}>
+        <nav className={ts.tasks} aria-label="Go live tasks">
+          <ol className={ts.taskList}>
+            {funnel.phases.map((p) => (
+              <li key={p.id} className={ts.task} data-state={p.state}>
+                <a
+                  className={ts.taskLink}
+                  href={`#phase-${p.id}`}
+                  aria-current={p.id === selectedId ? 'step' : undefined}
+                  aria-describedby={`task-${p.id}-status task-${p.id}-summary`}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    select(p.id);
+                  }}
+                >
+                  <span className={p.done ? `${ts.taskNumber} ${ts.taskNumberDone}` : ts.taskNumber} aria-hidden="true">
+                    {p.number}
+                  </span>
+                  <span className={ts.taskBody}>
+                    <span className={ts.taskTitle}>{p.title}</span>
+                    <span id={`task-${p.id}-status`} className={phaseTagClass(p.state)}>
+                      {PHASE_STATE_WORD[p.state]}
+                    </span>
+                    <span id={`task-${p.id}-summary`} className={ts.taskSummary}>
+                      {p.summary}
+                    </span>
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ol>
+        </nav>
+
+        <PhasePanel
+          key={selectedId}
+          ref={headingRef}
+          tenantId={tenantId}
+          detail={detail}
+          consent={consentRead.state}
+          funnel={funnel}
+          phase={selected}
+          open={open}
+          onOpen={(id) => {
+            setOpen(id);
+            setFocusTick((n) => n + 1);
+          }}
+          onSelect={select}
+          onChanged={onChanged}
+          onUnrecorded={() => setUnrecorded(true)}
+          onNotice={setNotice}
+        />
+      </div>
+
+      <div className={ts.lifecycle}>
+        <LifecyclePanel tenantId={tenantId} detail={detail} onChanged={onChanged} onUnrecorded={() => setUnrecorded(true)} onNotice={setNotice} />
+      </div>
     </main>
   );
 }

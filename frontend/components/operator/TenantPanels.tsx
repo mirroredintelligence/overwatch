@@ -1,21 +1,21 @@
 'use client';
 
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useId, useState, type FormEvent, type ReactNode } from 'react';
 import { TextField } from '@/components/forms/TextField';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
 import { operatorSend } from '@/lib/operator/browser';
-import { STEP_IDS, TEAM_WORDS, teamName, type ConsentRead, type FunnelStep } from '@/lib/operator/funnel';
+import { TEAM_WORDS, teamName, type ConsentRead, type FunnelStep } from '@/lib/operator/funnel';
 import type { parseTenantDetail } from '@/lib/operator/views';
 import { organisationTypeWord } from '@/lib/operator/words';
 import { useSubmitKey } from '@/lib/tenantAdmin/browser';
 import { whenText } from '@/lib/tenantAdmin/words';
 import styles from '@/components/admin/admin.module.css';
+import ts from './Tenant.module.css';
 
-// The steps of an organisation's "Go live" page (TEN-083): each step is one card with one next action, plain words,
-// and a collapsed "Details" section that holds the technical identifiers. The writes are the same as ever (same
-// routes, same bodies); only the layout and the words changed. A step that was done and not recorded by the platform
-// chain (`recorded: false`) is passed up so the page says so.
+// The steps of an organisation's "Go live" page (TEN-083): each step is a section of the selected part, with one main
+// action, plain words, and a closed "Technical details" disclosure that holds the technical identifiers. The writes
+// are the same as ever (same routes, same bodies); only the layout and the words changed. A step that was done and
+// not recorded by the platform chain (`recorded: false`) is passed up so the page says so.
 
 export type Detail = ReturnType<typeof parseTenantDetail>;
 type Say = { ok: boolean; text: string } | null;
@@ -25,7 +25,10 @@ export type PanelProps = {
   detail: Detail;
   consent: ConsentRead;
   step: FunnelStep;
+  /** This is the first step of its part that is not done: its main button is the part's one primary button. */
   isNext: boolean;
+  /** The part has more than one step, so each step gets a heading. */
+  heading: boolean;
   onChanged: () => void;
   onUnrecorded: () => void;
 };
@@ -39,27 +42,24 @@ function Said({ say }: { say: Say }) {
   );
 }
 
-const STATE_WORD = { done: 'Done', next: 'Next', todo: 'To do' } as const;
-
-/** One step as a card: its place in the list, whether it is done or next, then its content and its Details. */
-export function StepCard({ step, isNext, children, details }: { step: FunnelStep; isNext: boolean; children: ReactNode; details?: ReactNode }) {
-  const state = step.done ? 'done' : isNext ? 'next' : 'todo';
+/** One step inside the selected part: its heading (when the part has several), its content and its closed technical details. */
+export function StepSection({ step, heading, children, details }: { step: FunnelStep; heading: boolean; children: ReactNode; details?: ReactNode }) {
+  const headingId = useId();
   return (
-    <div id={`step-${step.id}`} data-el={`OP-STEP-${step.id.toUpperCase()}`} data-state={state}>
-      <Card heading={step.title}>
-        <p className={styles.row}>
-          <span className={styles.muted}>{`Step ${step.number} of ${STEP_IDS.length}`}</span>
-          <span className={state === 'done' ? styles.tag : `${styles.tag} ${styles.tagDashed}`}>{STATE_WORD[state]}</span>
-        </p>
-        {children}
-        {details !== undefined ? (
-          <details className={styles.details}>
-            <summary>Details</summary>
-            <div className={styles.stack}>{details}</div>
-          </details>
-        ) : null}
-      </Card>
-    </div>
+    <section className={ts.step} id={`step-${step.id}`} data-el={`OP-STEP-${step.id.toUpperCase()}`} data-state={step.done ? 'done' : 'todo'} aria-labelledby={heading ? headingId : undefined} aria-label={heading ? undefined : step.title}>
+      {heading ? (
+        <h3 id={headingId} className={ts.stepTitle}>
+          {step.title}
+        </h3>
+      ) : null}
+      {children}
+      {details !== undefined ? (
+        <details className={ts.disclosure}>
+          <summary>Technical details</summary>
+          <div className={ts.disclosureBody}>{details}</div>
+        </details>
+      ) : null}
+    </section>
   );
 }
 
@@ -100,9 +100,9 @@ const COUNTRY_WORD: Record<string, string> = { GB: 'United Kingdom', IE: 'Irelan
 export function OrganisationStep(props: PanelProps) {
   const t = props.detail.tenant;
   return (
-    <StepCard
+    <StepSection
       step={props.step}
-      isNext={props.isNext}
+      heading={props.heading}
       details={
         <dl className={styles.facts}>
           <dt>Organisation id</dt>
@@ -114,7 +114,7 @@ export function OrganisationStep(props: PanelProps) {
         </dl>
       }
     >
-      <p className={styles.text}>Check these are right. They were taken from the NHS record when the organisation was created, and cannot be changed here.</p>
+      <p className={ts.text}>Check these are right. They came from the NHS record when the organisation was created, and cannot be changed here.</p>
       <dl className={styles.facts}>
         <dt>Name</dt>
         <dd>{t.displayName}</dd>
@@ -129,7 +129,7 @@ export function OrganisationStep(props: PanelProps) {
         <dt>Time zone</dt>
         <dd>{t.timeZone}</dd>
       </dl>
-    </StepCard>
+    </StepSection>
   );
 }
 
@@ -164,9 +164,9 @@ export function SignInStep(props: PanelProps) {
   const bound = confirmed ?? waiting;
 
   return (
-    <StepCard
+    <StepSection
       step={props.step}
-      isNext={props.isNext}
+      heading={props.heading}
       details={
         bindings.length === 0 ? (
           <p className={styles.muted}>Nothing is connected, so there is nothing to show yet.</p>
@@ -195,56 +195,61 @@ export function SignInStep(props: PanelProps) {
         )
       }
     >
-      <p className={styles.text}>People at the organisation sign in to Overwatch with their Microsoft work accounts. Overwatch needs to know which Microsoft account is theirs.</p>
+      <p className={ts.text}>People at the organisation sign in to Overwatch with their Microsoft work accounts. Overwatch needs to know which Microsoft account is theirs.</p>
       {confirmed !== undefined ? (
         <p className={styles.ok}>{`Connected to ${name}’s Microsoft accounts.`}</p>
       ) : waiting !== undefined ? (
         <>
-          <p className={styles.text}>{`A Microsoft account has been named for ${name}. Check that it is theirs, then confirm it. Nobody can sign in with it until you do.`}</p>
+          <p className={ts.text}>{`A Microsoft account has been named for ${name}. Check that it is theirs, then confirm it. Nobody can sign in with it until you do.`}</p>
           <Said say={write.say} />
           <div className={styles.actions}>
-            <Button variant="primary" busy={write.busy} onClick={() => void write.run('POST', 'directory/verification', { directoryId: waiting.directoryId }, () => 'Confirmed. Their people can now sign in with their Microsoft work accounts.', () => 'It could not be confirmed. Try again.')}>
+            <Button variant={props.isNext ? 'primary' : 'secondary'} busy={write.busy} onClick={() => void write.run('POST', 'directory/verification', { directoryId: waiting.directoryId }, () => 'Confirmed. Their people can now sign in with their Microsoft work accounts.', () => 'It could not be confirmed. Try again.')}>
               Confirm this is their Microsoft account
             </Button>
           </div>
         </>
       ) : (
         <>
-          <p className={styles.text}>No Microsoft account is connected yet.</p>
-          <p className={styles.muted}>Their administrator can connect it from the Users and roles page in their own Overwatch. Use the check below to find it from their email domain.</p>
+          <p className={ts.text}>No Microsoft account is connected yet.</p>
+          <p className={styles.muted}>Their administrator can connect it from the Users and roles page in their own Overwatch. You can check which account an email domain belongs to below.</p>
         </>
       )}
-      <form className={styles.stack} onSubmit={(event) => void look(event)} noValidate aria-label="Find their Microsoft account">
-        <TextField id="signin-domain" label="Their email domain" value={domain} onChange={setDomain} requirement="optional" hint="For example example.nhs.uk. This only looks; it saves nothing." autoComplete="off" dataEl="OP-TENANT-DOMAIN-INPUT" />
-        <div className={styles.actions}>
-          <Button variant="neutral" type="submit" dataEl="OP-TENANT-DOMAIN-LOOKUP-BTN">
-            Look up their Microsoft account
-          </Button>
+      <details className={ts.disclosure}>
+        <summary>Check an email domain</summary>
+        <div className={ts.disclosureBody}>
+          <form className={ts.form} onSubmit={(event) => void look(event)} noValidate aria-label="Find their Microsoft account">
+            <TextField id="signin-domain" label="Their email domain" value={domain} onChange={setDomain} requirement="optional" hint="For example example.nhs.uk. This only looks; it saves nothing." autoComplete="off" dataEl="OP-TENANT-DOMAIN-INPUT" />
+            <div className={styles.actions}>
+              <Button variant="neutral" type="submit" dataEl="OP-TENANT-DOMAIN-LOOKUP-BTN">
+                Look up their Microsoft account
+              </Button>
+            </div>
+          </form>
+          {lookup === 'not-valid' ? (
+            <p role="status" className={ts.text}>
+              Enter a domain name, for example example.nhs.uk.
+            </p>
+          ) : lookup !== null ? (
+            <div className={styles.panel} data-el="OP-TENANT-DOMAIN-CARD" role="status">
+              {lookup.directoryId === null ? (
+                <p className={ts.text}>{`No Microsoft account was found for ${lookup.domain}. Ask the organisation which one they use.`}</p>
+              ) : (
+                <>
+                  <p className={ts.text}>{`Found a Microsoft account for ${lookup.domain}.`}</p>
+                  <p className={ts.text}>
+                    {bound === undefined
+                      ? 'None is connected here yet.'
+                      : bound.directoryId.toLowerCase() === lookup.directoryId.toLowerCase()
+                        ? 'It is the same one that is connected here.'
+                        : 'It is not the one that is connected here. Check before you confirm.'}
+                  </p>
+                </>
+              )}
+            </div>
+          ) : null}
         </div>
-      </form>
-      {lookup === 'not-valid' ? (
-        <p role="status" className={styles.text}>
-          Enter a domain name, for example example.nhs.uk.
-        </p>
-      ) : lookup !== null ? (
-        <div className={styles.panel} data-el="OP-TENANT-DOMAIN-CARD" role="status">
-          {lookup.directoryId === null ? (
-            <p className={styles.text}>{`No Microsoft account was found for ${lookup.domain}. Ask the organisation which one they use.`}</p>
-          ) : (
-            <>
-              <p className={styles.text}>{`Found a Microsoft account for ${lookup.domain}.`}</p>
-              <p className={styles.text}>
-                {bound === undefined
-                  ? 'None is connected here yet.'
-                  : bound.directoryId.toLowerCase() === lookup.directoryId.toLowerCase()
-                    ? 'It is the same one that is connected here.'
-                    : 'It is not the one that is connected here. Check before you confirm.'}
-              </p>
-            </>
-          )}
-        </div>
-      ) : null}
-    </StepCard>
+      </details>
+    </StepSection>
   );
 }
 
@@ -281,16 +286,16 @@ export function InviteStep(props: PanelProps) {
         'admin-consent-invitation',
         { email: address },
         () => 'The approval link was emailed. It works for 7 days. The address is not shown again.',
-        (status) => (status === 403 || status === 404 || status === 409 ? 'The link could not be sent. Connect their sign-in first (step 2), and check that Overwatch can send email.' : 'The link could not be sent. Try again.'),
+        (status) => (status === 403 || status === 404 || status === 409 ? 'The link could not be sent. Connect their Microsoft work accounts first, and check that Overwatch can send email.' : 'The link could not be sent. Try again.'),
       )
       .then((ok) => {
         if (ok) setEmail('');
       });
   }
   return (
-    <StepCard
+    <StepSection
       step={props.step}
-      isNext={props.isNext}
+      heading={props.heading}
       details={
         invitation === null ? (
           <p className={styles.muted}>No link has been sent.</p>
@@ -312,7 +317,7 @@ export function InviteStep(props: PanelProps) {
         )
       }
     >
-      <p className={styles.text}>
+      <p className={ts.text}>
         Their administrator opens the link and approves Overwatch in their own Microsoft account. Approving lets Overwatch make teams there, add people to them and find people by email address. It does not let Overwatch read anyone’s email or files.
       </p>
       {consent.status === 'loading' ? <p className={styles.muted}>Loading.</p> : null}
@@ -323,29 +328,29 @@ export function InviteStep(props: PanelProps) {
       ) : null}
       {consent.status === 'ok' ? (
         invitation === null ? (
-          <p className={styles.text}>No approval link has been sent yet.</p>
+          <p className={ts.text}>No approval link has been sent yet.</p>
         ) : invitation.status === 'consented' ? (
           <p className={styles.ok}>{`Approved on ${whenText(invitation.consentedAt)}. Their administrator has approved Overwatch.`}</p>
         ) : invitation.status === 'expired' ? (
           <p className={styles.problem}>The approval link has expired. Send a new one.</p>
         ) : (
-          <p className={styles.text}>{`${CONSENT_WORD[invitation.status] ?? 'Waiting for approval'}. The link went to ${invitation.emailMasked} and works until ${whenText(invitation.expiresAt)}.`}</p>
+          <p className={ts.text}>{`${CONSENT_WORD[invitation.status] ?? 'Waiting for approval'}. The link went to ${invitation.emailMasked} and works until ${whenText(invitation.expiresAt)}.`}</p>
         )
       ) : null}
       {invitation?.status === 'consented' ? null : hasSignIn ? (
-        <form className={styles.stack} onSubmit={submit} noValidate aria-label="Send the approval link">
+        <form className={ts.form} onSubmit={submit} noValidate aria-label="Send the approval link">
           <TextField id="consent-email" label="Their administrator’s work email" value={email} onChange={(v) => { write.fresh(); setEmail(v); }} requirement="none" inputMode="email" autoComplete="off" error={error} />
           <Said say={write.say} />
           <div className={styles.actions}>
-            <Button variant="secondary" type="submit" busy={write.busy}>
+            <Button variant={props.isNext && invitation?.status !== 'pending' ? 'primary' : 'secondary'} type="submit" busy={write.busy}>
               {invitation === null ? 'Send the approval link to their administrator' : 'Send the link again'}
             </Button>
           </div>
         </form>
       ) : (
-        <p className={styles.text}>Connect their sign-in first (step 2). The approval link is for their Microsoft account.</p>
+        <p className={ts.text}>Connect their Microsoft work accounts first. The approval link is for their Microsoft account.</p>
       )}
-    </StepCard>
+    </StepSection>
   );
 }
 
@@ -416,9 +421,9 @@ export function TeamStep(props: PanelProps) {
     );
   }
   return (
-    <StepCard
+    <StepSection
       step={props.step}
-      isNext={props.isNext}
+      heading={props.heading}
       details={
         <>
           {made.length > 0 ? (
@@ -474,14 +479,14 @@ export function TeamStep(props: PanelProps) {
         </>
       }
     >
-      <p className={styles.text}>The administrators’ team is the only way anyone gets administrator rights in Overwatch. They run the organisation’s own pages: who is in which team, and its settings.</p>
+      <p className={ts.text}>The administrators’ team is the only way anyone gets administrator rights in Overwatch. They run the organisation’s own pages: who is in which team, and its settings.</p>
       {props.consent.status === 'loading' ? <p className={styles.muted}>Loading.</p> : null}
-      {props.consent.status === 'ok' && !consented ? <p className={styles.text}>You can create their administrators’ team once their administrator has approved Overwatch (step 3).</p> : null}
+      {props.consent.status === 'ok' && !consented ? <p className={ts.text}>You can create their administrators’ team once their administrator has approved Overwatch.</p> : null}
       {consented && !hasTeam ? (
         <>
           <Said say={groups.say} />
           <div className={styles.actions}>
-            <Button variant="primary" busy={groups.busy} onClick={makeTeam}>
+            <Button variant={props.isNext ? 'primary' : 'secondary'} busy={groups.busy} onClick={makeTeam}>
               Create their administrators’ team
             </Button>
           </div>
@@ -491,7 +496,8 @@ export function TeamStep(props: PanelProps) {
         <>
           <p className={styles.ok}>Their administrators’ team is added to Overwatch.</p>
           <Said say={groups.say} />
-          <form className={styles.stack} onSubmit={form.submit} noValidate aria-label="Add the first administrator by email">
+          <h4 className={ts.subTitle}>Add an administrator</h4>
+          <form className={ts.form} onSubmit={form.submit} noValidate aria-label="Add the first administrator by email">
             <TextField id="first-admin-email" label="Administrator’s work email" value={form.email} onChange={(v) => { form.member.fresh(); form.setEmail(v); }} requirement="none" inputMode="email" autoComplete="off" error={form.error} />
             <Said say={form.member.say} />
             <div className={styles.actions}>
@@ -502,7 +508,7 @@ export function TeamStep(props: PanelProps) {
           </form>
         </>
       ) : null}
-    </StepCard>
+    </StepSection>
   );
 }
 
@@ -541,9 +547,9 @@ export function RolesStep(props: PanelProps) {
   }
   const rest = mapped.filter((m) => m.role !== 'tenant-admin');
   return (
-    <StepCard
+    <StepSection
       step={props.step}
-      isNext={props.isNext}
+      heading={props.heading}
       details={
         <div className={styles.scroll}>
           <table className={`${styles.table} ${styles.stackTable}`}>
@@ -574,10 +580,10 @@ export function RolesStep(props: PanelProps) {
         </div>
       }
     >
-      <p className={styles.text}>Everyone else works in one of these teams. Being in a team is what lets a person do its work in Overwatch. The administrators’ team above is the only route to administrator rights: none of these teams gives them.</p>
-      {props.consent.status === 'ok' && !consented ? <p className={styles.text}>Teams can be added once their administrator has approved Overwatch (step 3).</p> : null}
-      <form className={styles.stack} onSubmit={add} noValidate aria-label="Add teams to Overwatch">
-        <ul className={styles.list}>
+      <p className={ts.text}>Everyone else works in one of these teams. Being in a team is what lets a person do its work in Overwatch. The administrators’ team above is the only route to administrator rights: none of these teams gives them.</p>
+      {props.consent.status === 'ok' && !consented ? <p className={ts.text}>Teams can be added once their administrator has approved Overwatch.</p> : null}
+      <form className={ts.form} onSubmit={add} noValidate aria-label="Add teams to Overwatch">
+        <ul className={ts.teamList}>
           {TEAM_WORDS.map(([code, word, can]) => (
             <li key={code}>
               {has(code) ? (
@@ -590,7 +596,6 @@ export function RolesStep(props: PanelProps) {
                 <strong>{word}</strong>
               )}{' '}
               <span className={has(code) ? styles.tag : `${styles.tag} ${styles.tagDashed}`}>{has(code) ? 'Added to Overwatch' : 'Not added yet'}</span>
-              <br />
               <span className={styles.muted}>{can}</span>
             </li>
           ))}
@@ -598,14 +603,16 @@ export function RolesStep(props: PanelProps) {
         <Said say={groups.say} />
         {consented ? (
           <div className={styles.actions}>
-            <Button variant="secondary" type="submit" busy={groups.busy} disabled={ticked.length === 0}>
+            <Button variant={props.isNext ? 'primary' : 'secondary'} type="submit" busy={groups.busy} disabled={ticked.length === 0}>
               Add the ticked teams
             </Button>
           </div>
         ) : null}
       </form>
       {consented && memberChoices.length > 0 ? (
-        <form className={styles.stack} onSubmit={form.submit} noValidate aria-label="Add a person to a team">
+        <>
+        <h4 className={ts.subTitle}>Add people to a team</h4>
+        <form className={ts.form} onSubmit={form.submit} noValidate aria-label="Add a person to a team">
           <div className={styles.selectLabel}>
             <label htmlFor="team-member-team">Team</label>
             <select id="team-member-team" className={styles.select} value={chosenRole} onChange={(event) => { form.member.fresh(); setMemberRole(event.target.value); }}>
@@ -624,8 +631,9 @@ export function RolesStep(props: PanelProps) {
             </Button>
           </div>
         </form>
+        </>
       ) : null}
-    </StepCard>
+    </StepSection>
   );
 }
 
@@ -663,10 +671,13 @@ export function ReachStep(props: PanelProps) {
       });
   }
   const numbers = props.detail.numbers;
+  const hostFirst = props.isNext && props.detail.host === null;
+  const numberFirst = props.isNext && !hostFirst && numbers.length === 0;
+  const testFirst = props.isNext && !hostFirst && !numberFirst;
   return (
-    <StepCard
+    <StepSection
       step={props.step}
-      isNext={props.isNext}
+      heading={props.heading}
       details={
         numbers.length === 0 ? (
           <p className={styles.muted}>No text number is recorded.</p>
@@ -695,22 +706,20 @@ export function ReachStep(props: PanelProps) {
         )
       }
     >
-      <h3 className={styles.subheading}>Web address</h3>
-      <p className={styles.text}>{props.detail.host === null ? 'No web address is set yet.' : `Their web address is ${props.detail.host}.`}</p>
-      <form className={styles.stack} onSubmit={saveHost} noValidate aria-label="Set the web address">
+      <p className={ts.text}>{props.detail.host === null ? 'No web address is set yet.' : `Their web address is ${props.detail.host}.`}</p>
+      <form className={ts.form} onSubmit={saveHost} noValidate aria-label="Set the web address">
         <TextField id="tenant-host" label="Web address" value={host} onChange={(v) => { hostWrite.fresh(); setHost(v); }} requirement="none" hint="What people type to reach Overwatch for this organisation." />
         <Said say={hostWrite.say} />
         <div className={styles.actions}>
-          <Button variant="secondary" type="submit" busy={hostWrite.busy}>
+          <Button variant={hostFirst ? 'primary' : 'secondary'} type="submit" busy={hostWrite.busy}>
             Save web address
           </Button>
         </div>
       </form>
 
-      <h3 className={styles.subheading}>Text number</h3>
-      <p className={styles.text}>Their text messages are sent from their own number, set up here. Send a test text to it, then mark the test as done.</p>
+      <p className={ts.text}>Their text messages are sent from their own number, set up here. Send a test text to it, then mark the test as done.</p>
       {numbers.length === 0 ? (
-        <p className={styles.text}>No text number is recorded yet.</p>
+        <p className={ts.text}>No text number is recorded yet.</p>
       ) : (
         <div className={styles.scroll}>
           <table className={styles.table}>
@@ -733,7 +742,7 @@ export function ReachStep(props: PanelProps) {
                   <td>{n.testedAt === null ? 'Not tested' : `Tested ${whenText(n.testedAt)}`}</td>
                   <td>
                     {n.testedAt === null ? (
-                      <Button variant="neutral" busy={tested.busy} ariaLabel={`Mark ${n.e164} as tested`} onClick={() => void tested.run('POST', 'numbers/tested', { e164: n.e164 }, () => 'Text number marked as tested.', () => 'The text number could not be marked. Try again.')}>
+                      <Button variant={testFirst ? 'primary' : 'neutral'} busy={tested.busy} ariaLabel={`Mark ${n.e164} as tested`} onClick={() => void tested.run('POST', 'numbers/tested', { e164: n.e164 }, () => 'Text number marked as tested.', () => 'The text number could not be marked. Try again.')}>
                         Mark as tested
                       </Button>
                     ) : null}
@@ -745,18 +754,18 @@ export function ReachStep(props: PanelProps) {
         </div>
       )}
       <Said say={tested.say} />
-      <form className={styles.stack} onSubmit={record} noValidate aria-label="Record a text number">
+      <form className={`${ts.form} ${ts.formGroup}`} onSubmit={record} noValidate aria-label="Record a text number">
         <TextField id="number-e164" label="Text number" value={number} onChange={(v) => { write.fresh(); setNumber(v); }} requirement="none" hint="In international form, with the plus sign." error={errors.number} />
         <TextField id="number-account" label="Text account" value={account} onChange={(v) => { write.fresh(); setAccount(v); }} requirement="none" hint="The account the number belongs to at the text message provider." error={errors.account} />
         <TextField id="number-sender" label="Sender name" value={sender} onChange={(v) => { write.fresh(); setSender(v); }} requirement="none" hint="The name people see the texts come from." error={errors.sender} />
         <Said say={write.say} />
         <div className={styles.actions}>
-          <Button variant="secondary" type="submit" busy={write.busy}>
+          <Button variant={numberFirst ? 'primary' : 'secondary'} type="submit" busy={write.busy}>
             Record text number
           </Button>
         </div>
       </form>
-    </StepCard>
+    </StepSection>
   );
 }
 
@@ -789,28 +798,30 @@ export function AgreementsStep(props: PanelProps) {
   }
   const held = (v: string | null) => v ?? 'Not recorded';
   return (
-    <StepCard step={props.step} isNext={props.isNext}>
-      <p className={styles.text}>Record the reference of each agreement that is in place. Overwatch keeps the reference, not the document. Each can be a number, a code or a few words.</p>
-      <dl className={styles.facts}>
-        <dt>Data sharing agreement</dt>
-        <dd>{held(refs.dsa)}</dd>
-        <dt>Privacy impact assessment</dt>
-        <dd>{held(refs.dpia)}</dd>
-        <dt>Clinical safety case</dt>
-        <dd>{held(refs.dcb0160)}</dd>
-      </dl>
-      <form className={styles.stack} onSubmit={submit} noValidate aria-label="Record the agreements">
+    <StepSection step={props.step} heading={props.heading}>
+      <p className={ts.text}>Record the reference of each agreement that is in place. Overwatch keeps the reference, not the document. Each can be a number, a code or a few words.</p>
+      {[refs.dsa, refs.dpia, refs.dcb0160].some((r) => r !== null) ? (
+        <dl className={styles.facts}>
+          <dt>Data sharing agreement</dt>
+          <dd>{held(refs.dsa)}</dd>
+          <dt>Privacy impact assessment</dt>
+          <dd>{held(refs.dpia)}</dd>
+          <dt>Clinical safety case</dt>
+          <dd>{held(refs.dcb0160)}</dd>
+        </dl>
+      ) : null}
+      <form className={ts.form} onSubmit={submit} noValidate aria-label="Record the agreements">
         <TextField id="ref-dsa" label="Data sharing agreement" value={dsa} onChange={(v) => { write.fresh(); setDsa(v); }} requirement="optional" />
         <TextField id="ref-dpia" label="Privacy impact assessment" value={dpia} onChange={(v) => { write.fresh(); setDpia(v); }} requirement="optional" />
         <TextField id="ref-dcb" label="Clinical safety case" value={dcb} onChange={(v) => { write.fresh(); setDcb(v); }} requirement="optional" />
         {problem !== '' ? <p className={styles.problem}>{problem}</p> : null}
         <Said say={write.say} />
         <div className={styles.actions}>
-          <Button variant="secondary" type="submit" busy={write.busy}>
+          <Button variant={props.isNext ? 'primary' : 'secondary'} type="submit" busy={write.busy}>
             Save agreements
           </Button>
         </div>
       </form>
-    </StepCard>
+    </StepSection>
   );
 }

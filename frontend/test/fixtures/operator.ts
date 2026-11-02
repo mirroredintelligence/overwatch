@@ -53,7 +53,21 @@ function detail(over: Record<string, unknown> = {}, tenantOver: Record<string, u
 
 /** A tenant that is still being provisioned, with two things left to do. */
 export const RAW_DETAIL_PROVISIONING = detail();
-export const RAW_DETAIL_READY = detail({ host: 'tenant-b.example.test', activation: { ready: true, blockers: [] }, numbers: [{ e164: '+441632960002', accountSid: 'ACsampleaccount00000000000000000001', status: 'active', testedAt: '2026-10-21T10:00:00Z', quarantineUntil: null, hasSecret: true }] });
+/** Every step of the Go live funnel done (with the approval link approved: serve CONSENTED), and the back end ready. */
+export const RAW_DETAIL_READY = detail(
+  {
+    host: 'tenant-b.example.test',
+    bindings: [{ directoryId: '11111111-1111-4111-8111-111111111111', status: 'verified', verifiedAt: '2026-10-21T09:00:00Z' }],
+    roleMappings: [
+      { groupObjectId: '33333333-3333-4333-8333-333333333333', role: 'tenant-admin', status: 'active' },
+      { groupObjectId: '22222222-2222-4222-8222-222222222222', role: 'lead', status: 'active' },
+    ],
+    activation: { ready: true, blockers: [] },
+    numbers: [{ e164: '+441632960002', accountSid: 'ACsampleaccount00000000000000000001', status: 'active', testedAt: '2026-10-21T10:00:00Z', quarantineUntil: null, hasSecret: true }],
+  },
+  { references: { dsa: 'DSA-2026-014', dpia: 'DPIA-7', dcb0160: 'DCB-3' } },
+);
+export const CONSENTED = { invitation: { emailMasked: 'j***@example-trust.test', status: 'consented', createdAt: '2026-11-01T09:00:00Z', expiresAt: '2026-11-08T09:00:00Z', consentedAt: '2026-11-02T10:00:00Z', reason: null } };
 export const RAW_DETAIL_ACTIVE = detail({ host: 'tenant-b.example.test', activation: null }, { status: 'active', activatedAt: '2026-10-22T09:00:00Z' });
 export const RAW_DETAIL_SUSPENDED = detail({ host: 'tenant-b.example.test', activation: null }, { status: 'suspended', suspendedAt: '2026-10-25T09:00:00Z', suspendMode: 'read-only', suspendReason: 'contract' });
 

@@ -201,7 +201,7 @@ export function CreateTenantForm() {
       {done !== null ? (
         <div role="status" className={styles.panel}>
           <p className={styles.ok}>{done.created ? 'Tenant created. It is being set up.' : 'The creation had stopped before. It is finished now.'}</p>
-          {done.directory ? <p className={styles.text}>The directory is waiting to be verified. Check the domain, then verify it on the tenant’s page.</p> : null}
+          {done.directory ? <p className={styles.text}>Their Microsoft account is waiting for you to confirm it. After you create the organisation, check the domain and confirm it on the organisation’s page, in the step “Connect their sign-in”.</p> : null}
           {done.groups > 0 ? <p className={styles.text}>{done.groups === 1 ? '1 group is mapped to a role.' : `${done.groups} groups are mapped to roles.`}</p> : null}
           <p className={styles.text}>
             <a className={styles.link} href={`/operator/tenants/${done.id}`}>
@@ -287,7 +287,7 @@ export function CreateTenantForm() {
         <fieldset className={styles.fieldset}>
           <legend className={styles.legend}>2 Entra directory</legend>
           <p className={styles.text}>
-            The directory the organisation’s staff sign in with. It is saved as <strong>waiting</strong>: nobody can use it until you have checked the domain and verified it, on the tenant’s page.
+            The directory the organisation’s staff sign in with. It is saved as <strong>waiting</strong>: nobody can use it until you have checked the domain and confirmed it, on the organisation’s page after it is created.
           </p>
           {directoryFrom === null ? (
             <>
@@ -332,7 +332,7 @@ export function CreateTenantForm() {
           )}
           <p className={styles.row}>
             <span className={styles.text}>Verification</span>
-            <span className={`${styles.tag} ${styles.tagDashed}`}>Waiting: verified after creation</span>
+            <span className={`${styles.tag} ${styles.tagDashed}`}>Waiting: you confirm it on the organisation’s page after it is created</span>
           </p>
         </fieldset>
 

@@ -73,7 +73,7 @@ test.describe('the platform console', () => {
 
     const done = page.getByRole('status');
     await expect(done).toContainText('Tenant created. It is being set up.');
-    await expect(done).toContainText('The directory is waiting to be verified.');
+    await expect(done).toContainText('Their Microsoft account is waiting for you to confirm it.');
     await expect(done).toContainText('2 groups are mapped to roles.');
 
     await page.goto('/operator');
@@ -83,32 +83,57 @@ test.describe('the platform console', () => {
     await expect(page.getByRole('link', { name: 'Create a tenant' })).toBeVisible();
     expect(await axe(page)).toEqual([]);
 
-    // The tenant's page shows the directory as waiting and the mapping, and verifying moves it on.
+    // The organisation's page is a guided "Go live" funnel: the sign-in step says it is waiting, the identifiers are
+    // under Details, and confirming it moves the funnel on.
     await row.getByRole('link', { name: 'Example Trust E2E' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Example Trust E2E' })).toBeVisible();
-    const directory = page.getByRole('region', { name: 'Directory' });
-    await expect(directory.getByText(DIRECTORY)).toBeVisible();
-    await expect(directory.getByText('Waiting to be verified')).toBeVisible();
-    await expect(directory.getByRole('table', { name: 'Roles by group' }).getByText('Shift lead')).toBeVisible();
-    await expect(directory.getByRole('table', { name: 'Roles by group' }).getByText('Advisor')).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Go live progress' }).getByRole('listitem')).toHaveCount(8);
+    await expect(page.locator('[data-el="OP-NEXT-STEP"]')).toContainText('Next: Connect their sign-in');
+    const signin = page.getByRole('region', { name: 'Connect their sign-in' });
+    await expect(signin.getByText(DIRECTORY)).toBeHidden();
+    await signin.getByText('Details', { exact: true }).click();
+    await expect(signin.getByText(DIRECTORY)).toBeVisible();
+    await expect(signin.getByText('Waiting for you to confirm', { exact: true })).toBeVisible();
+    const teams = page.getByRole('region', { name: 'Who can do what' });
+    await teams.getByText('Details', { exact: true }).click();
+    await expect(teams.getByRole('table', { name: 'Teams in Microsoft' }).getByText('Shift leads')).toBeVisible();
+    await expect(teams.getByRole('table', { name: 'Teams in Microsoft' }).getByText('Advisors')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Go live' })).toHaveCount(0);
     expect(await axe(page)).toEqual([]);
-    await directory.getByRole('button', { name: 'Verify this directory' }).click();
-    await expect(directory.getByText('Directory verified.')).toBeVisible();
-    await expect(directory.getByText('Verified', { exact: true }).first()).toBeVisible();
-    await expect(directory.getByRole('button', { name: 'Verify this directory' })).toHaveCount(0);
+    await signin.getByRole('button', { name: 'Confirm this is their Microsoft account' }).click();
+    await expect(signin.getByText('Connected to Example Trust E2E’s Microsoft accounts.')).toBeVisible();
+    await expect(signin.getByRole('button', { name: 'Confirm this is their Microsoft account' })).toHaveCount(0);
+    await expect(page.locator('[data-el="OP-NEXT-STEP"]')).toContainText('Next: Invite their administrator');
 
-    // Admin consent, step 1 (DEC-1316): the Entra administrator is named and emailed; the page shows only the
-    // masked address and that the invitation is waiting (it is approved only once the back end sees the app installed).
-    const consent = page.getByRole('region', { name: 'Administrator consent' });
-    await expect(consent.getByText('No invitation has been sent.')).toBeVisible();
-    await consent.getByLabel('Administrator’s work email').fill('jane.admin@example-trust.test');
-    await consent.getByRole('button', { name: 'Send consent invitation' }).click();
-    await expect(consent.getByText('Invitation emailed.')).toBeVisible();
-    await expect(consent.getByText('j***@example-trust.test')).toBeVisible();
-    await expect(consent.getByText('Waiting for approval')).toBeVisible();
-    await expect(consent.getByRole('button', { name: 'Send again' })).toBeVisible();
+    // Step 3: their administrator is named and emailed; the page shows only the masked address and that the link is
+    // waiting (it is approved only once the back end sees the app installed).
+    const consent = page.getByRole('region', { name: 'Invite their administrator' });
+    await expect(consent.getByText('No approval link has been sent yet.')).toBeVisible();
+    await consent.getByLabel('Their administrator’s work email').fill('jane.admin@example-trust.test');
+    await consent.getByRole('button', { name: 'Send the approval link to their administrator' }).click();
+    await expect(consent.getByText('The approval link was emailed.')).toBeVisible();
+    await expect(consent.getByText('Waiting for approval. The link went to j***@example-trust.test', { exact: false })).toBeVisible();
+    await expect(consent.getByRole('button', { name: 'Send the link again' })).toBeVisible();
     await expect(page.locator('body')).not.toContainText('jane.admin@example-trust.test');
     expect(await axe(page)).toEqual([]);
+  });
+
+  test('the organisation page passes axe at a phone width of 360, with no sideways scroll', async ({ page }) => {
+    await signInOperator(page.context(), SITE_URL, 'platform-operator', liveToken());
+    await page.goto('/operator/tenants/new');
+    await page.getByLabel('Tenant id').fill('example-narrow');
+    await page.getByLabel('Display name').fill('Example Narrow');
+    await page.getByLabel('Legal name').fill('Example Narrow Organisation');
+    await page.getByLabel('ODS code').fill('RZZ03');
+    await page.getByRole('button', { name: 'Create tenant' }).click();
+    await expect(page.getByRole('status')).toContainText('Tenant created.');
+    await page.setViewportSize({ width: 360, height: 800 });
+    await page.goto('/operator/tenants/example-narrow');
+    await expect(page.getByRole('heading', { level: 1, name: 'Example Narrow' })).toBeVisible();
+    await page.getByText('Details', { exact: true }).first().click();
+    expect(await axe(page)).toEqual([]);
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
   });
 
   test('refuses a directory id that is not a directory id, in words, and creates nothing', async ({ page }) => {

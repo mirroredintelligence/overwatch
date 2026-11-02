@@ -8,10 +8,11 @@ import { Dialog } from '@/components/ui/Dialog';
 import { operatorSend } from '@/lib/operator/browser';
 import { useSubmitKey } from '@/lib/tenantAdmin/browser';
 import { whenText } from '@/lib/tenantAdmin/words';
+import type { Funnel, FunnelStep } from '@/lib/operator/funnel';
 import type { Detail } from './TenantPanels';
 import styles from '@/components/admin/admin.module.css';
 
-// What activation waits for, and the life of a tenant (TEN-083): activate, suspend, resume and start closing.
+// The last step of the Go live page, and the life of an organisation (TEN-083): go live, suspend, resume and start closing.
 // Each is asked for in a dialog that says what it does, and sent once with one idempotency key per submit.
 // The outcome is passed up as a notice (it outlives the panel: a tenant that has just been activated no
 // longer has an activation panel). `recorded: false` is passed up too, and the step is never repeated.
@@ -51,49 +52,58 @@ function useStep({ tenantId, onChanged, onNotice, onUnrecorded }: Props) {
   return { run, busy };
 }
 
-export function ActivationPanel(props: Props) {
+export function GoLiveStep(props: Props & { funnel: Funnel; step: FunnelStep }) {
   const [asking, setAsking] = useState(false);
   const { run, busy } = useStep(props);
-  const activation = props.detail.activation;
-  if (activation === null) return null;
-  async function activate() {
+  const { funnel, step } = props;
+  const status = props.detail.tenant.status;
+  async function goLive() {
     setAsking(false);
-    await run('POST', 'activation', undefined, () => 'The tenant is active.', () => 'The tenant cannot be activated yet. The page has been read again.');
+    await run('POST', 'activation', undefined, () => 'The organisation is live.', () => 'It cannot go live yet. The page has been read again.');
   }
+  const state = step.done ? 'done' : funnel.next === 'golive' ? 'next' : 'todo';
   return (
-    <Card heading="Activation">
-      {activation.ready ? (
-        <>
-          <p className={styles.text}>Ready to activate.</p>
-          <div className={styles.actions}>
-            <Button variant="primary" busy={busy} onClick={() => setAsking(true)} dataEl="OP-ACTIVATE-BTN">
-              Activate
-            </Button>
-          </div>
-        </>
-      ) : (
-        <>
-          <p className={styles.text}>Activation is unavailable until:</p>
-          <ul className={styles.list}>
-            {activation.blockers.map((blocker) => (
-              <li key={blocker}>{blocker}</li>
-            ))}
-          </ul>
-        </>
-      )}
-      {asking ? (
-        <Dialog title="Activate this tenant?" sub="Its people will be able to sign in." onClose={() => setAsking(false)}>
-          <div className={styles.actions}>
-            <Button variant="primary" onClick={() => void activate()}>
-              Confirm activation
-            </Button>
-            <Button variant="neutral" onClick={() => setAsking(false)}>
-              Cancel
-            </Button>
-          </div>
-        </Dialog>
-      ) : null}
-    </Card>
+    <div id="step-golive" data-el="OP-STEP-GOLIVE" data-state={state}>
+      <Card heading={step.title}>
+        <p className={styles.row}>
+          <span className={styles.muted}>{`Step ${step.number} of ${funnel.total}`}</span>
+          <span className={step.done ? styles.tag : `${styles.tag} ${styles.tagDashed}`}>{state === 'done' ? 'Done' : state === 'next' ? 'Next' : 'To do'}</span>
+        </p>
+        {status !== 'provisioning' ? (
+          <p className={styles.ok}>{`This organisation is live${props.detail.tenant.activatedAt !== null ? ` since ${whenText(props.detail.tenant.activatedAt)}` : ''}.`}</p>
+        ) : funnel.canGoLive ? (
+          <>
+            <p className={styles.text}>Every step is done. Once it is live, their people can sign in.</p>
+            <div className={styles.actions}>
+              <Button variant="primary" busy={busy} onClick={() => setAsking(true)} dataEl="OP-ACTIVATE-BTN">
+                Go live
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className={styles.text}>Going live is not available until every step above is done. Still to do:</p>
+            <ul className={styles.list} aria-label="Still to do">
+              {funnel.missing.map((m) => (
+                <li key={`${m.step}-${m.words}`}>{`${m.words} (${funnel.steps.find((s) => s.id === m.step)?.title ?? 'Go live'}, step ${funnel.steps.find((s) => s.id === m.step)?.number ?? funnel.total})`}</li>
+              ))}
+            </ul>
+          </>
+        )}
+        {asking ? (
+          <Dialog title="Go live with this organisation?" sub="Its people will be able to sign in." onClose={() => setAsking(false)}>
+            <div className={styles.actions}>
+              <Button variant="primary" onClick={() => void goLive()}>
+                Yes, go live
+              </Button>
+              <Button variant="neutral" onClick={() => setAsking(false)}>
+                Cancel
+              </Button>
+            </div>
+          </Dialog>
+        ) : null}
+      </Card>
+    </div>
   );
 }
 
@@ -121,7 +131,7 @@ export function LifecyclePanel(props: Props) {
       return;
     }
     close();
-    await run('POST', 'suspension', { mode, reason }, () => 'The tenant is suspended.', () => 'The tenant could not be suspended. The page has been read again.');
+    await run('POST', 'suspension', { mode, reason }, () => 'The organisation is suspended.', () => 'The organisation could not be suspended. The page has been read again.');
   }
   async function resume() {
     close();
@@ -129,8 +139,8 @@ export function LifecyclePanel(props: Props) {
       'DELETE',
       'suspension',
       undefined,
-      (d) => `The tenant is resumed. ${d.servicesPrompted} ${d.servicesPrompted === 1 ? 'service was' : 'services were'} prompted and ${d.servicesAnnounced} announced.`,
-      () => 'The tenant could not be resumed. The page has been read again.',
+      (d) => `The organisation is resumed. ${d.servicesPrompted} ${d.servicesPrompted === 1 ? 'service was' : 'services were'} prompted and ${d.servicesAnnounced} announced.`,
+      () => 'The organisation could not be resumed. The page has been read again.',
     );
   }
   async function closing() {
@@ -140,11 +150,11 @@ export function LifecyclePanel(props: Props) {
   }
 
   return (
-    <Card heading="Life of the tenant">
+    <Card heading="Suspend or close this organisation">
       {suspended ? (
         <p className={styles.text}>{`Suspended ${tenant.suspendMode === 'blocked' ? 'blocked' : 'read only'} since ${whenText(tenant.suspendedAt)}. Reason: ${(tenant.suspendReason ?? 'not recorded').replace(/-/g, ' ')}.`}</p>
       ) : (
-        <p className={styles.text}>The tenant is active.</p>
+        <p className={styles.text}>The organisation is live.</p>
       )}
       <div className={styles.actions}>
         {active ? (
@@ -158,12 +168,12 @@ export function LifecyclePanel(props: Props) {
           </Button>
         ) : null}
         <Button variant="neutral" busy={busy} onClick={() => setStep('close')} dataEl="OP-CLOSE-BTN">
-          Start closing the tenant
+          Start closing the organisation
         </Button>
       </div>
 
       {step === 'suspend' ? (
-        <Dialog title="Suspend this tenant?" sub="Its people are affected at once." onClose={close}>
+        <Dialog title="Suspend this organisation?" sub="Its people are affected at once." onClose={close}>
           <fieldset className={styles.fieldset}>
             <legend className={styles.legend}>Mode</legend>
             <label className={styles.check}>
@@ -199,7 +209,7 @@ export function LifecyclePanel(props: Props) {
       ) : null}
 
       {step === 'resume' ? (
-        <Dialog title="Resume this tenant?" sub="Its people can use it again. Its services are prompted for their figures." onClose={close}>
+        <Dialog title="Resume this organisation?" sub="Its people can use it again. Its services are prompted for their figures." onClose={close}>
           <div className={styles.actions}>
             <Button variant="primary" onClick={() => void resume()}>
               Confirm resume
@@ -212,11 +222,11 @@ export function LifecyclePanel(props: Props) {
       ) : null}
 
       {step === 'close' ? (
-        <Dialog title="Start closing this tenant?" onClose={close}>
+        <Dialog title="Start closing this organisation?" onClose={close}>
           <p className={styles.warn}>
             Its people cannot sign in from now on. A notice period of 30 days starts. Exporting its data is not built yet, so nothing can be handed back to them.
           </p>
-          <TextField id="confirm-tenant" label="Type the tenant id to confirm" value={typed} onChange={setTyped} requirement="none" autoComplete="off" />
+          <TextField id="confirm-tenant" label="Type the organisation id to confirm (shown under Details in step 1)" value={typed} onChange={setTyped} requirement="none" autoComplete="off" />
           <div className={styles.actions}>
             <Button variant="primary" disabled={typed !== tenant.id} onClick={() => void closing()}>
               Start closing

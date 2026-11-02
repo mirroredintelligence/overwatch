@@ -28,6 +28,7 @@ from overwatch.adapters.inbound.workers.outbox_relay import OutboxRelay
 from overwatch.adapters.outbound.bus_servicebus.service_bus import ServiceBusEventBus
 from overwatch.adapters.outbound.cache_redis.redis_cache import RedisCache
 from overwatch.bootstrap.container import build
+from overwatch.bootstrap.demo_tenants import DemoAwareTenants
 from overwatch.bootstrap.secret_store import (
     SecretConfigError,
     close_store,
@@ -74,8 +75,13 @@ async def serve(settings: Settings, stop: asyncio.Event) -> None:
         client = ServiceBusClient.from_connection_string(connection)
         bus = ServiceBusEventBus(client)
         try:
+            # The active tenants, and the demo tenant while it is being set up (DEC-1320).
             relay = OutboxRelay(
-                container.uow_factory, bus, cache, container.clock, container.tenants
+                container.uow_factory,
+                bus,
+                cache,
+                container.clock,
+                DemoAwareTenants(container.tenants, settings.demo_inbound_tenant),
             )
             await relay.run_forever(stop)
         finally:

@@ -169,6 +169,56 @@ resource workers 'Microsoft.App/containerApps@2024-03-01' = {
   }
 }
 
+// The outbox relay: publishes what the api and workers wrote to the outbox onto the bus. One replica only, so a
+// message is not published twice. It runs under the workers' identity.
+resource relay 'Microsoft.App/containerApps@2024-03-01' = {
+  name: 'relay'
+  location: location
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${workersIdentity.id}': {}
+    }
+  }
+  properties: {
+    managedEnvironmentId: environment.id
+    configuration: {
+      activeRevisionsMode: 'Single'
+      registries: [
+        {
+          server: registryServer
+          identity: workersIdentity.id
+        }
+      ]
+    }
+    template: {
+      containers: [
+        {
+          name: 'relay'
+          image: '${registryServer}/diucs-backend:${backendImage}'
+          command: ['python', '-m', 'overwatch.bootstrap.outbox_relay_main']
+          env: [
+            { name: 'OVERWATCH_KEY_VAULT_URL', value: keyVaultUrl }
+            { name: 'AZURE_CLIENT_ID', value: workersIdentity.properties.clientId }
+            { name: 'OVERWATCH_NEO4J_URI', value: neo4jUri }
+            { name: 'OVERWATCH_NEO4J_USER', value: neo4jUser }
+            // TEMPORARY DEMO (DEC-1320): empty means off.
+            { name: 'OVERWATCH_DEMO_INBOUND_TENANT', value: demoInboundTenant }
+          ]
+          resources: {
+            cpu: json('0.25')
+            memory: '0.5Gi'
+          }
+        }
+      ]
+      scale: {
+        minReplicas: 1
+        maxReplicas: 1
+      }
+    }
+  }
+}
+
 resource collector 'Microsoft.App/containerApps@2024-03-01' = {
   name: 'collector'
   location: location

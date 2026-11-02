@@ -109,6 +109,7 @@ from overwatch.application.use_cases.report_capacity import ReportCapacity
 from overwatch.application.use_cases.respond_to_booking import RespondToBooking, SetDeclineReason
 from overwatch.application.work import ScheduledWork, WorkKind
 from overwatch.bootstrap.container import build
+from overwatch.bootstrap.demo_tenants import DemoAwareTenants
 from overwatch.bootstrap.secret_store import (
     SecretConfigError,
     close_store,
@@ -343,6 +344,8 @@ async def serve(
     container = build(settings, secrets=secrets)
     await container.startup()  # refuses to start when Neo4j cannot be reached
     tenants = container.tenants
+    # The consumers serve the active tenants, and the demo tenant while it is set up (DEC-1320).
+    served_tenants = DemoAwareTenants(container.tenants, settings.demo_inbound_tenant)
     # The daily criteria review run (U31) is seeded once per tenant; a restart changes nothing.
     await container.seed_daily_schedules(await tenants.active_tenant_ids())
     cache = RedisCache.from_url(settings.redis_url)
@@ -476,7 +479,7 @@ async def serve(
             client,
             use_case,
             container.uow_factory,
-            tenants,
+            served_tenants,
             work_handlers,
             senders=senders,
             sealer=sealer,

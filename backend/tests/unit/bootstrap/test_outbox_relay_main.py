@@ -75,12 +75,17 @@ class _Closer:
         self._events.append(f"{self._name} closed")
 
 
+class _ActiveTenants:
+    async def active_tenant_ids(self) -> list[str]:
+        return ["t1"]
+
+
 async def test_the_relay_serves_the_tenants_of_the_containers_directory(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     events: list[str] = []
     seen: dict[str, Any] = {}
-    directory = object()
+    directory = _ActiveTenants()
 
     class FakeContainer:
         tenants = directory
@@ -118,7 +123,8 @@ async def test_the_relay_serves_the_tenants_of_the_containers_directory(
 
     await outbox_relay_main.serve(settings, asyncio.Event())
 
-    assert seen["tenants"] is directory
+    # With no demo tenant named, the relay serves the directory's active tenants, as before.
+    assert await seen["tenants"].active_tenant_ids() == ["t1"]
     assert events == [
         "startup",
         "relay ran",

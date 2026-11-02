@@ -79,6 +79,7 @@ def test_the_bicep_parameter_defaults_to_off_with_no_value_in_the_repo() -> None
     bicep = (INFRA / "apps.bicep").read_text(encoding="utf-8")
 
     assert "param demoInboundTenant string = ''" in bicep
-    # The api takes the setting (the text arrives there) and so do the workers (they send replies).
-    assert bicep.count("{ name: 'OVERWATCH_DEMO_INBOUND_TENANT', value: demoInboundTenant }") == 2
+    # The api takes the setting (the text arrives there), and so do the workers (they send replies)
+    # and the relay (it publishes what a demo text wrote).
+    assert bicep.count("{ name: 'OVERWATCH_DEMO_INBOUND_TENANT', value: demoInboundTenant }") == 3
     assert "TEMPORARY DEMO" in bicep

@@ -19,7 +19,7 @@ from collections.abc import AsyncIterator
 from fastapi import Request
 
 from overwatch.adapters.inbound.fhir_rest.app import get_container
-from overwatch.application.edge_tenant import resolve_active_tenant
+from overwatch.application.edge_tenant import resolve_active_tenant, resolve_sign_in_tenant
 from overwatch.application.ports.outbound.tenants import normalise_host
 from overwatch.application.tenancy import bind_tenant
 from overwatch.domain.errors import NotFound
@@ -44,6 +44,16 @@ async def resolve_request_tenant(request: Request) -> Tenant | None:
     """The active tenant the request host names, or None."""
     container = get_container(request)
     return await resolve_active_tenant(container.tenants, request_host(request))
+
+
+async def bind_sign_in_tenant(request: Request) -> AsyncIterator[Tenant]:
+    """As `bind_host_tenant`, for the staff sign-in only: a tenant still being set up is let
+    through, and the token it gets is limited to the tenant administrator (DEC-1321)."""
+    tenant = await resolve_sign_in_tenant(get_container(request).tenants, request_host(request))
+    if tenant is None:
+        raise HostNotResolved
+    with bind_tenant(tenant.id):
+        yield tenant
 
 
 async def bind_host_tenant(request: Request) -> AsyncIterator[Tenant]:

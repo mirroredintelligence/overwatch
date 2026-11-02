@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from overwatch.application.edge_tenant import resolve_active_tenant
+from overwatch.application.edge_tenant import resolve_active_tenant, resolve_sign_in_tenant
 from overwatch.application.ports.outbound.tenants import TenantRecordInvalid
 from overwatch.domain.model.tenant import TenantStatus
 from tests.support.tenant_samples import make_tenant
@@ -80,3 +80,32 @@ async def test_another_error_of_the_directory_is_not_swallowed() -> None:
 async def test_a_record_that_is_not_a_tenant_is_none() -> None:
     directory = _Directory(object())
     assert await resolve_active_tenant(directory, "a.example.test") is None  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("status", [TenantStatus.ACTIVE, TenantStatus.PROVISIONING])
+async def test_a_sign_in_is_let_through_for_an_active_tenant_and_one_being_set_up(
+    status: TenantStatus,
+) -> None:
+    tenant = make_tenant(status)
+    directory = _Directory(tenant)
+    assert await resolve_sign_in_tenant(directory, "a.example.test") is tenant  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    "status",
+    [
+        TenantStatus.SUSPENDED,
+        TenantStatus.OFFBOARDING,
+        TenantStatus.OFFBOARDED,
+        TenantStatus.PURGED,
+    ],
+)
+async def test_a_sign_in_is_not_let_through_for_any_other_state(status: TenantStatus) -> None:
+    directory = _Directory(make_tenant(status))
+    assert await resolve_sign_in_tenant(directory, "a.example.test") is None  # type: ignore[arg-type]
+
+
+async def test_a_sign_in_on_an_unknown_or_damaged_host_is_none() -> None:
+    assert await resolve_sign_in_tenant(_Directory(None), "x.example.test") is None  # type: ignore[arg-type]
+    damaged = _Directory(TenantRecordInvalid("damaged"))
+    assert await resolve_sign_in_tenant(damaged, "d.example.test") is None  # type: ignore[arg-type]

@@ -32,7 +32,10 @@ from overwatch.adapters.inbound.fhir_rest.auth import (
     require_role,
 )
 from overwatch.adapters.inbound.fhir_rest.errors import LOGIN_TEXT
-from overwatch.adapters.inbound.fhir_rest.host_tenant import bind_host_tenant
+from overwatch.adapters.inbound.fhir_rest.host_tenant import (
+    bind_host_tenant,
+    bind_sign_in_tenant,
+)
 from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
 from overwatch.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
 from overwatch.application.actor import Actor
@@ -525,7 +528,7 @@ TENANT_FREE = {
 }
 BINDS_ITSELF = {
     ("GET", "/public/tenant-profile"): "tenant from the host, by bind_host_tenant (TEN-040)",
-    ("POST", "/auth/token"): "tenant from the host, by bind_host_tenant (TEN-043)",
+    ("POST", "/auth/token"): "tenant from the host, by bind_sign_in_tenant (TEN-043, DEC-1321)",
     ("POST", "/auth/device-token"): "tenant from the host, by resolve_active_device (TEN-043)",
     ("POST", "/auth/operator-token"): "no tenant: the operator directory's own token (TEN-043)",
     ("POST", "/screens/pairing"): "tenant from the host (R15)",
@@ -682,8 +685,12 @@ async def test_the_staff_and_screen_exchange_routes_bind_the_tenant_of_their_hos
     app = build(active_tenants(TENANT_A))
     routes = _routes(app)
 
-    for key in (("POST", "/auth/token"), ("POST", "/auth/device-token")):
-        assert _depends_on(routes[key].dependant, bind_host_tenant), key
+    # The staff sign-in also takes a tenant still being set up (DEC-1321); the device one does not.
+    for key, binder in (
+        (("POST", "/auth/token"), bind_sign_in_tenant),
+        (("POST", "/auth/device-token"), bind_host_tenant),
+    ):
+        assert _depends_on(routes[key].dependant, binder), key
         assert not _depends_on_actor(routes[key].dependant), key
 
 

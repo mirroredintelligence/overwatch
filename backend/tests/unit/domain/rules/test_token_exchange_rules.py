@@ -260,7 +260,6 @@ def test_a_read_only_suspended_tenant_may_have_one_for_its_administrator_only() 
 @pytest.mark.parametrize(
     "status",
     [
-        TenantStatus.PROVISIONING,
         TenantStatus.OFFBOARDING,
         TenantStatus.OFFBOARDED,
         TenantStatus.PURGED,
@@ -269,6 +268,13 @@ def test_a_read_only_suspended_tenant_may_have_one_for_its_administrator_only() 
 def test_a_tenant_that_is_not_live_may_have_no_token(status: TenantStatus) -> None:
     for role in (Role.TENANT_ADMIN, Role.LEAD, Role.WALL):
         assert may_issue(make_tenant(status, id="tenant-a"), role) is False
+
+
+def test_a_tenant_being_set_up_may_have_a_token_for_its_administrator_only() -> None:
+    tenant = make_tenant(TenantStatus.PROVISIONING, id="tenant-a")
+    assert may_issue(tenant, Role.TENANT_ADMIN) is True
+    for role in (Role.LEAD, Role.WALL, Role.ADVISOR, Role.CLINICAL):
+        assert may_issue(tenant, role) is False, role
 
 
 def test_the_operator_role_never_gets_a_tenant_token_and_a_non_tenant_gets_none() -> None:

@@ -41,7 +41,7 @@ from overwatch.adapters.inbound.fhir_rest.errors import (
     TemporarilyUnavailable,
     operation_outcome,
 )
-from overwatch.adapters.inbound.fhir_rest.host_tenant import bind_host_tenant
+from overwatch.adapters.inbound.fhir_rest.host_tenant import bind_host_tenant, bind_sign_in_tenant
 from overwatch.adapters.inbound.fhir_rest.token_resolvers import resolve_active_device
 from overwatch.application.ports.outbound.cache import PlatformSlots
 from overwatch.application.ports.outbound.clock import Clock
@@ -187,7 +187,7 @@ def _forbidden() -> Response:
 
 @router.post(STAFF_PATH, dependencies=[Depends(exchange_rate_limit)])
 async def exchange_staff(
-    request: Request, body: CredentialBody, tenant: Annotated[Tenant, Depends(bind_host_tenant)]
+    request: Request, body: CredentialBody, tenant: Annotated[Tenant, Depends(bind_sign_in_tenant)]
 ) -> Response:
     container = _container(request)
     use_case = ExchangeStaffToken(

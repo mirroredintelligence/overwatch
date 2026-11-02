@@ -80,7 +80,6 @@ def test_a_record_for_another_tenant_than_the_claim_is_refused() -> None:
 @pytest.mark.parametrize(
     "status",
     [
-        TenantStatus.PROVISIONING,
         TenantStatus.OFFBOARDING,
         TenantStatus.OFFBOARDED,
         TenantStatus.PURGED,
@@ -88,6 +87,14 @@ def test_a_record_for_another_tenant_than_the_claim_is_refused() -> None:
 )
 def test_a_tenant_that_is_not_active_or_suspended_is_refused(status: TenantStatus) -> None:
     assert verdict(make_tenant(status)) is EdgeVerdict.REFUSED
+
+
+@pytest.mark.parametrize("method", ["GET", "POST", "PUT"])
+def test_a_tenant_being_set_up_lets_in_only_its_administrator(method: str) -> None:
+    tenant = make_tenant(TenantStatus.PROVISIONING)
+    assert verdict(tenant, role=Role.TENANT_ADMIN, method=method) is EdgeVerdict.ALLOWED
+    for role in (Role.ADVISOR, Role.LEAD, Role.CLINICAL, Role.OWNER, Role.EXEC, Role.AUDIT):
+        assert verdict(tenant, role=role, method=method) is EdgeVerdict.REFUSED
 
 
 # ---------------------------------------------------------------- the epoch (H-T23)

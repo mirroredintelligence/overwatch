@@ -39,3 +39,23 @@ async def resolve_active_tenant(directory: TenantDirectory, host: str | None) ->
     if type(tenant) is not Tenant or tenant.status is not TenantStatus.ACTIVE:
         return None
     return tenant
+
+
+async def resolve_sign_in_tenant(directory: TenantDirectory, host: str | None) -> Tenant | None:
+    """The tenant a staff sign-in may be made on: an active tenant, or one still being set up, whose
+    administrators finish the set-up (DEC-1321). Which ROLE may then sign in to a tenant in set-up
+    is the edge rule's (`edge_verdict`): only the tenant administrator."""
+    name = normalise_host(host)
+    if name is None:
+        return None
+    try:
+        tenant = await directory.by_host(name)
+    except TenantRecordInvalid:
+        log.warning("host refused: reason=tenant-record")
+        return None
+    if type(tenant) is not Tenant or tenant.status not in (
+        TenantStatus.ACTIVE,
+        TenantStatus.PROVISIONING,
+    ):
+        return None
+    return tenant

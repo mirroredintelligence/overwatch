@@ -56,6 +56,10 @@ def edge_verdict(
 def _status_allows(tenant: Tenant, role: Role, method: str) -> bool:
     if tenant.status is TenantStatus.ACTIVE:
         return True
+    if tenant.status is TenantStatus.PROVISIONING:
+        # The organisation's own administrators finish the set-up (settings, contacts, retention,
+        # names, districts) before go-live (DEC-1321): no other role is let in until it is live.
+        return role is Role.TENANT_ADMIN
     if tenant.status is TenantStatus.SUSPENDED and tenant.suspend_mode is SuspendMode.READ_ONLY:
         return role is Role.TENANT_ADMIN and method in _READ_METHODS
     return False

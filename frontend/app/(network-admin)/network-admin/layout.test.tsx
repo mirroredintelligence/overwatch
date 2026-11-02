@@ -35,7 +35,7 @@ describe('the network administration layout and the role chip', () => {
   it('says the plain words for one role, for a session made before the chip, and with no session', async () => {
     state.session = { role: 'network-admin', roles: ['network-admin'] };
     await layout();
-    expect(screen.getByText('Signed in as network administrator')).toBeInTheDocument();
+    expect(within(screen.getByRole('banner')).getByText('Network administrator')).toBeInTheDocument();
     expect(document.querySelector('details')).toBeNull();
     document.body.innerHTML = '';
     state.session = { role: 'network-admin' };
@@ -44,6 +44,6 @@ describe('the network administration layout and the role chip', () => {
     document.body.innerHTML = '';
     state.session = null;
     await layout();
-    expect(screen.getByText('Signed in as network administrator')).toBeInTheDocument();
+    expect(within(screen.getByRole('banner')).getByText('Network administrator')).toBeInTheDocument();
   });
 });

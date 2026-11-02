@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runAxe } from '@/test/a11y';
 import { operatorSessionFor } from '@/test/operator';
@@ -70,7 +70,7 @@ describe('the layout', () => {
   it('shows the role’s navigation and the way to sign out, around the page', async () => {
     render(await AreaLayout({ children: <p>page</p> }));
     expect(screen.getByRole('navigation', { name: 'Platform console' })).toBeInTheDocument();
-    expect(screen.getByText('Signed in as platform operator')).toBeInTheDocument();
+    expect(within(screen.getByRole('banner')).getByText('Platform operator')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument();
     expect(screen.getByText('page')).toBeInTheDocument();
   });

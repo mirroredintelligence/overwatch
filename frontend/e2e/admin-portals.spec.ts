@@ -25,10 +25,10 @@ test.describe('the platform console', () => {
     await signInOperator(page.context(), SITE_URL, 'platform-operator', liveToken());
     await page.goto('/operator');
     await expect(page.getByRole('link', { name: 'Overwatch' })).toHaveAttribute('href', '/operator');
-    await expect(page.getByText('Signed in as platform operator')).toBeVisible();
+    await expect(page.getByRole('banner').getByText('Platform operator')).toBeVisible();
     const nav = page.getByRole('navigation', { name: 'Platform console' });
-    await expect(nav.getByRole('link', { name: 'Tenants' })).toHaveAttribute('aria-current', 'page');
-    await expect(nav.getByRole('link', { name: 'Audit chain' })).toBeVisible();
+    await expect(nav.getByRole('link', { name: 'Organisations' })).toHaveAttribute('aria-current', 'page');
+    await expect(nav.getByRole('link', { name: 'Audit' })).toBeVisible();
     await page.getByRole('button', { name: 'Sign out' }).click();
     await expect(page).toHaveURL(/\/operator\/sign-in/);
   });
@@ -45,7 +45,7 @@ test.describe('the platform console', () => {
     await signInOperator(page.context(), SITE_URL, 'support', liveToken('support'));
     await page.goto('/operator');
     await expect(page.getByRole('heading', { level: 2, name: 'There are no tenants yet.' })).toBeVisible();
-    await expect(page.getByText('Signed in as support')).toBeVisible();
+    await expect(page.getByRole('banner').getByText('Support', { exact: true })).toBeVisible();
     await expect(page.getByRole('link', { name: /Create/ })).toHaveCount(0);
   });
 
@@ -257,7 +257,7 @@ test.describe('the tenant administration frame', () => {
     await signIn(page.context(), SITE_URL, 'tenant-admin', TOKEN_ORG_A);
     await page.goto('/admin');
     await expect(page.getByRole('link', { name: 'Overwatch' })).toHaveAttribute('href', '/admin');
-    await expect(page.getByText('Signed in as tenant administrator')).toBeVisible();
+    await expect(page.getByRole('banner').getByText('Tenant administrator')).toBeVisible();
     await expect(page.getByRole('navigation', { name: 'Administration' }).getByRole('link', { name: 'Overview' })).toHaveAttribute('aria-current', 'page');
     await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
     expect(await axe(page)).toEqual([]);
@@ -269,7 +269,7 @@ test.describe('the network administration frame', () => {
     await signIn(page.context(), SITE_URL, 'network-admin', TOKEN_ORG_A);
     await page.goto('/network-admin/grants');
     await expect(page.getByRole('link', { name: 'Overwatch' })).toHaveAttribute('href', '/network-admin');
-    await expect(page.getByText('Signed in as network administrator')).toBeVisible();
+    await expect(page.getByRole('banner').getByText('Network administrator')).toBeVisible();
     const nav = page.getByRole('navigation', { name: 'Network administration' });
     await expect(nav.getByRole('link')).toHaveText(['Members', 'Grants', 'Listings', 'History']);
     await expect(nav.getByRole('link', { name: 'Grants' })).toHaveAttribute('aria-current', 'page');

@@ -1,107 +1,4 @@
-/* The staff frame. Colours, spacing and type are the tokens (app/tokens.css); the header is the artboards'
-   white bar with a 1px line under it, the page is one centred column. */
-
-.shell {
-  min-height: 100dvh;
-  background: var(--c-bg);
-  color: var(--c-ink);
-}
-
-.header {
-  background: Canvas;
-  border-bottom: 1px solid var(--c-line);
-}
-
-.bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3) var(--space-5);
-  max-width: 1440px;
-  margin: 0 auto;
-  padding: var(--space-3) var(--space-4);
-  box-sizing: border-box;
-}
-
-@media (min-width: 768px) {
-  .bar {
-    padding: var(--space-4) var(--space-6);
-  }
-}
-
-.brand {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  border-radius: var(--space-2);
-}
-
-.brand:focus-visible,
-.navLink:focus-visible {
-  outline: var(--focus);
-  outline-offset: 2px;
-}
-
-.who {
-  display: flex;
-  flex-direction: column;
-  margin: 0;
-  line-height: var(--type-caption-lh);
-}
-
-.role {
-  font-size: var(--type-title-size);
-  font-weight: var(--type-title-weight);
-  line-height: var(--type-title-lh);
-}
-
-.org {
-  font-size: var(--type-caption-size);
-  color: var(--c-muted);
-}
-
-.nav {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.navList {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1) var(--space-3);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.navLink {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: 0 var(--space-2);
-  color: var(--c-ink-2);
-  font-size: var(--type-label-size);
-  font-weight: var(--type-label-weight);
-  text-decoration: none;
-  border-bottom: 3px solid transparent;
-}
-
-.navLink:hover {
-  border-bottom-color: var(--c-line);
-}
-
-/* The current page: an underline and heavier colour, and aria-current in the markup. */
-.navLink[aria-current='page'] {
-  color: var(--c-primary-dark);
-  border-bottom-color: var(--c-primary);
-}
-
-.actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  margin-left: auto;
-}
+/* The staff page's content column, inside the frame (AppFrame.module.css draws the rail and the top bar). */
 
 .page {
   max-width: 1440px;
@@ -117,7 +14,7 @@
 }
 
 /* Several pages were drawn to fill the screen on their own (min-height: 100vh, their own padding and
-   background). Under the header that would add a scroll bar to every short page, so the frame takes the
+   background). Under the top bar that would add a scroll bar to every short page, so the frame takes the
    height from them and the page's own padding stays inside the frame's. */
 .page > * {
   min-height: 0 !important;

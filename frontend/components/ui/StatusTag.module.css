@@ -1,0 +1,66 @@
+/* The status tag: a pill with a shape and a word. Every pair of text and ground is 4.5:1 or better; the border
+   style (solid, dashed) and the shape say the status as well as the colour does. */
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  padding: 4px 12px;
+  border: 2px solid transparent;
+  border-radius: var(--radius-chip);
+  font-size: 15px;
+  line-height: 1.3;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.tag svg {
+  flex: none;
+}
+
+.done {
+  background: var(--c-tint);
+  color: var(--c-primary-dark);
+}
+
+.live {
+  background: var(--c-primary);
+  color: Canvas;
+}
+
+.waiting {
+  background: var(--c-amber-tint);
+  color: var(--c-limited);
+}
+
+.todo {
+  border-color: var(--c-muted);
+  border-style: dashed;
+  background: Canvas;
+  color: var(--c-ink-2);
+}
+
+.problem {
+  border-color: var(--c-surge);
+  background: Canvas;
+  color: var(--c-surge);
+}
+
+.over {
+  background: var(--c-surge);
+  color: Canvas;
+}
+
+.closed {
+  border-color: var(--c-closed);
+  background: Canvas;
+  color: var(--c-closed);
+}
+
+.paused {
+  border-color: var(--c-unknown);
+  border-style: dashed;
+  background: Canvas;
+  color: var(--c-muted);
+}

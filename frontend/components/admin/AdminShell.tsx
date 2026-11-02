@@ -1,66 +1,82 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { usePathname } from 'next/navigation';
-import { Logo } from '@/components/brand/Logo';
-import { SignOutButton, type SignOutFn } from '@/components/session/SignOutButton';
+import { type SignOutFn } from '@/components/session/SignOutButton';
+import { AppFrame } from '@/components/shell/AppFrame';
+import { itemIsCurrent, type FrameItem } from '@/components/shell/frame';
+import type { IconName } from '@/components/shell/icons';
 import { signOutOperator } from '@/lib/operator/browser';
 import type { OperatorRole } from '@/lib/operator/session';
 import { roleWord } from '@/lib/tenantAdmin/words';
-import { RoleSwitcher } from '@/components/shell/RoleSwitcher';
-import { staffRoleWord } from '@/lib/shell/roleWords';
-import { ADMIN_PAGES } from './AdminOverview';
-import styles from './AdminShell.module.css';
 
-// One frame for the three administration portals (design canvas "Overwatch admin portals"): the platform
-// console, the tenant administration and the network administration. At the top, the logo, which portal and
-// (for a tenant or a network) which organisation, who is signed in and the way to sign out; under it the
-// portal's navigation, with the current page marked in the markup and by an underline (never colour alone).
-// The page's own `<main>` follows. The role guard is the proxy's; this only draws what the portal has.
+// The frame of the three administration portals (design canvas "Overwatch admin portals"): the platform
+// console, the tenant administration and the network administration, now drawn by AppFrame (DEC-1326): the
+// dark rail with the portal's pages, and a top bar with the organisation (for a tenant or a network), the
+// page's name, the role and the way to sign out. The current page is marked in the markup (aria-current) and
+// by the pill. The page's own `<main>` follows. The role guard is the proxy's; this only draws what the portal has.
 
 export type Portal = 'operator' | 'tenant' | 'network';
 type Item = readonly [string, string];
 
-const TENANT_ITEMS: readonly Item[] = [['Overview', '/admin'], ...ADMIN_PAGES];
-const NETWORK_ITEMS: readonly Item[] = [
-  ['Members', '/network-admin'],
-  ['Grants', '/network-admin/grants'],
-  ['Listings', '/network-admin/listings'],
-  ['History', '/network-admin/history'],
+const HOME: Record<Portal, string> = { operator: '/operator', tenant: '/admin', network: '/network-admin' };
+const NAV_LABEL: Record<Portal, string> = { operator: 'Platform console', tenant: 'Administration', network: 'Network administration' };
+const DEFAULT_ROLE: Record<Portal, string> = { operator: 'support', tenant: 'tenant-admin', network: 'network-admin' };
+
+type Spec = readonly [label: string, href: string, icon: IconName];
+
+const TENANT_ITEMS: readonly Spec[] = [
+  ['Overview', '/admin', 'home'],
+  ['People', '/admin/users', 'people'],
+  ['Contacts', '/admin/contacts', 'mail'],
+  ['Settings', '/admin/config', 'sliders'],
+  ['Retention', '/admin/retention', 'db'],
+  ['Email', '/admin/email', 'send'],
+  ['Sharing', '/admin/sharing', 'share'],
+  ['Access', '/admin/access', 'shield'],
+  ['Support', '/admin/support', 'buoy'],
 ];
-const OPERATOR_ITEMS: Record<OperatorRole, readonly Item[]> = {
+const NETWORK_ITEMS: readonly Spec[] = [
+  ['Members', '/network-admin', 'people'],
+  ['Grants', '/network-admin/grants', 'key'],
+  ['Listings', '/network-admin/listings', 'list'],
+  ['History', '/network-admin/history', 'history'],
+];
+const OPERATOR_ITEMS: Record<OperatorRole, readonly Spec[]> = {
   'platform-operator': [
-    ['Tenants', '/operator'],
-    ['Audit chain', '/operator/audit'],
+    ['Organisations', '/operator', 'building'],
+    ['Audit', '/operator/audit', 'list'],
   ],
   support: [
-    ['Support requests', '/operator/support'],
-    ['Tenants', '/operator'],
+    ['Support', '/operator/support', 'buoy'],
+    ['Organisations', '/operator', 'building'],
   ],
 };
 
-const HOME: Record<Portal, string> = { operator: '/operator', tenant: '/admin', network: '/network-admin' };
-const NAV_LABEL: Record<Portal, string> = { operator: 'Platform console', tenant: 'Administration', network: 'Network administration' };
-const SIGNED_IN_AS: Record<Portal, string> = { operator: '', tenant: 'tenant administrator', network: 'network administrator' };
-
-export function navItems(portal: Portal, role?: OperatorRole): readonly Item[] {
+function specs(portal: Portal, role?: OperatorRole): readonly Spec[] {
   if (portal === 'operator') return OPERATOR_ITEMS[role ?? 'support'];
   return portal === 'tenant' ? TENANT_ITEMS : NETWORK_ITEMS;
 }
 
+/** The portal's own pages as [label, href], for the portal and the role. */
+export function navItems(portal: Portal, role?: OperatorRole): readonly Item[] {
+  return specs(portal, role).map(([label, href]) => [label, href] as const);
+}
+
+// A portal's home matches itself only, not the pages below it; the console's home also stands for its
+// organisation pages (/operator/tenants/...), which have no item of their own.
+function frameItem(portal: Portal, [label, href, icon]: Spec): FrameItem {
+  const home = href === HOME[portal];
+  return { label, href, icon, exact: home, alsoMatch: home && portal === 'operator' ? ['/operator/tenants'] : undefined };
+}
+
 /** True when `href` is the page the person is on (or one of its own sub-pages). The home page matches itself only. */
 export function isCurrent(portal: Portal, pathname: string, href: string): boolean {
-  const home = HOME[portal];
-  if (href === home) {
-    const bare = pathname.replace(/\/$/, '');
-    return bare === home || (portal === 'operator' && bare.startsWith('/operator/tenants'));
-  }
-  return pathname === href || pathname.startsWith(`${href}/`);
+  return itemIsCurrent(pathname, frameItem(portal, ['', href, 'home']));
 }
 
 export type AdminShellProps = {
   portal: Portal;
-  /** The operator's role: said in the header and decides the console's navigation. */
+  /** The operator's role: said in the top bar and decides the console's navigation. */
   role?: OperatorRole;
   /** The organisation's display name (tenant and network portals); nothing else about it is shown. */
   organisation?: string | null;
@@ -72,38 +88,22 @@ export type AdminShellProps = {
 };
 
 export function AdminShell({ portal, role, organisation, staffRole, staffRoles, signOut, children }: AdminShellProps) {
-  const pathname = usePathname() ?? '';
-  const context = portal === 'operator' ? 'Platform console' : (organisation ?? NAV_LABEL[portal]);
-  const who = portal === 'operator' ? roleWord(role ?? 'support').toLowerCase() : SIGNED_IN_AS[portal];
-  const switchable = portal !== 'operator' && staffRole !== undefined && (staffRoles?.length ?? 0) > 1;
+  const operator = portal === 'operator';
+  const items = specs(portal, role).map((spec) => frameItem(portal, spec));
+  const signedInRole = operator ? (role ?? DEFAULT_ROLE.operator) : (staffRole ?? DEFAULT_ROLE[portal]);
   return (
-    <div className={styles.shell} data-portal={portal}>
-      <header className={styles.header}>
-        <a className={styles.logo} href={HOME[portal]}>
-          <Logo height={32} />
-        </a>
-        <span className={styles.context} data-el={portal === 'operator' ? 'ADMIN-CONTEXT' : 'TENANT-HEADER'}>
-          {context}
-        </span>
-        <div className={styles.who}>
-          {switchable ? (
-            <span data-el="ADMIN-SIGNED-IN-AS">
-              Signed in as <RoleSwitcher current={staffRole} roles={staffRoles ?? []} />
-            </span>
-          ) : (
-            <span data-el="ADMIN-SIGNED-IN-AS">{`Signed in as ${staffRole !== undefined && portal !== 'operator' ? staffRoleWord(staffRole).toLowerCase() : who}`}</span>
-          )}
-          <SignOutButton signOut={portal === 'operator' ? (signOut ?? signOutOperator) : signOut} />
-        </div>
-        <nav className={styles.nav} aria-label={NAV_LABEL[portal]}>
-          {navItems(portal, role).map(([name, href]) => (
-            <a key={href} className={styles.navLink} href={href} aria-current={isCurrent(portal, pathname, href) ? 'page' : undefined}>
-              {name}
-            </a>
-          ))}
-        </nav>
-      </header>
+    <AppFrame
+      portal={portal}
+      items={items}
+      navLabel={NAV_LABEL[portal]}
+      homeHref={HOME[portal]}
+      organisation={operator ? 'Platform console' : (organisation ?? NAV_LABEL[portal])}
+      role={signedInRole}
+      roles={operator ? undefined : staffRoles}
+      roleWords={operator ? { [signedInRole]: roleWord(signedInRole) } : undefined}
+      signOut={operator ? (signOut ?? signOutOperator) : signOut}
+    >
       {children}
-    </div>
+    </AppFrame>
   );
 }

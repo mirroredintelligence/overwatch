@@ -192,3 +192,27 @@ describe('spacing, radius and type tokens', () => {
     expect(css).toMatch(/\.tabular-nums\s*\{[^}]*font-variant-numeric:\s*tabular-nums/);
   });
 });
+
+// The redesign shell's additions (DEC-1326): their own block, after the base one, so nothing above changed.
+describe('the shell tokens (DEC-1326)', () => {
+  const added = declarations(css.slice(css.indexOf('The redesign shell (DEC-1326)')));
+
+  it.each([
+    ['--c-rail', '#0B2A3D'],
+    ['--c-rail-ink', '#B9D0DC'],
+    ['--c-ground', '#EEF2F3'],
+    ['--shadow-card', '0 1px 2px rgb(20 35 43 / 0.06), 0 10px 28px rgb(20 35 43 / 0.07)'],
+    ['--shadow-lift', '0 18px 48px rgb(11 42 61 / 0.22), 0 2px 6px rgb(11 42 61 / 0.08)'],
+  ])('%s is %s', (name, value) => {
+    expect(added.get(name)).toBe(value);
+  });
+
+  it('has the spring as a cubic-bezier, with a linear() spring where the browser has it', () => {
+    expect(css).toMatch(/--ease-spring: cubic-bezier\(0\.34, 1\.56, 0\.64, 1\);/);
+    expect(css).toMatch(/@supports \(transition-timing-function: linear\(0, 1\)\) \{\s*:root \{\s*--ease-spring: linear\(0, 0\.009/);
+  });
+
+  it('zeroes the layout-morph duration under reduced motion', () => {
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\) \{\s*:root \{\s*--dur-stage: 0ms;/);
+  });
+});

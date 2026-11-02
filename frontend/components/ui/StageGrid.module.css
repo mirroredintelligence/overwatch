@@ -1,0 +1,70 @@
+/* The stage grid: the columns and the gap animate between stages (the board's 560ms drawer curve); a layer
+   fades and drifts by whether it is before, at or after the current stage (opacity 280ms, transform on the
+   spring). The tokens are zero under reduced motion, so the change is then immediate. */
+
+.grid {
+  display: grid;
+  grid-template-areas: 'list stage side';
+  min-width: 0;
+  min-height: 0;
+  transition:
+    grid-template-columns var(--dur-stage) var(--ease-drawer),
+    column-gap var(--dur-stage) var(--ease-drawer);
+}
+
+.area {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.area[data-area='list'] {
+  grid-area: list;
+}
+
+.area[data-area='stage'] {
+  grid-area: stage;
+}
+
+.area[data-area='side'] {
+  grid-area: side;
+}
+
+.layer {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity var(--dur-sheet) var(--ease-hover),
+    transform var(--dur-stage) var(--ease-spring);
+}
+
+.layer[data-layer='current'] {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+  /* The incoming layer waits a beat for the outgoing one to clear. */
+  transition-delay: 160ms, 120ms;
+}
+
+.layer[data-variant='stage'][data-layer='before'] {
+  transform: translateY(-14px) scale(0.985);
+}
+
+.layer[data-variant='stage'][data-layer='after'] {
+  transform: translateY(16px) scale(0.985);
+}
+
+.layer[data-variant='side'][data-layer='before'],
+.layer[data-variant='side'][data-layer='after'] {
+  transform: translateX(18px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .layer[data-layer='current'] {
+    transition-delay: 0ms;
+  }
+}

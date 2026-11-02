@@ -16,7 +16,9 @@ use a route reads it as the 404 of a route that is not there:
   GET    /platform/tenants/{id}                         operator: the detail and its blockers
   PUT    /platform/tenants/{id}/host                    operator
   POST   /platform/tenants/{id}/numbers                 operator: record the tenant's text number
-  POST   /platform/tenants/{id}/numbers/tested          operator: a test text was delivered
+  POST   /platform/tenants/{id}/numbers/retire          operator: stop using one of its numbers
+  POST   /platform/tenants/{id}/numbers/shared          operator: send from the shared line
+  POST   /platform/tenants/{id}/numbers/test-text       operator: send one test text from a line
   PUT    /platform/tenants/{id}/references              operator: DSA, DPIA and DCB0160 references
   POST   /platform/tenants/{id}/directory/verification  operator: verify the bound directory
   POST   /platform/tenants/{id}/admin-consent-invitation  operator: email the Entra administrator
@@ -87,17 +89,22 @@ from overwatch.application.use_cases.entra_groups import (
 )
 from overwatch.application.use_cases.platform_tenants import PlatformTenantDetail
 from overwatch.application.use_cases.tenant_admin import (
+    NOT_SET_UP,
     ActivateTenantCommand,
     CreateTenantCommand,
-    MarkNumberTestedCommand,
     RecordNumberCommand,
     RecordReferencesCommand,
+    RetireNumberCommand,
+    SendTestTextCommand,
     SetHostCommand,
+    TextCheckFailed,
+    UseSharedLineCommand,
     VerifyDirectoryCommand,
 )
 from overwatch.application.use_cases.tenant_offboarding import StartOffboardingCommand
 from overwatch.application.use_cases.tenant_suspend import ResumeTenantCommand, SuspendTenantCommand
 from overwatch.domain.codes import Role
+from overwatch.domain.errors import Conflict
 from overwatch.domain.model.ods_record import OdsLink, OdsOrganisationRecord, OdsRole
 from overwatch.domain.model.tenant import OrganisationType, SuspendMode, SuspendReason, Tenant
 from overwatch.domain.model.tenant_records import BindingStatus
@@ -107,6 +114,7 @@ from overwatch.domain.rules.support_ticket import ReasonCode
 router = APIRouter(prefix="/platform")
 
 NO_STORE: Final = {"Cache-Control": "no-store"}
+SHARED_LINE_WORDS: Final = "The shared line is not available yet."
 TICKET_ID: Final = r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
 OPERATOR_ONLY: Final = (Role.PLATFORM_OPERATOR,)
 SUPPORT_ONLY: Final = (Role.SUPPORT,)
@@ -196,8 +204,20 @@ class NumberBody(_Body):
     senderLabel: str = Field(min_length=1, max_length=40)
 
 
-class TestedBody(_Body):
+class RetireBody(_Body):
     e164: str = Field(min_length=1, max_length=20)
+
+
+class SharedLineBody(_Body):
+    """No field: choosing the shared line says nothing about it."""
+
+
+class TestTextBody(_Body):
+    """`e164` is the tenant's own number to send from, or left out for the shared line. `to` is the
+    mobile that gets the text: personal data, in this body and nowhere else."""
+
+    e164: str | None = Field(default=None, min_length=1, max_length=20)
+    to: str = Field(min_length=1, max_length=40)
 
 
 class ReferencesBody(_Body):
@@ -362,12 +382,22 @@ def detail_to_dict(detail: PlatformTenantDetail) -> dict[str, Any]:
             }
             for number in detail.numbers
         ],
+        "sharedLine": _shared_line(detail),
         "activation": (
             None
             if activation is None
             else {"ready": not activation.blockers, "blockers": list(activation.blockers)}
         ),
     }
+
+
+def _shared_line(detail: PlatformTenantDetail) -> dict[str, Any] | None:
+    """Whether the tenant uses the platform's shared line, and when a test text was accepted on
+    it. The platform's number and account are never shown."""
+    for channel in detail.channels:
+        if channel.shared:
+            return {"status": channel.status.value, "testedAt": _iso(channel.tested_at)}
+    return None
 
 
 def support_ticket_to_dict(view: TicketView) -> dict[str, Any]:
@@ -522,16 +552,87 @@ async def record_number(
     return await replay_or_run(request, actor, key, run)
 
 
-@router.post("/tenants/{tenant_id}/numbers/tested")
-async def number_tested(
-    tenant_id: TenantPath, body: TestedBody, request: Request, actor: InTenant
+@router.post("/tenants/{tenant_id}/numbers/retire")
+async def retire_number(
+    tenant_id: TenantPath, body: RetireBody, request: Request, actor: InTenant
 ) -> Response:
+    """Stop using one of the tenant's own numbers. The number stays held by the tenant (retired,
+    never deleted). Stopping a number already stopped is harmless. A number that is not the
+    tenant's is the 404 of an unknown one."""
     key = idempotency_key(request)
 
     async def run() -> Response:
         services = _services(request)
-        await services.tested.execute(MarkNumberTestedCommand(actor, body.e164))
-        return await _step(services, actor, "tenant-number-tested", {})
+        await services.retire.execute(RetireNumberCommand(actor, body.e164))
+        return await _step(services, actor, "tenant-number-retired", {})
+
+    return await replay_or_run(request, actor, key, run)
+
+
+@router.post("/tenants/{tenant_id}/numbers/shared")
+async def use_shared_line(
+    tenant_id: TenantPath, body: SharedLineBody, request: Request, actor: InTenant
+) -> Response:
+    """Send the tenant's texts from the platform's shared line (outgoing only). It records a text
+    channel flagged shared and never a registry number."""
+    key = idempotency_key(request)
+
+    async def run() -> Response:
+        services = _services(request)
+        use_case = services.shared_line
+        if use_case is None:
+            return operation_outcome(409, "conflict", SHARED_LINE_WORDS)
+        try:
+            channel_id = await use_case.execute(UseSharedLineCommand(actor))
+        except Conflict:
+            return operation_outcome(409, "conflict", SHARED_LINE_WORDS)
+        return await _step(
+            services,
+            actor,
+            "tenant-shared-line-recorded",
+            {"channelId": channel_id},
+            201,
+        )
+
+    return await replay_or_run(request, actor, key, run)
+
+
+_TEXT_FAILURES: Final = {
+    "not-set-up": (409, "conflict"),
+    "refused": (422, "invalid"),
+    "try-again": (503, "transient"),
+}
+
+
+@router.post("/tenants/{tenant_id}/numbers/test-text")
+async def send_test_text(
+    tenant_id: TenantPath, body: TestTextBody, request: Request, actor: InTenant
+) -> Response:
+    """Send one fixed test text from a line of the tenant (its own number, or the shared line when
+    `e164` is left out) to a mobile the operator types. The mobile is in this body only: it is used
+    for the one text and is never stored, logged, put in an audit entry or echoed. The line is
+    marked tested when the provider accepts the text. A line that cannot send answers a fixed
+    sentence (409, 422 or 503)."""
+    key = idempotency_key(request)
+
+    async def run() -> Response:
+        services = _services(request)
+        use_case = services.test_text
+        if use_case is None:
+            return operation_outcome(409, "conflict", NOT_SET_UP)
+        try:
+            await use_case.execute(SendTestTextCommand(actor, body.to, body.e164))
+        except TextCheckFailed as failed:
+            status, code = _TEXT_FAILURES[failed.reason]
+            return operation_outcome(status, code, str(failed))
+        line = "shared" if body.e164 is None else "own"
+        return await _step(
+            services,
+            actor,
+            "tenant-test-text-sent",
+            {"sent": True},
+            snapshot={"line": line},
+        )
 
     return await replay_or_run(request, actor, key, run)
 

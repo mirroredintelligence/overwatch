@@ -806,6 +806,7 @@ def test_the_facts_hold_only_counts_kinds_and_flags() -> None:
         "entra_binding_verified",
         "active_sms_channels",
         "active_email_channels",
+        "shared_lines_tested",
     }
 
 

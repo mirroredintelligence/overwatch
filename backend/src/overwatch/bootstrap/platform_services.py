@@ -17,8 +17,11 @@ the tenant's administrator (`CONFIGURATION_ROLES` is empty until the composition
 TEN-026).
 """
 
+import dataclasses
 from functools import partial
 from typing import Any
+
+import httpx
 
 from overwatch.adapters.inbound.fhir_rest.auth import forget_tenant
 from overwatch.application.platform_services import (
@@ -27,6 +30,7 @@ from overwatch.application.platform_services import (
     SupportTicketServices,
     TenantAdminServices,
 )
+from overwatch.application.ports.outbound.sender_resolver import SenderResolver
 from overwatch.application.use_cases.cross_tenant_tickets import (
     ApproveSupportTicket,
     CancelSupportTicket,
@@ -40,6 +44,7 @@ from overwatch.application.use_cases.cross_tenant_tickets import (
     UseTicketAccess,
 )
 from overwatch.application.use_cases.platform_tenants import ListPlatformTenants, ReadPlatformTenant
+from overwatch.application.use_cases.tenant_admin import SendTestText, UseSharedLine
 from overwatch.application.use_cases.tenant_admin_views import ReadTenantAdmin
 from overwatch.application.use_cases.tenant_config import (
     ApproveTenantConfig,
@@ -51,9 +56,18 @@ from overwatch.application.use_cases.tenant_config import (
     SetTenantRetention,
 )
 from overwatch.application.use_cases.tenant_suspend import TenantChanged
+from overwatch.bootstrap.admin_consent import platform_email_identity
 from overwatch.bootstrap.container import Container
 from overwatch.bootstrap.lifecycle_operations import build_offboard
 from overwatch.bootstrap.provisioning import build_provisioning
+from overwatch.bootstrap.settings import Settings
+from overwatch.bootstrap.tenant_senders import (
+    TenantSenderResolver,
+    platform_sms_identity,
+    shared_line_check,
+    smtp_relay_from,
+    status_callback_url,
+)
 from overwatch.domain.codes import Role
 
 CONFIGURATION_ROLES = frozenset({Role.TENANT_ADMIN})
@@ -97,7 +111,7 @@ def build_platform_services(
         ),
         create=provisioning.create,
         number=provisioning.number,
-        tested=provisioning.tested,
+        retire=provisioning.retire,
         host=provisioning.host,
         references=provisioning.references,
         directory=provisioning.directory,
@@ -129,3 +143,46 @@ def install_platform_routes(app: Any, container: Container) -> None:
     platform, tenant_admin = build_platform_services(container, (partial(forget_tenant, app),))
     app.state.platform_services = platform
     app.state.tenant_admin_services = tenant_admin
+
+
+def install_number_tools(
+    app: Any,
+    container: Container,
+    settings: Settings,
+    http: httpx.AsyncClient,
+    *,
+    senders: SenderResolver | None = None,
+) -> None:
+    """Set the two operator tools that need the settings and the text sender (DEC-1319): the
+    platform's shared sending line, and sending a test text from a tenant's line. `senders` is
+    injected by a test; production builds the tenant-first resolver with the platform's identity
+    (account, shared number and the platform auth token) and the check that reads the tenant's own
+    channels. Without a shared number configured the shared line is refused, never half set up."""
+    identity = platform_sms_identity(settings)
+    resolver = senders or TenantSenderResolver(
+        container.tenants,
+        container.secrets,
+        http,
+        status_callback_url(settings),
+        smtp_relay_from(settings),
+        platform_email_identity(settings),
+        platform_sms=identity,
+        shared_line=shared_line_check(container.uow_factory),
+    )
+    app.state.platform_services = dataclasses.replace(
+        app.state.platform_services,
+        shared_line=UseSharedLine(
+            container.tenants,
+            container.uow_factory,
+            container.clock,
+            available=identity is not None,
+        ),
+        test_text=SendTestText(
+            container.tenants,
+            container.tenant_registry,
+            container.uow_factory,
+            container.clock,
+            container.ids,
+            resolver,
+        ),
+    )

@@ -105,7 +105,7 @@ from overwatch.bootstrap.network_services import (
     build_network_ownership,
     build_network_services,
 )
-from overwatch.bootstrap.platform_services import install_platform_routes
+from overwatch.bootstrap.platform_services import install_number_tools, install_platform_routes
 from overwatch.bootstrap.secret_store import (
     OS_PLACES_API_KEY_SECRET,
     SecretConfigError,
@@ -393,6 +393,7 @@ def build_api(
     install_platform_routes(app, container)
     consent_http = httpx.AsyncClient()
     install_admin_consent(app, container, settings, consent_http)
+    install_number_tools(app, container, settings, consent_http)
     app.router.lifespan_context = serving_lifespan(
         container,
         (*parts.closers, consent_http.aclose),

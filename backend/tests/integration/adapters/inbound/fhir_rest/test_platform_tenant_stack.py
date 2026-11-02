@@ -27,6 +27,7 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import httpx
 import pytest
 import pytest_asyncio
 from fastapi import FastAPI
@@ -38,13 +39,15 @@ from overwatch.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
 from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection
 from overwatch.adapters.testing.fixed_clock import FixedClock
 from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
+from overwatch.adapters.testing.recording_senders import FixedSenderResolver, RecordingSmsSender
 from overwatch.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
 from overwatch.application.cross_tenant_guard import CrossTenantDenied, PlatformPrincipal
 from overwatch.application.platform_services import PlatformServices
 from overwatch.application.use_cases.cross_tenant_tickets import UseTicketCommand
 from overwatch.bootstrap.container import Container, build_for_tests
-from overwatch.bootstrap.platform_services import install_platform_routes
+from overwatch.bootstrap.platform_services import install_number_tools, install_platform_routes
 from overwatch.bootstrap.provisioning import AuditHeads
+from overwatch.bootstrap.settings import Settings
 from overwatch.domain.codes import Role
 from overwatch.domain.model.tenant import OrganisationType, Tenant, TenantStatus
 from overwatch.domain.rules.bff_token import OperatorClaims, encode_operator_token
@@ -143,6 +146,15 @@ async def stack(own_neo4j: tuple[ThrowawayNeo4j, AsyncDriver]) -> AsyncIterator[
     app.state.secrets = FixedSecretStore({BFF_SECRET_NAME: TEST_BFF_SECRET})
     app.state.cache = container.cache
     install_platform_routes(app, container)
+    # The provider is the one external thing: a recording sender stands in for it, so the test text
+    # is a real use case over the real registry and the tenant's own scope.
+    install_number_tools(
+        app,
+        container,
+        Settings(),
+        httpx.AsyncClient(),
+        senders=FixedSenderResolver({C: RecordingSmsSender("line")}),
+    )
     async with AsyncClient(
         transport=ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test"
     ) as client:
@@ -213,10 +225,13 @@ async def test_the_operator_provisions_a_tenant_and_the_three_records_say_so(sta
     waiting_for_a_test_text = "At least one sender number active with a test text delivered"
     assert waiting_for_a_test_text in body["activation"]["blockers"]
     tested = await stack.send(
-        "POST", f"/platform/tenants/{C}/numbers/tested", operator(), {"e164": "+447700900321"}
+        "POST",
+        f"/platform/tenants/{C}/numbers/test-text",
+        operator(),
+        {"e164": "+447700900321", "to": "07700 900456"},
     )
     after = (await stack.send("GET", f"/platform/tenants/{C}", operator())).json()
-    assert tested.status_code == 200
+    assert tested.status_code == 200 and "900456" not in tested.text
     assert waiting_for_a_test_text not in after["activation"]["blockers"]
     assert after["numbers"][0]["testedAt"] == "2026-10-30T09:00:00Z"
     # The tenant's own chain holds each step, by the operator.
@@ -226,7 +241,7 @@ async def test_the_operator_provisions_a_tenant_and_the_three_records_say_so(sta
         "SetTenantHost",
         "RecordTenantNumber",
         "RecordTenantReferences",
-        "MarkNumberTested",
+        "SendTestText",
     ]
     assert {r.entry.actor.role for r in own} == {Role.PLATFORM_OPERATOR}
     # The platform's chain holds each step too, naming the tenant and the operator, and no number.
@@ -236,13 +251,85 @@ async def test_the_operator_provisions_a_tenant_and_the_three_records_say_so(sta
         "tenant-host-set",
         "tenant-number-recorded",
         "tenant-references-recorded",
-        "tenant-number-tested",
+        "tenant-test-text-sent",
     ]
     assert {r.principal_ref for r in platform} == {OPERATOR_REF}
     assert "+447700900321" not in repr(platform) and "AC" + "3" * 32 not in repr(platform)
     # Nothing of another tenant changed.
     assert await stack.container.tenants.get(A) == a_before
     assert len(await _tenant_chain(stack, B)) == b_chain
+
+
+async def test_a_stopped_number_stays_held_resolves_no_tenant_and_counts_for_nothing(
+    stack: Stack,
+) -> None:
+    sid = "AC" + "3" * 32
+    number = "+447700900322"
+    await stack.send(
+        "PUT",
+        f"/platform/tenants/{C}",
+        operator(),
+        {"displayName": "Charlie", "legalName": "Charlie Ltd", "organisationType": "icb"},
+    )
+    await stack.send(
+        "POST",
+        f"/platform/tenants/{C}/numbers",
+        operator(),
+        {"e164": number, "accountSid": sid, "senderLabel": "Charlie"},
+    )
+    await stack.send(
+        "POST",
+        f"/platform/tenants/{C}/numbers/test-text",
+        operator(),
+        {"e164": number, "to": "07700 900456"},
+    )
+    assert (await stack.container.tenants.by_inbound_number(number, sid)) is not None
+
+    stopped = await stack.send(
+        "POST", f"/platform/tenants/{C}/numbers/retire", operator(), {"e164": number}
+    )
+    detail = (await stack.send("GET", f"/platform/tenants/{C}", operator())).json()
+
+    assert stopped.status_code == 200
+    assert [n["status"] for n in detail["numbers"]] == ["retired"]
+    # Still held by this tenant: no other tenant can take it, and no tenant is found from it.
+    taken = await stack.send(
+        "POST",
+        f"/platform/tenants/{A}/numbers",
+        operator(),
+        {"e164": number, "accountSid": sid, "senderLabel": "Alpha"},
+    )
+    assert taken.status_code == 409
+    assert (await stack.container.tenants.by_inbound_number(number, sid)) is None
+    assert (await stack.container.tenants.by_account_sid(sid)) is None
+    assert (
+        "At least one sender number active with a test text delivered"
+        in (detail["activation"]["blockers"])
+    )
+    # Stopping a number that is another tenant's (or nobody's) is the same 404.
+    other = await stack.send(
+        "POST", f"/platform/tenants/{A}/numbers/retire", operator(), {"e164": number}
+    )
+    assert other.status_code == 404
+
+
+async def test_the_shared_line_is_a_channel_of_the_tenant_and_never_a_registry_number(
+    stack: Stack,
+) -> None:
+    await stack.send(
+        "PUT",
+        f"/platform/tenants/{C}",
+        operator(),
+        {"displayName": "Charlie", "legalName": "Charlie Ltd", "organisationType": "icb"},
+    )
+    chosen = await stack.send("POST", f"/platform/tenants/{C}/numbers/shared", operator(), {})
+    detail = (await stack.send("GET", f"/platform/tenants/{C}", operator())).json()
+
+    assert chosen.status_code in (201, 409)  # 409: no shared number is configured in this stack
+    if chosen.status_code == 201:
+        assert detail["sharedLine"] == {"status": "active", "testedAt": None}
+    assert detail["numbers"] == []
+    assert await stack.container.tenant_registry.numbers(C) == ()
 
 
 async def test_the_list_shows_every_tenant_and_a_support_person_only_enough_to_name_one(

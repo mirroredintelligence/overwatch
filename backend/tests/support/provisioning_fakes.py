@@ -135,12 +135,14 @@ class FakePlatform:
                 raise Conflict("this value is held by another tenant")
         self.numbers_by_tenant.setdefault(tenant_id, {})[number.e164] = number
 
-    async def mark_number_tested(self, tenant_id: str, e164: str, at: datetime) -> None:
+    async def mark_number_tested(
+        self, tenant_id: str, e164: str, at: datetime, provider_message_id: str
+    ) -> None:
         self.calls.append(("mark_number_tested", (tenant_id, e164)))
         held = self.numbers_by_tenant.get(tenant_id, {})
         if e164 not in held:
             raise NotFound("the tenant holds no such number")
-        held[e164] = replace(held[e164], tested_at=at)
+        held[e164] = replace(held[e164], tested_at=at, test_message_id=provider_message_id)
 
     async def numbers(self, tenant_id: str) -> tuple[TenantNumberRecord, ...]:
         return tuple(self.numbers_by_tenant.get(tenant_id, {}).values())

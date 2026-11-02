@@ -194,6 +194,61 @@ def test_a_channel_is_frozen_and_replace_runs_the_checks_again() -> None:
     assert retired.status is NumberStatus.RETIRED
 
 
+def shared_sms(**changes: Any) -> TenantChannel:
+    fields: dict[str, Any] = {
+        "id": "sms-shared",
+        "kind": ChannelKind.SMS,
+        "provider": ChannelProvider.TWILIO,
+        "status": NumberStatus.ACTIVE,
+        "sender_label": "Overwatch shared line",
+        "shared": True,
+    }
+    fields.update(changes)
+    return TenantChannel(**fields)
+
+
+def test_a_shared_text_channel_holds_no_account_and_no_secret_reference_of_its_own() -> None:
+    """DEC-1319: it sends from the platform's account and number, so it names neither, and no tenant
+    secret reference can point anywhere through it."""
+    channel = shared_sms()
+
+    assert channel.shared is True
+    assert channel.account_sid is None and channel.secret_ref is None
+    assert channel.tested_at is None and channel.test_message_id is None
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"account_sid": SID},
+        {"secret_ref": "twilio/example-icb/auth-token"},
+        {"from_address": "capacity@example.test"},
+        {"kind": ChannelKind.EMAIL, "from_address": "capacity@example.test"},
+        {"tested_at": datetime(2026, 10, 29, 9, 0)},
+        {"tested_at": "2026-10-29"},
+        {"test_message_id": "not an id!"},
+        {"test_message_id": 5},
+    ],
+)
+def test_a_shared_channel_that_breaks_a_rule_is_refused(changes: dict[str, Any]) -> None:
+    with pytest.raises(ValidationFailed):
+        shared_sms(**changes)
+
+
+def test_a_shared_channel_may_record_the_test_text_that_was_accepted() -> None:
+    channel = shared_sms(tested_at=T0, test_message_id="SM" + "1" * 32)
+
+    assert channel.tested_at == T0
+
+
+def test_an_ordinary_text_channel_is_not_shared_and_cannot_hold_a_test_record() -> None:
+    assert sms().shared is False
+    with pytest.raises(ValidationFailed):
+        sms(tested_at=T0)
+    with pytest.raises(ValidationFailed):
+        sms(shared=1)
+
+
 def test_no_channel_field_can_hold_a_token() -> None:
     names = {field.name for field in dataclasses.fields(TenantChannel)}
 

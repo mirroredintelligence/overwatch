@@ -1,3 +1,4 @@
+import { isUkMobile } from '@/lib/forms/ukMobile';
 import { invalidRequest } from '@/lib/lead/bffInput';
 import { directoryBody, MAPPABLE_ROLES } from '@/lib/tenantAdmin/bodies';
 import { REASON_CODES } from './views';
@@ -98,10 +99,29 @@ export function numberBody(raw: unknown): Obj {
   only(body, ['e164', 'accountSid', 'senderLabel']);
   return { e164: e164(body.e164), accountSid: text(body.accountSid, 1, 64), senderLabel: text(body.senderLabel, 1, 80) };
 }
-export function testedBody(raw: unknown): Obj {
+/** Stop using one of the organisation's own numbers. */
+export function retireBody(raw: unknown): Obj {
   const body = asObject(raw);
   only(body, ['e164']);
   return { e164: e164(body.e164) };
+}
+
+/** A test text. `e164` is the organisation's own number to send from; left out, the platform's shared line sends it.
+ *  `to` is the mobile that receives it: personal data, passed to the back end once and never put in a path or a log. */
+export function testTextBody(raw: unknown): Obj {
+  const body = asObject(raw);
+  only(body, ['e164', 'to']);
+  const to = text(body.to, 8, 20);
+  if (!isUkMobile(to)) throw invalidRequest();
+  if (body.e164 === undefined || body.e164 === null) return { to };
+  return { e164: e164(body.e164), to };
+}
+
+/** Use the platform's shared line for sending. It takes no field: there is nothing to say about it. */
+export function sharedLineBody(raw: unknown): Obj {
+  const body = asObject(raw);
+  only(body, []);
+  return {};
 }
 
 export function referencesBody(raw: unknown): Obj {

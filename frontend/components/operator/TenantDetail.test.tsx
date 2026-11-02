@@ -54,7 +54,6 @@ const step = (name: string) => screen.getByRole('region', { name });
 const headline = (name: string): string => bare(step(name));
 const detailsOf = (name: string) => within(Array.from(step(name).querySelectorAll('details')).find((d) => d.querySelector('summary')?.textContent === 'Technical details') as HTMLElement);
 const ready = (over: Partial<Detail> = {}): Detail => ({ ...VIEW_DETAIL_READY, ...over });
-const withRefs = (refs: Partial<Detail['tenant']['references']>): Detail => ({ ...VIEW_DETAIL_READY, tenant: { ...VIEW_DETAIL_READY.tenant, references: { ...VIEW_DETAIL_READY.tenant.references, ...refs } } });
 
 describe('what the page shows', () => {
   it('has one h1 with the organisation’s name, its status in words, and one h2: the selected part', async () => {
@@ -183,7 +182,7 @@ describe('what the page shows', () => {
     expect(detailsOf('Other teams').getByText('22222222-2222-4222-8222-222222222222')).toBeInTheDocument();
     await choose(user, 'Reach and agreements');
     expect(detailsOf('Web address and text number').getByText('ACsampleaccount00000000000000000001')).toBeInTheDocument();
-    expect(step('Agreements').querySelector('details')).toBeNull();
+    expect(step('Agreements (recommended)').querySelector('details')).toBeNull();
   });
 
   it('uses no jargon on the face of any part or of the task list', async () => {
@@ -198,17 +197,18 @@ describe('what the page shows', () => {
 
   it('shows a number with its state and whether it has been tested, and never a secret', async () => {
     await open(VIEW_DETAIL_PROVISIONING, undefined, 'Reach and agreements');
-    const table = within(step('Web address and text number')).getByRole('table', { name: 'Text numbers' });
-    const row = within(table).getByRole('row', { name: /\+441632960002/ });
-    expect(within(row).getByText('In use')).toBeInTheDocument();
-    expect(within(row).getByText('Not tested')).toBeInTheDocument();
+    const list = within(step('Web address and text number')).getByRole('list', { name: 'Text numbers' });
+    const row = within(list).getByRole('listitem');
+    expect(row).toHaveTextContent('+441632960002 · In use · Not tested');
     expect(document.body.textContent ?? '').not.toMatch(/authTokenRef|tenants\/trust-b|Auth token/);
   });
 
   it('shows the agreements held', async () => {
     await open(VIEW_DETAIL_PROVISIONING, undefined, 'Reach and agreements');
-    const refs = step('Agreements');
+    const refs = step('Agreements (recommended)');
     expect(within(refs).getByText('DSA-2026-014')).toBeInTheDocument();
+    expect(within(refs).getByText(/recommended/, { selector: 'p' })).toBeInTheDocument();
+    expect(within(refs).getByText('Clinical safety case', { selector: 'dt' })).toBeInTheDocument();
     expect(within(refs).getAllByText('Not recorded')).toHaveLength(2);
   });
 
@@ -255,7 +255,21 @@ describe('Go live', () => {
     expect(within(card).queryByRole('button', { name: 'Go live' })).not.toBeInTheDocument();
     const left = within(card).getByRole('list', { name: 'Still to do' });
     const lines = within(left).getAllByRole('listitem').map((li) => li.textContent);
-    expect(lines).toEqual(['Organisation and sign-in 1 thing left', 'Administrator approval 1 thing left', 'Teams and people 1 thing left', 'Reach and agreements 3 things left']);
+    expect(lines).toEqual(['Organisation and sign-in 1 thing left', 'Administrator approval 1 thing left', 'Teams and people 1 thing left', 'Reach and agreements 2 things left']);
+  });
+
+  it('never lists the agreements as left, and says they are recommended', async () => {
+    await open(VIEW_DETAIL_PROVISIONING, undefined, 'Go live');
+    const card = step('Go live');
+    expect(bare(card)).not.toMatch(/agreements? (is|are) not|Agreements \(recommended\)/i);
+    await waitFor(() => expect(screen.queryByText('Loading.')).not.toBeInTheDocument());
+    expect(document.body.textContent ?? '').toContain('Agreements (recommended) 1 of 3');
+  });
+
+  it('can go live with no agreement recorded', async () => {
+    const none = { dsa: null, dpia: null, dcb0160: null };
+    await open({ ...VIEW_DETAIL_READY, tenant: { ...VIEW_DETAIL_READY.tenant, references: none } }, CONSENTED, 'Go live');
+    expect(await within(step('Go live')).findByRole('button', { name: 'Go live' })).toBeEnabled();
   });
 
   it('takes the operator to a part from the list of what is left', async () => {
@@ -271,7 +285,6 @@ describe('Go live', () => {
     ['no other team is added', () => ready({ roleMappings: [{ groupObjectId: '33333333-3333-4333-8333-333333333333', role: 'tenant-admin', status: 'active' }] }), CONSENTED],
     ['the web address is not set', () => ready({ host: null }), CONSENTED],
     ['no number has been tested', () => ready({ numbers: VIEW_DETAIL_READY.numbers.map((n) => ({ ...n, testedAt: null })) }), CONSENTED],
-    ['an agreement is missing', () => withRefs({ dpia: null }), CONSENTED],
   ])('has no Go live button when %s, and lists what is left', async (_name, make, consent) => {
     await open(make(), consent, 'Go live');
     await screen.findByText(/parts completed/);
@@ -304,7 +317,6 @@ describe('Go live', () => {
       'At least one role mapping',
       'Support contacts set: coordination phone and clinical safety officer',
       'Retention set for every data class',
-      'Data sharing, data protection and clinical safety references recorded',
       'System, referral system and coordination team names set',
       'Area districts set',
       'Network agreement accepted',
@@ -321,7 +333,7 @@ describe('Go live', () => {
       'Organisation and sign-in 2 things left',
       'Administrator approval 2 things left',
       'Teams and people 2 things left',
-      'Reach and agreements 3 things left',
+      'Reach and agreements 2 things left',
       'Go live 1 thing left',
     ]);
     const theirs = within(within(card).getByRole('list', { name: 'Their administrators finish these' })).getAllByRole('listitem').map((li) => li.textContent);
@@ -645,11 +657,100 @@ describe('step 6: how people reach them', () => {
     expect(lastWrite()).toMatchObject({ method: 'POST', path: '/api/bff/platform/tenants/trust-b/numbers', body: { e164: '+441632960003', accountSid: 'ACsample2', senderLabel: 'SampleB' } });
   });
 
-  it('marks a text number tested', async () => {
+  it('has no axe violations on the text number part, with a number, the shared line and the confirm step', async () => {
+    const user = await open({ ...VIEW_DETAIL_PROVISIONING, sharedLine: { status: 'active', testedAt: null } }, undefined, 'Reach and agreements');
+    await user.click(within(card()).getByRole('button', { name: 'Stop using +441632960002' }));
+    expect(await runAxe(document.body)).toHaveNoViolations();
+  });
+
+  it('has no way to mark a number as tested by hand', async () => {
+    await open(VIEW_DETAIL_PROVISIONING, undefined, 'Reach and agreements');
+    expect(within(card()).queryByRole('button', { name: /Mark .* as tested/ })).not.toBeInTheDocument();
+  });
+
+  it('sends a test text from the number to the mobile typed, says the provider accepted it, and never shows the mobile again', async () => {
     const user = await open(VIEW_DETAIL_PROVISIONING, undefined, 'Reach and agreements');
-    await user.click(within(card()).getByRole('button', { name: 'Mark +441632960002 as tested' }));
+    const form = within(card()).getByRole('form', { name: 'Send a test text from +441632960002' });
+    await user.type(within(form).getByLabelText('Mobile phone to send the test to'), '07700 900456');
+    await user.click(within(form).getByRole('button', { name: 'Send a test text' }));
     await waitFor(() => expect(seenOperatorWrites).toHaveLength(1));
-    expect(lastWrite()).toMatchObject({ path: '/api/bff/platform/tenants/trust-b/numbers/tested', body: { e164: '+441632960002' } });
+    expect(lastWrite()).toMatchObject({ method: 'POST', path: '/api/bff/platform/tenants/trust-b/numbers/test-text', body: { e164: '+441632960002', to: '07700 900456' } });
+    expect(await within(form).findByRole('status')).toHaveTextContent('Test text sent. This line is now marked as tested because the text provider accepted the text.');
+    expect(within(form).getByLabelText('Mobile phone to send the test to')).toHaveValue('');
+    expect(document.body.textContent ?? '').not.toContain('07700 900456');
+  });
+
+  it('refuses a test text to something that is not a UK mobile before sending anything', async () => {
+    const user = await open(VIEW_DETAIL_PROVISIONING, undefined, 'Reach and agreements');
+    const form = within(card()).getByRole('form', { name: 'Send a test text from +441632960002' });
+    await user.type(within(form).getByLabelText('Mobile phone to send the test to'), '01632 960001');
+    await user.click(within(form).getByRole('button', { name: 'Send a test text' }));
+    expect(await within(form).findByText('Enter a UK mobile number, like 07700 900456.')).toBeInTheDocument();
+    expect(seenOperatorWrites).toEqual([]);
+  });
+
+  it.each([
+    [409, 'The organisation’s text account is not set up yet.'],
+    [422, 'The text could not be sent to that number. Check it is a UK mobile number.'],
+    [503, 'The text service is busy. Try again in a moment.'],
+    [500, 'The test text could not be sent. Try again.'],
+  ])('says in words why a test text was not sent, on a %i', async (status, words) => {
+    server.use(http.post('/api/bff/platform/tenants/:id/numbers/test-text', () => HttpResponse.json({}, { status })));
+    const user = await open(VIEW_DETAIL_PROVISIONING, undefined, 'Reach and agreements');
+    const form = within(card()).getByRole('form', { name: 'Send a test text from +441632960002' });
+    await user.type(within(form).getByLabelText('Mobile phone to send the test to'), '07700 900456');
+    await user.click(within(form).getByRole('button', { name: 'Send a test text' }));
+    expect(await within(form).findByRole('alert')).toHaveTextContent(words);
+    expect(document.body.textContent ?? '').not.toContain('07700 900456');
+  });
+
+  it('stops using a number only after a confirm step, and says the number stays held', async () => {
+    const user = await open(VIEW_DETAIL_PROVISIONING, undefined, 'Reach and agreements');
+    await user.click(within(card()).getByRole('button', { name: 'Stop using +441632960002' }));
+    expect(seenOperatorWrites).toEqual([]);
+    const confirm = within(card()).getByRole('group', { name: 'Stop using +441632960002' });
+    expect(confirm).toHaveTextContent('no other organisation can take it');
+    await user.click(within(confirm).getByRole('button', { name: 'Keep using it' }));
+    expect(seenOperatorWrites).toEqual([]);
+    await user.click(within(card()).getByRole('button', { name: 'Stop using +441632960002' }));
+    await user.click(within(within(card()).getByRole('group', { name: 'Stop using +441632960002' })).getByRole('button', { name: 'Yes, stop using it' }));
+    await waitFor(() => expect(seenOperatorWrites).toHaveLength(1));
+    expect(lastWrite()).toMatchObject({ method: 'POST', path: '/api/bff/platform/tenants/trust-b/numbers/retire', body: { e164: '+441632960002' } });
+  });
+
+  it('says a stopped number is held, offers nothing to do with it, and counts it for nothing', async () => {
+    const stopped = { ...VIEW_DETAIL_READY, numbers: VIEW_DETAIL_READY.numbers.map((n) => ({ ...n, status: 'retired' })), activation: { ready: false, blockers: ['At least one sender number active with a test text delivered'] } };
+    await open(stopped, CONSENTED, 'Reach and agreements');
+    expect(within(card()).getByRole('listitem')).toHaveTextContent('Stopped');
+    expect(within(card()).queryByRole('button', { name: /Stop using|Send a test text/ })).not.toBeInTheDocument();
+    expect(within(card()).getByText(/held for this organisation/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /^Reach and agreements/ })).toHaveTextContent('Text number not tested');
+  });
+
+  it('chooses the shared line for sending, and says plainly what it cannot do', async () => {
+    const user = await open(VIEW_DETAIL_PROVISIONING, undefined, 'Reach and agreements');
+    expect(within(card()).getByText(/People cannot reply by text until the organisation has its own number\./)).toBeInTheDocument();
+    await user.click(within(card()).getByRole('button', { name: 'Use Overwatch’s shared line (sending only)' }));
+    await waitFor(() => expect(seenOperatorWrites).toHaveLength(1));
+    expect(lastWrite()).toMatchObject({ method: 'POST', path: '/api/bff/platform/tenants/trust-b/numbers/shared', body: {} });
+  });
+
+  it('tests the shared line, and counts it only once a test text has been sent on it', async () => {
+    const untested = { ...VIEW_DETAIL_PROVISIONING, numbers: [], sharedLine: { status: 'active', testedAt: null } };
+    const user = await open(untested, undefined, 'Reach and agreements');
+    expect(screen.getByRole('link', { name: /^Reach and agreements/ })).toHaveTextContent('Text number not tested');
+    const form = within(card()).getByRole('form', { name: 'Send a test text from the shared line' });
+    await user.type(within(form).getByLabelText('Mobile phone to send the test to'), '07700 900456');
+    await user.click(within(form).getByRole('button', { name: 'Send a test text' }));
+    await waitFor(() => expect(seenOperatorWrites).toHaveLength(1));
+    expect(lastWrite()).toMatchObject({ path: '/api/bff/platform/tenants/trust-b/numbers/test-text', body: { to: '07700 900456' } });
+    expect(lastWrite()?.body).not.toHaveProperty('e164');
+  });
+
+  it('counts a tested shared line as a tested text number', async () => {
+    const tested = { ...VIEW_DETAIL_PROVISIONING, numbers: [], sharedLine: { status: 'active', testedAt: '2026-10-21T10:00:00Z' } };
+    await open(tested, undefined, 'Reach and agreements');
+    expect(screen.getByRole('link', { name: /^Reach and agreements/ })).toHaveTextContent('Text number tested');
   });
 
   it('says a web address or number another organisation holds could not be saved, on a 409', async () => {
@@ -673,7 +774,7 @@ describe('step 6: how people reach them', () => {
 describe('step 7: agreements', () => {
   it('records the references that were filled in and needs at least one', async () => {
     const user = await open(VIEW_DETAIL_PROVISIONING, undefined, 'Reach and agreements');
-    const card = step('Agreements');
+    const card = step('Agreements (recommended)');
     await user.click(within(card).getByRole('button', { name: 'Save agreements' }));
     expect(await within(card).findByText('Enter at least one reference.')).toBeInTheDocument();
     expect(seenOperatorWrites).toEqual([]);

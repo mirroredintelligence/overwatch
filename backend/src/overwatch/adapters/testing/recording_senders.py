@@ -16,6 +16,7 @@ from overwatch.application.ports.outbound.messaging import (
     SmsSender,
 )
 from overwatch.application.ports.outbound.sender_resolver import ChannelUnavailable
+from overwatch.application.ports.outbound.tenant_registry import TenantNumberRecord
 from overwatch.application.tenancy import current_scope_or_none, current_tenant
 from overwatch.domain.model.tenant_records import TenantChannel
 
@@ -173,6 +174,10 @@ class FixedSenderResolver:
         if sender is None:
             raise ChannelUnavailable(f"no text channel for tenant {tenant}")
         return sender
+
+    async def provisioning_sms_for(self, number: TenantNumberRecord | None) -> SmsSender:
+        """The tenant's sender whatever its status (a test is run before it is active)."""
+        return await self.sms_for()
 
     async def email_for(self, channel: TenantChannel | None = None) -> EmailSender:
         tenant = current_tenant()

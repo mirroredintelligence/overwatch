@@ -324,7 +324,7 @@ async def test_a_number_resolves_through_the_directory_and_its_test_text_is_read
     [before] = await registry.numbers(A)
     assert before.tested_at is None
 
-    await registry.mark_number_tested(A, NUMBER_A, NOW)
+    await registry.mark_number_tested(A, NUMBER_A, NOW, "SMtest1")
 
     [after] = await registry.numbers(A)
     assert after.tested_at == NOW
@@ -339,9 +339,43 @@ async def test_a_test_text_is_marked_only_on_the_tenants_own_number(
     await registry.put_number(B, _number(B, NUMBER_B))
 
     with pytest.raises(NotFound):
-        await registry.mark_number_tested(A, NUMBER_B, NOW)  # B's number, A's id
+        await registry.mark_number_tested(A, NUMBER_B, NOW, "SMtest1")  # B's number, A's id
 
     assert (await registry.numbers(B))[0].tested_at is None
+
+
+async def test_the_provider_id_of_the_test_text_is_kept_against_the_number_and_read_back(
+    registry: Neo4jTenantRegistry,
+) -> None:
+    await registry.create(_tenant(A))
+    await registry.put_number(A, _number(A, NUMBER_A))
+
+    await registry.mark_number_tested(A, NUMBER_A, NOW, "SMprovider1")
+
+    [number] = await registry.numbers(A)
+    assert number.tested_at == NOW and number.test_message_id == "SMprovider1"
+
+
+async def test_a_retired_number_stays_held_so_no_other_tenant_can_take_it_and_it_resolves_nothing(
+    registry: Neo4jTenantRegistry, directory: Neo4jTenantDirectory
+) -> None:
+    await registry.create(_tenant(A))
+    await registry.create(_tenant(B))
+    await registry.put_number(A, _number(A, NUMBER_A))
+    await registry.mark_number_tested(A, NUMBER_A, NOW, "SMprovider1")
+    [held] = await registry.numbers(A)
+
+    await registry.put_number(A, replace(held, status=NumberStatus.RETIRED, quarantine_until=LATER))
+
+    [retired] = await registry.numbers(A)
+    assert retired.status is NumberStatus.RETIRED and retired.quarantine_until == LATER
+    assert retired.tested_at == NOW  # a retired number keeps its history, and counts for nothing
+    with pytest.raises(Conflict):  # still A's: B cannot take it
+        await registry.put_number(B, _number(B, NUMBER_A))
+    # Neither the number called nor the account finds a tenant any more.
+    assert await directory.by_inbound_number(NUMBER_A, SID) is None
+    assert await directory.by_account_sid(SID) is None
+    assert await directory.active_line(A) is None
 
 
 # -- nothing leaks between tenants ---------------------------------------------------------------
@@ -359,7 +393,7 @@ async def test_a_write_to_one_tenant_never_changes_the_others_node(
 
     await registry.set_host(A, "alpha.example.org")
     await registry.put_number(A, _number(A, NUMBER_A))
-    await registry.mark_number_tested(A, NUMBER_A, NOW)
+    await registry.mark_number_tested(A, NUMBER_A, NOW, "SMtest1")
     await registry.save(
         replace(created_a, status=TenantStatus.ACTIVE, activated_at=NOW),
         expected_epoch=1,
@@ -576,8 +610,8 @@ CASES = (
     ),
     Case(
         "Q-TENANT-REG-MARK-TESTED",
-        lambda r: r.mark_number_tested(A, NUMBER_A, NOW),
-        lambda r: r.mark_number_tested(A, NUMBER_B, NOW),  # B's number, A's id
+        lambda r: r.mark_number_tested(A, NUMBER_A, NOW, "SMtest1"),
+        lambda r: r.mark_number_tested(A, NUMBER_B, NOW, "SMtest1"),  # B's number, A's id
         NotFound,
     ),
     Case("Q-TENANT-REG-NUMBERS", lambda r: r.numbers(A), lambda r: r.numbers("reg-nobody"), None),
@@ -619,7 +653,7 @@ async def test_a_platform_statement_given_a_value_of_another_tenant_changes_noth
     case: Case, registry: Neo4jTenantRegistry, neo4j_driver: AsyncDriver
 ) -> None:
     await _seed_world(registry, neo4j_driver, with_a=True)
-    await registry.mark_number_tested(B, NUMBER_B, NOW)
+    await registry.mark_number_tested(B, NUMBER_B, NOW, "SMtest1")
     before = await _seen(neo4j_driver)
 
     if case.refused is None:
@@ -644,7 +678,7 @@ async def test_the_registry_writes_leave_the_graphs_invariants_whole(
 ) -> None:
     """Every node still carries a tenant, except the registry labels, and no relationship joins two
     tenants: the `HAS_NUMBER` edges are between two registry nodes, which carry none."""
-    await world.mark_number_tested(A, NUMBER_A, NOW)
+    await world.mark_number_tested(A, NUMBER_A, NOW, "SMtest1")
     await world.put_number(B, _number(B, "+447700900304"))
 
     async def work(tx: AsyncManagedTransaction) -> tuple[list[str], list[str]]:
@@ -721,7 +755,7 @@ MUTANTS = (
         "Q-TENANT-REG-MARK-TESTED",
         "(:Tenant {id: $id})",
         "(:Tenant)",
-        {"id": A, "e164": NUMBER_B, "at": NOW},
+        {"id": A, "e164": NUMBER_B, "at": NOW, "messageId": "SMtest1"},
     ),
     Mutant(
         "a read of numbers that does not name the tenant",

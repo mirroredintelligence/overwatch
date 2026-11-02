@@ -12,6 +12,7 @@ references held by the adapter; the sender port never sees a tenant id or a secr
 from typing import Protocol
 
 from overwatch.application.ports.outbound.messaging import EmailSender, SmsSender
+from overwatch.application.ports.outbound.tenant_registry import TenantNumberRecord
 from overwatch.domain.model.tenant_records import TenantChannel
 
 
@@ -23,6 +24,14 @@ class ChannelUnavailable(Exception):
 class SenderResolver(Protocol):
     async def sms_for(self) -> SmsSender:
         """The text sender of the bound tenant. Raises ChannelUnavailable when there is none."""
+        ...
+
+    async def provisioning_sms_for(self, number: TenantNumberRecord | None) -> SmsSender:
+        """The text sender of ONE line of the bound tenant, for a test text while it is being set up
+        (DEC-1319): the tenant's own number (its Twilio account and token by the number's own
+        reference), or, for `None`, the platform's shared line. Unlike `sms_for` it does not need
+        the tenant to be active, since a test is how a tenant gets ready to be. Raises
+        ChannelUnavailable when the line cannot send (no token, no platform line)."""
         ...
 
     async def email_for(self, channel: TenantChannel | None) -> EmailSender:

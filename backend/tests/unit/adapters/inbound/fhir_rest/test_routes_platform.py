@@ -11,6 +11,7 @@ stand-ins (`tests/support/platform_routes_rig.py`); the same flows on a real gra
 `tests/integration/adapters/inbound/fhir_rest/test_routes_platform.py`.
 """
 
+import dataclasses
 import itertools
 from datetime import timedelta
 from typing import Any
@@ -71,7 +72,14 @@ ROUTES: list[tuple[str, str, Any, frozenset[Role]]] = [
         {"e164": "+447700900123", "accountSid": "AC" + "1" * 32, "senderLabel": "Sample"},
         OPERATOR,
     ),
-    ("POST", f"/platform/tenants/{TENANT}/numbers/tested", {"e164": "+447700900123"}, OPERATOR),
+    ("POST", f"/platform/tenants/{TENANT}/numbers/retire", {"e164": "+447700900123"}, OPERATOR),
+    ("POST", f"/platform/tenants/{TENANT}/numbers/shared", {}, OPERATOR),
+    (
+        "POST",
+        f"/platform/tenants/{TENANT}/numbers/test-text",
+        {"e164": "+447700900123", "to": "07700 900456"},
+        OPERATOR,
+    ),
     ("PUT", f"/platform/tenants/{TENANT}/references", {"dsaRef": "DSA-1"}, OPERATOR),
     (
         "POST",
@@ -490,13 +498,6 @@ async def test_the_other_provisioning_steps_answer_in_fixed_words_and_record_no_
             {"e164": "+447700900123", "accountSid": "AC" + "1" * 32, "senderLabel": "Sample"},
             ops(),
         )
-        tested = await send(
-            client,
-            "POST",
-            f"/platform/tenants/{TENANT}/numbers/tested",
-            {"e164": "+447700900123"},
-            ops(),
-        )
         references = await send(
             client,
             "PUT",
@@ -507,18 +508,168 @@ async def test_the_other_provisioning_steps_answer_in_fixed_words_and_record_no_
 
     assert host.status_code == 200 and host.json() == {"recorded": True}
     assert number.status_code == 201 and number.json()["channelId"] == "sms-447700900123"
-    assert tested.status_code == 200
     assert references.json() == {"references": ["dpia_ref", "dsa_ref"], "recorded": True}
     assert [e.action for e in r.audit.entries] == [
         "tenant-host-set",
         "tenant-number-recorded",
-        "tenant-number-tested",
         "tenant-references-recorded",
     ]
     chain = repr(r.audit.entries) + repr(r.world.audit)
     for value in ("07700 900123", "+447700900123", "new.example.org", "AC" + "1" * 32):
         assert value not in repr(r.audit.entries), value
     assert "07700 900123" not in chain
+
+
+NUMBERS = f"/platform/tenants/{TENANT}/numbers"
+OWN = "+447700900123"
+OWN_BODY = {"e164": OWN, "accountSid": "AC" + "1" * 32, "senderLabel": "Sample"}
+MOBILE = "07700 900456"
+NOT_SET_UP_WORDS = "The organisation's text account is not set up yet."
+
+
+async def _record_own(client: AsyncClient) -> None:
+    assert (await send(client, "POST", NUMBERS, OWN_BODY, ops())).status_code == 201
+
+
+async def test_a_number_is_stopped_and_the_step_is_recorded_with_no_number_in_it() -> None:
+    async with routes() as (r, client):
+        await _record_own(client)
+        stopped = await send(client, "POST", f"{NUMBERS}/retire", {"e164": OWN}, ops())
+        again = await send(client, "POST", f"{NUMBERS}/retire", {"e164": OWN}, ops())
+
+    assert stopped.status_code == 200 and stopped.json() == {"recorded": True}
+    assert again.status_code == 200  # stopping it again is harmless
+    assert r.fake.numbers_by_tenant[TENANT][OWN].status.value == "retired"
+    assert r.audit.entries[-1].action == "tenant-number-retired"
+    assert OWN not in repr(r.audit.entries)
+
+
+async def test_stopping_a_number_the_tenant_does_not_hold_is_the_404_of_an_unknown_one() -> None:
+    async with routes() as (r, client):
+        unknown = await send(client, "POST", f"{NUMBERS}/retire", {"e164": OWN}, ops())
+        r.fake.numbers_by_tenant["act-org"] = {}
+        bad = await send(client, "POST", f"{NUMBERS}/retire", {"e164": "nonsense"}, ops())
+
+    assert unknown.status_code == 404 and bad.status_code == 404
+    assert unknown.json() == bad.json()
+
+
+async def test_a_test_text_is_sent_marks_the_line_and_never_records_the_mobile() -> None:
+    async with routes() as (r, client):
+        await _record_own(client)
+        sent = await send(
+            client, "POST", f"{NUMBERS}/test-text", {"e164": OWN, "to": MOBILE}, ops()
+        )
+
+    assert sent.status_code == 200 and sent.json() == {"sent": True, "recorded": True}
+    [text] = r.texts.sender.sent
+    assert text.to == MOBILE and "No action is needed." in text.text
+    assert r.fake.numbers_by_tenant[TENANT][OWN].tested_at is not None
+    assert r.audit.entries[-1].action == "tenant-test-text-sent"
+    everything = repr(r.audit.entries) + repr(r.world.audit) + sent.text + repr(r.fake.calls)
+    for needle in (MOBILE, "07700900456", "900456"):
+        assert needle not in everything
+
+
+async def test_a_test_text_on_the_shared_line_needs_the_line_to_be_chosen_first() -> None:
+    async with routes() as (r, client):
+        before = await send(client, "POST", f"{NUMBERS}/test-text", {"to": MOBILE}, ops())
+        chosen = await send(client, "POST", f"{NUMBERS}/shared", {}, ops())
+        no_line = (await send(client, "GET", f"/platform/tenants/{TENANT}", None, ops())).json()
+        after = await send(client, "POST", f"{NUMBERS}/test-text", {"to": MOBILE}, ops())
+        line = (await send(client, "GET", f"/platform/tenants/{TENANT}", None, ops())).json()
+
+    assert no_line["sharedLine"] == {"status": "active", "testedAt": None}
+    assert line["sharedLine"]["status"] == "active" and line["sharedLine"]["testedAt"]
+    assert "07700" not in repr(line) and "sms-" not in repr(line["sharedLine"])
+    assert before.status_code == 409
+    assert chosen.status_code == 201 and chosen.json()["channelId"] == "sms-shared"
+    assert after.status_code == 200
+    assert r.texts.asked == [None]
+    # The shared number is never a registry number of the tenant.
+    assert r.fake.numbers_by_tenant.get(TENANT, {}) == {}
+    assert [e.action for e in r.audit.entries][-2:] == [
+        "tenant-shared-line-recorded",
+        "tenant-test-text-sent",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("failure", "status"),
+    [("no-token", 409), ("refused", 422), ("busy", 503), ("bad-mobile", 400)],
+)
+async def test_a_test_text_that_cannot_be_sent_answers_a_fixed_sentence_and_marks_nothing(
+    failure: str, status: int
+) -> None:
+    from overwatch.application.ports.outbound.messaging import TransientSendError
+    from overwatch.application.ports.outbound.sender_resolver import ChannelUnavailable
+
+    async with routes() as (r, client):
+        await _record_own(client)
+        mobile = MOBILE
+        if failure == "no-token":
+            r.texts.error = ChannelUnavailable(f"no text channel for tenant {TENANT}")
+        elif failure == "refused":
+            r.texts.sender.fail_next()
+        elif failure == "busy":
+
+            async def busy(to: str, text: str, message_id: str) -> Any:
+                raise TransientSendError("down")
+
+            r.texts.sender.send = busy  # type: ignore[method-assign]
+        else:
+            mobile = "not a mobile"
+
+            async def invalid(to: str, text: str, message_id: str) -> Any:
+                raise ValueError("not a UK mobile number")
+
+            r.texts.sender.send = invalid  # type: ignore[method-assign]
+        failed = await send(
+            client, "POST", f"{NUMBERS}/test-text", {"e164": OWN, "to": mobile}, ops()
+        )
+
+    assert failed.status_code == status
+    issue = failed.json()["issue"][0]
+    assert issue["diagnostics"]
+    if failure == "no-token":
+        assert issue["diagnostics"] == NOT_SET_UP_WORDS
+    for leak in (MOBILE, "07700900456", mobile, OWN, TENANT, "twilio/"):
+        assert leak not in failed.text, leak
+    assert r.fake.numbers_by_tenant[TENANT][OWN].tested_at is None
+    assert r.audit.entries[-1].action == "tenant-number-recorded"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"to": MOBILE, "tenantId": "other-org"},
+        {"e164": OWN},
+        {"to": ""},
+        {"to": "7" * 41},
+    ],
+)
+async def test_a_bad_test_text_body_is_a_400_and_nothing_is_sent(body: dict[str, Any]) -> None:
+    async with routes() as (r, client):
+        await _record_own(client)
+        response = await send(client, "POST", f"{NUMBERS}/test-text", body, ops())
+
+    assert response.status_code in (400, 422)
+    assert r.texts.sender.sent == []
+
+
+async def test_the_shared_line_and_the_test_text_say_not_set_up_when_the_process_has_neither() -> (
+    None
+):
+    r = build()
+    r.app.state.platform_services = dataclasses.replace(
+        r.platform, shared_line=None, test_text=None
+    )
+    async with r.client() as client:
+        shared = await send(client, "POST", f"{NUMBERS}/shared", {}, ops())
+        text = await send(client, "POST", f"{NUMBERS}/test-text", {"to": MOBILE}, ops())
+
+    assert shared.status_code == 409 and text.status_code == 409
+    assert text.json()["issue"][0]["diagnostics"] == NOT_SET_UP_WORDS
 
 
 async def test_the_admin_consent_invitation_answers_the_masked_view_and_is_recorded() -> None:

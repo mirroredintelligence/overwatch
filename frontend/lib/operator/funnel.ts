@@ -20,7 +20,7 @@ export const STEP_TITLES: Record<StepId, string> = {
   team: 'Administrators’ team',
   roles: 'Other teams',
   reach: 'Web address and text number',
-  agreements: 'Agreements',
+  agreements: 'Agreements (recommended)',
   golive: 'Go live',
 };
 
@@ -61,7 +61,6 @@ const NEED = {
   roles: 'No other team has been added yet.',
   host: 'The web address is not set.',
   number: 'A text number has not been tested yet.',
-  agreements: 'The agreements are not all recorded yet.',
 } as const;
 
 /** What each of the back end's activation blockers means, in words, the step it belongs to, and who can do it. */
@@ -76,7 +75,6 @@ function describeBlocker(blocker: string): Missing {
   if (text.includes('email')) return op('invite', 'email', 'Overwatch cannot send email for this organisation yet. Tell the Overwatch team.');
   if (text.includes('administrator group')) return op('team', 'team', NEED.team);
   if (text.includes('role mapping')) return op('roles', 'roles', NEED.roles);
-  if (text.includes('references')) return op('agreements', 'agreements', NEED.agreements);
   if (text.includes('network agreement')) return them('network', 'Accept the network agreement');
   if (text.includes('contacts')) return them('contacts', 'Set the support contacts');
   if (text.includes('retention')) return them('retention', 'Set how long records are kept');
@@ -120,6 +118,8 @@ export type Funnel = {
   leftByPhase: { phase: PhaseId; title: string; count: number; waiting: boolean }[];
   /** What only the organisation's administrators can do once they sign in. */
   byThem: string[];
+  /** How many of the three agreements are not recorded. They are recommended, never required: not counted as left. */
+  recommended: number;
 };
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -135,6 +135,9 @@ export function deriveFunnel(detail: Detail, consent: ConsentRead): Funnel {
   const otherTeams = mapped.filter((m) => m.role !== 'tenant-admin');
   const refs = t.references;
   const refCount = [refs.dsa, refs.dpia, refs.dcb0160].filter((r) => r !== null).length;
+  // A number counts only while it is in use; the shared line counts once a test text has been sent on it.
+  const sharedLine = detail.sharedLine;
+  const textTested = detail.numbers.some((n) => n.status === 'active' && n.testedAt !== null) || (sharedLine !== null && sharedLine.status === 'active' && sharedLine.testedAt !== null);
 
   const missing: Missing[] = [];
   const add = (item: Missing) => {
@@ -150,8 +153,7 @@ export function deriveFunnel(detail: Detail, consent: ConsentRead): Funnel {
   need('team', 'team', hasAdminTeam);
   need('roles', 'roles', otherTeams.length > 0);
   need('reach', 'host', detail.host !== null);
-  need('reach', 'number', detail.numbers.some((n) => n.testedAt !== null));
-  need('agreements', 'agreements', refCount === 3);
+  need('reach', 'number', textTested);
   if (detail.activation !== null) for (const blocker of detail.activation.blockers) add(describeBlocker(blocker));
 
   const steps: FunnelStep[] = STEP_IDS.map((id, index) => {
@@ -169,7 +171,7 @@ export function deriveFunnel(detail: Detail, consent: ConsentRead): Funnel {
     organisation: stepDone('organisation') || bindings.length > 0,
     approval: invitation !== null,
     teams: hasAdminTeam || otherTeams.length > 0,
-    reach: detail.host !== null || detail.numbers.length > 0 || refCount > 0,
+    reach: detail.host !== null || detail.numbers.length > 0 || sharedLine !== null || refCount > 0,
     golive: false,
   };
   const summaries: Record<PhaseId, () => string> = {
@@ -192,8 +194,7 @@ export function deriveFunnel(detail: Detail, consent: ConsentRead): Funnel {
       return 'Administrators’ team added. No other team yet.';
     },
     reach: () => {
-      const tested = detail.numbers.some((n) => n.testedAt !== null);
-      return `Web address ${detail.host !== null ? 'set' : 'not set'}. Text number ${tested ? 'tested' : 'not tested'}. Agreements ${refCount} of 3.`;
+      return `Web address ${detail.host !== null ? 'set' : 'not set'}. Text number ${textTested ? 'tested' : 'not tested'}. Agreements (recommended) ${refCount} of 3.`;
     },
     golive: () => {
       if (t.status !== 'provisioning') return t.status === 'active' ? 'Live.' : 'Not live.';
@@ -224,5 +225,6 @@ export function deriveFunnel(detail: Detail, consent: ConsentRead): Funnel {
     missing,
     leftByPhase: phases.filter((p) => p.left > 0).map((p) => ({ phase: p.id, title: p.title, count: p.left, waiting: p.state === 'waiting' })),
     byThem,
+    recommended: 3 - refCount,
   };
 }

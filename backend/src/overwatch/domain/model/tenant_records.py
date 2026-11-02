@@ -107,6 +107,7 @@ MAX_KEEP_DAYS: Final = 3650  # [ASSUMED] ten years
 
 CHANNEL_ID_PATTERN: Final = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
 ACCOUNT_SID_PATTERN: Final = re.compile(r"AC[0-9a-f]{32}")
+MESSAGE_ID_PATTERN: Final = re.compile(r"[A-Za-z0-9_-]{2,64}")
 # `<kind>/<tenant id>/<name>`: the shape of `application/ports/outbound/tenants.py::secret_ref`. The
 # domain checks the shape only; that the tenant part is the record's own tenant is checked where
 # the tenant is known (the use case, through `check_secret_ref`).
@@ -190,6 +191,15 @@ class TenantChannel:
     secret_ref: str | None = None
     from_address: str | None = None
     from_display_name: str | None = None
+    shared: bool = False
+    """A text channel that sends from the platform's own account and number, never the tenant's
+    (DEC-1319): outgoing only. It holds no account SID and no secret reference, and it is never a
+    registry number, so a number can never identify this tenant through it."""
+    tested_at: datetime | None = None
+    """When a test text was accepted by the provider on a shared channel. An own number holds its
+    test in the registry; only a shared channel keeps it here."""
+    test_message_id: str | None = None
+    """The provider's id of that test text (an identifier, never the number it went to)."""
 
     def __post_init__(self) -> None:
         _matches("id", self.id, CHANNEL_ID_PATTERN)
@@ -201,10 +211,33 @@ class TenantChannel:
         _text("sender_label", self.sender_label, SENDER_LABEL_MAX_LENGTH)
         if self.secret_ref is not None:
             _matches("secret_ref", self.secret_ref, SECRET_REF_PATTERN)
-        if self.kind is ChannelKind.SMS:
+        if type(self.shared) is not bool:
+            raise ValidationFailed("shared", WRONG_TYPE_MESSAGE)
+        self._check_test_record()
+        if self.shared:
+            self._check_shared_channel()
+        elif self.kind is ChannelKind.SMS:
             self._check_text_channel()
         else:
             self._check_email_channel()
+
+    def _check_test_record(self) -> None:
+        if self.tested_at is not None:
+            _aware("tested_at", self.tested_at)
+        if self.test_message_id is not None:
+            _matches("test_message_id", self.test_message_id, MESSAGE_ID_PATTERN)
+        if not self.shared and (self.tested_at is not None or self.test_message_id is not None):
+            raise ValidationFailed("tested_at", TOGETHER_MESSAGE)
+
+    def _check_shared_channel(self) -> None:
+        if (
+            self.kind is not ChannelKind.SMS
+            or self.account_sid is not None
+            or self.secret_ref is not None
+            or self.from_address is not None
+            or self.from_display_name is not None
+        ):
+            raise ValidationFailed("shared", TOGETHER_MESSAGE)
 
     def _check_text_channel(self) -> None:
         if self.account_sid is None or self.secret_ref is None:

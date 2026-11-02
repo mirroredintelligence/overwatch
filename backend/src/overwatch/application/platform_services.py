@@ -49,10 +49,12 @@ from overwatch.application.use_cases.platform_tenants import ListPlatformTenants
 from overwatch.application.use_cases.tenant_admin import (
     ActivateTenant,
     CreateTenant,
-    MarkNumberTested,
     RecordTenantNumber,
     RecordTenantReferences,
+    RetireTenantNumber,
+    SendTestText,
     SetTenantHost,
+    UseSharedLine,
     VerifyEntraBinding,
 )
 from overwatch.application.use_cases.tenant_admin_views import ReadTenantAdmin
@@ -137,7 +139,7 @@ class PlatformServices:
     detail: ReadPlatformTenant
     create: CreateTenant
     number: RecordTenantNumber
-    tested: MarkNumberTested
+    retire: RetireTenantNumber
     host: SetTenantHost
     references: RecordTenantReferences
     directory: VerifyEntraBinding
@@ -152,6 +154,10 @@ class PlatformServices:
     consent_read: ReadAdminConsent | None = None
     groups_provision: ProvisionEntraGroups | None = None
     groups_member: AddInitialGroupMember | None = None
+    shared_line: UseSharedLine | None = None
+    """Set with the settings (the shared number); with none, the shared line is refused."""
+    test_text: SendTestText | None = None
+    """Set with the sender resolver; with none, a test text says the text account is not set up."""
 
 
 @dataclass(frozen=True, slots=True)

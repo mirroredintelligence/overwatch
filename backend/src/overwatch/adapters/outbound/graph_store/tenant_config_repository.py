@@ -289,6 +289,9 @@ _SCENARIOS: Final[dict[str, Scenario]] = {
             "secretRef": "twilio/seed/auth-token",
             "fromAddress": None,
             "fromDisplayName": None,
+            "shared": False,
+            "testedAt": None,
+            "testMessageId": None,
         },
         lookup=("id",),
         new=("status", "senderLabel"),
@@ -436,7 +439,8 @@ _QUERIES: Final[dict[str, tuple[str, Literal["read", "write"]]]] = {
         "MERGE (c:TenantChannel {id: $id, tenantId: $tenant}) "
         "SET c.kind = $kind, c.provider = $provider, c.status = $status, "
         "c.senderLabel = $senderLabel, c.accountSid = $accountSid, c.secretRef = $secretRef, "
-        "c.fromAddress = $fromAddress, c.fromDisplayName = $fromDisplayName "
+        "c.fromAddress = $fromAddress, c.fromDisplayName = $fromDisplayName, "
+        "c.shared = $shared, c.testedAt = $testedAt, c.testMessageId = $testMessageId "
         "RETURN count(c) AS saved",
         "write",
     ),
@@ -635,6 +639,9 @@ def channel_params(channel: TenantChannel) -> dict[str, Any]:
         "secretRef": channel.secret_ref,
         "fromAddress": channel.from_address,
         "fromDisplayName": channel.from_display_name,
+        "shared": channel.shared,
+        "testedAt": channel.tested_at,
+        "testMessageId": channel.test_message_id,
     }
 
 
@@ -650,6 +657,10 @@ def channel_from_props(props: dict[str, Any]) -> TenantChannel:
             secret_ref=_optional_text(props, "secretRef"),
             from_address=_optional_text(props, "fromAddress"),
             from_display_name=_optional_text(props, "fromDisplayName"),
+            # A row written before DEC-1319 has no `shared`: it is an ordinary channel.
+            shared=props.get("shared") is True,
+            tested_at=_optional_instant(props.get("testedAt")),
+            test_message_id=_optional_text(props, "testMessageId"),
         )
     except (ValidationFailed, ValueError) as error:
         raise _invalid() from error

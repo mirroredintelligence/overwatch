@@ -35,6 +35,8 @@ from overwatch.application.ods_organisation import organisation_bundle
 from overwatch.application.ports.outbound.audit import AuditEntry
 from overwatch.application.ports.outbound.clock import Clock
 from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.messaging import SendFailedError, TransientSendError
+from overwatch.application.ports.outbound.sender_resolver import ChannelUnavailable, SenderResolver
 from overwatch.application.ports.outbound.tenant_registry import TenantNumberRecord, TenantRegistry
 from overwatch.application.ports.outbound.tenants import (
     TenantDirectory,
@@ -83,6 +85,7 @@ from overwatch.domain.rules.tenant_lifecycle import (
     ActivationFacts,
     activate_tenant,
     activation_blockers,
+    number_quarantine_until,
 )
 from overwatch.domain.rules.tenant_settings import is_named_ref
 
@@ -370,15 +373,41 @@ class RecordTenantNumber(OperatorUseCase):
         return channel.id
 
 
+# ---- stop using a number, the shared line, the test text (DEC-1319)
+
+NO_NUMBER: Final = "the tenant holds no such number"
+SHARED_UNAVAILABLE: Final = "the platform has no shared sending line"
+SHARED_CHANNEL_ID: Final = "sms-shared"
+SHARED_LABEL: Final = "Overwatch shared line"
+NOT_SET_UP: Final = "The organisation's text account is not set up yet."
+TEST_REFUSED: Final = "The text could not be sent to that number."
+TEST_TRY_AGAIN: Final = "The text could not be sent just now. Try again shortly."
+TEST_TEXT: Final = "This is a test from Overwatch for {organisation}. No action is needed."
+BAD_DESTINATION: Final = "must be a UK mobile number"
+
+
+class TextCheckFailed(Exception):
+    """A test text that could not be sent. `reason` is one of `not-set-up`, `refused` and
+    `try-again`, and the message is the fixed sentence for it: never the number it was for, a
+    secret reference, an account or the provider's own words."""
+
+    def __init__(self, reason: str, message: str) -> None:
+        super().__init__(message)
+        self.reason = reason
+
+
 @dataclass(frozen=True, slots=True)
-class MarkNumberTestedCommand:
+class RetireNumberCommand:
     actor: Actor
     e164: str
 
 
-class MarkNumberTested(OperatorUseCase):
-    """Record that a test text was delivered from the tenant's number (an activation fact). The
-    operator sends the text and reads the delivery; this records that it happened."""
+class RetireTenantNumber(OperatorUseCase):
+    """Stop using one of the tenant's own numbers. The number stays on the registry, held by this
+    tenant and retired (never deleted), so no other tenant can be given it; the tenant's text
+    channel for it is retired too. Nothing counts a retired number for activation, and nothing
+    resolves a tenant from it (`TenantNumber {status: 'active'}` in every lookup). A number that is
+    not the tenant's is `NotFound`, the same refusal as an unknown one."""
 
     def __init__(
         self,
@@ -390,22 +419,211 @@ class MarkNumberTested(OperatorUseCase):
         super().__init__(tenants, uow_factory, clock)
         self._registry = registry
 
-    async def execute(self, command: MarkNumberTestedCommand) -> None:
+    async def execute(self, command: RetireNumberCommand) -> bool:
+        """True when this call stopped the number, False when it was already stopped."""
         _, scope = self._begin(command.actor)
+        number = normalise_e164(command.e164)
         await self._tenant(scope, allowed=_OPEN_FOR_CHANGES)
-        await self._registry.mark_number_tested(scope.value, command.e164, self._clock.now())
+        held = {n.e164: n for n in await self._registry.numbers(scope.value)}
+        record = None if number is None else held.get(number)
+        if number is None or record is None:
+            raise NotFound(NO_NUMBER)
+        now = self._clock.now()
+        changed = False
+        if record.status is NumberStatus.ACTIVE:
+            stopped = dataclasses.replace(
+                record, status=NumberStatus.RETIRED, quarantine_until=number_quarantine_until(now)
+            )
+            await self._registry.put_number(scope.value, stopped)
+            changed = True
         async with self._uow_factory() as uow:
             _unit_scope(uow)
+            for channel in await uow.tenant_config.channels():
+                if channel.id == f"sms-{number[1:]}" and channel.status is NumberStatus.ACTIVE:
+                    await uow.tenant_config.put_channel(
+                        dataclasses.replace(channel, status=NumberStatus.RETIRED)
+                    )
+                    changed = True
+            if changed:
+                await _audit(
+                    uow,
+                    self._clock,
+                    command.actor,
+                    "RetireTenantNumber",
+                    AUDIT_UPDATE,
+                    "number-retired",
+                    {"status": NumberStatus.RETIRED.value},
+                )
+                await uow.commit()
+        return changed
+
+
+@dataclass(frozen=True, slots=True)
+class UseSharedLineCommand:
+    actor: Actor
+
+
+class UseSharedLine(OperatorUseCase):
+    """Send the tenant's texts from the platform's shared line, outgoing only. Records one SMS
+    channel flagged `shared` in the tenant's own scope. It writes nothing to the registry: the
+    shared number is never the tenant's number (a number identifies the tenant for an inbound text,
+    and the platform's number is no tenant's). `available` is whether the platform has a shared
+    number configured; without one the channel could never send, so it is refused."""
+
+    def __init__(
+        self,
+        tenants: TenantDirectory,
+        uow_factory: UnitOfWorkFactory,
+        clock: Clock,
+        *,
+        available: bool,
+    ) -> None:
+        super().__init__(tenants, uow_factory, clock)
+        self._available = available
+
+    async def execute(self, command: UseSharedLineCommand) -> str:
+        """Returns the id of the channel record."""
+        _, scope = self._begin(command.actor)
+        await self._tenant(scope, allowed=_OPEN_FOR_CHANGES)
+        if not self._available:
+            raise Conflict(SHARED_UNAVAILABLE)
+        async with self._uow_factory() as uow:
+            _unit_scope(uow)
+            existing = next(
+                (c for c in await uow.tenant_config.channels() if c.id == SHARED_CHANNEL_ID), None
+            )
+            # Choosing it again keeps what a test already proved, and starts a stopped line again.
+            channel = (
+                dataclasses.replace(existing, status=NumberStatus.ACTIVE)
+                if existing is not None
+                else TenantChannel(
+                    id=SHARED_CHANNEL_ID,
+                    kind=ChannelKind.SMS,
+                    provider=CHANNEL_PROVIDER[ChannelKind.SMS],
+                    status=NumberStatus.ACTIVE,
+                    sender_label=SHARED_LABEL,
+                    shared=True,
+                )
+            )
+            await uow.tenant_config.put_channel(channel)
             await _audit(
                 uow,
                 self._clock,
                 command.actor,
-                "MarkNumberTested",
+                "UseSharedLine",
                 AUDIT_UPDATE,
-                "number-test",
-                {},
+                f"channel-{channel.id}",
+                {"kind": "sms", "shared": True, "status": channel.status.value},
             )
             await uow.commit()
+        return channel.id
+
+
+@dataclass(frozen=True, slots=True)
+class SendTestTextCommand:
+    """`e164` is the tenant's own number to send from; `None` is the shared line. `to` is the mobile
+    that receives it: personal data, used for this one text and never stored, logged or echoed."""
+
+    actor: Actor
+    to: str
+    e164: str | None = None
+
+
+class SendTestText(OperatorUseCase):
+    """Send one fixed test text from the tenant's own line through its normal sender, and mark the
+    line tested when the provider ACCEPTS it, recording the provider's message id against the line.
+
+    Why acceptance and not the delivery receipt (DEC-1319): a receipt reaches `/webhooks/sms/twilio/
+    status`, which finds the tenant by the Twilio account and applies the receipt to a Communication
+    in the tenant's scope. A test text has no Communication, and a text on the shared line is on
+    the platform's account, which no tenant owns, so its receipt names no tenant. Reusing that path
+    would need a new record, a new consumer and a platform-level receipt route: a large change. So
+    this records that the provider accepted the text (a real send with the tenant's own account and
+    token, which proves the account, the token and the number work together) and the screen says so.
+
+    The destination is never kept: not in the registry, the channel, the audit entry, the message id
+    or any log, and no refusal repeats it. A line that cannot send answers `NOT_SET_UP`."""
+
+    def __init__(
+        self,
+        tenants: TenantDirectory,
+        registry: TenantRegistry,
+        uow_factory: UnitOfWorkFactory,
+        clock: Clock,
+        ids: IdGenerator,
+        senders: SenderResolver,
+    ) -> None:
+        super().__init__(tenants, uow_factory, clock)
+        self._registry = registry
+        self._ids = ids
+        self._senders = senders
+
+    async def execute(self, command: SendTestTextCommand) -> None:
+        _, scope = self._begin(command.actor)
+        tenant = await self._tenant(scope, allowed=_OPEN_FOR_CHANGES)
+        if type(command.to) is not str or not command.to.strip():
+            raise ValidationFailed("to", BAD_DESTINATION)
+        record, channel = await self._line(scope, command.e164)
+        try:
+            sender = await self._senders.provisioning_sms_for(record)
+        except ChannelUnavailable:
+            raise TextCheckFailed("not-set-up", NOT_SET_UP) from None
+        text = TEST_TEXT.format(organisation=tenant.display_name)
+        try:
+            receipt = await sender.send(command.to, text, f"test-{self._ids.new_id()}")
+        except ValueError:
+            raise ValidationFailed("to", BAD_DESTINATION) from None
+        except TransientSendError:
+            raise TextCheckFailed("try-again", TEST_TRY_AGAIN) from None
+        except SendFailedError:
+            raise TextCheckFailed("not-set-up", NOT_SET_UP) from None
+        if not receipt.accepted:
+            raise TextCheckFailed("refused", TEST_REFUSED)
+        now = self._clock.now()
+        if record is not None:
+            await self._registry.mark_number_tested(
+                scope.value, record.e164, now, receipt.provider_message_id
+            )
+        async with self._uow_factory() as uow:
+            _unit_scope(uow)
+            if channel is not None:
+                await uow.tenant_config.put_channel(
+                    dataclasses.replace(
+                        channel, tested_at=now, test_message_id=receipt.provider_message_id
+                    )
+                )
+            await _audit(
+                uow,
+                self._clock,
+                command.actor,
+                "SendTestText",
+                AUDIT_UPDATE,
+                "test-text",
+                {"line": "shared" if record is None else "own", "accepted": True},
+            )
+            await uow.commit()
+
+    async def _line(
+        self, scope: ScopeId, e164: str | None
+    ) -> tuple[TenantNumberRecord | None, TenantChannel | None]:
+        """The line to test: (the registry number, None) for the tenant's own number, (None, the
+        shared channel) for the shared line. A number the tenant does not hold is `NotFound`; a
+        stopped number or a shared line the tenant does not use is `NOT_SET_UP`."""
+        if e164 is not None:
+            number = normalise_e164(e164)
+            held = {n.e164: n for n in await self._registry.numbers(scope.value)}
+            record = None if number is None else held.get(number)
+            if record is None:
+                raise NotFound(NO_NUMBER)
+            if record.status is not NumberStatus.ACTIVE:
+                raise TextCheckFailed("not-set-up", NOT_SET_UP)
+            return record, None
+        async with self._uow_factory() as uow:
+            _unit_scope(uow)
+            for channel in await uow.tenant_config.channels():
+                if channel.shared and channel.status is NumberStatus.ACTIVE:
+                    return None, channel
+        raise TextCheckFailed("not-set-up", NOT_SET_UP)
 
 
 @dataclass(frozen=True, slots=True)

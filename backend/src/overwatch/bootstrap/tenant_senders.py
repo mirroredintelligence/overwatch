@@ -22,6 +22,7 @@ ChannelUnavailable, whose text names the tenant id and the channel only. No numb
 secret is ever in an error or a log. A missing bound tenant is a TenancyError, never a default.
 """
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Final
 
@@ -34,17 +35,21 @@ from overwatch.adapters.outbound.email_twilio.twilio_email import TwilioEmail
 from overwatch.adapters.outbound.sms_twilio.twilio_sms import TwilioSms
 from overwatch.application.ports.outbound.messaging import EmailSender, SmsSender
 from overwatch.application.ports.outbound.sender_resolver import ChannelUnavailable
+from overwatch.application.ports.outbound.tenant_registry import TenantNumberRecord
 from overwatch.application.ports.outbound.tenants import (
     TenantDirectory,
     TenantLine,
     TenantRecordInvalid,
     check_secret_ref,
+    normalise_account_sid,
+    normalise_e164,
 )
 from overwatch.application.ports.outbound.tokens import SecretStore
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from overwatch.application.tenancy import current_tenant
 from overwatch.bootstrap.settings import Settings
 from overwatch.domain.errors import NotFound, ValidationFailed
-from overwatch.domain.model.tenant import NumberStatus
+from overwatch.domain.model.tenant import NumberStatus, TenantStatus
 from overwatch.domain.model.tenant_records import ChannelKind, ChannelProvider, TenantChannel
 
 PLATFORM_EMAIL_TOKEN_SECRET: Final = "twilio-auth-token"
@@ -62,6 +67,48 @@ class PlatformEmailIdentity:
     account_sid: str
     from_address: str
     display_name: str | None = "Overwatch"
+
+
+PLATFORM_SMS_TOKEN_SECRET: Final = PLATFORM_EMAIL_TOKEN_SECRET
+"""The platform's Twilio auth token: one secret for the platform email and the shared text line."""
+
+
+@dataclass(frozen=True, slots=True)
+class PlatformSmsIdentity:
+    """The platform's own Twilio account and shared number for a tenant's outgoing texts (DEC-1319).
+    The auth token is the secret `PLATFORM_SMS_TOKEN_SECRET`. This number is never a tenant's."""
+
+    account_sid: str
+    from_number: str
+
+
+SharedLineCheck = Callable[[], Awaitable[bool]]
+"""Does the bound tenant have an active shared text channel? Reads the tenant's own scope."""
+
+
+def platform_sms_identity(settings: Settings) -> PlatformSmsIdentity | None:
+    """The shared line's identity from the two settings, or None when either is missing or not the
+    right shape (no shared line is offered then)."""
+    account = normalise_account_sid(settings.platform_twilio_account_sid)
+    number = normalise_e164(settings.platform_sms_from)
+    if account is None or number is None:
+        return None
+    return PlatformSmsIdentity(account, number)
+
+
+def shared_line_check(uow_factory: UnitOfWorkFactory) -> SharedLineCheck:
+    """The check over the tenant's own channels, in the bound tenant's scope."""
+
+    async def has_shared_line() -> bool:
+        async with uow_factory() as uow:
+            return any(
+                channel.shared
+                and channel.kind is ChannelKind.SMS
+                and channel.status is NumberStatus.ACTIVE
+                for channel in await uow.tenant_config.channels()
+            )
+
+    return has_shared_line
 
 
 def smtp_relay_from(settings: Settings) -> SmtpRelay:
@@ -89,6 +136,8 @@ class TenantSenderResolver:
         status_url: str,
         smtp_relay: SmtpRelay | None = None,
         platform_email: PlatformEmailIdentity | None = None,
+        platform_sms: PlatformSmsIdentity | None = None,
+        shared_line: SharedLineCheck | None = None,
     ) -> None:
         self._directory = directory
         self._secrets = secrets
@@ -96,6 +145,8 @@ class TenantSenderResolver:
         self._status_url = status_url
         self._smtp_relay = smtp_relay
         self._platform_email = platform_email
+        self._platform_sms = platform_sms
+        self._shared_line = shared_line
 
     async def admin_email_for(self, channel: TenantChannel | None) -> EmailSender:
         """One rule for every platform-admin email (DEC-1316): the tenant's own email sender when
@@ -124,10 +175,55 @@ class TenantSenderResolver:
             raise unavailable from None
 
     async def sms_for(self) -> SmsSender:
+        """The tenant's own active number; only when it has none, and is an active tenant that chose
+        the platform's shared line (outgoing only, DEC-1319), that line. A registry fault is not a
+        gap to fall back from."""
         tenant = current_tenant()
-        line = await self._line(tenant)
+        unavailable = ChannelUnavailable(f"no {TEXT_CHANNEL} channel for tenant {tenant}")
+        try:
+            line = await self._directory.active_line(tenant)
+        except TenantRecordInvalid:
+            raise unavailable from None
+        if line is None:
+            return await self._shared_sender(tenant, unavailable)
+        if line.tenant.id != tenant:
+            raise unavailable
         token = self._token(tenant, line)
         return TwilioSms(self._http, line.account_sid, token, line.number, self._status_url)
+
+    async def provisioning_sms_for(self, number: TenantNumberRecord | None) -> SmsSender:
+        """The sender of one named line for a test text: no lookup of an active line, as the tenant
+        is usually still being set up. The tenant's own number uses its own account and a token
+        reference that must be the tenant's own; `None` is the platform's shared line."""
+        tenant = current_tenant()
+        unavailable = ChannelUnavailable(f"no {TEXT_CHANNEL} channel for tenant {tenant}")
+        if number is None:
+            return self._platform_sms_sender(unavailable)
+        try:
+            check_secret_ref(number.secret_ref, tenant)
+        except ValidationFailed:
+            raise unavailable from None
+        token = self._secret_text(number.secret_ref, unavailable)
+        return TwilioSms(self._http, number.account_sid, token, number.e164, self._status_url)
+
+    async def _shared_sender(self, tenant: str, unavailable: ChannelUnavailable) -> SmsSender:
+        if self._shared_line is None or self._platform_sms is None:
+            raise unavailable
+        found = await self._directory.get(tenant)
+        if found is None or found.id != tenant or found.status is not TenantStatus.ACTIVE:
+            raise unavailable
+        if not await self._shared_line():
+            raise unavailable
+        return self._platform_sms_sender(unavailable)
+
+    def _platform_sms_sender(self, unavailable: ChannelUnavailable) -> SmsSender:
+        identity = self._platform_sms
+        if identity is None:
+            raise unavailable
+        token = self._secret_text(PLATFORM_SMS_TOKEN_SECRET, unavailable)
+        return TwilioSms(
+            self._http, identity.account_sid, token, identity.from_number, self._status_url
+        )
 
     async def email_for(self, channel: TenantChannel | None) -> EmailSender:
         """The email sender of the bound tenant, from the active email channel record the caller

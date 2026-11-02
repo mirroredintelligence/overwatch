@@ -117,7 +117,12 @@ from overwatch.bootstrap.secret_store import (
 )
 from overwatch.bootstrap.settings import Settings
 from overwatch.bootstrap.telemetry import start_telemetry
-from overwatch.bootstrap.tenant_senders import TenantSenderResolver, status_callback_url
+from overwatch.bootstrap.tenant_senders import (
+    TenantSenderResolver,
+    platform_sms_identity,
+    shared_line_check,
+    status_callback_url,
+)
 from overwatch.domain.errors import NotFound
 
 log = logging.getLogger(__name__)
@@ -367,7 +372,12 @@ async def serve(
             set_decline_reason=SetDeclineReason(container.uow_factory, store, container.clock),
         )
         senders = TenantSenderResolver(
-            container.tenants, container.secrets, http, status_callback_url(settings)
+            container.tenants,
+            container.secrets,
+            http,
+            status_callback_url(settings),
+            platform_sms=platform_sms_identity(settings),
+            shared_line=shared_line_check(container.uow_factory),
         )
         sealer = AesGcmContentSealer(container.secrets)
         registry = Neo4jNetworkRegistry(container.neo4j)

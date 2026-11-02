@@ -28,6 +28,10 @@ param operatorDirectoryId string = 'c5901e0b-8d43-4ae8-97c3-ca6c52573a33'
 // The platform's Twilio account SID (an identifier, not a secret): passed at deploy time, never stored here.
 // Its auth token is the secret twilio-auth-token. Used for the platform's own email (admin consent invitations).
 param platformTwilioAccountSid string
+// The platform's shared text number (E.164), for organisations that have no number of their own yet (outgoing texts
+// only; it is never an organisation's number and no text to it identifies one). Passed at deploy time, never stored here.
+// Left empty, the shared line is not offered. It sends from the platform account above, with the secret twilio-auth-token.
+param platformSmsFrom string = ''
 
 resource environment 'Microsoft.App/managedEnvironments@2024-03-01' existing = {
   name: environmentName
@@ -87,6 +91,7 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'OVERWATCH_ENTRA_OPERATOR_CLIENT_ID', value: entraOperatorClientId }
             { name: 'OVERWATCH_OPERATOR_DIRECTORY_ID', value: operatorDirectoryId }
             { name: 'OVERWATCH_PLATFORM_TWILIO_ACCOUNT_SID', value: platformTwilioAccountSid }
+            { name: 'OVERWATCH_PLATFORM_SMS_FROM', value: platformSmsFrom }
             { name: 'OVERWATCH_POSTCODE_CENTROIDS_PATH', value: '/app/data/postcodes/centroids-dt-bh.csv' }
           ]
           resources: {

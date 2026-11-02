@@ -29,6 +29,7 @@ from overwatch.adapters.testing.fixed_clock import FixedClock
 from overwatch.adapters.testing.fixed_ids import SequentialIds
 from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
 from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.adapters.testing.recording_senders import RecordingSmsSender
 from overwatch.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
 from overwatch.application.platform_services import (
     PlatformRecorder,
@@ -49,10 +50,12 @@ from overwatch.application.use_cases.platform_tenants import ListPlatformTenants
 from overwatch.application.use_cases.tenant_admin import (
     ActivateTenant,
     CreateTenant,
-    MarkNumberTested,
     RecordTenantNumber,
     RecordTenantReferences,
+    RetireTenantNumber,
+    SendTestText,
     SetTenantHost,
+    UseSharedLine,
     VerifyEntraBinding,
 )
 from overwatch.application.use_cases.tenant_offboarding import StartTenantOffboarding
@@ -165,6 +168,23 @@ class FailingAudit:
         self.entries.append(entry)
 
 
+class TextLines:
+    """The text sender of the test text: one recording sender for every line, the lines it was asked
+    for, and the failures a test can ask for (`error` is raised by the resolver, and
+    `sender.fail_next()` makes the provider refuse the next text)."""
+
+    def __init__(self) -> None:
+        self.sender = RecordingSmsSender("line")
+        self.asked: list[Any] = []
+        self.error: Exception | None = None
+
+    async def provisioning_sms_for(self, number: Any) -> Any:
+        self.asked.append(number)
+        if self.error is not None:
+            raise self.error
+        return self.sender
+
+
 @dataclass
 class Rigs:
     app: FastAPI
@@ -178,6 +198,7 @@ class Rigs:
     stubs: SimpleNamespace
     platform: PlatformServices
     tenant_admin: TenantAdminServices
+    texts: TextLines
     keys: dict[str, str] = field(default_factory=dict)
 
     def client(self) -> AsyncClient:
@@ -199,6 +220,7 @@ def build(*, with_services: bool = True) -> Rigs:
     reader = FakeAuditReader()
     told: list[str] = []
     ids = SequentialIds()
+    texts = TextLines()
     activate = ActivateTenant(
         fake,  # type: ignore[arg-type]
         fake,  # type: ignore[arg-type]
@@ -284,7 +306,9 @@ def build(*, with_services: bool = True) -> Rigs:
         ),
         create=CreateTenant(fake, fake, FakeHeads(), world.factory(), clock),  # type: ignore[arg-type]
         number=RecordTenantNumber(fake, fake, world.factory(), clock),  # type: ignore[arg-type]
-        tested=MarkNumberTested(fake, fake, world.factory(), clock),  # type: ignore[arg-type]
+        retire=RetireTenantNumber(fake, fake, world.factory(), clock),  # type: ignore[arg-type]
+        shared_line=UseSharedLine(fake, world.factory(), clock, available=True),  # type: ignore[arg-type]
+        test_text=SendTestText(fake, fake, world.factory(), clock, ids, texts),  # type: ignore[arg-type]
         host=SetTenantHost(fake, fake, world.factory(), clock),  # type: ignore[arg-type]
         references=RecordTenantReferences(fake, fake, world.factory(), clock),  # type: ignore[arg-type]
         directory=VerifyEntraBinding(fake, fake, world.factory(), clock),  # type: ignore[arg-type]
@@ -326,7 +350,9 @@ def build(*, with_services: bool = True) -> Rigs:
     if with_services:
         app.state.platform_services = platform
         app.state.tenant_admin_services = tenant_admin
-    return Rigs(app, clock, t, fake, world, audit, reader, told, stubs, platform, tenant_admin)
+    return Rigs(
+        app, clock, t, fake, world, audit, reader, told, stubs, platform, tenant_admin, texts
+    )
 
 
 @asynccontextmanager

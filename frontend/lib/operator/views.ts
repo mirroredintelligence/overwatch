@@ -32,6 +32,7 @@ export function parseTenantDetail(value: unknown) {
   const t = obj(d.tenant);
   const refs = obj(t.references ?? {});
   const activation = d.activation === null || d.activation === undefined ? null : obj(d.activation);
+  const sharedLine = d.sharedLine === null || d.sharedLine === undefined ? null : obj(d.sharedLine);
   return {
     tenant: {
       id: str(t.id, 64),
@@ -73,12 +74,21 @@ export function parseTenantDetail(value: unknown) {
         hasSecret: bool(n.hasSecret),
       };
     }),
+    // The platform's shared sending line, when the organisation uses it (outgoing texts only): in use or stopped, and when
+    // a test text was last sent on it. The platform's own number is never passed on.
+    sharedLine: sharedLine === null ? null : { status: oneOf(sharedLine.status, ['active', 'retired', 'quarantined'] as const), testedAt: strOrNull(sharedLine.testedAt, 40) },
     activation: activation === null ? null : { ready: bool(activation.ready), blockers: strings(activation.blockers ?? [], 50) },
   };
 }
 
 export function parseRecorded(value: unknown) {
   return { recorded: bool(obj(value).recorded) };
+}
+
+/** The answer to a test text: that the provider accepted it. Delivery to the phone is not confirmed. */
+export function parseTestText(value: unknown) {
+  const v = obj(value);
+  return { sent: bool(v.sent), recorded: bool(v.recorded) };
 }
 
 export function parseCreated(value: unknown) {

@@ -17,6 +17,12 @@ const KINDS: readonly [string, string][] = [
   ['clinical-safety-officer', 'Clinical safety officer'],
 ];
 
+// The back end takes a telephone number for these kinds and an email address for the others (the shape of each is
+// checked there too). Staff are told to phone the shift lead, so that line is a number and not an address.
+const PHONE_KINDS: ReadonlySet<string> = new Set(['coordination-phone', 'shift-lead-escalation']);
+const PHONE_SHAPE = /^\+?[0-9][0-9 ]{5,18}[0-9]$/;
+const EMAIL_SHAPE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
 export function ContactsForm() {
   const { state } = useAdminRead<Overview>('/api/bff/tenant/overview');
   return (
@@ -50,7 +56,9 @@ function ContactKind({ kind, name, held }: { kind: string; name: string; held: O
     setMessage(null);
     const next: { label?: string; value?: string } = {};
     if (label.trim() === '') next.label = 'Enter a label.';
-    if (value.trim() === '') next.value = 'Enter a number or address.';
+    if (value.trim() === '') next.value = PHONE_KINDS.has(kind) ? 'Enter a phone number.' : 'Enter an email address.';
+    else if (!(PHONE_KINDS.has(kind) ? PHONE_SHAPE : EMAIL_SHAPE).test(value.trim()))
+      next.value = PHONE_KINDS.has(kind) ? 'Enter a phone number, such as 01632 960001. An email address does not work here.' : 'Enter an email address, such as team@example.nhs.uk.';
     setErrors(next);
     if (next.label !== undefined || next.value !== undefined) return;
     setBusy(true);
@@ -80,6 +88,7 @@ function ContactKind({ kind, name, held }: { kind: string; name: string; held: O
         <TextField
           id={`${kind}-value`}
           label="Number or address"
+          hint={PHONE_KINDS.has(kind) ? 'A phone number. Staff are told to phone this line.' : 'An email address.'}
           value={value}
           onChange={(v) => {
             submitKey.fresh();

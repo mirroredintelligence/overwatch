@@ -55,7 +55,17 @@ describe('ContactsForm', () => {
     const group = screen.getByRole('group', { name: 'Shift lead escalation' });
     await user.click(within(group).getByRole('button', { name: 'Save shift lead escalation' }));
     expect(await within(group).findByText('Enter a label.', { selector: 'p' })).toBeInTheDocument();
-    expect(within(group).getByText('Enter a number or address.', { selector: 'p' })).toBeInTheDocument();
+    expect(within(group).getByText('Enter a phone number.', { selector: 'p' })).toBeInTheDocument();
+    expect(seenAdminWrites).toEqual([]);
+  });
+
+  it('says an email address does not work for the shift lead line, and sends nothing', async () => {
+    const user = await open();
+    const group = screen.getByRole('group', { name: 'Shift lead escalation' });
+    await user.type(within(group).getByLabelText('Label'), 'Shift lead desk');
+    await user.type(within(group).getByLabelText('Number or address'), 'lead@a.example.test');
+    await user.click(within(group).getByRole('button', { name: 'Save shift lead escalation' }));
+    expect(await within(group).findByText(/An email address does not work here/, { selector: 'p' })).toBeInTheDocument();
     expect(seenAdminWrites).toEqual([]);
   });
 

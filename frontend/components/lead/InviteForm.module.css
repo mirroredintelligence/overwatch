@@ -1,0 +1,175 @@
+/* The compose panel (INV-02; LI1 board): a white card, the form on the left and the text preview on the right.
+   Below 700px it is one column and the preview sits under the Send button. */
+
+.panel {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 30px;
+  min-width: 0;
+  padding: var(--space-5) 30px;
+  border-radius: 26px;
+  background: #fff;
+  box-shadow: var(--shadow-card);
+  color: var(--c-ink);
+  font-family: var(--font-atkinson), system-ui, sans-serif;
+  overflow: auto;
+}
+
+.formSide {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.2;
+}
+
+.lede {
+  margin: 2px 0 0;
+  font-size: 17px;
+  color: var(--c-muted);
+}
+
+.form {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.label {
+  padding: 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.hint {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--c-muted);
+}
+
+.control {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 54px;
+  padding: 0 16px;
+  border: 2px solid var(--c-ink-2);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--c-ink);
+  font: inherit;
+  font-size: 19px;
+}
+
+.control:focus-visible {
+  outline: none;
+  border-color: var(--c-primary);
+  box-shadow: 0 0 0 4px rgba(11, 92, 140, 0.2);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.chip {
+  position: relative;
+  display: inline-flex;
+}
+
+.chip input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.chip span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 52px;
+  box-sizing: border-box;
+  padding: 0 18px;
+  border: 2px solid var(--c-line);
+  border-radius: 14px;
+  font-size: 17px;
+  font-weight: 700;
+  transition: background var(--dur-press) var(--ease-out), border-color var(--dur-press) var(--ease-out);
+}
+
+.chip input:checked + span {
+  border-color: var(--c-primary);
+  background: var(--c-tint);
+}
+
+.chip input:focus-visible + span {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.error {
+  margin: 0;
+  color: #5c2800;
+  font-weight: 700;
+}
+
+.errors {
+  padding: var(--space-3);
+  border: 2px solid var(--c-limited);
+  border-radius: 14px;
+  background: var(--c-amber-tint);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: auto;
+}
+
+.notice {
+  margin: 0;
+  min-height: 1.4em;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--c-primary-dark);
+}
+
+.notice[data-failed='true'] {
+  color: #5c2800;
+}
+
+@media (max-width: 699px) {
+  .panel {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-4);
+    padding: var(--space-4);
+  }
+
+  .title {
+    font-size: 24px;
+  }
+}

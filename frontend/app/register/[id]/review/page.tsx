@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 import { ReviewList } from '@/components/register/ReviewList';
-import styles from '@/components/register/register.module.css';
 
-// Registration step 5, the review (W26). The sections are read through the BFF.
+// Registration step 5, the review (Reg board). The sections are read through the BFF; the list is the register frame.
 
 export const metadata: Metadata = {
   title: 'Check your details - Overwatch',
@@ -11,13 +10,5 @@ export const metadata: Metadata = {
 
 export default async function ReviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  return (
-    <main className={styles.main}>
-      <div className={styles.panel}>
-        <div className={styles.card}>
-          <ReviewList registrationId={id} />
-        </div>
-      </div>
-    </main>
-  );
+  return <ReviewList registrationId={id} />;
 }

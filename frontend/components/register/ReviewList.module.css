@@ -1,0 +1,190 @@
+/* The review card of the register frame (Reg board stage 5, RP3 board on a phone). Tokens only; the board's
+   fixed sizes (30px heading, 44px row buttons, 52px and up for Submit) are kept. */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  box-sizing: border-box;
+  padding: 26px 30px;
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+}
+
+.step {
+  margin: 0;
+  font-size: 15px;
+  color: var(--c-muted);
+}
+
+.heading {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.1;
+}
+
+.rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  border: 2px solid var(--c-line);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.row[data-state='needs-attention'] {
+  border-color: var(--c-limited);
+  background: var(--c-amber-tint);
+}
+
+.status {
+  flex: none;
+  font-weight: 700;
+  color: var(--c-primary-dark);
+}
+
+.row[data-state='needs-attention'] .status {
+  color: var(--c-ink);
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+  font-size: 17px;
+  line-height: 1.3;
+}
+
+.title {
+  font-weight: 700;
+}
+
+.summary {
+  color: var(--c-ink-2);
+}
+
+.change,
+.fix {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 16px;
+  box-sizing: border-box;
+  border: 2px solid var(--c-primary);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--c-primary);
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.fix {
+  background: var(--c-primary);
+  color: #fff;
+}
+
+.change:focus-visible,
+.fix:focus-visible {
+  outline: 3px solid var(--c-ink);
+  outline-offset: 2px;
+}
+
+.after {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.4;
+  color: var(--c-ink-2);
+}
+
+.notice {
+  margin: 0;
+  font-weight: 700;
+  color: var(--c-ink-2);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.submit {
+  min-width: 220px;
+}
+
+.count {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--c-limited);
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  color: var(--c-ink-2);
+  font-weight: 700;
+}
+
+.back:focus-visible {
+  outline: 3px solid var(--c-ink);
+  outline-offset: 2px;
+}
+
+@media (max-width: 899px) {
+  /* On a phone the card drops away, the rows stack their words over the summary, and the sticky action is
+     the primary action: the in-card Submit goes, the count stays under the title. */
+  .card {
+    padding: 0;
+    background: none;
+    box-shadow: none;
+  }
+
+  .row {
+    border-radius: 20px;
+    border-width: 0;
+    box-shadow: var(--shadow-card);
+  }
+
+  .row[data-state='needs-attention'] {
+    border-width: 2px;
+  }
+
+  .text {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+
+  .status {
+    font-size: 14px;
+  }
+
+  .submit {
+    display: none;
+  }
+}

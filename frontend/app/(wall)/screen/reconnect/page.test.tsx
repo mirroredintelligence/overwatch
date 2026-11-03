@@ -35,7 +35,13 @@ describe('the wall screen reconnect page /screen/reconnect', () => {
   it('shows the pairing screen whatever session the display holds, and takes no input', async () => {
     expect(WallReconnectPage.length).toBe(0);
     render(await WallReconnectPage());
-    expect(screen.getByRole('heading', { level: 1, name: 'Overwatch wall screen' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Set up in three steps' })).toBeInTheDocument();
     expect(ScreenClientError).toBeDefined();
+  });
+
+  it('tells a screen that was disconnected so, beside the steps to connect it again', async () => {
+    render(await WallReconnectPage());
+    expect(await screen.findByText('This screen was disconnected.')).toBeInTheDocument();
+    expect(screen.getAllByRole('listitem')).toHaveLength(3);
   });
 });

@@ -13,6 +13,13 @@ describe('finish page (W15)', () => {
     expect(screen.getByRole('heading', { name: 'Record outcome' })).toBeInTheDocument();
   });
 
+  it('at the closed address shows "Call closed", with no step bar', async () => {
+    render(await FinishPage({ params: Promise.resolve({ ref: '4821' }), searchParams: Promise.resolve({ closed: '1' }) }));
+
+    expect(await screen.findByRole('heading', { name: 'Call closed' })).toBeInTheDocument();
+    expect(document.querySelector('[data-step]')).toBeNull();
+  });
+
   it('passes a known outcome from the address to the form, and ignores an unknown one', async () => {
     render(await FinishPage({ params: Promise.resolve({ ref: '4821' }), searchParams: Promise.resolve({ outcome: 'no-service-fits' }) }));
     expect(await screen.findByText('No service fits')).toBeInTheDocument();

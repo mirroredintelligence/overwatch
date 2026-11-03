@@ -22,6 +22,14 @@ describe('OutcomeForm (W15)', () => {
     expect(byEl('ADV-FIN-SAVE-BTN')).toBeEnabled();
   });
 
+  it('the best-fit reasons sit behind a disclosure that starts closed', () => {
+    render(<OutcomeForm caseId="4821" preselect={null} onClosed={vi.fn()} />);
+
+    const disclosure = screen.getByText('If the best fit was not used, why?').closest('details');
+    expect(disclosure).not.toBeNull();
+    expect(disclosure).toHaveProperty('open', false);
+  });
+
   it('choosing "Accepted and booked" and "Data too old" posts both, with CSRF and a key, then reports the close', async () => {
     const user = userEvent.setup();
     const onClosed = vi.fn();
@@ -29,6 +37,7 @@ describe('OutcomeForm (W15)', () => {
 
     await user.click(screen.getByRole('button', { name: 'Accepted and booked' }));
     await user.click(await screen.findByRole('button', { name: 'UCR West' }));
+    await user.click(screen.getByText('If the best fit was not used, why?'));
     await user.click(screen.getByRole('button', { name: 'Data too old' }));
     await user.click(byEl('ADV-FIN-SAVE-BTN'));
 

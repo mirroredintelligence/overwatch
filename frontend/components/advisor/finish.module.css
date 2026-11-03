@@ -1,9 +1,31 @@
+/* Two cards side by side on a wide screen (the board's Finish), one column on a phone (PFinish). */
+
+.columns {
+  display: grid;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.side {
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+  min-width: 0;
+}
+
 .screen,
 .group,
+.card,
 .summary {
   display: grid;
   gap: var(--space-3);
   padding: var(--space-4) 0;
+}
+
+.card,
+.summary {
+  min-width: 0;
+  align-content: start;
 }
 
 .group {
@@ -21,6 +43,12 @@
   color: var(--c-ink);
 }
 
+.reference {
+  margin: 0;
+  font-size: var(--type-label-size);
+  color: var(--c-muted);
+}
+
 .legend {
   padding: 0;
   margin-bottom: var(--space-2);
@@ -33,6 +61,26 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+}
+
+/* The four outcomes: one per row on a phone, two per row on a wide screen. */
+.outcomes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+}
+
+.outcomes > button {
+  width: 100%;
+  min-height: 52px;
+  justify-content: flex-start;
+  font-size: var(--type-body-size);
+  font-weight: 700;
+}
+
+.outcomes > button[aria-pressed='true'] {
+  border-color: var(--c-primary);
+  background: var(--c-tint);
 }
 
 .text {
@@ -48,11 +96,19 @@
   color: var(--c-muted);
 }
 
+/* The status line is an empty live region until the clipboard answers; then it is a box. */
 .status {
   margin: 0;
   font-size: var(--type-label-size);
   font-weight: var(--type-label-weight);
   color: var(--c-ink);
+}
+
+.status:not(:empty) {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  background: var(--c-tint);
+  color: var(--c-primary-dark);
 }
 
 .error {
@@ -62,6 +118,14 @@
   color: var(--c-ink);
   border-left: 4px solid var(--c-surge);
   padding-left: var(--space-2);
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+  flex-wrap: wrap;
 }
 
 .rows {
@@ -107,8 +171,184 @@
 .actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-2);
   justify-content: flex-end;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--c-line);
+}
+
+/* The one primary action of each card is the largest control on it (the board: 58px and 52px). */
+.actions > [data-variant='primary'] {
+  min-height: 58px;
+}
+
+.actions > button[data-variant='secondary'] {
+  min-height: 52px;
+}
+
+.link {
+  font-size: var(--type-label-size);
+  font-weight: 700;
+  color: var(--c-primary);
+}
+
+/* The phone disclosure: the summary heading is the disclosure's own summary. */
+.fold {
+  background: #fff;
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+  padding: 0 var(--space-3);
+}
+
+.fold > .chips {
+  padding-bottom: var(--space-3);
+}
+
+.foldHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: 52px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.foldHead::-webkit-details-marker {
+  display: none;
+}
+
+.foldHead:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.chevron {
+  flex: none;
+  color: var(--c-ink-2);
+  transition: transform var(--dur-state) var(--ease-out);
+}
+
+.fold[open] > .foldHead > .chevron {
+  transform: rotate(180deg);
+}
+
+/* The closed state: one card, centred, that names what was kept and what was cleared. */
+.closed {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-4) 0;
+}
+
+.closedHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.tick {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--c-tint);
+  color: var(--c-primary);
+}
+
+.closedTitle {
+  margin: 0;
+  font-size: var(--type-heading-size);
+  font-weight: var(--type-heading-weight);
+  line-height: 1.1;
+  color: var(--c-ink);
+}
+
+.kept {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.keptBox {
+  background: var(--c-bg);
+  border-radius: var(--radius-card);
+  padding: var(--space-3) var(--space-4);
+}
+
+.boxLabel {
+  margin: 0 0 var(--space-2);
+  font-size: var(--type-caption-size);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.list li {
+  position: relative;
+  padding-left: var(--space-3);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  color: var(--c-ink-2);
+}
+
+.list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c-primary);
+}
+
+.keptBox:last-child .list li::before {
+  background: var(--c-unknown);
+}
+
+@media (min-width: 56rem) {
+  .columns {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 22px;
+  }
+
+  .card,
+  .summary {
+    background: #fff;
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+    padding: var(--space-5) var(--space-6);
+  }
+
+  .closed {
+    width: min(100%, 56rem);
+    margin: 0 auto;
+    background: #fff;
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+    padding: var(--space-6);
+  }
+
+  .kept {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+
+  .outcomes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 40rem) {

@@ -18,8 +18,27 @@ function useClipboard() {
   Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
 }
 
+// The summary is a card on a wide screen and a disclosure on a phone (the board's two layouts).
+// jsdom has no matchMedia, so each test says which screen it is.
+function screenIsWide(wide: boolean) {
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    value: (query: string) => ({
+      matches: wide,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }),
+  });
+}
+
 beforeEach(() => {
   writeText.mockReset();
+  screenIsWide(false);
 });
 
 describe('SummaryCopy (W15)', () => {
@@ -27,7 +46,7 @@ describe('SummaryCopy (W15)', () => {
     render(<SummaryCopy summary={SUMMARY_VIEW} />);
 
     const section = screen.getByRole('region', { name: 'Summary for SystmOne' });
-    expect(within(section).getByText('Read-only. Paste into the referral.')).toBeInTheDocument();
+    expect(within(section).getByText('Read only. Paste it into the referral.')).toBeInTheDocument();
     for (const [label, value] of [
       ['Referrer', 'Ambulance crew'],
       ['Age band', '80+'],
@@ -68,11 +87,34 @@ describe('SummaryCopy (W15)', () => {
     await waitFor(() => expect(window.getSelection()?.toString()).toContain('Referrer: Ambulance crew'));
   });
 
-  it('"Done" is a link back to the outcome, and the summary has its anchor id', () => {
+  it('"Copy summary" is a secondary button, because "Save outcome" is the one primary action on the screen', () => {
+    render(<SummaryCopy summary={SUMMARY_VIEW} />);
+
+    expect(byEl('ADV-FIN-COPY-BTN')).toHaveAttribute('data-variant', 'secondary');
+  });
+
+  it('has no Done link, and the summary keeps its anchor id', () => {
     const { container } = render(<SummaryCopy summary={SUMMARY_VIEW} />);
 
     expect(container.querySelector('#summary')).not.toBeNull();
-    expect(screen.getByRole('link', { name: 'Done' })).toHaveAttribute('href', '#outcome');
+    expect(screen.queryByRole('link', { name: 'Done' })).toBeNull();
+  });
+
+  it('on a wide screen the summary is a card, not a disclosure, with its copy button in the same region', () => {
+    screenIsWide(true);
+    const { container } = render(<SummaryCopy summary={SUMMARY_VIEW} />);
+
+    expect(container.querySelector('details')).toBeNull();
+    expect(within(screen.getByRole('region', { name: 'Summary for SystmOne' })).getByRole('button', { name: 'Copy summary' })).toBeInTheDocument();
+  });
+
+  it('on a phone the rows fold into a disclosure that starts closed, and the copy button stays outside it', () => {
+    const { container } = render(<SummaryCopy summary={SUMMARY_VIEW} />);
+
+    const fold = container.querySelector('details');
+    expect(fold).not.toBeNull();
+    expect(fold).toHaveProperty('open', false);
+    expect(fold?.contains(byEl('ADV-FIN-COPY-BTN'))).toBe(false);
   });
 
   it('has no axe violations', async () => {

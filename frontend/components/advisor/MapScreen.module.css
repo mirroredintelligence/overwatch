@@ -1,0 +1,614 @@
+/* The options on a map (Map board) and the postcode-not-found card (MapLost board). Its own file:
+   map.module.css is shared by the radar and the network map and stays as it is. One module serves the
+   screen, the map, the pin card and the travel table. */
+
+.screen {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  min-width: 0;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* The segmented control on the left, who the options are for on the right. */
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.summary {
+  margin: 0;
+  font-size: 15px;
+  color: var(--c-muted);
+}
+
+/* Phone: one column, the map above the list. From 60rem: the map and a 350px list side by side. */
+.board {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+@media (min-width: 60rem) {
+  .board {
+    grid-template-columns: minmax(0, 1fr) 350px;
+  }
+}
+
+.mapWrap {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+/* The map card. The ground colour is the board's own: it has no token. */
+.mapCard {
+  /* The small lift under a pin, as the board draws it (--shadow-lift is for a card, too large here). */
+  --pin-shadow: 0 4px 12px rgb(11 42 61 / 0.18);
+  position: relative;
+  box-sizing: border-box;
+  overflow: hidden;
+  background: #e6eeea;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.picture {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+}
+
+.svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  color: var(--c-primary);
+}
+
+.route {
+  color: var(--c-ink);
+}
+
+/* A pin is one button: the status marker above, the name and free figure below. Status is the shape and
+   the word on the card as well as the colour. */
+.pin {
+  --pin: var(--c-primary);
+  position: absolute;
+  transform: translate(-50%, -100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--c-ink);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.pin[data-status='over-capacity'] {
+  --pin: var(--c-surge);
+}
+
+.pin[data-status='limited'] {
+  --pin: var(--c-limited);
+}
+
+.pin[data-status='not-accepting'],
+.pin[data-status='out-of-hours'],
+.pin[data-status='not-updated'],
+.pin[data-status='last-known'] {
+  --pin: var(--c-closed);
+}
+
+.marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  box-sizing: border-box;
+  color: #fff;
+  background: var(--pin);
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: var(--pin-shadow);
+}
+
+.marker svg {
+  width: 16px;
+  height: 16px;
+}
+
+.label {
+  max-width: 14rem;
+  padding: 5px 10px;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: #fff;
+  border: 2px solid var(--pin);
+  border-radius: 10px;
+  box-shadow: var(--pin-shadow);
+}
+
+.pin:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.pin[aria-pressed='true'] .label {
+  color: #fff;
+  background: var(--c-ink);
+  border-color: var(--c-ink);
+}
+
+.patient {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.patientDot {
+  width: 30px;
+  height: 30px;
+  box-sizing: border-box;
+  background: var(--c-ink);
+  border: 4px solid #fff;
+  border-radius: 50%;
+  box-shadow: var(--pin-shadow);
+}
+
+.patientLabel {
+  padding: 5px 10px;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  background: #fff;
+  border: 2px solid var(--c-ink);
+  border-radius: 10px;
+  box-shadow: var(--pin-shadow);
+}
+
+/* The note on what the picture shows and does not: under the map on a phone, over its corner when wide. */
+.legend {
+  box-sizing: border-box;
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: var(--space-3);
+  font-size: 14px;
+  line-height: 1.35;
+  color: var(--c-ink-2);
+  background: rgb(255 255 255 / 94%);
+}
+
+.legend p {
+  margin: 0;
+}
+
+@media (min-width: 40rem) {
+  .legend {
+    position: absolute;
+    left: 16px;
+    bottom: 14px;
+    max-width: 420px;
+    padding: 8px 14px;
+    border-radius: 12px;
+  }
+}
+
+/* The selected service's card, under the map. */
+.card {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.cardHead {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.name {
+  margin: 0;
+  font-size: var(--type-title-size);
+  font-weight: var(--type-title-weight);
+  color: var(--c-ink);
+}
+
+.line {
+  margin: 0;
+  font-size: var(--type-body-size);
+  color: var(--c-ink-2);
+}
+
+.caption,
+.note {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-body-lh);
+  color: var(--c-muted);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.details {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--type-body-size);
+  color: var(--c-ink);
+}
+
+.table th,
+.table td {
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--c-line);
+  text-align: left;
+  vertical-align: top;
+}
+
+@media (max-width: 40rem) {
+  .table thead {
+    display: none;
+  }
+
+  .table tr,
+  .table th,
+  .table td {
+    display: block;
+  }
+}
+
+/* The same services as a list, beside the map. */
+.side {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.sideNote {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-body-lh);
+  color: var(--c-muted);
+}
+
+.item {
+  --pin: var(--c-primary);
+  display: grid;
+  gap: 6px;
+  padding: 14px 18px;
+  background: #fff;
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.item[data-status='over-capacity'] {
+  --pin: var(--c-surge);
+  border-color: var(--c-surge);
+}
+
+.item[data-status='limited'] {
+  --pin: var(--c-limited);
+}
+
+.item[data-status='not-accepting'],
+.item[data-status='out-of-hours'],
+.item[data-status='not-updated'],
+.item[data-status='last-known'] {
+  --pin: var(--c-closed);
+}
+
+.item[data-selected='true'] {
+  border-color: var(--c-primary);
+}
+
+.itemName {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--c-ink);
+}
+
+.itemLine {
+  margin: 0;
+  font-size: 14px;
+  color: var(--c-muted);
+}
+
+.old {
+  font-weight: 700;
+  color: var(--c-limited);
+}
+
+.itemFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 11px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--pin);
+  border-radius: 999px;
+}
+
+.chip svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.open {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 44px;
+  padding: 0 18px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--c-primary);
+  text-decoration: none;
+  background: #fff;
+  border: 2px solid var(--c-primary);
+  border-radius: 14px;
+}
+
+.open:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+/* The postcode-not-found card (MapLost): one white card, centred, with the postcode, the districts and the one
+   primary action. */
+.lost {
+  box-sizing: border-box;
+  display: grid;
+  gap: 20px;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 34px 38px;
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+@media (max-width: 40rem) {
+  .lost {
+    padding: var(--space-5) var(--space-4);
+  }
+}
+
+.lostTitle {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.15;
+  color: var(--c-ink);
+}
+
+.lostLead {
+  margin: 8px 0 0;
+  font-size: 18px;
+  line-height: 1.45;
+  color: var(--c-ink-2);
+}
+
+.fieldLabel {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--c-ink);
+}
+
+.field {
+  box-sizing: border-box;
+  width: 260px;
+  max-width: 100%;
+  height: 56px;
+  padding: 0 16px;
+  font: inherit;
+  font-size: 20px;
+  color: var(--c-ink);
+  background: #fff;
+  border: 2px solid var(--c-limited);
+  border-radius: 14px;
+}
+
+.field:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--c-limited);
+}
+
+.hint svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+.search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.districtTitle {
+  margin: 0 0 4px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--c-ink);
+}
+
+.districtNote {
+  margin: 0 0 10px;
+  font-size: 15px;
+  color: var(--c-muted);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.opt {
+  box-sizing: border-box;
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0 20px;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--c-ink);
+  background: #fff;
+  border: 2px solid var(--c-line);
+  border-radius: 14px;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-state) var(--ease-out),
+    border-color var(--dur-state) var(--ease-out);
+}
+
+.opt[aria-pressed='true'] {
+  background: var(--c-tint);
+  border-color: var(--c-primary);
+}
+
+.opt:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.opt:disabled {
+  cursor: default;
+  color: var(--c-muted);
+}
+
+.lostFoot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding-top: 18px;
+  border-top: 1px solid var(--c-line);
+}
+
+.use {
+  box-sizing: border-box;
+  min-height: 58px;
+  padding: 0 30px;
+  font: inherit;
+  font-size: 19px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--c-primary);
+  border: 0;
+  border-radius: 16px;
+  box-shadow: var(--shadow-lift);
+  cursor: pointer;
+}
+
+.use:disabled {
+  color: var(--c-muted);
+  background: var(--c-line);
+  box-shadow: none;
+  cursor: default;
+}
+
+.use:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--c-ink-2);
+}
+
+.lostSaved {
+  margin: 0 0 0 auto;
+  max-width: 260px;
+  font-size: 15px;
+  line-height: 1.35;
+  color: var(--c-muted);
+}
+
+.status {
+  margin: 0;
+  font-size: var(--type-body-size);
+  color: var(--c-ink-2);
+}
+
+.problem {
+  margin: 0;
+  font-size: var(--type-body-size);
+  font-weight: 700;
+  color: var(--c-limited);
+}

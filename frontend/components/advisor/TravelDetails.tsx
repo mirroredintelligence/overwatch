@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/Button';
 import type { OptionView } from '@/lib/advisor/options';
-import styles from './map.module.css';
+import styles from './MapScreen.module.css';
 
 // The travel estimate, leg by leg (W50). It is a range for the area, not a promise: the patient is
 // placed at the postcode centre. A visiting service is included in its own response time.

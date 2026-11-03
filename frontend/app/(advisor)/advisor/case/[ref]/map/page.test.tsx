@@ -1,6 +1,5 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { networkBffHandlers } from '@/test/msw/handlers/networkBff';
-import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetCsrfCache } from '@/lib/advisor/browser';
@@ -44,24 +43,43 @@ describe('map page (W50)', () => {
     expect(document.querySelector('[data-step="options"]')).toHaveAttribute('aria-current', 'step');
     expect(await screen.findByRole('heading', { name: 'Options near DT4 8XX' })).toBeInTheDocument();
     expect(screen.getByText('Same services as the list. Sorted by travel time. Not ranked.')).toBeInTheDocument();
-    expect(byEl('ADV-MAP-TOGGLE-MAP')).toHaveAttribute('aria-pressed', 'true');
+    // The segmented control is a row of links: the Map link is the one on screen.
+    expect(byEl('ADV-MAP-TOGGLE-MAP')).toHaveAttribute('aria-current', 'page');
   });
 
-  it('the List toggle returns to the options list', async () => {
-    const user = userEvent.setup();
+  it('the List link returns to the options list', async () => {
     render(await MapPage({ params: Promise.resolve({ ref: '4821' }) }));
     await screen.findByRole('heading', { name: 'Options near DT4 8XX' });
 
-    await user.click(byEl('ADV-MAP-TOGGLE-LIST'));
-
-    expect(push).toHaveBeenCalledWith('/advisor/case/4821/options');
+    expect(byEl('ADV-MAP-TOGGLE-LIST')).toHaveAttribute('href', '/advisor/case/4821/options');
   });
 
-  it('a postcode that is not found shows the not-found state, not the map', async () => {
+  it('says in one line who the options are for: age, postcode, needs and how soon (Map board)', async () => {
+    render(await MapPage({ params: Promise.resolve({ ref: '4821' }) }));
+    await screen.findByRole('heading', { name: 'Options near DT4 8XX' });
+
+    expect(await screen.findByText('80+ · DT4 8XX · Frailty · Within 2 hrs')).toBeInTheDocument();
+  });
+
+  it('puts the map first and the same services as a list beside it, each with an Open link to its request', async () => {
+    render(await MapPage({ params: Promise.resolve({ ref: '4821' }) }));
+    await screen.findByRole('heading', { name: 'Options near DT4 8XX' });
+
+    const map = screen.getByRole('region', { name: 'Map of options near DT4 8XX' });
+    const list = screen.getByRole('region', { name: 'The same services as a list' });
+    // Phone: the map is above the list, so it comes first in the page.
+    expect(map.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(list).getByRole('link', { name: 'Open UCR West' })).toHaveAttribute('href', '/advisor/case/4821/options?service=svc-ucr-west');
+    expect(within(list).getAllByRole('link', { name: /^Open / })).toHaveLength(4);
+    expect(within(list).getByText('Accepting · 4')).toBeInTheDocument();
+    expect(within(list).getByText('Same services as the list. Sorted by travel time. Not ranked.')).toBeInTheDocument();
+  });
+
+  it('a postcode that is not found shows the postcode-not-found card, not the map', async () => {
     server.use(http.get('/api/bff/cases/:ref/options', () => HttpResponse.json(notFound())));
     render(await MapPage({ params: Promise.resolve({ ref: '4821' }) }));
 
-    expect(await screen.findByRole('heading', { name: 'We could not find that postcode' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'We could not place that postcode in your area' })).toBeInTheDocument();
     expect(document.querySelector('[data-el="ADV-MAP-PIN-SVC-UCR-WEST"]')).toBeNull();
   });
 

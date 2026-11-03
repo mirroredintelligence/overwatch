@@ -1,0 +1,154 @@
+/* The owner's change step (boards/lead/OwnerReview.dc.html, state 3). The card, the option chips and the fields come
+   from the board's numbers; colours are tokens. "Changed" is a word in a tag, never colour alone. */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-5);
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  font-family: var(--font-atkinson, system-ui), system-ui, sans-serif;
+  color: var(--c-ink);
+}
+
+.heading {
+  margin: 0;
+  font-size: 1.875rem;
+  line-height: 1.1;
+}
+
+.group {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.group legend {
+  padding: 0;
+  margin-bottom: var(--space-2);
+  font-size: var(--type-label-size);
+  font-weight: 700;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 0;
+}
+
+.meta:empty {
+  display: none;
+}
+
+.req {
+  font-size: var(--type-label-size);
+  color: var(--c-muted);
+}
+
+.tag {
+  display: inline-block;
+  padding: 3px 10px;
+  border: 2px solid var(--c-limited);
+  border-radius: 999px;
+  background: var(--c-amber-tint);
+  color: #4a2300;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.was {
+  font-size: 15px;
+  color: var(--c-muted);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.pair {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.pair > * {
+  min-width: 0;
+}
+
+.age {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex: 0 0 230px;
+}
+
+.districts {
+  flex: 1 1 260px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.field label {
+  font-size: var(--type-label-size);
+  font-weight: 700;
+}
+
+.input {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 14rem;
+  height: 52px;
+  padding: 0 var(--space-4);
+  border: 2px solid var(--c-ink-2);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--c-ink);
+  font: inherit;
+  font-size: 19px;
+}
+
+.input:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.input[aria-invalid='true'] {
+  border-color: var(--c-limited);
+}
+
+.add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.error {
+  margin: 0;
+  font-weight: 700;
+  color: var(--c-limited);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--c-line);
+}

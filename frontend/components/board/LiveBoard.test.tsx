@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { act, render, screen, within } from '@testing-library/react';
 import { renderToString } from 'react-dom/server';
 import { http, HttpResponse } from 'msw';
@@ -127,6 +129,55 @@ describe('LiveBoard: online', () => {
 
     expect(tiles(container)).toHaveLength(MAIN_ENTRIES.length);
     vi.useRealTimers(); // axe uses timers of its own
+    expect(await runAxe(container)).toHaveNoViolations();
+  });
+});
+
+const wallCss = (): string => readFileSync(resolve(__dirname, 'LiveBoard.module.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+
+describe('LiveBoard: the wall ground (artboard WallBoard)', () => {
+  it('draws the one board renderer on a dark ground of its own, with the tiles inside it', () => {
+    const { container } = mount();
+    const ground = container.querySelector<HTMLElement>('[data-el="WALL-GROUND"]');
+
+    expect(ground).not.toBeNull();
+    expect(ground?.querySelector('main')).not.toBeNull();
+    expect(within(ground as HTMLElement).getByRole('heading', { level: 1 })).toBeInTheDocument();
+    expect(tiles(ground as HTMLElement)).toHaveLength(MAIN_ENTRIES.length);
+    expect(within(ground as HTMLElement).getByRole('list', { name: 'Status key' })).toBeInTheDocument();
+  });
+
+  it('keeps the ground, and the Last known banner and tiles, when the board cannot be refreshed', async () => {
+    const m = mount();
+    await goOffline(m);
+    const ground = m.container.querySelector<HTMLElement>('[data-el="WALL-GROUND"]') as HTMLElement;
+
+    expect(ground).not.toBeNull();
+    expect(within(ground).getByRole('alert')).toHaveTextContent('Tool offline since');
+    expect(tiles(ground)).toHaveLength(MAIN_ENTRIES.length);
+  });
+
+  it('is in the HTML the server sends, so the first paint is not light', () => {
+    expect(renderToString(<LiveBoard initialBoard={BOARD_A} serverTime={T0} />)).toContain('data-el="WALL-GROUND"');
+  });
+
+  it('is the dark rail colour, with light ink for the header and the key (brief 9.4: dark, as the board does)', () => {
+    const css = wallCss();
+    expect(css).toMatch(/\.wall\s*\{[^}]*background:\s*var\(--c-rail\)/);
+    expect(css).toMatch(/--c-rail-ink|#fff|#D7E6EE/i);
+  });
+
+  it('reads at 3 m: no text under 20px, service names 30px, and no motion', () => {
+    const css = wallCss();
+    expect(css).toMatch(/--type-caption-size:\s*20px/);
+    expect(css).toMatch(/--type-title-size:\s*30px/);
+    for (const m of css.matchAll(/font-size:\s*(\d+(?:\.\d+)?)px/g)) expect(Number(m[1])).toBeGreaterThanOrEqual(20);
+    expect(css).not.toMatch(/transition|animation|@keyframes/);
+  });
+
+  it('has no axe violations on the dark ground', async () => {
+    const { container } = mount();
+    vi.useRealTimers();
     expect(await runAxe(container)).toHaveNoViolations();
   });
 });

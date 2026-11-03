@@ -91,6 +91,18 @@ describe('wall screen page: signed in', () => {
     expect(screen.getByText('No patient information on this screen')).toBeInTheDocument();
   });
 
+  it('draws the nine tiles, the key and the privacy line inside the wall’s dark ground', async () => {
+    as(signedIn('wall'));
+
+    const { container } = render(await WallScreenPage());
+    const ground = container.querySelector<HTMLElement>('[data-el="WALL-GROUND"]') as HTMLElement;
+
+    expect(ground).not.toBeNull();
+    expect(ground.querySelectorAll('[data-el="WALL-TILE"]')).toHaveLength(BOARD_A.entries.length);
+    expect(within(ground).getByRole('list', { name: 'Status key' })).toBeInTheDocument();
+    expect(within(ground).getByText('No patient information on this screen')).toBeInTheDocument();
+  });
+
   it.each<Role>(['wall', 'advisor', 'lead', 'exec'])('shows the board to a %s session', async (role) => {
     as(signedIn(role));
 

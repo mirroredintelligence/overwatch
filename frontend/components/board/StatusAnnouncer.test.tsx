@@ -48,6 +48,15 @@ describe('StatusAnnouncer', () => {
     expect(region()).toHaveTextContent('');
   });
 
+  it('stays hidden from the eye on the wall: a status region with no visible text of its own', () => {
+    const { container } = render(<StatusAnnouncer board={BOARD_A} />);
+    const el = container.firstElementChild as HTMLElement;
+    expect(el).toBe(region());
+    // Not a heading, a link or a button: it is read, never focused, and holds no markup but text.
+    expect(el.querySelector('*')).toBeNull();
+    expect(el.getAttribute('tabindex')).toBeNull();
+  });
+
   it('says nothing while the board is shown as last known', () => {
     const { rerender } = render(<StatusAnnouncer board={BOARD_A} />);
     rerender(<StatusAnnouncer board={boardWith({ 'svc-ucr-west': { status: 'limited' } })} lastKnown />);

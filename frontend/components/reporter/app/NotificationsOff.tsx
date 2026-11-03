@@ -5,9 +5,9 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Banner } from '@/components/ui/Banner';
 import { recordChannel } from '@/lib/reporter/channel';
-import { StatusMark } from '@/components/reporter/parts/StatusMark';
-import { StepCards } from '@/components/reporter/parts/StepCards';
-import styles from '@/components/reporter/Reporter.module.css';
+import styles from './NotificationsOff.module.css';
+
+const STEPS = ['Open your phone Settings', 'Find Overwatch', 'Turn Notifications on'];
 
 // Notifications are off (W37): the three steps on the phone, then a re-check of the browser's
 // permission. Nothing here asks for permission; the reporter turns it on in the phone's settings.
@@ -35,25 +35,36 @@ export function NotificationsOff() {
 
   return (
     <main className={styles.page}>
-      <StatusMark tone="closed" dataEl="REP-NOTIF-OFF-MARK" />
-      <h1 className={styles.title}>Notifications are off</h1>
-      <p>We cannot alert you. Turn them on in your phone settings, or switch to text.</p>
-      <StepCards
-        label="How to turn notifications on"
-        steps={[
-          { key: 'settings', title: 'Open your phone Settings' },
-          { key: 'find', title: 'Find Overwatch' },
-          { key: 'on', title: 'Turn Notifications on' },
-        ]}
-      />
-      {still ? <p role="status">Notifications are still off.</p> : null}
+      <div className={styles.card}>
+        <h1 className={styles.title}>Notifications are off</h1>
+        <p className={styles.lead}>We cannot alert you. Turn them on in your phone settings, or switch to text.</p>
+        <ol className={styles.steps} aria-label="How to turn notifications on">
+          {STEPS.map((step, index) => (
+            <li key={step} className={styles.step}>
+              <span className={styles.number} aria-hidden="true">
+                {index + 1}
+              </span>
+              {step}
+            </li>
+          ))}
+        </ol>
+        {still ? (
+          <p role="status" className={styles.still}>
+            Notifications are still off.
+          </p>
+        ) : null}
+      </div>
       {failed ? <Banner tone="warning" title="We could not change how we contact you. Check your number again, then try once more." /> : null}
-      <Button variant="neutral" dataEl="REP-NOTIF-TEXT-BTN" onClick={() => void chooseText()}>
-        Use text instead
-      </Button>
-      <Button variant="primary" dataEl="REP-NOTIF-RECHECK-BTN" onClick={recheck}>
-        I have turned them on
-      </Button>
+      <div className={styles.wide}>
+        <Button variant="primary" dataEl="REP-NOTIF-RECHECK-BTN" onClick={recheck}>
+          I have turned them on
+        </Button>
+      </div>
+      <div className={styles.wide}>
+        <Button variant="secondary" dataEl="REP-NOTIF-TEXT-BTN" onClick={() => void chooseText()}>
+          Use text instead
+        </Button>
+      </div>
     </main>
   );
 }

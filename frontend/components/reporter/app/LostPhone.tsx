@@ -7,7 +7,8 @@ import { MOBILE_ERROR, MobileNumberField } from '@/components/reporter/MobileNum
 import { Button } from '@/components/ui/Button';
 import { isUkMobile } from '@/lib/forms/ukMobile';
 import { bffRequest } from '@/lib/reporter/browser';
-import styles from '@/components/reporter/Reporter.module.css';
+import { StatusTag } from '@/components/ui/StatusTag';
+import styles from './LostPhone.module.css';
 
 // Lost your phone? (W55). No session is needed: the new phone is proved by a text code to the number
 // we hold, and the lead's call-back then confirms the phone. Old phones are signed out only once the
@@ -68,34 +69,47 @@ export function LostPhone() {
   if (stage === 'waiting') {
     return (
       <main className={styles.page}>
-        <h1 className={styles.title}>Waiting for a call-back</h1>
-        <p>The shift lead will phone your service on the number on the register. Until then, prompts go to your cover number or the coordination team.</p>
-        {spoaPhone === null ? (
-          <p>Phone the coordination team.</p>
-        ) : (
-          <p>
-            Phone the coordination team on <a href={`tel:${spoaPhone.replace(/\s+/g, '')}`}>{spoaPhone}</a>.
-          </p>
+        <div className={styles.card}>
+          <StatusTag variant="paused">Not live yet</StatusTag>
+          <h1 className={styles.title}>Waiting for a call-back</h1>
+          <p className={styles.lead}>The shift lead will phone your service on the number on the register.</p>
+          <p className={styles.soft}>Until then, prompts go to your cover number or the coordination team.</p>
+          {spoaPhone === null ? <p className={styles.soft}>Phone the coordination team.</p> : null}
+        </div>
+        {spoaPhone === null ? null : (
+          <div className={styles.wide}>
+            <Button variant="primary" dataEl="REP-LOST-PHONE-LINK" href={`tel:${spoaPhone.replace(/\s+/g, '')}`}>
+              {`Phone the coordination team on ${spoaPhone}`}
+            </Button>
+          </div>
         )}
-        <Button variant="neutral" dataEl="REP-LOST-CALLBACK-BTN" onClick={() => router.push('/app/pin')}>
+        <button type="button" className={styles.plain} data-variant="text" data-el="REP-LOST-CALLBACK-BTN" onClick={() => router.push('/app/pin')}>
           Back to sign in
-        </Button>
+        </button>
       </main>
     );
   }
 
   return (
     <main className={styles.page}>
-      <h1 className={styles.title}>Lost your phone?</h1>
-      <p>Use your new phone. We text a code to the number we have for you.</p>
-      <MobileNumberField label="Mobile number" value={phone} onChange={setPhone} error={error} required dataEl="REP-LOST-PHONE" />
-      <p>Your old phone is signed out as soon as you verify. The shift lead phones your service before your new phone goes live.</p>
-      <Button variant="primary" busy={busy} dataEl="REP-LOST-SEND-BTN" onClick={() => void send()}>
-        Send code
-      </Button>
-      <Button variant="neutral" dataEl="REP-LOST-BACK-BTN" onClick={() => router.push('/app/pin')}>
+      <div className={styles.card}>
+        <h1 className={styles.title}>Lost your phone?</h1>
+        <p className={styles.lead}>Use your new phone. We text a code to the number we have for you.</p>
+        <div className={styles.fieldWrap}>
+          <MobileNumberField label="Mobile number" value={phone} onChange={setPhone} error={error} required dataEl="REP-LOST-PHONE" />
+        </div>
+      </div>
+      <p className={styles.note} data-el="REP-LOST-NOTE">
+        Your old phone is signed out as soon as you verify. The shift lead phones your service before your new phone goes live.
+      </p>
+      <div className={styles.wide}>
+        <Button variant="primary" busy={busy} dataEl="REP-LOST-SEND-BTN" onClick={() => void send()}>
+          Send code
+        </Button>
+      </div>
+      <button type="button" className={styles.plain} data-variant="text" data-el="REP-LOST-BACK-BTN" onClick={() => router.push('/app/pin')}>
         Back
-      </Button>
+      </button>
     </main>
   );
 }

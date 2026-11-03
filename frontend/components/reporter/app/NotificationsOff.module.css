@@ -1,0 +1,82 @@
+/* Notifications are off (artboard B9, board 4): a white card with the question and the three steps as numbered
+   rows, then the primary action and the outlined text choice. The strip above is the frame's. Tokens only
+   (white is the only literal colour). */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: var(--c-ink);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: var(--space-5);
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.title {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1.15;
+  font-weight: var(--type-heading-weight);
+  letter-spacing: var(--type-heading-tracking);
+}
+
+.lead {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.45;
+  color: var(--c-ink-2);
+}
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 18px;
+}
+
+.number {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--c-primary);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.still {
+  margin: 0;
+  font-weight: 700;
+}
+
+.wide {
+  display: flex;
+  width: 100%;
+}
+
+.wide > * {
+  width: 100%;
+  min-height: 58px;
+}

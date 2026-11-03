@@ -1,0 +1,100 @@
+/* Lost your phone? (artboard B9, boards 1 and 2): a white card with the question, a tinted note, one primary
+   action and a plain underlined Back. The frame around it supplies the ground, the top bar and the column.
+   Tokens only (white is the only literal colour). */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: var(--c-ink);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-5);
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.card > * {
+  max-width: 100%;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--type-heading-size);
+  line-height: var(--type-heading-lh);
+  font-weight: var(--type-heading-weight);
+  letter-spacing: var(--type-heading-tracking);
+}
+
+.lead {
+  margin: 0;
+  color: var(--c-ink-2);
+}
+
+.soft {
+  margin: 0;
+  font-size: 17px;
+  color: var(--c-muted);
+}
+
+.fieldWrap {
+  width: 100%;
+}
+
+.note {
+  margin: 0;
+  padding: 14px var(--space-4);
+  background: var(--c-tint);
+  border-radius: 18px;
+  color: var(--c-primary-dark);
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+/* The primary action, and the ones under it, fill the width and are 58px tall. */
+.wide {
+  display: flex;
+  width: 100%;
+}
+
+.wide > * {
+  width: 100%;
+  min-height: 58px;
+}
+
+/* Back: no box, underlined words (a button, not a link: it leaves the flow). */
+.plain {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 50px;
+  padding: 0 var(--space-4);
+  background: transparent;
+  border: 0;
+  color: var(--c-ink-2);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.plain:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.plain:active {
+  transform: scale(0.97);
+  transition: transform var(--dur-press) var(--ease-out);
+}

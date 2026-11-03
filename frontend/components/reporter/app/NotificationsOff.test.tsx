@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runAxe } from '@/test/a11y';
@@ -18,6 +18,18 @@ describe('NotificationsOff', () => {
     expect(screen.getByRole('heading', { name: 'Notifications are off' })).toBeInTheDocument();
     expect(screen.getByText('We cannot alert you. Turn them on in your phone settings, or switch to text.')).toBeInTheDocument();
     expect(await runAxe(container)).toHaveNoViolations();
+  });
+
+  it('lists the three steps in order inside the card, with no round mark, the primary action first and text as the outlined one', () => {
+    render(<NotificationsOff />);
+    const steps = within(screen.getByRole('list', { name: 'How to turn notifications on' })).getAllByRole('listitem');
+    expect(steps.map((s) => s.textContent)).toEqual(['1Open your phone Settings', '2Find Overwatch', '3Turn Notifications on']);
+    expect(document.querySelector('[data-el="REP-NOTIF-OFF-MARK"]')).toBeNull();
+    const primary = screen.getByRole('button', { name: 'I have turned them on' });
+    const text = screen.getByRole('button', { name: 'Use text instead' });
+    expect(primary).toHaveAttribute('data-variant', 'primary');
+    expect(text).toHaveAttribute('data-variant', 'secondary');
+    expect(primary.compareDocumentPosition(text) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('says they are still off when permission is still denied, and goes back to settings when granted', async () => {

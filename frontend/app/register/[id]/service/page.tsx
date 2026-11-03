@@ -1,9 +1,8 @@
 import type { Metadata } from 'next';
 import { ServiceForm } from '@/components/register/ServiceForm';
-import styles from '@/components/register/register.module.css';
 
-// Registration step 3, describing the service (W25). The form loads the invitation and the fixed-site
-// answer through the BFF.
+// Registration step 3, describing the service (Reg board). The form is the register frame and loads the
+// invitation and the fixed-site answer through the BFF.
 
 export const metadata: Metadata = {
   title: 'Describe the service - Overwatch',
@@ -12,13 +11,5 @@ export const metadata: Metadata = {
 
 export default async function ServicePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  return (
-    <main className={styles.main}>
-      <div className={styles.panel}>
-        <div className={styles.card}>
-          <ServiceForm registrationId={id} />
-        </div>
-      </div>
-    </main>
-  );
+  return <ServiceForm registrationId={id} />;
 }

@@ -1,0 +1,56 @@
+/* Artboard B7 (3): 17px bold label, 54px field, 2px --c-ink-2 border, 14px radius, 20px text. */
+
+.label {
+  margin: 0;
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-lh);
+  font-weight: 700;
+}
+
+.hint {
+  color: var(--c-muted);
+  font-size: var(--type-caption-size);
+}
+
+.input {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  min-height: 54px;
+  margin-top: var(--space-2);
+  padding: 0 var(--space-4);
+  font: inherit;
+  font-size: 20px;
+  color: var(--c-ink);
+  background: #fff;
+  border: 2px solid var(--c-ink-2);
+  border-radius: var(--radius);
+}
+
+.input::placeholder {
+  color: var(--c-muted);
+}
+
+.input:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.field[data-invalid='true'] .input {
+  border-color: var(--c-limited);
+}
+
+.error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+  color: var(--c-limited);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  font-weight: 700;
+}
+
+.error svg {
+  flex: none;
+}

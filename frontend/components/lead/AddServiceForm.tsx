@@ -1,40 +1,34 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { ErrorSummary, type FieldError } from '@/components/lead/ErrorSummary';
+import { useEffect, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { MorphStage } from '@/components/morph/MorphStage';
+import { StepBar } from '@/components/morph/StepBar';
+import { SummaryPin, type SummaryItem } from '@/components/morph/SummaryPin';
 import { Button } from '@/components/ui/Button';
-import { Chip } from '@/components/ui/Chip';
 import { leadPost, newIdempotencyKey } from '@/lib/lead/browser';
-import { blankService, toServiceBody, validateService, type ServiceValues } from '@/lib/lead/serviceForm';
-import styles from './Lead.module.css';
+import { toServiceBody } from '@/lib/lead/serviceForm';
+import { StepReporting, cadenceLabel } from './addservice/StepReporting';
+import { CATEGORIES, ChoiceGroup, Field, MEASURES, StepFrame, StepService, labelOf } from './addservice/StepService';
+import { STEP_COUNT, stepOfField, useServiceFormState } from './addservice/useServiceFormState';
+import styles from './addservice/StepService.module.css';
 
-// Add a service reporter (W18, pilot). The lead sets a service up on its behalf. The form checks what it
-// can at once, shows a summary with a link to each problem, and posts the values as JSON with one
-// Idempotency-Key per attempt, so a second press of a failed save is the same request (H-332).
+// Add a service reporter (W18, pilot; LDR-03). The lead sets a service up on its behalf, in steps that share one
+// form state in memory (nothing is stored in the browser). The step is in the address as ?step= so Back and a
+// reload work. "Next" checks its own step and shows a summary of problems at the top of it; the last step checks
+// them all, then posts the values as JSON with one Idempotency-Key per attempt, so a second press of a failed
+// save is the same request (H-332). Steps 3 and 4 (Check and Added) are built by LDR-04: for now the third step
+// still ends in Save.
 
-const CATEGORIES: [string, string][] = [
-  ['urgent-community-response', 'Urgent community response'],
-  ['same-day-emergency-care', 'Same day emergency care'],
-  ['inpatient-beds', 'Inpatient beds'],
-  ['hospital-at-home-or-virtual-ward', 'Hospital at home or virtual ward'],
-  ['reablement', 'Reablement'],
-  ['other', 'Other'],
-];
+const SETUP_PATH = '/lead/services/new';
+const SAVE_PATH = '/api/bff/lead/services';
 
-// "Virtual beds free" is the same measure as "Beds free" (free-beds); the unit label carries the
-// difference. The screen offers the four measures the back end counts (DEC-655).
-const MEASURES: [string, string][] = [
-  ['referrals-acceptable', 'Referrals in the next 2 hrs'],
-  ['free-beds', 'Beds free'],
-  ['free-slots', 'Slots left today'],
-  ['packages-free', 'Packages available'],
-];
+// The steps built so far, and the board's words for them.
+const STEPS = [{ label: 'The service' }, { label: 'Who reports' }, { label: 'Who it takes' }];
 
-const CADENCES: [string, string][] = [
-  ['every-2-hrs', 'Every 2 hrs'],
-  ['twice-a-day', 'Twice a day'],
-  ['once-a-day', 'Once a day'],
-];
+// The board's three columns (list, stage, side) of each step: the summary opens from step 2.
+const TEMPLATES = ['0px minmax(0,1fr) 0px', '312px minmax(0,1fr) 0px', '312px minmax(0,1fr) 0px'];
+const GAPS = ['0px', '22px', '22px'];
 
 const ACCEPTS: [string, string][] = [
   ['fall-no-injury', 'Fall, no injury'],
@@ -52,149 +46,69 @@ const EXCLUDES: [string, string][] = [
   ['infection-isolation', 'Infection isolation'],
 ];
 
-const SAVE_PATH = '/api/bff/lead/services';
-
 type Saved = { serviceId: string } | null;
 
-function toggle(list: string[], value: string): string[] {
-  return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
-}
+const lower = (text: string) => (text === '' ? '' : `${text.charAt(0).toLowerCase()}${text.slice(1)}`);
 
-function ChoiceGroup({
-  label,
-  choices,
-  selected,
-  onPick,
-  idPrefix,
-}: {
-  label: string;
-  choices: [string, string][];
-  selected: string | null;
-  onPick: (value: string) => void;
-  idPrefix: string;
-}) {
-  const labelId = useId();
-  return (
-    <div role="group" aria-labelledby={labelId} className={styles.choices} data-el={`${idPrefix}-GROUP`}>
-      <p id={labelId} className={styles.fieldLabel}>
-        {label}
-      </p>
-      <div className={styles.chipRow}>
-        {choices.map(([value, text]) => (
-          <Chip
-            key={value}
-            pressed={selected === value}
-            onPressedChange={() => onPick(value)}
-            dataEl={`${idPrefix}-${value.toUpperCase()}`}
-          >
-            {text}
-          </Chip>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function MultiGroup({
-  label,
-  choices,
-  selected,
-  onToggle,
-  idPrefix,
-}: {
-  label: string;
-  choices: [string, string][];
-  selected: string[];
-  onToggle: (value: string) => void;
-  idPrefix: string;
-}) {
-  const labelId = useId();
-  return (
-    <div role="group" aria-labelledby={labelId} className={styles.choices} data-el={`${idPrefix}-GROUP`}>
-      <p id={labelId} className={styles.fieldLabel}>
-        {label}
-      </p>
-      <div className={styles.chipRow}>
-        {choices.map(([value, text]) => (
-          <Chip
-            key={value}
-            pressed={selected.includes(value)}
-            onPressedChange={() => onToggle(value)}
-            dataEl={`${idPrefix}-${value.toUpperCase()}`}
-          >
-            {text}
-          </Chip>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function Field({
-  id,
-  label,
-  hint,
-  error,
-  children,
-}: {
-  id: string;
-  label: string;
-  hint?: string;
-  error?: string;
-  children: (describedBy: string | undefined) => ReactNode;
-}) {
-  const hintId = `${id}-hint`;
-  const errorId = `${id}-error`;
-  const describedBy = [hint ? hintId : null, error ? errorId : null].filter(Boolean).join(' ') || undefined;
-  return (
-    <div className={styles.field}>
-      <label htmlFor={id} className={styles.fieldLabel}>
-        {label}
-      </label>
-      {hint ? (
-        <p id={hintId} className={styles.muted}>
-          {hint}
-        </p>
-      ) : null}
-      {error ? (
-        <p id={errorId} className={styles.fieldError}>
-          {error}
-        </p>
-      ) : null}
-      {children(describedBy)}
-    </div>
-  );
+/** The step (from 0) in `?step=` (from 1); anything else is the first. */
+function stepFrom(param: string | null): number {
+  const n = Number(param);
+  return Number.isInteger(n) && n >= 1 && n <= STEP_COUNT ? n - 1 : 0;
 }
 
 export function AddServiceForm() {
-  const [values, setValues] = useState<ServiceValues>(blankService);
-  const [errors, setErrors] = useState<FieldError[]>([]);
+  const router = useRouter();
+  const step = stepFrom(useSearchParams().get('step'));
+  const form = useServiceFormState();
+  const { values } = form;
+
+  const [reached, setReached] = useState(step);
+  // Adjusting state while rendering, as React allows: the furthest step reached only grows.
+  if (step > reached) setReached(step);
+  const [instant, setInstant] = useState(false);
+
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState<Saved>(null);
   const [notice, setNotice] = useState('');
   const [noticeIsError, setNoticeIsError] = useState(false);
   const summaryRef = useRef<HTMLDivElement>(null);
   const keyRef = useRef<string | null>(null);
-  // Counts the refused submits. Focus goes to the summary once it has rendered, not before.
+  // Counts the refused presses of Next or Save. Focus goes to the summary once it has rendered, not before.
   const [refusals, setRefusals] = useState(0);
+  const focused = useRef(0);
 
   useEffect(() => {
-    if (refusals > 0) summaryRef.current?.focus();
-  }, [refusals]);
+    if (refusals > focused.current && summaryRef.current) {
+      focused.current = refusals;
+      summaryRef.current.focus();
+    }
+  }, [refusals, step, form.errors]);
 
-  const set = <K extends keyof ServiceValues>(key: K, value: ServiceValues[K]) =>
-    setValues((previous) => ({ ...previous, [key]: value }));
+  function goTo(index: number, viaKeyboard = false) {
+    setInstant(viaKeyboard);
+    router.push(`${SETUP_PATH}?step=${index + 1}`);
+  }
 
-  const errorFor = (field: string) => errors.find((error) => error.field === field)?.message;
+  function back(index: number) {
+    form.clearErrors();
+    goTo(index);
+  }
 
-  async function save(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (saving) return;
-    const problems = validateService(values, Date.now());
-    setErrors(problems);
-    setNotice('');
-    if (problems.length > 0) {
+  function next(from: number, viaKeyboard: boolean) {
+    if (form.check(from).length > 0) {
       setRefusals((count) => count + 1);
+      return;
+    }
+    goTo(from + 1, viaKeyboard);
+  }
+
+  async function save() {
+    if (saving) return;
+    setNotice('');
+    const first = form.checkAll();
+    if (first !== null) {
+      setRefusals((count) => count + 1);
+      if (first !== step) goTo(first, true);
       return;
     }
     keyRef.current ??= newIdempotencyKey();
@@ -220,290 +134,151 @@ export function AddServiceForm() {
     setNotice(result.ok ? 'Test prompt sent.' : 'The test prompt could not be sent.');
   }
 
-  return (
-    <main className={styles.page}>
-      <header className={styles.stack}>
-        <p className={styles.muted}>Onboarding</p>
-        <h1 className={styles.title}>Add a service reporter</h1>
-      </header>
+  // The problems of one check are all on one step; they are shown only there.
+  const errorStep = form.errors.length > 0 ? stepOfField(form.errors[0].field) : -1;
+  const errorsOf = (index: number) => (index === errorStep ? form.errors : []);
 
-      <ErrorSummary errors={errors} summaryRef={summaryRef} />
+  const items: SummaryItem[] = [];
+  if (step >= 1 && values.name.trim() !== '') {
+    items.push({
+      key: 'service',
+      label: 'The service',
+      value: values.name.trim(),
+      detail: [
+        labelOf(CATEGORIES, values.category),
+        values.measure ? `counts ${lower(labelOf(MEASURES, values.measure))}` : '',
+        values.establishedCapacity.trim() ? `${values.establishedCapacity.trim()} established` : '',
+      ]
+        .filter(Boolean)
+        .join(' · '),
+    });
+  }
+  if (step >= 2 && values.roleName.trim() !== '') {
+    items.push({
+      key: 'reporting',
+      label: 'Who reports',
+      value: `${values.roleName.trim()}, by ${values.channel}`,
+      detail: [
+        // Only the last four digits of a number are ever shown again.
+        values.channel === 'text' ? `Phone ending ${values.mobile.replace(/\D/g, '').slice(-4)}` : '',
+        lower(cadenceLabel(values.cadence)),
+      ]
+        .filter(Boolean)
+        .join(' · '),
+    });
+  }
+  const goToKey = (key: string) => back(key === 'service' ? 0 : 1);
 
-      <form onSubmit={(event) => void save(event)} noValidate className={styles.stack}>
-        <section className={styles.section} aria-labelledby="add-service-heading">
-          <h2 id="add-service-heading" className={styles.sectionHeading}>
-            Service
-          </h2>
-          <Field id="lead-add-name" label="Service name" error={errorFor('lead-add-name')}>
-            {(describedBy) => (
-              <input
-                id="lead-add-name"
-                className={styles.input}
-                value={values.name}
-                onChange={(e) => set('name', e.target.value)}
-                aria-describedby={describedBy}
-              />
-            )}
-          </Field>
-          <ChoiceGroup
-            label="Category"
-            choices={CATEGORIES}
-            selected={values.category}
-            onPick={(value) => set('category', value)}
-            idPrefix="LEAD-ADD-CATEGORY"
-          />
-          {errorFor('lead-add-category') ? <p id="lead-add-category" className={styles.fieldError}>{errorFor('lead-add-category')}</p> : null}
-          <Field
-            id="lead-add-unit"
-            label="Unit label"
-            hint="For example referrals in the next 2 hrs"
-            error={errorFor('lead-add-unit')}
-          >
-            {(describedBy) => (
-              <input
-                id="lead-add-unit"
-                className={styles.input}
-                value={values.unitLabel}
-                onChange={(e) => set('unitLabel', e.target.value)}
-                aria-describedby={describedBy}
-              />
-            )}
-          </Field>
-          <ChoiceGroup
-            label="What is counted"
-            choices={MEASURES}
-            selected={values.measure}
-            onPick={(value) => set('measure', value)}
-            idPrefix="LEAD-ADD-MEASURE"
-          />
-          {errorFor('lead-add-measure') ? <p className={styles.fieldError}>{errorFor('lead-add-measure')}</p> : null}
-          <Field id="lead-add-established" label="Established capacity" error={errorFor('lead-add-established')}>
-            {(describedBy) => (
-              <input
-                id="lead-add-established"
-                className={styles.input}
-                inputMode="numeric"
-                value={values.establishedCapacity}
-                onChange={(e) => set('establishedCapacity', e.target.value)}
-                aria-describedby={describedBy}
-              />
-            )}
-          </Field>
-          <div className={styles.pair}>
-            <Field id="lead-add-usual-min" label="Lowest usual number" error={errorFor('lead-add-usual-min')}>
-              {(describedBy) => (
-                <input
-                  id="lead-add-usual-min"
-                  className={styles.input}
-                  inputMode="numeric"
-                  value={values.usualMin}
-                  onChange={(e) => set('usualMin', e.target.value)}
-                  aria-describedby={describedBy}
-                />
-              )}
-            </Field>
-            <Field id="lead-add-usual-max" label="Highest usual number" error={errorFor('lead-add-usual-max')}>
-              {(describedBy) => (
-                <input
-                  id="lead-add-usual-max"
-                  className={styles.input}
-                  inputMode="numeric"
-                  value={values.usualMax}
-                  onChange={(e) => set('usualMax', e.target.value)}
-                  aria-describedby={describedBy}
-                />
-              )}
-            </Field>
-          </div>
-          <p className={styles.muted}>Accepts referrals every day, from the From time to the To time.</p>
-          <div className={styles.pair}>
-            <Field id="lead-add-from" label="From" error={errorFor('lead-add-from')}>
-              {(describedBy) => (
-                <input
-                  id="lead-add-from"
-                  className={styles.input}
-                  placeholder="08:00"
-                  value={values.availableFrom}
-                  onChange={(e) => set('availableFrom', e.target.value)}
-                  aria-describedby={describedBy}
-                />
-              )}
-            </Field>
-            <Field id="lead-add-to" label="To" error={errorFor('lead-add-to')}>
-              {(describedBy) => (
-                <input
-                  id="lead-add-to"
-                  className={styles.input}
-                  placeholder="20:00"
-                  value={values.availableTo}
-                  onChange={(e) => set('availableTo', e.target.value)}
-                  aria-describedby={describedBy}
-                />
-              )}
-            </Field>
-          </div>
-        </section>
-
-        <section className={styles.section} aria-labelledby="add-reporting-heading">
-          <h2 id="add-reporting-heading" className={styles.sectionHeading}>
-            Reporting
-          </h2>
-          <ChoiceGroup
-            label="How will they report?"
-            choices={[
-              ['text', 'Text'],
-              ['email', 'Email'],
-            ]}
-            selected={values.channel}
-            onPick={(value) => set('channel', value as 'text' | 'email')}
-            idPrefix="LEAD-ADD-CHANNEL"
-          />
-          {values.channel === 'text' ? (
-            <Field id="lead-add-mobile" label="Mobile number for text" hint="A ward or team phone is best." error={errorFor('lead-add-mobile')}>
-              {(describedBy) => (
-                <input
-                  id="lead-add-mobile"
-                  className={styles.input}
-                  inputMode="tel"
-                  autoComplete="off"
-                  value={values.mobile}
-                  onChange={(e) => set('mobile', e.target.value)}
-                  aria-describedby={describedBy}
-                />
-              )}
-            </Field>
-          ) : (
-            <Field id="lead-add-email" label="Email" error={errorFor('lead-add-email')}>
-              {(describedBy) => (
-                <input
-                  id="lead-add-email"
-                  className={styles.input}
-                  type="email"
-                  autoComplete="off"
-                  value={values.email}
-                  onChange={(e) => set('email', e.target.value)}
-                  aria-describedby={describedBy}
-                />
-              )}
-            </Field>
-          )}
-          <Field id="lead-add-role" label="Who holds this phone" hint="For example duty manager" error={errorFor('lead-add-role')}>
-            {(describedBy) => (
-              <input
-                id="lead-add-role"
-                className={styles.input}
-                value={values.roleName}
-                onChange={(e) => set('roleName', e.target.value)}
-                aria-describedby={describedBy}
-              />
-            )}
-          </Field>
-          <ChoiceGroup
-            label="Usual cadence"
-            choices={CADENCES}
-            selected={values.cadence}
-            onPick={(value) => set('cadence', value)}
-            idPrefix="LEAD-ADD-CADENCE"
-          />
-          {errorFor('lead-add-cadence') ? <p className={styles.fieldError}>{errorFor('lead-add-cadence')}</p> : null}
-        </section>
-
-        <section className={styles.section} aria-labelledby="add-criteria-heading">
-          <h2 id="add-criteria-heading" className={styles.sectionHeading}>
-            Criteria version 1
-          </h2>
-          <MultiGroup
-            label="Needs you accept"
-            choices={ACCEPTS}
-            selected={values.accepts}
-            onToggle={(value) => set('accepts', toggle(values.accepts, value))}
-            idPrefix="LEAD-ADD-ACCEPTS"
-          />
-          {errorFor('lead-add-accepts') ? <p id="lead-add-accepts" className={styles.fieldError}>{errorFor('lead-add-accepts')}</p> : null}
-          <MultiGroup
-            label="Needs you do not accept"
-            choices={EXCLUDES}
-            selected={values.excludes}
-            onToggle={(value) => set('excludes', toggle(values.excludes, value))}
-            idPrefix="LEAD-ADD-EXCLUDES"
-          />
-          <div className={styles.pair}>
-            <Field id="lead-add-age-min" label="Youngest age" error={errorFor('lead-add-age-min')}>
-              {(describedBy) => (
-                <input
-                  id="lead-add-age-min"
-                  className={styles.input}
-                  inputMode="numeric"
-                  value={values.ageMin}
-                  onChange={(e) => set('ageMin', e.target.value)}
-                  aria-describedby={describedBy}
-                />
-              )}
-            </Field>
-            <Field id="lead-add-age-max" label="Oldest age" hint="Leave blank for no limit" error={errorFor('lead-add-age-max')}>
-              {(describedBy) => (
-                <input
-                  id="lead-add-age-max"
-                  className={styles.input}
-                  inputMode="numeric"
-                  value={values.ageMax}
-                  onChange={(e) => set('ageMax', e.target.value)}
-                  aria-describedby={describedBy}
-                />
-              )}
-            </Field>
-          </div>
-          <Field
-            id="lead-add-districts"
-            label="Postcode districts"
-            hint="Like DT4. Separate with commas."
-            error={errorFor('lead-add-districts')}
-          >
-            {(describedBy) => (
-              <input
-                id="lead-add-districts"
-                className={styles.input}
-                value={values.districts}
-                onChange={(e) => set('districts', e.target.value)}
-                aria-describedby={describedBy}
-              />
-            )}
-          </Field>
-          <Field id="lead-add-review" label="Review criteria by" hint="Advisors see a flag when this date passes" error={errorFor('lead-add-review')}>
-            {(describedBy) => (
-              <input
-                id="lead-add-review"
-                className={styles.input}
-                type="date"
-                value={values.reviewBy}
-                onChange={(e) => set('reviewBy', e.target.value)}
-                aria-describedby={describedBy}
-              />
-            )}
-          </Field>
-        </section>
-
-        <p className={styles.muted}>Services with neither text nor email are outside the MVP.</p>
-
-        <div className={styles.actions}>
-          <Button variant="primary" type="submit" busy={saving} dataEl="LEAD-ADD-SAVE-BTN">
-            Save
-          </Button>
-          <Button
-            variant="secondary"
-            disabled={saved === null}
-            onClick={() => void testPrompt()}
-            dataEl="LEAD-ADD-TEST-BTN"
-          >
+  const layers = [
+    () => (
+      <StepService
+        values={values}
+        set={form.set}
+        errors={errorsOf(0)}
+        summaryRef={summaryRef}
+        onNext={(viaKeyboard) => next(0, viaKeyboard)}
+      />
+    ),
+    () => (
+      <StepReporting
+        values={values}
+        set={form.set}
+        errors={errorsOf(1)}
+        summaryRef={summaryRef}
+        onNext={(viaKeyboard) => next(1, viaKeyboard)}
+        onBack={() => back(0)}
+      />
+    ),
+    () => (
+      <StepFrame
+        title="Who it takes"
+        errors={errorsOf(2)}
+        summaryRef={summaryRef}
+        onNext={() => void save()}
+        onBack={() => back(1)}
+        nextLabel="Save"
+        busy={saving}
+        dataEl="LEAD-ADD-SAVE-BTN"
+        secondary={
+          <Button variant="secondary" disabled={saved === null} onClick={() => void testPrompt()} dataEl="LEAD-ADD-TEST-BTN">
             Send a test prompt
           </Button>
-        </div>
-      </form>
+        }
+      >
+        <ChoiceGroup
+          id="lead-add-accepts"
+          label="Needs you accept"
+          choices={ACCEPTS}
+          selected={values.accepts}
+          onPick={(value) => form.toggle('accepts', value)}
+          idPrefix="LEAD-ADD-ACCEPTS"
+          error={errorsOf(2).find((e) => e.field === 'lead-add-accepts')?.message}
+        />
+        <ChoiceGroup
+          label="Needs you do not accept"
+          choices={EXCLUDES}
+          selected={values.excludes}
+          onPick={(value) => form.toggle('excludes', value)}
+          idPrefix="LEAD-ADD-EXCLUDES"
+        />
+        <Field id="lead-add-age-min" label="Youngest age" error={errorsOf(2).find((e) => e.field === 'lead-add-age-min')?.message}>
+          {(props) => <input {...props} inputMode="numeric" value={values.ageMin} onChange={(e) => form.set('ageMin', e.target.value)} />}
+        </Field>
+        <Field
+          id="lead-add-age-max"
+          label="Oldest age"
+          hint="Leave blank for no limit"
+          error={errorsOf(2).find((e) => e.field === 'lead-add-age-max')?.message}
+        >
+          {(props) => <input {...props} inputMode="numeric" value={values.ageMax} onChange={(e) => form.set('ageMax', e.target.value)} />}
+        </Field>
+        <Field
+          id="lead-add-districts"
+          label="Postcode districts"
+          hint="Like DT4. Separate with commas."
+          error={errorsOf(2).find((e) => e.field === 'lead-add-districts')?.message}
+        >
+          {(props) => <input {...props} value={values.districts} onChange={(e) => form.set('districts', e.target.value)} />}
+        </Field>
+        <Field
+          id="lead-add-review"
+          label="Review criteria by"
+          hint="Advisors see a flag when this date passes"
+          error={errorsOf(2).find((e) => e.field === 'lead-add-review')?.message}
+        >
+          {(props) => <input {...props} type="date" value={values.reviewBy} onChange={(e) => form.set('reviewBy', e.target.value)} />}
+        </Field>
+        <p className={styles.pilot}>Services with neither text nor email are outside the MVP.</p>
+        <p role="status" className={styles.status}>
+          {noticeIsError ? '' : notice}
+        </p>
+        {noticeIsError && notice !== '' ? (
+          <p role="alert" className={styles.problem}>
+            {notice}
+          </p>
+        ) : null}
+      </StepFrame>
+    ),
+  ];
 
-      <p role="status" className={noticeIsError ? styles.muted : styles.line}>
-        {noticeIsError ? '' : notice}
-      </p>
-      {noticeIsError && notice !== '' ? <p role="alert" className={styles.fieldError}>{notice}</p> : null}
+  return (
+    <main className={styles.page} data-step={step}>
+      <div className={styles.bar}>
+        <StepBar label="Setup steps" steps={STEPS} current={step} reached={reached} onSelect={(index) => back(index)} />
+      </div>
+      <div className={styles.pill}>
+        <SummaryPin variant="pill" items={items} onChange={goToKey} />
+      </div>
+      <MorphStage
+        label="Setup stage"
+        className={styles.stage}
+        current={step}
+        templates={TEMPLATES}
+        gaps={GAPS}
+        instant={instant}
+        layers={layers}
+        summary={<SummaryPin items={items} onChange={goToKey} open={step >= 1 && items.length > 0} />}
+      />
     </main>
   );
 }

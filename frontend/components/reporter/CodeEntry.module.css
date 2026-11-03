@@ -1,0 +1,58 @@
+/* The code entry (R3): a white card with the six-box code, and the primary action pinned under it. */
+
+.entry {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: 22px 20px;
+  background: #fff;
+  border-radius: 26px;
+  box-shadow: var(--shadow-card);
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--c-muted);
+  font-size: var(--type-caption-size);
+}
+
+.note {
+  margin: 0;
+  color: var(--c-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+}
+
+.action {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: auto;
+  padding: var(--space-3) 0 var(--space-5);
+  background: linear-gradient(180deg, transparent, var(--c-ground) 30%);
+}
+
+.action > button,
+.action > a {
+  width: 100%;
+  min-height: 60px;
+  border-radius: 16px;
+  font-size: 20px;
+}
+
+.hint {
+  margin: 0;
+  color: var(--c-muted);
+  font-size: 14px;
+  text-align: center;
+}

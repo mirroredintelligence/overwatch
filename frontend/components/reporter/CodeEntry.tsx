@@ -1,14 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { CodeInput } from './CodeInput';
-import styles from './Reporter.module.css';
+import styles from './CodeEntry.module.css';
 
 // The text code, for set-up, the 30-day check and a locked PIN (W33, W37, W55): six boxes, ten
 // minutes to use it, five wrong tries, and a new code no sooner than a minute after the last one.
-// The caller says how to send and how to check; this component only counts and shows.
+// The caller says how to send and how to check; this component only counts and shows. It draws a
+// card (the caller's `intro` on top, `children` under the note) and the primary action under it.
 
 export const RESEND_SECONDS = 60;
 const LENGTH = 6;
@@ -20,9 +21,11 @@ type Props = {
   checkCode: (code: string) => Promise<CheckResult>;
   onVerified: () => void;
   caption?: string;
+  intro?: ReactNode;
+  children?: ReactNode;
 };
 
-export function CodeEntry({ sendCode, checkCode, onVerified, caption }: Props) {
+export function CodeEntry({ sendCode, checkCode, onVerified, caption, intro, children }: Props) {
   const [code, setCode] = useState('');
   const [left, setLeft] = useState(RESEND_SECONDS);
   const [triesLeft, setTriesLeft] = useState<number | null>(null);
@@ -36,6 +39,7 @@ export function CodeEntry({ sendCode, checkCode, onVerified, caption }: Props) {
   }, []);
 
   const exhausted = triesLeft === 0;
+  const complete = code.length === LENGTH;
 
   const check = async () => {
     setBusy(true);
@@ -62,28 +66,31 @@ export function CodeEntry({ sendCode, checkCode, onVerified, caption }: Props) {
     }
   };
 
+  const rules = 'The code works for 10 minutes. After 5 wrong tries, ask for a new one.';
+
   return (
-    <div className={styles.page}>
-      {caption !== undefined ? <p className={styles.eyebrow}>{caption}</p> : null}
-      <CodeInput value={code} onChange={setCode} disabled={exhausted} dataEl="CODE-INPUT" />
-      <p>The code works for 10 minutes. After 5 wrong tries you must ask for a new code.</p>
-      {notice !== null ? <Banner tone="warning" title={notice} /> : null}
-      <Button
-        variant="primary"
-        busy={busy}
-        disabled={exhausted || code.length !== LENGTH}
-        dataEl="CODE-CHECK-BTN"
-        onClick={() => void check()}
-      >
-        Check code
-      </Button>
-      {left > 0 ? (
-        <p>{`Send a new code in 0:${String(left).padStart(2, '0')}`}</p>
-      ) : (
-        <Button variant="neutral" dataEl="CODE-RESEND-BTN" onClick={() => void resend()}>
-          Send a new code
+    <div className={styles.entry}>
+      <div className={styles.card}>
+        {caption !== undefined ? <p className={styles.eyebrow}>{caption}</p> : null}
+        {intro}
+        <CodeInput value={code} onChange={setCode} disabled={exhausted} dataEl="CODE-INPUT" />
+        <p className={styles.note}>
+          {left > 0 ? `Send a new code in 0:${String(left).padStart(2, '0')}. ${rules}` : rules}
+        </p>
+        {notice !== null ? <Banner tone="warning" title={notice} /> : null}
+        {left > 0 ? null : (
+          <Button variant="neutral" dataEl="CODE-RESEND-BTN" onClick={() => void resend()}>
+            Send a new code
+          </Button>
+        )}
+        {children}
+      </div>
+      <div className={styles.action}>
+        <Button variant="primary" busy={busy} disabled={exhausted || !complete} dataEl="CODE-CHECK-BTN" onClick={() => void check()}>
+          Check code
         </Button>
-      )}
+        {complete || exhausted ? null : <p className={styles.hint}>The button wakes up when all 6 digits are in.</p>}
+      </div>
     </div>
   );
 }

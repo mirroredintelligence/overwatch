@@ -1,0 +1,421 @@
+/* The provider's first-run set-up on a phone (R2 to R4, States): a dark top bar with the service, five progress
+   segments, one column up to 480px, and the primary action pinned to the bottom. Written for 390px, fine at 320px. */
+
+.frame {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  color: var(--c-ink);
+  background: var(--c-ground);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+}
+
+.bar {
+  box-sizing: border-box;
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 60px;
+  padding: 0 var(--space-4);
+  color: #fff;
+  background: var(--c-rail);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--type-title-size);
+  font-weight: 700;
+}
+
+.service {
+  min-width: 0;
+  padding: 7px 14px;
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* The board's chip: white at 16% on the rail, which has no token. */
+  background: rgb(255 255 255 / 0.16);
+  border-radius: var(--radius-chip);
+}
+
+.progress {
+  box-sizing: border-box;
+  display: flex;
+  flex: none;
+  gap: 6px;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 14px var(--space-4) 6px;
+}
+
+.seg {
+  flex: 1;
+  height: 6px;
+  /* The board's unfilled segment, #C9DCE6, has no token. */
+  background: #c9dce6;
+  border-radius: 3px;
+  transition: background-color var(--dur-state) var(--ease-out);
+}
+
+.segOn {
+  background: var(--c-primary);
+}
+
+.column {
+  box-sizing: border-box;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: var(--space-3) var(--space-4) 0;
+}
+
+/* One page of the set-up: it slides in 24px and fades each time the step changes (the key is the step). */
+.view {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-4);
+  animation: enter var(--dur-onboard) var(--ease-out) both;
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.caption {
+  margin: 0;
+  color: var(--c-muted);
+  font-size: 15px;
+}
+
+.title {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.12;
+  font-weight: 700;
+}
+
+.title:focus {
+  outline: none;
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: var(--type-heading-size);
+  line-height: var(--type-heading-lh);
+  font-weight: 700;
+}
+
+.cardTitle:focus {
+  outline: none;
+}
+
+.lead {
+  margin: 0;
+  color: var(--c-ink-2);
+  font-size: 17px;
+  line-height: 1.4;
+}
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 6px var(--space-4);
+  list-style: none;
+  background: #fff;
+  border-radius: 22px;
+  box-shadow: var(--shadow-card);
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--c-line);
+}
+
+.step:last-child {
+  border-bottom: 0;
+}
+
+.stepNumber {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  color: var(--c-primary-dark);
+  font-weight: 700;
+  background: var(--c-tint);
+  border-radius: 50%;
+}
+
+.stepTitle {
+  flex: 1;
+  font-size: var(--type-body-size);
+  font-weight: 700;
+}
+
+.stepHint {
+  color: var(--c-muted);
+  font-size: 15px;
+}
+
+.reassure {
+  margin: 0;
+  padding: 0 4px;
+  color: var(--c-ink-2);
+  font-size: var(--type-caption-size);
+  line-height: 1.45;
+}
+
+.summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  font-size: 17px;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 1px 2px rgb(20 35 43 / 0.06);
+}
+
+.summaryTick {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  color: #fff;
+  font-weight: 700;
+  background: var(--c-primary);
+  border-radius: 50%;
+}
+
+.summaryText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.summaryNote {
+  color: var(--c-muted);
+  font-size: 15px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: 22px 20px;
+  background: #fff;
+  border-radius: 26px;
+  box-shadow: var(--shadow-card);
+}
+
+.masked {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--type-title-size);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: #fff;
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius);
+}
+
+.disclosure {
+  color: var(--c-ink-2);
+  font-size: var(--type-caption-size);
+}
+
+.disclosure summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.disclosure div {
+  padding: 0 0 4px;
+  line-height: 1.45;
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.option {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  min-height: 52px;
+  padding: 16px;
+  cursor: pointer;
+  background: #fff;
+  border: 2px solid var(--c-line);
+  border-radius: 22px;
+  transition:
+    background-color var(--dur-state) var(--ease-out),
+    border-color var(--dur-state) var(--ease-out);
+}
+
+.option[data-chosen] {
+  background: var(--c-tint);
+  border-color: var(--c-primary);
+  box-shadow: 0 8px 22px rgb(11 92 140 / 0.14);
+}
+
+.option:focus-within {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+/* The radio is the real input, drawn as the board's ring and dot. */
+.option input {
+  appearance: none;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  margin: 2px 0 0;
+  background: transparent;
+  border: 2px solid var(--c-unknown);
+  border-radius: 50%;
+}
+
+.option input:checked {
+  background: radial-gradient(circle, var(--c-primary) 0 6px, transparent 7px);
+  border-color: var(--c-primary);
+}
+
+.optionBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.optionHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.optionLabel {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.recommended {
+  padding: 3px 10px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--c-primary);
+  border-radius: var(--radius-chip);
+}
+
+.optionHint {
+  display: block;
+  margin-top: 4px;
+  color: var(--c-ink-2);
+  font-size: var(--type-caption-size);
+  line-height: 1.4;
+}
+
+.action {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: auto;
+  padding: var(--space-3) 0 var(--space-5);
+  background: linear-gradient(180deg, transparent, var(--c-ground) 30%);
+}
+
+.action > button,
+.action > a {
+  width: 100%;
+  min-height: 60px;
+  border-radius: 16px;
+  font-size: 20px;
+}
+
+/* The expired, failed and checking states (States board). */
+.state {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.stateIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  color: var(--c-closed);
+  font-weight: 700;
+  background: var(--c-bg);
+  border: 2px solid var(--c-closed);
+  border-radius: 50%;
+}
+
+.stateTitle {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.stateTitle:focus {
+  outline: none;
+}
+
+.stateText {
+  margin: 0;
+  color: var(--c-ink-2);
+  font-size: var(--type-caption-size);
+  line-height: 1.45;
+}
+
+.shimmer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}

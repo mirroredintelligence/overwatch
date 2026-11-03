@@ -1,0 +1,124 @@
+/* Settings (artboard B8): a card of grouped rows, two outlined change buttons, then the two sign outs.
+   Tokens only; the page ground and the frame come from the reporter app frame. */
+
+.page {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 32rem;
+  margin: 0 auto;
+  padding: var(--space-4);
+  color: var(--c-ink);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--type-heading-size);
+  line-height: var(--type-heading-lh);
+  font-weight: var(--type-heading-weight);
+  letter-spacing: var(--type-heading-tracking);
+}
+
+.card {
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  box-sizing: border-box;
+  min-height: 52px;
+  padding: var(--space-3) var(--space-1);
+  border-top: 1px solid var(--c-line);
+}
+
+.row:first-child {
+  border-top: 0;
+}
+
+.label {
+  margin: 0;
+  color: var(--c-muted);
+  font-size: 17px;
+}
+
+.value {
+  margin: 0;
+  font-weight: 700;
+  text-align: right;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-4);
+  background: #fff;
+  border: 0;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.group legend {
+  padding: 0;
+  font-size: var(--type-title-size);
+  font-weight: var(--type-title-weight);
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 48px;
+}
+
+.choice input {
+  width: 24px;
+  height: 24px;
+  accent-color: var(--c-primary);
+}
+
+/* A full-width button, so the buttons here are as wide as the board's and 54px high. */
+.wide {
+  display: flex;
+  width: 100%;
+}
+
+.wide > button,
+.wide > a {
+  width: 100%;
+  min-height: 54px;
+}
+
+.question {
+  margin: 0;
+  font-size: var(--type-title-size);
+  font-weight: var(--type-title-weight);
+}
+
+.every {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 50px;
+  color: var(--c-ink-2);
+  font-size: 17px;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.every:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}

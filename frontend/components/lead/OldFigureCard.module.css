@@ -1,0 +1,42 @@
+/* The getting-old card: the board's single row, wrapping under 600px so it works at 320px. */
+
+.card {
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: 20px 22px;
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+  color: var(--c-ink);
+  font-family: var(--font-atkinson), system-ui, sans-serif;
+}
+
+.text {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.line {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-muted);
+}
+
+@media (max-width: 600px) {
+  .card > :last-child {
+    flex: 1 1 100%;
+  }
+}

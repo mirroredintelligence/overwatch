@@ -1,0 +1,342 @@
+/* The shift lead's page: the board's busy shift, the open chase, the quiet shift, loading and the failed read.
+   The frame (rail, top bar) comes from the layout; this is the body. Motion is only the stage's own (the columns
+   and layers of StageGrid, whose tokens are zero under reduced motion): no figure animates. The dark amber
+   #4A2300 of the alert text, as on the board, has no token. */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  color: var(--c-ink);
+  font-family: var(--font-atkinson), system-ui, sans-serif;
+}
+
+.time {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* A read that failed: the board's amber alert, an icon and a sentence, with the way to try again. */
+.banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: 16px 18px;
+  border: 2px solid var(--c-limited);
+  border-radius: 18px;
+  background: var(--c-amber-tint);
+  color: #4a2300;
+}
+
+.bannerIcon {
+  flex: none;
+  margin-top: 2px;
+  color: #7a3500;
+}
+
+.bannerText {
+  flex: 1;
+  min-width: 0;
+}
+
+.bannerTitle {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.bannerLine {
+  margin: 2px 0 0;
+  font-size: var(--type-caption-size);
+  line-height: 1.4;
+}
+
+@media (max-width: 600px) {
+  .banner {
+    flex-wrap: wrap;
+  }
+
+  .bannerText {
+    flex: 1 1 12rem;
+  }
+}
+
+/* The stage: the list, the open chase and the right column. It has a height of its own, because the layers of
+   an area are laid over each other and scroll inside it. */
+.grid {
+  height: min(52rem, calc(100dvh - 12rem));
+  min-height: 30rem;
+}
+
+.plain {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* Figures that could not be refreshed stay readable, dimmed. */
+.plain:disabled > .listBody {
+  opacity: 0.78;
+}
+
+.listBody {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  /* Room for the cards' shadows inside a scrolling layer. */
+  padding: var(--space-1) var(--space-2) var(--space-5);
+}
+
+.stats {
+  display: flex;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stats > li {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.stats > li > * {
+  flex: 1 1 auto;
+}
+
+.group {
+  min-width: 0;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* The quiet shift: a calm card, never an empty one. */
+.quiet {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 34px 36px;
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+}
+
+.quietMark {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: var(--c-tint);
+  color: var(--c-primary);
+}
+
+.quietTitle {
+  margin: 0;
+  font-size: 34px;
+  line-height: 1.1;
+}
+
+.quietLine {
+  margin: 8px 0 0;
+  font-size: 19px;
+  line-height: 1.45;
+  color: var(--c-ink-2);
+}
+
+.setup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 20px 22px;
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+}
+
+.setupText {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.setupTitle {
+  margin: 0;
+  font-size: var(--type-body-size);
+  font-weight: 700;
+}
+
+.setupLine {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: auto;
+}
+
+/* The right column: fixed, and the same at both stages. The sheet of the phoned dialog is drawn over it. */
+.side {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+}
+
+.sideBody {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: var(--space-1) var(--space-2) var(--space-5) 22px;
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  font-size: var(--type-caption-size);
+}
+
+.links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--c-primary-dark);
+}
+
+.notice {
+  min-height: 1.4em;
+  margin: 0;
+  font-size: var(--type-body-size);
+  color: var(--c-ink-2);
+}
+
+.notice[data-failed='true'] {
+  color: var(--c-limited);
+  font-weight: 700;
+}
+
+/* Loading: the same two columns, with placeholders in the shape of the page. */
+.loadingGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 22px;
+}
+
+.loadingMain,
+.loadingSide {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.loadingStats {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.loadingStats > * {
+  flex: 1;
+  height: 68px;
+}
+
+.loadingCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: 18px 20px;
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+}
+
+/* One column below 900px (the phone board): the grid is the page's flow, the open chase replaces the list, and
+   System now and Covering today follow. The overrides outrank StageGrid's own rules by one more class. */
+@media (max-width: 899px) {
+  .page .grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    height: auto;
+    min-height: 0;
+  }
+
+  .page .grid > div {
+    position: static;
+    overflow: visible;
+  }
+
+  .page .grid [data-layer] {
+    position: static;
+    opacity: 1;
+    transform: none;
+    overflow: visible;
+  }
+
+  .page .grid [data-layer='before'],
+  .page .grid [data-layer='after'] {
+    display: none;
+  }
+
+  .page .grid > [data-area='stage']:has(> [data-layer='after']) {
+    display: none;
+  }
+
+  .side {
+    position: static;
+    overflow: visible;
+  }
+
+  .sideBody {
+    padding-left: var(--space-2);
+  }
+
+  .loadingGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .stats {
+    flex-wrap: wrap;
+  }
+
+  .stats > li {
+    flex: 1 1 10rem;
+  }
+
+  .quiet {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: var(--space-5);
+  }
+}

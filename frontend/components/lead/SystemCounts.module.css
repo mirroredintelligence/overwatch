@@ -1,0 +1,106 @@
+/* System now: the five counts of the board's right column. No transition on a figure. The dark ink of the
+   limited and over-capacity figures (#7A3500, #4B1C69) has no token. */
+
+.card {
+  box-sizing: border-box;
+  padding: 20px 22px;
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+  color: var(--c-ink);
+  font-family: var(--font-atkinson), system-ui, sans-serif;
+}
+
+.heading {
+  margin: 0 0 var(--space-3);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.counts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.word {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: var(--type-label-size);
+  font-weight: 400;
+}
+
+.figure {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--c-primary-dark);
+}
+
+.figure[data-state='square'] {
+  color: #7a3500;
+}
+
+.figure[data-state='diamond'] {
+  color: #4b1c69;
+}
+
+.figure[data-state='dark-circle'] {
+  color: var(--c-closed);
+}
+
+.figure[data-state='dashed-circle'] {
+  color: var(--c-muted);
+}
+
+.mark {
+  flex: none;
+  box-sizing: border-box;
+  width: 12px;
+  height: 12px;
+  background: var(--c-primary);
+  border-radius: 50%;
+}
+
+.mark[data-shape='square'] {
+  background: var(--c-limited);
+  border-radius: 3px;
+}
+
+.mark[data-shape='diamond'] {
+  background: var(--c-surge);
+  border-radius: 0;
+  transform: rotate(45deg);
+}
+
+.mark[data-shape='dark-circle'] {
+  background: var(--c-closed);
+}
+
+.mark[data-shape='dashed-circle'] {
+  background: transparent;
+  border: 2px dashed var(--c-unknown);
+}
+
+.reporting {
+  margin: var(--space-3) 0 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--c-line);
+  font-size: 15px;
+  color: var(--c-muted);
+}

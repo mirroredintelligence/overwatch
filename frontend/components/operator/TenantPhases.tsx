@@ -2,6 +2,7 @@
 
 import { forwardRef, useId, type ReactNode } from 'react';
 import { Button } from '@/components/ui/Button';
+import { StatusTag, type StatusTagVariant } from '@/components/ui/StatusTag';
 import { PHASE_STATE_WORD, teamName, type ConsentRead, type Funnel, type FunnelPhase, type PhaseId, type StepId } from '@/lib/operator/funnel';
 import { organisationTypeWord } from '@/lib/operator/words';
 import { whenText } from '@/lib/tenantAdmin/words';
@@ -9,6 +10,7 @@ import { GoLiveStep, type Notice } from './TenantLifecycle';
 import { AgreementsStep, InviteStep, OrganisationStep, ReachStep, RolesStep, SignInStep, TeamStep, type Detail, type PanelProps } from './TenantPanels';
 import styles from '@/components/admin/admin.module.css';
 import ts from './Tenant.module.css';
+import stage from './TenantStage.module.css';
 
 // The one selected part of the organisation's page. A part that is not completed shows its steps: the forms, one
 // primary button. A completed part shows a short summary and a "Change" link, and its steps only once the operator
@@ -22,8 +24,13 @@ const LEDE: Record<PhaseId, string> = {
   golive: 'Check what is left. When everything is ready you can make the organisation live.',
 };
 
-export const phaseTagClass = (state: FunnelPhase['state']): string =>
-  state === 'completed' ? styles.tag : state === 'in-progress' ? `${styles.tag} ${ts.tagInProgress}` : state === 'waiting' ? `${styles.tag} ${ts.tagWaiting}` : `${styles.tag} ${styles.tagDashed}`;
+// A part's state as a shape and its word (StatusTag): completed is done, in progress is the filled "next" tag,
+// waiting for them is amber, not started is dashed.
+const PHASE_VARIANT: Record<FunnelPhase['state'], StatusTagVariant> = { completed: 'done', 'in-progress': 'live', waiting: 'waiting', 'not-started': 'todo' };
+
+export function PhaseTag({ state }: { state: FunnelPhase['state'] }) {
+  return <StatusTag variant={PHASE_VARIANT[state]}>{PHASE_STATE_WORD[state]}</StatusTag>;
+}
 
 type FactRow = readonly [string, ReactNode];
 
@@ -95,13 +102,13 @@ export const PhasePanel = forwardRef<HTMLHeadingElement, Props>(function PhasePa
   const editable = phase.id !== 'approval';
 
   return (
-    <section className={ts.panel} aria-labelledby={headingId} data-el={`OP-PHASE-${phase.id.toUpperCase()}`} data-state={phase.state}>
-      <header className={ts.panelHead}>
+    <section className={stage.card} aria-labelledby={headingId} data-el={`OP-PHASE-${phase.id.toUpperCase()}`} data-state={phase.state}>
+      <header className={stage.cardHead}>
         <p className={ts.eyebrow}>{`Part ${phase.number} of ${funnel.phases.length}`}</p>
-        <h2 id={headingId} ref={headingRef} tabIndex={-1} className={ts.panelTitle}>
+        <h2 id={headingId} ref={headingRef} tabIndex={-1} className={stage.cardTitle}>
           {phase.title}
         </h2>
-        <span className={phaseTagClass(phase.state)}>{PHASE_STATE_WORD[phase.state]}</span>
+        <PhaseTag state={phase.state} />
       </header>
 
       {showSteps ? (

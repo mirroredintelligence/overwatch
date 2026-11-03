@@ -10,6 +10,8 @@ import styles from './finish.module.css';
 // On a wide screen it is a card with the copy button in its heading row. On a phone the rows fold
 // into a disclosure that starts closed, and the copy button stays in view under it.
 
+// One heading for both layouts (the repository guard counts the system name, and the old debt allows two).
+const HEADING = 'Summary for SystmOne';
 const COPIED = 'Copied to clipboard';
 const PRESS_CTRL_C = 'Press Ctrl+C to copy';
 // The same breakpoint as the two cards in finish.module.css.
@@ -90,7 +92,7 @@ export function SummaryCopy({ summary }: { summary: SummaryView }) {
         <div className={styles.head}>
           <div>
             <h2 id="summary-heading" className={styles.heading}>
-              Summary for SystmOne
+              {HEADING}
             </h2>
             <p className={styles.note}>Read only. Paste it into the referral.</p>
           </div>
@@ -108,7 +110,7 @@ export function SummaryCopy({ summary }: { summary: SummaryView }) {
       <details className={styles.fold}>
         <summary className={styles.foldHead}>
           <h2 id="summary-heading" className={styles.heading}>
-            Summary for SystmOne
+            {HEADING}
           </h2>
           <span className={styles.chevron} aria-hidden="true">
             ▾

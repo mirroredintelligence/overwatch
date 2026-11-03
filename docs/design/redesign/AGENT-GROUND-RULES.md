@@ -59,7 +59,7 @@ Tests that already fail on the base branch because of local storage under that f
 
 1. Read the existing component(s) and their tests, the brief section and every board named for your unit.
 2. Change or add tests so they describe the NEW design: the structure and text a person sees, roles and accessible names, each state the board shows (loading, empty, error, success, and the unit's own states), keyboard behaviour, and `runAxe` where the existing tests use it. Do not delete a test of real behaviour; update it.
-3. Run them. They must FAIL, and fail for the right reason (the new thing is missing, not a typo). Write down the failing test names and the one-line reason for each.
+3. Run them. They must FAIL, and fail for the right reason (the new thing is missing, not a typo). Write down the failing test names and the one-line reason for each. For a component that does not exist yet, a test file only fails to load ("Failed to resolve import") and vitest lists no test names: first create a STUB module that exports the final names and renders nothing (`export function X() { return null; }`), so the tests load and fail BY NAME, and report those names. Replace the stub in step 4.
 4. Implement the design.
 5. Run your tests until they pass. Then run `npx tsc --noEmit`, `npx eslint` on your files, and every other test file in the folders you touched.
 6. Never make a test pass by weakening it. If a test is wrong, say why in the report.

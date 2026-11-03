@@ -1,9 +1,34 @@
-/* Coverage by time of day and define a coverage area (RadarWeb 4 and 5). Tokens from app/tokens.css. */
+/* Coverage by time of day (RadarWeb 4) and define a coverage area (RadarWeb 5). Tokens from app/tokens.css.
+   The two routes share this file: the lead form uses .screen, .layout and .formCard; the planning analysis uses
+   .analysis, .body and .side. A tile's state is its border and its fill as well as its word, never colour alone. */
+
+.page {
+  min-width: 0;
+}
+
+.alert {
+  margin: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--type-body-size);
+  color: var(--c-ink);
+  background: var(--c-amber-tint);
+  border-radius: var(--radius);
+}
 
 .screen {
   display: grid;
   gap: var(--space-4);
-  max-width: 56rem;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: var(--space-4);
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.analysis {
+  display: grid;
+  gap: var(--space-4);
+  max-width: 80rem;
   margin: 0 auto;
   padding: var(--space-4);
   min-width: 0;
@@ -31,6 +56,27 @@
   color: var(--c-muted);
 }
 
+.eyebrow {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  font-weight: var(--type-label-weight);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.card {
+  display: grid;
+  align-content: start;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-5) 28px;
+  box-sizing: border-box;
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;
@@ -49,22 +95,65 @@
   color: var(--c-ink);
 }
 
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--c-line);
+}
+
+/* ---- Define a coverage area: the form, with the live preview beside it ---- */
+
+.layout {
+  display: grid;
+  gap: var(--space-4);
+  align-items: start;
+  min-width: 0;
+}
+
+@media (min-width: 900px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) 25rem;
+    gap: 22px;
+  }
+}
+
+.formCard {
+  display: grid;
+  align-content: start;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-5) 28px;
+  box-sizing: border-box;
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
 .field {
   display: grid;
   gap: var(--space-1);
-  max-width: 14rem;
+  justify-items: start;
 }
 
 .input {
   box-sizing: border-box;
-  width: 100%;
-  min-height: 56px;
+  width: 7.5rem;
+  min-height: 52px;
   padding: 0 var(--space-4);
   font: inherit;
   font-size: 20px;
   color: var(--c-ink);
   background: var(--c-bg);
-  border: 2px solid var(--c-muted);
+  border: 2px solid var(--c-ink-2);
   border-radius: var(--radius);
 }
 
@@ -73,51 +162,228 @@
   outline-offset: 2px;
 }
 
-.actions {
-  display: flex;
-  flex-wrap: wrap;
+.count {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
+}
+
+/* The overlap note is a polite status: the slot is always there, and the note opens into it with the height ease. */
+.statusSlot {
+  display: grid;
   gap: var(--space-2);
+}
+
+.reveal {
+  display: grid;
+  min-height: 0;
+  animation: reveal var(--dur-state) var(--ease-out);
+}
+
+.reveal > .overlap {
+  min-height: 0;
+  overflow: hidden;
+}
+
+@keyframes reveal {
+  from {
+    grid-template-rows: 0fr;
+  }
+  to {
+    grid-template-rows: 1fr;
+  }
 }
 
 .overlap {
   margin: 0;
   padding: var(--space-3) var(--space-4);
   font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
   color: var(--c-ink);
   background: var(--c-amber-tint);
+  border: 2px solid var(--c-limited);
   border-radius: var(--radius);
+}
+
+.preview {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.kicker {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  font-weight: var(--type-label-weight);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.previewBox {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius);
+}
+
+.previewName {
+  font-size: var(--type-title-size);
+  font-weight: var(--type-title-weight);
+  color: var(--c-ink);
+}
+
+.previewLine,
+.previewNote p {
+  margin: 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  color: var(--c-ink-2);
+}
+
+.previewNote {
+  display: grid;
+  gap: var(--space-2);
+  font-size: var(--type-caption-size);
+}
+
+/* ---- Coverage by time of day: the tiles, and the facts beside them ---- */
+
+.body {
+  display: grid;
+  gap: var(--space-4);
+  align-items: start;
+  min-width: 0;
+}
+
+@media (min-width: 900px) {
+  .body {
+    grid-template-columns: minmax(0, 1fr) 21.25rem;
+  }
+}
+
+.side {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.cardHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: var(--type-title-weight);
+  color: var(--c-ink);
+}
+
+.key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  font-size: var(--type-caption-size);
+  color: var(--c-ink-2);
+}
+
+.keyItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.swatch {
+  display: inline-block;
+  width: 22px;
+  height: 16px;
+  border-radius: 5px;
+  box-sizing: border-box;
+}
+
+.swatch[data-cover='none'] {
+  border: 2px dashed var(--c-limited);
+  background: repeating-linear-gradient(135deg, var(--c-amber-tint) 0 4px, #fff 4px 7px);
+}
+
+.swatch[data-cover='one'] {
+  border: 2px solid var(--c-primary);
+  background: #fff;
+}
+
+.swatch[data-cover='many'] {
+  border: 2px solid var(--c-primary-dark);
+  background: var(--c-tint);
 }
 
 .tiles {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
-  gap: var(--space-2);
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  gap: var(--space-3);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .tile {
+  position: relative;
   display: grid;
-  gap: var(--space-1);
-  padding: var(--space-3);
-  background: var(--c-bg);
-  border: 2px solid var(--c-ink-2);
-  border-radius: var(--radius);
   min-width: 0;
+  min-height: 5rem;
+  box-sizing: border-box;
   overflow-wrap: anywhere;
+  background: #fff;
+  border: 2px solid var(--c-primary);
+  border-radius: var(--radius);
 }
 
-/* The state is the word as well as the border: no cover is dashed, one service solid, two or more double. */
+/* The state is the border and the fill as well as the word: no cover is dashed and hatched, two or more is filled. */
 .tile[data-cover='none'] {
   border-style: dashed;
   border-color: var(--c-limited);
+  background: repeating-linear-gradient(135deg, var(--c-amber-tint) 0 8px, #fff 8px 14px);
 }
 
 .tile[data-cover='many'] {
-  border-style: double;
-  border-width: 5px;
-  border-color: var(--c-primary);
+  border-color: var(--c-primary-dark);
+  background: var(--c-tint);
+}
+
+.tile:has(> .tileButton[aria-pressed='true']) {
+  outline: 3px solid var(--c-ink);
+  outline-offset: 2px;
+}
+
+.tileButton {
+  display: grid;
+  align-content: start;
+  gap: var(--space-1);
+  width: 100%;
+  height: 100%;
+  min-height: 5rem;
+  margin: 0;
+  padding: var(--space-3);
+  box-sizing: border-box;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: inherit;
+  cursor: pointer;
+}
+
+.tileButton:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
 }
 
 .district {
@@ -156,4 +422,23 @@
   font-size: var(--type-title-size);
   font-weight: var(--type-title-weight);
   color: var(--c-ink);
+}
+
+.detail {
+  gap: var(--space-2);
+  border: 2px solid var(--c-ink);
+}
+
+.detailText {
+  margin: 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  color: var(--c-ink);
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-muted);
 }

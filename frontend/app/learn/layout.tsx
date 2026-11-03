@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
-import { StaffShell } from '@/app/StaffShell';
 
-// The staff header and page frame around every page of this area (components/shell).
+// The learn pages are public and draw their own frame (the head, the page ground and the phone bottom bar:
+// components/learn/LearnLibrary), so there is no staff shell around them.
 export default function Layout({ children }: { children: ReactNode }) {
-  return <StaffShell>{children}</StaffShell>;
+  return <>{children}</>;
 }

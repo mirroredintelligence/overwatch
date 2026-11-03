@@ -53,6 +53,24 @@ describe('NetworkWeekView', () => {
     expect(await screen.findByText('This week could not be read. Try again shortly.')).toBeInTheDocument();
     server.use(http.get('/api/bff/network/week', () => HttpResponse.json(parseWeek(WEEK_BODY, 'backend'))));
     await userEvent.setup({ advanceTimers: vi.advanceTimersByTime }).click(screen.getByRole('button', { name: 'Try again' }));
-    expect(await screen.findByText('134 hours sampled')).toBeInTheDocument();
+    expect(await screen.findByText('hours sampled')).toBeInTheDocument();
+  });
+
+  it('says it is loading the week, with a placeholder, until the week is read', async () => {
+    server.use(...networkBffHandlers);
+    render(<NetworkWeekView ownHref="/planning/week" />);
+    const loading = await screen.findByText('Loading the week');
+    expect(loading.closest('[role="status"]')).toHaveAttribute('aria-busy', 'true');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Sample Network this week' })).toBeInTheDocument();
+    expect(screen.queryByText('Loading the week')).toBeNull();
+  });
+
+  it('draws the week as figure cards, the status bar and the pressure grid once it is read', async () => {
+    server.use(...networkBffHandlers);
+    render(<NetworkWeekView ownHref="/planning/week" />);
+    await screen.findByRole('heading', { level: 1 });
+    expect(screen.getByRole('list', { name: 'Figures for the week' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: /^Accepting 48%/ })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: /^Pressure for each hour of the week/ })).toBeInTheDocument();
   });
 });

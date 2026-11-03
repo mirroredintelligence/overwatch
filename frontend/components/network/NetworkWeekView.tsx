@@ -5,6 +5,7 @@ import { NetworkWeek } from '@/components/exec/NetworkWeek';
 import { NetworkUnavailable } from '@/components/scope/NetworkUnavailable';
 import { ScopeHeader } from '@/components/scope/ScopeHeader';
 import { Button } from '@/components/ui/Button';
+import { Loading, SkeletonRows } from '@/components/ui/Skeleton';
 import { readNetworkView } from '@/lib/network/browser';
 import { NETWORK_ROUTES } from '@/lib/network/links';
 import { parseWeek } from '@/lib/network/parse';
@@ -12,6 +13,7 @@ import type { NetworkWeek as Week } from '@/lib/network/types';
 import { addWeeks, lastCompleteWeekStart } from '@/lib/network/week';
 import { NetworkScope } from './NetworkScope';
 import styles from './Network.module.css';
+import view from './NetworkWeekView.module.css';
 
 // The network week page (TEN-082): the last complete week, by its Monday, with an earlier week and a later
 // one, never past the last complete one. Only the executive and the shift lead read it; for any other role
@@ -46,9 +48,9 @@ function WeekPage({ networkId, networkName, ownHref }: { networkId: string; netw
   if (load.kind === 'refused') return <main className={styles.page}><NetworkUnavailable reason="not-available" ownHref={ownHref} /></main>;
 
   return (
-    <main className={styles.page}>
+    <main className={view.page}>
       <ScopeHeader scope="network" networkName={networkName} switchTo={{ ownHref, networkHref: NETWORK_ROUTES.week }} />
-      <div className={styles.controls}>
+      <div className={view.controls}>
         <Button variant="secondary" onClick={() => move(-1)}>
           Earlier week
         </Button>
@@ -56,9 +58,13 @@ function WeekPage({ networkId, networkName, ownHref }: { networkId: string; netw
           Later week
         </Button>
       </div>
-      {load.kind === 'loading' ? <p role="status">Loading the week</p> : null}
+      {load.kind === 'loading' ? (
+        <Loading label="Loading the week">
+          <SkeletonRows count={3} />
+        </Loading>
+      ) : null}
       {load.kind === 'failed' ? (
-        <div>
+        <div className={view.alert}>
           <p role="alert">This week could not be read. Try again shortly.</p>
           <Button
             variant="secondary"

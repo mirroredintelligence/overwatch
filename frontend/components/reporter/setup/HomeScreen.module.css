@@ -1,0 +1,111 @@
+/* The home-screen step (W34, artboard R5): a phone switch and a card of four steps, each with an icon tile. */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 5px;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.tab {
+  min-height: 48px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--c-ink-2);
+  font: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tab[aria-selected='true'] {
+  background: var(--c-primary);
+  color: #fff;
+}
+
+.tab:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.steps {
+  margin: 0;
+  padding: 4px 16px;
+  list-style: none;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(20 35 43 / 0.06), 0 8px 22px rgb(20 35 43 / 0.06);
+}
+
+.step {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--c-line);
+}
+
+.step:last-child {
+  border-bottom: 0;
+}
+
+.icon {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--c-tint);
+  color: #0b3f61;
+}
+
+.iconDark {
+  background: var(--c-rail);
+  color: #fff;
+}
+
+.addWord {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.stepBody {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.stepTitle {
+  display: block;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.stepNumber {
+  font-weight: 700;
+}
+
+.stepHint {
+  display: block;
+  color: var(--c-muted);
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.note {
+  margin: 0;
+  padding: 0 4px;
+  color: var(--c-muted);
+  font-size: 15px;
+}

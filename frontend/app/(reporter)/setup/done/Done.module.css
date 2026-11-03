@@ -1,0 +1,41 @@
+/* The end of the text or email set-up (board States "Phone · set up by text or email"): one card inside ProviderShell. */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-4);
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--c-tint);
+  color: var(--c-primary);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: var(--type-title-weight);
+  letter-spacing: var(--type-title-tracking);
+}
+
+.title:focus {
+  outline: none;
+}
+
+.text {
+  margin: 0;
+  color: var(--c-ink-2);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+}

@@ -1,0 +1,107 @@
+/* The last screen of the app set-up (artboard R8 "All set"): the confirmation card, the summary rows and the note,
+   inside ProviderShell. Tokens only. */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-4);
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--c-tint);
+  color: var(--c-primary);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--type-heading-size);
+  line-height: var(--type-heading-lh);
+  font-weight: var(--type-heading-weight);
+  letter-spacing: var(--type-heading-tracking);
+}
+
+.title:focus {
+  outline: none;
+}
+
+.lead {
+  margin: 0;
+  color: var(--c-ink-2);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+}
+
+.summary {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: var(--space-1) var(--space-4);
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--c-line);
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-lh);
+}
+
+.row:last-child {
+  border-bottom: 0;
+}
+
+.label {
+  margin: 0;
+  color: var(--c-muted);
+}
+
+.value {
+  margin: 0;
+  font-weight: 700;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.skeletonRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--c-line);
+}
+
+.note {
+  margin: 0;
+  padding: 0 var(--space-1);
+  color: var(--c-ink-2);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+}
+
+.test {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.test p {
+  margin: 0;
+  color: var(--c-ink-2);
+}

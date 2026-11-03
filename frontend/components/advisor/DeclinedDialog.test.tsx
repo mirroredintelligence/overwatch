@@ -38,7 +38,8 @@ describe('DeclinedDialog (W14)', () => {
     for (const reason of ['Full, not yet reported', 'Outside their criteria', 'Staffing or transport', 'Other']) {
       expect(screen.getByRole('button', { name: reason })).toBeInTheDocument();
     }
-    expect(screen.getByText('For a conversation with the service. Not used to assess advisors.')).toBeInTheDocument();
+    expect(screen.getByText('Not used to assess advisors')).toBeInTheDocument();
+    expect(screen.getByText('This is for a conversation with the service. It feeds the data, not a score.')).toBeInTheDocument();
   });
 
   it('Save is disabled until a reason is chosen', async () => {

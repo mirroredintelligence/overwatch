@@ -6,7 +6,7 @@ import { Dialog } from '@/components/ui/Dialog';
 import { OptionButton } from '@/components/ui/OptionButton';
 import { bffFetch, newIdempotencyKey } from '@/lib/advisor/browser';
 import type { Said } from '@/lib/advisor/service-api';
-import styles from './dialog-body.module.css';
+import styles from './action-dialogs.module.css';
 
 // "I phoned" (W14): what the service said on the phone. The answer updates the board for everyone,
 // so it is recorded as the advisor's, never as the service's own report. A "not accepting" answer
@@ -65,7 +65,8 @@ export function PhonedDialog({ caseRef, serviceId, serviceName, onSaved, onClose
 
   return (
     <Dialog title="I phoned" sub={serviceName} dataEl="ADV-PHONED-DIALOG" onClose={onClose}>
-      <fieldset className={styles.group}>
+      <span className={styles.tag}>Updates the board for everyone</span>
+      <fieldset className={`${styles.group} ${styles.group3}`}>
         <legend className={styles.legend}>{`What did ${serviceName} tell you?`}</legend>
         {ANSWERS.map((answer) => (
           <OptionButton
@@ -103,7 +104,7 @@ export function PhonedDialog({ caseRef, serviceId, serviceName, onSaved, onClose
         </div>
       )}
 
-      <p className={styles.note}>Updates the board for everyone. Recorded as “advisor phoned”.</p>
+      <p className={styles.note}>{'Recorded as "advisor phoned". It shows on the board with the time.'}</p>
       {failed ? (
         <p role="alert" className={styles.error}>
           {SAVE_FAILED}

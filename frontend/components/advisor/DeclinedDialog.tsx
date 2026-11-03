@@ -6,7 +6,7 @@ import { Dialog } from '@/components/ui/Dialog';
 import { OptionButton } from '@/components/ui/OptionButton';
 import { bffFetch, newIdempotencyKey } from '@/lib/advisor/browser';
 import type { DeclineReason } from '@/lib/advisor/service-api';
-import styles from './dialog-body.module.css';
+import styles from './action-dialogs.module.css';
 
 // "They declined" (W14): why a service that showed capacity said no. For a conversation with the
 // service; it is not used to assess an advisor.
@@ -52,6 +52,7 @@ export function DeclinedDialog({ caseRef, serviceId, serviceName, onSaved, onClo
 
   return (
     <Dialog title="They declined" sub="The board showed capacity" dataEl="ADV-DECLINED-DIALOG" onClose={onClose}>
+      <span className={styles.tag}>Not used to assess advisors</span>
       <fieldset className={styles.group}>
         <legend className={styles.legend}>{`Why did ${serviceName} decline?`}</legend>
         {REASONS.map((item) => (
@@ -66,7 +67,7 @@ export function DeclinedDialog({ caseRef, serviceId, serviceName, onSaved, onClo
         ))}
       </fieldset>
 
-      <p className={styles.note}>For a conversation with the service. Not used to assess advisors.</p>
+      <p className={styles.note}>This is for a conversation with the service. It feeds the data, not a score.</p>
       {failed ? (
         <p role="alert" className={styles.error}>
           {SAVE_FAILED}

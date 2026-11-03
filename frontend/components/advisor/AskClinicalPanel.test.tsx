@@ -47,7 +47,8 @@ describe('AskClinicalPanel', () => {
   it('reads the case and opens the dialog with its summary and the number of options shown', async () => {
     server.use(http.get('/api/bff/cases/case-4821', () => HttpResponse.json(CASE)), http.get('/api/bff/clinical/summary', () => HttpResponse.json({ available: 1 })));
     const { container } = render(<AskClinicalPanel caseRef="case-4821" optionsShown={3} onClose={() => undefined} />);
-    expect(await screen.findByText('80+ · DT4 · Fall, Frailty · Within 2 hrs')).toBeInTheDocument();
+    expect(await screen.findByText('80+ · DT4')).toBeInTheDocument();
+    expect(screen.getByText('Fall, Frailty · Within 2 hrs')).toBeInTheDocument();
     expect(screen.getByText('NEWS2 2 · Frailty scale 6 · Options shown: 3')).toBeInTheDocument();
     expect(screen.queryByText('DT4 8XX')).not.toBeInTheDocument();
     expect(await screen.findByText('1 clinical advisor available')).toBeInTheDocument();

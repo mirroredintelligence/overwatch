@@ -1,0 +1,40 @@
+.frame {
+  min-height: 100dvh;
+  background: var(--c-ground);
+  color: var(--c-ink);
+}
+
+.bar {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 60px;
+  padding: 0 var(--space-4);
+  background: var(--c-rail);
+  color: #fff;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--type-title-size);
+  font-weight: 700;
+}
+
+.page {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: var(--space-4) var(--space-4) var(--space-6);
+}
+
+/* Room for the fixed tab bar. */
+.frame[data-tabs='true'] .page {
+  padding-bottom: calc(70px + var(--space-5) + env(safe-area-inset-bottom, 0px));
+}

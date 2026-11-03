@@ -1,0 +1,50 @@
+.group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 48px;
+  padding: var(--space-3) var(--space-4);
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--c-ink);
+  font: inherit;
+  font-size: var(--type-label-size);
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    border-color var(--dur-press) var(--ease-out),
+    background-color var(--dur-press) var(--ease-out);
+}
+
+.on {
+  border-color: var(--c-primary);
+  background: var(--c-tint);
+  color: var(--c-primary-dark);
+}
+
+.on svg {
+  animation: pop var(--dur-press) var(--ease-spring);
+}
+
+.chip:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.chip:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+@keyframes pop {
+  from {
+    transform: scale(0.5);
+  }
+}

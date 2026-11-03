@@ -1,0 +1,38 @@
+.nudge {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) 14px;
+  border-radius: 18px;
+  background: var(--c-amber-tint);
+  color: #4b2200;
+}
+
+.nudge svg {
+  flex: none;
+  color: #7a3500;
+}
+
+.words {
+  flex: 1;
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: 1.35;
+}
+
+.fix {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--space-1);
+  color: #4b2200;
+  font-size: var(--type-caption-size);
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.fix:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}

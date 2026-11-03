@@ -1,0 +1,76 @@
+.banner {
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: 14px var(--space-4);
+  border-radius: 18px;
+}
+
+.picture {
+  display: flex;
+  flex: none;
+}
+
+.words {
+  flex: 1;
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.4;
+}
+
+.offline,
+.error,
+.warning {
+  background: var(--c-amber-tint);
+  color: #4b2200;
+}
+
+.offline .picture,
+.error .picture,
+.warning .picture {
+  color: #7a3500;
+}
+
+/* Bad signal slides in from the top and stays. */
+.offline {
+  animation: slide var(--dur-menu) var(--ease-out);
+}
+
+.info {
+  align-items: center;
+  background: var(--c-tint);
+  color: var(--c-primary-dark);
+  font-size: var(--type-body-size);
+  animation: spring var(--dur-sheet) var(--ease-spring);
+}
+
+.info .words {
+  font-size: var(--type-body-size);
+  line-height: 1.35;
+}
+
+/* Success: a tick on a filled round mark. */
+.info .picture {
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--c-primary);
+  color: #fff;
+}
+
+@keyframes slide {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+}
+
+@keyframes spring {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}

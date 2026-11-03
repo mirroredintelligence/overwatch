@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { runAxe } from '@/test/a11y';
 import { withApplicantHandlers } from '@/test/msw/applicant';
@@ -24,6 +24,25 @@ describe('register page', () => {
     // The invitation decides whose number the code goes to: the page reads the link, then offers to send the code.
     expect(await screen.findByRole('button', { name: 'Send code' })).toBeInTheDocument();
     expect(screen.queryByLabelText('Mobile number')).toBeNull();
+  });
+
+  it('names the service the invitation is for and says an invitation is needed', async () => {
+    await open({ invite: 'InviteTokenSampleValue1' });
+    expect(await screen.findByText(/^Invited for /)).toBeInTheDocument();
+    expect(screen.getByText('You need an invitation from your shift lead to register. Check your texts or email for the link.')).toBeInTheDocument();
+  });
+
+  it('is one page with a single h1 and the sign-in in the main region', async () => {
+    await open({ invite: 'InviteTokenSampleValue1' });
+    await screen.findByRole('button', { name: 'Send code' });
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(within(screen.getByRole('main')).getByRole('button', { name: 'Send code' })).toBeInTheDocument();
+  });
+
+  it('with no usable invitation says so under the heading and offers no code', async () => {
+    await open({ invite: 'short' });
+    expect(screen.getByText('We could not find an invitation for this link. Ask the shift lead to check your invitation.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Send code' })).toBeNull();
   });
 
   it('shows the saved-draft note only when it comes back from Save and come back later', async () => {

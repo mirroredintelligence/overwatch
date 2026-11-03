@@ -1,0 +1,73 @@
+/* The owner's version history (W31). The timeline is components/blocks/VersionTimeline; the side column is the next step. */
+
+.page {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.layout {
+  display: grid;
+  gap: var(--space-4);
+  align-items: start;
+  min-width: 0;
+}
+
+.side {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.card {
+  box-sizing: border-box;
+  padding: 22px;
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+  color: var(--c-ink);
+}
+
+.record {
+  background: var(--c-rail);
+  color: #fff;
+}
+
+.k {
+  margin: 0 0 var(--space-2);
+  color: var(--c-muted);
+  font-size: var(--type-caption-size);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* The record's label is a light tint of the rail colour, which has no token of its own. */
+.recordK {
+  color: #9fc3d6;
+}
+
+.lede {
+  margin: 0 0 var(--space-3);
+  font-size: var(--type-label-size);
+  line-height: 1.45;
+  color: var(--c-ink-2);
+}
+
+/* The record's text is the light tint of the rail colour, which has no token of its own. */
+.recordLede {
+  margin: 0;
+  color: #d7e6ee;
+}
+
+.draft button {
+  width: 100%;
+  min-height: 52px;
+}
+
+@media (min-width: 900px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 22px;
+  }
+}

@@ -1,0 +1,97 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.chart {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.plot {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  height: 14rem;
+  padding: 0 var(--space-1);
+  border-bottom: 2px solid var(--c-ink);
+}
+
+.threshold {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 2px dashed var(--c-limited);
+}
+
+.thresholdLabel {
+  position: absolute;
+  right: var(--space-1);
+  padding: 0 var(--space-1);
+  background: #fff;
+  color: var(--c-limited);
+  font-size: var(--type-caption-size);
+  font-weight: 700;
+}
+
+.bar {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.value {
+  font-size: var(--type-label-size);
+  color: var(--c-ink);
+}
+
+.fill {
+  display: block;
+  width: 100%;
+  max-width: 62px;
+  height: calc(var(--share) * 100% - 30px);
+  min-height: 0;
+  background: var(--c-primary);
+  border-radius: 8px 8px 0 0;
+}
+
+.bar[data-flagged='true'] .fill {
+  background: var(--c-limited);
+}
+
+.labels {
+  display: flex;
+  gap: var(--space-2);
+  padding: 0 var(--space-1);
+  color: var(--c-muted);
+  font-size: var(--type-caption-size);
+}
+
+.tick {
+  position: relative;
+  flex: 1;
+  text-align: center;
+}
+
+.tick[data-flagged='true'] {
+  font-weight: 700;
+  color: var(--c-limited);
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

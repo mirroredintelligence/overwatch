@@ -1,0 +1,90 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.bar {
+  display: flex;
+  height: 34px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--c-ink);
+  background: #fff;
+}
+
+.segment {
+  display: block;
+  min-width: 0;
+}
+
+/* Colour is never alone: solid, hatched (over capacity) and dashed (not updated) as well. */
+.segment[data-tone='primary'],
+.swatch[data-tone='primary'] {
+  --seg: var(--c-primary);
+}
+.segment[data-tone='limited'],
+.swatch[data-tone='limited'] {
+  --seg: var(--c-limited);
+}
+.segment[data-tone='closed'],
+.swatch[data-tone='closed'] {
+  --seg: var(--c-closed);
+}
+.segment[data-tone='surge'],
+.swatch[data-tone='surge'] {
+  --seg: var(--c-surge);
+}
+.segment[data-tone='unknown'],
+.swatch[data-tone='unknown'] {
+  --seg: var(--c-unknown);
+}
+
+.segment[data-pattern='solid'],
+.swatch[data-pattern='solid'] {
+  background: var(--seg);
+}
+.segment[data-pattern='hatch'],
+.swatch[data-pattern='hatch'] {
+  background: repeating-linear-gradient(135deg, var(--seg) 0 5px, #fff 5px 8px);
+}
+.segment[data-pattern='dashed'] {
+  background: #fff;
+  border-left: 2px dashed var(--seg);
+}
+.swatch[data-pattern='dashed'] {
+  background: #fff;
+  border: 2px dashed var(--seg);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--type-caption-size);
+  color: var(--c-ink);
+}
+
+.swatch {
+  display: inline-block;
+  box-sizing: border-box;
+  width: 22px;
+  height: 14px;
+  border-radius: 4px;
+}
+
+.note {
+  margin: 0;
+  color: var(--c-ink-2);
+  font-size: var(--type-caption-size);
+}

@@ -1,0 +1,29 @@
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--type-caption-size);
+  color: var(--c-ink);
+}
+
+.caption {
+  text-align: left;
+  color: var(--c-muted);
+  padding-bottom: var(--space-2);
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--c-line);
+}
+
+.table thead th {
+  color: var(--c-muted);
+  font-weight: 700;
+  border-bottom: 2px solid var(--c-line);
+}
+
+.table tbody th {
+  font-weight: 400;
+}

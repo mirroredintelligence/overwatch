@@ -1,0 +1,49 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.svg {
+  display: block;
+  min-height: 0;
+}
+
+.axis {
+  stroke: var(--c-ink);
+  stroke-width: 2;
+}
+
+.threshold {
+  stroke: var(--c-limited);
+  stroke-width: 2;
+}
+
+.thresholdLabel {
+  font-size: 11px;
+  font-weight: 700;
+  fill: var(--c-limited);
+}
+
+.line {
+  stroke: var(--c-primary);
+  stroke-width: 3;
+}
+
+.peakDot {
+  fill: #fff;
+  stroke: var(--c-primary);
+  stroke-width: 3;
+}
+
+.peak {
+  font-size: 12px;
+  font-weight: 700;
+  fill: var(--c-ink);
+}
+
+.tick {
+  font-size: 11px;
+  fill: var(--c-muted);
+}

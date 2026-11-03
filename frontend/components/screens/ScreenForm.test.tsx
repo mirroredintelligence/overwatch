@@ -5,7 +5,9 @@ import { ScreenClientError } from '@/lib/screens/client';
 import { runAxe } from '@/test/a11y';
 import { ScreenForm, type ConnectApi } from './ScreenForm';
 
-// The ScreenPairing artboard, steps 2 and 3: the shift lead's page. Words are the prompt's.
+// The Add a wall screen artboards (boards/lead/ScreenPair.dc.html and States): one stage with four steps,
+// the form, the refused code, "Is this the right screen?" and connected, beside the wall screen. Words are
+// the artboard's where it has them.
 
 const CONNECTED = { name: 'Control room', status: 'online' as const, connectedAt: '2026-10-23T13:12:00Z' };
 const PREVIEW = { organisationName: 'Dorset Community Care', firstSeenAt: '2026-10-23T08:56:00Z', deviceClass: 'wall-display' as const };
@@ -17,34 +19,43 @@ function setup(connect: ConnectApi['connect'] = vi.fn(async () => CONNECTED), pr
   return { user, connect: mocked, preview: preview as ReturnType<typeof vi.fn>, ...view };
 }
 
-/** Presses the form's button, waits for the confirm step (ScreenClaim) and presses its Connect screen. */
+/** Presses Check the code, waits for "Is this the right screen?" and presses Yes, connect it. */
 async function proceed(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(submit());
-  await screen.findByRole('heading', { name: 'Check before you connect' });
-  await user.click(submit());
+  await user.click(checkButton());
+  await screen.findByRole('heading', { level: 1, name: 'Is this the right screen?' });
+  await user.click(connectButton());
 }
 
-const code = () => screen.getByLabelText(/Code shown on the screen/);
-const name = () => screen.getByLabelText(/Screen name/);
-const place = () => screen.getByLabelText(/Where it is/);
-const submit = () => screen.getByRole('button', { name: 'Connect screen' });
+const code = () => screen.getByLabelText('Code');
+const name = () => screen.getByLabelText('Name this screen');
+const place = () => screen.getByLabelText(/Where is it/);
+const checkButton = () => screen.getByRole('button', { name: /^Check the code/ });
+const connectButton = () => screen.getByRole('button', { name: 'Yes, connect it' });
 
 function failure(kind: ScreenClientError['kind'], extra: Partial<ScreenClientError> = {}) {
   return Object.assign(new ScreenClientError(kind), extra);
 }
 
+const REFUSED = 'That code is not valid or has expired. Check the screen for a new code.';
+
 describe('ScreenForm: the form', () => {
   it('shows the artboard’s heading, fields, note and buttons', () => {
     setup();
-    expect(screen.getByRole('heading', { level: 1, name: 'Add a wall screen' })).toBeInTheDocument();
+    expect(screen.getByText('Add a wall screen')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Type the code the screen shows' })).toBeInTheDocument();
     expect(code()).toBeInTheDocument();
-    expect(screen.getByText('Required', { selector: '[data-el="LEAD-SCREEN-CODE-HINT"]' })).toBeInTheDocument();
     expect(name()).toBeInTheDocument();
     expect(place()).toBeInTheDocument();
-    expect(screen.getByText('Optional')).toBeInTheDocument();
-    expect(screen.getByText('This screen will show capacity only. It never shows patient information.')).toBeInTheDocument();
-    expect(submit()).toBeInTheDocument();
+    expect(screen.getByText('(optional)')).toBeInTheDocument();
+    expect(screen.getByText('A screen shows capacity only, never patient information.')).toBeInTheDocument();
+    expect(checkButton()).toHaveTextContent('Check the code');
     expect(screen.getByRole('link', { name: 'Cancel' })).toHaveAttribute('href', '/lead');
+  });
+
+  it('shows the code’s format in words, and the field is described by it', () => {
+    setup();
+    const hint = screen.getByText('6 numbers');
+    expect(code().getAttribute('aria-describedby')).toContain(hint.id);
   });
 
   it('links to the list of screens already connected (W9I)', () => {
@@ -58,7 +69,7 @@ describe('ScreenForm: the form', () => {
       expect(container.querySelector(`[data-el="${id}"]`), id).not.toBeNull();
     }
     expect(container.querySelector('[data-el="LEAD-SCREEN-CODE-FIELD"]')).toBe(code());
-    expect(container.querySelector('[data-el="LEAD-SCREEN-CONNECT-BTN"]')).toBe(submit());
+    expect(container.querySelector('[data-el="LEAD-SCREEN-CONNECT-BTN"]')).toBe(checkButton());
   });
 
   it('asks the phone for numbers and the browser for no memory of what is typed', () => {
@@ -91,10 +102,10 @@ describe('ScreenForm: the form', () => {
     const { user, connect } = setup();
     await user.type(code(), '482913');
     await user.type(name(), 'Control room{Enter}');
-    // Enter sends the form, which looks at the code first; nothing is connected yet (ScreenClaim).
-    expect(await screen.findByRole('heading', { name: 'Check before you connect' })).toBeInTheDocument();
+    // Enter sends the form, which looks at the code first; nothing is connected yet.
+    expect(await screen.findByRole('heading', { level: 1, name: 'Is this the right screen?' })).toBeInTheDocument();
     expect(connect).not.toHaveBeenCalled();
-    await user.click(submit());
+    await user.click(connectButton());
     expect(connect).toHaveBeenCalledTimes(1);
   });
 
@@ -111,7 +122,7 @@ describe('ScreenForm: the form', () => {
 describe('ScreenForm: what is wrong with what was typed', () => {
   it('says each message beside its own field, links it to the field, and calls nothing', async () => {
     const { user, connect } = setup();
-    await user.click(submit());
+    await user.click(checkButton());
     expect(connect).not.toHaveBeenCalled();
     const codeError = screen.getByText('Enter the code shown on the screen', { selector: 'p' });
     const nameError = screen.getByText('Enter a name for the screen', { selector: 'p' });
@@ -124,10 +135,10 @@ describe('ScreenForm: what is wrong with what was typed', () => {
 
   it('puts the cursor on the first field that is wrong', async () => {
     const { user } = setup();
-    await user.click(submit());
+    await user.click(checkButton());
     expect(code()).toHaveFocus();
     await user.type(code(), '482913');
-    await user.click(submit());
+    await user.click(checkButton());
     expect(name()).toHaveFocus();
   });
 
@@ -136,7 +147,7 @@ describe('ScreenForm: what is wrong with what was typed', () => {
       const { user, connect, unmount } = setup();
       await user.type(code(), typed);
       await user.type(name(), 'Control room');
-      await user.click(submit());
+      await user.click(checkButton());
       expect(screen.getByText('The code has 6 numbers', { selector: 'p' })).toBeInTheDocument();
       expect(connect).not.toHaveBeenCalled();
       unmount();
@@ -147,13 +158,13 @@ describe('ScreenForm: what is wrong with what was typed', () => {
     const { user } = setup();
     await user.type(code(), '482913');
     await user.type(name(), 'a'.repeat(61));
-    await user.click(submit());
+    await user.click(checkButton());
     expect(screen.getByText('Use 60 characters or fewer.', { selector: 'p' })).toBeInTheDocument();
   });
 
   it('clears a message when the field is typed in again', async () => {
     const { user } = setup();
-    await user.click(submit());
+    await user.click(checkButton());
     await user.type(code(), '4');
     expect(screen.queryByText('Enter the code shown on the screen')).toBeNull();
     expect(code()).not.toHaveAttribute('aria-invalid', 'true');
@@ -169,29 +180,60 @@ describe('ScreenForm: what the back end says', () => {
     return view;
   }
 
-  it('says the code is not valid or has expired, beside the code field, for a 404', async () => {
-    await submitGood(vi.fn(async () => { throw failure('not-found'); }));
-    const message = await screen.findByText('That code is not valid or has expired. Check the screen for a new code.', { selector: 'p' });
-    expect(code().getAttribute('aria-describedby')).toContain(message.id);
+  async function typeGood(preview: ConnectApi['preview']) {
+    const view = setup(undefined, preview);
+    await view.user.type(code(), '482913');
+    await view.user.type(name(), 'Control room');
+    await view.user.click(checkButton());
+    return view;
+  }
+
+  it('shows the refused step when the code is not valid, with the words in an alert, the code kept and the cursor on it', async () => {
+    const { user } = await submitGood(vi.fn(async () => { throw failure('not-found'); }));
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(REFUSED);
+    expect(code().getAttribute('aria-describedby')).toContain(alert.id);
     expect(code()).toHaveAttribute('aria-invalid', 'true');
     expect(code()).toHaveFocus();
     expect(code()).toHaveValue('482913');
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    expect(name()).toHaveValue('Control room');
   });
 
-  it('says the words of the BFF beside the field it names for an invalid name', async () => {
+  it('shows the refused step when the look at the code finds no such code, and connects nothing', async () => {
+    const { connect } = await typeGood(vi.fn(async () => { throw failure('not-found'); }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(REFUSED);
+    expect(code()).toHaveValue('482913');
+    expect(connect).not.toHaveBeenCalled();
+    expect(screen.queryByRole('heading', { name: 'Is this the right screen?' })).toBeNull();
+  });
+
+  it('checks the typed code again from the refused step, and moves on when it is found', async () => {
+    const preview = vi.fn().mockRejectedValueOnce(failure('not-found')).mockResolvedValue(PREVIEW);
+    const { user } = await typeGood(preview);
+    await screen.findByRole('alert');
+    await user.clear(code());
+    await user.type(code(), '482914');
+    await user.click(screen.getByRole('button', { name: 'Check the code again' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Is this the right screen?' })).toBeInTheDocument();
+    expect(preview).toHaveBeenLastCalledWith('482914');
+  });
+
+  it('says the words of the BFF beside the field it names for an invalid name, and goes back to the form', async () => {
     await submitGood(vi.fn(async () => { throw failure('invalid', { field: 'name', detail: 'Check the screen name and where it is. Do not include patient information.' }); }));
     const message = await screen.findByText('Check the screen name and where it is. Do not include patient information.', { selector: 'p' });
     expect(name().getAttribute('aria-describedby')).toContain(message.id);
+    expect(code()).toHaveValue('482913');
   });
 
   it.each([
     ['throttled', 'Too many attempts. Wait a few minutes and try again.'],
     ['unavailable', 'We could not connect the screen. Try again.'],
-  ] as const)('says %s as an alert on the confirm step, and keeps what was typed for a second try', async (kind, text) => {
+  ] as const)('says %s as an alert on the check step, and keeps what was typed for a second try', async (kind, text) => {
     const { user } = await submitGood(vi.fn(async () => { throw failure(kind); }));
     expect(await screen.findByRole('alert')).toHaveTextContent(text);
-    expect(submit()).not.toBeDisabled();
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(connectButton()).not.toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'No, go back' }));
     expect(name()).toHaveValue('Control room');
   });
 
@@ -202,19 +244,19 @@ describe('ScreenForm: what the back end says', () => {
     expect(within(alert).getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/sign-in?next=%2Flead%2Fscreens%2Fnew');
   });
 
-  it('is busy while it waits, and a second press does not send a second connect', async () => {
+  it('is busy while it connects, and a second press does not send a second connect', async () => {
     let finish: (value: typeof CONNECTED) => void = () => {};
     const connect = vi.fn(() => new Promise<typeof CONNECTED>((resolve) => (finish = resolve)));
     const { user } = setup(connect);
     await user.type(code(), '482913');
     await user.type(name(), 'Control room');
     await proceed(user);
-    expect(submit()).toBeDisabled();
-    expect(submit()).toHaveAttribute('aria-busy', 'true');
-    await proceed(user);
+    expect(connectButton()).toBeDisabled();
+    expect(connectButton()).toHaveAttribute('aria-busy', 'true');
+    await user.click(connectButton());
     expect(connect).toHaveBeenCalledTimes(1);
     finish(CONNECTED);
-    await screen.findByText('Screen connected');
+    await screen.findByRole('heading', { name: 'Control room is connected' });
   });
 });
 
@@ -224,20 +266,15 @@ describe('ScreenForm: connected', () => {
     await view.user.type(code(), '482913');
     await view.user.type(name(), 'Control room');
     await proceed(view.user);
-    await screen.findByText('Screen connected');
+    await screen.findByRole('heading', { name: 'Control room is connected' });
     return view;
   }
 
-  it('shows the artboard’s confirmation with the time in London', async () => {
+  it('shows the artboard’s confirmation in words, with the status and the time in London', async () => {
     await connected();
-    expect(screen.getByRole('heading', { level: 1, name: 'Screen connected' })).toBeInTheDocument();
-    expect(screen.getByText('Control room is now showing the live board.')).toBeInTheDocument();
-    expect(screen.getByText('Status')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Control room is connected' })).toBeInTheDocument();
+    expect(screen.getByText('It is showing your organisation’s board now. You can change which board it shows, or unpair it, from the list of screens.')).toBeInTheDocument();
     expect(screen.getByText('Online, updated 14:12')).toBeInTheDocument();
-    expect(screen.getByText('Shows')).toBeInTheDocument();
-    expect(screen.getByText('Capacity only. No patient information.')).toBeInTheDocument();
-    expect(screen.getByText('If it goes offline')).toBeInTheDocument();
-    expect(screen.getByText('The board shows Last known and says so')).toBeInTheDocument();
   });
 
   it('says the status with a word, not a colour alone', async () => {
@@ -247,10 +284,10 @@ describe('ScreenForm: connected', () => {
 
   it('moves the focus to the confirmation, so a screen reader hears it', async () => {
     await connected();
-    expect(screen.getByRole('heading', { level: 1, name: 'Screen connected' })).toHaveFocus();
+    expect(screen.getByRole('heading', { level: 1, name: 'Control room is connected' })).toHaveFocus();
   });
 
-  it('links the confirmation to the list of screens, where the screen can be disconnected (W9I)', async () => {
+  it('links the confirmation to the list of screens, where the screen can be unpaired (W9I)', async () => {
     const { user } = setup();
     await user.type(code(), '482 913');
     await user.type(name(), 'Control room');
@@ -258,11 +295,10 @@ describe('ScreenForm: connected', () => {
     expect(await screen.findByRole('link', { name: 'See all screens' })).toHaveAttribute('href', '/lead/screens');
   });
 
-  it('offers Add another screen, which shows an empty form again, and Done, which goes to the lead page', async () => {
+  it('offers Add another, which shows an empty form again', async () => {
     const { user } = await connected();
-    expect(screen.getByRole('link', { name: 'Done' })).toHaveAttribute('href', '/lead');
-    await user.click(screen.getByRole('button', { name: 'Add another screen' }));
-    expect(screen.getByRole('heading', { level: 1, name: 'Add a wall screen' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Add another' }));
+    expect(screen.getByRole('heading', { level: 1, name: 'Type the code the screen shows' })).toBeInTheDocument();
     expect(code()).toHaveValue('');
     expect(name()).toHaveValue('');
     expect(code()).toHaveFocus();
@@ -273,14 +309,14 @@ describe('ScreenForm: connected', () => {
     await view.user.type(code(), '482913');
     await view.user.type(name(), 'x');
     await proceed(view.user);
-    expect(await screen.findByText('<b>x</b> is now showing the live board.')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '<b>x</b> is connected' })).toBeInTheDocument();
     expect(view.container.querySelector('b')).toBeNull();
   });
 
   it('has the element ids for the two buttons', async () => {
     const { container } = await connected();
     expect(container.querySelector('[data-el="LEAD-SCREEN-ADD-ANOTHER-BTN"]')).not.toBeNull();
-    expect(container.querySelector('[data-el="LEAD-SCREEN-DONE-BTN"]')).not.toBeNull();
+    expect(container.querySelector('[data-el="LEAD-SCREEN-LIST-BTN"]')).not.toBeNull();
   });
 });
 
@@ -292,15 +328,24 @@ describe('ScreenForm: accessibility', () => {
 
   it('has no axe violations with the errors showing', async () => {
     const { user, container } = setup();
-    await user.click(submit());
+    await user.click(checkButton());
     expect(await runAxe(container)).toHaveNoViolations();
   });
 
-  it('has no axe violations with an alert above the form', async () => {
-    const view = setup(vi.fn(async () => { throw failure('unavailable'); }));
+  it('has no axe violations on the refused step', async () => {
+    const view = setup(vi.fn(async () => { throw failure('not-found'); }));
     await view.user.type(code(), '482913');
     await view.user.type(name(), 'Control room');
     await proceed(view.user);
+    await screen.findByRole('alert');
+    expect(await runAxe(view.container)).toHaveNoViolations();
+  });
+
+  it('has no axe violations with an alert above the form', async () => {
+    const view = setup(undefined, vi.fn(async () => { throw failure('unavailable'); }));
+    await view.user.type(code(), '482913');
+    await view.user.type(name(), 'Control room');
+    await view.user.click(checkButton());
     await screen.findByRole('alert');
     expect(await runAxe(view.container)).toHaveNoViolations();
   });
@@ -310,63 +355,67 @@ describe('ScreenForm: accessibility', () => {
     await view.user.type(code(), '482913');
     await view.user.type(name(), 'Control room');
     await proceed(view.user);
-    await waitFor(() => expect(screen.getByText('Screen connected')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Control room is connected' })).toBeInTheDocument());
     expect(await runAxe(view.container)).toHaveNoViolations();
   });
 });
 
-
-describe('ScreenForm: the confirm step (ScreenClaim, TEN-072)', () => {
+describe('ScreenForm: the check step (Is this the right screen?)', () => {
   async function toTheStep(options: { connect?: ConnectApi['connect']; preview?: ConnectApi['preview'] } = {}) {
     const view = setup(options.connect, options.preview);
     await view.user.type(code(), '482 913');
     await view.user.type(name(), 'Control room');
     await view.user.type(place(), 'Ward 4 corridor');
-    await view.user.click(submit());
+    await view.user.click(checkButton());
     return view;
   }
 
   it('asks the back end about the code first and connects nothing until the lead says so', async () => {
     const { preview, connect } = await toTheStep();
-    expect(await screen.findByRole('heading', { level: 1, name: 'Check before you connect' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Is this the right screen?' })).toBeInTheDocument();
     expect(preview).toHaveBeenCalledTimes(1);
     expect(preview).toHaveBeenCalledWith('482913');
     expect(connect).not.toHaveBeenCalled();
   });
 
-  it('says which organisation the screen will show, when it first asked and what kind of device it is', async () => {
+  it('says for whom the screen is, when it first asked and what kind of device it is', async () => {
     await toTheStep();
-    await screen.findByText('Check before you connect');
-    expect(screen.getByText('You are connecting a screen to Dorset Community Care. It will show our organisation’s capacity only. It never shows patient information.')).toBeInTheDocument();
-    expect(screen.getByText('First seen 09:56 · Wall display')).toBeInTheDocument();
+    await screen.findByRole('heading', { name: 'Is this the right screen?' });
+    expect(screen.getByText('For')).toBeInTheDocument();
+    expect(screen.getByText('Dorset Community Care')).toBeInTheDocument();
+    expect(screen.getByText('Asked for a code')).toBeInTheDocument();
+    expect(screen.getByText('09:56')).toBeInTheDocument();
+    expect(screen.getByText('It is a')).toBeInTheDocument();
+    expect(screen.getByText('Wall display')).toBeInTheDocument();
+    expect(screen.getByText('If you did not just start this screen, do not connect it. Anyone with the code could ask for the board.')).toBeInTheDocument();
   });
 
-  it('says "your organisation" when the organisation’s name could not be read', async () => {
+  it('says "Your organisation" when the organisation’s name could not be read', async () => {
     await toTheStep({ preview: vi.fn(async () => ({ ...PREVIEW, organisationName: null })) });
-    await screen.findByText('Check before you connect');
-    expect(screen.getByText(/^You are connecting a screen to your organisation\. /)).toBeInTheDocument();
+    await screen.findByRole('heading', { name: 'Is this the right screen?' });
+    expect(screen.getByText('Your organisation')).toBeInTheDocument();
   });
 
   it('shows an organisation name with markup as text', async () => {
     const view = await toTheStep({ preview: vi.fn(async () => ({ ...PREVIEW, organisationName: '<b>Trust</b>' })) });
-    await screen.findByText('Check before you connect');
+    await screen.findByRole('heading', { name: 'Is this the right screen?' });
     expect(view.container.querySelector('b')).toBeNull();
-    expect(screen.getByText(/<b>Trust<\/b>/)).toBeInTheDocument();
+    expect(screen.getByText('<b>Trust</b>')).toBeInTheDocument();
   });
 
-  it('connects with what was typed when the lead presses Connect screen, and then shows the confirmation', async () => {
+  it('connects with what was typed when the lead presses Yes, connect it, and then shows the confirmation', async () => {
     const { user, connect } = await toTheStep();
-    await screen.findByText('Check before you connect');
-    await user.click(screen.getByRole('button', { name: 'Connect screen' }));
+    await screen.findByRole('heading', { name: 'Is this the right screen?' });
+    await user.click(connectButton());
     expect(connect).toHaveBeenCalledWith({ code: '482913', name: 'Control room', location: 'Ward 4 corridor' });
-    expect(await screen.findByRole('heading', { level: 1, name: 'Screen connected' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Control room is connected' })).toBeInTheDocument();
   });
 
-  it('goes back to the form, with what was typed, on Cancel, and connects nothing', async () => {
+  it('goes back to the form, with what was typed, on No, go back, and connects nothing', async () => {
     const { user, connect } = await toTheStep();
-    await screen.findByText('Check before you connect');
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(screen.getByRole('heading', { level: 1, name: 'Add a wall screen' })).toBeInTheDocument();
+    await screen.findByRole('heading', { name: 'Is this the right screen?' });
+    await user.click(screen.getByRole('button', { name: 'No, go back' }));
+    expect(screen.getByRole('heading', { level: 1, name: 'Type the code the screen shows' })).toBeInTheDocument();
     expect(code()).toHaveValue('482 913');
     expect(name()).toHaveValue('Control room');
     expect(connect).not.toHaveBeenCalled();
@@ -374,21 +423,14 @@ describe('ScreenForm: the confirm step (ScreenClaim, TEN-072)', () => {
 
   it('has the element ids of the step', async () => {
     const { container } = await toTheStep();
-    await screen.findByText('Check before you connect');
-    expect(container.querySelector('[data-el="SCREENS-CLAIM-CONFIRM-BTN"]')).toBe(screen.getByRole('button', { name: 'Connect screen' }));
-    expect(container.querySelector('[data-el="SCREENS-CLAIM-CANCEL-BTN"]')).toBe(screen.getByRole('button', { name: 'Cancel' }));
+    await screen.findByRole('heading', { name: 'Is this the right screen?' });
+    expect(container.querySelector('[data-el="SCREENS-CLAIM-CONFIRM-BTN"]')).toBe(connectButton());
+    expect(container.querySelector('[data-el="SCREENS-CLAIM-CANCEL-BTN"]')).toBe(screen.getByRole('button', { name: 'No, go back' }));
   });
 
   it('moves the focus to the step’s heading', async () => {
     await toTheStep();
-    expect(await screen.findByRole('heading', { level: 1, name: 'Check before you connect' })).toHaveFocus();
-  });
-
-  it('says the code is not valid, beside the code field, when the back end does not know it, and stays on the form', async () => {
-    await toTheStep({ preview: vi.fn(async () => { throw failure('not-found'); }) });
-    const message = await screen.findByText('That code is not valid or has expired. Check the screen for a new code.', { selector: 'p' });
-    expect(code().getAttribute('aria-describedby')).toContain(message.id);
-    expect(screen.queryByText('Check before you connect')).toBeNull();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Is this the right screen?' })).toHaveFocus();
   });
 
   it.each([
@@ -404,23 +446,23 @@ describe('ScreenForm: the confirm step (ScreenClaim, TEN-072)', () => {
     let finish: (value: typeof PREVIEW) => void = () => {};
     const preview = vi.fn(() => new Promise<typeof PREVIEW>((resolve) => (finish = resolve)));
     const { user } = await toTheStep({ preview });
-    expect(submit()).toBeDisabled();
-    await user.click(submit());
+    expect(checkButton()).toBeDisabled();
+    await user.click(checkButton());
     expect(preview).toHaveBeenCalledTimes(1);
     finish(PREVIEW);
-    await screen.findByText('Check before you connect');
+    await screen.findByRole('heading', { name: 'Is this the right screen?' });
   });
 
   it('keeps the step when connecting fails, and says so', async () => {
     const { user } = await toTheStep({ connect: vi.fn(async () => { throw failure('unavailable'); }) });
-    await screen.findByText('Check before you connect');
-    await user.click(screen.getByRole('button', { name: 'Connect screen' }));
+    await screen.findByRole('heading', { name: 'Is this the right screen?' });
+    await user.click(connectButton());
     expect(await screen.findByRole('alert')).toHaveTextContent('We could not connect the screen. Try again.');
   });
 
   it('has no axe violations on the step', async () => {
     const { container } = await toTheStep();
-    await screen.findByText('Check before you connect');
+    await screen.findByRole('heading', { name: 'Is this the right screen?' });
     expect(await runAxe(container)).toHaveNoViolations();
   });
 });

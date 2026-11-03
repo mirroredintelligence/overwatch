@@ -1,20 +1,152 @@
-/* The shift lead's page for connecting a wall screen (ScreenPairing artboard, steps 2 and 3). */
+/* The lead's page for connecting a wall screen (the Add a wall screen artboards: ScreenPair and States). The
+   wall screen sits on the left and the stage on the right; below the medium breakpoint they stack. */
 .page {
   box-sizing: border-box;
-  display: flex;
-  justify-content: center;
   min-height: 100dvh;
   padding: var(--space-6) var(--space-4);
-  background: var(--c-bg);
+  background: var(--c-ground);
   color: var(--c-ink);
 }
 
-.panel {
+.layout {
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
   width: 100%;
-  max-width: 560px;
+  max-width: 62rem;
+  margin: 0 auto;
+}
+
+@media (min-width: 52rem) {
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+/* The screen the lead is pairing. The code shows as it is typed; once connected, the board shows. */
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.kicker {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.tv {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 210px;
+  overflow: hidden;
+  background: var(--c-rail);
+  border-radius: 18px;
+  box-shadow: inset 0 0 0 6px var(--c-ink);
+}
+
+.tvCode {
+  padding: 0 var(--space-4);
+  text-align: center;
+  transition:
+    opacity var(--dur-state) ease,
+    transform var(--dur-stage) var(--ease-spring);
+}
+
+.tvCode[data-live='true'] {
+  opacity: 0;
+  transform: scale(0.9);
+}
+
+.tvCaption {
+  margin: 0 0 var(--space-2);
+  font-size: var(--type-caption-size);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-rail-ink);
+}
+
+.tvNumber {
+  margin: 0;
+  font-size: clamp(2rem, 9vw, 2.75rem);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #fff;
+  overflow-wrap: anywhere;
+}
+
+.tvBoard {
+  position: absolute;
+  inset: 14px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-content: start;
+  gap: 10px;
+  opacity: 0;
+  transform: scale(1.06);
+  transition:
+    opacity var(--dur-state) ease,
+    transform var(--dur-stage) var(--ease-spring);
+}
+
+.tvBoard[data-live='true'] {
+  opacity: 1;
+  transform: none;
+}
+
+.tvTile {
+  display: block;
+  height: 44px;
+  background: #fff;
+  border-radius: 8px;
+  opacity: 0.92;
+}
+
+.note {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-muted);
+}
+
+/* The stage. Each step comes in with a short fade; the duration token is zero under reduced motion. */
+.stage {
+  min-width: 0;
+  animation: stage-in var(--dur-state) var(--ease-out) both;
+}
+
+@keyframes stage-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
 }
 
 .heading {
@@ -29,15 +161,22 @@
   outline: none;
 }
 
-.card {
+.lead {
+  margin: 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  color: var(--c-ink-2);
+}
+
+.check {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-5);
-  background: Canvas;
-  color: CanvasText;
-  border: 2px solid var(--c-line);
-  border-radius: var(--radius-card);
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  color: var(--c-primary);
+  background: var(--c-tint);
+  border-radius: 50%;
 }
 
 .form {
@@ -49,8 +188,20 @@
 
 .field {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: var(--space-2);
+  min-width: 0;
+}
+
+.fieldRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.fieldRow > .field {
+  flex: 1 1 12rem;
 }
 
 .label {
@@ -60,7 +211,13 @@
 }
 
 .hint {
-  margin-left: var(--space-2);
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-muted);
+}
+
+.optional {
   font-weight: 400;
   color: var(--c-muted);
 }
@@ -72,9 +229,9 @@
   padding: var(--space-2) var(--space-3);
   font: inherit;
   font-size: var(--type-body-size);
-  color: CanvasText;
-  background: Canvas;
-  border: 2px solid var(--c-muted);
+  color: var(--c-ink);
+  background: #fff;
+  border: 2px solid var(--c-ink-2);
   border-radius: var(--radius);
 }
 
@@ -96,42 +253,75 @@
   color: var(--c-limited);
 }
 
-.note {
+/* The refused code: the words in an alert, kept beside the code the lead typed. */
+.refused {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-3) var(--space-4);
+  color: #4a2300;
+  background: var(--c-amber-tint);
+  border: 2px solid var(--c-limited);
+  border-radius: var(--radius);
+}
+
+.refused svg {
+  flex: none;
+  margin-top: 1px;
+  color: var(--c-limited);
+}
+
+.refused p {
   margin: 0;
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-lh);
+  font-weight: 400;
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-4);
+  background: var(--c-bg);
+  border-radius: var(--radius);
+}
+
+.tileKey {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--c-muted);
+}
+
+.tileValue {
+  margin: 0;
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
+  align-items: center;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--c-line);
 }
 
 .actions > * {
-  flex: 1 1 12rem;
-}
-
-.rows {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  margin: 0;
-}
-
-.row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1) var(--space-4);
-  padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--c-line);
-}
-
-.row dt {
-  flex: 0 0 11rem;
-  font-weight: 700;
-}
-
-.row dd {
-  margin: 0;
   flex: 1 1 12rem;
 }

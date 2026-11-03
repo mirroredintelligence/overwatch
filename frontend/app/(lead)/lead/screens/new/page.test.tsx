@@ -36,7 +36,7 @@ describe('the lead page /lead/screens/new', () => {
 
   it('shows the form to a shift lead', async () => {
     render(await AddWallScreenPage());
-    expect(screen.getByRole('heading', { level: 1, name: 'Add a wall screen' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Type the code the screen shows' })).toBeInTheDocument();
   });
 
   it('sends nobody to this page’s form unless they are a lead, even if the proxy let them through', async () => {

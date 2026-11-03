@@ -1,0 +1,168 @@
+/* The status screens after submitting: one card per state on the page ground (FOUNDATION: cards sit on
+   --c-ground, white, --shadow-card, --radius-card). Shape and word carry the state; the card border only adds to it. */
+
+.page {
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: var(--space-5) var(--space-4);
+  background: var(--c-ground);
+  color: var(--c-ink);
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 40rem;
+  margin: 0 auto;
+}
+
+.card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: 20px;
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+}
+
+.tagRow {
+  display: flex;
+  align-items: flex-start;
+}
+
+.cardProblem {
+  border: 2px solid var(--c-limited);
+}
+
+.cardDue {
+  border: 2px dashed var(--c-limited);
+}
+
+.heading {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.15;
+}
+
+.text {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.45;
+  color: var(--c-ink-2);
+}
+
+.note {
+  margin: 0;
+  font-size: 15px;
+  color: var(--c-muted);
+}
+
+.strong {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--c-ink-2);
+}
+
+.list {
+  margin: 0;
+  padding: 0 0 0 20px;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: auto;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.notice {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--c-ink);
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 2px solid var(--c-line);
+  border-radius: 16px;
+}
+
+.tileTitle {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.tileName {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: 16px;
+}
+
+.facts dt {
+  font-weight: 700;
+  color: var(--c-muted);
+}
+
+.facts dd {
+  margin: 0;
+}
+
+.tracker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 16px;
+}
+
+.trackerStep {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--c-muted);
+}
+
+.trackerCurrent {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--c-ink);
+  font-weight: 700;
+}
+
+.trackerDetail {
+  color: var(--c-ink-2);
+  font-weight: 400;
+}

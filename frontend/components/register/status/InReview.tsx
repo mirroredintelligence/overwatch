@@ -1,13 +1,17 @@
-import Link from 'next/link';
+import { Button } from '@/components/ui/Button';
+import { StatusTag } from '@/components/ui/StatusTag';
 import { londonDayMonthTime } from '@/lib/register/time';
 import { StatusTracker } from '../StatusTracker';
-import styles from '../register.module.css';
+import styles from '../status.module.css';
 
 // Submitted, being checked (W27, ApprovalApplicant panel 2). The tracker shows where it stands.
 
 export function InReview({ submittedAt }: { submittedAt?: string }) {
   return (
-    <div className={styles.stack}>
+    <section className={styles.card} aria-label="In review">
+      <div className={styles.tagRow}>
+        <StatusTag variant="waiting">In review</StatusTag>
+      </div>
       <h1 className={styles.heading}>Submitted. We are checking.</h1>
       <StatusTracker
         current="Checks"
@@ -18,10 +22,10 @@ export function InReview({ submittedAt }: { submittedAt?: string }) {
       />
       <p className={styles.text}>We will tell you by notification.</p>
       <div className={styles.actions}>
-        <Link className={styles.backLink} href="/register/services">
+        <Button variant="secondary" href="/register/services">
           Back to my services
-        </Link>
+        </Button>
       </div>
-    </div>
+    </section>
   );
 }

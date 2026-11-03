@@ -8,7 +8,7 @@ import { Live } from './status/Live';
 import { NeedsChanges } from './status/NeedsChanges';
 import { NotApproved } from './status/NotApproved';
 import { Reverify } from './status/Reverify';
-import styles from './register.module.css';
+import styles from './status.module.css';
 
 // The applicant's status after submitting (W27). One screen per state; a status the page does not
 // know is shown as the page's failure, never guessed at.
@@ -35,9 +35,27 @@ export function StatusPage({ registrationId }: StatusPageProps) {
     };
   }, [registrationId]);
 
-  if (load.kind === 'loading') return <p className={styles.text}>Loading your registration.</p>;
-  if (load.kind === 'signed-out') return <p className={styles.notice} role="status">{SIGNED_OUT}</p>;
-  if (load.kind === 'failed') return <p className={styles.notice} role="status">{LOAD_FAILED}</p>;
+  if (load.kind === 'loading') {
+    return (
+      <div className={styles.card}>
+        <p className={styles.text}>Loading your registration.</p>
+      </div>
+    );
+  }
+  if (load.kind === 'signed-out') {
+    return (
+      <div className={styles.card}>
+        <p className={styles.notice} role="status">{SIGNED_OUT}</p>
+      </div>
+    );
+  }
+  if (load.kind === 'failed') {
+    return (
+      <div className={styles.card}>
+        <p className={styles.notice} role="status">{LOAD_FAILED}</p>
+      </div>
+    );
+  }
 
   const { view } = load;
   const details = view.details ?? {};
@@ -63,6 +81,10 @@ export function StatusPage({ registrationId }: StatusPageProps) {
     case 'reverify':
       return <Reverify registrationId={registrationId} serviceName={view.serviceName} details={details} />;
     default:
-      return <p className={styles.notice} role="status">{LOAD_FAILED}</p>;
+      return (
+        <div className={styles.card}>
+          <p className={styles.notice} role="status">{LOAD_FAILED}</p>
+        </div>
+      );
   }
 }

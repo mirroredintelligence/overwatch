@@ -1,14 +1,17 @@
 import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { StatusTag } from '@/components/ui/StatusTag';
 import { londonHourMinute } from '@/lib/register/time';
-import styles from '../register.module.css';
+import styles from '../status.module.css';
 
 // Live (W27, ApprovalApplicant panel 6): the service is on the board, and its first prompt is due.
 
 export function Live({ serviceName, firstPromptAt }: { serviceName: string; firstPromptAt?: string }) {
   return (
-    <div className={styles.stack}>
-      <span className={styles.complete}>Live</span>
+    <section className={styles.card} aria-label="Live">
+      <div className={styles.tagRow}>
+        <StatusTag variant="live">Live</StatusTag>
+      </div>
       <h1 className={styles.heading}>You are live</h1>
       <p className={styles.text}>
         {firstPromptAt === undefined
@@ -25,6 +28,6 @@ export function Live({ serviceName, firstPromptAt }: { serviceName: string; firs
           Go to the app
         </Button>
       </div>
-    </div>
+    </section>
   );
 }

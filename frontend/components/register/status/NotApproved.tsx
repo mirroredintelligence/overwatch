@@ -1,10 +1,10 @@
 'use client';
 
-import Link from 'next/link';
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { StatusTag } from '@/components/ui/StatusTag';
 import { sessionCsrf, statusAction } from '@/lib/register/browser';
-import styles from '../register.module.css';
+import styles from '../status.module.css';
 
 // Not approved (W27, ApprovalStates): the reason, and the applicant may ask for a review once.
 
@@ -24,20 +24,23 @@ export function NotApproved({ registrationId, reason }: { registrationId: string
   }
 
   return (
-    <div className={styles.stack}>
+    <section className={styles.card} aria-label="Not approved">
+      <div className={styles.tagRow}>
+        <StatusTag variant="closed">Not approved</StatusTag>
+      </div>
       <h1 className={styles.heading}>We cannot add this service yet</h1>
       {reason !== undefined ? <p className={styles.text}>Reason: {reason}.</p> : null}
       <p className={styles.text}>You do not need to do anything. We will contact you if the scope changes.</p>
       <p className={styles.note}>You can ask for a review if you think this is wrong.</p>
       <div className={styles.actions}>
-        <Button variant="primary" busy={busy} dataEl="REG-STATUS-APP-REVIEW-BTN" onClick={() => void ask()}>
+        <Button variant="secondary" busy={busy} dataEl="REG-STATUS-APP-REVIEW-BTN" onClick={() => void ask()}>
           Ask for a review
         </Button>
-        <Link className={styles.backLink} href="/register/services">
+        <Button variant="neutral" href="/register/services">
           Close
-        </Link>
+        </Button>
       </div>
       {notice !== null ? <p className={styles.notice} role="status">{notice}</p> : null}
-    </div>
+    </section>
   );
 }

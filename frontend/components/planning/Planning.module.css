@@ -1,9 +1,81 @@
-/* The planning view's layout (PlanningView artboard): headline figures as cards, then two columns that
-   wrap to one on a phone. Colour comes from the tokens only. */
+/* The right-sizing page (PFlows artboard): a filter row, three figure cards, then the flows table beside the
+   day-by-time grid and the declined card. Cards are white on the page ground, with the shared shadow and radius.
+   Colour comes from the tokens; the heat steps are the artboard's own blues (no token), each with its number. */
 
-.stats {
+.page {
+  max-width: 72rem;
+  margin: 0 auto;
+}
+
+.alert {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 2px solid var(--c-limited);
+  border-radius: var(--radius);
+  background: var(--c-amber-tint);
+  color: var(--c-ink);
+  font-weight: var(--type-label-weight);
+}
+
+.view {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.lede {
+  margin: 0;
+  color: var(--c-muted);
+  font-size: var(--type-caption-size);
+}
+
+.filters {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.filterGroup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-right: var(--space-4);
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.filterLabel {
+  composes: eyebrow;
+  margin-right: var(--space-1);
+}
+
+.export {
+  margin-left: auto;
+}
+
+.card {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-5);
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
   gap: var(--space-4);
   list-style: none;
   margin: 0;
@@ -11,14 +83,8 @@
 }
 
 .stat {
-  flex: 1 1 240px;
-  display: grid;
+  composes: card;
   gap: var(--space-1);
-  min-width: 0;
-  padding: var(--space-4) var(--space-5);
-  border-radius: var(--radius-card);
-  background: var(--c-bg);
-  border: 1px solid var(--c-line);
 }
 
 .statNumber {
@@ -29,14 +95,19 @@
 }
 
 .statLabel {
-  font-size: var(--type-title-size);
-  font-weight: var(--type-title-weight);
+  font-size: var(--type-body-size);
+}
+
+.note {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
 }
 
 .columns {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-5);
+  gap: var(--space-4);
   align-items: flex-start;
 }
 
@@ -48,71 +119,114 @@
 .narrow {
   flex: 1 1 360px;
   min-width: 0;
+  display: grid;
+  gap: var(--space-4);
 }
 
 .scroll {
   overflow-x: auto;
 }
 
-.actions {
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--type-body-size);
+}
+
+.table th {
+  padding: var(--space-2);
+  border-bottom: 2px solid var(--c-line);
+  font-size: var(--type-caption-size);
+  font-weight: 700;
+  color: var(--c-muted);
+  text-align: left;
+}
+
+.table td {
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--c-line);
+  vertical-align: middle;
+}
+
+.table .num {
+  text-align: right;
+  font-weight: 700;
+}
+
+.table .small {
+  font-weight: 400;
+  color: var(--c-muted);
+}
+
+.flowsTable {
+  min-width: 32rem;
+}
+
+.share {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  align-items: flex-start;
-}
-
-.badge {
-  display: inline-flex;
   align-items: center;
-  padding: 2px var(--space-3);
-  border: 2px solid var(--c-muted);
-  border-radius: var(--radius);
-  font-weight: var(--type-label-weight);
+  gap: var(--space-2);
+  min-width: 8rem;
 }
 
+/* The bar starts at zero and is the share of the whole, at most the track. */
 .bar {
-  height: 0.875rem;
-  border-radius: var(--radius-chip);
-  background: var(--c-line);
-  overflow: hidden;
+  flex: 1 1 auto;
+  max-width: 14rem;
+  height: 0.75rem;
 }
 
 .barFill {
   height: 100%;
   background: var(--c-primary);
+  border-radius: 4px;
 }
 
 .heat {
   width: 100%;
   border-collapse: separate;
-  border-spacing: 6px;
+  border-spacing: 4px;
   table-layout: fixed;
 }
 
 .heat th {
   padding: 0;
   font-size: var(--type-caption-size);
-  font-weight: var(--type-label-weight);
+  font-weight: 400;
+  color: var(--c-muted);
   text-align: center;
 }
 
 .heat th[scope='row'] {
-  width: 5.5rem;
-  color: var(--c-muted);
-  font-weight: var(--type-body-weight);
+  width: 4.5rem;
   text-align: left;
 }
 
 .heat td {
-  height: 48px;
+  height: 44px;
   padding: 0;
-  border-radius: 10px;
+  border-radius: 8px;
   text-align: center;
   vertical-align: middle;
   font-size: var(--type-caption-size);
-  font-weight: var(--type-label-weight);
+  font-weight: 700;
+  color: var(--c-ink);
   overflow-wrap: anywhere;
 }
+
+.heat td[data-step='none'] {
+  background: #fff;
+  border: 1px solid var(--c-line);
+  color: var(--c-muted);
+  font-weight: 400;
+}
+.heat td[data-step='0'] { background: #e3f1f8; }
+.heat td[data-step='1'] { background: #c6e1f0; }
+.heat td[data-step='2'] { background: #a6cfe6; }
+.heat td[data-step='3'] { background: #7db7d8; }
+.heat td[data-step='4'] { background: #5a9fc9; }
+.heat td[data-step='5'] { background: #2c7aa8; color: #fff; }
+.heat td[data-step='6'] { background: #0b3f61; color: #fff; }
 
 .srOnly {
   position: absolute;
@@ -127,10 +241,14 @@
   display: flex;
   justify-content: space-between;
   gap: var(--space-3);
-  padding: var(--space-3) 0;
-  border-top: 1px solid var(--c-line);
+  font-size: var(--type-body-size);
 }
 
-.flowsTable {
-  min-width: 32rem;
+.disclosures {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.cardTitle {
+  composes: eyebrow;
 }

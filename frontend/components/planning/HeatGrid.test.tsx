@@ -24,8 +24,27 @@ describe('HeatGrid', () => {
     const cells = within(table).getAllByRole('cell');
     expect(cells).toHaveLength(28);
     expect(within(table).getByRole('cell', { name: '12' })).toBeInTheDocument();
-    expect(within(table).getAllByRole('cell', { name: 'fewer than 10' })).toHaveLength(26);
+    expect(within(table).getAllByRole('cell', { name: 'under 10' })).toHaveLength(26);
     expect(within(table).queryByRole('cell', { name: '0' })).toBeNull();
+  });
+
+  it('puts the number in every cell and never relies on shade alone, with a darker step for a bigger count', () => {
+    render(<HeatGrid grid={GRID} busiest={BUSIEST} />);
+
+    const table = screen.getByRole('table', { name: /by day and time/i });
+    const twelve = within(table).getByRole('cell', { name: '12' });
+    const ten = within(table).getByRole('cell', { name: '10' });
+    const hidden = within(table).getAllByRole('cell', { name: 'under 10' })[0];
+    expect(twelve).toHaveTextContent('12');
+    expect(hidden).toHaveTextContent('<10');
+    expect(Number(twelve.getAttribute('data-step'))).toBeGreaterThan(Number(ten.getAttribute('data-step')));
+    expect(hidden).toHaveAttribute('data-step', 'none');
+  });
+
+  it('says in words that every cell shows its count', () => {
+    render(<HeatGrid grid={GRID} busiest={BUSIEST} />);
+
+    expect(screen.getByText(/Every cell shows its count, so shade is never the only signal/)).toBeInTheDocument();
   });
 
   it('announces the busiest cell in words, from the back end', () => {

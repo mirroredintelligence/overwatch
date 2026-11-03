@@ -49,11 +49,19 @@ describe('PlanningView with small counts hidden', () => {
     render(<PlanningView />);
 
     const cards = within(await screen.findByRole('list', { name: 'Headline figures' })).getAllByRole('listitem');
-    expect(cards[0]).toHaveTextContent('Fewer than 10referrals');
-    expect(cards[1]).toHaveTextContent('Fewer than 10best fit unavailable');
+    expect(cards[0]).toHaveTextContent('Under 10referrals');
+    expect(cards[1]).toHaveTextContent('Under 10best fit unavailable');
     expect(cards[1]).not.toHaveTextContent('%');
-    expect(cards[2]).toHaveTextContent('Fewer than 10went to another suitable service');
+    expect(cards[2]).toHaveTextContent('Under 10went to another suitable service');
     expect(screen.getByText('No day or time had 10 or more unavailable referrals.')).toBeInTheDocument();
+  });
+
+  it('says under 10, never zero, for a declined service the back end withheld', async () => {
+    answer([]);
+    render(<PlanningView />);
+
+    const declined = await screen.findByRole('table', { name: 'Declined despite showing capacity table' });
+    expect(within(declined).getByRole('row', { name: /Frailty ward/ })).toHaveTextContent('under 10');
   });
 
   it('says it could not load, and shows no figure, when the back end fails', async () => {
@@ -73,16 +81,60 @@ describe('PlanningView with small counts hidden', () => {
 });
 
 describe('PlanningView layout', () => {
-  it('puts the export and the cohort definition with the flows, and the heat grid across seven days', async () => {
+  it('puts the export beside the filters, and the heat grid across seven days', async () => {
     answer([]);
     render(<PlanningView />);
     await screen.findByRole('list', { name: 'Headline figures' });
 
     expect(screen.getByRole('link', { name: 'Export table (CSV)' })).toHaveAttribute('href', '/api/bff/planning/export?period=90d&need=all');
-    expect(screen.getByText('Show cohort definition')).toBeInTheDocument();
     const grid = screen.getByRole('table', { name: /by day and time/i });
     expect(within(grid).getAllByRole('columnheader')).toHaveLength(8);
     expect(within(grid).getAllByRole('rowheader')).toHaveLength(4);
+  });
+
+  it('titles the page "Where capacity ran out", with the period and need filters as pressed chips', async () => {
+    answer([]);
+    render(<PlanningView />);
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Where capacity ran out' })).toBeInTheDocument();
+    const period = screen.getByRole('group', { name: 'Period' });
+    expect(within(period).getByRole('button', { name: 'Last 90 days' })).toHaveAttribute('aria-pressed', 'true');
+    const need = screen.getByRole('group', { name: 'Need group' });
+    expect(within(need).getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
+    await screen.findByRole('list', { name: 'Headline figures' });
+  });
+
+  it('says what is loading with a status, not a bare word', async () => {
+    answer([]);
+    render(<PlanningView />);
+
+    expect(screen.getByRole('status')).toHaveTextContent('Loading the planning view.');
+    await screen.findByRole('list', { name: 'Headline figures' });
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('keeps the cohort definition and how to read this behind two disclosures that open on request', async () => {
+    answer([]);
+    render(<PlanningView />);
+    await screen.findByRole('list', { name: 'Headline figures' });
+
+    const cohort = screen.getByRole('button', { name: /Show cohort definition/ });
+    const reading = screen.getByRole('button', { name: /How to read this/ });
+    expect(cohort).toHaveAttribute('aria-expanded', 'false');
+    expect(reading).toHaveAttribute('aria-expanded', 'false');
+
+    await userEvent.click(cohort);
+    expect(cohort).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText(/Cohort: age 65\+, falls and frailty/)).toBeVisible();
+    expect(screen.getByText(/Period: Last 90 days\. Need group: All\./)).toBeInTheDocument();
+  });
+
+  it('shows the declined-despite-capacity card with its own heading', async () => {
+    answer([]);
+    render(<PlanningView />);
+    await screen.findByRole('list', { name: 'Headline figures' });
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Declined despite showing capacity, last 90 days' })).toBeInTheDocument();
   });
 });
 

@@ -14,9 +14,28 @@ describe('FlowsTable', () => {
 
     const table = screen.getByRole('table', { name: /where they went/i });
     const hidden = within(table).getByRole('row', { name: /Frailty ward, Bridport/ });
-    expect(hidden).toHaveTextContent('fewer than 10');
+    expect(hidden).toHaveTextContent('under 10');
+    expect(hidden).toHaveTextContent('hidden');
+    expect(hidden).not.toHaveTextContent('fewer than 10');
     expect(hidden.querySelector('[data-bar]')).toBeNull();
     expect(container.querySelectorAll('[data-bar]')).toHaveLength(1);
+  });
+
+  it('draws the bar of a shown row from zero, at its share of the whole, inline with the percentage', () => {
+    const { container } = render(<FlowsTable flows={FLOWS} total={112} />);
+
+    const bar = container.querySelector<HTMLElement>('[data-bar]');
+    expect(bar?.style.width).toBe('37%');
+    expect(bar?.closest('td')).toHaveTextContent('37%');
+  });
+
+  it('names the best fit with its state in words, and the count of a shown row', () => {
+    render(<FlowsTable flows={FLOWS} total={112} />);
+
+    const shown = screen.getByRole('row', { name: /Falls team, Weymouth/ });
+    expect(shown).toHaveTextContent('Falls team, Weymouth · Full');
+    expect(shown).toHaveTextContent('Community beds, Dorchester');
+    expect(within(shown).getByRole('cell', { name: '41' })).toBeInTheDocument();
   });
 
   it('shows the share of a shown row as text, of the referrals whose best fit was unavailable', () => {

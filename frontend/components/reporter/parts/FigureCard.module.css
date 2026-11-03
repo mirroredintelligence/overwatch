@@ -1,0 +1,106 @@
+/* The figure card. By rule the figure is fixed: nothing in this file moves, fades or counts. */
+
+.card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 20px;
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  color: var(--c-ink);
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.label {
+  color: var(--c-muted);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.service {
+  margin: 2px 0 0;
+  font-size: 30px;
+  line-height: 1.1;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.prompt {
+  color: var(--c-ink-2);
+  font-size: 20px;
+  line-height: 1.35;
+}
+
+.prompt > :first-child {
+  margin-top: 0;
+}
+
+.prompt > :last-child {
+  margin-bottom: 0;
+}
+
+.figureRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin: 10px 0 0;
+}
+
+.figure {
+  flex: none;
+  color: var(--c-primary-dark);
+  font-size: 96px;
+  font-weight: 700;
+  line-height: 0.95;
+  font-variant-numeric: tabular-nums;
+}
+
+.unit {
+  color: var(--c-ink-2);
+  font-size: 19px;
+  line-height: 1.3;
+}
+
+.recorded {
+  margin: 0;
+  color: var(--c-muted);
+  font-size: var(--type-caption-size);
+}
+
+.large {
+  padding: 32px 34px;
+  gap: var(--space-2);
+  border-radius: 28px;
+}
+
+.large .service {
+  font-size: 40px;
+  line-height: 1.05;
+}
+
+.large .figureRow {
+  gap: 18px;
+  margin-top: 20px;
+}
+
+.large .figure {
+  font-size: 140px;
+  line-height: 0.9;
+}
+
+.large .unit {
+  font-size: 24px;
+}
+
+.large .recorded {
+  margin-top: var(--space-2);
+  font-size: 19px;
+}

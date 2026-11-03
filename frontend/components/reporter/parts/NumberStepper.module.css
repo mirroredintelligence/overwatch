@@ -1,0 +1,85 @@
+/* Controls 76px, as on the boards. The empty box is dashed with an en dash. */
+
+.stepper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.title {
+  align-self: flex-start;
+  font-size: var(--type-label-size);
+  font-weight: 700;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.step {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 76px;
+  height: 76px;
+  padding: 0;
+  border: 2px solid var(--c-primary);
+  border-radius: 20px;
+  background: #fff;
+  color: var(--c-primary);
+  font: inherit;
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform var(--dur-press) var(--ease-out);
+}
+
+.step:active {
+  transform: scale(0.97);
+}
+
+.step:focus-visible,
+.box:focus-visible {
+  outline: var(--focus);
+  outline-offset: 3px;
+}
+
+.box {
+  box-sizing: border-box;
+  width: 104px;
+  height: 76px;
+  padding: 0;
+  border: 3px solid var(--c-primary);
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgb(11 92 140 / 0.2);
+  color: var(--c-primary-dark);
+  font: inherit;
+  font-size: 52px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.box[data-empty='true'] {
+  border-style: dashed;
+  border-color: var(--c-unknown);
+  box-shadow: none;
+  color: var(--c-unknown);
+}
+
+.box[data-empty='true']::placeholder {
+  color: var(--c-unknown);
+  opacity: 1;
+}
+
+.range {
+  margin: 0;
+  color: var(--c-muted);
+  font-size: 15px;
+}

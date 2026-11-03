@@ -1,0 +1,19 @@
+/* The board's amber pill. #7A3500 has no token (it is the darker amber the boards use on --c-amber-tint). */
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px var(--space-3);
+  border-radius: var(--radius-chip);
+  background: var(--c-amber-tint);
+  color: #7a3500;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.tag svg {
+  flex: none;
+}

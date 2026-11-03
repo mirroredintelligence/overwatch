@@ -155,6 +155,8 @@ resource workers 'Microsoft.App/containerApps@2024-03-01' = {
             // status callback of a text) are what a send from the shared line needs; the demo tenant makes the
             // replies to a demo text go out from it.
             { name: 'OVERWATCH_BASE_URL', value: baseUrl }
+            // The staff registry sync reads each tenant's groups with the staff client id (DEC-1327).
+            { name: 'OVERWATCH_ENTRA_STAFF_CLIENT_ID', value: entraStaffClientId }
             { name: 'OVERWATCH_PLATFORM_TWILIO_ACCOUNT_SID', value: platformTwilioAccountSid }
             { name: 'OVERWATCH_PLATFORM_SMS_FROM', value: platformSmsFrom }
             // TEMPORARY DEMO (DEC-1320): empty means off.

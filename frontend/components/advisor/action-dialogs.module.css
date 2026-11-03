@@ -1,0 +1,160 @@
+/* The three advisor action dialogs (I phoned, They declined, Ask a clinical advisor). Own styles: the
+   shared dialog-body and exec stylesheets are frozen. */
+
+.stack {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.card {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-lift);
+}
+
+.tag {
+  justify-self: start;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--c-tint);
+  color: var(--c-primary-dark);
+  font-size: var(--type-caption-size);
+  font-weight: var(--type-label-weight);
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: var(--type-title-weight);
+  color: var(--c-ink);
+}
+
+.sub {
+  margin: 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  color: var(--c-muted);
+}
+
+.summary {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-3) var(--space-4);
+  background: var(--c-bg);
+  border-radius: var(--radius);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  color: var(--c-ink-2);
+}
+
+.summaryStrong {
+  margin: 0;
+  font-weight: var(--type-label-weight);
+  color: var(--c-ink);
+}
+
+.plain {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.group {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.group3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.group2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.legend {
+  padding: 0;
+  margin-bottom: var(--space-2);
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  color: var(--c-ink);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.label {
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  color: var(--c-ink);
+}
+
+.input {
+  box-sizing: border-box;
+  width: 120px;
+  max-width: 100%;
+  min-height: 54px;
+  padding: 0 var(--space-3);
+  font: inherit;
+  font-size: var(--type-body-size);
+  color: var(--c-ink);
+  background: var(--c-bg);
+  border: 2px solid var(--c-ink-2);
+  border-radius: var(--radius);
+}
+
+.avail {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--type-body-size);
+  color: var(--c-ink-2);
+}
+
+.dot {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--c-primary);
+}
+
+.note {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
+}
+
+.error {
+  margin: 0;
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  color: var(--c-ink);
+  border-left: 4px solid var(--c-surge);
+  padding-left: var(--space-2);
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.actions > * {
+  width: 100%;
+}

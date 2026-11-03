@@ -95,7 +95,8 @@ describe('PhonedDialog (W14)', () => {
     renderDialog();
 
     expect(byEl('ADV-PHONED-SAVE-BTN')).toBeDisabled();
-    expect(screen.getByText('Updates the board for everyone. Recorded as “advisor phoned”.')).toBeInTheDocument();
+    expect(screen.getByText('Updates the board for everyone')).toBeInTheDocument();
+    expect(screen.getByText('Recorded as "advisor phoned". It shows on the board with the time.')).toBeInTheDocument();
     expect(screen.getByRole('dialog', { name: 'I phoned' })).toBeInTheDocument();
     expect(screen.getByText('UCR West')).toBeInTheDocument();
   });

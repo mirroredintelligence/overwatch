@@ -40,7 +40,8 @@ describe('Ask a clinical advisor, from the options list', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Ask clinical advisor' }));
     expect(onAskClinical).toHaveBeenCalledTimes(1);
     expect(await screen.findByRole('dialog', { name: 'Ask a clinical advisor' })).toBeInTheDocument();
-    expect(screen.getByText('80+ · DT4 · Frailty · Within 2 hrs')).toBeInTheDocument();
+    expect(screen.getByText('80+ · DT4')).toBeInTheDocument();
+    expect(screen.getByText('Frailty · Within 2 hrs')).toBeInTheDocument();
     expect(screen.getByText('NEWS2 2 · Options shown: 3')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();

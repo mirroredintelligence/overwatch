@@ -72,11 +72,11 @@ describe('AskClinicalDialog before sending', () => {
   it('shows the case summary as it was passed in, and the availability', async () => {
     render(<Harness />);
     expect(screen.getByRole('dialog', { name: 'Ask a clinical advisor' })).toBeInTheDocument();
-    expect(screen.getByText('Escalate')).toBeInTheDocument();
-    expect(screen.getByText('80+ · DT4 8XX · Fall, Frailty · Within 2 hrs')).toBeInTheDocument();
+    expect(screen.getByText('No name is sent')).toBeInTheDocument();
+    expect(screen.getByText('80+ · DT4 8XX')).toBeInTheDocument();
+    expect(screen.getByText('Fall, Frailty · Within 2 hrs')).toBeInTheDocument();
     expect(screen.getByText('NEWS2 2 · Frailty scale 6 · Options shown: 3')).toBeInTheDocument();
     expect(await screen.findByText('2 clinical advisors available')).toBeInTheDocument();
-    expect(screen.getByText('The case summary goes with the call. No name is sent.')).toBeInTheDocument();
   });
 
   it('disables the call and says what to do when no advisor is available', async () => {

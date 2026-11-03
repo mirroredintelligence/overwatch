@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { OptionButton } from '@/components/ui/OptionButton';
 import { adviceText, REASON_LABELS } from '@/lib/clinical/advice';
 import { bffRequest } from '@/lib/bff/browser';
-import styles from '@/components/exec/Exec.module.css';
+import styles from './action-dialogs.module.css';
 
 // "Ask a clinical advisor" (W45, AdvisorActions and AdvisorDialogsPhone). A modal: focus moves to its
 // heading when it opens and is kept inside it, Escape closes it, and focus goes back to the button that
@@ -50,8 +50,14 @@ function clock(instant: string): string {
   return new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(instant));
 }
 
-function caseLine(summary: CaseSummary): string {
-  return [summary.ageBand, summary.district, summary.needs.length > 0 ? summary.needs.join(', ') : null, summary.within]
+/** The first line of the summary: age band and district. */
+function identityLine(summary: CaseSummary): string {
+  return [summary.ageBand, summary.district].filter((part): part is string => part !== null && part !== '').join(' · ');
+}
+
+/** The second line of the summary: the needs and how soon. */
+function needsLine(summary: CaseSummary): string {
+  return [summary.needs.length > 0 ? summary.needs.join(', ') : null, summary.within]
     .filter((part): part is string => part !== null && part !== '')
     .join(' · ');
 }
@@ -185,16 +191,17 @@ export function AskClinicalDialog({
 
   return (
     <div className={styles.stack}>
-      <div role="dialog" aria-modal="true" aria-labelledby={titleId} ref={dialogRef} onKeyDown={onKey} className={styles.section}>
+      <div role="dialog" aria-modal="true" aria-labelledby={titleId} ref={dialogRef} onKeyDown={onKey} className={styles.card}>
+        <span className={styles.tag}>No name is sent</span>
         <h2 id={titleId} ref={headingRef} tabIndex={-1} className={styles.heading}>Ask a clinical advisor</h2>
-        <p className={styles.footer}>Escalate</p>
 
-        <section aria-label="Case summary" className={styles.section}>
+        <section aria-label="Case summary" className={styles.summary}>
           {summary === null ? (
             <p>The case summary could not be read.</p>
           ) : (
             <>
-              {caseLine(summary) !== '' ? <p>{caseLine(summary)}</p> : null}
+              {identityLine(summary) !== '' ? <p className={styles.summaryStrong}>{identityLine(summary)}</p> : null}
+              {needsLine(summary) !== '' ? <p>{needsLine(summary)}</p> : null}
               <p>{scoreLine(summary, optionsShown)}</p>
             </>
           )}
@@ -206,7 +213,7 @@ export function AskClinicalDialog({
           <>
             <fieldset className={styles.plain}>
               <legend className={styles.legend}>How soon do you need them?</legend>
-              <div className={styles.group}>
+              <div className={`${styles.group} ${styles.group2}`}>
                 {(['now', 'within-15-min'] as const).map((value) => (
                   <OptionButton key={value} selected={urgency === value} onSelect={() => setUrgency(value)} dataEl={`ADV-CLIN-URGENCY-${value.toUpperCase()}`}>
                     {URGENCY_LABELS[value]}
@@ -224,11 +231,13 @@ export function AskClinicalDialog({
                 ))}
               </div>
             </fieldset>
-            <p>
-              {available === null ? '' : noneAvailable ? '' : `${available} clinical advisor${available === 1 ? '' : 's'} available`}
-            </p>
+            {available === null || noneAvailable ? null : (
+              <p className={styles.avail}>
+                <span className={styles.dot} aria-hidden="true" />
+                {`${available} clinical advisor${available === 1 ? '' : 's'} available`}
+              </p>
+            )}
             {noneAvailable ? <p role="alert" className={styles.error}>{NONE_AVAILABLE}</p> : null}
-            <p className={styles.footer}>The case summary goes with the call. No name is sent.</p>
             {error ? <p role="alert" className={styles.error}>{error}</p> : null}
             <div className={styles.actions}>
               <Button variant="primary" busy={busy} disabled={noneAvailable} onClick={call} dataEl="ADV-CLIN-CALL-BTN">Call clinical advisor</Button>
@@ -254,7 +263,7 @@ export function AskClinicalDialog({
                   : `A clinical advisor has taken your request. It returns to the queue at ${clock(answer.returnsAt)} if they do not act.`}
               </p>
             ) : null}
-            <p className={styles.footer}>Keep this open until the advice arrives. It is not kept if you close it.</p>
+            <p className={styles.note}>Keep this open until the advice arrives. It is not kept if you close it.</p>
             <div className={styles.actions}>
               <Button variant="secondary" onClick={onClose} dataEl="ADV-CLIN-CLOSE-BTN">Close</Button>
             </div>

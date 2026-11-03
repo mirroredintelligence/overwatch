@@ -104,7 +104,7 @@ export function OutcomeForm({ caseId, preselect, onClosed, onDestinationChange }
         {textOutcome !== null ? (
           <p className={styles.text}>{textOutcome}</p>
         ) : (
-          <div className={styles.chips}>
+          <div className={styles.outcomes}>
             {OUTCOMES.map((item) => (
               <Chip
                 key={item.code}
@@ -152,9 +152,16 @@ export function OutcomeForm({ caseId, preselect, onClosed, onDestinationChange }
         </fieldset>
       ) : null}
 
-      <fieldset className={styles.group}>
-        <legend className={styles.legend}>If the best fit was not used, why?</legend>
-        <div className={styles.chips}>
+      <details className={styles.fold}>
+        <summary className={styles.foldHead}>
+          <span id="best-fit-label" className={styles.legend}>
+            If the best fit was not used, why?
+          </span>
+          <span className={styles.chevron} aria-hidden="true">
+            ▾
+          </span>
+        </summary>
+        <div role="group" aria-labelledby="best-fit-label" className={styles.chips}>
           {BEST_FIT_REASONS.map((item) => (
             <Chip
               key={item.code}
@@ -166,7 +173,7 @@ export function OutcomeForm({ caseId, preselect, onClosed, onDestinationChange }
             </Chip>
           ))}
         </div>
-      </fieldset>
+      </details>
 
       {failed ? (
         <p role="alert" className={styles.error}>

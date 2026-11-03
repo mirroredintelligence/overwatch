@@ -1,0 +1,228 @@
+/* The network's listings (board NListings). A table of services on the left, the decision in place on the right:
+   the panel that asks for a reason, then what viewers see. The columns become one below 1120px, so the page
+   never scrolls sideways at 320px (the table scrolls inside its card). Tokens from app/tokens.css only. */
+
+.page {
+  box-sizing: border-box;
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  min-width: 0;
+}
+
+@media (min-width: 900px) {
+  .page {
+    padding: var(--space-5) var(--space-6);
+  }
+}
+
+.title {
+  margin: 0;
+  font-size: var(--type-heading-size);
+  line-height: var(--type-heading-lh);
+  font-weight: var(--type-heading-weight);
+  letter-spacing: var(--type-heading-tracking);
+  text-wrap: balance;
+}
+
+.text {
+  margin: 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+}
+
+.muted {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-muted);
+}
+
+.problem {
+  margin: 0;
+  font-weight: 700;
+  color: var(--c-limited);
+}
+
+.ok {
+  margin: 0;
+  font-weight: 700;
+}
+
+.stack {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.columns {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.column {
+  display: grid;
+  align-content: start;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+@media (min-width: 1120px) {
+  .columns {
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+    gap: 20px;
+  }
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.card {
+  box-sizing: border-box;
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-card);
+  background: Canvas;
+  color: var(--c-ink);
+  box-shadow: var(--shadow-card);
+}
+
+/* The decision open in place: it names what it will do. */
+.decision {
+  border: 2px solid var(--c-ink);
+}
+
+/* What a thing does and is not asked for: dashed, as the board draws it. */
+.dashed {
+  border: 2px dashed var(--c-unknown);
+  box-shadow: none;
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-lh);
+  font-weight: var(--type-label-weight);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.scroll {
+  overflow-x: auto;
+  overscroll-behavior: contain;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--type-body-size);
+}
+
+.table th,
+.table td {
+  text-align: left;
+  vertical-align: middle;
+  padding: var(--space-2) var(--space-2);
+  border-bottom: 1px solid var(--c-line);
+  overflow-wrap: anywhere;
+}
+
+.table th {
+  font-size: var(--type-caption-size);
+  font-weight: 700;
+  color: var(--c-muted);
+  border-bottom-width: 2px;
+}
+
+/* The reasons are a group of choices: native radio buttons, drawn as chips. The radio keeps the keyboard
+   (arrow keys move the choice) and the chip shows the choice in its shape and its word, not colour alone. */
+.fieldset {
+  box-sizing: border-box;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.legend {
+  padding: 0;
+  margin-bottom: var(--space-2);
+  font-size: var(--type-label-size);
+  font-weight: 700;
+}
+
+.reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.reason {
+  position: relative;
+  display: inline-flex;
+}
+
+.reasonInput {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.reasonChip {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border: 2px solid var(--c-unknown);
+  border-radius: var(--radius-chip);
+  background: Canvas;
+  color: var(--c-ink);
+  font-size: var(--type-label-size);
+  transition: background-color var(--dur-state) var(--ease-hover);
+}
+
+.reasonInput:focus-visible + .reasonChip {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.reasonInput:checked + .reasonChip {
+  border-color: var(--c-primary);
+  background: var(--c-tint);
+  color: var(--c-primary-dark);
+  font-weight: 700;
+}
+
+/* Text for assistive technology only, added to a visible word so a button names what it acts on. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}

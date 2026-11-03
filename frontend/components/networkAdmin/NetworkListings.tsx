@@ -1,19 +1,19 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
-import { Dialog } from '@/components/ui/Dialog';
+import { Chip } from '@/components/ui/Chip';
+import { StatusTag, type StatusTagVariant } from '@/components/ui/StatusTag';
 import { BASE, post, useAdminRead, useNotice, type ListingsRead } from '@/lib/networkAdmin/browser';
-import { LISTING_REASONS, type ListingReason, type ListingRow } from '@/lib/networkAdmin/views';
-import { LISTING_STATUS_WORD, REASON_WORDS, reasonWord } from '@/lib/networkAdmin/words';
-import styles from '../admin/admin.module.css';
+import { type ListingReason, type ListingRow, type ListingStatus } from '@/lib/networkAdmin/views';
+import { LISTING_STATUS_WORD, REASON_WORDS } from '@/lib/networkAdmin/words';
+import styles from './NetworkListings.module.css';
 import { OwnedNetworkGate } from './OwnedNetworkGate';
 
-// The listings of the network (TEN-080, design N1: NetworkListings). The owner admits a member's service to
-// the network, declines it, pauses it and reinstates it. A reason is one of the fixed codes, never free text.
-// A listing carries the organisation's name and its own reference for the service, never a person or a
-// number (the back end's listing has no service name yet: a known issue).
+// The listings of the network (TEN-080, board NListings). The owner admits a member's service to the network,
+// declines it, pauses it and reinstates it. A decline or a pause asks for its reason in place, beside the table,
+// from the fixed codes, never free text. A listing carries the organisation's name and its own reference for the
+// service, never a person or a number (the back end's listing has no service name yet: a known issue).
 
 type Decision = 'decline' | 'suspend';
 const DONE: Record<'admit' | 'reinstate' | Decision, string> = {
@@ -21,6 +21,26 @@ const DONE: Record<'admit' | 'reinstate' | Decision, string> = {
   reinstate: 'Listing reinstated.',
   decline: 'Listing declined.',
   suspend: 'Listing paused.',
+};
+
+/** The filter's chips, in the order the board shows them. */
+const FILTERS: readonly ListingStatus[] = ['pending', 'admitted', 'suspended', 'declined', 'withdrawn'];
+
+const STATUS_TAG: Readonly<Record<ListingStatus, StatusTagVariant>> = {
+  pending: 'waiting',
+  admitted: 'live',
+  suspended: 'paused',
+  declined: 'closed',
+  withdrawn: 'closed',
+};
+
+const TEXT: Record<Decision, { verb: string; body: string; button: string }> = {
+  decline: { verb: 'Decline', body: 'A declined listing is closed. The organisation can ask again for the service.', button: 'Decline the listing' },
+  suspend: {
+    verb: 'Pause',
+    body: 'It leaves the live board now and shows as paused. Say why: the reason is kept in the history.',
+    button: 'Pause the listing',
+  },
 };
 
 export function NetworkListings() {
@@ -36,7 +56,10 @@ function Listings({ query }: { query: string }) {
   const { state, reload } = useAdminRead<ListingsRead>(`${BASE}/listings${query}`);
   const { notice, say } = useNotice();
   const [busy, setBusy] = useState<string | null>(null);
+  const [filter, setFilter] = useState<ListingStatus>('pending');
   const [deciding, setDeciding] = useState<{ listing: ListingRow; decision: Decision } | null>(null);
+  // The button that opened the decision panel, so that focus goes back to it when the panel closes.
+  const opener = useRef<HTMLElement | null>(null);
 
   async function act(listing: ListingRow, action: 'admit' | 'reinstate') {
     if (busy !== null) return;
@@ -57,6 +80,15 @@ function Listings({ query }: { query: string }) {
       </p>
     );
   }
+  const { listings } = state.data;
+  const countOf = (status: ListingStatus) => listings.filter((listing) => listing.status === status).length;
+  const shown = listings.filter((listing) => listing.status === filter);
+
+  function closeDecision() {
+    setDeciding(null);
+    opener.current?.focus();
+  }
+
   return (
     <>
       {notice !== null ? (
@@ -64,95 +96,139 @@ function Listings({ query }: { query: string }) {
           {notice.text}
         </p>
       ) : null}
-      <Card heading={state.data.network.name}>
-        <div className={styles.scroll}>
-          <table className={styles.table} data-el="NADM-LISTINGS-TABLE">
-            <caption>Listings</caption>
-            <thead>
-              <tr>
-                <th scope="col">Organisation</th>
-                <th scope="col">Service</th>
-                <th scope="col">Status</th>
-                <th scope="col">Reason</th>
-                <th scope="col">
-                  <span className={styles.srOnly}>Action</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {state.data.listings.length === 0 ? (
-                <tr>
-                  <td colSpan={5}>
-                    Nothing here yet.
-                    <span className={styles.muted}>{' Organisations list their own services. Each one appears here once it is listed.'}</span>
-                  </td>
-                </tr>
-              ) : (
-                state.data.listings.map((listing) => {
-                  const what = ` ${listing.serviceRef} of ${listing.organisation}`;
-                  return (
-                    <tr key={listing.id} data-row-ref={listing.id}>
-                      <td>{listing.organisation}</td>
-                      <td>{listing.serviceRef}</td>
-                      <td>
-                        <span className={listing.status === 'admitted' ? styles.tag : `${styles.tag} ${styles.tagDashed}`}>{LISTING_STATUS_WORD[listing.status]}</span>
-                      </td>
-                      <td>{reasonWord(listing.reason)}</td>
-                      <td>
-                        <div className={styles.actions}>
-                          {listing.status === 'pending' ? (
-                            <>
-                              <Button variant="primary" busy={busy === listing.id} dataEl="NADM-LISTING-ADMIT-BTN" onClick={() => void act(listing, 'admit')}>
-                                Admit<span className={styles.srOnly}>{what}</span>
-                              </Button>
-                              <Button variant="neutral" dataEl="NADM-LISTING-DECLINE-BTN" onClick={() => setDeciding({ listing, decision: 'decline' })}>
-                                Decline<span className={styles.srOnly}>{what}</span>
-                              </Button>
-                            </>
-                          ) : null}
-                          {listing.status === 'admitted' ? (
-                            <Button variant="neutral" dataEl="NADM-LISTING-PAUSE-BTN" onClick={() => setDeciding({ listing, decision: 'suspend' })}>
-                              Pause<span className={styles.srOnly}>{what}</span>
-                            </Button>
-                          ) : null}
-                          {listing.status === 'suspended' ? (
-                            <Button variant="primary" busy={busy === listing.id} dataEl="NADM-LISTING-REINSTATE-BTN" onClick={() => void act(listing, 'reinstate')}>
-                              Reinstate<span className={styles.srOnly}>{what}</span>
-                            </Button>
-                          ) : null}
-                        </div>
+      <div className={styles.columns}>
+        <div className={styles.column}>
+          <div role="group" aria-label="Filter by status" className={styles.chips}>
+            {FILTERS.map((status) => (
+              <Chip key={status} pressed={filter === status} onPressedChange={() => setFilter(status)} dataEl={`NADM-LISTING-FILTER-${status.toUpperCase()}`}>
+                {`${LISTING_STATUS_WORD[status]} ${countOf(status)}`}
+              </Chip>
+            ))}
+          </div>
+          <Panel heading={state.data.network.name}>
+            <div className={styles.scroll}>
+              <table className={styles.table} data-el="NADM-LISTINGS-TABLE">
+                <caption className={styles.srOnly}>Listings</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Organisation</th>
+                    <th scope="col">Service</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">
+                      <span className={styles.srOnly}>Action</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {listings.length === 0 ? (
+                    <tr>
+                      <td colSpan={4}>
+                        Nothing here yet.
+                        <span className={styles.muted}>{' Organisations list their own services. Each one appears here once it is listed.'}</span>
                       </td>
                     </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                  ) : shown.length === 0 ? (
+                    <tr>
+                      <td colSpan={4}>No listings with this status.</td>
+                    </tr>
+                  ) : (
+                    shown.map((listing) => {
+                      const what = ` ${listing.serviceRef} of ${listing.organisation}`;
+                      return (
+                        <tr key={listing.id} data-row-ref={listing.id}>
+                          <td>{listing.organisation}</td>
+                          <td>{listing.serviceRef}</td>
+                          <td>
+                            <StatusTag variant={STATUS_TAG[listing.status]}>{LISTING_STATUS_WORD[listing.status]}</StatusTag>
+                          </td>
+                          <td>
+                            <div className={styles.actions}>
+                              {listing.status === 'pending' ? (
+                                <>
+                                  <Button variant="primary" busy={busy === listing.id} dataEl="NADM-LISTING-ADMIT-BTN" onClick={() => void act(listing, 'admit')}>
+                                    Admit<span className={styles.srOnly}>{what}</span>
+                                  </Button>
+                                  <Button
+                                    variant="secondary"
+                                    dataEl="NADM-LISTING-DECLINE-BTN"
+                                    onClick={(event) => {
+                                      opener.current = event.currentTarget;
+                                      setDeciding({ listing, decision: 'decline' });
+                                    }}
+                                  >
+                                    Decline<span className={styles.srOnly}>{what}</span>
+                                  </Button>
+                                </>
+                              ) : null}
+                              {listing.status === 'admitted' ? (
+                                <Button
+                                  variant="neutral"
+                                  dataEl="NADM-LISTING-PAUSE-BTN"
+                                  onClick={(event) => {
+                                    opener.current = event.currentTarget;
+                                    setDeciding({ listing, decision: 'suspend' });
+                                  }}
+                                >
+                                  Pause<span className={styles.srOnly}>{what}</span>
+                                </Button>
+                              ) : null}
+                              {listing.status === 'suspended' ? (
+                                <Button variant="primary" busy={busy === listing.id} dataEl="NADM-LISTING-REINSTATE-BTN" onClick={() => void act(listing, 'reinstate')}>
+                                  Reinstate<span className={styles.srOnly}>{what}</span>
+                                </Button>
+                              ) : null}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Panel>
         </div>
-      </Card>
-      {deciding !== null ? (
-        <ReasonDialog
-          listing={deciding.listing}
-          decision={deciding.decision}
-          query={query}
-          onClose={() => setDeciding(null)}
-          onDone={() => {
-            say(true, DONE[deciding.decision]);
-            setDeciding(null);
-            reload();
-          }}
-        />
-      ) : null}
+
+        <div className={styles.column}>
+          {deciding !== null ? (
+            <DecisionPanel
+              key={`${deciding.listing.id}-${deciding.decision}`}
+              listing={deciding.listing}
+              decision={deciding.decision}
+              query={query}
+              onClose={closeDecision}
+              onDone={() => {
+                say(true, DONE[deciding.decision]);
+                setDeciding(null);
+                reload();
+              }}
+            />
+          ) : null}
+          <Panel heading="What viewers see" dashed>
+            <p className={styles.text}>
+              A paused service is one tile: ◌ Not updated, &quot;?&quot;, &quot;Phone to confirm&quot;, &quot;Not available on the network. Phone to confirm.&quot; No new status word.
+            </p>
+          </Panel>
+          <p className={styles.muted}>Each button appears only for the states it applies to. Every decision is dated in History.</p>
+        </div>
+      </div>
     </>
   );
 }
 
-const TEXT: Record<Decision, { title: string; body: string; button: string }> = {
-  decline: { title: 'Decline this listing?', body: 'A declined listing is closed. The organisation can ask again for the service.', button: 'Decline' },
-  suspend: { title: 'Pause this listing?', body: 'A paused listing stops showing on the network. It shows as not available until it is reinstated.', button: 'Pause' },
-};
+function Panel({ heading, dashed = false, children }: { heading: string; dashed?: boolean; children: ReactNode }) {
+  const id = useId();
+  return (
+    <section aria-labelledby={id} className={dashed ? `${styles.card} ${styles.dashed}` : styles.card}>
+      <h2 id={id} className={styles.heading}>
+        {heading}
+      </h2>
+      {children}
+    </section>
+  );
+}
 
-function ReasonDialog({
+function DecisionPanel({
   listing,
   decision,
   query,
@@ -165,44 +241,65 @@ function ReasonDialog({
   onClose: () => void;
   onDone: () => void;
 }) {
-  const [reason, setReason] = useState('');
+  const id = useId();
+  const heading = useRef<HTMLHeadingElement>(null);
+  const [reason, setReason] = useState<ListingReason | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const words = TEXT[decision];
 
+  // The panel opens with its name, so a screen reader says what the person is now deciding.
+  useEffect(() => {
+    heading.current?.focus();
+  }, []);
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
-    if (!(LISTING_REASONS as readonly string[]).includes(reason)) {
+    if (reason === null) {
       setError('Choose a reason.');
       return;
     }
     setError(null);
     setProblem(null);
     setBusy(true);
-    const result = await post(`${BASE}/listings/${encodeURIComponent(listing.id)}/${decision}`, query, { reason: reason as ListingReason });
+    const result = await post(`${BASE}/listings/${encodeURIComponent(listing.id)}/${decision}`, query, { reason });
     setBusy(false);
     if (result.ok) onDone();
     else setProblem('That could not be done. Try again.');
   }
 
   return (
-    <Dialog title={words.title} sub={`${listing.serviceRef} of ${listing.organisation}`} onClose={onClose}>
+    <section aria-labelledby={id} className={`${styles.card} ${styles.decision}`}>
+      <h2 id={id} ref={heading} tabIndex={-1} className={styles.heading}>
+        {`${words.verb} ${listing.serviceRef}`}
+      </h2>
+      <p className={styles.muted}>{`${listing.serviceRef} of ${listing.organisation}`}</p>
       <p className={styles.text}>{words.body}</p>
-      <form className={styles.stack} onSubmit={submit} noValidate aria-label={words.title}>
-        <div className={styles.selectLabel}>
-          <label htmlFor="listing-reason">Reason</label>
-          <select id="listing-reason" className={styles.select} value={reason} data-el="NADM-LISTING-REASON-SELECT" aria-invalid={error !== null} onChange={(event) => setReason(event.target.value)}>
-            <option value="">Choose a reason</option>
+      <form className={styles.stack} onSubmit={submit} noValidate>
+        <fieldset className={styles.fieldset} data-el="NADM-LISTING-REASON-GROUP">
+          <legend className={styles.legend}>Reason</legend>
+          <div className={styles.reasons}>
             {REASON_WORDS.map(([code, word]) => (
-              <option key={code} value={code}>
-                {word}
-              </option>
+              <label key={code} className={styles.reason}>
+                <input
+                  type="radio"
+                  className={styles.reasonInput}
+                  name={`${id}-reason`}
+                  value={code}
+                  checked={reason === code}
+                  onChange={() => {
+                    setReason(code);
+                    setError(null);
+                  }}
+                />
+                <span className={styles.reasonChip}>{word}</span>
+              </label>
             ))}
-          </select>
+          </div>
           {error !== null ? <p className={styles.problem}>{error}</p> : null}
-        </div>
+        </fieldset>
         {problem !== null ? (
           <p role="alert" className={styles.problem}>
             {problem}
@@ -217,6 +314,6 @@ function ReasonDialog({
           </Button>
         </div>
       </form>
-    </Dialog>
+    </section>
   );
 }

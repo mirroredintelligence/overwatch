@@ -1,0 +1,65 @@
+/* One table for every list of rows. The header stays while the rows scroll, the scroll stops at the table's edge
+   (overscroll-behavior: contain) and the height is bounded by the viewport, so a long list never pushes the page. */
+
+.region {
+  position: relative;
+  min-width: 0;
+  max-height: clamp(12rem, calc(100dvh - 16rem), 40rem);
+  overflow: auto;
+  overscroll-behavior: contain;
+  border-radius: var(--radius);
+}
+
+.region:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-lh);
+  color: var(--c-ink);
+}
+
+.caption {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: var(--space-3) var(--space-2) var(--space-2);
+  border-bottom: 2px solid var(--c-line);
+  background: Canvas;
+  text-align: start;
+  font-size: var(--type-caption-size);
+  font-weight: 700;
+  color: var(--c-muted);
+  vertical-align: bottom;
+}
+
+.table td {
+  padding: var(--space-3) var(--space-2);
+  border-bottom: 1px solid var(--c-line);
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.table th[data-align='end'],
+.table td[data-align='end'] {
+  text-align: end;
+}
+
+.empty {
+  padding: var(--space-4) var(--space-2);
+  color: var(--c-ink-2);
+}

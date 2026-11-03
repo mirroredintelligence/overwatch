@@ -44,7 +44,8 @@ Tests that already fail on the base branch because of local storage under that f
 - Commit only your own files, on your worktree branch, with a plain message ("Unit <id>: <what>"). Stage them by explicit path (`git add <path> <path>`), never `git add -A` or `git add .`. Do not push.
 - NEVER run `git reset --hard`, `git clean`, `git checkout -- .`, `git stash`, `git rebase`, `git merge`, or change branch. This repository has a file whose name differs only by case on Windows, and these commands have destroyed work before. If a file looks wrong, tell me; do not "fix" it with git.
 - The warning "LF will be replaced by CRLF" is harmless. Edit with the Edit and Write tools. Do not run a formatter or `sed` over many files.
-- Git Bash: put `MSYS_NO_PATHCONV=1` in front of a command whose argument starts with `/`. Do not write code with quotes through a shell heredoc: use the Write tool.
+- Git Bash: put `MSYS_NO_PATHCONV=1` in front of a command whose argument starts with `/`.
+- NEVER create or change a file with a shell heredoc, `echo`, `cat >` or `sed`. Two agents lost half of their test files that way: the file was cut off silently. Use the Write tool (new file or full rewrite) or the Edit tool (a change). After writing a test file, the first red run must show its tests by name; if a file you wrote shows no tests, it was cut off: write it again.
 
 ## 5. Code rules that bite
 

@@ -13,16 +13,30 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+describe('Tour: the welcome step', () => {
+  it('shows the one-minute promise with no account needed, and starts the tour', async () => {
+    render(<Tour initialStep="welcome" />);
+
+    expect(screen.getByRole('heading', { name: 'See how Overwatch works for you' })).toBeInTheDocument();
+    expect(screen.getByText('One minute. No account needed.')).toBeInTheDocument();
+    expect(screen.getByText('Step 1 of 6')).toBeInTheDocument();
+    expect(screen.getByText('Welcome')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Start the tour' }));
+    expect(screen.getByRole('heading', { name: 'Which is you?' })).toBeInTheDocument();
+  });
+});
+
 describe('Tour: picking a role and what changes', () => {
-  it('keeps Continue disabled until a role is picked, then shows the advisor lists', async () => {
+  it('keeps Next disabled until a role is picked, then shows the advisor lists', async () => {
     render(<Tour initialStep="role" />);
 
-    const continueButton = screen.getByRole('button', { name: 'Continue' });
-    expect(continueButton).toBeDisabled();
+    const nextButton = screen.getByRole('button', { name: 'Next' });
+    expect(nextButton).toBeDisabled();
 
-    await userEvent.click(screen.getByRole('button', { name: 'I take calls as an advisor' }));
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled();
-    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    await userEvent.click(screen.getByRole('radio', { name: 'I take calls as an advisor' }));
+    expect(screen.getByRole('button', { name: 'Next' })).toBeEnabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
 
     expect(screen.getByRole('heading', { name: 'For call advisors' })).toBeInTheDocument();
     const today = screen.getByRole('list', { name: 'Today' });
@@ -30,6 +44,16 @@ describe('Tour: picking a role and what changes', () => {
     const withOverwatch = screen.getByRole('list', { name: 'With Overwatch' });
     expect(within(withOverwatch).getByText('Request a booking by text and move on')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try a practice call' })).toBeInTheDocument();
+  });
+
+  it('offers the five role cards as one radio group, with the step count', () => {
+    render(<Tour initialStep="role" />);
+
+    expect(screen.getByText('Step 2 of 6')).toBeInTheDocument();
+    expect(screen.getByText('Your role')).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Which is you?' })).toBeInTheDocument();
+    expect(screen.getAllByRole('radio')).toHaveLength(5);
+    expect(screen.getByRole('radio', { name: 'I report capacity for a service' })).toHaveAttribute('name', 'tour-role');
   });
 });
 
@@ -49,20 +73,45 @@ describe('Tour: what changes for each role (TourRoles)', () => {
   it('the reporter screen has Next and no Skip, and its action is the practice step', async () => {
     render(<Tour initialStep="changes" initialRole="reporter" />);
 
+    expect(screen.getByText('Step 3 of 6')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Your day, before and after' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Skip' })).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Try a practice update' }));
-    expect(screen.getByRole('heading', { name: 'Practice update' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Answer a practice prompt' })).toBeInTheDocument();
+  });
+});
+
+describe('Tour: how it works and the first week', () => {
+  it('numbers the three steps of how it works', () => {
+    render(<Tour initialStep="how" />);
+
+    expect(screen.getByText('Step 4 of 6')).toBeInTheDocument();
+    const steps = screen.getByRole('list', { name: 'How it works' });
+    expect(within(steps).getAllByRole('listitem')).toHaveLength(3);
+    expect(within(steps).getByText('The coordination team sees it at once')).toBeInTheDocument();
+  });
+
+  it('lists the first week and says what Friday shows, with Go to my app', () => {
+    render(<Tour initialStep="week" />);
+
+    expect(screen.getByText('Step 6 of 6')).toBeInTheDocument();
+    expect(screen.getByText('Set up your phone')).toBeInTheDocument();
+    expect(screen.getByText('On Friday we show you what you saved: updates sent and phone calls avoided.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Go to my app' })).toHaveAttribute('href', '/');
+    expect(screen.getByRole('link', { name: 'Start again' })).toHaveAttribute('href', '/tour?step=welcome');
   });
 });
 
 describe('Tour: practice', () => {
-  it('makes no network request and shows Practice done', async () => {
+  it('makes no network request, says nothing is sent, and shows Practice done', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
     render(<Tour initialStep="practice" initialRole="reporter" />);
 
-    expect(screen.getByText('Practice. Nothing is sent.')).toBeInTheDocument();
+    expect(screen.getByText('Step 5 of 6')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Answer a practice prompt' })).toBeInTheDocument();
+    expect(screen.getByText('Nothing is sent. Your answer only changes what the screen says.')).toBeInTheDocument();
     expect(screen.getByText('Sample data')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Yes, still 3' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Yes, still right' }));
 
     expect(screen.getByText('Practice done')).toBeInTheDocument();
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -88,22 +137,29 @@ describe('Tour: storage', () => {
     });
     render(<Tour initialStep="welcome" />);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Take the 1-minute tour' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Start the tour' }));
 
-    expect(screen.getByRole('heading', { name: 'What do you do?' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Which is you?' })).toBeInTheDocument();
   });
 });
 
 describe('Tour: moving through the steps', () => {
-  it('moves Next and Back, and moves focus to the new step heading', async () => {
+  it('moves Next and Back in the Tour steps bar, and moves focus to the new step heading', async () => {
     render(<Tour initialStep="welcome" />);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Take the 1-minute tour' }));
-    const heading = screen.getByRole('heading', { name: 'What do you do?' });
+    await userEvent.click(screen.getByRole('button', { name: 'Start the tour' }));
+    const heading = screen.getByRole('heading', { name: 'Which is you?' });
     await waitFor(() => expect(heading).toHaveFocus());
 
-    await userEvent.click(screen.getByRole('button', { name: 'Back' }));
-    expect(screen.getByRole('heading', { name: 'Less chasing. Faster answers.' })).toBeInTheDocument();
+    const steps = screen.getByRole('navigation', { name: 'Tour steps' });
+    await userEvent.click(within(steps).getByRole('button', { name: 'Back' }));
+    expect(screen.getByRole('heading', { name: 'See how Overwatch works for you' })).toBeInTheDocument();
+  });
+
+  it('offers a Skip link in the top bar that goes to the home page', () => {
+    render(<Tour initialStep="how" />);
+
+    expect(screen.getByRole('link', { name: 'Skip' })).toHaveAttribute('href', '/');
   });
 
   it.each<TourStep>(['welcome', 'role', 'changes', 'how', 'practice', 'week'])('passes vitest-axe on the %s step', async (step) => {

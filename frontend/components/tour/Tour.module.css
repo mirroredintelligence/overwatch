@@ -1,11 +1,97 @@
+/* The one-minute tour (board P6 desktop, Ph4 phone). A card stack on the page ground; one step at a time. */
+
+.shell {
+  min-height: 100vh;
+  background: var(--c-ground);
+  font-family: var(--font-atkinson), system-ui, sans-serif;
+  color: var(--c-ink);
+}
+
+.bar {
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 0 var(--space-4);
+  background: var(--c-rail);
+  color: #fff;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--type-title-size);
+  font-weight: var(--type-title-weight);
+}
+
+.skip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: var(--type-caption-size);
+  color: var(--c-rail-ink);
+  text-decoration: underline;
+}
+
+.skip:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
 .page {
   display: grid;
   gap: var(--space-4);
-  max-width: 640px;
+  max-width: 40rem;
   margin: 0 auto;
   padding: var(--space-4);
-  font-family: var(--font-atkinson), system-ui, sans-serif;
-  color: var(--c-ink);
+}
+
+.progress {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.progressMeta {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
+}
+
+.segments {
+  display: flex;
+  gap: 6px;
+}
+
+.segment,
+.segmentOn {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--c-line);
+  transition: background var(--dur-state) var(--ease-out);
+}
+
+.segmentOn {
+  background: var(--c-primary);
+}
+
+.card {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+}
+
+.cardDark {
+  background: var(--c-rail);
+  color: #fff;
 }
 
 .title {
@@ -20,19 +106,178 @@
   outline: var(--focus);
 }
 
+.lead {
+  margin: 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  color: var(--c-ink-2);
+}
+
+.cardDark .lead {
+  color: #d7e6ee;
+}
+
 .sub {
   margin: 0;
   font-size: var(--type-label-size);
   font-weight: var(--type-label-weight);
 }
 
-.options {
-  display: grid;
-  gap: var(--space-2);
-}
-
 .label {
   margin: 0;
   color: var(--c-muted);
   font-size: var(--type-caption-size);
+}
+
+.list,
+.checks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--space-2);
+  font-size: var(--type-body-size);
+}
+
+.list li {
+  padding: var(--space-3) var(--space-4);
+  border-radius: 16px;
+  background: var(--c-bg);
+}
+
+.checks li::before {
+  content: '\25CB';
+  margin-right: var(--space-2);
+  color: var(--c-primary);
+}
+
+.steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.howStep {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  font-size: var(--type-body-size);
+  line-height: 1.3;
+}
+
+.number {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--c-primary);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.options {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.choice {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 52px;
+  padding: var(--space-3) var(--space-4);
+  border: 2px solid var(--c-line);
+  border-radius: 16px;
+  background: #fff;
+  font-size: var(--type-body-size);
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background var(--dur-state) var(--ease-out),
+    border-color var(--dur-state) var(--ease-out);
+}
+
+.choice[data-checked='true'] {
+  border-color: var(--c-primary);
+  background: var(--c-tint);
+}
+
+.choice:focus-within {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+/* The native radio stays in the tab order and the arrow keys; it is only drawn as the card. */
+.radio {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  pointer-events: none;
+}
+
+.dot {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid var(--c-muted);
+  transition: border-width var(--dur-press) var(--ease-out);
+}
+
+.choice[data-checked='true'] .dot {
+  border: 7px solid var(--c-primary);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--space-2);
+}
+
+.nav {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.nav > * {
+  flex: 1;
+}
+
+.again {
+  justify-self: start;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--c-primary-dark);
+  font-size: var(--type-caption-size);
+}
+
+.again:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+@media (min-width: 900px) {
+  .page {
+    padding-top: var(--space-6);
+  }
 }

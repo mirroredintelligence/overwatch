@@ -9,6 +9,7 @@
   --tile-surge-number: #4B1C69;
   --tile-surge-light: #9A6BB8;
   --tile-unknown-light: #9AA7AD;
+  --tile-quiet-bg: #EEF3F7;
 
   box-sizing: border-box;
   display: flex;
@@ -18,6 +19,7 @@
   padding: var(--space-4) var(--space-5);
   border-radius: var(--radius-card);
   background: Canvas;
+  box-shadow: var(--shadow-card);
   color: var(--c-ink);
 }
 
@@ -51,15 +53,16 @@
 .notUpdated {
   border: 3px dashed var(--c-unknown);
   background: repeating-linear-gradient(135deg, var(--tile-hatch-a) 0 12px, var(--tile-hatch-b) 12px 24px);
-  --tile-number: var(--c-unknown);
+  --tile-number: var(--c-ink-2);
   --tile-fill: repeating-linear-gradient(135deg, var(--tile-unknown-light) 0 6px, var(--c-line) 6px 12px);
 }
 
+/* Quiet, not closed: the service is out of hours, so the tile recedes (artboard BoardQuiet). */
 .outOfHours {
-  border: 3px solid var(--c-closed);
-  background: var(--tile-closed-bg);
-  --tile-number: var(--c-closed);
-  --tile-fill: var(--c-closed);
+  border: 3px solid var(--c-unknown);
+  background: var(--tile-quiet-bg);
+  --tile-number: var(--c-ink-2);
+  --tile-fill: var(--c-unknown);
 }
 
 .top {
@@ -71,6 +74,15 @@
 
 .who {
   min-width: 0;
+}
+
+/* The state chip, with the Last known pill under it when the figure is last known. */
+.state {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
 }
 
 .name {
@@ -95,12 +107,12 @@
   gap: var(--space-4);
 }
 
-/* Readable across a room: 72px at the smallest (the prompt). */
+/* 42px on the board (BoardNormal); 104px on a wall screen, readable across a room (WallBoard). */
 .number {
   flex: none;
   margin: 0;
   color: var(--tile-number);
-  font-size: 4.5rem;
+  font-size: 2.625rem;
   line-height: 1;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -151,9 +163,10 @@
   font-weight: 700;
 }
 
+/* The bar, then its words under it (the markup keeps the words first for a reader). */
 .usage {
   display: flex;
-  flex-direction: column;
+  flex-direction: column-reverse;
   gap: var(--space-1);
 }
 
@@ -188,10 +201,22 @@
   color: var(--c-ink-2);
 }
 
-/* On a wall screen the tile is tighter, so nine of them and the key fit in 1080px (artboard "Main"). */
-@media (min-width: 1600px) and (min-height: 1000px) {
+/* A figure more than 2 hrs old says "old" in words and weight. */
+.old {
+  color: var(--tile-limited-number);
+  font-weight: 700;
+}
+
+/* On a wall screen the tile is bigger and bolder, read across a room (artboard WallBoard). */
+@media (min-width: 1600px) {
   .tile {
+    border-width: 6px;
     gap: var(--space-1);
-    padding: var(--space-2) var(--space-4);
+    padding: var(--space-3) var(--space-5);
+  }
+
+  .number {
+    font-size: 6.5rem;
+    line-height: 0.95;
   }
 }

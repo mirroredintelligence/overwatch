@@ -18,6 +18,7 @@ function rule(source: string, selector: string): string {
 
 const tile = css('Tile.module.css');
 const board = css('Board.module.css');
+const chip = css('StatusChip.module.css');
 const tokens = readFileSync(resolve(__dirname, '../../app/tokens.css'), 'utf8');
 
 const colours = new Map<string, string>();
@@ -59,10 +60,22 @@ describe('Tile borders and backgrounds (prompt, "Rules you need")', () => {
     expect(rule(tile, '.overCapacity')).toMatch(/--tile-fill:\s*repeating-linear-gradient\(/);
   });
 
-  it('out of hours has the #E9EDEF background and a 3px --c-closed border (W07)', () => {
-    expect(rule(tile, '.outOfHours')).toMatch(/border:\s*3px solid var\(--c-closed\)/);
-    expect(rule(tile, '.outOfHours')).toMatch(/background:\s*var\(--tile-closed-bg\)/);
-    expect(rule(tile, '.outOfHours')).toMatch(/--tile-fill:\s*var\(--c-closed\)/);
+  it('out of hours is a quiet tile (#EEF3F7, a solid 3px --c-unknown border), not the Not accepting tile (BoardQuiet)', () => {
+    expect(rule(tile, '.outOfHours')).toMatch(/border:\s*3px solid var\(--c-unknown\)/);
+    expect(rule(tile, '.outOfHours')).toMatch(/background:\s*var\(--tile-quiet-bg\)/);
+    expect(rule(tile, '.outOfHours')).toMatch(/--tile-fill:\s*var\(--c-unknown\)/);
+    expect(colour('--tile-quiet-bg').toUpperCase()).toBe('#EEF3F7');
+    expect(rule(tile, '.outOfHours')).not.toMatch(/--c-closed|--tile-closed-bg/);
+  });
+
+  it('every tile has the card shadow and the 3px border of the artboard', () => {
+    expect(rule(tile, '.tile')).toMatch(/box-shadow:\s*var\(--shadow-card\)/);
+    expect(rule(tile, '.tile')).toMatch(/border-radius:\s*var\(--radius-card\)/);
+  });
+
+  it('the old-figure words are bold and --tile-limited-number coloured (stale figures)', () => {
+    expect(rule(tile, '.old')).toMatch(/font-weight:\s*700/);
+    expect(rule(tile, '.old')).toMatch(/color:\s*var\(--tile-limited-number\)/);
   });
 
   it('the pending chip has its own border and a white background, so it reads on every tile (W07)', () => {
@@ -73,10 +86,19 @@ describe('Tile borders and backgrounds (prompt, "Rules you need")', () => {
 });
 
 describe('Tile size', () => {
-  it('the big number is at least 72px (4.5rem on a 16px root)', () => {
-    const size = /font-size:\s*([\d.]+)rem/.exec(rule(tile, '.number'));
-    expect(size).not.toBeNull();
-    expect(Number(size?.[1]) * 16).toBeGreaterThanOrEqual(72);
+  const wall = /@media\s*\(min-width:\s*1600px\)\s*\{([\s\S]*)\}\s*$/.exec(tile)?.[1] ?? '';
+
+  it('the big number is 42px on the board (BoardNormal) and at least 72px on a wall screen (WallBoard: 104px)', () => {
+    const base = /font-size:\s*([\d.]+)rem/.exec(rule(tile, '.number'));
+    expect(base).not.toBeNull();
+    expect(Number(base?.[1]) * 16).toBeGreaterThanOrEqual(42);
+    const onWall = /font-size:\s*([\d.]+)rem/.exec(rule(wall, '.number'));
+    expect(onWall).not.toBeNull();
+    expect(Number(onWall?.[1]) * 16).toBeGreaterThanOrEqual(72);
+  });
+
+  it('the tile border is 6px on a wall screen', () => {
+    expect(rule(wall, '.tile')).toMatch(/border-width:\s*6px/);
   });
 
   it('no text is below 16px (DEC-019)', () => {
@@ -94,7 +116,47 @@ describe('Board layout', () => {
   });
 
   it('has no animation or transition (live changes are W06)', () => {
-    expect(board + tile).not.toMatch(/\b(animation|transition)\s*:/);
+    expect(board + tile + chip).not.toMatch(/\b(animation|transition)\s*:/);
+  });
+});
+
+describe('StatusChip (BoardNormal, BoardQuiet, BoardDown)', () => {
+  it('the four current states are filled pills with white text; not updated is a white pill with a dashed border', () => {
+    expect(rule(chip, '.accepting')).toMatch(/background:\s*var\(--c-primary\)/);
+    expect(rule(chip, '.limited')).toMatch(/background:\s*var\(--c-limited\)/);
+    expect(rule(chip, '.notAccepting')).toMatch(/background:\s*var\(--c-closed\)/);
+    expect(rule(chip, '.overCapacity')).toMatch(/background:\s*var\(--c-surge\)/);
+    expect(rule(chip, '.notUpdated')).toMatch(/border:\s*2px dashed var\(--c-unknown\)/);
+  });
+
+  it('out of hours is a white pill with a solid ink border: neither filled like Not accepting nor dashed like Not updated', () => {
+    expect(rule(chip, '.outOfHours')).toMatch(/border:\s*2px solid var\(--c-ink-2\)/);
+    expect(rule(chip, '.outOfHours')).toMatch(/background:\s*Canvas/);
+  });
+
+  it('the Last known pill is dashed with an ink border', () => {
+    expect(rule(chip, '.lastKnown')).toMatch(/border:\s*2px dashed var\(--c-ink\)/);
+  });
+
+  it.each([
+    ['accepting', '--c-primary'],
+    ['limited', '--c-limited'],
+    ['not accepting', '--c-closed'],
+    ['over capacity', '--c-surge'],
+  ])('the %s word is at least 4.5:1 on its fill', (_label, name) => {
+    expect(contrastRatio(WHITE, colour(name))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('the not-updated, out-of-hours and Last known words are at least 4.5:1 on white', () => {
+    expect(contrastRatio(colour('--c-ink-2'), WHITE)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(colour('--c-ink'), WHITE)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('draws no text below 16px', () => {
+    for (const m of chip.matchAll(/font-size:\s*([\d.]+)(rem|px)/g)) {
+      const px = m[2] === 'rem' ? Number(m[1]) * 16 : Number(m[1]);
+      expect(px).toBeGreaterThanOrEqual(16);
+    }
   });
 });
 
@@ -104,7 +166,7 @@ describe('Tile contrast (WCAG AA), from the shipped colours', () => {
     ['limited', [WHITE]],
     ['over capacity', [WHITE]],
     ['not accepting', [colour('--tile-closed-bg')]],
-    ['out of hours', [colour('--tile-closed-bg')]],
+    ['out of hours', [colour('--tile-quiet-bg')]],
     ['not updated (both hatch colours)', [colour('--tile-hatch-a'), colour('--tile-hatch-b')]],
   ];
 
@@ -121,18 +183,24 @@ describe('Tile contrast (WCAG AA), from the shipped colours', () => {
     expect(contrastRatio(colour('--c-closed'), colour('--tile-closed-bg'))).toBeGreaterThanOrEqual(3);
   });
 
-  it('the out-of-hours 0 is at least 3:1 on its background', () => {
-    expect(rule(tile, '.outOfHours')).toMatch(/--tile-number:\s*var\(--c-closed\)/);
-    expect(contrastRatio(colour('--c-closed'), colour('--tile-closed-bg'))).toBeGreaterThanOrEqual(3);
+  it('the out-of-hours 0 is at least 4.5:1 on its quiet background', () => {
+    expect(rule(tile, '.outOfHours')).toMatch(/--tile-number:\s*var\(--c-ink-2\)/);
+    expect(contrastRatio(colour('--c-ink-2'), colour('--tile-quiet-bg'))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('the old-figure words are at least 4.5:1 on white and on the quiet tile', () => {
+    expect(contrastRatio(colour('--tile-limited-number'), WHITE)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(colour('--tile-limited-number'), colour('--tile-quiet-bg'))).toBeGreaterThanOrEqual(4.5);
   });
 
   it('the pending chip text (--c-ink) is at least 4.5:1 on its white background', () => {
     expect(contrastRatio(colour('--c-ink'), WHITE)).toBeGreaterThanOrEqual(4.5);
   });
 
-  it('the not-updated ? is at least 3:1 on both hatch colours', () => {
+  it('the not-updated ? is --c-ink-2 and at least 4.5:1 on both hatch colours', () => {
+    expect(rule(tile, '.notUpdated')).toMatch(/--tile-number:\s*var\(--c-ink-2\)/);
     for (const background of [colour('--tile-hatch-a'), colour('--tile-hatch-b')]) {
-      expect(contrastRatio(colour('--c-unknown'), background)).toBeGreaterThanOrEqual(3);
+      expect(contrastRatio(colour('--c-ink-2'), background)).toBeGreaterThanOrEqual(4.5);
     }
   });
 

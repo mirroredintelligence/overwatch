@@ -11,7 +11,7 @@ vi.mock('@/lib/operator/session', async () => {
 });
 vi.mock('next/navigation', async () => {
   const actual = await vi.importActual<typeof import('next/navigation')>('next/navigation');
-  return { ...actual, usePathname: () => '/operator' };
+  return { ...actual, usePathname: () => '/operator', useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) };
 });
 
 import SignInPage from './sign-in/page';
@@ -109,15 +109,15 @@ describe('the pages', () => {
 
   it('shows one request for an id that is the shape of one, and the page that is not there for any other', async () => {
     render(await TicketPage({ params: Promise.resolve({ id: 'tkt-1' }) }));
-    expect(await screen.findByRole('heading', { level: 1, name: 'Request tkt-1' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 2, name: 'Request tkt-1' })).toBeInTheDocument();
     for (const id of ['../x', 'a b', '']) await expect(TicketPage({ params: Promise.resolve({ id }) }), id).rejects.toThrow();
   });
 
   it('takes the tenant to ask about from for, only when it is the shape of an id', async () => {
     session = operatorSessionFor('support');
     render(await NewSupport({ searchParams: Promise.resolve({ for: 'trust-a' }) }));
-    expect(await screen.findByRole('combobox', { name: 'Tenant' })).toBeInTheDocument();
-    expect(await screen.findByRole('option', { name: 'Sample Area A' })).toBeInTheDocument();
+    expect(await screen.findByRole('radiogroup', { name: 'Organisation' })).toBeInTheDocument();
+    expect(await screen.findByRole('radio', { name: 'Sample Area A' })).toBeChecked();
   });
 
   it('says a page read with no operator session is not for the reader', async () => {

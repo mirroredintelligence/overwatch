@@ -13,14 +13,13 @@ const FILLED: ServiceValues = {
   name: 'Hospital at home East',
   category: 'hospital-at-home-or-virtual-ward',
   measure: 'free-beds',
-  unitLabel: 'virtual beds',
   establishedCapacity: '12',
-  usualMin: '8',
-  usualMax: '12',
   cadence: 'every-2-hrs',
   channel: 'text',
   mobile: '07700 900456',
   roleName: 'Duty manager',
+  allDay: false,
+  days: ['0', '1', '2', '3', '4', '5', '6'],
   availableFrom: '08:00',
   availableTo: '20:00',
   ageMin: '18',
@@ -50,8 +49,9 @@ describe('StepCheck', () => {
     expect(card).toHaveTextContent('Hospital at home East');
     expect(card).toHaveTextContent('Hospital at home or virtual ward');
     expect(card).toHaveTextContent('Counts beds free');
-    expect(card).toHaveTextContent('12 established, usually 8 to 12');
+    expect(card).toHaveTextContent('Max capacity 12');
     expect(card).toHaveTextContent('08:00 to 20:00');
+    expect(card).toHaveTextContent('Days: Mon, Tue, Wed, Thu, Fri, Sat, Sun');
   });
 
   it('summarises who reports in its second card, with the last four digits of the phone only', () => {

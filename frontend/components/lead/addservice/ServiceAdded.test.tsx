@@ -41,4 +41,14 @@ describe('ServiceAdded', () => {
     const { container } = render(<ServiceAdded name="X" serviceId="s-1" onAddAnother={() => undefined} />);
     expect(await runAxe(container)).toHaveNoViolations();
   });
+
+  it('says the reporter has been texted when the save sent the invitation (DEC-1331)', () => {
+    render(<ServiceAdded name="UCR West" serviceId="s-1" invite="sent" onAddAnother={() => {}} />);
+    expect(screen.getByText(/has been texted and asked for the capacity figure/)).toBeInTheDocument();
+  });
+
+  it('says the text could not be sent when the save could not send it', () => {
+    render(<ServiceAdded name="UCR West" serviceId="s-1" invite="failed" onAddAnother={() => {}} />);
+    expect(screen.getByText(/could not be sent/)).toBeInTheDocument();
+  });
 });

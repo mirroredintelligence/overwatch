@@ -8,15 +8,14 @@ function valid(): ServiceValues {
     ...blankService(),
     name: 'Reablement',
     category: 'reablement',
-    unitLabel: 'referrals in the next 2 hrs',
     measure: 'referrals-acceptable',
     establishedCapacity: '4',
-    usualMin: '0',
-    usualMax: '8',
     cadence: 'every-2-hrs',
     channel: 'text',
     mobile: '07700 900456',
     roleName: 'Duty manager',
+    allDay: false,
+    days: ['0', '1', '2', '3', '4', '5', '6'],
     availableFrom: '08:00',
     availableTo: '20:00',
     ageMin: '18',
@@ -56,9 +55,17 @@ describe('validateService', () => {
     ]);
   });
 
-  it('refuses a highest usual number below the lowest', () => {
-    expect(validateService({ ...valid(), usualMin: '5', usualMax: '4' }, TODAY)).toEqual([
-      { field: 'lead-add-usual-max', message: 'Highest usual number must be at least the lowest' },
+  it('takes all day with no times, and refuses no days chosen', () => {
+    expect(validateService({ ...valid(), allDay: true, availableFrom: '', availableTo: '' }, TODAY)).toEqual([]);
+    expect(validateService({ ...valid(), days: [] }, TODAY)).toEqual([
+      { field: 'lead-add-days', message: 'Choose at least one day' },
+    ]);
+  });
+
+  it('needs From and To only when the service is not all day', () => {
+    expect(validateService({ ...valid(), availableFrom: '', availableTo: '' }, TODAY).map((e) => e.field)).toEqual([
+      'lead-add-from',
+      'lead-add-to',
     ]);
   });
 
@@ -88,9 +95,9 @@ describe('toServiceBody', () => {
       excludes: [],
       ageMin: 18,
       ageMax: null,
-      usualMin: 0,
-      usualMax: 8,
       establishedCapacity: 4,
+      allDay: false,
+      days: [0, 1, 2, 3, 4, 5, 6],
     });
     expect(body).not.toHaveProperty('email');
   });

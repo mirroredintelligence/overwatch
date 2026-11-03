@@ -6,7 +6,7 @@ import { MorphStage } from '@/components/morph/MorphStage';
 import { StepBar } from '@/components/morph/StepBar';
 import { SummaryPin, type SummaryItem } from '@/components/morph/SummaryPin';
 import { leadPost, newIdempotencyKey } from '@/lib/lead/browser';
-import { districtsOf, toServiceBody } from '@/lib/lead/serviceForm';
+import { districtsOf, toServiceBody, type ServiceValues } from '@/lib/lead/serviceForm';
 import { ServiceAdded } from './addservice/ServiceAdded';
 import { StepCheck, acceptedWords, ageWords, dateWords, lower } from './addservice/StepCheck';
 import { StepCriteria } from './addservice/StepCriteria';
@@ -41,7 +41,22 @@ const TEMPLATES = [
 ];
 const GAPS = ['0px', '22px', '22px', '22px', '0px'];
 
-type Saved = { serviceId: string | null } | null;
+/** How the reporter's invitation went: sent by text, not sent, or not sent at all (an email reporter). */
+type InviteResult = 'sent' | 'failed' | 'none';
+type Saved = { serviceId: string | null; invite: InviteResult } | null;
+
+const INVITE_PATH = '/api/bff/lead/invitations';
+
+/** The text asking the reporter for the capacity figure, sent as the service is saved (DEC-1331). */
+async function inviteReporter(serviceId: string | null, values: ServiceValues): Promise<InviteResult> {
+  if (serviceId === null || values.channel !== 'text') return 'none';
+  const result = await leadPost(
+    INVITE_PATH,
+    { serviceId, role: values.roleName.trim(), phone: values.mobile, channel: 'text' },
+    newIdempotencyKey(),
+  );
+  return result.ok ? 'sent' : 'failed';
+}
 
 /** The step (from 0) in `?step=` (from 1); anything else is the first. */
 function stepFrom(param: string | null): number {
@@ -135,9 +150,12 @@ function AddServiceFlow({ onAddAnother }: { onAddAnother: () => void }) {
     if (result.ok) {
       keyRef.current = null;
       const serviceId = (result.body as { serviceId?: unknown } | undefined)?.serviceId;
+      const id = typeof serviceId === 'string' ? serviceId : null;
+      // The reporter is asked for the capacity figure at once (DEC-1331). An email reporter is not texted here.
+      const invite = await inviteReporter(id, values);
       // The added state shows with a fade, not a step: keyboard or not, the page is already on the last address.
       setInstant(false);
-      setSaved({ serviceId: typeof serviceId === 'string' ? serviceId : null });
+      setSaved({ serviceId: id, invite });
       return;
     }
     setProblem('The service could not be saved.');
@@ -229,7 +247,14 @@ function AddServiceFlow({ onAddAnother }: { onAddAnother: () => void }) {
         problem={problem}
       />
     ),
-    () => <ServiceAdded name={values.name.trim()} serviceId={saved?.serviceId ?? null} onAddAnother={onAddAnother} />,
+    () => (
+      <ServiceAdded
+        name={values.name.trim()}
+        serviceId={saved?.serviceId ?? null}
+        invite={saved?.invite ?? 'none'}
+        onAddAnother={onAddAnother}
+      />
+    ),
   ];
 
   const pinned = view >= 1 && view < ADDED && items.length > 0;

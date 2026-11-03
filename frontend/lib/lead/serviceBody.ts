@@ -49,15 +49,14 @@ export type ServiceBody = {
   name: string;
   category: (typeof CATEGORIES)[number];
   measure: (typeof MEASURES)[number];
-  unitLabel: string;
   establishedCapacity: number;
-  usualMin: number;
-  usualMax: number;
   cadence: (typeof CADENCES)[number];
   channel: (typeof CHANNELS)[number];
   mobile?: string;
   email?: string;
   roleName: string;
+  allDay: boolean;
+  days: number[];
   availableFrom: string;
   availableTo: string;
   ageMin: number;
@@ -90,6 +89,15 @@ function whole(value: unknown): number {
   return value;
 }
 
+/** The days the service takes referrals: each 0 (Monday) to 6 (Sunday), at least one. */
+function dayList(value: unknown): number[] {
+  if (!Array.isArray(value) || value.length === 0) throw new InvalidBody();
+  return value.map((day) => {
+    if (typeof day !== 'number' || !Number.isInteger(day) || day < 0 || day > 6) throw new InvalidBody();
+    return day;
+  });
+}
+
 function list<T extends string>(value: unknown, allowed: readonly T[]): T[] {
   if (!Array.isArray(value)) throw new InvalidBody();
   return value.map((item) => oneOf(item, allowed));
@@ -106,21 +114,24 @@ export function readServiceBody(value: unknown): ServiceBody {
   }
   const reviewBy = text(body.reviewBy, 10);
   if (!ISO_DATE.test(reviewBy)) throw new InvalidBody();
-  const availableFrom = text(body.availableFrom, 5);
-  const availableTo = text(body.availableTo, 5);
-  if (!CLOCK.test(availableFrom) || !CLOCK.test(availableTo)) throw new InvalidBody();
+  if (typeof body.allDay !== 'boolean') throw new InvalidBody();
+  const allDay = body.allDay;
+  const days = dayList(body.days);
+  // All day has no start and no end (DEC-1331); otherwise From and To are both times.
+  const availableFrom = allDay ? '' : text(body.availableFrom, 5);
+  const availableTo = allDay ? '' : text(body.availableTo, 5);
+  if (!allDay && (!CLOCK.test(availableFrom) || !CLOCK.test(availableTo))) throw new InvalidBody();
 
   const result: ServiceBody = {
     name: text(body.name),
     category: oneOf(body.category, CATEGORIES),
     measure: oneOf(body.measure, MEASURES),
-    unitLabel: text(body.unitLabel),
     establishedCapacity: whole(body.establishedCapacity),
-    usualMin: whole(body.usualMin),
-    usualMax: whole(body.usualMax),
     cadence: oneOf(body.cadence, CADENCES),
     channel,
     roleName: text(body.roleName),
+    allDay,
+    days,
     availableFrom,
     availableTo,
     ageMin: whole(body.ageMin),
@@ -139,7 +150,6 @@ export function readServiceBody(value: unknown): ServiceBody {
     if (!EMAIL.test(email)) throw new InvalidBody();
     result.email = email;
   }
-  if (result.usualMax < result.usualMin) throw new InvalidBody();
   if (result.ageMax !== null && result.ageMax < result.ageMin) throw new InvalidBody();
   return result;
 }
@@ -150,18 +160,20 @@ export function toParameters(body: ServiceBody): Parameters {
     { name: 'name', valueString: body.name },
     { name: 'category', valueCode: body.category },
     { name: 'measure', valueCode: body.measure },
-    { name: 'unitLabel', valueString: body.unitLabel },
     { name: 'establishedCapacity', valueInteger: body.establishedCapacity },
-    { name: 'usualMin', valueInteger: body.usualMin },
-    { name: 'usualMax', valueInteger: body.usualMax },
     { name: 'cadence', valueCode: body.cadence },
     { name: 'channel', valueCode: body.channel },
     { name: 'roleName', valueString: body.roleName },
-    { name: 'availableFrom', valueString: body.availableFrom },
-    { name: 'availableTo', valueString: body.availableTo },
     { name: 'ageMin', valueInteger: body.ageMin },
     { name: 'reviewBy', valueDate: body.reviewBy },
   ];
+  if (body.allDay) {
+    parts.push({ name: 'allDay', valueString: 'true' });
+  } else {
+    parts.push({ name: 'availableFrom', valueString: body.availableFrom });
+    parts.push({ name: 'availableTo', valueString: body.availableTo });
+  }
+  for (const day of body.days) parts.push({ name: 'day', valueInteger: day });
   if (body.channel === 'text' && body.mobile !== undefined) {
     parts.push({ name: 'mobile', valueString: body.mobile });
   }

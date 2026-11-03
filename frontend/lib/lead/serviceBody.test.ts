@@ -5,14 +5,13 @@ const VALID = {
   name: 'Reablement',
   category: 'reablement',
   measure: 'referrals-acceptable',
-  unitLabel: 'referrals in the next 2 hrs',
   establishedCapacity: 4,
-  usualMin: 0,
-  usualMax: 8,
   cadence: 'every-2-hrs',
   channel: 'text',
   mobile: '07700 900456',
   roleName: 'Duty manager',
+  allDay: false,
+  days: [0, 1, 2, 3, 4, 5, 6],
   availableFrom: '08:00',
   availableTo: '20:00',
   ageMin: 18,
@@ -60,5 +59,26 @@ describe('toParameters', () => {
     expect(named('accepts')).toEqual([{ name: 'accepts', valueCode: 'frailty' }]);
     expect(named('excludes')).toHaveLength(0);
     expect(named('ageMax')).toHaveLength(0);
+    expect(named('unitLabel')).toHaveLength(0);
+    expect(named('usualMin')).toHaveLength(0);
+    expect(named('day')).toHaveLength(7);
+    expect(named('allDay')).toHaveLength(0);
+  });
+
+  it('sends all day with no times, and only the days chosen', () => {
+    const body = readServiceBody({ ...structuredClone(VALID), allDay: true, availableFrom: '', availableTo: '', days: [0, 4] });
+    const parameters = toParameters(body);
+    const named = (name: string) => parameters.parameter.filter((p) => p.name === name);
+    expect(named('allDay')).toEqual([{ name: 'allDay', valueString: 'true' }]);
+    expect(named('availableFrom')).toHaveLength(0);
+    expect(named('day')).toEqual([
+      { name: 'day', valueInteger: 0 },
+      { name: 'day', valueInteger: 4 },
+    ]);
+  });
+
+  it('refuses a day outside Monday to Sunday, and an empty list of days', () => {
+    expect(() => readServiceBody({ ...structuredClone(VALID), days: [7] })).toThrow(InvalidBody);
+    expect(() => readServiceBody({ ...structuredClone(VALID), days: [] })).toThrow(InvalidBody);
   });
 });

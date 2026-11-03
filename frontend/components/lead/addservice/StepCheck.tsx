@@ -58,12 +58,15 @@ function Summary({ title, change, onChange, value, detail }: { title: string; ch
   );
 }
 
+const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
 export function StepCheck({ values, onChange, onBack, onAdd, busy, problem }: StepCheckProps) {
   const serviceDetail = [
     labelOf(CATEGORIES, values.category),
     values.measure ? `Counts ${lower(labelOf(MEASURES, values.measure))}` : '',
-    `${values.establishedCapacity.trim()} established, usually ${values.usualMin.trim()} to ${values.usualMax.trim()}`,
-    `${values.availableFrom} to ${values.availableTo}`,
+    `Max capacity ${values.establishedCapacity.trim()}`,
+    values.allDay ? 'All day' : `${values.availableFrom} to ${values.availableTo}`,
+    `Days: ${values.days.map((day) => DAY_NAMES[Number(day)]).join(', ')}`,
   ]
     .filter(Boolean)
     .join('. ');

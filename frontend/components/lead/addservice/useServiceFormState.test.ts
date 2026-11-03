@@ -18,9 +18,9 @@ describe('useServiceFormState', () => {
   it('changes one value and keeps the others', () => {
     const { result } = renderHook(() => useServiceFormState());
     act(() => result.current.set('name', 'Reablement'));
-    act(() => result.current.set('unitLabel', 'beds'));
+    act(() => result.current.set('allDay', true));
     expect(result.current.values.name).toBe('Reablement');
-    expect(result.current.values.unitLabel).toBe('beds');
+    expect(result.current.values.allDay).toBe(true);
   });
 
   it('adds a need and takes it away again', () => {
@@ -51,11 +51,8 @@ describe('useServiceFormState', () => {
     expect(fieldsOf(found)).toEqual([
       'lead-add-name',
       'lead-add-category',
-      'lead-add-unit',
       'lead-add-measure',
       'lead-add-established',
-      'lead-add-usual-min',
-      'lead-add-usual-max',
       'lead-add-from',
       'lead-add-to',
     ]);
@@ -96,11 +93,8 @@ describe('useServiceFormState', () => {
     expect(result.current.errors.length).toBeGreaterThan(0);
     act(() => result.current.set('name', 'Reablement'));
     act(() => result.current.set('category', 'reablement'));
-    act(() => result.current.set('unitLabel', 'beds'));
     act(() => result.current.set('measure', 'free-beds'));
     act(() => result.current.set('establishedCapacity', '4'));
-    act(() => result.current.set('usualMin', '0'));
-    act(() => result.current.set('usualMax', '4'));
     act(() => result.current.set('availableFrom', '08:00'));
     act(() => result.current.set('availableTo', '20:00'));
     let found: { field: string }[] = [{ field: 'x' }];

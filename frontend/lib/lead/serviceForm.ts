@@ -7,16 +7,15 @@ import { isUkMobile } from '@/lib/forms/ukMobile';
 export type ServiceValues = {
   name: string;
   category: string | null;
-  unitLabel: string;
   measure: string | null;
   establishedCapacity: string;
-  usualMin: string;
-  usualMax: string;
   cadence: string | null;
   channel: 'text' | 'email';
   mobile: string;
   email: string;
   roleName: string;
+  allDay: boolean;
+  days: string[];
   availableFrom: string;
   availableTo: string;
   ageMin: string;
@@ -33,16 +32,15 @@ export function blankService(): ServiceValues {
   return {
     name: '',
     category: null,
-    unitLabel: '',
     measure: null,
     establishedCapacity: '',
-    usualMin: '',
-    usualMax: '',
     cadence: null,
     channel: 'text',
     mobile: '',
     email: '',
     roleName: '',
+    allDay: false,
+    days: ALL_DAYS.slice(),
     availableFrom: '',
     availableTo: '',
     ageMin: '',
@@ -53,6 +51,9 @@ export function blankService(): ServiceValues {
     reviewBy: '',
   };
 }
+
+/** Monday to Sunday, as the back end counts them (0 is Monday). */
+export const ALL_DAYS: string[] = ['0', '1', '2', '3', '4', '5', '6'];
 
 const WHOLE = /^\d+$/;
 const CLOCK = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -81,20 +82,11 @@ export function validateService(values: ServiceValues, now: number): FieldError[
 
   if (values.name.trim() === '') add('lead-add-name', 'Enter the service name');
   if (values.category === null) add('lead-add-category', 'Choose a category');
-  if (values.unitLabel.trim() === '') {
-    add('lead-add-unit', 'Enter the unit label, for example referrals in the next 2 hrs');
-  }
   if (values.measure === null) add('lead-add-measure', 'Choose what is counted');
 
   const established = whole(values.establishedCapacity);
-  if (established === null) add('lead-add-established', 'Enter the established capacity as a whole number');
-
-  const low = whole(values.usualMin);
-  const high = whole(values.usualMax);
-  if (low === null) add('lead-add-usual-min', 'Enter the lowest usual number as a whole number');
-  if (high === null) add('lead-add-usual-max', 'Enter the highest usual number as a whole number');
-  else if (low !== null && high < low) {
-    add('lead-add-usual-max', 'Highest usual number must be at least the lowest');
+  if (established === null || established < 1) {
+    add('lead-add-established', 'Enter the max capacity as a whole number, at least 1');
   }
 
   if (values.cadence === null) add('lead-add-cadence', 'Choose how often they report');
@@ -106,8 +98,11 @@ export function validateService(values: ServiceValues, now: number): FieldError[
   }
 
   if (values.roleName.trim() === '') add('lead-add-role', 'Enter who holds this phone');
-  if (!CLOCK.test(values.availableFrom)) add('lead-add-from', 'Enter the time as HH:MM, like 08:00');
-  if (!CLOCK.test(values.availableTo)) add('lead-add-to', 'Enter the time as HH:MM, like 20:00');
+  if (values.days.length === 0) add('lead-add-days', 'Choose at least one day');
+  if (!values.allDay) {
+    if (!CLOCK.test(values.availableFrom)) add('lead-add-from', 'Enter the time as HH:MM, like 08:00');
+    if (!CLOCK.test(values.availableTo)) add('lead-add-to', 'Enter the time as HH:MM, like 20:00');
+  }
 
   const youngest = whole(values.ageMin);
   if (youngest === null) add('lead-add-age-min', 'Enter the youngest age as a whole number');
@@ -139,15 +134,14 @@ export function toServiceBody(values: ServiceValues): Record<string, unknown> {
     name: values.name.trim(),
     category: values.category,
     measure: values.measure,
-    unitLabel: values.unitLabel.trim(),
     establishedCapacity: whole(values.establishedCapacity),
-    usualMin: whole(values.usualMin),
-    usualMax: whole(values.usualMax),
     cadence: values.cadence,
     channel: values.channel,
     roleName: values.roleName.trim(),
-    availableFrom: values.availableFrom,
-    availableTo: values.availableTo,
+    allDay: values.allDay,
+    days: values.days.map((day) => Number(day)),
+    availableFrom: values.allDay ? '' : values.availableFrom,
+    availableTo: values.allDay ? '' : values.availableTo,
     ageMin: whole(values.ageMin),
     ageMax: values.ageMax.trim() === '' ? null : whole(values.ageMax),
     districts: districtsOf(values.districts),

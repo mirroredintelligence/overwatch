@@ -12,10 +12,12 @@ export type ServiceAddedProps = {
   name: string;
   /** The id the back end answered with; without it the invite page opens with no service chosen. */
   serviceId: string | null;
+  /** Whether the reporter was texted for the capacity figure as the service was saved. */
+  invite?: 'sent' | 'failed' | 'none';
   onAddAnother: () => void;
 };
 
-export function ServiceAdded({ name, serviceId, onAddAnother }: ServiceAddedProps) {
+export function ServiceAdded({ name, serviceId, invite: texted = 'none', onAddAnother }: ServiceAddedProps) {
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     heading.current?.focus({ preventScroll: true });
@@ -32,7 +34,11 @@ export function ServiceAdded({ name, serviceId, onAddAnother }: ServiceAddedProp
         {`${name} is added`}
       </h1>
       <p className={styles.text}>
-        It shows on the board as not yet reporting. Invite the reporter to set up reporting, so the first figure arrives today.
+        {texted === 'sent'
+          ? 'The reporter has been texted and asked for the capacity figure. It shows on the board as soon as they reply.'
+          : texted === 'failed'
+            ? 'The text to the reporter could not be sent. Invite them below to ask for the capacity figure.'
+            : 'It shows on the board as not yet reporting. Invite the reporter to set up reporting, so the first figure arrives today.'}
       </p>
       <div className={styles.actions}>
         <Button variant="primary" href={invite} dataEl="LEAD-ADD-INVITE-BTN">

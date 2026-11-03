@@ -38,9 +38,13 @@ describe('StepService', () => {
 
   it('has each field of the board, by its label', () => {
     render(<Host />);
-    for (const label of ['Service name', 'Unit label', 'Established', 'Usual low', 'Usual high', 'From', 'To']) {
+    for (const label of ['Service name', 'Max capacity', 'From', 'To']) {
       expect(screen.getByLabelText(label)).toBeInTheDocument();
     }
+    expect(screen.queryByLabelText('Unit label')).toBeNull();
+    expect(screen.queryByLabelText('Usual low')).toBeNull();
+    expect(screen.getByLabelText('Takes referrals all day')).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Days it takes referrals' })).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Category' })).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'What is counted' })).toBeInTheDocument();
     expect(within(screen.getByRole('group', { name: 'Category' })).getAllByRole('button')).toHaveLength(6);

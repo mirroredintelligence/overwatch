@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -63,13 +63,10 @@ beforeEach(() => {
 async function fillStep1(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText('Service name'), 'Reablement');
   await user.click(screen.getByRole('button', { name: 'Reablement' }));
-  await user.type(screen.getByLabelText('Unit label'), 'referrals in the next 2 hrs');
   await user.click(screen.getByRole('button', { name: 'Referrals in the next 2 hrs' }));
-  await user.type(screen.getByLabelText('Established'), '4');
-  await user.type(screen.getByLabelText('Usual low'), '0');
-  await user.type(screen.getByLabelText('Usual high'), '8');
-  await user.type(screen.getByLabelText('From'), '08:00');
-  await user.type(screen.getByLabelText('To'), '20:00');
+  await user.type(screen.getByLabelText('Max capacity'), '4');
+  fireEvent.change(screen.getByLabelText('From'), { target: { value: '08:00' } });
+  fireEvent.change(screen.getByLabelText('To'), { target: { value: '20:00' } });
 }
 
 async function fillStep2(user: ReturnType<typeof userEvent.setup>) {
@@ -140,17 +137,6 @@ describe('AddServiceForm', { timeout: FORM_TIMEOUT_MS }, () => {
     await user.click(screen.getByRole('button', { name: 'Next: who reports' }));
     const summary = await screen.findByRole('alert');
     expect(within(summary).queryByRole('link', { name: /mobile number/ })).toBeNull();
-  });
-
-  it('refuses a highest usual number below the lowest', async () => {
-    const user = userEvent.setup();
-    render(<AddServiceForm />);
-    await user.type(screen.getByLabelText('Usual low'), '5');
-    await user.type(screen.getByLabelText('Usual high'), '4');
-    await user.click(screen.getByRole('button', { name: 'Next: who reports' }));
-    expect(
-      (await screen.findAllByText('Highest usual number must be at least the lowest')).length,
-    ).toBeGreaterThan(0);
   });
 
   it('goes to step 2 when step 1 is right, and puts the step in the address', async () => {
@@ -327,7 +313,8 @@ describe('AddServiceForm', { timeout: FORM_TIMEOUT_MS }, () => {
     await user.click(screen.getByRole('button', { name: 'Add the service' }));
     const heading = await screen.findByRole('heading', { level: 1, name: 'Reablement is added' });
     expect(heading).toHaveFocus();
-    expect(seenLeadPosts).toHaveLength(1);
+    // The save, then the invitation the save sends for the reporter (DEC-1331).
+    expect(seenLeadPosts.map((item) => item.path)).toEqual(['/api/bff/lead/services', '/api/bff/lead/invitations']);
     const [post] = seenLeadPosts;
     expect(post.csrf).toBe('test-csrf-token');
     expect(post.idempotencyKey).toBeTruthy();
@@ -335,6 +322,8 @@ describe('AddServiceForm', { timeout: FORM_TIMEOUT_MS }, () => {
       name: 'Reablement',
       category: 'reablement',
       measure: 'referrals-acceptable',
+      allDay: false,
+      days: [0, 1, 2, 3, 4, 5, 6],
       cadence: 'every-2-hrs',
       channel: 'text',
       mobile: '07700 900456',
@@ -366,7 +355,7 @@ describe('AddServiceForm', { timeout: FORM_TIMEOUT_MS }, () => {
     expect(nav.state.search).toBe('step=1');
     const bar = screen.getByRole('navigation', { name: 'Setup steps' });
     expect(bar.querySelector('[aria-current="step"]')).toHaveTextContent('The service');
-    expect(seenLeadPosts).toHaveLength(1);
+    expect(seenLeadPosts.filter((item) => item.path === '/api/bff/lead/services')).toHaveLength(1);
   }, FORM_TIMEOUT_MS);
 
   it('takes the lead back to the step with the first problem when it is added from the check with an earlier step wrong', async () => {

@@ -9,6 +9,23 @@ import styles from './StepService.module.css';
 // the card (StepFrame), a field with its hint and problem (Field) and the chip groups. The step holds no state;
 // the page's one form state (useServiceFormState) is passed in.
 
+/** Monday to Sunday, as the back end counts them (0 is Monday). */
+const DAYS: [string, string][] = [
+  ['0', 'Mon'],
+  ['1', 'Tue'],
+  ['2', 'Wed'],
+  ['3', 'Thu'],
+  ['4', 'Fri'],
+  ['5', 'Sat'],
+  ['6', 'Sun'],
+];
+
+/** The days with this one toggled: on when it is off, off when it is on, kept in Monday-first order. */
+export function toggledDay(days: string[], day: string): string[] {
+  const next = days.includes(day) ? days.filter((item) => item !== day) : [...days, day];
+  return next.sort((a, b) => Number(a) - Number(b));
+}
+
 export type SetValue = <K extends keyof ServiceValues>(key: K, value: ServiceValues[K]) => void;
 
 export type StepProps = {
@@ -240,14 +257,11 @@ export function StepService({ values, set, errors, summaryRef, onNext }: StepPro
       />
       <div className={styles.row}>
         <Field
-          id="lead-add-unit"
-          label="Unit label"
-          hint="For example referrals in the next 2 hrs"
-          error={errorFor('lead-add-unit')}
+          id="lead-add-established"
+          label="Max capacity"
+          hint="The most the service can hold"
+          error={errorFor('lead-add-established')}
         >
-          {(props) => <input {...props} value={values.unitLabel} onChange={(e) => set('unitLabel', e.target.value)} />}
-        </Field>
-        <Field id="lead-add-established" label="Established" error={errorFor('lead-add-established')}>
           {(props) => (
             <input
               {...props}
@@ -257,30 +271,46 @@ export function StepService({ values, set, errors, summaryRef, onNext }: StepPro
             />
           )}
         </Field>
-        <Field id="lead-add-usual-min" label="Usual low" error={errorFor('lead-add-usual-min')}>
-          {(props) => (
-            <input {...props} inputMode="numeric" value={values.usualMin} onChange={(e) => set('usualMin', e.target.value)} />
-          )}
-        </Field>
-        <Field id="lead-add-usual-max" label="Usual high" error={errorFor('lead-add-usual-max')}>
-          {(props) => (
-            <input {...props} inputMode="numeric" value={values.usualMax} onChange={(e) => set('usualMax', e.target.value)} />
-          )}
-        </Field>
       </div>
-      <p className={styles.note}>Accepts referrals every day, from the From time to the To time.</p>
-      <div className={styles.row}>
-        <Field id="lead-add-from" label="From" error={errorFor('lead-add-from')}>
-          {(props) => (
-            <input {...props} placeholder="08:00" value={values.availableFrom} onChange={(e) => set('availableFrom', e.target.value)} />
-          )}
-        </Field>
-        <Field id="lead-add-to" label="To" error={errorFor('lead-add-to')}>
-          {(props) => (
-            <input {...props} placeholder="20:00" value={values.availableTo} onChange={(e) => set('availableTo', e.target.value)} />
-          )}
-        </Field>
-      </div>
+      <label className={styles.allDay}>
+        <input type="checkbox" checked={values.allDay} onChange={(e) => set('allDay', e.target.checked)} />
+        <span>Takes referrals all day</span>
+      </label>
+      <ChoiceGroup
+        id="lead-add-days"
+        label="Days it takes referrals"
+        choices={DAYS}
+        selected={values.days}
+        onPick={(value) => set('days', toggledDay(values.days, value))}
+        idPrefix="LEAD-ADD-DAY"
+        error={errorFor('lead-add-days')}
+      />
+      {values.allDay ? null : (
+        <div className={styles.row}>
+          <Field id="lead-add-from" label="From" error={errorFor('lead-add-from')}>
+            {(props) => (
+              <input
+                {...props}
+                type="time"
+                step={900}
+                value={values.availableFrom}
+                onChange={(e) => set('availableFrom', e.target.value)}
+              />
+            )}
+          </Field>
+          <Field id="lead-add-to" label="To" error={errorFor('lead-add-to')}>
+            {(props) => (
+              <input
+                {...props}
+                type="time"
+                step={900}
+                value={values.availableTo}
+                onChange={(e) => set('availableTo', e.target.value)}
+              />
+            )}
+          </Field>
+        </div>
+      )}
     </StepFrame>
   );
 }

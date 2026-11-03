@@ -15,12 +15,14 @@ from overwatch.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
 from overwatch.adapters.testing.fixed_clock import FixedClock
 from overwatch.adapters.testing.fixed_geo import FixedGeocoder
 from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_postcode_directory import FixedPostcodeDirectory
 from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
 from overwatch.adapters.testing.fixed_terminology import FixedTerminology
 from overwatch.adapters.testing.memory_cache import InMemoryCache
 from overwatch.adapters.testing.memory_code_store import InMemoryCodeStore
 from overwatch.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
 from overwatch.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
+from overwatch.application.ports.outbound.postcode_directory import DirectoryPostcode
 from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET
 from overwatch.application.tenancy import ScopeId
 from overwatch.application.use_cases.pin import PIN_HMAC_SECRET
@@ -88,6 +90,11 @@ DEVICE = "device-aaaaaaaaaaaaaaaaaaaaaa"
 INVITE_TOKEN = "AbCdEfGhIjKlMnOpQrStUvW"
 INVITEE = "prac-invitee"
 LEAD = "prac-lead"
+# Sample postcode points for the district check (DEC-1329): public postcodes, the rig's own values.
+DT4_POINTS = (
+    DirectoryPostcode("DT4 0AW", 50.611, -2.461),
+    DirectoryPostcode("DT4 0AX", 50.609, -2.462),
+)
 SERVICE = "svc-ucr-west"
 SERVICE_NAME = "UCR West"
 REGISTRATION = "reg-1"
@@ -414,6 +421,7 @@ class Rig:
         self.cache = InMemoryCache(self.clock)
         self.hasher = HmacPhoneHasher(self.secrets)
         self.geocoder = FixedGeocoder({})
+        self.postcode_directory = FixedPostcodeDirectory({"DT4": DT4_POINTS})
         self.terminology = FixedTerminology({}, {})
         self.link_base_url_for = _LinkBase()
         self.area_districts_for = _area

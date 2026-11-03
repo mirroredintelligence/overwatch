@@ -3,17 +3,12 @@
 import { useState, type FormEvent } from 'react';
 import { TextField } from '@/components/forms/TextField';
 import { Button } from '@/components/ui/Button';
+import { StatusTag } from '@/components/ui/StatusTag';
 import { whenText } from '@/lib/tenantAdmin/words';
 import styles from '@/components/admin/admin.module.css';
 import ts from '../Tenant.module.css';
+import parts from './Parts.module.css';
 import { Said, StepSection, WORK_EMAIL, useWrite, type PanelProps } from './shared';
-
-const CONSENT_WORD: Record<string, string> = {
-  pending: 'Waiting for approval',
-  consented: 'Approved',
-  expired: 'The link has expired',
-  revoked: 'Replaced by a newer link',
-};
 
 /**
  * Step 3. Their administrator is emailed a link to approve Overwatch in their own Microsoft account (DEC-1316). The page
@@ -27,6 +22,14 @@ export function InviteStep(props: PanelProps) {
   const hasSignIn = props.detail.bindings.some((b) => b.status !== 'revoked');
   const consent = props.consent;
   const invitation = consent.status === 'ok' ? consent.data.invitation : null;
+  const shown: { state: 'todo' | 'waiting' | 'problem' | 'done'; word: string; sub: string } =
+    invitation === null
+      ? { state: 'todo', word: 'To do', sub: 'No approval link has been sent yet.' }
+      : invitation.status === 'consented'
+        ? { state: 'done', word: 'Done', sub: `Approved on ${whenText(invitation.consentedAt)}. Their administrator has approved Overwatch.` }
+        : invitation.status === 'expired'
+          ? { state: 'problem', word: 'Link expired', sub: 'The approval link has expired. Send a new one.' }
+          : { state: 'waiting', word: 'Waiting for them', sub: `Emailed ${whenText(invitation.createdAt)} · the link works until ${whenText(invitation.expiresAt)}` };
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const address = email.trim();
@@ -82,15 +85,14 @@ export function InviteStep(props: PanelProps) {
         </p>
       ) : null}
       {consent.status === 'ok' ? (
-        invitation === null ? (
-          <p className={ts.text}>No approval link has been sent yet.</p>
-        ) : invitation.status === 'consented' ? (
-          <p className={styles.ok}>{`Approved on ${whenText(invitation.consentedAt)}. Their administrator has approved Overwatch.`}</p>
-        ) : invitation.status === 'expired' ? (
-          <p className={styles.problem}>The approval link has expired. Send a new one.</p>
-        ) : (
-          <p className={ts.text}>{`${CONSENT_WORD[invitation.status] ?? 'Waiting for approval'}. The link went to ${invitation.emailMasked} and works until ${whenText(invitation.expiresAt)}.`}</p>
-        )
+        <div className={parts.block} data-state={shown.state}>
+          <div className={parts.blockHead}>
+            <span className={parts.blockLabel}>Invitation</span>
+            <StatusTag variant={shown.state}>{shown.word}</StatusTag>
+          </div>
+          {invitation === null ? null : <p className={parts.blockMain}>{invitation.emailMasked}</p>}
+          <p className={parts.rowSub}>{shown.sub}</p>
+        </div>
       ) : null}
       {invitation?.status === 'consented' ? null : hasSignIn ? (
         <form className={ts.form} onSubmit={submit} noValidate aria-label="Send the approval link">

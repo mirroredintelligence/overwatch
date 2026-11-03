@@ -3,9 +3,11 @@
 import { useState, type FormEvent } from 'react';
 import { TextField } from '@/components/forms/TextField';
 import { Button } from '@/components/ui/Button';
+import { StatusTag } from '@/components/ui/StatusTag';
 import { whenText } from '@/lib/tenantAdmin/words';
 import styles from '@/components/admin/admin.module.css';
 import ts from '../Tenant.module.css';
+import parts from './Parts.module.css';
 import { Said, StepSection, useWrite, type PanelProps } from './shared';
 
 const BINDING_WORD = { pending: 'Waiting for you to confirm', verified: 'Confirmed', revoked: 'Replaced' } as const;
@@ -72,10 +74,29 @@ export function SignInStep(props: PanelProps) {
     >
       <p className={ts.text}>People at the organisation sign in to Overwatch with their Microsoft work accounts. Overwatch needs to know which Microsoft account is theirs.</p>
       {confirmed !== undefined ? (
-        <p className={styles.ok}>{`Connected to ${name}’s Microsoft accounts.`}</p>
+        <div className={parts.row} data-state="done">
+          <span className={parts.mark} aria-hidden="true">
+            ●
+          </span>
+          <div className={parts.rowBody}>
+            <b className={parts.rowTitle}>Microsoft work accounts connected</b>
+            <p className={parts.rowSub}>{`Connected to ${name}’s Microsoft accounts.`}</p>
+            <p className={parts.rowSub}>{`Confirmed on ${whenText(confirmed.verifiedAt)}`}</p>
+          </div>
+          <StatusTag variant="done">Done</StatusTag>
+        </div>
       ) : waiting !== undefined ? (
         <>
-          <p className={ts.text}>{`A Microsoft account has been named for ${name}. Check that it is theirs, then confirm it. Nobody can sign in with it until you do.`}</p>
+          <div className={parts.row} data-state="waiting">
+            <span className={parts.mark} aria-hidden="true">
+              ◐
+            </span>
+            <div className={parts.rowBody}>
+              <b className={parts.rowTitle}>Microsoft work accounts named</b>
+              <p className={parts.rowSub}>{`A Microsoft account has been named for ${name}. Check that it is theirs, then confirm it. Nobody can sign in with it until you do.`}</p>
+            </div>
+            <StatusTag variant="waiting">Waiting for you</StatusTag>
+          </div>
           <Said say={write.say} />
           <div className={styles.actions}>
             <Button variant={props.isNext ? 'primary' : 'secondary'} busy={write.busy} onClick={() => void write.run('POST', 'directory/verification', { directoryId: waiting.directoryId }, () => 'Confirmed. Their people can now sign in with their Microsoft work accounts.', () => 'It could not be confirmed. Try again.')}>
@@ -85,7 +106,16 @@ export function SignInStep(props: PanelProps) {
         </>
       ) : (
         <>
-          <p className={ts.text}>No Microsoft account is connected yet.</p>
+          <div className={parts.row} data-state="todo">
+            <span className={parts.mark} aria-hidden="true">
+              ○
+            </span>
+            <div className={parts.rowBody}>
+              <b className={parts.rowTitle}>Microsoft work accounts not connected</b>
+              <p className={parts.rowSub}>No Microsoft account is connected yet.</p>
+            </div>
+            <StatusTag variant="todo">To do</StatusTag>
+          </div>
           <p className={styles.muted}>Their administrator can connect it from the Users and roles page in their own Overwatch. You can check which account an email domain belongs to below.</p>
         </>
       )}

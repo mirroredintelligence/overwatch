@@ -1,15 +1,14 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { type CheckResult, CodeEntry } from '@/components/reporter/CodeEntry';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { bffRequest } from '@/lib/reporter/browser';
 import { type Invitation, parseInvitation } from '@/lib/reporter/model';
-import { StepCards } from '../parts/StepCards';
-import partStyles from '../parts/Parts.module.css';
-import styles from './Setup.module.css';
+import { InvitationUnusable, SetupFrame, SetupLoading, StepHeading } from './InvitationLoader';
+import styles from './Onboarding.module.css';
 
 // The first half of reporter set-up (W33): welcome, number check, the 6-digit text code and how
 // the reporter is contacted. Each step is its own page state (?step=); the invitation token rides in
@@ -19,18 +18,18 @@ export type SetupStep = 'welcome' | 'number' | 'code' | 'channel';
 export type Channel = 'app' | 'text' | 'email';
 
 const CHANNELS: { value: Channel; label: string; hint: string }[] = [
-  { value: 'app', label: 'App notification', hint: 'Recommended. A notification opens the app. Needs adding to your home screen.' },
+  { value: 'app', label: 'App notification', hint: 'A notification opens the app. Needs adding to your home screen.' },
   { value: 'text', label: 'Text message', hint: 'A text with a link. Works on any phone.' },
   { value: 'email', label: 'Email', hint: 'An email with a link.' },
 ];
 
-// The five set-up steps and what each takes (artboard OnboardReporter1, "Welcome").
+// The five set-up steps and what each takes (artboard R2, "Set-up welcome").
 const WELCOME_STEPS = [
-  { key: 'number', title: 'Check your number', hint: '30 seconds' },
-  { key: 'channel', title: 'Choose how we contact you', hint: '1 minute' },
-  { key: 'home', title: 'Add to home screen', hint: '1 minute, app only' },
+  { key: 'number', title: 'Check your number', hint: '30 sec' },
+  { key: 'channel', title: 'Choose how we contact you', hint: '1 min' },
+  { key: 'home', title: 'Add to home screen', hint: 'App only' },
   { key: 'notifications', title: 'Allow notifications', hint: 'App only' },
-  { key: 'pin', title: 'Create a PIN', hint: '30 seconds' },
+  { key: 'pin', title: 'Create a PIN', hint: '30 sec' },
 ] as const;
 
 type Props = { step: SetupStep; invite: string };
@@ -58,66 +57,73 @@ export function SetupFlow({ step, invite }: Props) {
     };
   }, [invite]);
 
-  if (unusable === 'failed') {
-    return (
-      <main className={styles.page}>
-        <h1 className={styles.title}>We could not check this invitation</h1>
-        <p>We could not check this invitation. Try again shortly.</p>
-      </main>
-    );
-  }
-  if (unusable === 'expired' || invite === '') {
-    return (
-      <main className={styles.page}>
-        <h1 className={styles.title}>This invitation has expired</h1>
-        <p>This invitation has expired. Ask the shift lead to send a new one.</p>
-      </main>
-    );
-  }
+  if (unusable === 'failed') return <InvitationUnusable kind="failed" />;
+  if (unusable === 'expired' || invite === '') return <InvitationUnusable kind="expired" />;
   if (invitation === null) {
     return (
-      <main className={styles.page}>
-        <p role="status">Opening set-up</p>
-      </main>
+      <SetupFrame view="checking">
+        <SetupLoading label="Opening set-up" />
+      </SetupFrame>
     );
   }
 
   const go = (query: string) => router.push(`/setup?${query}&invite=${encodeURIComponent(invite)}`);
   const toHomeScreen = () => router.push('/setup/home-screen');
+  const frame = (progress: number, children: ReactNode) => (
+    <SetupFrame service={invitation.service} step={progress} view={step}>
+      {children}
+    </SetupFrame>
+  );
 
-  if (step === 'welcome') return <Welcome service={invitation.service} onStart={() => go('step=number')} />;
-  if (step === 'number') return <NumberStep masked={invitation.maskedPhone} invite={invite} onSent={() => go('step=code')} />;
+  if (step === 'welcome') return frame(0, <Welcome service={invitation.service} onStart={() => go('step=number')} />);
+  if (step === 'number') {
+    return frame(1, <NumberStep masked={invitation.maskedPhone} invite={invite} onSent={() => go('step=code')} />);
+  }
   if (step === 'code') {
-    return (
+    return frame(
+      1,
       <CodeStep
         invite={invite}
         masked={invitation.maskedPhone}
         onVerified={() => (invitation.role === 'exec' ? toHomeScreen() : go('step=channel'))}
-      />
+      />,
     );
   }
-  return (
+  return frame(
+    2,
     <ChannelStep
       invite={invite}
       onChosen={(channel) => (channel === 'app' ? toHomeScreen() : router.push(`/setup/done?channel=${channel}`))}
       onCheckNumberAgain={() => go('step=number')}
-    />
+    />,
   );
 }
 
 function Welcome({ service, onStart }: { service: string; onStart: () => void }) {
   return (
-    <main className={styles.page}>
-      <h1 className={styles.title}>{`Set up capacity reporting for ${service}`}</h1>
-      <StepCards
-        label="Set-up steps"
-        steps={WELCOME_STEPS}
-      />
-      <p>You can stop and come back to the link within 48 hours.</p>
-      <Button variant="primary" dataEl="ONB-WELCOME-START-BTN" onClick={onStart}>
-        Start
-      </Button>
-    </main>
+    <>
+      <div>
+        <p className={styles.caption}>About 3 minutes</p>
+        <StepHeading>{`Set up capacity reporting for ${service}`}</StepHeading>
+      </div>
+      <ol className={styles.steps} aria-label="Set-up steps">
+        {WELCOME_STEPS.map((item, index) => (
+          <li key={item.key} className={styles.step}>
+            <span className={styles.stepNumber} aria-hidden="true">
+              {index + 1}
+            </span>
+            <span className={styles.stepTitle}>{item.title}</span>
+            <span className={styles.stepHint}>{item.hint}</span>
+          </li>
+        ))}
+      </ol>
+      <p className={styles.reassure}>You can stop at any point and come back to the link in your text. It works for 48 hours.</p>
+      <div className={styles.action}>
+        <Button variant="primary" dataEl="ONB-WELCOME-START-BTN" onClick={onStart}>
+          Start
+        </Button>
+      </div>
+    </>
   );
 }
 
@@ -135,19 +141,23 @@ function NumberStep({ masked, invite, onSent }: { masked: string; invite: string
   };
 
   return (
-    <main className={styles.page}>
-      <p className={styles.caption}>Step 1 of 5</p>
-      <h1 className={styles.title}>Check your number</h1>
-      <p>We will send a 6-digit code to this number.</p>
-      <p className={partStyles.maskedNumber} data-el="ONB-MASKED-NUMBER">
-        {masked}
-      </p>
-      <p>Not your number? Ask the shift lead to send a new invitation.</p>
-      {failed ? <Banner tone="warning" title="We could not send a code. Try again shortly." /> : null}
-      <Button variant="primary" busy={busy} dataEl="ONB-CODE-SEND-BTN" onClick={send}>
-        Send code
-      </Button>
-    </main>
+    <>
+      <p className={styles.caption}>Step 1 of 5 · Check your number</p>
+      <div className={styles.card}>
+        <StepHeading className={styles.cardTitle}>Check your number</StepHeading>
+        <p className={styles.lead}>We will send a 6-digit code to this number.</p>
+        <p className={styles.masked} data-el="ONB-MASKED-NUMBER">
+          {masked}
+        </p>
+        <p className={styles.lead}>Not your number? Ask the shift lead to send a new invitation.</p>
+        {failed ? <Banner tone="warning" title="We could not send a code. Try again shortly." /> : null}
+      </div>
+      <div className={styles.action}>
+        <Button variant="primary" busy={busy} dataEl="ONB-CODE-SEND-BTN" onClick={send}>
+          Send code
+        </Button>
+      </div>
+    </>
   );
 }
 
@@ -162,12 +172,34 @@ function CodeStep({ invite, masked, onVerified }: { invite: string; masked: stri
   };
 
   return (
-    <main className={styles.page}>
-      <p className={styles.caption}>Step 1 of 5</p>
-      <h1 className={styles.title}>Enter your code</h1>
-      <p>{`We sent a code to ${masked}.`}</p>
-      <CodeEntry sendCode={sendCode} checkCode={checkCode} onVerified={onVerified} />
-    </main>
+    <>
+      <p className={styles.caption}>Step 1 of 5 · Check your number</p>
+      <div className={styles.summary}>
+        <span className={styles.summaryTick} aria-hidden="true">
+          ✓
+        </span>
+        <span className={styles.summaryText}>
+          <strong>{masked}</strong>
+          <span className={styles.summaryNote}>Code sent just now</span>
+        </span>
+      </div>
+      <CodeEntry
+        sendCode={sendCode}
+        checkCode={checkCode}
+        onVerified={onVerified}
+        intro={
+          <>
+            <StepHeading className={styles.cardTitle}>Enter your code</StepHeading>
+            <p className={styles.lead}>{`We sent a 6-digit code to ${masked}.`}</p>
+          </>
+        }
+      >
+        <details className={styles.disclosure}>
+          <summary>This is not my number</summary>
+          <div>Ask the shift lead to send a new invitation to the right number. Do not carry on.</div>
+        </details>
+      </CodeEntry>
+    </>
   );
 }
 
@@ -196,13 +228,19 @@ function ChannelStep({
   };
 
   return (
-    <main className={styles.page} data-invite-present={invite !== ''}>
-      <p className={styles.caption}>Step 2 of 5</p>
-      <h1 className={styles.title}>Choose how we contact you</h1>
-      <fieldset className={styles.page}>
-        <legend>How we contact you</legend>
+    <>
+      <p className={styles.caption} data-invite-present={invite !== ''}>
+        Step 2 of 5
+      </p>
+      <StepHeading>How should we contact you?</StepHeading>
+      <div role="radiogroup" aria-label="How we contact you" className={styles.options}>
         {CHANNELS.map((option) => (
-          <label key={option.value} className={styles.option} data-el={`ONB-CHANNEL-${option.value.toUpperCase()}`}>
+          <label
+            key={option.value}
+            className={styles.option}
+            data-chosen={channel === option.value ? 'true' : undefined}
+            data-el={`ONB-CHANNEL-${option.value.toUpperCase()}`}
+          >
             <input
               type="radio"
               name="channel"
@@ -210,14 +248,17 @@ function ChannelStep({
               checked={channel === option.value}
               onChange={() => setChannel(option.value)}
             />
-            <span>
-              {option.label}
-              <span className={styles.hint}>{option.hint}</span>
+            <span className={styles.optionBody}>
+              <span className={styles.optionHead}>
+                <span className={styles.optionLabel}>{option.label}</span>
+                {option.value === 'app' ? <span className={styles.recommended}>Recommended</span> : null}
+              </span>
+              <span className={styles.optionHint}>{option.hint}</span>
             </span>
           </label>
         ))}
-      </fieldset>
-      <p>You can change this later in Settings.</p>
+      </div>
+      <p className={styles.reassure}>You can change this later in Settings.</p>
       {failed === 'failed' ? <Banner tone="warning" title="We could not save that. Try again." /> : null}
       {failed === 'timed-out' ? (
         <>
@@ -227,9 +268,11 @@ function ChannelStep({
           </Button>
         </>
       ) : null}
-      <Button variant="primary" busy={busy} dataEl="ONB-CHANNEL-CONTINUE-BTN" onClick={save}>
-        Continue
-      </Button>
-    </main>
+      <div className={styles.action}>
+        <Button variant="primary" busy={busy} dataEl="ONB-CHANNEL-CONTINUE-BTN" onClick={save}>
+          Continue
+        </Button>
+      </div>
+    </>
   );
 }

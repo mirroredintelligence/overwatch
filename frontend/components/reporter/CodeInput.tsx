@@ -1,10 +1,11 @@
 'use client';
 
-import { useRef, type ClipboardEvent, type KeyboardEvent } from 'react';
+import { useId, type ChangeEvent } from 'react';
 import styles from './CodeInput.module.css';
 
-// Six single-digit boxes read as one field (W33). A paste fills every box, Backspace in an empty
-// box moves back, and the digits are never announced: each box has only its position.
+// The text code: ONE input (numeric keypad, one-time-code autofill) drawn as six boxes (R3). A paste or an
+// autofilled code fills every box, Backspace deletes the last digit, and the digits are never announced:
+// the field has one name and says only how many are in.
 
 const LENGTH = 6;
 
@@ -17,61 +18,45 @@ type Props = {
 };
 
 export function CodeInput({ value, onChange, onComplete, disabled = false, dataEl }: Props) {
-  const boxes = useRef<(HTMLInputElement | null)[]>([]);
-  const digits = Array.from({ length: LENGTH }, (_, i) => value.charAt(i));
+  const countId = useId();
+  const boxes = Array.from({ length: LENGTH }, (_, i) => value.charAt(i));
 
-  const commit = (next: string) => {
+  const change = (event: ChangeEvent<HTMLInputElement>) => {
+    const next = event.target.value.replace(/\D/g, '').slice(0, LENGTH);
+    if (next === value) return;
     onChange(next);
     if (next.length === LENGTH) onComplete?.(next);
   };
 
-  const focus = (index: number) => boxes.current[Math.min(LENGTH - 1, Math.max(0, index))]?.focus();
-
-  const typeAt = (index: number, raw: string) => {
-    const typed = raw.replace(/\D/g, '');
-    if (typed === '') return;
-    const next = (value.slice(0, index) + typed + value.slice(index + typed.length)).slice(0, LENGTH);
-    commit(next);
-    focus(Math.min(LENGTH - 1, index + typed.length));
-  };
-
-  const onKeyDown = (index: number, event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Backspace' && digits[index] === '' && index > 0) {
-      event.preventDefault();
-      commit(value.slice(0, index - 1));
-      focus(index - 1);
-    }
-  };
-
-  const onPaste = (event: ClipboardEvent<HTMLDivElement>) => {
-    const pasted = event.clipboardData.getData('text').replace(/\D/g, '');
-    if (pasted === '') return;
-    event.preventDefault();
-    const next = pasted.slice(0, LENGTH);
-    commit(next);
-    focus(Math.min(LENGTH - 1, next.length));
-  };
-
   return (
-    <div role="group" aria-label="6-digit code" className={styles.group} onPaste={onPaste} data-el={dataEl}>
-      {digits.map((digit, index) => (
-        <input
-          key={index}
-          ref={(node) => {
-            boxes.current[index] = node;
-          }}
-          type="text"
-          inputMode="numeric"
-          autoComplete={index === 0 ? 'one-time-code' : 'off'}
-          maxLength={LENGTH}
-          aria-label={`Digit ${index + 1} of ${LENGTH}`}
-          className={styles.box}
-          value={digit}
-          disabled={disabled}
-          onChange={(event) => typeAt(index, event.target.value)}
-          onKeyDown={(event) => onKeyDown(index, event)}
-        />
-      ))}
+    <div className={styles.group} data-el={dataEl}>
+      <input
+        type="text"
+        inputMode="numeric"
+        autoComplete="one-time-code"
+        aria-label="6-digit code"
+        aria-describedby={countId}
+        className={styles.field}
+        value={value}
+        disabled={disabled}
+        onChange={change}
+      />
+      <span id={countId} className={styles.count}>
+        {`${value.length} ${value.length === 1 ? 'digit' : 'digits'} entered`}
+      </span>
+      <div className={styles.boxes} aria-hidden="true">
+        {boxes.map((digit, index) => (
+          <span
+            key={index}
+            className={styles.box}
+            data-box=""
+            data-filled={digit !== '' ? 'true' : undefined}
+            data-current={index === value.length ? 'true' : undefined}
+          >
+            {digit}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }

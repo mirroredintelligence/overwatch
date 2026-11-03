@@ -28,9 +28,11 @@ function markOf(container: HTMLElement) {
 }
 
 describe('result marks', () => {
-  it('an expired link shows the closed mark', () => {
+  it('an expired link shows the closed tag: a dashed clock and the words "Link closed" (artboard B3, board 1)', () => {
     const { container } = render(<LinkExpired token={LINK.expired} csrfToken={renewCsrfFor(LINK.expired)} />);
     expect(markOf(container)).toHaveAttribute('data-tone', 'closed');
+    expect(markOf(container)).toHaveTextContent('Link closed');
+    expect(markOf(container)?.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
   });
 
   it('a closed booking request shows the closed mark', () => {

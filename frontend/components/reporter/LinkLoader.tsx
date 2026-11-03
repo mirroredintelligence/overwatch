@@ -3,12 +3,14 @@
 import { useEffect, useState } from 'react';
 import { readLinkView } from '@/lib/links/browser';
 import type { BookingView, ClosedLink, LinkView } from '@/lib/links/model';
+import { Loading, Skeleton } from '@/components/ui/Skeleton';
 import { BookingChange } from './BookingChange';
 import { BookingDecision } from './BookingDecision';
 import { CapacityResponder } from './CapacityResponder';
+import styles from './CapacityLink.module.css';
 import { LinkExpired } from './LinkExpired';
 import { LinkUnavailable } from './LinkUnavailable';
-import styles from './Reporter.module.css';
+import { LinkFrame } from './parts/LinkFrame';
 
 // Reads the link once through the BFF (which sets its CSRF cookie) and shows what it says: the
 // capacity page, the booking request or change page, the closed page, or the unavailable page. A booking
@@ -43,11 +45,22 @@ export function LinkLoader({ token }: { token: string }) {
   switch (state.kind) {
     case 'loading':
       return (
-        <main className={styles.page}>
-          <p className={styles.eyebrow} role="status">
-            Opening your link…
-          </p>
-        </main>
+        <LinkFrame>
+          <main className={styles.stack}>
+            <Loading label="Opening your link.">
+              <div className={styles.card}>
+                <Skeleton shape="line" width="46%" />
+                <Skeleton shape="title" width="62%" />
+                <Skeleton shape="block" />
+                <Skeleton shape="line" width="70%" />
+              </div>
+              <Skeleton shape="chip" width="100%" />
+              <Skeleton shape="chip" width="100%" />
+              <Skeleton shape="chip" width="100%" />
+            </Loading>
+            <p className={styles.note}>Opening your link. This takes a few seconds on a slow signal.</p>
+          </main>
+        </LinkFrame>
       );
     case 'open':
       return <CapacityResponder token={token} view={state.view} />;

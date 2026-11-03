@@ -14,12 +14,27 @@ describe('LinkExpired', () => {
   it('says the link can no longer be used, and what to do instead', async () => {
     const { container } = render(<LinkExpired token={LINK.expired} csrfToken={renewCsrfFor(LINK.expired)} />);
     expect(screen.getByRole('heading', { level: 1, name: 'This link has expired' })).toBeInTheDocument();
+    expect(screen.getByText('Link closed')).toBeInTheDocument();
     expect(screen.getByText('This link can no longer be used.')).toBeInTheDocument();
     expect(screen.getByText('Or reply to the text message instead.')).toBeInTheDocument();
+    expect(screen.getByText('If it says “already used”')).toBeInTheDocument();
     expect(
       screen.getByText('A link works once. If you already sent your update, you will find it on the board.'),
     ).toBeInTheDocument();
     expect(await runAxe(container)).toHaveNoViolations();
+  });
+
+  it('sits in the link frame, with the mark but no "No login needed" tag, and says the same for every closed link', () => {
+    render(<LinkExpired token={LINK.expired} csrfToken={null} />);
+    expect(screen.getByText('Overwatch')).toBeInTheDocument();
+    expect(screen.queryByText('No login needed')).toBeNull();
+  });
+
+  it('says a new link has been sent in a polite status, and takes the button away', async () => {
+    render(<LinkExpired token={LINK.expired} csrfToken={renewCsrfFor(LINK.expired)} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Send me a new link' }));
+    expect(await screen.findByRole('status')).toHaveTextContent('We have sent a new link.');
+    expect(screen.queryByRole('button', { name: 'Send me a new link' })).toBeNull();
   });
 
   it('asks for a new link, and says so once it has been sent', async () => {

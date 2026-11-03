@@ -26,9 +26,18 @@ describe('the link page (server)', () => {
     expect(seenBffPosts).toHaveLength(0);
   });
 
+  it('shows the link frame while the link is being read, so the page never opens blank', async () => {
+    await open(LINK.recorded);
+    expect(screen.getByText('Overwatch')).toBeInTheDocument();
+    expect(screen.getByText('No login needed')).toBeInTheDocument();
+    expect(screen.getByText('Opening your link. This takes a few seconds on a slow signal.')).toBeInTheDocument();
+    await screen.findByRole('heading', { level: 1, name: 'UCR West' });
+  });
+
   it('treats a token that cannot be a link as expired, without any request', async () => {
     await open('not/a/link');
     expect(screen.getByRole('heading', { level: 1, name: 'This link has expired' })).toBeInTheDocument();
+    expect(screen.getByText('Link closed')).toBeInTheDocument();
     expect(seenBackendRequests).toHaveLength(0);
   });
 

@@ -19,10 +19,21 @@ beforeEach(() => {
 describe('LinkLoader', () => {
   it('shows the link’s figure and its question once it has read the link', async () => {
     const { container } = render(<LinkLoader token={LINK.recorded} />);
-    expect(screen.getByRole('status')).toHaveTextContent('Opening your link');
+    expect(screen.getByRole('status')).toHaveTextContent('Opening your link.');
     expect(await screen.findByRole('heading', { level: 1, name: 'UCR West' })).toBeInTheDocument();
-    expect(screen.getByText('We have 3 referrals in the next 2 hrs, as of 08:15. Still right?')).toBeInTheDocument();
+    expect(screen.getByText('Recorded at 08:15. Still right?')).toBeInTheDocument();
     expect(await runAxe(container)).toHaveNoViolations();
+  });
+
+  it('while it reads, shows the link frame, one shimmer over the blocks, and words that say what is happening (artboard B3, board 2)', async () => {
+    const { container } = render(<LinkLoader token={LINK.recorded} />);
+    expect(screen.getByText('Overwatch')).toBeInTheDocument();
+    expect(screen.getByText('No login needed')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByText('Opening your link. This takes a few seconds on a slow signal.')).toBeInTheDocument();
+    expect(container.querySelectorAll('[data-skeleton]')).toHaveLength(1);
+    expect(await runAxe(container)).toHaveNoViolations();
+    await screen.findByRole('heading', { level: 1, name: 'UCR West' });
   });
 
   it('makes no POST when the link is read, to the BFF or the back end', async () => {
@@ -50,9 +61,12 @@ describe('LinkLoader', () => {
   });
 
   it('says the link could not be loaded, and does not say it expired, when the back end is down', async () => {
-    render(<LinkLoader token={LINK.down} />);
+    const { container } = render(<LinkLoader token={LINK.down} />);
     expect(await screen.findByText('We could not load this link. Try again in a few minutes.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'This link did not open' })).toBeInTheDocument();
+    expect(screen.getByText('Overwatch')).toBeInTheDocument();
     expect(screen.queryByText('This link has expired')).toBeNull();
+    expect(await runAxe(container)).toHaveNoViolations();
   });
 
   it('says the link could not be loaded when the BFF answers with an error the page does not know', async () => {

@@ -1,0 +1,24 @@
+.list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  box-sizing: border-box;
+  padding: var(--space-2) 14px;
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius-chip);
+  background: var(--c-bg);
+  font-size: var(--type-caption-size);
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.chip[data-kept='true'] {
+  border-color: var(--c-primary);
+  background: var(--c-tint);
+}

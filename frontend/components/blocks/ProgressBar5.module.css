@@ -1,0 +1,15 @@
+.bar {
+  display: flex;
+  gap: 5px;
+}
+
+.seg {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--c-line);
+}
+
+.seg[data-seg='filled'] {
+  background: var(--c-primary);
+}

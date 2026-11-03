@@ -1,0 +1,110 @@
+.wrap {
+  position: relative;
+  box-sizing: border-box;
+  padding: var(--space-2) 22px;
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.wrap[data-line='true'] {
+  padding-left: 46px;
+  padding-right: var(--space-5);
+}
+
+.rail {
+  position: absolute;
+  left: 30px;
+  top: 30px;
+  bottom: 30px;
+  width: 3px;
+  border-radius: 2px;
+  background: #c9dce6;
+}
+
+.list {
+  position: relative;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  position: relative;
+  display: flex;
+  gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--c-ground);
+}
+
+.item:last-child {
+  border-bottom: 0;
+}
+
+.dot {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--c-primary);
+}
+
+.item[data-tone='past'] .dot {
+  background: #c9dce6;
+}
+
+.item[data-tone='attention'] .dot {
+  background: var(--c-limited);
+}
+
+/* On the rail the dot sits over the line, with a white ring. */
+.wrap[data-line='true'] .dot {
+  position: absolute;
+  left: -23px;
+  top: 20px;
+  width: 15px;
+  height: 15px;
+  margin-top: 0;
+  border: 3px solid #fff;
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  font-size: var(--type-label-size);
+  font-weight: 700;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.wrap[data-line='true'] .title {
+  font-size: 18px;
+}
+
+.detail {
+  font-size: 15px;
+  color: var(--c-muted);
+  overflow-wrap: anywhere;
+}
+
+.time {
+  flex: none;
+  font-size: 15px;
+  color: var(--c-muted);
+  white-space: nowrap;
+}
+
+@media (max-width: 30rem) {
+  .item {
+    flex-wrap: wrap;
+  }
+
+  .time {
+    flex-basis: 100%;
+    padding-left: 26px;
+  }
+}

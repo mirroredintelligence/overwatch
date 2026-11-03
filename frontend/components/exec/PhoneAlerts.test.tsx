@@ -36,10 +36,31 @@ describe('PhoneAlerts', () => {
     const requestPermission = browser('default');
     render(<PhoneAlerts />);
     expect(screen.getByRole('heading', { level: 1, name: 'Alerts on this phone' })).toBeInTheDocument();
-    expect(screen.getByText(/What we never send: Patient names or details\./)).toBeInTheDocument();
+    expect(screen.getByText('What we send')).toBeInTheDocument();
+    expect(screen.getByText('An alert about a service, as you chose in your alerts. It names the service and what changed.')).toBeInTheDocument();
+    expect(screen.getByText('What we never send')).toBeInTheDocument();
+    expect(screen.getByText('Patient names or details.')).toBeInTheDocument();
+    expect(screen.getByText('You choose')).toBeInTheDocument();
+    expect(screen.getByText('Change which alerts you get in settings, or turn them off in your phone’s settings.')).toBeInTheDocument();
     expect(screen.getByText(/When you allow, we record the date and this phone\./)).toBeInTheDocument();
     expect(requestPermission).not.toHaveBeenCalled();
     expect(seenBffRequests).toEqual([]);
+  });
+
+  it('keeps the iPhone steps behind a closed "On an iPhone" disclosure that opens on request', async () => {
+    render(<PhoneAlerts />);
+    const disclosure = screen.getByText('On an iPhone').closest('details');
+    expect(disclosure).not.toBeNull();
+    expect(disclosure).not.toHaveAttribute('open');
+    await userEvent.click(screen.getByText('On an iPhone'));
+    expect(disclosure).toHaveAttribute('open');
+    expect(screen.getByText(/Alerts work only from the home screen\. Tap Share, then Add to Home Screen/)).toBeInTheDocument();
+  });
+
+  it('lists the actions in the order Allow, Send a test, Change which alerts, Done', () => {
+    const { container } = render(<PhoneAlerts />);
+    const actions = Array.from(container.querySelectorAll('a, button')).map((el) => el.textContent);
+    expect(actions).toEqual(['Allow alerts on this phone', 'Send me a test notification', 'Change which alerts I get', 'Done']);
   });
 
   it('asks the browser, reads the key, subscribes with it and saves with the executive wording, then says alerts are on', async () => {

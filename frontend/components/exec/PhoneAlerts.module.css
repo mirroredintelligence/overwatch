@@ -1,0 +1,115 @@
+/* The phone screen (PH5): three cards of plain words, one disclosure, a tinted note, then the actions. */
+
+.card {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.point {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.label {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  font-weight: var(--type-label-weight);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.text {
+  margin: 0;
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-lh);
+}
+
+.disclosure {
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  padding: 0 var(--space-5);
+}
+
+.summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: var(--btn-h);
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  list-style: none;
+  cursor: pointer;
+}
+
+.summary::-webkit-details-marker {
+  display: none;
+}
+
+.summary:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.chevron {
+  transition: transform var(--dur-state) var(--ease-out);
+}
+
+.disclosure[open] .chevron {
+  transform: rotate(180deg);
+}
+
+.disclosureText {
+  margin: 0;
+  padding-bottom: var(--space-4);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  color: var(--c-ink-2);
+}
+
+.note {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  background: var(--c-tint);
+  border: 2px solid var(--c-primary);
+  border-radius: var(--radius);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+}
+
+.note p {
+  margin: 0;
+}
+
+.noteStrong {
+  font-weight: var(--type-label-weight);
+}
+
+.actions {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.done {
+  display: inline-flex;
+  align-items: center;
+  justify-self: center;
+  min-height: 48px;
+  padding: 0 var(--space-3);
+  color: var(--c-ink-2);
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  text-decoration: underline;
+}
+
+.done:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}

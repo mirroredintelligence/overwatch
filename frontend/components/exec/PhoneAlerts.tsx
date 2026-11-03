@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { bffGet, bffPost } from '@/lib/bff/client';
 import { subscribeToPush } from '@/lib/push/subscribe';
 import styles from './Exec.module.css';
+import phone from './PhoneAlerts.module.css';
 
 // Alerts on the executive's phone (W9H, DEC-1040 to DEC-1043). An executive uses the notification part of
 // the installed app only: they hold no post and no PIN, so there is no capacity to report. Nothing is
@@ -62,22 +63,40 @@ export function PhoneAlerts() {
   return (
     <div className={styles.stack}>
       <h1 className={styles.heading}>Alerts on this phone</h1>
-      <section className={styles.section} aria-labelledby="phone-alerts-what">
+      <section className={phone.card} aria-labelledby="phone-alerts-what">
         <h2 id="phone-alerts-what" className={styles.srOnly}>What this does</h2>
-        <p>What we send: An alert about a service, as you chose in your alerts. It names the service and what changed.</p>
-        <p>What we never send: Patient names or details.</p>
-        <p>You choose: Change which alerts you get in settings, or turn them off in your phone’s settings.</p>
-        <p>When you allow, we record the date and this phone.</p>
-        <p>On an iPhone, alerts work only from the home screen. Tap Share, then Add to Home Screen, then open Overwatch from the home screen.</p>
+        <div className={phone.point}>
+          <p className={phone.label}>What we send</p>
+          <p className={phone.text}>An alert about a service, as you chose in your alerts. It names the service and what changed.</p>
+        </div>
+        <div className={phone.point}>
+          <p className={phone.label}>What we never send</p>
+          <p className={phone.text}>Patient names or details.</p>
+        </div>
+        <div className={phone.point}>
+          <p className={phone.label}>You choose</p>
+          <p className={phone.text}>Change which alerts you get in settings, or turn them off in your phone’s settings.</p>
+        </div>
       </section>
+
+      <details className={phone.disclosure}>
+        <summary className={phone.summary}>
+          On an iPhone
+          <span className={phone.chevron} aria-hidden="true">▾</span>
+        </summary>
+        <p className={phone.disclosureText}>Alerts work only from the home screen. Tap Share, then Add to Home Screen, then open Overwatch from the home screen.</p>
+      </details>
 
       {!supported ? <Banner tone="warning" title="This browser cannot show notifications. Open Overwatch in your phone’s browser, or install it to your home screen." /> : null}
       {state === 'blocked' ? <Banner tone="warning" title="Alerts are blocked for this phone. Turn them on in your phone’s settings, then try again." /> : null}
       {state === 'failed' ? <Banner tone="warning" title="We could not turn on alerts on this phone. Try again." /> : null}
-      {state === 'on' ? <p role="status">Alerts are on for this phone.</p> : null}
+      <div className={phone.note}>
+        {state === 'on' ? <p role="status" className={phone.noteStrong}>Alerts are on for this phone.</p> : null}
+        <p>When you allow, we record the date and this phone.</p>
+      </div>
       {testNotice !== null ? <p role="status">{testNotice}</p> : null}
 
-      <div className={styles.actions}>
+      <div className={phone.actions}>
         {supported ? (
           <Button variant="primary" busy={state === 'busy'} onClick={() => void allow()} dataEl="EXEC-PHONE-ALLOW-BTN">
             Allow alerts on this phone
@@ -89,9 +108,9 @@ export function PhoneAlerts() {
         <Button variant="secondary" href="/planning/settings" dataEl="EXEC-PHONE-SETTINGS-LINK">
           Change which alerts I get
         </Button>
-        <Button variant="neutral" href="/planning" dataEl="EXEC-PHONE-DONE-LINK">
+        <a className={phone.done} href="/planning" data-el="EXEC-PHONE-DONE-LINK">
           Done
-        </Button>
+        </a>
       </div>
     </div>
   );

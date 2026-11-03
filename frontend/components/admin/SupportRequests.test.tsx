@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runAxe } from '@/test/a11y';
 import { ONE_TIME_CODE, VIEW_TICKETS } from '@/test/fixtures/tenantAdmin';
 import { resetAdminWrites, seenAdminWrites } from '@/test/msw/handlers/tenantAdmin';
@@ -9,9 +9,12 @@ import { SAMPLE_CSRF } from '@/test/msw/handlers/staff';
 import { server } from '@/test/msw/server';
 import { SupportRequests } from './SupportRequests';
 
-// The administrator's side of the support tickets (TEN-076, TEN-084): a support person asks to look into
-// this organisation with a reason; the administrator approves (and is given a one-time code to hand over,
-// shown once), refuses, or takes an approved code or an open access back at once.
+// The administrator's side of the support tickets (TEN-076, TEN-084, DEC-1003): a support person asks to look into
+// this organisation with a reason; the administrator approves (and is given a one-time code to hand over, shown
+// once), refuses, or takes an approved code or an open access back at once. Requests still waiting and the ones in
+// hand are open; the ones that are over sit under a collapsed "Earlier requests" row.
+
+const CODE_HEADING = 'Approved. Give them this code.';
 
 beforeEach(() => resetAdminWrites());
 
@@ -23,8 +26,19 @@ async function open() {
   return user;
 }
 const card = (id: string) => screen.getByRole('article', { name: `Request ${id}` });
+const codePanel = () => screen.findByRole('region', { name: CODE_HEADING });
 
 describe('the list', () => {
+  it('says what the page is for, in the words of the board', async () => {
+    await open();
+    expect(screen.getByText('Platform staff can look into your organisation only when you approve and give them a code.')).toBeInTheDocument();
+  });
+
+  it('says how many requests are waiting for the administrator', async () => {
+    await open();
+    expect(screen.getByText('1 waiting for you')).toBeInTheDocument();
+  });
+
   it('shows each request with its reason, its reference and where it stands, in words', async () => {
     await open();
     const first = card('tkt-1');
@@ -35,6 +49,26 @@ describe('the list', () => {
     expect(within(first).getByText('Asked 30 Oct 2026, 08:00. Lapses 31 Oct 2026, 08:00.')).toBeInTheDocument();
     expect(within(card('tkt-2')).getByText('Approved, code not used yet')).toBeInTheDocument();
     expect(within(card('tkt-3')).getByText('Open now')).toBeInTheDocument();
+  });
+
+  it('puts the requests that are over under a collapsed "Earlier requests" row, with their count', async () => {
+    server.use(
+      http.get('/api/bff/tenant/support-tickets', () =>
+        HttpResponse.json({
+          tickets: [
+            ...VIEW_TICKETS.tickets,
+            { id: 'tkt-4', state: 'refused', reasonCode: 'other', reason: 'Looked at a report', reference: null, requestedAt: '2026-10-27T08:00:00Z', validUntil: '2026-10-28T08:00:00Z', decidedAt: '2026-10-27T09:00:00Z', openedAt: null, endedAt: null, endedBy: null },
+          ],
+        }),
+      ),
+    );
+    const user = await open();
+    const earlier = screen.getByRole('button', { name: 'Earlier requests · 1' });
+    expect(earlier).toHaveAttribute('aria-expanded', 'false');
+    await user.click(earlier);
+    expect(earlier).toHaveAttribute('aria-expanded', 'true');
+    expect(within(card('tkt-4')).getByText('Refused')).toBeInTheDocument();
+    expect(within(card('tkt-4')).queryAllByRole('button')).toHaveLength(0);
   });
 
   it('offers only what the state allows: approve and refuse, take the code back, end the access', async () => {
@@ -48,6 +82,7 @@ describe('the list', () => {
     server.use(http.get('/api/bff/tenant/support-tickets', () => HttpResponse.json({ tickets: [] })));
     const { unmount } = render(<SupportRequests />);
     expect(await screen.findByText('Nobody has asked to look into your organisation.')).toBeInTheDocument();
+    expect(screen.queryByText(/waiting for you/)).not.toBeInTheDocument();
     unmount();
     server.use(http.get('/api/bff/tenant/support-tickets', () => HttpResponse.json({}, { status: 503 })));
     render(<SupportRequests />);
@@ -64,19 +99,33 @@ describe('approving', () => {
   it('shows the one-time code once, with what it does, and sends the approval with the CSRF token and a key', async () => {
     const user = await open();
     await user.click(within(card('tkt-1')).getByRole('button', { name: 'Approve' }));
-    const panel = await screen.findByRole('region', { name: 'Give this code to the support person' });
+    const panel = await codePanel();
+    expect(within(panel).getByRole('status')).toHaveTextContent(ONE_TIME_CODE);
     expect(within(panel).getByText(ONE_TIME_CODE)).toBeInTheDocument();
-    expect(within(panel).getByText('It is not shown again. It works for four hours and opens one access to your organisation for one hour.')).toBeInTheDocument();
-    expect(within(panel).getByText('If you lose it, take the code back and ask the support person to ask again.')).toBeInTheDocument();
+    expect(
+      within(panel).getByText('Shown once. It works for 4 hours and opens one access to your organisation for 1 hour. If you lose it, take it back and ask them to ask again.'),
+    ).toBeInTheDocument();
     expect(seenAdminWrites[0]).toMatchObject({ method: 'POST', path: '/api/bff/tenant/support-tickets/tkt-1/approval', csrf: SAMPLE_CSRF });
     expect(seenAdminWrites[0]?.key).toBeTruthy();
+  });
+
+  it('copies the code with a copy button, and says it has', async () => {
+    const user = await open();
+    // Set after open(): userEvent.setup() installs its own clipboard on navigator.
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    await user.click(within(card('tkt-1')).getByRole('button', { name: 'Approve' }));
+    const panel = await codePanel();
+    await user.click(within(panel).getByRole('button', { name: 'Copy the code' }));
+    expect(writeText).toHaveBeenCalledWith(ONE_TIME_CODE);
+    expect(await within(panel).findByText('Copied to the clipboard.')).toBeInTheDocument();
   });
 
   it('drops the code from the page when the administrator has passed it on, and never keeps it', async () => {
     const user = await open();
     await user.click(within(card('tkt-1')).getByRole('button', { name: 'Approve' }));
-    const panel = await screen.findByRole('region', { name: 'Give this code to the support person' });
-    await user.click(within(panel).getByRole('button', { name: 'I have given the code' }));
+    const panel = await codePanel();
+    await user.click(within(panel).getByRole('button', { name: 'I have passed it on' }));
     expect(screen.queryByText(ONE_TIME_CODE)).not.toBeInTheDocument();
     expect(document.body.textContent ?? '').not.toContain(ONE_TIME_CODE);
     expect(window.localStorage.length).toBe(0);
@@ -84,12 +133,22 @@ describe('approving', () => {
     expect(document.cookie).not.toContain(ONE_TIME_CODE);
   });
 
+  it('takes the code back from the code card, which ends the code with the same call as the list', async () => {
+    const user = await open();
+    await user.click(within(card('tkt-1')).getByRole('button', { name: 'Approve' }));
+    const panel = await codePanel();
+    await user.click(within(panel).getByRole('button', { name: 'Take it back' }));
+    await waitFor(() => expect(seenAdminWrites).toHaveLength(2));
+    expect(seenAdminWrites[1]).toMatchObject({ method: 'DELETE', path: '/api/bff/tenant/support-tickets/tkt-1/access' });
+    expect(screen.queryByText(ONE_TIME_CODE)).not.toBeInTheDocument();
+  });
+
   it('does not show the code on a reload of the list, and reads the list again after an approval', async () => {
     const user = await open();
     let reads = 0;
     server.use(http.get('/api/bff/tenant/support-tickets', () => { reads += 1; return HttpResponse.json(VIEW_TICKETS); }));
     await user.click(within(card('tkt-1')).getByRole('button', { name: 'Approve' }));
-    await screen.findByRole('region', { name: 'Give this code to the support person' });
+    await codePanel();
     await waitFor(() => expect(reads).toBeGreaterThan(0));
   });
 
@@ -98,7 +157,7 @@ describe('approving', () => {
     const user = await open();
     await user.click(within(card('tkt-1')).getByRole('button', { name: 'Approve' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('This request is not waiting for you any more. The list has been read again.');
-    expect(screen.queryByRole('region', { name: 'Give this code to the support person' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: CODE_HEADING })).not.toBeInTheDocument();
   });
 
   it('says it could not be approved on a failure, and offers the same buttons again', async () => {
@@ -133,7 +192,7 @@ describe('refusing and taking back', () => {
     const user = await open();
     expect(await runAxe(document.body)).toHaveNoViolations();
     await user.click(within(card('tkt-1')).getByRole('button', { name: 'Approve' }));
-    await screen.findByRole('region', { name: 'Give this code to the support person' });
+    await codePanel();
     expect(await runAxe(document.body)).toHaveNoViolations();
   });
 });

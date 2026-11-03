@@ -32,7 +32,7 @@ export default async function ExecServicesPage() {
     <main>
       {session.role === 'exec' ? <OwnScopeHeader ownHref="/planning/services" networkHref="/network/services" /> : <ScopeHeader scope="own" />}
       <h1>All services</h1>
-      <ServiceList entries={board.entries} />
+      <ServiceList entries={board.entries} now={board.generatedAt} />
     </main>
   );
 }

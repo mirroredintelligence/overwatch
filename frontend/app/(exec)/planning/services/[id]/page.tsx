@@ -1,12 +1,14 @@
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
-import { ServiceDetail } from '@/components/exec/ServiceDetail';
+import { AttentionRail, PlanningStage } from '@/components/exec/PlanningStage';
+import { ServiceAlertCard, ServiceDetail } from '@/components/exec/ServiceDetail';
 import { OwnScopeHeader } from '@/components/scope/OwnScopeHeader';
 import { ScopeHeader } from '@/components/scope/ScopeHeader';
 import { getSession } from '@/lib/auth/session';
 import { readBoard } from '@/lib/board/read';
 import type { AlertItem } from '@/lib/exec/alerts';
 import { ALERT_ROLES, alertsByState } from '@/lib/exec/alertsServer';
+import { needsAttention } from '@/lib/exec/homeSummary';
 import { hasDeputy } from '@/lib/exec/savePreferences';
 import { readAlertPreferences } from '@/lib/exec/subscriptions';
 
@@ -37,11 +39,22 @@ export default async function ExecServicePage({ params }: { params: Promise<{ id
   } catch {
     escalationInPlace = undefined;
   }
+  const counts: Record<string, number> = {};
+  for (const item of board.entries) counts[item.status] = (counts[item.status] ?? 0) + 1;
   return (
     <main>
       {/* The network's variant of a service is its own page, with no alert subscription (WB11). */}
       {session.role === 'exec' ? <OwnScopeHeader ownHref={`/planning/services/${encodeURIComponent(id)}`} networkHref="/network/services" /> : <ScopeHeader scope="own" />}
-      <ServiceDetail entry={entry} now={board.generatedAt} coordinationPhone={board.coordinationPhone ?? null} alert={alert} escalationInPlace={escalationInPlace} />
+      {/* A service opens in place: the tiles fold to a strip, the list becomes a rail, the alert waits beside it. */}
+      <PlanningStage
+        stage="service"
+        counts={counts}
+        rail={<AttentionRail entries={needsAttention(board)} currentId={id} />}
+        service={
+          <ServiceDetail entry={entry} now={board.generatedAt} coordinationPhone={board.coordinationPhone ?? null} alert={alert} escalationInPlace={escalationInPlace} />
+        }
+        sideService={<ServiceAlertCard alert={alert} />}
+      />
     </main>
   );
 }

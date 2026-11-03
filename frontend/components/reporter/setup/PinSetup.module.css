@@ -1,0 +1,22 @@
+/* Step 5 of 5 (R7): the heading and the lead are left aligned, the keypad and the hint are centred. */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: var(--space-2);
+}
+
+.lead {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.4;
+  color: var(--c-ink-2);
+}
+
+.hint {
+  margin: 6px 0 0;
+  font-size: 15px;
+  color: var(--c-muted);
+  text-align: center;
+}

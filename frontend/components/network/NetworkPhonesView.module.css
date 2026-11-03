@@ -1,0 +1,47 @@
+/* The network phones page's own parts: tokens only. The page frame and the chips are shared (Network.module.css, Chip). */
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.count {
+  margin: 0 var(--space-2) 0 0;
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-lh);
+  font-weight: var(--type-label-weight);
+}
+
+.card {
+  min-width: 0;
+  padding: var(--space-1) var(--space-5);
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+}
+
+.service {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.own {
+  display: inline-block;
+  margin-left: var(--space-2);
+  padding: 0 var(--space-2);
+  border: 2px solid var(--c-primary);
+  border-radius: var(--radius);
+  background: var(--c-tint);
+  color: var(--c-ink);
+  font-size: var(--type-caption-size);
+  font-weight: 700;
+}
+
+.note {
+  margin: 0;
+  color: var(--c-ink-2);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+}

@@ -44,7 +44,6 @@ describe('advisor home (W10)', () => {
     render(<AdvisorHomePage />);
 
     expect(screen.getByRole('heading', { name: 'Ready for calls' })).toBeInTheDocument();
-    expect(screen.getByText('Advisor home')).toBeInTheDocument();
     await waitFor(() => expect(byEl('ADV-HOME-COUNT-ACCEPTING')).toHaveTextContent('4'));
     expect(byEl('ADV-HOME-COUNT-LIMITED')).toHaveTextContent('2');
     expect(byEl('ADV-HOME-COUNT-NOT-ACCEPTING')).toHaveTextContent('1');
@@ -109,5 +108,47 @@ describe('advisor home (W10)', () => {
     const counts = within(container);
     expect(counts.getByRole('heading', { name: 'Board right now' })).toBeInTheDocument();
     expect((await runAxe(container)).violations).toEqual([]);
+  });
+});
+
+describe('advisor overview (ADV-02): the call grid, the board stripe and open cases', () => {
+  it('shows the five counts as one group in the board order: accepting, limited, over capacity, not accepting, not updated', async () => {
+    render(<AdvisorHomePage />);
+
+    const group = await screen.findByRole('group', { name: 'Services by state' });
+    await waitFor(() => expect(byEl('ADV-HOME-COUNT-ACCEPTING')).toHaveTextContent('4'));
+    const order = within(group)
+      .getAllByRole('listitem')
+      .map((item) => item.getAttribute('data-status'));
+    expect(order).toEqual(['accepting', 'limited', 'over-capacity', 'not-accepting', 'not-updated']);
+  });
+
+  it('shows a loading status that says the board is being read', () => {
+    render(<AdvisorHomePage />);
+
+    expect(screen.getByText('Loading the board.').closest('[role="status"]')).not.toBeNull();
+  });
+
+  it('the stage holds the ready-for-calls card and its one primary button', () => {
+    render(<AdvisorHomePage />);
+
+    const stage = byEl('ADV-CALL-STAGE');
+    expect(within(stage).getByRole('heading', { name: 'Ready for calls', level: 1 })).toBeInTheDocument();
+    expect(within(stage).getByRole('button', { name: 'Start a new call' })).toBeInTheDocument();
+    expect(within(stage).getAllByRole('button')).toHaveLength(1);
+  });
+
+  it('the side holds "Open cases" with the no-open-cases line', () => {
+    render(<AdvisorHomePage />);
+
+    const side = screen.getByRole('complementary', { name: 'Alongside' });
+    expect(within(side).getByRole('heading', { name: 'Open cases' })).toBeInTheDocument();
+    expect(within(side).getByText('No open cases. Nothing from earlier calls is shown here.')).toBeInTheDocument();
+  });
+
+  it('the overview is call stage 0: the summary is folded away and the side is open', () => {
+    render(<AdvisorHomePage />);
+
+    expect(byEl('ADV-CALL-STAGE').closest('[data-stage]')).toHaveAttribute('data-stage', '0');
   });
 });

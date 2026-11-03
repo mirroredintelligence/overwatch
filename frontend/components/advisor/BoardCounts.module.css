@@ -1,3 +1,6 @@
+/* The advisor's board stripe (ADV-02, Call.dc.html) and the count rows of NetworkHomeView.
+   .counts, .row and .count are the count rows NetworkHomeView (NET-01) uses: keep their names. */
+
 .counts {
   list-style: none;
   margin: 0;
@@ -18,4 +21,81 @@
   font-size: var(--type-title-size);
   font-weight: var(--type-title-weight);
   color: var(--c-ink);
+}
+
+/* The stripe: five tiles on a wide screen, two or one per row as the width falls. */
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: var(--space-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tile {
+  --tone: var(--c-primary);
+  --figure: var(--c-primary-dark);
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 124px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 2px;
+  padding: 16px 20px;
+  background: #fff;
+  border: 2px solid var(--tone);
+  border-radius: 22px;
+  box-shadow: var(--shadow-card);
+}
+
+.tile[data-status='limited'] {
+  --tone: var(--c-limited);
+  --figure: #7a3500;
+}
+
+.tile[data-status='over-capacity'] {
+  --tone: var(--c-surge);
+  --figure: #4b1c69;
+}
+
+.tile[data-status='not-accepting'] {
+  --tone: var(--c-closed);
+  --figure: var(--c-closed);
+}
+
+.tile[data-status='not-updated'] {
+  --tone: var(--c-unknown);
+  --figure: var(--c-ink-2);
+  border-style: dashed;
+}
+
+.figure {
+  font-size: 52px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--figure);
+}
+
+.label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  line-height: 1.2;
+  color: var(--c-ink-2);
+}
+
+.shape {
+  display: inline-flex;
+  flex: none;
+  color: var(--tone);
+}
+
+.failed {
+  margin: 0;
+  color: var(--c-ink-2);
 }

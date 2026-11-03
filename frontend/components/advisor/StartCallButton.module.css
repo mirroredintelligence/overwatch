@@ -1,0 +1,8 @@
+/* The one primary action of the overview (boards/advisor/Call.dc.html): 60px tall, 20px type, a soft lift. */
+
+.action > button {
+  min-height: 60px;
+  padding: 0 30px;
+  font-size: 20px;
+  box-shadow: 0 6px 16px rgb(11 92 140 / 0.28);
+}

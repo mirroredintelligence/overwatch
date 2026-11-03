@@ -1,0 +1,27 @@
+/* The board's closed row: 56px, a 2px line border, 16px corners, the title in bold and its answer in the regular
+   weight after it. The shared Disclose draws the row; these rules only restyle it from outside (a plain element
+   selector under the wrapper outranks Disclose's single class). */
+
+.wrap > section {
+  border: 2px solid var(--c-line);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.wrap > section > button {
+  min-height: 56px;
+  padding: 0 20px;
+}
+
+.line {
+  display: block;
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-lh);
+  font-weight: 700;
+  color: var(--c-ink);
+}
+
+.hint {
+  font-weight: 400;
+  color: var(--c-muted);
+}

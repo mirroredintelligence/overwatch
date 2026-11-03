@@ -1,0 +1,72 @@
+/* Covering today: the board's second card in the right column. */
+
+.card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: 20px 22px;
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+  color: var(--c-ink);
+  font-family: var(--font-atkinson), system-ui, sans-serif;
+}
+
+.heading {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.note {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.35;
+  color: var(--c-muted);
+}
+
+.none {
+  margin: 0;
+  font-size: var(--type-label-size);
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--c-ink-2);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.name {
+  font-size: var(--type-label-size);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.detail {
+  font-size: 15px;
+  color: var(--c-muted);
+}

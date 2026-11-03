@@ -110,6 +110,7 @@ from overwatch.application.use_cases.respond_to_booking import RespondToBooking,
 from overwatch.application.work import ScheduledWork, WorkKind
 from overwatch.bootstrap.container import build
 from overwatch.bootstrap.demo_tenants import DemoAwareTenants
+from overwatch.bootstrap.postcode_download_worker import build_postcode_download_worker
 from overwatch.bootstrap.secret_store import (
     SecretConfigError,
     close_store,
@@ -507,6 +508,8 @@ async def serve(
         staff_sync = build_staff_registry_sync(container, settings, http)
         if staff_sync is not None:
             loops.append(staff_sync.serve)
+        # The shared postcode download queue (DEC-1329): downloads a confirmed district's points.
+        loops.append(build_postcode_download_worker(container).serve)
         await run_workers(loops, stop)
     finally:
         await http.aclose()

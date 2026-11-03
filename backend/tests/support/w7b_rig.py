@@ -20,6 +20,7 @@ from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
 from overwatch.adapters.testing.fixed_terminology import FixedTerminology
 from overwatch.adapters.testing.memory_cache import InMemoryCache
 from overwatch.adapters.testing.memory_code_store import InMemoryCodeStore
+from overwatch.adapters.testing.memory_postcode_queue import MemoryPostcodeQueue
 from overwatch.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
 from overwatch.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
 from overwatch.application.ports.outbound.postcode_directory import DirectoryPostcode
@@ -422,6 +423,7 @@ class Rig:
         self.hasher = HmacPhoneHasher(self.secrets)
         self.geocoder = FixedGeocoder({})
         self.postcode_directory = FixedPostcodeDirectory({"DT4": DT4_POINTS})
+        self.postcode_queue = MemoryPostcodeQueue()
         self.terminology = FixedTerminology({}, {})
         self.link_base_url_for = _LinkBase()
         self.area_districts_for = _area

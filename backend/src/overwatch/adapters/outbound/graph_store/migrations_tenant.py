@@ -50,6 +50,8 @@ REGISTRY_LABELS: Final = (
     "StaffRoleRecord",
     # The shared postcode points (DEC-1329, migration 0192): postcodes are public, held once.
     "PostcodePoint",
+    # The download queue (DEC-1329, migration 0193): shared, like the points, so no tenant.
+    "PostcodeDownloadRequest",
 )
 
 

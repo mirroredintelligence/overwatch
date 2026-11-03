@@ -39,6 +39,7 @@ UNSTAMPED_OK: Final = frozenset(
         "SupportAccessTicket",
         "StaffRoleRecord",
         "PostcodePoint",
+        "PostcodeDownloadRequest",
     }
 )
 

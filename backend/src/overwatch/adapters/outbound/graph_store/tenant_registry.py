@@ -399,6 +399,84 @@ class Neo4jStaffRoles:
         await self._connection.run_write(work)
 
 
+# The download queue (DEC-1329). A request is keyed by its prefix. Claim takes the oldest queued
+# request and marks it running in the same statement, so a worker never holds one another has taken.
+_REQUEST = NamedQuery(
+    id="Q-POSTCODE-REQUEST",
+    cypher=(
+        "MERGE (r:PostcodeDownloadRequest {id: $id}) SET r.prefix = $prefix, r.status = 'queued', "
+        "r.requestedAt = $now"
+    ),
+    mode="write",
+    scope="platform",
+)
+_CLAIM = NamedQuery(
+    id="Q-POSTCODE-REQUEST-CLAIM",
+    cypher=(
+        "MATCH (r:PostcodeDownloadRequest {status: 'queued'}) WITH r ORDER BY r.requestedAt LIMIT "
+        "1 "
+        "SET r.status = 'running', r.claimedAt = $now RETURN r.prefix AS prefix"
+    ),
+    mode="write",
+    scope="platform",
+)
+_FINISH = NamedQuery(
+    id="Q-POSTCODE-REQUEST-FINISH",
+    cypher=(
+        "MATCH (r:PostcodeDownloadRequest {id: $id}) SET r.status = 'done', r.postcodes = "
+        "$postcodes, "
+        "r.finishedAt = $now RETURN r.id AS id"
+    ),
+    mode="write",
+    scope="platform",
+)
+_FAIL = NamedQuery(
+    id="Q-POSTCODE-REQUEST-FAIL",
+    cypher=(
+        "MATCH (r:PostcodeDownloadRequest {id: $id}) SET r.status = 'failed', r.finishedAt = $now "
+        "RETURN r.id AS id"
+    ),
+    mode="write",
+    scope="platform",
+)
+REGISTRY.register(_REQUEST)
+REGISTRY.register(_CLAIM)
+REGISTRY.register(_FINISH)
+REGISTRY.register(_FAIL)
+
+
+class Neo4jPostcodeQueue:
+    """The `PostcodeDownloadQueue` port over the platform statements (DEC-1329)."""
+
+    def __init__(self, connection: Neo4jConnection) -> None:
+        self._connection = connection
+
+    async def request(self, prefix: str, now: datetime) -> None:
+        async def work(tx: AsyncManagedTransaction) -> None:
+            await run_platform_query(tx, _REQUEST, id=prefix, prefix=prefix, now=now)
+
+        await self._connection.run_write(work)
+
+    async def claim_next(self, now: datetime) -> str | None:
+        async def work(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
+            return await run_platform_query(tx, _CLAIM, now=now)
+
+        rows = await self._connection.run_write(work)
+        return str(rows[0]["prefix"]) if rows else None
+
+    async def finish(self, prefix: str, postcodes: int, now: datetime) -> None:
+        async def work(tx: AsyncManagedTransaction) -> None:
+            await run_platform_query(tx, _FINISH, id=prefix, postcodes=postcodes, now=now)
+
+        await self._connection.run_write(work)
+
+    async def fail(self, prefix: str, now: datetime) -> None:
+        async def work(tx: AsyncManagedTransaction) -> None:
+            await run_platform_query(tx, _FAIL, id=prefix, now=now)
+
+        await self._connection.run_write(work)
+
+
 class Neo4jPostcodePoints:
     """Writes the postcode points of a download (DEC-1329). One transaction for the whole batch,
     so a reader never sees a district half stored; the statement is idempotent by postcode."""

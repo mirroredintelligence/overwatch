@@ -85,6 +85,25 @@ EXPECTED_TEXT = {
 # The platform's own records (TEN-075): the registry's list and detail reads, the platform audit
 # chain and the support-access tickets. Each is reviewed here exactly like the seven above.
 EXPECTED_TEXT |= {
+    # DEC-1329: the download queue, a platform write on the platform's own registry records.
+    "Q-POSTCODE-REQUEST": (
+        "MERGE (r:PostcodeDownloadRequest {id: $id}) SET r.prefix = $prefix, r.status = 'queued', "
+        "r.requestedAt = $now"
+    ),
+    "Q-POSTCODE-REQUEST-CLAIM": (
+        "MATCH (r:PostcodeDownloadRequest {status: 'queued'}) WITH r ORDER BY "
+        "r.requestedAt LIMIT 1 "
+        "SET r.status = 'running', r.claimedAt = $now RETURN r.prefix AS prefix"
+    ),
+    "Q-POSTCODE-REQUEST-FINISH": (
+        "MATCH (r:PostcodeDownloadRequest {id: $id}) SET r.status = 'done', "
+        "r.postcodes = $postcodes, "
+        "r.finishedAt = $now RETURN r.id AS id"
+    ),
+    "Q-POSTCODE-REQUEST-FAIL": (
+        "MATCH (r:PostcodeDownloadRequest {id: $id}) SET r.status = 'failed', r.finishedAt = $now "
+        "RETURN r.id AS id"
+    ),
     # DEC-1329: one shared postcode point, keyed by its postcode (public data, no tenant).
     "Q-POSTCODE-POINT-UPSERT": (
         "MERGE (p:PostcodePoint {id: $id}) SET p.district = $district, p.postcode = $postcode, "
@@ -153,6 +172,10 @@ EXPECTED_PARAMETERS = {
     "Q-STAFF-ROLE-UPSERT": {"id", "tenantRef", "practitionerKey", "role", "updatedAt"},
     "Q-STAFF-ROLE-END": {"tenantRef", "keepIds", "updatedAt"},
     "Q-POSTCODE-POINT-UPSERT": {"id", "district", "postcode", "lat", "lon", "updatedAt"},
+    "Q-POSTCODE-REQUEST": {"id", "prefix", "now"},
+    "Q-POSTCODE-REQUEST-CLAIM": {"now"},
+    "Q-POSTCODE-REQUEST-FINISH": {"id", "postcodes", "now"},
+    "Q-POSTCODE-REQUEST-FAIL": {"id", "now"},
     "Q-TENANT-REG-CREATE": {"id", "props"},
     "Q-TENANT-REG-SAVE": {"id", "expectedEpoch", "expectedStatus", "props"},
     "Q-TENANT-REG-SET-HOST": {"id", "host"},
@@ -202,7 +225,7 @@ def _pin(monkeypatch: pytest.MonkeyPatch, cypher: str, query_id: str = "Q-TEST-P
 def test_the_platform_list_is_the_registry_statements_and_the_platforms_own_records() -> None:
     assert set(PLATFORM_QUERY_IDS) == set(EXPECTED_TEXT)
     assert set(PLATFORM_STATEMENTS) == set(EXPECTED_TEXT)
-    assert len(PLATFORM_QUERY_IDS) == 7 + 2 + 4 + 6 + 2 + 1
+    assert len(PLATFORM_QUERY_IDS) == 7 + 2 + 4 + 6 + 2 + 1 + 4
 
 
 def test_no_id_is_on_both_the_global_and_the_platform_list() -> None:
@@ -477,11 +500,12 @@ async def test_the_platform_path_refuses_a_string_and_an_unregistered_statement(
 # -- the platform's own records (TEN-075) --------------------------------------------------------
 
 
-def test_the_platform_records_are_three_labels_no_global_statement_may_name() -> None:
+def test_the_platform_records_are_four_labels_no_global_statement_may_name() -> None:
     assert {
         "PlatformAuditHead",
         "PlatformAuditEntry",
         "SupportAccessTicket",
+        "PostcodeDownloadRequest",
     } == PLATFORM_RECORD_LABELS
     assert PLATFORM_RECORD_LABELS.isdisjoint(GLOBAL_STATEMENT_LABELS)
     for label in PLATFORM_RECORD_LABELS:

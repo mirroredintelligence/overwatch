@@ -10,6 +10,7 @@ from overwatch.domain.codes import Role
 from tests.support.w7b_rig import LEAD, Rig, bearer, client
 
 CHECK = "/postcode-districts/check"
+CHECK_DOWNLOAD = "/postcode-districts/download"
 LEAD_AUTH = bearer(Role.LEAD, LEAD)
 REPORTER_AUTH = bearer(Role.REPORTER, "prac-reporter")
 
@@ -55,3 +56,31 @@ async def test_only_the_shift_lead_checks_a_district() -> None:
     async with client(Rig()) as http:
         response = await http.get(f"{CHECK}?text=DT4", headers=REPORTER_AUTH)
     assert response.status_code == 404
+
+
+async def test_a_lead_queues_a_confirmed_district_and_nothing_is_downloaded_in_the_request() -> (
+    None
+):
+    rig = Rig()
+    async with client(rig) as http:
+        response = await http.post(f"{CHECK_DOWNLOAD}?text=dt4", headers=LEAD_AUTH, json={})
+    assert response.status_code == 202, response.text
+    assert response.json() == {"prefix": "DT4", "status": "queued"}
+    assert list(rig.postcode_queue.rows) == ["DT4"]
+    assert rig.postcode_queue.rows["DT4"]["status"] == "queued"
+
+
+async def test_a_download_request_that_is_not_a_district_is_refused_and_queues_nothing() -> None:
+    rig = Rig()
+    async with client(rig) as http:
+        response = await http.post(f"{CHECK_DOWNLOAD}?text=DT4%20ABC", headers=LEAD_AUTH, json={})
+    assert response.status_code == 400
+    assert rig.postcode_queue.rows == {}
+
+
+async def test_only_the_shift_lead_requests_a_download() -> None:
+    rig = Rig()
+    async with client(rig) as http:
+        response = await http.post(f"{CHECK_DOWNLOAD}?text=DT4", headers=REPORTER_AUTH, json={})
+    assert response.status_code == 404
+    assert rig.postcode_queue.rows == {}

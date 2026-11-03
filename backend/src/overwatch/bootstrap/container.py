@@ -48,6 +48,7 @@ from overwatch.adapters.outbound.graph_store.staff_registry import Neo4jStaffReg
 from overwatch.adapters.outbound.graph_store.support_ticket_store import Neo4jSupportTickets
 from overwatch.adapters.outbound.graph_store.tenant_directory import Neo4jTenantDirectory
 from overwatch.adapters.outbound.graph_store.tenant_registry import (
+    Neo4jPostcodeQueue,
     Neo4jStaffRoles,
     Neo4jTenantRegistry,
 )
@@ -75,6 +76,7 @@ from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
 from overwatch.adapters.testing.fixed_terminology import FixedTerminology
 from overwatch.adapters.testing.fixture_telemetry import FixtureTelemetryQuery
 from overwatch.adapters.testing.memory_cache import InMemoryCache
+from overwatch.adapters.testing.memory_postcode_queue import MemoryPostcodeQueue
 from overwatch.application.actor import system_actor
 from overwatch.application.cross_tenant_guard import CrossTenantGuard
 from overwatch.application.ports.outbound.cache import Cache, PlatformSlots
@@ -106,6 +108,7 @@ from overwatch.application.ports.outbound.postcode_directory import (
     DirectoryPostcode,
     PostcodeDirectory,
 )
+from overwatch.application.ports.outbound.postcode_download_queue import PostcodeDownloadQueue
 from overwatch.application.ports.outbound.sealing import ContentSealer
 from overwatch.application.ports.outbound.staff_registry import StaffRegistry
 from overwatch.application.ports.outbound.telemetry_query import (
@@ -240,6 +243,9 @@ class Container:
     # The ONS Postcode Directory (DEC-1329): the district check. Without the HTTP client it refuses
     # every answer, so the check reports unavailable rather than a count it cannot give.
     postcode_directory: PostcodeDirectory
+    # The shared download queue of the postcode points (DEC-1329): the lead's confirm queues a
+    # prefix here and the workers download it. A platform write, run on the platform statements.
+    postcode_queue: PostcodeDownloadQueue
     # The HTTP client behind the geocoder, closed by shutdown(); None when there is no geocoder.
     http: httpx.AsyncClient | None
     # The support console's raw telemetry (O07): Azure Monitor in a process that has a workspace and
@@ -639,6 +645,7 @@ def build(
         if http is None or key is None
         else OsPlacesGeocoder(http, key.get_secret_value()),
         postcode_directory=NoPostcodeDirectory() if http is None else OnsPostcodeDirectory(http),
+        postcode_queue=Neo4jPostcodeQueue(neo4j),
         terminology=LocalTerminology(settings.terminology_dir, settings.pathways_dx_file),
         http=http,
         telemetry=(
@@ -730,6 +737,7 @@ def build_for_tests(
         travel=FixedTravelTime(TravelRange(low_minutes=10, high_minutes=20, source="test fixed")),
         geocoder=FixedGeocoder({}),
         postcode_directory=FixedPostcodeDirectory({}),
+        postcode_queue=MemoryPostcodeQueue(),
         terminology=FixedTerminology({}, {}),
         http=None,
         telemetry=(

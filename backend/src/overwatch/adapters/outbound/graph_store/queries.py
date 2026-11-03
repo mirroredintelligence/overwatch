@@ -252,6 +252,25 @@ PLATFORM_QUERY_IDS: Final[Mapping[str, str]] = MappingProxyType(
             "ends the active StaffRoleRecord registry nodes of one tenant that the sync did not "
             "find again"
         ),
+        "Q-POSTCODE-REQUEST": (
+            "queues one postcode district for download on the registry, keyed by the prefix, so "
+            "asking twice is "
+            "one "
+            "request (DEC-1329)"
+        ),
+        "Q-POSTCODE-REQUEST-CLAIM": (
+            "marks the oldest queued registry download request running and returns its prefix, "
+            "for one "
+            "worker "
+            "(DEC-1329)"
+        ),
+        "Q-POSTCODE-REQUEST-FINISH": (
+            "records a registry download request done with its postcode count (DEC-1329)"
+        ),
+        "Q-POSTCODE-REQUEST-FAIL": (
+            "records a registry download request failed, when the directory could not answer "
+            "(DEC-1329)"
+        ),
         "Q-POSTCODE-POINT-UPSERT": (
             "makes one PostcodePoint registry node of a confirmed district's download, keyed by "
             "its postcode, so a retried download refreshes rather than adds (DEC-1329)"
@@ -411,6 +430,16 @@ PLATFORM_STATEMENTS: Final[Mapping[str, str]] = MappingProxyType(
     {
         "Q-STAFF-ROLE-UPSERT": "be368c979f53fff2fc0a03eeb5fb3fdc24bbfe844ada59b871d93ef2128ac4c4",
         "Q-STAFF-ROLE-END": "d489f4f68b4393c7343a865902a0ae3247248bbe7d013b411c88e173447b879c",
+        "Q-POSTCODE-REQUEST": "e93006c2326a603a1ab4ec47a9e88fd72d1ee92c55cacd3f9a16449d571f6d01",
+        "Q-POSTCODE-REQUEST-CLAIM": (
+            "a39ddde7c79a1e62cd8e6b0bba7cf3ebdee1df146c79a43c6a84dc579dfec112"
+        ),
+        "Q-POSTCODE-REQUEST-FINISH": (
+            "3fca1f60a77ab7700ae651b877461ee744e2c088deea94fbfa0c440a874d29dc"
+        ),
+        "Q-POSTCODE-REQUEST-FAIL": (
+            "9cee7ed21b4c14a6aabdd7a203a85bcf219936ca135eaf757cbf4a91d6fea865"
+        ),
         "Q-POSTCODE-POINT-UPSERT": (
             "60818cbceb422b1e8fcdaaadd6c44a242cffcccf366a4478b55163fb3a80e7ca"
         ),
@@ -486,7 +515,14 @@ GLOBAL_STATEMENT_LABELS: Final[frozenset[str]] = frozenset(
 # Like the registry they carry no `tenantId`; only a platform statement may name them. A global
 # statement may not (it is not on GLOBAL_STATEMENT_LABELS), so a global read cannot reach them.
 PLATFORM_RECORD_LABELS: Final[frozenset[str]] = frozenset(
-    {"PlatformAuditHead", "PlatformAuditEntry", "SupportAccessTicket"}
+    # The postcode download queue (DEC-1329) is the platform's own work, not shared reference data,
+    # so no global statement may read it.
+    {
+        "PlatformAuditHead",
+        "PlatformAuditEntry",
+        "SupportAccessTicket",
+        "PostcodeDownloadRequest",
+    }
 )
 
 _IDENT = r"(?:[A-Za-z_]\w*|`[^`]*`)"

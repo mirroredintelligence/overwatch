@@ -63,4 +63,14 @@ PLATFORM_MIGRATIONS: Final[tuple[Migration, ...]] = (
             "FOR (n:PostcodePoint) ON (n.district)",
         ),
     ),
+    Migration(
+        "0193_postcode_download_requests",
+        statements=(
+            # The shared download queue (DEC-1329): one request per prefix, read by status and age.
+            "CREATE CONSTRAINT postcode_download_request_id IF NOT EXISTS "
+            "FOR (n:PostcodeDownloadRequest) REQUIRE n.id IS UNIQUE",
+            "CREATE INDEX postcode_download_request_status IF NOT EXISTS "
+            "FOR (n:PostcodeDownloadRequest) ON (n.status, n.requestedAt)",
+        ),
+    ),
 )

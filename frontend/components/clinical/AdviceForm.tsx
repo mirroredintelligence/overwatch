@@ -1,19 +1,29 @@
 'use client';
 
-import { useId, useState, type FormEvent } from 'react';
-import { Button } from '@/components/ui/Button';
-import { OptionButton } from '@/components/ui/OptionButton';
+import { useId, useState, type FormEvent, type ReactNode } from 'react';
 import { ADVICE_CHOICES, adviceText, ADVICE_REASONS, NOTE_LIMIT, REASON_LABELS, validateAdvice } from '@/lib/clinical/advice';
 import { bffRequest } from '@/lib/bff/browser';
-import styles from '@/components/exec/Exec.module.css';
+import styles from './CaseView.module.css';
 
 // What the advisor advises (W44, ClinicalAdvisor screen 6). The choice is required; the reason and the
-// note are optional. The note is checked here and again by the back end: it names no patient.
+// note are optional and sit behind "Why? (optional)". The note is checked here and again by the back
+// end: it names no patient. `onSent` is given the advice as a sentence, for the confirmation. `after` is
+// shown under the send button inside the same card (the call to the advisor).
 
 export const SEND_FAILED = 'Could not send advice. Try again.';
 export const NO_LONGER_YOURS = 'This request is no longer yours. It may have returned to the queue.';
 
-export function AdviceForm({ requestId, serviceName = null, onSent }: { requestId: string; serviceName?: string | null; onSent: () => void }) {
+export function AdviceForm({
+  requestId,
+  serviceName = null,
+  onSent,
+  after = null,
+}: {
+  requestId: string;
+  serviceName?: string | null;
+  onSent: (advice: string) => void;
+  after?: ReactNode;
+}) {
   const [advice, setAdvice] = useState<string | null>(null);
   const [reason, setReason] = useState<string | null>(null);
   const [note, setNote] = useState('');
@@ -41,53 +51,70 @@ export function AdviceForm({ requestId, serviceName = null, onSent }: { requestI
       setFailed(result.status === 409 || result.status === 404 ? NO_LONGER_YOURS : SEND_FAILED);
       return;
     }
-    onSent();
+    onSent(adviceText(checked.value.advice, serviceName));
   };
 
   return (
-    <form className={styles.stack} onSubmit={submit} noValidate>
-      <fieldset className={styles.plain}>
+    <form className={styles.form} onSubmit={submit} noValidate>
+      <fieldset className={styles.fieldset}>
         <legend className={styles.legend}>What do you advise?</legend>
-        <div className={styles.group}>
+        <div className={styles.options}>
           {ADVICE_CHOICES.map((choice) => (
-            <OptionButton key={choice} selected={advice === choice} onSelect={() => setAdvice(choice)} dataEl={`CLIN-ADVICE-${choice.toUpperCase()}`}>
+            <button
+              key={choice}
+              type="button"
+              className={styles.opt}
+              aria-pressed={advice === choice}
+              onClick={() => setAdvice(choice)}
+              data-el={`CLIN-ADVICE-${choice.toUpperCase()}`}
+            >
+              <span className={styles.radio} aria-hidden="true" />
               {adviceText(choice, serviceName)}
-            </OptionButton>
+            </button>
           ))}
         </div>
       </fieldset>
-      <fieldset className={styles.plain}>
-        <legend className={styles.legend}>Why? (optional)</legend>
-        <div className={styles.group}>
+      <details className={styles.more}>
+        <summary>Why? (optional)</summary>
+        <div className={styles.reasons} role="group" aria-label="Why?">
           {ADVICE_REASONS.map((choice) => (
-            <OptionButton key={choice} selected={reason === choice} onSelect={() => setReason(reason === choice ? null : choice)}>
+            <button
+              key={choice}
+              type="button"
+              className={`${styles.opt} ${styles.reasonOpt}`}
+              aria-pressed={reason === choice}
+              onClick={() => setReason(reason === choice ? null : choice)}
+            >
               {REASON_LABELS[choice]}
-            </OptionButton>
+            </button>
           ))}
         </div>
-      </fieldset>
-      <div className={styles.field}>
-        <label htmlFor={noteId} className={styles.legend}>Note (optional)</label>
-        <textarea
-          id={noteId}
-          className={styles.input}
-          value={note}
-          onChange={(event) => setNote(event.target.value)}
-          rows={3}
-          aria-describedby={`${noteId}-hint`}
-        />
-        <p id={`${noteId}-hint`} className={styles.footer}>
-          {`Add a short note only if needed. No patient names. ${note.length} of ${NOTE_LIMIT}`}
-        </p>
-      </div>
+        <div className={styles.noteField}>
+          <label htmlFor={noteId} className={styles.noteLabel}>Note (optional)</label>
+          <textarea
+            id={noteId}
+            className={styles.note}
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            rows={3}
+            aria-describedby={`${noteId}-hint`}
+          />
+          <p id={`${noteId}-hint`} className={styles.hint}>
+            {`Add a short note only if needed. No patient names. ${note.length} of ${NOTE_LIMIT}`}
+          </p>
+        </div>
+      </details>
       {errors.length > 0 ? (
-        <div role="alert" className={styles.error}>
+        <div role="alert" className={styles.errors}>
           {errors.map((message) => <p key={message}>{message}</p>)}
         </div>
       ) : null}
-      {failed ? <p role="alert" className={styles.error}>{failed}</p> : null}
-      <div className={styles.actions}>
-        <Button variant="primary" type="submit" busy={busy} dataEl="CLIN-ADVICE-SEND-BTN">Send advice</Button>
+      {failed ? <p role="alert" className={styles.errors}>{failed}</p> : null}
+      <div className={styles.buttons}>
+        <button type="submit" className={styles.send} disabled={busy} aria-busy={busy ? 'true' : undefined} data-el="CLIN-ADVICE-SEND-BTN">
+          Send advice
+        </button>
+        {after}
       </div>
     </form>
   );

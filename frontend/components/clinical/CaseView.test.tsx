@@ -23,21 +23,60 @@ describe('CaseView with the case read', () => {
     resetClinicalBff();
     render(<CaseView requestId="req-5001" request={held} seen={seen} />);
     expect(screen.getByRole('heading', { name: 'Case 5001' })).toBeInTheDocument();
-    expect(screen.getByText('80+ · Frailty, Fall · NEWS2 3 · Within 2 hrs')).toBeInTheDocument();
+    expect(screen.getByText('Asked at 14:11 by the advisor')).toBeInTheDocument();
+    const chips = within(screen.getByRole('list', { name: 'The case' })).getAllByRole('listitem').map((chip) => chip.textContent);
+    expect(chips).toEqual(['80+', 'Frailty', 'Fall', 'Within 2 hrs']);
+    expect(screen.getByText('NEWS2 3')).toBeInTheDocument();
+    expect(screen.getByText('No postcode and no name are shown to a clinician.')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Why the advisor asked' })).toBeInTheDocument();
     expect(within(screen.getByRole('region', { name: 'Why the advisor asked' })).getByText('Other')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Your advice' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Send advice' })).toBeInTheDocument();
   });
 
-  it('says in a live region when the request returns to the queue, in whole minutes', () => {
+  it('says in a live region that the clinician holds the request and when it returns to the queue, in whole minutes', () => {
     vi.useFakeTimers({ now: new Date('2026-10-23T13:20:00Z'), shouldAdvanceTime: false });
     render(<CaseView requestId="req-5001" request={held} seen={seen} />);
     const live = screen.getByRole('status');
-    expect(live).toHaveTextContent('Returns to the queue in 9 min');
+    expect(live).toHaveTextContent('You hold this request · Returns to the queue in 9 min');
     act(() => {
       vi.advanceTimersByTime(60_000);
     });
     expect(live).toHaveTextContent('Returns to the queue in 8 min');
+  });
+
+  it('shows no hold timer when the read carries no expiry', () => {
+    render(<CaseView requestId="req-5001" request={{ ...held, returnsAt: null }} seen={seen} />);
+    expect(screen.queryByText(/Returns to the queue/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('keeps the queue beside the case, small: this request as taken by you, then the waiting ones', () => {
+    render(<CaseView requestId="req-5001" request={held} seen={seen} queue={QUEUE_ITEMS as ClinicalRequest[]} />);
+    const queue = screen.getByRole('complementary', { name: 'Queue' });
+    expect(within(queue).getByText('Taken by you')).toBeInTheDocument();
+    expect(within(queue).getByText('Now')).toBeInTheDocument();
+    expect(within(queue).getByText('Within 15 min')).toBeInTheDocument();
+    expect(within(queue).getAllByText('80+ · Frailty, Fall · NEWS2 2 · Within 2 hrs')).toHaveLength(1);
+    expect(within(queue).getByText('The queue stays here, small, so you never lose it.')).toBeInTheDocument();
+  });
+
+  it('shows the queue column with only the held request when no queue was read', () => {
+    render(<CaseView requestId="req-5001" request={held} seen={seen} />);
+    const queue = screen.getByRole('complementary', { name: 'Queue' });
+    expect(within(queue).getByText('Taken by you')).toBeInTheDocument();
+    expect(within(queue).getByText('80+ · Frailty, Fall · NEWS2 3 · Within 2 hrs')).toBeInTheDocument();
+  });
+
+  it('keeps the reasons and the note behind "Why? (optional)", closed until it is opened', async () => {
+    render(<CaseView requestId="req-5001" request={held} seen={seen} />);
+    const why = screen.getByText('Why? (optional)').closest('details');
+    expect(why).not.toBeNull();
+    expect(why).not.toHaveAttribute('open');
+    await userEvent.click(screen.getByText('Why? (optional)'));
+    expect(why).toHaveAttribute('open');
+    expect(screen.getByRole('button', { name: 'Safer alternative' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Note (optional)')).toBeInTheDocument();
   });
 
   it('asks for an advice choice before sending, and sends nothing', async () => {
@@ -54,6 +93,7 @@ describe('CaseView with the case read', () => {
     server.use(...clinicalBffHandlers);
     render(<CaseView requestId="req-5001" request={held} seen={seen} />);
     await userEvent.click(screen.getByRole('button', { name: 'Go ahead with the service' }));
+    await userEvent.click(screen.getByText('Why? (optional)'));
     fireEvent.change(screen.getByLabelText('Note (optional)'), { target: { value: 'x'.repeat(281) } });
     await userEvent.click(screen.getByRole('button', { name: 'Send advice' }));
     expect(screen.getByText('Keep the note to 280 characters')).toBeInTheDocument();
@@ -65,14 +105,32 @@ describe('CaseView with the case read', () => {
     server.use(...clinicalBffHandlers);
     render(<CaseView requestId="req-5001" request={held} seen={seen} />);
     await userEvent.click(screen.getByRole('button', { name: 'Go ahead with the service' }));
+    await userEvent.click(screen.getByText('Why? (optional)'));
     await userEvent.click(screen.getByRole('button', { name: 'Within criteria on my judgement' }));
     await userEvent.click(screen.getByRole('button', { name: 'Send advice' }));
     await waitFor(() => expect(advised()).toHaveLength(1));
     expect(advised()[0]?.path).toBe('/api/bff/clinical/requests/req-5001/advice');
     expect(advised()[0]?.body).toEqual(expect.objectContaining({ advice: 'go-ahead', reason: 'within-criteria-on-judgement' }));
     expect(await screen.findByRole('heading', { name: 'Advice sent' })).toBeInTheDocument();
+    expect(screen.getByText('The advisor has it now.')).toBeInTheDocument();
+    expect(screen.getByText('Your advice')).toBeInTheDocument();
+    expect(screen.getByText('Go ahead with the service')).toBeInTheDocument();
+    expect(screen.getByText('Your role, the time, your advice and what you saw')).toBeInTheDocument();
+    expect(screen.getByText('Clinical overrides are reviewed with the service leads. They are not used to assess advisors.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Next request' })).toHaveAttribute('href', '/clinical/requests');
     expect(screen.getByRole('button', { name: 'Go off duty' })).toBeInTheDocument();
+  });
+
+  it('after sending, shows one confirmation card and no longer the case, the queue or the form', async () => {
+    resetClinicalBff();
+    server.use(...clinicalBffHandlers);
+    render(<CaseView requestId="req-5001" request={held} seen={seen} queue={QUEUE_ITEMS as ClinicalRequest[]} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Go ahead with the service' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Send advice' }));
+    await screen.findByRole('heading', { name: 'Advice sent' });
+    expect(screen.queryByRole('complementary', { name: 'Queue' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Case 5001' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Send advice' })).not.toBeInTheDocument();
   });
 
   it('says the request is no longer theirs when the back end refuses the advice as taken or returned', async () => {
@@ -160,7 +218,7 @@ describe('CaseView: what the advisor saw', () => {
     expect(screen.queryByText(/accepting|over capacity/i)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Call the advisor' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Send advice' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'Give advice' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Your advice' })).not.toBeInTheDocument();
     // The case is still on screen, and the way back to the queue.
     expect(screen.getByRole('heading', { name: 'Case 5001' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Back to the queue' })).toBeInTheDocument();

@@ -3,24 +3,38 @@ import { ShapeIcon, STATUS_SHAPES } from '@/components/ui/StatusBadge';
 import type { OptionView } from '@/lib/advisor/options';
 import { layoutOf, PICTURE, percentOf, radiusPx } from '@/lib/map/layout';
 import { KM_PER_DEGREE, type LatLon } from '@/lib/map/project';
-import { inLayer, type Layer, overlappingPairs } from '@/lib/radar/radar';
+import { overlappingPairs } from '@/lib/radar/radar';
 import mapStyles from '../advisor/map.module.css';
 import styles from './radar.module.css';
 import { StyledSpan } from '@/components/ui/Styled';
 
 // The radar's picture (RadarWeb 1, 3 to 5): the patient's area at the postcode centre, each visiting service
-// as a dashed area, the overlap of two areas hatched, and each place to go as a labelled icon. Like the map
+// as an area, the overlap of two areas hatched, and each place to go as a labelled icon. Like the map
 // (W50) it is a schematic, not a tile map: no tile provider is chosen and no third-party script is loaded.
-// The picture is for the eye only: the list below it says the same in words, so nothing depends on seeing it.
+// The picture is for the eye only: the key beside it and the list say the same in words, so nothing depends
+// on seeing it. Areas differ by line as well as by colour: the first is solid, the others are dashed.
 
-const PATIENT_RADIUS = 9;
-const CAPTION = 'Schematic, not to scale. Patient shown at postcode centre. Dashed areas are where a visiting service can attend.';
+const PATIENT_RADIUS = 13;
+const CAPTION = 'Schematic, not to scale. Patient shown at postcode centre. Each outlined area is where a visiting service can attend.';
+const OFF_NOTE = 'Drive-time rings and traffic are off because there is no data behind them yet. They are not drawn from nothing.';
+
+/** How the nth visiting service's area is drawn, here and in the key beside the picture. */
+export type AreaStyle = { color: string; dash: string | undefined; fillOpacity: number };
+
+const AREA_STYLES: readonly AreaStyle[] = [
+  { color: 'var(--c-primary)', dash: undefined, fillOpacity: 0.16 },
+  { color: 'var(--c-limited)', dash: '10 6', fillOpacity: 0.14 },
+  { color: 'var(--c-surge)', dash: '3 5', fillOpacity: 0.12 },
+  { color: 'var(--c-closed)', dash: '14 4 3 4', fillOpacity: 0.12 },
+];
+
+export function areaStyleOf(index: number): AreaStyle {
+  return AREA_STYLES[index % AREA_STYLES.length];
+}
 
 export type RadarMapProps = {
   options: OptionView[];
   patientArea: LatLon | null;
-  /** The layers drawn. Every service stays in the list whether or not its layer is on. */
-  layers: ReadonlySet<Layer>;
   postcode: string;
 };
 
@@ -30,10 +44,9 @@ function kindText(option: OptionView): string {
   return 'No place on the map';
 }
 
-export function RadarMap({ options, patientArea, layers, postcode }: RadarMapProps) {
+export function RadarMap({ options, patientArea, postcode }: RadarMapProps) {
   const uid = useId().replace(/[^A-Za-z0-9_-]/g, '');
   const hatch = `hatch-${uid}`;
-  const shown = (option: OptionView) => [...layers].some((layer) => inLayer(option, layer));
 
   const visiting = options.filter((option) => option.coverage !== null);
   const fixed = options.filter((option) => option.position !== null);
@@ -62,7 +75,7 @@ export function RadarMap({ options, patientArea, layers, postcode }: RadarMapPro
     const index = fixed.includes(option) ? offset + fixed.indexOf(option) : offset + fixed.length + visiting.indexOf(option);
     return layout.points[index];
   };
-  const pairs = overlappingPairs(options).filter(([a, b]) => shown(a) && shown(b));
+  const pairs = overlappingPairs(options);
 
   return (
     <div className={styles.map}>
@@ -70,7 +83,7 @@ export function RadarMap({ options, patientArea, layers, postcode }: RadarMapPro
         <svg className={mapStyles.svg} viewBox={`0 0 ${PICTURE.width} ${PICTURE.height}`} aria-hidden="true" focusable="false">
           <defs>
             <pattern id={hatch} width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-              <line x1="0" y1="0" x2="0" y2="8" stroke="currentColor" strokeWidth="3" />
+              <line x1="0" y1="0" x2="0" y2="8" stroke="var(--c-ink)" strokeWidth="3" />
             </pattern>
             {pairs.map(([first]) => {
               const centre = centreOf(first);
@@ -82,20 +95,21 @@ export function RadarMap({ options, patientArea, layers, postcode }: RadarMapPro
               );
             })}
           </defs>
-          {visiting.filter(shown).map((option) => {
+          {visiting.map((option, index) => {
             const centre = centreOf(option);
             if (centre === undefined || option.coverage === null) return null;
+            const look = areaStyleOf(index);
             return (
               <circle
                 key={option.serviceId}
                 cx={centre.x}
                 cy={centre.y}
                 r={radiusPx(option.coverage.radiusKm, layout.pxPerDegree)}
-                fill="currentColor"
-                fillOpacity={0.08}
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeDasharray="6 6"
+                fill={look.color}
+                fillOpacity={look.fillOpacity}
+                stroke={look.color}
+                strokeWidth={3}
+                strokeDasharray={look.dash}
                 data-el={`RADAR-AREA-${option.serviceId.toUpperCase()}`}
               />
             );
@@ -110,23 +124,23 @@ export function RadarMap({ options, patientArea, layers, postcode }: RadarMapPro
                 cy={centre.y}
                 r={radiusPx(second.coverage.radiusKm, layout.pxPerDegree)}
                 fill={`url(#${hatch})`}
-                fillOpacity={0.35}
+                fillOpacity={0.55}
                 clipPath={`url(#${hatch}-${first.serviceId})`}
                 data-el="RADAR-OVERLAP"
               />
             );
           })}
           {patientArea === null ? null : (
-            <circle cx={layout.points[0].x} cy={layout.points[0].y} r={PATIENT_RADIUS} fill="currentColor" />
+            <circle cx={layout.points[0].x} cy={layout.points[0].y} r={PATIENT_RADIUS} fill="var(--c-ink)" stroke="#fff" strokeWidth={4} />
           )}
         </svg>
 
         {patientArea === null ? null : (
-          <StyledSpan className={mapStyles.visiting} css={percentOf(layout.points[0])}>
-            Patient area
+          <StyledSpan className={styles.patientLabel} css={percentOf(layout.points[0])}>
+            {`Patient · ${postcode}`}
           </StyledSpan>
         )}
-        {fixed.filter(shown).map((option) => {
+        {fixed.map((option) => {
           const centre = centreOf(option);
           return centre === undefined ? null : (
             <StyledSpan key={option.serviceId} className={styles.label} css={percentOf(centre)}>
@@ -135,7 +149,7 @@ export function RadarMap({ options, patientArea, layers, postcode }: RadarMapPro
             </StyledSpan>
           );
         })}
-        {visiting.filter(shown).map((option) => {
+        {visiting.map((option) => {
           const centre = centreOf(option);
           return centre === undefined ? null : (
             <StyledSpan key={option.serviceId} className={styles.label} css={percentOf(centre)}>
@@ -144,9 +158,12 @@ export function RadarMap({ options, patientArea, layers, postcode }: RadarMapPro
             </StyledSpan>
           );
         })}
+        <p className={styles.offNote} data-el="RADAR-OFF-NOTE">
+          {OFF_NOTE}
+        </p>
       </div>
       <p className={mapStyles.caption}>{CAPTION}</p>
-      <ul className={styles.keyList} aria-label={`Services near ${postcode}`}>
+      <ul className={styles.srOnly} aria-label={`Services near ${postcode}`}>
         {options.map((option) => (
           <li key={option.serviceId}>
             <strong>{option.name}</strong>

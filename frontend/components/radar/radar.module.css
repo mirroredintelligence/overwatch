@@ -1,5 +1,6 @@
-/* The radar screens (RadarWeb, RadarPhone). Tokens from app/tokens.css; the picture itself shares the map's
-   classes (advisor/map.module.css). Phone first: one column, nothing wider than the screen. */
+/* The radar screens (Radar, Compare, Ways, PWays boards). Tokens from app/tokens.css; the picture itself shares the
+   map's classes (advisor/map.module.css). Phone first: one column, nothing wider than the screen. Cards are white
+   on the page ground, with the card radius and shadow. */
 
 .screen {
   display: grid;
@@ -8,94 +9,158 @@
   min-width: 0;
 }
 
-.heading {
-  margin: 0;
-  font-size: var(--type-heading-size);
-  font-weight: var(--type-heading-weight);
-  line-height: var(--type-heading-lh);
-  color: var(--c-ink);
-}
-
-.sub,
 .note {
   margin: 0;
-  font-size: var(--type-body-size);
-  line-height: var(--type-body-lh);
-  color: var(--c-ink-2);
-}
-
-.note {
   font-size: var(--type-caption-size);
+  line-height: var(--type-body-lh);
   color: var(--c-muted);
 }
 
 .summary {
   margin: 0;
-  font-size: var(--type-title-size);
-  font-weight: var(--type-title-weight);
-  line-height: var(--type-title-lh);
-  color: var(--c-ink);
-}
-
-.actions,
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.tab {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--chip-h);
-  padding: 0 var(--space-3);
+  font-size: var(--type-body-size);
   font-weight: var(--type-label-weight);
+  line-height: var(--type-body-lh);
   color: var(--c-ink);
-  text-decoration: none;
-  background: var(--c-bg);
-  border: 2px solid var(--c-ink);
-  border-radius: var(--radius-chip);
 }
 
-.tab[aria-current='page'] {
-  background: var(--c-tint);
-  border-color: var(--c-primary);
-  color: var(--c-primary-dark);
-}
-
-.tab:focus-visible {
-  outline: var(--focus);
-  outline-offset: 2px;
-}
-
-.layers {
+.actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  border: 0;
+}
+
+.toggleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
   min-width: 0;
 }
 
-.legend {
-  width: 100%;
-  padding: 0;
-  margin-bottom: var(--space-2);
-  font-weight: var(--type-label-weight);
-  color: var(--c-ink);
+.hint {
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
 }
 
-.map {
+.card {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-4);
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.kicker {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  font-weight: var(--type-label-weight);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+/* ---- Radar ---- */
+
+.radar {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.mapCard {
   display: grid;
   gap: var(--space-2);
   min-width: 0;
+}
+
+.side {
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+  min-width: 0;
+}
+
+.key,
+.coverList {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.keyRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--type-body-size);
+  color: var(--c-ink);
+}
+
+.keyOff {
+  color: var(--c-muted);
+}
+
+.swatch,
+.swatchSvg {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  box-sizing: border-box;
+}
+
+.swatch {
+  border-radius: 6px;
+}
+
+.swatchHatch {
+  background: repeating-linear-gradient(45deg, var(--c-ink) 0 3px, #fff 3px 8px);
+}
+
+.swatchPlace {
+  background: #fff;
+  border: 3px solid var(--c-primary);
+}
+
+.swatchOff {
+  border: 2px dashed var(--c-unknown);
+}
+
+.coverRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+  font-size: var(--type-body-size);
+  color: var(--c-ink);
+}
+
+.coverStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.coverStatus svg {
+  flex: none;
+  width: 1.1em;
+  height: 1.1em;
+}
+
+.patientLabel {
+  position: absolute;
+  margin: 10px 0 0 14px;
+  padding: 4px 10px;
+  font-size: var(--type-caption-size);
+  font-weight: var(--type-label-weight);
+  color: var(--c-ink);
+  background: #fff;
+  border: 2px solid var(--c-ink);
+  border-radius: 10px;
+  white-space: nowrap;
 }
 
 .label {
@@ -109,9 +174,9 @@
   font-size: var(--type-caption-size);
   font-weight: var(--type-label-weight);
   color: var(--c-ink);
-  background: var(--c-bg);
-  border: 2px solid var(--c-ink-2);
-  border-radius: var(--radius-chip);
+  background: #fff;
+  border: 2px solid var(--c-primary);
+  border-radius: 10px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -123,55 +188,50 @@
   height: 1.1em;
 }
 
-.keyList {
+.offNote {
+  position: absolute;
+  left: var(--space-3);
+  right: var(--space-3);
+  bottom: var(--space-2);
   margin: 0;
-  padding-left: var(--space-5);
-  font-size: var(--type-caption-size);
-  color: var(--c-ink-2);
-}
-
-.lane {
-  display: grid;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border: 2px solid var(--c-line);
-  border-radius: var(--radius);
-}
-
-.laneTitle {
-  margin: 0;
-  font-size: var(--type-title-size);
-  font-weight: var(--type-title-weight);
-  color: var(--c-ink);
-}
-
-.ways {
-  display: grid;
-  gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.way {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--c-line);
-  border-radius: var(--radius);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-body-lh);
+  color: var(--c-ink-2);
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
 }
 
-.wayText {
+.map {
   display: grid;
+  gap: var(--space-2);
   min-width: 0;
 }
 
-.wayDetail {
-  font-size: var(--type-caption-size);
-  color: var(--c-muted);
+/* ---- Compare ---- */
+
+.compareLayout {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.patient,
+.stage {
+  min-width: 0;
+}
+
+.stage {
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+}
+
+.tableCard {
+  overflow: hidden;
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
 }
 
 .compare {
@@ -183,15 +243,57 @@
 
 .compare th,
 .compare td {
-  padding: var(--space-2);
-  border-bottom: 1px solid var(--c-line);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--c-line);
   text-align: left;
   vertical-align: top;
   overflow-wrap: anywhere;
 }
 
 .compare thead th {
+  border-top: 0;
+  font-weight: var(--type-label-weight);
+}
+
+.compare tbody th {
+  width: 12.5rem;
   font-size: var(--type-caption-size);
+  font-weight: var(--type-label-weight);
+  color: var(--c-muted);
+}
+
+.colName {
+  font-size: var(--type-title-size);
+  font-weight: var(--type-title-weight);
+}
+
+.na {
+  display: inline-block;
+  padding: 2px var(--space-2);
+  color: var(--c-muted);
+  border: 1px dashed var(--c-unknown);
+  border-radius: 8px;
+}
+
+.old {
+  color: var(--c-limited);
+  font-weight: var(--type-label-weight);
+}
+
+/* The same outlined request in every column: no column looks recommended. */
+.requestCell button[data-el='ADV-OPT-REQUEST-BTN'] {
+  min-height: 48px;
+  color: var(--c-primary);
+  background: #fff;
+  border: 2px solid var(--c-primary);
+  border-radius: 14px;
+}
+
+.shadow {
+  margin: 0;
+  max-width: 56rem;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-body-lh);
   color: var(--c-ink-2);
 }
 
@@ -200,6 +302,168 @@
   padding-left: var(--space-5);
   font-size: var(--type-body-size);
   color: var(--c-ink-2);
+}
+
+/* ---- Ways ---- */
+
+.travel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.travelLabel {
+  font-weight: var(--type-label-weight);
+  color: var(--c-ink);
+}
+
+.travelChoices {
+  display: inline-flex;
+  gap: var(--space-2);
+}
+
+.choice {
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  font: inherit;
+  font-weight: var(--type-label-weight);
+  color: var(--c-ink);
+  background: #fff;
+  border: 2px solid var(--c-line);
+  border-radius: 12px;
+}
+
+.choice[aria-pressed='true'] {
+  background: var(--c-tint);
+  border-color: var(--c-primary);
+  color: var(--c-primary-dark);
+}
+
+.choice:focus-visible,
+.open:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.lanes {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.lane {
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+  min-width: 0;
+}
+
+.laneHead {
+  padding: 0 var(--space-1);
+}
+
+.laneTitle {
+  margin: 0;
+  font-size: var(--type-title-size);
+  font-weight: var(--type-title-weight);
+  color: var(--c-ink);
+}
+
+.laneHint {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
+}
+
+.ways {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.way {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  box-sizing: border-box;
+  padding: var(--space-4);
+  background: #fff;
+  border: 2px solid transparent;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.wayOver {
+  border-color: var(--c-surge);
+}
+
+.wayName {
+  font-size: var(--type-title-size);
+  font-weight: var(--type-title-weight);
+  color: var(--c-ink);
+}
+
+.wayDetail {
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
+}
+
+.wayStatus {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--type-caption-size);
+  font-weight: var(--type-label-weight);
+  color: var(--c-ink);
+}
+
+.wayPhone {
+  font-size: var(--type-caption-size);
+  color: var(--c-surge);
+}
+
+.open {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  font-weight: var(--type-label-weight);
+  color: var(--c-primary);
+  text-decoration: none;
+  background: #fff;
+  border: 2px solid var(--c-primary);
+  border-radius: 14px;
+}
+
+/* The compact patient card is on a phone only (PWays); a wide screen has it in the stage layout. */
+@media (min-width: 48rem) {
+  .phoneOnly {
+    display: none;
+  }
+}
+
+@media (min-width: 64rem) {
+  .radar {
+    grid-template-columns: minmax(0, 1fr) 360px;
+  }
+
+  .compareLayout {
+    grid-template-columns: 300px minmax(0, 1fr);
+  }
+
+  .patient {
+    align-self: start;
+  }
+
+  .lanes {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .srOnly {
@@ -229,16 +493,18 @@
 
   .compare tr {
     padding: var(--space-2) 0;
-    border-bottom: 1px solid var(--c-line);
+    border-top: 1px solid var(--c-line);
   }
 
   .compare th,
   .compare td {
-    border-bottom: 0;
-    padding: var(--space-1) 0;
+    width: auto;
+    border-top: 0;
+    padding: var(--space-1) var(--space-4);
   }
 
   .compare tbody th {
+    width: auto;
     font-size: var(--type-label-size);
   }
 

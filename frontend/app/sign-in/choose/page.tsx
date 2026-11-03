@@ -22,13 +22,10 @@ export default async function ChoosePage() {
         <ul className={styles.list}>
           {tenants.map((tenant) => (
             <li key={tenant.id}>
-              <form method="post" action="/api/bff/auth/entra/start">
-                <input type="hidden" name="tenant" value={tenant.id} />
-                <button type="submit" className={styles.choice}>
-                  <span className={styles.name}>{tenant.name}</span>
-                  <span className={styles.roles}>{tenant.roles.map((role) => staffRoleWord(role)).join(', ')}</span>
-                </button>
-              </form>
+              <a href={`/api/bff/auth/entra/start?tenant=${encodeURIComponent(tenant.id)}`} className={styles.choice}>
+                <span className={styles.name}>{tenant.name}</span>
+                <span className={styles.roles}>{tenant.roles.map((role) => staffRoleWord(role)).join(', ')}</span>
+              </a>
             </li>
           ))}
         </ul>

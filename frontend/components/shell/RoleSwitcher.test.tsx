@@ -11,33 +11,30 @@ function chip(props: Partial<Parameters<typeof RoleSwitcher>[0]> = {}) {
   return render(<RoleSwitcher current="lead" roles={['lead', 'advisor', 'audit']} {...props} />);
 }
 
-const menu = () => screen.getByRole('form', { name: 'Sign in as another role', hidden: true });
+const menu = () => screen.getByRole('group', { name: 'Sign in as another role', hidden: true });
 
 describe('RoleSwitcher', () => {
   it('shows the current role on the chip and every role in the menu, the current one marked', () => {
     chip();
     expect(screen.getByText('Shift lead', { selector: 'summary span' })).toBeInTheDocument();
-    const buttons = within(menu()).getAllByRole('button', { hidden: true });
+    const buttons = within(menu()).getAllByRole('link', { hidden: true });
     expect(buttons.map((b) => b.textContent)).toEqual(['Shift lead', 'Advisor', 'Audit']);
     expect(buttons.map((b) => b.getAttribute('aria-current'))).toEqual(['true', null, null]);
   });
 
-  it('posts the start of a sign-in, with the role chosen as the value of the button pressed', () => {
+  it('links to the start of a sign-in for the role chosen (a link, so the form-action policy does not limit it)', () => {
     chip();
-    expect(menu()).toHaveAttribute('method', 'post');
-    expect(menu()).toHaveAttribute('action', '/api/bff/auth/entra/start');
-    const advisor = within(menu()).getByRole('button', { name: 'Advisor', hidden: true });
-    expect(advisor).toHaveAttribute('name', 'role');
-    expect(advisor).toHaveAttribute('value', 'advisor');
-    expect(advisor).toHaveAttribute('type', 'submit');
+    const advisor = within(menu()).getByRole('link', { name: 'Advisor', hidden: true });
+    expect(advisor).toHaveAttribute('href', '/api/bff/auth/entra/start?role=advisor');
     // No `next`: the person lands on the home of the role chosen.
-    expect(menu().querySelector('input[name="next"]')).toBeNull();
+    expect(advisor.getAttribute('href')).not.toContain('next=');
+    expect(menu().querySelector('form')).toBeNull();
   });
 
   it('uses the words the page gives for a role, and the default words for the rest', () => {
     chip({ words: { lead: 'Shift lead (desk)' } });
     expect(screen.getByText('Shift lead (desk)', { selector: 'summary span' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Advisor', hidden: true })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Advisor', hidden: true })).toBeInTheDocument();
   });
 
   it('opens from the chip and closes on Escape, returning to the chip', async () => {

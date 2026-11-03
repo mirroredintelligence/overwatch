@@ -5,7 +5,8 @@ import { staffRoleWord } from '@/lib/shell/roleWords';
 import styles from './RoleSwitcher.module.css';
 
 // The role chip (DEC-1324): a person whose groups give more than one staff role can sign in again as
-// another of them. Each choice posts the start of a sign-in with that role; the back end gives the
+// another of them. Each choice is a link to the start of a sign-in with that role (a link, not a form, so
+// the page's form-action policy does not limit it); the back end gives the
 // role only if the person's groups give it, so the list here is a convenience and never the check.
 // A native disclosure opens the menu (Enter or Space on the chip); Escape, a click elsewhere or choosing a
 // role closes it. The animation is CSS (none for reduced motion).
@@ -56,21 +57,19 @@ export function RoleSwitcher({
           ▾
         </span>
       </summary>
-      <form className={`${styles.menu} ${align === 'start' ? styles.menuStart : ''}`} method="post" action="/api/bff/auth/entra/start" aria-label="Sign in as another role">
+      <div className={`${styles.menu} ${align === 'start' ? styles.menuStart : ''}`} role="group" aria-label="Sign in as another role">
         <p className={styles.hint}>Sign in again as:</p>
         {roles.map((role) => (
-          <button
+          <a
             key={role}
-            type="submit"
-            name="role"
-            value={role}
+            href={`/api/bff/auth/entra/start?role=${encodeURIComponent(role)}`}
             className={role === current ? styles.itemCurrent : styles.item}
             aria-current={role === current ? 'true' : undefined}
           >
             {word(role)}
-          </button>
+          </a>
         ))}
-      </form>
+      </div>
     </details>
   );
 }

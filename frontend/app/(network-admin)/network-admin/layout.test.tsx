@@ -28,8 +28,8 @@ describe('the network administration layout and the role chip', () => {
     state.session = { role: 'network-admin', roles: ['network-admin', 'lead'] };
     await layout();
     expect(screen.getByText('Network administrator', { selector: 'summary span' })).toBeInTheDocument();
-    const menu = screen.getByRole('form', { name: 'Sign in as another role', hidden: true });
-    expect(within(menu).getAllByRole('button', { hidden: true }).map((b) => b.getAttribute('value'))).toEqual(['network-admin', 'lead']);
+    const menu = screen.getByRole('group', { name: 'Sign in as another role', hidden: true });
+    expect(within(menu).getAllByRole('link', { hidden: true }).map((b) => new URL(b.getAttribute('href')!, 'https://x.test').searchParams.get('role'))).toEqual(['network-admin', 'lead']);
   });
 
   it('says the plain words for one role, for a session made before the chip, and with no session', async () => {

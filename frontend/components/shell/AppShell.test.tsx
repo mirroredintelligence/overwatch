@@ -86,8 +86,8 @@ describe('AppShell', () => {
     page('clinical', { roles: ['lead', 'clinical', 'audit'] });
     const top = screen.getByRole('banner');
     expect(within(top).getByText('Clinical advisor', { selector: 'summary span' })).toBeInTheDocument();
-    const menu = within(top).getByRole('form', { name: 'Sign in as another role', hidden: true });
-    expect(within(menu).getAllByRole('button', { hidden: true }).map((b) => b.textContent)).toEqual(['Shift lead', 'Clinical advisor', 'Audit']);
+    const menu = within(top).getByRole('group', { name: 'Sign in as another role', hidden: true });
+    expect(within(menu).getAllByRole('link', { hidden: true }).map((b) => b.textContent)).toEqual(['Shift lead', 'Clinical advisor', 'Audit']);
     // The navigation, Help and Sign out are still there.
     expect(screen.getByRole('navigation', { name: 'Main' })).toBeInTheDocument();
     expect(within(top).getByRole('button', { name: 'Sign out' })).toBeInTheDocument();

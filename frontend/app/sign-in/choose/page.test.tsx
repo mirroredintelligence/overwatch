@@ -44,16 +44,14 @@ describe('the tenant picker', () => {
     render(await ChoosePage());
 
     expect(screen.getByRole('heading', { level: 1, name: 'Choose an organisation' })).toBeInTheDocument();
-    const choices = screen.getAllByRole('button');
+    const choices = screen.getAllByRole('link');
     expect(choices).toHaveLength(2);
     expect(choices[0]).toHaveTextContent('Fortrus Limited');
     expect(choices[0]).toHaveTextContent(`${staffRoleWord('lead')}, ${staffRoleWord('advisor')}`);
     expect(choices[1]).toHaveTextContent('Trust B');
 
-    const forms = document.querySelectorAll('form[action="/api/bff/auth/entra/start"][method="post"]');
-    expect(forms).toHaveLength(2);
-    expect(forms[0]?.querySelector('input[name="tenant"]')).toHaveAttribute('value', 'fortrus-limited');
-    expect(forms[1]?.querySelector('input[name="tenant"]')).toHaveAttribute('value', 'trust-b');
+    expect(choices[0]).toHaveAttribute('href', '/api/bff/auth/entra/start?tenant=fortrus-limited');
+    expect(choices[1]).toHaveAttribute('href', '/api/bff/auth/entra/start?tenant=trust-b');
   });
 
   it('sends a visitor whose choice is not ours (a forged or damaged cookie) back to sign-in', async () => {

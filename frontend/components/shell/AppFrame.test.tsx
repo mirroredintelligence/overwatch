@@ -172,8 +172,8 @@ describe('AppFrame role chip', () => {
   it('is the role switcher with two or more roles, in the words given', () => {
     frame({ role: 'clinical', roles: ['lead', 'clinical'], roleWords: { lead: 'Shift lead', clinical: 'Clinical advisor' } });
     expect(screen.getByText('Clinical advisor', { selector: 'summary span' })).toBeInTheDocument();
-    const menu = screen.getByRole('form', { name: 'Sign in as another role', hidden: true });
-    expect(within(menu).getAllByRole('button', { hidden: true }).map((b) => b.textContent)).toEqual(['Shift lead', 'Clinical advisor']);
+    const menu = screen.getByRole('group', { name: 'Sign in as another role', hidden: true });
+    expect(within(menu).getAllByRole('link', { hidden: true }).map((b) => b.textContent)).toEqual(['Shift lead', 'Clinical advisor']);
   });
 
   it('shows a given word for an operator role as a plain label', () => {

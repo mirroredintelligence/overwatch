@@ -153,20 +153,33 @@ function note(reason: string): void {
  * The start form's `next`, `role` (DEC-1324) and `tenant` (DEC-1327, the picker's choice). A role that is not
  * a staff role is ignored, as no role is; a tenant that is not a tenant id is ignored, as none was chosen.
  */
-export async function startForm(request: Request): Promise<{ next: string; role: string; tenant: string }> {
+export type StartFields = { next: string; role: string; tenant: string };
+
+/** The start's fields, checked. Anything that is not valid is ignored, as if none had been asked. */
+export function startFields(next: unknown, role: unknown, tenant: unknown): StartFields {
+  return {
+    next: typeof next === 'string' && isSamePathOnly(next) ? next : '',
+    role: typeof role === 'string' && isStaffRoleWord(role) ? role : '',
+    tenant: typeof tenant === 'string' && TENANT_ID.test(tenant) ? tenant : '',
+  };
+}
+
+export async function startForm(request: Request): Promise<StartFields> {
   try {
     const form = await request.formData();
-    const next = form.get('next');
-    const role = form.get('role');
-    const tenant = form.get('tenant');
-    return {
-      next: typeof next === 'string' && isSamePathOnly(next) ? next : '',
-      role: typeof role === 'string' && isStaffRoleWord(role) ? role : '',
-      tenant: typeof tenant === 'string' && TENANT_ID.test(tenant) ? tenant : '',
-    };
+    return startFields(form.get('next'), form.get('role'), form.get('tenant'));
   } catch {
-    return { next: '', role: '', tenant: '' };
+    return startFields(null, null, null);
   }
+}
+
+/**
+ * The same fields from the address of a link (the role switch and the tenant picker, DEC-1324, DEC-1327).
+ * A link is a navigation, which a page's form-action does not limit, so the page needs no provider origin.
+ */
+export function linkFields(request: Request): StartFields {
+  const query = new URL(request.url).searchParams;
+  return startFields(query.get('next'), query.get('role'), query.get('tenant'));
 }
 
 const TENANT_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
@@ -181,9 +194,17 @@ function isStaffRoleWord(value: string): value is Role {
 
 /** POST: the browser is sent to Entra. Reads `next` from the form and nothing else from the request. */
 export async function startSignIn(request: Request): Promise<Response> {
+  return beginSignIn(await startForm(request));
+}
+
+/** GET: the role switch and the tenant picker are links to this (DEC-1324, DEC-1327). */
+export async function startSignInFromLink(request: Request): Promise<Response> {
+  return beginSignIn(linkFields(request));
+}
+
+async function beginSignIn({ next, role, tenant }: StartFields): Promise<Response> {
   try {
     const config = await loadEntraConfig();
-    const { next, role, tenant } = await startForm(request);
     const transaction = newTransaction(next, role, tenant);
     const sealed = await sealTransaction(transaction, new Date());
     const store = await cookies();

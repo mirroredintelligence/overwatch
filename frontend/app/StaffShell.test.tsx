@@ -46,7 +46,7 @@ describe('StaffShell', () => {
     await shell();
     const header = screen.getByRole('banner');
     expect(within(header).getByText('Clinical advisor', { selector: 'summary span' })).toBeInTheDocument();
-    expect(within(header).getByRole('button', { name: 'Shift lead', hidden: true })).toHaveAttribute('value', 'lead');
+    expect(within(header).getByRole('link', { name: 'Shift lead', hidden: true })).toHaveAttribute('href', '/api/bff/auth/entra/start?role=lead');
   });
 
   it('shows plain words for a session that lists one role or none (one made before DEC-1324)', async () => {

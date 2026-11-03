@@ -1,14 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Button } from '@/components/ui/Button';
+import { useEffect, useId, useState } from 'react';
 import { bffFetch, newIdempotencyKey } from '@/lib/advisor/browser';
 import type { CaseView } from '@/lib/advisor/codes';
 import styles from './NoServiceFits.module.css';
 
 // The state when no service fits (W16). It always offers a next step: the time can be widened (when
-// the case was within 2 hrs), a service can be phoned from the board, the outcome can be recorded
-// under local protocol, or a clinical advisor can be asked. A refusal never ends the call.
+// the case was within 2 hrs), a service can be phoned from the board, a clinical advisor can be asked,
+// or the outcome can be recorded under local protocol. A refusal never ends the call.
 
 const WIDEN_FAILED = 'The time could not be changed. Try again.';
 
@@ -68,32 +67,57 @@ export function NoServiceFits({ caseId, onWidened, onAskClinical }: NoServiceFit
     setFailed(true);
   }
 
+  // The first step offered is the one the board marks as the way on.
+  const firstStep = canWiden ? 'widen' : 'phone';
+
   return (
     <section className={styles.screen} aria-labelledby="no-fit-heading">
-      <h2 id="no-fit-heading" className={styles.heading}>
-        No service fits right now
-      </h2>
-      <p className={styles.sub}>Every service is either not accepting, outside the criteria, or not updated.</p>
       <a className={styles.back} href={`/advisor/case/${id}`}>
         Back to needs
       </a>
 
-      <h3 className={styles.instead}>What instead</h3>
-      <div className={styles.options}>
+      <div className={styles.intro}>
+        <h2 id="no-fit-heading" className={styles.heading}>
+          No service fits right now
+        </h2>
+        <p className={styles.sub}>
+          Every service is either not accepting, outside the criteria, or not updated. That is the board&apos;s answer,
+          not the end of the call. Choose what to do next.
+        </p>
+      </div>
+
+      <div role="group" aria-label="What instead" className={styles.steps}>
         {canWiden ? (
-          <Button variant="secondary" busy={busy} dataEl="ADV-NOFIT-WIDEN-BTN" onClick={widen}>
-            Widen the time: today instead of within 2 hrs
-          </Button>
+          <NextStep
+            title="Widen the time: today instead of within 2 hrs"
+            line="Reads the options again with the new time. You can change it back."
+            first={firstStep === 'widen'}
+            dataEl="ADV-NOFIT-WIDEN-BTN"
+            busy={busy}
+            onClick={widen}
+          />
         ) : null}
-        <Button variant="secondary" href="/advisor/board" dataEl="ADV-NOFIT-PHONE-LINK">
-          Phone a service you know has space
-        </Button>
-        <Button variant="secondary" href={`/advisor/case/${id}/finish?outcome=no-service-fits`} dataEl="ADV-NOFIT-OTHER-BTN">
-          Other routes under local protocol
-        </Button>
-        <Button variant="primary" dataEl="ADV-NOFIT-CLINICAL-BTN" onClick={() => onAskClinical()}>
-          Ask a clinical advisor
-        </Button>
+        <NextStep
+          title="Phone a service you know has space"
+          line="Then record what they told you, so the board is right for everyone."
+          first={firstStep === 'phone'}
+          dataEl="ADV-NOFIT-PHONE-LINK"
+          href="/advisor/board"
+        />
+        <NextStep
+          title="Ask a clinical advisor"
+          line="The case summary goes with the call. No name is sent."
+          first={false}
+          dataEl="ADV-NOFIT-CLINICAL-BTN"
+          onClick={() => onAskClinical()}
+        />
+        <NextStep
+          title="Other routes under local protocol"
+          line="For example the emergency route."
+          first={false}
+          dataEl="ADV-NOFIT-OTHER-BTN"
+          href={`/advisor/case/${id}/finish?outcome=no-service-fits`}
+        />
       </div>
 
       {failed ? (
@@ -101,7 +125,67 @@ export function NoServiceFits({ caseId, onWidened, onAskClinical }: NoServiceFit
           {WIDEN_FAILED}
         </p>
       ) : null}
-      <p className={styles.note}>Never end the call on a refusal. Always offer a next step.</p>
     </section>
+  );
+}
+
+type NextStepProps = {
+  title: string;
+  /** The board's line under the title. It is the step's description, not part of its name. */
+  line: string;
+  first: boolean;
+  dataEl: string;
+  href?: string;
+  busy?: boolean;
+  onClick?: () => void;
+};
+
+// One large next-step row: the title is its name, the line is its description, and the arrow is decoration.
+function NextStep({ title, line, first, dataEl, href, busy = false, onClick }: NextStepProps) {
+  const titleId = useId();
+  const lineId = useId();
+  const className = first ? `${styles.step} ${styles.first}` : styles.step;
+  const content = (
+    <>
+      <span className={styles.stepText}>
+        <span id={titleId} className={styles.stepTitle}>
+          {title}
+        </span>
+        <span id={lineId} className={styles.stepLine}>
+          {line}
+        </span>
+      </span>
+      <span className={styles.arrow} aria-hidden="true">
+        ›
+      </span>
+    </>
+  );
+
+  if (href !== undefined) {
+    return (
+      <a
+        className={className}
+        href={href}
+        data-el={dataEl}
+        aria-labelledby={titleId}
+        aria-describedby={lineId}
+      >
+        {content}
+      </a>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className={className}
+      disabled={busy}
+      aria-busy={busy ? 'true' : undefined}
+      onClick={onClick}
+      data-el={dataEl}
+      aria-labelledby={titleId}
+      aria-describedby={lineId}
+    >
+      {content}
+    </button>
   );
 }

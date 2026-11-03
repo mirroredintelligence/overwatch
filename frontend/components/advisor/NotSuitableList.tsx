@@ -22,7 +22,16 @@ export function NotSuitableList({ items }: { items: NotSuitableView[] }) {
         aria-controls={open ? LIST_ID : undefined}
         onClick={() => setOpen((current) => !current)}
       >
-        {label}
+        <span>{label}</span>
+        <svg
+          className={open ? `${styles.chevron} ${styles.chevronOpen}` : styles.chevron}
+          width="16"
+          height="16"
+          viewBox="0 0 20 20"
+          aria-hidden="true"
+        >
+          <path d="M5 8l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </button>
       {open ? (
         <ul id={LIST_ID} className={styles.list}>

@@ -29,16 +29,39 @@ beforeEach(() => {
 });
 
 describe('NoServiceFits (W16)', () => {
-  it('shows the heading, the sub line and the note that a next step is always offered', () => {
+  it('shows the heading, the two sentences of the sub line and the group of next steps', () => {
     caseAs('within-2-hrs');
     render(<NoServiceFits caseId="4821" onWidened={vi.fn()} onAskClinical={vi.fn()} />);
 
     expect(screen.getByRole('heading', { name: 'No service fits right now' })).toBeInTheDocument();
     expect(
-      screen.getByText('Every service is either not accepting, outside the criteria, or not updated.'),
+      screen.getByText(
+        "Every service is either not accepting, outside the criteria, or not updated. That is the board's answer, not the end of the call. Choose what to do next.",
+      ),
     ).toBeInTheDocument();
-    expect(screen.getByText('What instead')).toBeInTheDocument();
-    expect(screen.getByText('Never end the call on a refusal. Always offer a next step.')).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'What instead' })).toBeInTheDocument();
+  });
+
+  it('offers the four next steps in the board order: widen, phone, ask clinical, other route', async () => {
+    caseAs('within-2-hrs');
+    const { container } = render(<NoServiceFits caseId="4821" onWidened={vi.fn()} onAskClinical={vi.fn()} />);
+    await screen.findByRole('button', { name: 'Widen the time: today instead of within 2 hrs' });
+    const steps = Array.from(container.querySelectorAll('[data-el^="ADV-NOFIT-"]')).map((el) => el.getAttribute('data-el'));
+
+    expect(steps).toEqual(['ADV-NOFIT-WIDEN-BTN', 'ADV-NOFIT-PHONE-LINK', 'ADV-NOFIT-CLINICAL-BTN', 'ADV-NOFIT-OTHER-BTN']);
+  });
+
+  it('gives each next step its line from the board, read as the step description', async () => {
+    caseAs('within-2-hrs');
+    render(<NoServiceFits caseId="4821" onWidened={vi.fn()} onAskClinical={vi.fn()} />);
+
+    const widen = await screen.findByRole('button', { name: 'Widen the time: today instead of within 2 hrs' });
+    expect(widen).toHaveAccessibleDescription('Reads the options again with the new time. You can change it back.');
+    expect(byEl('ADV-NOFIT-PHONE-LINK')).toHaveAccessibleDescription(
+      'Then record what they told you, so the board is right for everyone.',
+    );
+    expect(byEl('ADV-NOFIT-CLINICAL-BTN')).toHaveAccessibleDescription('The case summary goes with the call. No name is sent.');
+    expect(byEl('ADV-NOFIT-OTHER-BTN')).toHaveAccessibleDescription('For example the emergency route.');
   });
 
   it('with urgency "within 2 hrs", "Widen the time" saves urgency today with If-Match and asks for the options again', async () => {
@@ -111,13 +134,13 @@ describe('NoServiceFits (W16)', () => {
     expect(screen.getByRole('link', { name: 'Back to needs' })).toHaveAttribute('href', '/advisor/case/4821');
   });
 
-  it('the primary action is the last thing in the screen, for the phone layout', () => {
+  it('the other route is the last action in the screen, for the phone layout', () => {
     caseAs('within-2-hrs');
     const { container } = render(<NoServiceFits caseId="4821" onWidened={vi.fn()} onAskClinical={vi.fn()} />);
     const actions = container.querySelectorAll('button, a');
     const last = actions[actions.length - 1];
 
-    expect(last).toHaveAttribute('data-el', 'ADV-NOFIT-CLINICAL-BTN');
+    expect(last).toHaveAttribute('data-el', 'ADV-NOFIT-OTHER-BTN');
   });
 
   it('has no axe violations', async () => {

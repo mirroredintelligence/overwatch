@@ -1,0 +1,256 @@
+/* Phones and services (the lead's phones board). The page sits on the frame's ground; the list is one white card.
+   Desktop: a header bar and one grid row per phone. Narrow: each row stacks, and the header bar is hidden. */
+
+.page {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: 64rem;
+  margin: 0 auto;
+  color: var(--c-ink);
+  font-family: var(--font-atkinson), system-ui, sans-serif;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.summary {
+  flex: 1 1 16rem;
+  margin: 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  color: var(--c-ink-2);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.card {
+  overflow: hidden;
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.muted {
+  margin: 0;
+  padding: var(--space-4);
+  color: var(--c-ink-2);
+}
+
+.error {
+  margin: 0;
+  padding: var(--space-4);
+  color: var(--c-limited);
+  font-weight: 700;
+}
+
+.header {
+  display: none;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  border-bottom: 1px solid var(--c-line);
+}
+
+.row:last-child {
+  border-bottom: 0;
+}
+
+.heading {
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.toggle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 56px;
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.toggle:hover {
+  background: var(--c-tint);
+}
+
+.toggle:focus-visible {
+  outline: var(--focus);
+  outline-offset: -4px;
+}
+
+.number {
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.roleWrap {
+  display: flex;
+  flex: 1 1 12rem;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+
+.role {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.services,
+.channel,
+.seen {
+  font-size: 15px;
+  color: var(--c-ink-2);
+}
+
+.flag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--c-limited);
+}
+
+.noFlag {
+  font-size: 15px;
+  color: var(--c-ink-2);
+}
+
+.diamond {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  background: var(--c-limited);
+  transform: rotate(45deg);
+}
+
+.chevron {
+  width: 18px;
+  height: 18px;
+  color: var(--c-ink-2);
+  transition: transform var(--dur-state) var(--ease-spring);
+}
+
+.toggle[aria-expanded='true'] .chevron {
+  transform: rotate(180deg);
+}
+
+/* The height eases with grid rows: closed is 0fr, open is 1fr. The closed panel is inert. */
+.panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--dur-state) var(--ease-out);
+}
+
+.panel[data-open='true'] {
+  grid-template-rows: 1fr;
+}
+
+.panelInner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.panelBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: 0 var(--space-4) var(--space-4);
+}
+
+.service {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--c-line);
+}
+
+.serviceName {
+  margin: 0;
+  font-size: var(--type-heading-size);
+  line-height: var(--type-heading-lh);
+  font-weight: var(--type-heading-weight);
+}
+
+.serviceActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.removeRow {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--c-line);
+}
+
+.note {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  color: var(--c-ink-2);
+}
+
+@media (min-width: 900px) {
+  .header {
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1fr) 110px 130px 170px 18px;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background: var(--c-rail);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .toggle {
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1fr) 110px 130px 170px 18px;
+    align-items: center;
+    column-gap: var(--space-3);
+  }
+
+  .roleWrap {
+    flex: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page * {
+    transition: none;
+  }
+}

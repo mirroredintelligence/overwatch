@@ -1,17 +1,20 @@
 'use client';
 
 import { useEffect, useId, useState, type FormEvent } from 'react';
+import { LadderTimeline, type LadderStep } from '@/components/blocks/LadderTimeline';
 import { Button } from '@/components/ui/Button';
 import { CANNOT_DO, leadPost } from '@/lib/lead/browser';
 import { isUkMobile } from '@/lib/forms/ukMobile';
 import { loadServiceChoices, type ServiceChoice } from '@/lib/lead/serviceChoices';
-import styles from './Lead.module.css';
+import styles from './MoveServiceForm.module.css';
 
 // Move a service to another phone (W43). The new phone gets a code; the lead phones the service on the number
-// from the register; then the service reports to the new phone. The old phone keeps its other services.
+// from the register; then the service reports to the new phone. The old phone keeps its other services. Nothing
+// moves until step 3, and the three steps stay in view while the form is filled in.
 
 const MOBILE_EXAMPLE = 'Enter a UK mobile number, like 07700 900123';
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const HEADING_STEPS = 'Three steps, in this order';
 
 export function MoveServiceForm({ serviceId }: { serviceId?: string }) {
   const [services, setServices] = useState<ServiceChoice[] | null>(null);
@@ -22,9 +25,10 @@ export function MoveServiceForm({ serviceId }: { serviceId?: string }) {
   const [date, setDate] = useState('');
   const [errors, setErrors] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
   const [notice, setNotice] = useState('');
   const [noticeIsError, setNoticeIsError] = useState(false);
-  const howId = useId();
+  const phoneHintId = useId();
 
   useEffect(() => {
     let cancelled = false;
@@ -56,6 +60,7 @@ export function MoveServiceForm({ serviceId }: { serviceId?: string }) {
     const result = await leadPost(`/api/bff/lead/services/${encodeURIComponent(service)}/move`, body);
     setBusy(false);
     if (result.ok) {
+      setSent(true);
       setNoticeIsError(false);
       setNotice('The move has started.');
       return;
@@ -64,95 +69,135 @@ export function MoveServiceForm({ serviceId }: { serviceId?: string }) {
     setNotice(result.status === 403 ? CANNOT_DO : 'The move could not be started. Try again.');
   }
 
+  const steps: LadderStep[] = [
+    {
+      id: 'code',
+      time: 'Step 1',
+      title: 'We text the new phone a code',
+      detail: 'It goes to the new phone straight away. It works for ten minutes.',
+      state: sent ? 'done' : 'open',
+    },
+    {
+      id: 'call',
+      time: 'Step 2',
+      title: 'You phone the service',
+      detail: 'Use the number from the register, not the new phone. Check it really is them.',
+      state: 'open',
+    },
+    {
+      id: 'move',
+      time: 'Step 3',
+      title: 'The service goes to the new phone',
+      detail: 'Prompts and reports go there until the cover ends.',
+      state: 'open',
+    },
+  ];
+
   return (
     <main className={styles.page}>
-      <h1 className={styles.title}>Move a service</h1>
+      <section className={styles.card} aria-label="Move">
+        <h1 className={styles.title}>Move a service to another phone</h1>
 
-      {errors.length > 0 ? (
-        <div role="alert" className={styles.fieldError}>
-          {errors.map((message) => (
-            <p key={message}>{message}</p>
-          ))}
-        </div>
-      ) : null}
+        {errors.length > 0 ? (
+          <div role="alert" className={styles.fieldError}>
+            {errors.map((message) => (
+              <p key={message}>{message}</p>
+            ))}
+          </div>
+        ) : null}
 
-      <form onSubmit={(event) => void submit(event)} noValidate className={styles.stack}>
-        <div className={styles.field}>
-          <label htmlFor="lead-move-service" className={styles.fieldLabel}>
-            Service
-          </label>
-          {servicesFailed ? (
-            <p className={styles.fieldError}>The services could not be loaded.</p>
-          ) : services === null ? (
-            <p className={styles.muted}>Loading the services.</p>
-          ) : (
-            <select id="lead-move-service" className={styles.input} value={service} onChange={(e) => setService(e.target.value)}>
-              <option value="">Choose a service</option>
-              {services.map((choice) => (
-                <option key={choice.id} value={choice.id}>
-                  {choice.name}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
+        <form onSubmit={(event) => void submit(event)} noValidate className={styles.form}>
+          <div className={styles.field}>
+            <label htmlFor="lead-move-service" className={styles.label}>
+              Which service?
+            </label>
+            {servicesFailed ? (
+              <p className={styles.fieldError}>The services could not be loaded.</p>
+            ) : services === null ? (
+              <p className={styles.muted}>Loading the services.</p>
+            ) : (
+              <select id="lead-move-service" className={styles.input} value={service} onChange={(e) => setService(e.target.value)}>
+                <option value="">Choose a service</option>
+                {services.map((choice) => (
+                  <option key={choice.id} value={choice.id}>
+                    {choice.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
 
-        <div className={styles.field}>
-          <label htmlFor="lead-move-phone" className={styles.fieldLabel}>
-            To mobile number
-          </label>
-          <input
-            id="lead-move-phone"
-            className={styles.input}
-            inputMode="tel"
-            autoComplete="off"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-          />
-        </div>
+          <div className={styles.field}>
+            <label htmlFor="lead-move-phone" className={styles.label}>
+              To which phone?
+            </label>
+            <input
+              id="lead-move-phone"
+              className={styles.input}
+              inputMode="tel"
+              autoComplete="off"
+              aria-describedby={phoneHintId}
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+            />
+            <p id={phoneHintId} className={styles.hint}>
+              A UK mobile number. We text it a code. The old phone keeps its other services.
+            </p>
+          </div>
 
-        <fieldset className={styles.choices} aria-describedby={howId}>
-          <legend className={styles.fieldLabel}>How long?</legend>
-          <label className={styles.radio}>
-            <input type="radio" name="move-how" checked={how === 'changed'} onChange={() => setHow('changed')} />
-            Until I change it
-          </label>
-          <label className={styles.radio}>
-            <input type="radio" name="move-how" checked={how === 'date'} onChange={() => setHow('date')} />
-            Cover until a date
-          </label>
-          {how === 'date' ? (
-            <div className={styles.field}>
-              <label htmlFor="lead-move-date" className={styles.fieldLabel}>
-                Cover ends on
+          <fieldset className={styles.fieldset}>
+            <legend className={styles.label}>For how long?</legend>
+            <div className={styles.chips}>
+              <label className={styles.chip} data-selected={how === 'changed'}>
+                <input type="radio" name="move-how" checked={how === 'changed'} onChange={() => setHow('changed')} />
+                For good
+                {how === 'changed' ? <Tick /> : null}
               </label>
-              <input id="lead-move-date" className={styles.input} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <label className={styles.chip} data-selected={how === 'date'}>
+                <input type="radio" name="move-how" checked={how === 'date'} onChange={() => setHow('date')} />
+                For a while
+                {how === 'date' ? <Tick /> : null}
+              </label>
             </div>
-          ) : null}
-        </fieldset>
+            {how === 'date' ? (
+              <div className={styles.field}>
+                <label htmlFor="lead-move-date" className={styles.label}>
+                  Cover ends on
+                </label>
+                <input id="lead-move-date" className={`${styles.input} ${styles.dateInput}`} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              </div>
+            ) : null}
+          </fieldset>
 
-        <section className={styles.section} aria-labelledby="move-steps-heading">
-          <h2 id="move-steps-heading" className={styles.sectionHeading}>
-            What happens next
-          </h2>
-          <ol className={styles.steps}>
-            <li>We text the new phone a code</li>
-            <li>You phone the service on the number from the register</li>
-            <li>The service goes to the new phone</li>
-          </ol>
-          <p className={styles.muted}>The old phone keeps its other services.</p>
-        </section>
+          <div className={styles.footer}>
+            <Button variant="primary" type="submit" busy={busy} dataEl="LEAD-MOVE-START-BTN">
+              Start the move
+            </Button>
+            <Button variant="neutral" href="/lead/phones" dataEl="LEAD-MOVE-CANCEL-LINK">
+              Cancel
+            </Button>
+          </div>
+        </form>
 
-        <div className={styles.actions}>
-          <Button variant="primary" type="submit" busy={busy} dataEl="LEAD-MOVE-START-BTN">
-            Start the move
-          </Button>
-        </div>
-      </form>
+        <p role={noticeIsError ? 'alert' : 'status'} className={noticeIsError ? styles.fieldError : styles.line}>
+          {notice}
+        </p>
+      </section>
 
-      <p role={noticeIsError ? 'alert' : 'status'} className={noticeIsError ? styles.fieldError : styles.line}>
-        {notice}
-      </p>
+      <aside className={styles.side} aria-label="What happens next">
+        <p className={styles.kicker}>What happens next</p>
+        <h2 className={styles.sideTitle}>{HEADING_STEPS}</h2>
+        <LadderTimeline label={HEADING_STEPS} steps={steps} stateWords={{ open: 'To do', done: 'Sent' }} />
+        <p className={styles.sideNote}>Nothing moves until step 3. If you stop part-way, the service stays where it is.</p>
+      </aside>
     </main>
+  );
+}
+
+function Tick() {
+  return (
+    <svg className={styles.tick} viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+      <path d="M4 10.5l4 4 8-8.5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }

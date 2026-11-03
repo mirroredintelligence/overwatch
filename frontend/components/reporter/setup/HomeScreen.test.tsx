@@ -28,12 +28,21 @@ describe('HomeScreen', () => {
     setAgent(IPHONE);
     const { container } = render(<HomeScreen />);
     expect(screen.getByRole('heading', { name: 'Add Overwatch to your home screen' })).toBeInTheDocument();
+    expect(screen.getByRole('tablist', { name: 'Your phone' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'iPhone', selected: true })).toBeInTheDocument();
     expect(screen.getByText('iPhone needs iOS 16.4 or later.')).toBeInTheDocument();
     expect(await runAxe(container)).toHaveNoViolations();
   });
 
-  it('gives each iPhone step the line the artboard puts under it (OnboardReporter1, Add to home screen)', () => {
+  it('shows the step caption and a five-segment progress bar at step 3 of 5, inside the provider shell', () => {
+    setAgent(IPHONE);
+    render(<HomeScreen />);
+    expect(screen.getByText('Step 3 of 5')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: 'Step 3 of 5' })).toBeInTheDocument();
+    expect(screen.getByRole('main')).toContainElement(screen.getByRole('heading', { name: 'Add Overwatch to your home screen' }));
+  });
+
+  it('gives each iPhone step the line the artboard puts under it (R5, Add to home screen)', () => {
     setAgent(IPHONE);
     render(<HomeScreen />);
     const items = within(screen.getByRole('list', { name: 'Add to home screen on iPhone' })).getAllByRole('listitem');
@@ -41,7 +50,17 @@ describe('HomeScreen', () => {
     expect(items[0]).toHaveTextContent('Tap ShareThe square with an arrow, at the bottom of the screen');
     expect(items[1]).toHaveTextContent('Scroll down the list if you cannot see it');
     expect(items[2]).toHaveTextContent('The Overwatch icon appears on your home screen');
+    expect(items[3]).toHaveTextContent('Open it from the home screen');
     expect(items[3]).toHaveTextContent('Carry on there. Notifications only work from the home screen.');
+  });
+
+  it('gives each step an icon tile that screen readers skip', () => {
+    setAgent(IPHONE);
+    render(<HomeScreen />);
+    const items = within(screen.getByRole('list', { name: 'Add to home screen on iPhone' })).getAllByRole('listitem');
+    for (const item of items) {
+      expect(item.querySelector('[data-step-icon]')).toHaveAttribute('aria-hidden', 'true');
+    }
   });
 
   it('shows the Android guide for an Android phone', () => {
@@ -77,5 +96,18 @@ describe('HomeScreen', () => {
     await userEvent.click(screen.getByRole('button', { name: 'I cannot do this. Use text instead' }));
     expect(await screen.findByText('We could not save that. Check your number again, then try once more.')).toBeInTheDocument();
     expect(push).not.toHaveBeenCalled();
+  });
+
+  it('carries a reporter already in the installed app straight on to notifications', async () => {
+    setAgent(IPHONE);
+    Object.defineProperty(navigator, 'standalone', { configurable: true, value: true });
+    try {
+      render(<HomeScreen />);
+      expect(screen.getByRole('heading', { name: 'Welcome. Your set-up continues here.' })).toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+      expect(push).toHaveBeenCalledWith('/setup/notifications');
+    } finally {
+      Object.defineProperty(navigator, 'standalone', { configurable: true, value: undefined });
+    }
   });
 });

@@ -1,5 +1,5 @@
 import { OrgLabel } from '@/components/scope/OrgLabel';
-import { StatusBadge } from '@/components/ui/StatusBadge';
+import { LastKnownPill, StatusChip } from './StatusChip';
 import { ageLineText, categoryLabel, dataAgeText, londonTime, reopensText } from '@/lib/board/format';
 import type { BoardEntry, BoardStatus } from '@/lib/board/types';
 import styles from './Tile.module.css';
@@ -90,6 +90,18 @@ export function lastKnownFigureFor(entry: BoardEntry): Figure {
 }
 
 export const LAST_KNOWN_WARNING = 'Do not rely on this. Phone to confirm.';
+
+const OLD_AFTER_MS = 2 * 60 * 60_000;
+
+/**
+ * A figure older than 2 hrs says "old" in words and weight (advisor-clinical-wall.md section 2). Not
+ * for a service that is not updated or out of hours: their own wording already says so.
+ */
+function isOld(entry: BoardEntry, now: string | Date): boolean {
+  if (entry.reportedAt === null || entry.status === 'not-updated' || entry.status === 'out-of-hours') return false;
+  const clock = typeof now === 'string' ? Date.parse(now) : now.getTime();
+  return clock - Date.parse(entry.reportedAt) > OLD_AFTER_MS;
+}
 const PAUSED_WORDS = 'Not available on the network. Phone to confirm.';
 
 export function Tile({
@@ -113,6 +125,11 @@ export function Tile({
   const pending = lastKnown ? 0 : entry.pending;
   const barLabel = figure.bar === null ? '' : pending > 0 ? `${figure.bar.label} · ${pending} pending` : figure.bar.label;
   const variant = lastKnown ? styles.notUpdated : VARIANT[entry.status];
+  // Last known is an overlay, never a state of its own, and a last known tile carries no status word:
+  // the state it last had may have changed since (W06). A paused listing has no figure to stand
+  // behind, so it is Not updated.
+  const chipStatus: BoardStatus = paused ? 'not-updated' : entry.status;
+  const old = !lastKnown && !paused && isOld(entry, now);
 
   return (
     <article
@@ -127,7 +144,9 @@ export function Tile({
           {entry.organisation === undefined ? null : <OrgLabel name={entry.organisation} own={entry.ownOrganisation === true} />}
           <p className={styles.category}>{categoryLabel(entry.category)}</p>
         </div>
-        <StatusBadge status={lastKnown ? 'last-known' : entry.status} size="lg" />
+        <div className={styles.state}>
+          {lastKnown && !paused ? <LastKnownPill /> : <StatusChip status={chipStatus} size="lg" />}
+        </div>
       </div>
 
       <div className={styles.figure}>
@@ -180,7 +199,19 @@ export function Tile({
         </div>
       )}
 
-      {paused ? null : <p className={styles.age}>{lastKnown ? <strong>{LAST_KNOWN_WARNING}</strong> : notUpdated ? <strong>{age}</strong> : age}</p>}
+      {paused ? null : (
+        <p className={styles.age}>
+          {lastKnown ? (
+            <strong>{LAST_KNOWN_WARNING}</strong>
+          ) : notUpdated ? (
+            <strong>{age}</strong>
+          ) : old ? (
+            <strong className={styles.old}>{`${age} · old`}</strong>
+          ) : (
+            age
+          )}
+        </p>
+      )}
     </article>
   );
 }

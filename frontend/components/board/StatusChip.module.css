@@ -1,0 +1,87 @@
+/* The status chip: a pill with a shape and a word (artboards BoardNormal, BoardQuiet, BoardDown).
+   Four states are filled; Not updated is white with a dashed border; Out of hours is white with a solid
+   ink border. The shape and the border style say the state as well as the colour does. */
+.chip {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  box-sizing: border-box;
+  padding: var(--space-1) var(--space-3);
+  border: 2px solid transparent;
+  border-radius: var(--radius-chip);
+  font-size: var(--type-caption-size);
+  line-height: 1.2;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.shape {
+  flex: none;
+  width: 0.75em;
+  height: 0.75em;
+}
+
+.accepting {
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+  color: Canvas;
+}
+
+.limited {
+  background: var(--c-limited);
+  border-color: var(--c-limited);
+  color: Canvas;
+}
+
+.notAccepting {
+  background: var(--c-closed);
+  border-color: var(--c-closed);
+  color: Canvas;
+}
+
+.overCapacity {
+  background: var(--c-surge);
+  border-color: var(--c-surge);
+  color: Canvas;
+}
+
+.notUpdated {
+  border: 2px dashed var(--c-unknown);
+  background: Canvas;
+  color: var(--c-ink-2);
+}
+
+.outOfHours {
+  border: 2px solid var(--c-ink-2);
+  background: Canvas;
+  color: var(--c-ink-2);
+}
+
+/* The wall: read across a room (artboard WallBoard). */
+.lg {
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-width: 3px;
+  font-size: 1.375rem;
+}
+
+.lg .shape {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* The Last known overlay: a dashed pill, never a state. */
+.lastKnown {
+  display: inline-block;
+  flex: none;
+  padding: var(--space-1) var(--space-3);
+  border: 2px dashed var(--c-ink);
+  border-radius: var(--radius-chip);
+  background: Canvas;
+  color: var(--c-ink);
+  font-size: var(--type-caption-size);
+  line-height: 1.2;
+  font-weight: 700;
+  white-space: nowrap;
+}

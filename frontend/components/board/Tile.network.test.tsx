@@ -42,9 +42,20 @@ describe('Tile: a network row on the wall', () => {
     expect(tile.querySelector('[data-bar-fill]')).toBeNull();
   });
 
-  it('shows the organisation in the last known state too', () => {
-    render(<Tile entry={NETWORK_ENTRY} now={GENERATED_AT} lastKnown />);
+  it('draws a paused listing as Not updated (dashed ring), not as a current state, and without the Last known pill', () => {
+    const { container } = render(
+      <Tile entry={{ ...NETWORK_ENTRY, paused: true, status: 'accepting', effectiveAvailable: null, used: null }} now={GENERATED_AT} />,
+    );
+    const tile = container.querySelector('[data-el="WALL-TILE"]') as HTMLElement;
+    expect(tile.querySelector('[data-status="not-updated"][data-shape="dashed-ring"]')).toHaveTextContent('Not updated');
+    expect(tile.querySelector('[data-shape="circle"]')).toBeNull();
+    expect(tile.querySelector('[data-overlay="last-known"]')).toBeNull();
+  });
+
+  it('shows the organisation in the last known state too, with the Last known pill', () => {
+    const { container } = render(<Tile entry={NETWORK_ENTRY} now={GENERATED_AT} lastKnown />);
     expect(screen.getByText('Sample Area B')).toBeInTheDocument();
     expect(screen.getByText('Do not rely on this. Phone to confirm.')).toBeInTheDocument();
+    expect(container.querySelector('[data-overlay="last-known"]')).toHaveTextContent('Last known');
   });
 });

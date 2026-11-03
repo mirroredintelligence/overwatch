@@ -126,7 +126,7 @@ describe('Tile: limited', () => {
 
     expect(within(el).getByText('Limited')).toBeInTheDocument();
     expect(el).toHaveAttribute('data-status', 'limited');
-    expect(el.querySelector('[data-shape="triangle"]')).not.toBeNull();
+    expect(el.querySelector('[data-status="limited"][data-shape="half-circle"]')).not.toBeNull();
   });
 
   it('fills the bar by used over established exactly: 7 of 8 is 87.5%', () => {
@@ -196,13 +196,13 @@ describe('Tile: over capacity (W07)', () => {
     expect(t.getByText('Escalation in place')).toBeInTheDocument();
   });
 
-  it('is told apart by a word and a shape (the diamond), not by colour alone', () => {
+  it('is told apart by a word and a shape (the triangle), not by colour alone', () => {
     const { container } = render(<Tile entry={over} now={NOW} />);
     const el = tile(container);
 
     expect(el).toHaveAttribute('data-status', 'over-capacity');
     expect(el.className).toMatch(/overCapacity/);
-    expect(el.querySelector('[data-status="over-capacity"][data-shape="diamond"]')).toHaveTextContent('Over capacity');
+    expect(el.querySelector('[data-status="over-capacity"][data-shape="triangle"]')).toHaveTextContent('Over capacity');
   });
 
   it('fills the bar to 100% however far over it is', () => {
@@ -278,14 +278,26 @@ describe('Tile: out of hours (W07)', () => {
     expect(t.getByText('Closed overnight')).toBeInTheDocument();
   });
 
-  it('is told apart from Not accepting by its word and its own shape (the moon)', () => {
+  it('is told apart from Not accepting by its word and its own shape (the crescent), as in the quiet board', () => {
     const { container } = render(<Tile entry={quiet} now={QUIET_NOW} />);
     const el = tile(container);
 
     expect(el).toHaveAttribute('data-status', 'out-of-hours');
     expect(el.className).toMatch(/outOfHours/);
-    expect(el.querySelector('[data-status="out-of-hours"][data-shape="moon"]')).toHaveTextContent('Out of hours');
+    expect(el.className).not.toMatch(/notAccepting/);
+    expect(el.querySelector('[data-status="out-of-hours"][data-shape="crescent"]')).toHaveTextContent('Out of hours');
     expect(el.textContent).not.toContain('Not accepting');
+  });
+
+  it('is a quiet tile: not the Not accepting tile, and a different shape from it', () => {
+    const quietTile = render(<Tile entry={quiet} now={QUIET_NOW} />);
+    const closedTile = render(
+      <Tile entry={entry({ serviceId: 'svc-c', name: 'Closed', status: 'not-accepting', effectiveAvailable: 0, used: 8 })} now={QUIET_NOW} />,
+    );
+
+    expect(tile(quietTile.container).className).not.toBe(tile(closedTile.container).className);
+    expect(tile(closedTile.container).querySelector('[data-shape="square"]')).not.toBeNull();
+    expect(tile(quietTile.container).querySelector('[data-shape="square"]')).toBeNull();
   });
 
   it('fills the bar to 100%', () => {
@@ -440,6 +452,51 @@ describe('Tile: pending bookings (W07, "TileStates")', () => {
   });
 });
 
+// Stale figures (advisor-clinical-wall.md section 2): a figure older than 2 hrs says "old" in words and weight.
+describe('Tile: an old figure', () => {
+  const at = (reportedAt: string) => entry({ serviceId: 'svc-old', name: 'Old figure', reportedAt });
+
+  it('says "old" in words, in bold, when the figure is more than 2 hrs old', () => {
+    // Reported 10:57 London, now 14:12: 3 hrs 15 min.
+    const { container } = render(<Tile entry={at('2026-10-23T09:57:00Z')} now={NOW} />);
+    const line = within(tile(container)).getByText(/Updated 3 hrs 15 min ago/);
+
+    expect(line.textContent).toMatch(/ · old$/);
+    expect(line.closest('strong')).not.toBeNull();
+  });
+
+  it('does not say "old" at exactly 2 hrs, or under it', () => {
+    const exact = render(<Tile entry={at('2026-10-23T11:12:00Z')} now={NOW} />);
+    const young = render(<Tile entry={at('2026-10-23T12:40:00Z')} now={NOW} />);
+
+    expect(tile(exact.container).textContent).not.toContain('old');
+    expect(tile(young.container).textContent).not.toContain('old');
+    expect(within(tile(young.container)).getByText(/Updated 32 min ago/).closest('strong')).toBeNull();
+  });
+
+  it('says "old" 1 minute past 2 hrs', () => {
+    const { container } = render(<Tile entry={at('2026-10-23T11:11:00Z')} now={NOW} />);
+
+    expect(tile(container).textContent).toContain(' · old');
+  });
+
+  it('does not add "old" to a service that is not updated, out of hours, or last known: they have their own wording', () => {
+    const notUpdated = render(<Tile entry={VIRTUAL_WARD} now={NOW} />);
+    const quietTile = render(<Tile entry={QUIET_ENTRIES[0]} now={NOW} />);
+    const lastKnown = render(<Tile entry={at('2026-10-23T09:57:00Z')} now={NOW} lastKnown />);
+
+    expect(tile(notUpdated.container).textContent).not.toMatch(/ · old/);
+    expect(tile(quietTile.container).textContent).not.toMatch(/ · old/);
+    expect(tile(lastKnown.container).textContent).not.toMatch(/ · old/);
+  });
+
+  it('does not say "old" when the service never reported', () => {
+    const { container } = render(<Tile entry={{ ...at('2026-10-23T09:57:00Z'), reportedAt: null }} now={NOW} />);
+
+    expect(tile(container).textContent).not.toMatch(/ · old/);
+  });
+});
+
 describe('Tile: accessibility and privacy', () => {
   it.each(MAIN_ENTRIES.map((e) => [e.name, e] as const))('%s has no axe violations', async (_name, e) => {
     const { container } = render(
@@ -469,14 +526,24 @@ describe('Tile: accessibility and privacy', () => {
 describe('Tile: last known', () => {
   const reported = entry({ serviceId: 'svc-lk', name: 'UCR West', reportedAt: '2026-10-23T12:58:00Z' });
 
-  it('shows the badge word Last known, the time of the figure, how old it is and the warning line', () => {
+  it('shows the Last known pill (a dashed pill), the time of the figure, how old it is and the warning line', () => {
     const { container } = render(<Tile entry={reported} now={NOW} lastKnown />);
     const t = within(tile(container));
 
     expect(t.getByText('Last known')).toBeInTheDocument();
+    expect(container.querySelector('[data-overlay="last-known"]')).toHaveTextContent('Last known');
     expect(t.getByText('Last known 13:58')).toBeInTheDocument();
     expect(t.getByText(/14 min ago/)).toBeInTheDocument();
     expect(t.getByText('Do not rely on this. Phone to confirm.')).toBeInTheDocument();
+  });
+
+  it('is an overlay, never a seventh state chip: a dashed-ring pill with the words, and no state chip beside it', () => {
+    const { container } = render(<Tile entry={reported} now={NOW} lastKnown />);
+    const el = tile(container);
+
+    expect(el.querySelector('[data-overlay="last-known"][data-shape="dashed-ring"]')).toHaveTextContent('Last known');
+    expect(el.querySelectorAll('[data-status]')).toHaveLength(0);
+    expect(el).toHaveAttribute('data-status', 'last-known');
   });
 
   it('keeps the number as last known, with its unit and bar', () => {
@@ -488,13 +555,13 @@ describe('Tile: last known', () => {
     expect(t.getByText('Used 4 of 8')).toBeInTheDocument();
   });
 
-  it('is not styled or worded as current: no status word, no "Updated", no next due, no comment', () => {
+  it('is not styled or worded as current: a hatched tile, no status word, no "Updated", no next due, no comment', () => {
     const { container } = render(<Tile entry={{ ...reported, comment: 'Response time about 1 hr 20' }} now={NOW} lastKnown />);
     const el = tile(container);
 
     expect(el).toHaveAttribute('data-status', 'last-known');
-    expect(el.querySelector('[data-status="last-known"][data-shape="dashed-circle"]')).not.toBeNull();
     expect(el.className).toMatch(/notUpdated/);
+    expect(el.className).not.toMatch(/accepting/);
     expect(el.textContent).not.toMatch(/Accepting|Limited|Not accepting|Over capacity|Out of hours|Not updated/);
     expect(el.textContent).not.toMatch(/Updated|next due/);
     expect(el.textContent).not.toContain('Response time about 1 hr 20');
@@ -543,6 +610,8 @@ describe('Tile: last known', () => {
     expect(t.getByText('?')).toBeInTheDocument();
     expect(t.getByText('Phone to confirm')).toBeInTheDocument();
     expect(t.queryByText('Outside opening hours')).toBeNull();
+    expect(tile(container).textContent).not.toContain('Out of hours');
+    expect(tile(container).querySelector('[data-shape="crescent"]')).toBeNull();
   });
 
   it('says No figure reported yet, and no Last known time, when the service never reported', () => {
@@ -581,7 +650,7 @@ describe('Tile: last known', () => {
     expect(el.textContent).toContain('3 min ago');
   });
 
-  it('never carries a variant into Last known: no pending chip, no Reopens, no Closed overnight, no status word', () => {
+  it('never carries a variant into Last known: hatched tile, no pending chip, no Reopens, no Closed overnight, no status word', () => {
     for (const e of [...SURGE_ENTRIES, ...QUIET_ENTRIES, PENDING_TILE]) {
       const { container, unmount } = render(<Tile entry={{ ...e, pending: 2 }} now={NOW} lastKnown />);
       const el = tile(container);
@@ -592,6 +661,7 @@ describe('Tile: last known', () => {
       expect(el.querySelector('[data-el="WALL-TILE-PENDING"]')).toBeNull();
       expect(el.textContent).not.toMatch(/pending|Reopens|Closed overnight|Outside opening hours|Escalation/);
       expect(el.textContent).not.toMatch(/Over capacity|Out of hours|Not accepting|Limited|Accepting|Not updated/);
+      expect(el.querySelector('[data-shape="crescent"], [data-shape="triangle"]')).toBeNull();
       expect(el.textContent).toContain('Do not rely on this. Phone to confirm.');
       unmount();
     }
@@ -602,6 +672,20 @@ describe('Tile: last known', () => {
 
     expect(tile(container)).toHaveAttribute('data-status', 'accepting');
     expect(tile(container).textContent).not.toContain('Last known');
+  });
+
+  it('has no axe violations in any state while last known', async () => {
+    const { container } = render(
+      <ul>
+        {MAIN_ENTRIES.map((e) => (
+          <li key={e.serviceId}>
+            <Tile entry={e} now={NOW} lastKnown />
+          </li>
+        ))}
+      </ul>,
+    );
+
+    expect(await runAxe(container)).toHaveNoViolations();
   });
 
   it('has no axe violations', async () => {

@@ -1,0 +1,100 @@
+/* The Go live part and the Look after it panel (board O4): a banner when live, a lede, tasks as tinted rows with a
+   status tag, and one primary action. Colours and sizes are tokens; nothing animates for style. */
+
+.live {
+  margin: 0;
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-5);
+  border: 2px solid var(--c-primary);
+  border-radius: var(--radius-card);
+  background: var(--c-tint);
+  color: var(--c-ink);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+}
+
+.lede {
+  margin: 0;
+  max-width: 40rem;
+  color: var(--c-ink-2);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+}
+
+.ready {
+  display: grid;
+  gap: var(--space-4);
+  justify-items: start;
+  padding: var(--space-5);
+  border: 2px solid var(--c-primary);
+  border-radius: var(--radius-card);
+  background: var(--c-tint);
+}
+
+.block {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.blockTitle {
+  margin: 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  font-weight: 700;
+}
+
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius);
+  background: var(--c-bg);
+  color: var(--c-ink);
+}
+
+.rowText {
+  min-width: 0;
+}
+
+.link {
+  color: var(--c-primary);
+  font-weight: 700;
+  text-underline-offset: 3px;
+}
+
+.link:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.note {
+  margin: 0;
+  color: var(--c-muted);
+}
+
+/* Look after it */
+.state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin: 0 0 var(--space-3);
+}
+
+.stateText {
+  margin: 0;
+  min-width: 0;
+}

@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Dialog } from '@/components/ui/Dialog';
 import { whenText } from '@/lib/tenantAdmin/words';
+import { StatusTag } from '@/components/ui/StatusTag';
 import styles from '@/components/admin/admin.module.css';
+import gl from './GoLive.module.css';
 import { useStep, type LifecycleProps } from './shared';
 
 // The life of an organisation (TEN-083): suspend, resume and start closing. Each is asked for in a dialog that says what
@@ -65,12 +67,15 @@ export function LifecyclePanel(props: LifecycleProps) {
   }
 
   return (
-    <Card heading="Suspend or close this organisation">
-      {suspended ? (
-        <p className={styles.text}>{`Suspended ${tenant.suspendMode === 'blocked' ? 'blocked' : 'read only'} since ${whenText(tenant.suspendedAt)}. Reason: ${(tenant.suspendReason ?? 'not recorded').replace(/-/g, ' ')}.`}</p>
-      ) : (
-        <p className={styles.text}>The organisation is live.</p>
-      )}
+    <Card heading="Look after it">
+      <div className={gl.state}>
+        {suspended ? <StatusTag variant="paused">Suspended</StatusTag> : <StatusTag variant="live">Live</StatusTag>}
+        {suspended ? (
+          <p className={`${styles.text} ${gl.stateText}`}>{`Suspended ${tenant.suspendMode === 'blocked' ? 'blocked' : 'read only'} since ${whenText(tenant.suspendedAt)}. Reason: ${(tenant.suspendReason ?? 'not recorded').replace(/-/g, ' ')}.`}</p>
+        ) : (
+          <p className={`${styles.text} ${gl.stateText}`}>The organisation is live.</p>
+        )}
+      </div>
       <div className={styles.actions}>
         {active ? (
           <Button variant="secondary" busy={busy} onClick={() => setStep('suspend')} dataEl="OP-SUSPEND-BTN">

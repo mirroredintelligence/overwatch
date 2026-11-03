@@ -12,6 +12,7 @@ import { organisationsOf, ownRow } from '@/lib/network/orgs';
 import type { NetworkBoard as BoardData } from '@/lib/network/types';
 import type { LastKnown } from './LastKnownBanner';
 import styles from './Board.module.css';
+import own from './NetworkBoard.module.css';
 import { NetworkRow, NetworkTile, type ServiceLines } from './NetworkTile';
 
 // The network capacity board (docs/design/network-ui.md section 4, TEN-070): every organisation's services
@@ -52,8 +53,8 @@ export function NetworkBoard({ board, networkName, ownOrganisation, serviceLines
   const dated = stopped.filter((item) => item.date !== null);
 
   return (
-    <main className={styles.board}>
-      <header className={styles.header}>
+    <main className={`${styles.board} ${styles.advisor}`}>
+      <header className={styles.heading}>
         <h1 className={styles.title}>{`${networkName} capacity`}</h1>
       </header>
 
@@ -80,20 +81,20 @@ export function NetworkBoard({ board, networkName, ownOrganisation, serviceLines
         <ScopeNotice key={name} tone="warning" title={`Updates from ${name} are delayed. Its services show Not updated.`} />
       ))}
 
-      <ReadOnlyNote />
-
       {board.entries.length === 0 ? (
-        <div className={styles.empty} role="status">
-          <p>No services are shared yet</p>
-          <p>{`When organisations share their capacity with ${networkName}, their services appear here.`}</p>
-        </div>
+        <>
+          <ReadOnlyNote />
+          <div className={styles.empty} role="status">
+            <p>No services are shared yet</p>
+            <p>{`When organisations share their capacity with ${networkName}, their services appear here.`}</p>
+          </div>
+        </>
       ) : (
         <>
-          <p className={styles.note}>
-            {`${countWord(board.entries.length, 'service', 'services')} from ${countWord(organisations.length, 'organisation', 'organisations')}`}
-          </p>
-
-          <div className={styles.controls}>
+          <div className={own.controls} data-el="NET-BOARD-CONTROLS">
+            <p className={own.count}>
+              {`${countWord(board.entries.length, 'service', 'services')} from ${countWord(organisations.length, 'organisation', 'organisations')}`}
+            </p>
             <div className={styles.chips} role="group" aria-label="Organisations">
               <Chip pressed={chosen === null} onPressedChange={() => setChosen(null)} dataEl="NET-BOARD-ORG-ALL-CHIP">
                 All organisations
@@ -110,7 +111,7 @@ export function NetworkBoard({ board, networkName, ownOrganisation, serviceLines
                 </Chip>
               ))}
             </div>
-            <div className={styles.chips} role="group" aria-label="How to show the services">
+            <div className={`${styles.chips} ${own.viewToggle}`} role="group" aria-label="How to show the services">
               <Chip pressed={layout === 'tiles'} onPressedChange={() => setLayout('tiles')} dataEl="NET-BOARD-VIEW-GRID-BTN">
                 Tiles
               </Chip>
@@ -119,6 +120,8 @@ export function NetworkBoard({ board, networkName, ownOrganisation, serviceLines
               </Chip>
             </div>
           </div>
+
+          <ReadOnlyNote />
 
           {serviceLines === null ? <p className={styles.note}>Service line numbers could not be loaded. Phone to confirm.</p> : null}
 

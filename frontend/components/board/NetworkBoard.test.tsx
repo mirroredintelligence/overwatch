@@ -41,6 +41,25 @@ describe('the heading, the scope and the counts', () => {
     expect(screen.getByText('1 service from 1 organisation')).toBeInTheDocument();
   });
 
+  it('puts the count, the organisation chips and the view toggle in one row, with the read-only note under it, then the services', () => {
+    const { container } = show();
+    const controls = container.querySelector('[data-el="NET-BOARD-CONTROLS"]') as HTMLElement;
+    expect(controls).not.toBeNull();
+    expect(within(controls).getByText('4 services from 3 organisations')).toBeInTheDocument();
+    expect(within(controls).getByRole('group', { name: 'Organisations' })).toBeInTheDocument();
+    expect(within(controls).getByRole('group', { name: 'How to show the services' })).toBeInTheDocument();
+    const note = container.querySelector('[data-el="SCOPE-READONLY-NOTE"]') as HTMLElement;
+    const list = screen.getByRole('list', { name: 'Services' });
+    expect(controls.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(note.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('sits inside the page frame: its own main, with no page ground of its own', () => {
+    const { container } = show();
+    expect(container.querySelectorAll('main')).toHaveLength(1);
+    expect(container.querySelector('main')?.className).toMatch(/advisor/);
+  });
+
   it('has the footer: no patient information, and not ranked', () => {
     show();
     expect(screen.getByText('No patient information on this screen')).toBeInTheDocument();
@@ -88,15 +107,50 @@ describe('the tiles', () => {
     expect(screen.queryByText('Your organisation')).toBeNull();
   });
 
-  it('shows the status as a word and a shape, the figure, the unit, the bar and the age', () => {
+  it('shows the status as a word and a shape, the figure, the unit and the age', () => {
     const { container } = show();
     const first = tiles(container)[0]!;
     expect(first.querySelector('[data-status="accepting"]')).not.toBeNull();
     expect(within(first).getByText('Accepting')).toBeInTheDocument();
     expect(within(first).getByText('4')).toBeInTheDocument();
     expect(within(first).getByText('beds')).toBeInTheDocument();
-    expect(within(first).getByText('Used 2 of 6')).toBeInTheDocument();
     expect(within(first).getByText('Updated 4 min ago')).toBeInTheDocument();
+  });
+
+  it('has no "Used N of M" line and no usage bar: the network entry does not carry them', () => {
+    const { container } = show();
+    expect(container.textContent).not.toMatch(/Used \d+ of \d+/);
+    expect(container.querySelector('[data-bar-fill]')).toBeNull();
+  });
+
+  it('has no usage line in the list, nor when the figures are last known', async () => {
+    const user = userEvent.setup();
+    const { container } = show({ lastKnown: LAST_KNOWN });
+    await user.click(screen.getByRole('button', { name: 'List' }));
+    expect(container.textContent).not.toMatch(/Used \d+ of \d+/);
+  });
+
+  it('orders a tile as the board does: names, status, figure, age, then the service line', () => {
+    const { container } = show();
+    const first = tiles(container)[0]!;
+    const before = (a: Node, b: Node) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    const name = within(first).getByRole('heading', { name: 'UCR West' });
+    const status = within(first).getByText('Accepting');
+    const figure = within(first).getByText('4');
+    const age = within(first).getByText('Updated 4 min ago');
+    const line = within(first).getByRole('link', { name: 'Phone UCR West on 01632 960010' });
+    expect(before(name, status)).toBe(true);
+    expect(before(status, figure)).toBe(true);
+    expect(before(figure, age)).toBe(true);
+    expect(before(age, line)).toBe(true);
+  });
+
+  it('draws a Not updated tile and a paused one dashed, and a current one not', () => {
+    const { container } = show();
+    const dashed = (tile: HTMLElement) => /notUpdated/.test(tile.className);
+    expect(dashed(tiles(container)[0]!)).toBe(false);
+    expect(dashed(tiles(container)[2]!)).toBe(true);
+    expect(dashed(tiles(container)[3]!)).toBe(true);
   });
 
   it('shows a late figure as Not updated, with a "?" and "Phone to confirm", never the old number', () => {

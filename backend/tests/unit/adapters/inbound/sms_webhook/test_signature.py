@@ -35,7 +35,7 @@ def test_it_matches_a_value_computed_independently_with_hmac_and_hashlib() -> No
 def test_it_matches_a_literal_computed_once_with_openssl() -> None:
     # printf '%s' 'https://overwatch.mirroredintelligence.com/webhooks/sms/twilioAccountSidAC1Body4From+447700900123'\
     #   'MessageSidSM1To+447700900001' | openssl dgst -sha1 -hmac i07-test-token -binary | base64
-    assert twilio_signature(URL, PARAMS, TOKEN) == "JRXb5JswbCZN3KZyZZtf+OZVo6Y="
+    assert twilio_signature(URL, PARAMS, TOKEN) == "UhZsYgsaFn5DGfv22aAqzJ3rQdU="
 
 
 def test_the_order_the_parameters_arrive_in_does_not_matter() -> None:

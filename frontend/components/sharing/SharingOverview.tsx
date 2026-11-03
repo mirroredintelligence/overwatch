@@ -1,26 +1,35 @@
 'use client';
 
 import { useState } from 'react';
+import { Disclose } from '@/components/admin/Disclose';
 import { AllowlistFields, canListFields } from '@/components/scope/AllowlistFields';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
 import { Dialog } from '@/components/ui/Dialog';
+import { Loading, SkeletonRows } from '@/components/ui/Skeleton';
+import { StatusTag, type StatusTagVariant } from '@/components/ui/StatusTag';
 import { post, queryFor, SHARING_BASE, useAdminRead, useNotice, type SharingPage, type SharingPageNetwork } from '@/lib/networkAdmin/browser';
 import { NEVER_SHARED } from '@/lib/networkAdmin/fieldLabels';
-import { arrivalWord, cardFor, cardWord, windowWord, type Card as KindCard } from '@/lib/networkAdmin/sharing';
+import { arrivalWord, cardFor, cardWord, windowWord, type Card as KindCard, type CardState } from '@/lib/networkAdmin/sharing';
 import { SCOPES, type Allowlist, type Scope } from '@/lib/networkAdmin/views';
 import { dateText, SCOPE_WORD } from '@/lib/networkAdmin/words';
-import styles from '../admin/admin.module.css';
+import styles from './Sharing.module.css';
 
 // Sharing with the network, for the member organisation's administrator (TEN-081, design N2: SharingOverview,
-// SharingFields, SharingEnd, SharingLeave, SharingAgreement, SharingHistory). Sharing is read only. For each
-// kind the card says where it stands, which fields leave the organisation (rendered from the allowlist the
-// back end sent, in plain words), whether the network is getting it, and what the administrator may do. A grant
-// takes two approvals, the organisation's and the network owner's, from two different people. No patient
-// information is ever shared, and no screen here holds a tenant's id, a handle or a person's reference.
+// SharingFields, SharingEnd, SharingLeave, SharingAgreement, SharingHistory; board A6, right half). Sharing is read only.
+// Each kind is a row that says its state in a tag and opens, on request, to what it shares and the actions that fit.
+// One row is open at a time. A grant takes two approvals, the organisation's and the network owner's, from two different
+// people. No patient information is ever shared, and no screen here holds a tenant's id, a handle or a person's reference.
 
-export const INTRO = 'Sharing is read only. Other organisations see only the fields listed here. No patient information is ever shared.';
-const WORD = (scope: Scope) => SCOPE_WORD[scope].toLowerCase();
+export const INTRO = 'You share only what you agree to, and you can end it at any time. Each kind of sharing needs two approvals: one from you and one from the network owner.';
+
+// The kinds as the board names them. The back end's own word for the directory is "Directory"; the screen says "Service directory".
+const LABEL: Readonly<Record<Scope, string>> = { capacity: 'Capacity', directory: 'Service directory', criteria: 'Criteria' };
+const DESCRIPTION: Readonly<Record<Scope, string>> = {
+  capacity: 'How many places each service has now',
+  directory: 'Which services you run and where',
+  criteria: 'Which patients each service takes',
+};
+const WORD = (scope: Scope) => LABEL[scope].toLowerCase();
 
 export function SharingOverview() {
   const { state, reload } = useAdminRead<SharingPage>(SHARING_BASE);
@@ -30,7 +39,11 @@ export function SharingOverview() {
       <h1 className={styles.title}>Sharing with the network</h1>
       <p className={styles.text}>{INTRO}</p>
       <p className={styles.muted}>{NEVER_SHARED}</p>
-      {state.status === 'loading' ? <p className={styles.muted}>Loading what your organisation shares.</p> : null}
+      {state.status === 'loading' ? (
+        <Loading label="Loading what your organisation shares.">
+          <SkeletonRows count={3} />
+        </Loading>
+      ) : null}
       {state.status === 'failed' ? (
         <p role="alert" className={styles.problem}>
           We could not load what your organisation shares.
@@ -51,29 +64,48 @@ type Say = (ok: boolean, text: string) => void;
 function Loaded({ page, reload, say }: { page: SharingPage; reload: () => void; say: Say }) {
   return (
     <>
-      <Card heading="Your organisation code">
-        <p className={styles.code}>{page.organisationCode}</p>
-        <p className={styles.text}>Give this code to the network owner so that they can invite your organisation.</p>
-      </Card>
-      <p className={styles.text}>
-        <a className={styles.link} data-el="SHARE-HISTORY-LINK" href="#history">
-          History
-        </a>
-      </p>
+      <section aria-label="Your organisation code" className={`${styles.card} ${styles.codeCard}`}>
+        <div className={styles.codeText}>
+          <p className={styles.codeLabel}>Your organisation code</p>
+          <p className={styles.codeValue}>{page.organisationCode}</p>
+        </div>
+        <CopyCode code={page.organisationCode} />
+      </section>
+      {page.networks.length === 0 ? <p className={styles.text}>Give this code to the network owner so they can invite you. You are not in a network yet.</p> : null}
       {page.networks.length === 0 ? (
-        <>
-          <p className={styles.text}>Your organisation is not in a network.</p>
-          {SCOPES.map((scope) => (
-            <Card key={scope} heading={SCOPE_WORD[scope]} headingLevel={3}>
-              <AllowlistFields scope={scope} fields={page.allowlist.scopes[scope]} />
-            </Card>
-          ))}
-        </>
+        <Kinds network={null} allowlist={page.allowlist} reload={reload} say={say} />
       ) : (
         page.networks.map((network) => <NetworkSection key={network.id} network={network} allowlist={page.allowlist} reload={reload} say={say} />)
       )}
       <History networks={page.networks} />
     </>
+  );
+}
+
+function CopyCode({ code }: { code: string }) {
+  const [copied, setCopied] = useState<'idle' | 'copied' | 'failed'>('idle');
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied('copied');
+    } catch {
+      setCopied('failed');
+    }
+  }
+
+  return (
+    <div className={styles.copy}>
+      <Button variant="secondary" dataEl="SHARE-COPY-BTN" onClick={() => void copy()}>
+        Copy
+      </Button>
+      {copied === 'copied' ? <span role="status" className={styles.ok}>Copied.</span> : null}
+      {copied === 'failed' ? (
+        <span role="alert" className={styles.problem}>
+          The code could not be copied. Select it and copy it by hand.
+        </span>
+      ) : null}
+    </div>
   );
 }
 
@@ -98,12 +130,12 @@ function NetworkSection({ network, allowlist, reload, say }: { network: SharingP
 
   return (
     <section className={styles.stack} aria-label={`Network ${network.name}`}>
-      <h2 className={styles.title}>{network.name}</h2>
+      <h2 className={styles.networkName}>{network.name}</h2>
       {invited ? <p className={styles.text}>{`You have been invited to ${network.name}.`}</p> : null}
       {closed ? <p className={styles.text}>{`You left this network on ${dateText(network.leftAt)}.`}</p> : null}
       {network.agreementReference !== null && network.agreementVersion !== null ? <p className={styles.text}>{`Agreement ${network.agreementReference}, version ${network.agreementVersion}.`}</p> : null}
       {(invited || (active && network.agreementBehind)) && network.agreementVersion !== null ? (
-        <div className={styles.stack}>
+        <div className={`${styles.card} ${styles.stack}`}>
           <p className={styles.text}>{`Agreement version ${network.agreementVersion} is available.`}</p>
           <div className={styles.actions}>
             <Button variant="primary" busy={accepting} dataEl="SHARE-AGREEMENT-ACCEPT-BTN" onClick={() => void accept()}>
@@ -112,11 +144,7 @@ function NetworkSection({ network, allowlist, reload, say }: { network: SharingP
           </div>
         </div>
       ) : null}
-      {invited
-        ? null
-        : SCOPES.map((scope) => (
-            <ScopeCard key={scope} scope={scope} network={network} allowlist={allowlist} query={query} acting={active} reload={reload} say={say} />
-          ))}
+      {invited ? null : <Kinds network={network} allowlist={allowlist} reload={reload} say={say} />}
       {active && !network.isOwner ? (
         <div className={styles.actions}>
           <Button variant="neutral" dataEl="SHARE-LEAVE-BTN" onClick={() => setLeaving(true)}>
@@ -140,30 +168,72 @@ function NetworkSection({ network, allowlist, reload, say }: { network: SharingP
   );
 }
 
-function ScopeCard({
+// The three kinds, one row each. One row is open at a time; the parent holds which.
+function Kinds({ network, allowlist, reload, say }: { network: SharingPageNetwork | null; allowlist: Allowlist; reload: () => void; say: Say }) {
+  const [openKind, setOpenKind] = useState<Scope | null>(null);
+  return (
+    <div className={styles.stack}>
+      {SCOPES.map((scope) => (
+        <ScopeRow
+          key={scope}
+          scope={scope}
+          network={network}
+          allowlist={allowlist}
+          open={openKind === scope}
+          onToggle={() => setOpenKind(openKind === scope ? null : scope)}
+          reload={reload}
+          say={say}
+        />
+      ))}
+    </div>
+  );
+}
+
+function tagFor(state: CardState): { variant: StatusTagVariant; word: string } {
+  switch (state.kind) {
+    case 'sharing':
+      return { variant: 'live', word: `Shared since ${dateText(state.since)}` };
+    case 'scheduled':
+      return { variant: 'due', word: cardWord(state) };
+    case 'waiting-you':
+    case 'waiting-owner':
+      return { variant: 'waiting', word: cardWord(state) };
+    case 'ended':
+      return { variant: 'closed', word: cardWord(state) };
+    case 'not-sharing':
+      return { variant: 'todo', word: 'Not shared' };
+  }
+}
+
+function ScopeRow({
   scope,
   network,
   allowlist,
-  query,
-  acting,
+  open,
+  onToggle,
   reload,
   say,
 }: {
   scope: Scope;
-  network: SharingPageNetwork;
+  network: SharingPageNetwork | null;
   allowlist: Allowlist;
-  query: string;
-  acting: boolean;
+  open: boolean;
+  onToggle: () => void;
   reload: () => void;
   say: Say;
 }) {
-  const card = cardFor(scope, network.grants, network.shared);
+  const grants = network?.grants ?? [];
+  const shared = network?.shared ?? [];
+  const query = network === null ? '' : queryFor(network.id);
+  const acting = network !== null && network.membershipStatus === 'active';
+  const card = cardFor(scope, grants, shared);
   const fields = allowlist.scopes[scope];
   const listable = canListFields(scope, fields);
   const [busy, setBusy] = useState(false);
   const [dialog, setDialog] = useState<'decline' | 'end' | null>(null);
-  const arrival = arrivalWord(card);
   const windowText = windowWord(card);
+  const arrival = arrivalWord(card);
+  const tag = tagFor(card.state);
 
   async function approve(grantId: string) {
     if (busy) return;
@@ -191,16 +261,19 @@ function ScopeCard({
   }
 
   return (
-    <Card heading={SCOPE_WORD[scope]} headingLevel={3} dataEl="SHARE-SCOPE-CARD">
-      <p className={styles.ok}>{cardWord(card.state)}</p>
-      {windowText !== null ? <p className={styles.text}>{windowText}</p> : null}
-      {card.inForceSince !== null ? <p className={styles.text}>{`Sharing is in force since ${dateText(card.inForceSince)} until this is decided.`}</p> : null}
-      {arrival !== null ? <p className={styles.text}>{arrival}</p> : null}
-      {card.state.kind === 'waiting-you' ? (
-        <p className={styles.text}>A grant needs the approval of your organisation and of the network owner, from two different people.</p>
-      ) : null}
-      <AllowlistFields scope={scope} fields={fields} />
-      {acting ? <Actions card={card} listable={listable} busy={busy} onApprove={(id) => void approve(id)} onPropose={() => void propose()} onDialog={setDialog} /> : null}
+    <section aria-label={LABEL[scope]} data-el="SHARE-SCOPE-CARD" className={styles.kind}>
+      <Disclose open={open} onToggle={onToggle} title={LABEL[scope]} hint={DESCRIPTION[scope]} aside={<StatusTag variant={tag.variant}>{tag.word}</StatusTag>}>
+        <div className={styles.detail}>
+          {windowText !== null ? <p className={styles.text}>{windowText}</p> : null}
+          {card.inForceSince !== null ? <p className={styles.text}>{`Sharing is in force since ${dateText(card.inForceSince)} until this is decided.`}</p> : null}
+          {arrival !== null ? <p className={styles.text}>{arrival}</p> : null}
+          {card.state.kind === 'waiting-you' ? (
+            <p className={styles.text}>A grant needs the approval of your organisation and of the network owner, from two different people.</p>
+          ) : null}
+          <AllowlistFields scope={scope} fields={fields} />
+          {acting ? <Actions card={card} listable={listable} busy={busy} onApprove={(id) => void approve(id)} onPropose={() => void propose()} onDialog={setDialog} /> : null}
+        </div>
+      </Disclose>
       {dialog === 'decline' && card.waitingFor !== null ? (
         <GrantDialog
           kind="decline"
@@ -229,7 +302,7 @@ function ScopeCard({
           }}
         />
       ) : null}
-    </Card>
+    </section>
   );
 }
 
@@ -379,6 +452,7 @@ function LeaveDialog({ network, query, onClose, onLeft }: { network: SharingPage
 }
 
 function History({ networks }: { networks: SharingPageNetwork[] }) {
+  const [open, setOpen] = useState(false);
   const lines: string[] = [];
   for (const network of networks) {
     for (const grant of network.grants) {
@@ -387,19 +461,22 @@ function History({ networks }: { networks: SharingPageNetwork[] }) {
       else if (grant.status === 'ended' || grant.status === 'lapsed' || grant.status === 'superseded') lines.push(`${since}. Ended on ${dateText(grant.endedAt)}`);
     }
   }
+  const count = lines.length === 0 ? 'No changes yet' : `${lines.length} ${lines.length === 1 ? 'change' : 'changes'}`;
   return (
-    <div id="history">
-      <Card heading="History">
-        {lines.length === 0 ? (
-          <p className={styles.text}>Nothing here yet.</p>
-        ) : (
-          <ul className={styles.list}>
-            {lines.map((line) => (
-              <li key={line}>{line}</li>
-            ))}
-          </ul>
-        )}
-      </Card>
-    </div>
+    <section id="history" aria-label="History" className={styles.kind}>
+      <Disclose open={open} onToggle={() => setOpen(!open)} title="History" aside={<span className={styles.count}>{count}</span>}>
+        <div className={styles.detail}>
+          {lines.length === 0 ? (
+            <p className={styles.text}>Nothing here yet.</p>
+          ) : (
+            <ul className={styles.list}>
+              {lines.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </Disclose>
+    </section>
   );
 }

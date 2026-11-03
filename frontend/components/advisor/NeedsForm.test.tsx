@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -220,6 +220,46 @@ describe('NeedsForm (W11)', () => {
   it('has no axe violations with the form loaded', async () => {
     const { container } = await renderForm();
     expect((await runAxe(container)).violations).toEqual([]);
+  });
+
+  it('says the case is loading as a status, so a screen reader hears it', () => {
+    render(<NeedsForm caseId="4821" />);
+
+    expect(screen.getByRole('status')).toHaveTextContent('Loading the case.');
+  });
+
+  it('puts the form on the call stage (Needs: summary folded, form in the stage, count alongside)', async () => {
+    const { container } = await renderForm();
+
+    expect(container.querySelector('[data-stage]')).toHaveAttribute('data-stage', '1');
+    const stage = byEl('ADV-CALL-STAGE');
+    expect(within(stage).getByRole('heading', { level: 1, name: 'Patient needs' })).toBeInTheDocument();
+    expect(within(stage).getByRole('group', { name: 'Age' })).toBeInTheDocument();
+    expect(within(stage).getByLabelText('Where is the patient? Postcode')).toBeInTheDocument();
+  });
+
+  it('shows the live count alongside, and says there is no count yet rather than a number it does not have', async () => {
+    await renderForm();
+
+    const side = screen.getByRole('complementary', { name: 'Alongside' });
+    expect(within(side).getByText('As you fill this in')).toBeInTheDocument();
+    expect(within(side).getByText('No count yet')).toBeInTheDocument();
+    expect(within(side).getByText('Nothing is offered until you press See options.')).toBeInTheDocument();
+  });
+
+  it('does not write anything while the form is filled in: the only save is the one on See options', async () => {
+    const user = userEvent.setup();
+    await renderForm();
+
+    await fillEverything(user);
+
+    expect(seenCasePuts).toHaveLength(0);
+  });
+
+  it('shows the call bar above the form, with the call in progress', async () => {
+    await renderForm();
+
+    expect(byEl('ADV-CALLBAR')).toHaveTextContent(/^Call in progress · \d\d:\d\d · /);
   });
 
   it('shows the note about names and postcodes being cleared', async () => {

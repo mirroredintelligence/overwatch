@@ -1,0 +1,51 @@
+/* The side card of the Needs step: a white card, a 56px figure with its words beside it. */
+
+.card {
+  box-sizing: border-box;
+  display: grid;
+  gap: var(--space-2);
+  padding: 22px;
+  background: Canvas;
+  border-radius: 22px;
+  box-shadow: var(--shadow-card);
+}
+
+.kicker {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.figure {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 10px;
+}
+
+.number {
+  font-size: 56px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--c-primary-dark);
+}
+
+.words {
+  font-size: var(--type-body-size);
+  color: var(--c-ink-2);
+}
+
+.none {
+  font-size: var(--type-title-size);
+  font-weight: 700;
+  color: var(--c-ink-2);
+}
+
+.note {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
+}

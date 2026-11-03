@@ -13,6 +13,7 @@ describe('case needs page (W11)', () => {
       'aria-current',
       'step',
     );
-    expect(screen.getByText('Loading the case.')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Loading the case.');
+    expect(screen.getAllByRole('main')).toHaveLength(1);
   });
 });

@@ -8,20 +8,69 @@
   gap: var(--space-2);
 }
 
-.legend,
+.legend {
+  padding: 0;
+  margin: 0 0 var(--space-2);
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  line-height: var(--type-label-lh);
+  color: var(--c-ink);
+}
+
 .heading {
   padding: 0;
   margin: 0;
-  font-size: var(--type-heading-size);
-  font-weight: var(--type-heading-weight);
-  line-height: var(--type-heading-lh);
+  font-size: var(--type-title-size);
+  font-weight: var(--type-title-weight);
+  line-height: var(--type-title-lh);
   color: var(--c-ink);
 }
 
 .chips {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: 10px;
+}
+
+/* The board's choice chip: 18px bold on a 2px line; pressed is a tint with the primary line. */
+.choice {
+  box-sizing: border-box;
+  min-height: 48px;
+  padding: 0 20px;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--c-ink);
+  background: Canvas;
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition:
+    transform var(--dur-press) var(--ease-out),
+    background-color var(--dur-state) var(--ease-hover),
+    border-color var(--dur-state) var(--ease-hover);
+}
+
+.choice:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.choice:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.choice[aria-pressed='true'] {
+  background: var(--c-tint);
+  border-color: var(--c-primary);
+}
+
+.choice:disabled {
+  cursor: default;
+}
+
+.dashed {
+  border: 2px dashed var(--c-unknown);
 }
 
 .label {
@@ -50,8 +99,8 @@
   font: inherit;
   font-size: var(--type-body-size);
   color: var(--c-ink);
-  background: var(--c-bg);
-  border: 2px solid var(--c-ink);
+  background: Canvas;
+  border: 2px solid var(--c-ink-2);
   border-radius: var(--radius);
 }
 

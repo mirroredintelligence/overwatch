@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Chip } from '@/components/ui/Chip';
+import { type ReactNode, useEffect, useState } from 'react';
 import { OptionButton } from '@/components/ui/OptionButton';
 import { bffFetch } from '@/lib/advisor/browser';
 import {
@@ -22,7 +21,38 @@ import styles from './ScorePickers.module.css';
 // is chosen by its chip; "Not given" clears every method. The tool never calculates, infers or checks
 // a score beyond its allowed range.
 
-type DxItem = { code: string; display: string };
+// The choice chip of the Call board (Needs step): 18px bold on a 2px line, a tint and the primary line when
+// pressed. It is a toggle button (aria-pressed), 48px high. The needs form uses it too.
+export function ChoiceChip({
+  pressed,
+  onPressedChange,
+  children,
+  dataEl,
+  disabled,
+  dashed,
+}: {
+  pressed: boolean;
+  onPressedChange: (next: boolean) => void;
+  children: ReactNode;
+  dataEl?: string;
+  disabled?: boolean;
+  dashed?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      className={dashed ? `${styles.choice} ${styles.dashed}` : styles.choice}
+      aria-pressed={pressed}
+      onClick={() => onPressedChange(!pressed)}
+      disabled={disabled}
+      data-el={dataEl}
+    >
+      {children}
+    </button>
+  );
+}
+
+type DxItem ={ code: string; display: string };
 type Found = { query: string; items: DxItem[] };
 
 const METHOD_CHIPS: readonly { method: AcuityMethod; label: string; id: string }[] = [
@@ -77,7 +107,7 @@ export function ScorePickers({ value, onChange, recordedMethods = [] }: ScorePic
       <legend className={styles.legend}>Score from the referrer (optional)</legend>
       <div className={styles.chips}>
         {METHOD_CHIPS.map((chip) => (
-          <Chip
+          <ChoiceChip
             key={chip.method}
             pressed={methods.includes(chip.method)}
             onPressedChange={(on) => toggleMethod(chip.method, on)}
@@ -85,12 +115,12 @@ export function ScorePickers({ value, onChange, recordedMethods = [] }: ScorePic
             dataEl={`ADV-SCORE-${chip.id}-CHIP`}
           >
             {chip.label}
-          </Chip>
+          </ChoiceChip>
         ))}
         {recordedMethods.length > 0 ? null : (
-          <Chip pressed={notGiven} onPressedChange={(on) => (on ? giveNone() : setNotGiven(false))} dataEl="ADV-SCORE-NONE-CHIP">
+          <ChoiceChip pressed={notGiven} onPressedChange={(on) => (on ? giveNone() : setNotGiven(false))} dataEl="ADV-SCORE-NONE-CHIP">
             Not given
-          </Chip>
+          </ChoiceChip>
         )}
       </div>
 
@@ -203,14 +233,14 @@ function CfsPicker({ chosen, onChoose }: { chosen: number | null; onChoose: (val
       <legend className={styles.label}>Clinical Frailty Scale (1 to 9)</legend>
       <div className={styles.chips}>
         {values.map((value) => (
-          <Chip
+          <ChoiceChip
             key={value}
             pressed={chosen === value}
             onPressedChange={(on) => onChoose(on ? value : null)}
             dataEl={`ADV-SCORE-CFS-${value}`}
           >
             {String(value)}
-          </Chip>
+          </ChoiceChip>
         ))}
       </div>
       {chosen === null ? null : <p className={styles.sub}>{`${chosen} · ${CFS_LABELS[chosen]}`}</p>}

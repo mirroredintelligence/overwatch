@@ -1,0 +1,207 @@
+/* The card of AddService.dc.html: 312px wide, 20px padding, 24px radius, a 14px gap. The column around it is the
+   page's and animates from 0; the card fades and drifts in (opacity 300ms after a beat, transform on the spring).
+   The tokens are zero under reduced motion. */
+
+.pin {
+  --pin-w: 312px;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  padding: 4px 2px 20px;
+  box-sizing: border-box;
+  opacity: 1;
+  transition:
+    opacity var(--dur-sheet) var(--ease-hover) 200ms,
+    transform var(--dur-stage) var(--ease-spring);
+}
+
+.pin[data-open='false'] {
+  opacity: 0;
+  transform: translateX(-24px);
+  transition-delay: 0ms;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-sizing: border-box;
+  width: var(--pin-w);
+  padding: 20px;
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+}
+
+.k {
+  color: var(--c-muted);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  padding-top: 12px;
+  border-top: 1px solid var(--c-ground);
+}
+
+.item:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.key {
+  color: var(--c-muted);
+  font-size: 14px;
+}
+
+.value {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.detail {
+  color: var(--c-ink-2);
+  font-size: 15px;
+}
+
+.change {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--c-ink-2);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.change:focus-visible,
+.pill:focus-visible,
+.close:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+/* Phone: the pill and its sheet. */
+
+.pillWrap {
+  position: relative;
+  min-width: 0;
+}
+
+.pill {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 var(--space-4);
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius-chip);
+  background: #fff;
+  color: var(--c-ink);
+  font: inherit;
+  font-size: var(--type-label-size);
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+}
+
+.pillTitle {
+  flex: none;
+  color: var(--c-muted);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.pillValue {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 700;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chev {
+  display: flex;
+  flex: none;
+  transition: transform var(--dur-press) var(--ease-spring);
+}
+
+.chev[data-open='true'] {
+  transform: rotate(180deg);
+}
+
+.sheet {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  left: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  box-sizing: border-box;
+  padding: var(--space-4);
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-lift);
+  animation: rise var(--dur-sheet) var(--ease-out);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.sheetHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.close {
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: 0;
+  background: transparent;
+  color: var(--c-ink-2);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

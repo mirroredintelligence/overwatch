@@ -1,21 +1,29 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { FlagList } from './FlagList';
 import { LeadPhonedDialog } from './LeadPhonedDialog';
+import { PageHeader } from '@/components/shell/PageHeader';
 import { Button } from '@/components/ui/Button';
+import { Loading, SkeletonRows } from '@/components/ui/Skeleton';
 import { CANNOT_DO, leadPost, leadRead } from '@/lib/lead/browser';
 import type { FlagItem } from '@/lib/lead/flags';
-import styles from './Lead.module.css';
+import styles from './ReportFlags.module.css';
 
-// Reports to check (W42): the flags the rules raised on open reports. "To check" lists the open flags; the
+// Reports to check (W42, LDR-09): the flags the rules raised on open reports. A master list on the left and the
+// open flag beside it, with the reason in words and the actions explained. "To check" lists the open flags; the
 // "Checked" list is not on the back end yet, so its tab answers that the list could not be loaded.
 // Accepting a figure or marking it checked takes the flag out of "To check". A suspension is made on its own
-// page, from the link.
+// page, from the link. On a phone the list is the page and a tap opens the flag as a step of its own, with
+// "Phone to confirm" fixed at the bottom. The "last reports" strip is not drawn: the flag has no figures.
 
 type Tab = 'to-check' | 'checked';
+type Step = 'list' | 'detail';
 
 const FOOTNOTE =
-  'Flagged by rules: out-of-range twice, many changes in a short time, or a figure that differs from what advisors recorded by phone.';
+  'Flagged by rules: out-of-range twice, many changes in a short time, or a figure that differs from what advisors recorded by phone. Not a league table, and never used to assess advisors.';
+const NOT_LOADED = 'We could not load these reports. Try again shortly.';
+const TABS: readonly Tab[] = ['to-check', 'checked'];
 
 /** The BFF's answer: `{counts, items}`. A shape that is not that is an empty list plus a failure, never a guess. */
 function flagsFromAnswer(body: unknown): FlagItem[] {
@@ -38,6 +46,10 @@ export function ReportFlags() {
   const [failed, setFailed] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
   const [phoned, setPhoned] = useState<FlagItem | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [step, setStep] = useState<Step>('list');
+  const [reads, setReads] = useState(0);
+  const tabRefs = useRef<Record<Tab, HTMLButtonElement | null>>({ 'to-check': null, checked: null });
 
   useEffect(() => {
     let cancelled = false;
@@ -46,7 +58,7 @@ export function ReportFlags() {
       setLoading(false);
       if (!result.ok) {
         setItems([]);
-        setFailed(result.status === 403 ? CANNOT_DO : 'We could not load these reports. Try again shortly.');
+        setFailed(result.status === 403 ? CANNOT_DO : NOT_LOADED);
         return;
       }
       try {
@@ -55,13 +67,41 @@ export function ReportFlags() {
         setItems(flags);
       } catch {
         setItems([]);
-        setFailed('We could not load these reports. Try again shortly.');
+        setFailed(NOT_LOADED);
       }
     });
     return () => {
       cancelled = true;
     };
-  }, [tab]);
+  }, [tab, reads]);
+
+  function choose(next: Tab) {
+    if (next === tab) return;
+    setLoading(true);
+    setNotice('');
+    setOpenId(null);
+    setStep('list');
+    setTab(next);
+  }
+
+  function onTabKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    const at = TABS.indexOf(tab);
+    let to = -1;
+    if (event.key === 'ArrowRight') to = (at + 1) % TABS.length;
+    else if (event.key === 'ArrowLeft') to = (at + TABS.length - 1) % TABS.length;
+    else if (event.key === 'Home') to = 0;
+    else if (event.key === 'End') to = TABS.length - 1;
+    if (to < 0) return;
+    event.preventDefault();
+    choose(TABS[to]);
+    tabRefs.current[TABS[to]]?.focus();
+  }
+
+  function tryAgain() {
+    setLoading(true);
+    setFailed(null);
+    setReads((n) => n + 1);
+  }
 
   async function resolve(item: FlagItem, action: 'accept' | 'checked') {
     setNotice('');
@@ -71,91 +111,144 @@ export function ReportFlags() {
       return;
     }
     setItems((current) => current.filter((flag) => flag.id !== item.id));
+    setOpenId(null);
+    setStep('list');
     setNotice('Moved to Checked.');
   }
 
   const count = items.length;
+  const current = items.find((item) => item.id === openId) ?? items[0] ?? null;
+  const ready = !loading && failed === null;
+  const open = tab === 'to-check';
 
   return (
     <main className={styles.page}>
-      <h1 className={styles.title}>Reports to check</h1>
+      <PageHeader title="Reports to check" />
 
-      <div role="tablist" aria-label="Reports" className={styles.tabs}>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'to-check'}
-          onClick={() => {
-            setLoading(true);
-            setTab('to-check');
-          }}
-          className={styles.tab}
-        >
-          {`To check (${loading ? '…' : count})`}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'checked'}
-          onClick={() => {
-            setLoading(true);
-            setTab('checked');
-          }}
-          className={styles.tab}
-        >
-          Checked
-        </button>
+      <div role="tablist" aria-label="Reports" className={styles.tabs} onKeyDown={onTabKeyDown}>
+        {TABS.map((id) => (
+          <button
+            key={id}
+            ref={(node) => {
+              tabRefs.current[id] = node;
+            }}
+            type="button"
+            role="tab"
+            id={`flags-tab-${id}`}
+            aria-selected={tab === id}
+            aria-controls="flags-panel"
+            tabIndex={tab === id ? 0 : -1}
+            onClick={() => choose(id)}
+            className={styles.tab}
+          >
+            {id === 'checked' ? 'Checked' : tab === 'to-check' ? `To check (${loading ? '…' : count})` : 'To check'}
+          </button>
+        ))}
       </div>
 
-      {failed !== null ? (
-        <p role="alert" className={styles.fieldError}>
-          {failed}
-        </p>
-      ) : null}
+      <div role="tabpanel" id="flags-panel" aria-labelledby={`flags-tab-${tab}`} className={styles.panel}>
+        {failed !== null ? (
+          <div role="alert" className={styles.failure}>
+            <p className={styles.failureText}>{failed}</p>
+            <Button variant="secondary" onClick={tryAgain} dataEl="LEAD-FLAG-RETRY-BTN">
+              Try again
+            </Button>
+          </div>
+        ) : null}
 
-      {loading ? <p className={styles.muted}>Loading the reports to check.</p> : null}
+        {loading ? (
+          <Loading label="Loading the reports to check.">
+            <SkeletonRows count={3} />
+          </Loading>
+        ) : null}
 
-      {!loading && failed === null && count === 0 ? <p className={styles.line}>No reports to check.</p> : null}
+        {ready && count === 0 ? (
+          <p className={styles.empty}>{open ? 'No reports to check.' : 'No reports have been checked.'}</p>
+        ) : null}
 
-      <div className={styles.stack}>
-        {!loading && failed === null
-          ? items.map((item) => {
-              const many = item.reason === 'many-changes';
-              return (
-                <section key={item.id} className={styles.card} aria-labelledby={`flag-${item.id}`}>
-                  <h2 id={`flag-${item.id}`} className={styles.sectionHeading}>
-                    {item.serviceName}
-                  </h2>
-                  <p className={styles.line}>{item.summary}</p>
+        {ready && current !== null ? (
+          <div className={styles.stage} data-step={step} data-testid="flags-stage">
+            <div className={styles.list}>
+              <FlagList
+                items={items}
+                currentId={current.id}
+                onOpen={(id) => {
+                  setOpenId(id);
+                  setStep('detail');
+                }}
+              />
+            </div>
+
+            <section key={current.id} className={styles.detail} aria-label={current.serviceName}>
+              {step === 'detail' ? (
+                <button type="button" className={styles.back} onClick={() => setStep('list')}>
+                  <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" focusable="false">
+                    <path d="M12 5l-5 5 5 5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  Back to the list
+                </button>
+              ) : null}
+              <div>
+                <div className={styles.kicker}>{open ? 'Report to check' : 'Checked report'}</div>
+                <h2 className={styles.name}>{current.serviceName}</h2>
+                <p className={styles.reason}>{current.summary}</p>
+              </div>
+
+              {open ? (
+                <>
+                  <div className={styles.explain}>
+                    <div className={styles.act}>
+                      <span className={styles.actName}>Phone to confirm</span>
+                      <span className={styles.actText}>
+                        Ring the service and record what they say. Their answer replaces the flagged figure.
+                      </span>
+                    </div>
+                    <div className={styles.act}>
+                      <span className={styles.actName}>{current.reason === 'many-changes' ? 'Mark as checked' : 'Accept the figure'}</span>
+                      <span className={styles.actText}>
+                        {current.reason === 'many-changes'
+                          ? 'You looked and the changes were real. The flag moves to Checked.'
+                          : 'You looked and the figure is right. The flag moves to Checked.'}
+                      </span>
+                    </div>
+                  </div>
+
                   <div className={styles.actions}>
-                    <Button variant="secondary" onClick={() => setPhoned(item)} dataEl="LEAD-FLAG-PHONED-BTN">
-                      Phone to confirm
-                    </Button>
-                    {many ? (
-                      <Button variant="neutral" onClick={() => void resolve(item, 'checked')} dataEl="LEAD-FLAG-CHECKED-BTN">
+                    <div className={styles.primary}>
+                      <Button variant="primary" onClick={() => setPhoned(current)} dataEl="LEAD-FLAG-PHONED-BTN">
+                        Phone to confirm
+                      </Button>
+                    </div>
+                    {current.reason === 'many-changes' ? (
+                      <Button variant="secondary" onClick={() => void resolve(current, 'checked')} dataEl="LEAD-FLAG-CHECKED-BTN">
                         Mark as checked
                       </Button>
                     ) : (
-                      <>
-                        <Button variant="primary" onClick={() => void resolve(item, 'accept')} dataEl="LEAD-FLAG-ACCEPT-BTN">
-                          Accept the figure
-                        </Button>
-                        <Button variant="neutral" href={`/lead/services/${encodeURIComponent(item.serviceId)}/suspend`} dataEl="LEAD-FLAG-SUSPEND-LINK">
-                          Suspend service
-                        </Button>
-                      </>
+                      <Button variant="secondary" onClick={() => void resolve(current, 'accept')} dataEl="LEAD-FLAG-ACCEPT-BTN">
+                        Accept the figure
+                      </Button>
                     )}
+                    <span className={styles.suspend}>
+                      <Button
+                        variant="neutral"
+                        href={`/lead/services/${encodeURIComponent(current.serviceId)}/suspend`}
+                        dataEl="LEAD-FLAG-SUSPEND-LINK"
+                      >
+                        Suspend this service
+                      </Button>
+                    </span>
                   </div>
-                </section>
-              );
-            })
-          : null}
+                </>
+              ) : null}
+            </section>
+          </div>
+        ) : null}
       </div>
 
-      <p role="status" className={styles.line}>
+      <p role="status" className={styles.notice}>
         {notice}
       </p>
-      <p className={styles.muted}>{FOOTNOTE}</p>
+      <p className={styles.footnote}>{FOOTNOTE}</p>
 
       <LeadPhonedDialog
         open={phoned !== null}

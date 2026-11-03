@@ -1,0 +1,61 @@
+/* The last-reports strip: a grey panel, five figures with their times, an optional note at the end. */
+
+.strip {
+  padding: var(--space-3) var(--space-4);
+  border-radius: 18px;
+  background: var(--c-bg);
+  color: var(--c-ink);
+}
+
+.label {
+  margin-bottom: var(--space-2);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2) var(--space-4);
+}
+
+.figures {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.figure {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.value {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--c-primary-dark);
+}
+
+.time {
+  font-size: 14px;
+  color: var(--c-muted);
+}
+
+.note {
+  max-width: 16rem;
+  margin: 0 0 0 auto;
+  font-size: 15px;
+  line-height: 1.35;
+  color: var(--c-muted);
+}

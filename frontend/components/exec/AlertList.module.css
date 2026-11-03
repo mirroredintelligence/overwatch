@@ -1,0 +1,158 @@
+/* The alerts list (boards/planning/PAlerts.dc.html, phone PH2.dc.html). Above 900px: the list on the left, the
+   selected alert on the right, and the cards carry no buttons (the pane has them). Below: one column, the pane is
+   left out and each card carries Acknowledge and Open. */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--type-h1-size, 26px);
+  line-height: 1.2;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border: 2px solid var(--c-line);
+  border-radius: 999px;
+  background: Canvas;
+  color: var(--c-ink);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tab[aria-selected='true'] {
+  border-color: var(--c-primary);
+  background: var(--c-tint);
+  color: var(--c-primary-dark);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 18px;
+  border: 2px solid Canvas;
+  border-radius: 18px;
+  background: Canvas;
+  box-shadow: var(--shadow-card);
+}
+
+.card[data-selected='true'] {
+  border-color: var(--c-surge);
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cardTitle {
+  margin: 0;
+  min-width: 0;
+  font-size: 19px;
+  line-height: 1.25;
+}
+
+.pick {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--c-ink);
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.line {
+  margin: 0;
+  font-size: 16px;
+  color: var(--c-ink-2);
+}
+
+.footer {
+  margin: 0;
+  font-size: 15px;
+  color: var(--c-muted);
+}
+
+.note {
+  margin: 0;
+  padding: 2px 4px;
+  font-size: 15px;
+  color: var(--c-muted);
+}
+
+.cardActions {
+  display: flex;
+  gap: 10px;
+  margin-top: var(--space-2);
+}
+
+.cardActions > :first-child {
+  flex: 1;
+}
+
+.pane {
+  display: none;
+  min-width: 0;
+}
+
+.status {
+  margin: 0;
+  font-weight: 700;
+  color: var(--c-primary-dark);
+}
+
+.error {
+  margin: 0;
+  font-weight: 700;
+  color: var(--c-ink);
+}
+
+@media (min-width: 900px) {
+  .layout {
+    grid-template-columns: 420px minmax(0, 1fr);
+  }
+
+  .pane {
+    display: block;
+  }
+
+  .cardActions {
+    display: none;
+  }
+}

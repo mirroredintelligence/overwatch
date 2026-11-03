@@ -18,26 +18,55 @@ const item = (id: string, extra: Partial<AlertItem> = {}): AlertItem => ({
 const open = [item('al-1'), item('al-2', { serviceName: 'UCR East', kind: 'not-updated', detail: null })];
 
 describe('AlertList', () => {
-  it('labels the open tab with its count', () => {
+  it('labels the open tab with its count, as a chip', () => {
     render(<AlertList open={open} />);
-    expect(screen.getByRole('tab', { name: 'Open (2)' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Open 2' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('tab', { name: 'Acknowledged' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Closed' })).toBeInTheDocument();
   });
 
-  it('says that acknowledging does not change the board', () => {
+  it('says that acknowledging does not change the board, and that alerts hold no patient information', () => {
     render(<AlertList open={open} />);
-    expect(screen.getByText('Acknowledging tells others it is being handled. It does not change the board.')).toBeInTheDocument();
+    expect(screen.getByText('Acknowledging tells others it is being handled. It does not change the board. Alerts never include patient information.')).toBeInTheDocument();
+  });
+
+  it('shows each card with a status tag in words, what changed, and when it was alerted', () => {
+    render(<AlertList open={open} />);
+    const card = screen.getByRole('article', { name: 'Hospital at home over capacity' });
+    expect(within(card).getByText('New')).toBeInTheDocument();
+    expect(within(card).getByText('+4')).toBeInTheDocument();
+    expect(within(card).getByText('Alerted 14:04')).toBeInTheDocument();
+  });
+
+  it('says when the deputy is alerted on a card whose alert has an escalation time', () => {
+    render(<AlertList open={[item('al-1', { escalatesAt: '2026-10-23T13:19:00Z', escalatesTo: 'deputy' })]} />);
+    expect(screen.getByText('Alerted 14:04 · deputy alerted at 14:19 if not acknowledged')).toBeInTheDocument();
+  });
+
+  it('shows the first alert on the right, and another when its card is chosen', async () => {
+    render(<AlertList open={open} />);
+    expect(screen.getByRole('region', { name: 'Hospital at home over capacity' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'UCR East has not updated' }));
+    expect(screen.getByRole('region', { name: 'UCR East has not updated' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'UCR East has not updated' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('region', { name: 'Hospital at home over capacity' })).not.toBeInTheDocument();
+  });
+
+  it('offers the duty coordinator call in the selected alert when the board holds the number', () => {
+    render(<AlertList open={open} coordinationPhone="01632 960001" />);
+    const pane = screen.getByRole('region', { name: 'Hospital at home over capacity' });
+    expect(within(pane).getByRole('link', { name: 'Call the duty coordinator' })).toHaveAttribute('href', 'tel:01632960001');
+    expect(within(pane).getByRole('link', { name: 'Open the service' })).toHaveAttribute('href', '/planning/services/svc-hah');
   });
 
   it('moves between tabs with the arrow keys', async () => {
     server.use(http.get('/api/bff/exec/alerts', () => HttpResponse.json({ counts: { open: 2 }, items: [] })));
     render(<AlertList open={open} />);
-    screen.getByRole('tab', { name: 'Open (2)' }).focus();
+    screen.getByRole('tab', { name: 'Open 2' }).focus();
     await userEvent.keyboard('{ArrowRight}');
-    expect(screen.getByRole('tab', { name: 'Acknowledged' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: /^Acknowledged/ })).toHaveAttribute('aria-selected', 'true');
     await userEvent.keyboard('{ArrowRight}');
-    expect(screen.getByRole('tab', { name: 'Closed' })).toHaveFocus();
+    expect(screen.getByRole('tab', { name: /^Closed/ })).toHaveFocus();
   });
 
   it('posts an acknowledgement, removes the card from Open, and shows it on the Acknowledged tab from the back end\'s list', async () => {
@@ -59,7 +88,23 @@ describe('AlertList', () => {
     await userEvent.click(screen.getByRole('tab', { name: 'Acknowledged' }));
     const acknowledged = await screen.findByText(/Acknowledged by you 13:40/);
     expect(within(acknowledged.closest('article') as HTMLElement).getByText('Hospital at home over capacity')).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Open (1)' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Open 1' })).toBeInTheDocument();
+    expect(await screen.findByRole('tab', { name: 'Acknowledged 1' })).toBeInTheDocument();
+  });
+
+  it('acknowledges from the selected alert, says so, and moves on to the next open alert', async () => {
+    const posted: string[] = [];
+    server.use(http.post('/api/bff/exec/alerts/:id/acknowledge', ({ params }) => {
+      posted.push(String(params.id));
+      return HttpResponse.json({ id: params.id, status: 'acknowledged' });
+    }));
+    render(<AlertList open={open} />);
+    const pane = screen.getByRole('region', { name: 'Hospital at home over capacity' });
+    await userEvent.click(within(pane).getByRole('button', { name: 'Acknowledge' }));
+    await waitFor(() => expect(posted).toEqual(['al-1']));
+    expect(await screen.findByRole('status')).toHaveTextContent('Hospital at home over capacity acknowledged.');
+    expect(screen.getByRole('tab', { name: 'Open 1' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'UCR East has not updated' })).toBeInTheDocument();
   });
 
   it('reads the Acknowledged and Closed tabs from the back end when they are opened, and shows what it reads', async () => {
@@ -72,7 +117,7 @@ describe('AlertList', () => {
     render(<AlertList open={open} />);
     await userEvent.click(screen.getByRole('tab', { name: 'Acknowledged' }));
     expect(await screen.findByText('Nothing acknowledged.')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('tab', { name: 'Closed' }));
+    await userEvent.click(screen.getByRole('tab', { name: /^Closed/ }));
     expect(await screen.findByRole('article', { name: 'UCR West has not updated' })).toBeInTheDocument();
     expect(states).toEqual(['acknowledged', 'closed']);
   });
@@ -91,7 +136,7 @@ describe('AlertList', () => {
     await userEvent.click(within(screen.getByRole('article', { name: 'Hospital at home over capacity' })).getByRole('button', { name: 'Acknowledge' }));
     expect(await screen.findByText('Could not acknowledge. Try again.')).toBeInTheDocument();
     expect(screen.getByRole('article', { name: 'Hospital at home over capacity' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Open (2)' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Open 2' })).toBeInTheDocument();
   });
 
   it('opens an alert from its Open link', async () => {
@@ -99,8 +144,14 @@ describe('AlertList', () => {
     expect(screen.getAllByRole('link', { name: 'Open' })[0]).toHaveAttribute('href', '/planning/alerts/al-1');
   });
 
+  it('says there are no open alerts, and shows no pane', () => {
+    render(<AlertList open={[]} />);
+    expect(screen.getByText('No open alerts.')).toBeInTheDocument();
+    expect(screen.queryByText('What happens if nobody acts')).not.toBeInTheDocument();
+  });
+
   it('has no accessibility violations', async () => {
-    const { container } = render(<AlertList open={open} />);
+    const { container } = render(<AlertList open={open} coordinationPhone="01632 960001" />);
     expect(await runAxe(container)).toHaveNoViolations();
   });
 });

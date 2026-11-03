@@ -1,0 +1,90 @@
+/* The reporter stage: the grid has a height of its own, because the areas' layers are laid over each other.
+   On a phone the list is the page and the detail or compose panel is a full-screen step in its place; the
+   hidden one is not reachable. The !important is because StageGrid sets its columns inline. */
+
+/* The page around the stage (SetupTracker): a wide column on the frame's ground, and the states a list can
+   be in when it has nothing to list (the States board: empty, and the amber-bordered error). */
+.page {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 80rem;
+  margin: 0 auto;
+  color: var(--c-ink);
+  font-family: var(--font-atkinson), system-ui, sans-serif;
+}
+
+.notice {
+  margin: 0;
+  min-height: 1.4em;
+  font-size: var(--type-body-size);
+  color: var(--c-ink-2);
+}
+
+.notice[data-failed='true'] {
+  color: var(--c-limited);
+  font-weight: 700;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  box-sizing: border-box;
+  padding: var(--space-5);
+  border: 2px solid transparent;
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+}
+
+.card[data-tone='error'] {
+  border-color: var(--c-limited);
+}
+
+.cardHeading {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.card[data-tone='error'] .cardHeading {
+  color: #5c2800;
+}
+
+.cardText {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.45;
+  color: var(--c-ink-2);
+}
+
+.grid {
+  height: min(52rem, calc(100dvh - 11rem));
+  min-height: 30rem;
+}
+
+.list {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+}
+
+@media (max-width: 899px) {
+  .grid[data-stage='0'] {
+    grid-template-columns: minmax(0, 1fr) 0 0 !important;
+    column-gap: 0 !important;
+  }
+
+  .grid:not([data-stage='0']) {
+    grid-template-columns: 0 minmax(0, 1fr) 0 !important;
+    column-gap: 0 !important;
+  }
+
+  .grid:not([data-stage='0']) .list {
+    visibility: hidden;
+  }
+}

@@ -1,0 +1,263 @@
+/* One reporter's set-up (LI2 board): a white card, the timeline on the left and the actions on the right.
+   Narrow: one column, a Back button at the top, and the actions stick to the bottom with Resend first. */
+
+.detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+  box-sizing: border-box;
+  min-height: 100%;
+  padding: var(--space-5);
+  background: #fff;
+  border-radius: 26px;
+  box-shadow: var(--shadow-card);
+  font-family: var(--font-atkinson), system-ui, sans-serif;
+  color: var(--c-ink);
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: var(--space-1);
+  min-height: 44px;
+  padding: 0 var(--space-3) 0 var(--space-1);
+  border: 0;
+  background: transparent;
+  color: var(--c-primary);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.back:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.name {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.sub {
+  margin: 2px 0 0;
+  font-size: 17px;
+  color: var(--c-muted);
+}
+
+.callout {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--c-amber-tint);
+  font-size: 17px;
+  line-height: 1.4;
+}
+
+.callout[data-tone='progress'],
+.callout[data-tone='done'] {
+  background: var(--c-tint);
+}
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding-bottom: 12px;
+}
+
+.step:last-child {
+  padding-bottom: 0;
+}
+
+.dot {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+/* The glyph is drawn here, not in the markup, so the list item reads as words only. */
+.step[data-state='done'] .dot {
+  background: var(--c-primary);
+  color: #fff;
+}
+
+.step[data-state='done'] .dot::before {
+  content: '✓';
+}
+
+.step[data-state='waiting'] .dot {
+  border: 3px solid var(--c-limited);
+  color: var(--c-limited);
+}
+
+.step[data-state='waiting'] .dot::before {
+  content: '!';
+}
+
+.step[data-state='todo'] .dot {
+  border: 2px dashed var(--c-unknown);
+}
+
+.label {
+  font-size: 18px;
+  line-height: 1.3;
+}
+
+.step[data-state='todo'] .label {
+  color: var(--c-muted);
+}
+
+.time {
+  color: var(--c-muted);
+  font-size: 16px;
+}
+
+.here {
+  margin-left: var(--space-2);
+  color: var(--c-limited);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  box-sizing: border-box;
+  min-width: 0;
+  padding: var(--space-4);
+  border-radius: 22px;
+  background: var(--c-bg);
+}
+
+.eyebrow {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.buttons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.buttons > * {
+  min-height: 52px;
+  font-size: 17px;
+}
+
+.buttons > :first-child {
+  min-height: 58px;
+  font-size: 19px;
+  box-shadow: 0 6px 16px rgba(11, 92, 140, 0.28);
+}
+
+.number {
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--c-line);
+}
+
+.numberLink {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--c-ink);
+  font-size: 17px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.numberLink:hover {
+  text-decoration: underline;
+}
+
+.numberLink:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.hint {
+  margin: 4px 0 0;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--c-muted);
+}
+
+/* The phone: the actions are a sticky bottom stack. */
+@media (max-width: 899px) {
+  .detail {
+    align-content: start;
+    padding: var(--space-3) var(--space-4) 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .actions {
+    position: sticky;
+    bottom: 0;
+    margin: 0 calc(var(--space-4) * -1);
+    padding: var(--space-3) var(--space-4) var(--space-4);
+    border-radius: 22px 22px 0 0;
+    box-shadow: 0 -8px 24px rgba(20, 35, 43, 0.1);
+  }
+
+  .eyebrow {
+    display: none;
+  }
+}
+
+@media (min-width: 900px) {
+  .detail {
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 30px;
+    padding: 26px 30px;
+    align-content: start;
+  }
+
+  .back {
+    display: none;
+  }
+
+  .actions {
+    align-self: start;
+  }
+}

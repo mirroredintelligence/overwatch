@@ -1,17 +1,21 @@
 'use client';
 
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { LeadPhonedDialog } from './LeadPhonedDialog';
+import { PageHeader } from '@/components/shell/PageHeader';
 import { Button } from '@/components/ui/Button';
-import { ShapeIcon } from '@/components/ui/StatusBadge';
-import { CANNOT_DO, leadPost, leadRead } from '@/lib/lead/browser';
+import { Loading, SkeletonRows } from '@/components/ui/Skeleton';
+import { leadRead } from '@/lib/lead/browser';
 import { listOf, textOf } from '@/lib/lead/answers';
-import { clockTime } from '@/lib/lead/format';
-import { SETUP_STEPS, STEP_LABEL, stuckAt, type SetupSteps } from '@/lib/lead/setupProgress';
-import styles from './Lead.module.css';
+import { SETUP_STEPS, type SetupSteps } from '@/lib/lead/setupProgress';
+import { ReporterDetail } from './ReporterDetail';
+import { ReporterList } from './ReporterList';
+import { ReporterStage } from './ReporterStage';
+import stageStyles from './ReporterStage.module.css';
 
-// Set-up progress for each invitation (W43): the seven steps in words and with icons, where the set-up is
-// stuck, and what the lead can do about it. A set-up that is complete says so, with its first report time.
+// Set-up progress for each invitation (W43; INV-01): the list of invitations, and beside it one reporter's
+// set-up. The open reporter is in the address, /lead/reporters?invitation=<id>, so Back and a reload work. The
+// list is ReporterList, the open reporter is ReporterDetail, and ReporterStage lays them out.
 
 export type Invitation = {
   id: string;
@@ -23,6 +27,8 @@ export type Invitation = {
   lastSeen: string;
   firstReportAt: string | null;
 };
+
+const REPORTERS = '/lead/reporters';
 
 function invitationsFrom(body: unknown): Invitation[] {
   return listOf(body, 'items').map((item) => {
@@ -46,78 +52,13 @@ function invitationsFrom(body: unknown): Invitation[] {
   });
 }
 
-function TrackedInvitation({ item, onNotice }: { item: Invitation; onNotice: (text: string, failed: boolean) => void }) {
-  const stuck = stuckAt(item.steps);
-  const [phoned, setPhoned] = useState(false);
-  const [text, setText] = useState<string | null>(null);
-
-  async function act(path: string, done: string, failed: string) {
-    const result = await leadPost(path);
-    if (result.ok) {
-      setText(done);
-      onNotice(done, false);
-    } else {
-      const message = result.status === 403 ? CANNOT_DO : failed;
-      setText(message);
-      onNotice(message, true);
-    }
-  }
-
-  return (
-    <section className={styles.card} aria-labelledby={`track-${item.id}`}>
-      <h2 id={`track-${item.id}`} className={styles.sectionHeading}>
-        {item.serviceName}
-      </h2>
-      <p className={styles.muted}>{item.role}</p>
-      <ol aria-label="Set-up steps" className={styles.steps}>
-        {SETUP_STEPS.map((step) => (
-          <li key={step}>
-            <span className={styles.done}>
-              <ShapeIcon shape={item.steps[step] ? 'circle-tick' : 'dashed-circle'} />
-              {`${STEP_LABEL[step]}. ${item.steps[step] ? 'Done.' : 'Not done.'}`}
-            </span>
-          </li>
-        ))}
-      </ol>
-      {stuck !== null ? (
-        <>
-          <p className={styles.line}>
-            {`Stuck at: ${stuck}. Invited ${clockTime(item.invitedAt)}, last seen ${clockTime(item.lastSeen)}.`}
-          </p>
-          <div className={styles.actions}>
-            <Button
-              variant="primary"
-              onClick={() => void act(`/api/bff/lead/invitations/${encodeURIComponent(item.id)}/resend`, 'Invitation sent again.', 'The invitation could not be sent again.')}
-              dataEl="LEAD-TRACK-RESEND-BTN"
-            >
-              Resend invitation
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => void act(`/api/bff/lead/invitations/${encodeURIComponent(item.id)}/switch-to-text`, 'They are switched to text.', 'They could not be switched to text.')}
-              dataEl="LEAD-TRACK-TEXT-BTN"
-            >
-              Switch them to text
-            </Button>
-            <Button variant="neutral" onClick={() => setPhoned(true)} dataEl="LEAD-TRACK-PHONE-BTN">
-              Phone them
-            </Button>
-          </div>
-        </>
-      ) : (
-        <p className={styles.line}>
-          {item.firstReportAt !== null ? `Complete. First report ${clockTime(item.firstReportAt)}.` : 'Complete.'}
-        </p>
-      )}
-      {text !== null ? <p className={styles.muted}>{text}</p> : null}
-      <LeadPhonedDialog open={phoned} serviceId={item.serviceId} serviceName={item.serviceName} onClose={() => setPhoned(false)} />
-    </section>
-  );
-}
-
 export function SetupTracker() {
+  const router = useRouter();
+  const openId = useSearchParams().get('invitation');
   const [items, setItems] = useState<Invitation[] | null>(null);
   const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [now] = useState(() => Date.now());
   const [notice, setNotice] = useState<{ text: string; failed: boolean } | null>(null);
 
   useEffect(() => {
@@ -134,29 +75,82 @@ export function SetupTracker() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [attempt]);
+
+  function tryAgain() {
+    setFailed(false);
+    setItems(null);
+    setAttempt((count) => count + 1);
+  }
+
+  const open = openId !== null ? (items?.find((item) => item.id === openId) ?? null) : null;
+
+  let list;
+  if (failed) {
+    list = (
+      <div className={stageStyles.card} role="alert" data-tone="error">
+        <h2 className={stageStyles.cardHeading}>
+          <span aria-hidden="true">▲ </span>We could not load set-up progress
+        </h2>
+        <p className={stageStyles.cardText}>
+          Nothing has been lost. Check your connection and try again. If it keeps happening, tell the Overwatch team.
+        </p>
+        <Button variant="secondary" onClick={tryAgain} dataEl="LEAD-TRACK-RETRY-BTN">
+          Try again
+        </Button>
+      </div>
+    );
+  } else if (items === null) {
+    list = (
+      <Loading label="Loading the set-up progress.">
+        <SkeletonRows count={3} />
+      </Loading>
+    );
+  } else if (items.length === 0) {
+    list = (
+      <div className={stageStyles.card}>
+        <h2 className={stageStyles.cardHeading}>No one has been invited yet</h2>
+        <p className={stageStyles.cardText}>
+          Invite the first person who reports capacity for a service. They set up in about 3 minutes on their own phone.
+        </p>
+        <Button variant="primary" href="/lead/reporters/invite" dataEl="LEAD-TRACK-INVITE-FIRST-BTN">
+          Invite someone
+        </Button>
+      </div>
+    );
+  } else {
+    list = <ReporterList items={items} now={now} currentId={open?.id ?? null} onOpen={(id) => router.push(`${REPORTERS}?invitation=${encodeURIComponent(id)}`)} />;
+  }
+
+  let detail = null;
+  if (open !== null) {
+    detail = (
+      <ReporterDetail
+        key={open.id}
+        item={open}
+        now={now}
+        onBack={() => router.push(REPORTERS)}
+        onNotice={(text, isFailed) => setNotice({ text, failed: isFailed })}
+      />
+    );
+  } else if (openId !== null && items !== null) {
+    detail = (
+      <div className={stageStyles.card}>
+        <p className={stageStyles.cardText}>We could not find that invitation. Choose one from the list.</p>
+        <Button variant="secondary" onClick={() => router.push(REPORTERS)} dataEl="LEAD-TRACK-BACK-BTN">
+          Back to the list
+        </Button>
+      </div>
+    );
+  }
 
   return (
-    <main className={styles.page}>
-      <h1 className={styles.title}>Set-up progress</h1>
-      {failed ? (
-        <p role="alert" className={styles.fieldError}>
-          We could not load the set-up progress.
-        </p>
-      ) : null}
-      {!failed && items === null ? <p className={styles.muted}>Loading the set-up progress.</p> : null}
-      <div className={styles.stack}>
-        {items?.map((item) => (
-          <TrackedInvitation
-            key={item.id}
-            item={item}
-            onNotice={(text, isFailed) => setNotice({ text, failed: isFailed })}
-          />
-        ))}
-      </div>
-      <p role={notice?.failed ? 'alert' : 'status'} className={notice?.failed ? styles.fieldError : styles.line}>
+    <main className={stageStyles.page}>
+      <PageHeader title="Reporters" />
+      <p role={notice?.failed ? 'alert' : 'status'} className={stageStyles.notice} data-failed={notice?.failed ?? false}>
         {notice?.text ?? ''}
       </p>
+      <ReporterStage state={openId !== null ? 'detail' : 'browse'} list={list} detail={detail} />
     </main>
   );
 }

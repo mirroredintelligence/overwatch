@@ -1,0 +1,175 @@
+/* The reporter list (LI2 board): a heading with Invite, filter chips, and one white card per reporter. A stuck
+   reporter has an amber border as well as the word and the triangle; the open one has a primary border. */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-1);
+  font-family: var(--font-atkinson), system-ui, sans-serif;
+  color: var(--c-ink);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.heading {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.chip {
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius-chip);
+  background: #fff;
+  color: var(--c-ink-2);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-state) var(--ease-out),
+    transform var(--dur-state) var(--ease-spring);
+}
+
+.chip:hover {
+  background: var(--c-tint);
+}
+
+.chip:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.chip[aria-pressed='true'] {
+  border-color: var(--c-primary);
+  background: var(--c-tint);
+  color: var(--c-primary-dark);
+}
+
+.none {
+  margin: 0;
+  padding: var(--space-3);
+  color: var(--c-ink-2);
+  font-size: var(--type-body-size);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 64px;
+  padding: 14px 16px;
+  border: 2px solid transparent;
+  border-radius: 18px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--dur-state) var(--ease-out),
+    background-color var(--dur-state) var(--ease-out);
+}
+
+.row:hover {
+  background: var(--c-tint);
+}
+
+.row:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.row[data-status='stuck'] {
+  border-color: var(--c-limited);
+  box-shadow: 0 10px 28px rgba(163, 71, 0, 0.14);
+}
+
+.row[aria-current='true'] {
+  border-color: var(--c-primary);
+  background: var(--c-tint);
+}
+
+.row[data-status='stuck'][aria-current='true'] {
+  border-color: var(--c-limited);
+}
+
+/* Seven segments, one per step, stacked: filled when the step is done. */
+.bar {
+  display: flex;
+  flex: none;
+  flex-direction: column-reverse;
+  gap: 2px;
+  width: 8px;
+  align-self: center;
+}
+
+.segment {
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--c-line);
+}
+
+.segment[data-done='true'] {
+  background: var(--c-primary);
+}
+
+.text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+
+.name {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.role {
+  font-size: 15px;
+  color: var(--c-muted);
+}
+
+.waiting {
+  margin-top: var(--space-2);
+  font-size: 15px;
+  color: var(--c-ink-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chip,
+  .row {
+    transition: none;
+  }
+}

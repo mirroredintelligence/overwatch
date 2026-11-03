@@ -16,8 +16,8 @@ describe('CallBackCheck', () => {
   it('asks who was spoken to when the call is confirmed, and posts nothing until a role is given', async () => {
     const user = userEvent.setup();
     const { container } = render(<CallBackCheck id="r1" />);
-    expect(await screen.findByRole('heading', { level: 1, name: 'Call the service back' })).toBeInTheDocument();
-    expect(screen.getByText('Check 1 of 4')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 2, name: 'Call the service back' })).toBeInTheDocument();
+    expect(screen.getByText('Check 1 of 4 · UCR East')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Confirmed' }));
     await user.click(screen.getByRole('button', { name: 'Save result' }));
@@ -31,18 +31,39 @@ describe('CallBackCheck', () => {
     expect(await runAxe(container)).toHaveNoViolations();
   });
 
+  it('is a card with a level 2 heading, not a page of its own: no main landmark and no level 1', async () => {
+    render(<CallBackCheck id="r1" />);
+    const heading = await screen.findByRole('heading', { level: 2, name: 'Call the service back' });
+    expect(screen.queryByRole('main')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Call the service back' })).toContainElement(heading);
+  });
+
   it('shows the number to call apart from the number the applicant gave, and the script with the name and role', async () => {
     render(<CallBackCheck id="r1" />);
-    expect(
-      await screen.findByText('Phone the number on the NHS register or the Dorset directory. Do not use the number the applicant gave.'),
-    ).toBeInTheDocument();
-    const toCall = screen.getByText('01202 000 111');
-    expect(toCall.tagName).toBe('STRONG');
-    expect(screen.getByText('Number the applicant gave:')).toBeInTheDocument();
+    expect(await screen.findByText(/Phone the number on the NHS register or the Dorset directory\./)).toBeInTheDocument();
+    const warning = screen.getByText('Do not use the number the applicant gave.');
+    expect(warning.tagName).toBe('STRONG');
+    expect(screen.getByText('Number from the register')).toBeInTheDocument();
+    expect(screen.getByText('01202 000 111')).toBeInTheDocument();
+    expect(screen.getByText('Number the applicant gave')).toBeInTheDocument();
     expect(screen.getByText('01202 000 999')).toBeInTheDocument();
     expect(screen.getByText('Ask for Sample Person, or the person in charge')).toBeInTheDocument();
     expect(screen.getByText('Ask: is Sample Person a Duty manager at UCR East?')).toBeInTheDocument();
     expect(screen.getByText('Do not talk about any patient')).toBeInTheDocument();
+  });
+
+  it('offers Phone as a tel: link to the register number only, never the number the applicant gave', async () => {
+    render(<CallBackCheck id="r1" />);
+    const phone = await screen.findByRole('link', { name: 'Phone 01202 000 111' });
+    expect(phone).toHaveAttribute('href', 'tel:01202000111');
+    expect(document.querySelectorAll('a[href^="tel:"]')).toHaveLength(1);
+  });
+
+  it('says what is loading while the overview is read', () => {
+    render(<CallBackCheck id="r1" />);
+    expect(screen.getByRole('status')).toHaveTextContent('Loading the call-back check.');
+    expect(screen.getByRole('heading', { level: 2, name: 'Call the service back' })).toBeInTheDocument();
   });
 
   it('reaches the result options with Tab and chooses one with Space', async () => {

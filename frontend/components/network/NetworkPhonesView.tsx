@@ -1,19 +1,19 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { DataTable, type DataTableColumn } from '@/components/data/DataTable';
 import { NetworkUnavailable } from '@/components/scope/NetworkUnavailable';
-import { OrgLabel } from '@/components/scope/OrgLabel';
 import { PhoneLink } from '@/components/scope/PhoneLink';
 import { ScopeHeader } from '@/components/scope/ScopeHeader';
-import { StatusBadge } from '@/components/ui/StatusBadge';
-import { categoryLabel } from '@/lib/board/format';
+import { Chip } from '@/components/ui/Chip';
 import { readNetworkView } from '@/lib/network/browser';
 import { NETWORK_ROUTES } from '@/lib/network/links';
 import { ownRow } from '@/lib/network/orgs';
 import { parsePhones } from '@/lib/network/parse';
-import type { NetworkPhones } from '@/lib/network/types';
+import type { NetworkPhone, NetworkPhones } from '@/lib/network/types';
 import { NetworkScope } from './NetworkScope';
 import styles from './Network.module.css';
+import own from './NetworkPhonesView.module.css';
 
 // "Phones and services" of the network (W43, network variant, `GET /network/{id}/phones`): each service of
 // the network and the service line its organisation shared. Phoning is the only action. A reporter's
@@ -32,10 +32,19 @@ function reportedText(instant: string): string {
 
 const countWord = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
+/** The last report: a paused listing has none to show, a late one says so beside its time. */
+function reportedCell(phone: NetworkPhone): string {
+  if (phone.presentation === 'unavailable' || phone.status === null) return 'Not available on the network';
+  if (phone.reportedAt === null) return 'No figure reported yet';
+  return phone.staleWarning ? `${reportedText(phone.reportedAt)}, not updated since` : reportedText(phone.reportedAt);
+}
+
 type Load = { kind: 'loading' } | { kind: 'ready'; phones: NetworkPhones } | { kind: 'refused' } | { kind: 'failed' };
 
 function Phones({ networkId, networkName, ownOrganisation, ownHref }: { networkId: string; networkName: string; ownOrganisation: string | null; ownHref: string }) {
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
+  // The organisation the chips filter to; null is every organisation.
+  const [chosen, setChosen] = useState<string | null>(null);
 
   useEffect(() => {
     let current = true;
@@ -52,54 +61,63 @@ function Phones({ networkId, networkName, ownOrganisation, ownHref }: { networkI
 
   if (load.kind === 'refused') return <main className={styles.page}><NetworkUnavailable reason="not-available" ownHref={ownHref} /></main>;
 
+  const columns: readonly DataTableColumn<NetworkPhone>[] = [
+    {
+      key: 'service',
+      header: 'Service',
+      cell: (phone) => (
+        <>
+          <span className={own.service}>{phone.serviceName}</span>
+          {ownRow(phone.organisationName, ownOrganisation) ? <span className={own.own} data-own="true">Your organisation</span> : null}
+        </>
+      ),
+    },
+    { key: 'organisation', header: 'Organisation', cell: (phone) => phone.organisationName },
+    {
+      key: 'line',
+      header: 'Service line',
+      cell: (phone) => (phone.contactPhone === null ? 'Phone to confirm' : <PhoneLink serviceName={phone.serviceName} phone={phone.contactPhone} />),
+    },
+    { key: 'reported', header: 'Last reported', cell: reportedCell },
+  ];
+
+  if (load.kind !== 'ready') {
+    return (
+      <main className={styles.page}>
+        <h1 className={styles.title}>{`${networkName} phones`}</h1>
+        <ScopeHeader scope="network" networkName={networkName} switchTo={{ ownHref, networkHref: NETWORK_ROUTES.phones }} />
+        {load.kind === 'failed' ? <p role="alert">We could not load the phones.</p> : <p role="status">Loading the phones</p>}
+      </main>
+    );
+  }
+
+  const organisations = [...new Set(load.phones.phones.map((phone) => phone.organisationName))];
+  // A choice that the network no longer has shows every organisation, never an empty table.
+  const filter = chosen !== null && organisations.includes(chosen) ? chosen : null;
+  const shown = filter === null ? load.phones.phones : load.phones.phones.filter((phone) => phone.organisationName === filter);
+  const shownOrganisations = new Set(shown.map((phone) => phone.organisationName)).size;
+
   return (
     <main className={styles.page}>
       <h1 className={styles.title}>{`${networkName} phones`}</h1>
       <ScopeHeader scope="network" networkName={networkName} switchTo={{ ownHref, networkHref: NETWORK_ROUTES.phones }} />
-      {load.kind === 'failed' ? <p role="alert">We could not load the phones.</p> : null}
-      {load.kind === 'loading' ? <p role="status">Loading the phones</p> : null}
-      {load.kind === 'ready' ? (
-        <>
-          <p className={styles.muted}>{`${countWord(load.phones.phones.length, 'service', 'services')} from ${countWord(load.phones.organisations, 'organisation', 'organisations')}`}</p>
-          <p className={styles.muted}>Reporters’ phones, covers and moves are your organisation’s own and are not shared across the network.</p>
-          <table className={styles.table}>
-            <caption>Services in the network and their service lines</caption>
-            <thead>
-              <tr>
-                <th scope="col">Service</th>
-                <th scope="col">Organisation</th>
-                <th scope="col">Category</th>
-                <th scope="col">Status</th>
-                <th scope="col">Last report</th>
-                <th scope="col">Service line</th>
-              </tr>
-            </thead>
-            <tbody>
-              {load.phones.phones.map((phone) => {
-                const paused = phone.presentation === 'unavailable' || phone.status === null;
-                return (
-                  <tr key={phone.rowRef} data-service-ref={phone.rowRef}>
-                    <th scope="row">{phone.serviceName}</th>
-                    <td>
-                      <OrgLabel name={phone.organisationName} own={ownRow(phone.organisationName, ownOrganisation)} />
-                    </td>
-                    <td>{categoryLabel(phone.category)}</td>
-                    <td>{paused ? 'Not available on the network' : <StatusBadge status={phone.status ?? 'not-updated'} />}</td>
-                    <td>{phone.reportedAt === null ? 'No figure reported yet' : reportedText(phone.reportedAt)}</td>
-                    <td>
-                      {phone.contactPhone === null ? (
-                        'Phone to confirm'
-                      ) : (
-                        <PhoneLink serviceName={phone.serviceName} phone={phone.contactPhone} />
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </>
-      ) : null}
+      <div className={own.summary}>
+        <p className={own.count}>{`${countWord(shown.length, 'service', 'services')} from ${countWord(shownOrganisations, 'organisation', 'organisations')}`}</p>
+        <div className={styles.chips}>
+          <Chip pressed={filter === null} onPressedChange={() => setChosen(null)}>
+            All organisations
+          </Chip>
+          {organisations.map((name) => (
+            <Chip key={name} pressed={filter === name} onPressedChange={(next) => setChosen(next ? name : null)}>
+              {name}
+            </Chip>
+          ))}
+        </div>
+      </div>
+      <div className={own.card}>
+        <DataTable caption="Services in the network and their service lines" columns={columns} rows={shown} getRowKey={(phone) => phone.rowRef} />
+      </div>
+      <p className={own.note}>Phoning is the only action. Reporters’ phones, covers and moves are your organisation’s own and are not shared across the network. No patient information on this screen.</p>
     </main>
   );
 }

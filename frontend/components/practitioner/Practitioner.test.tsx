@@ -195,18 +195,23 @@ describe('Today’s round', () => {
   });
 });
 
-describe('Visit offer (RadarPhone 2)', () => {
-  it('shows what is needed, the sector, when it is wanted, the countdown and that the address comes after accepting', async () => {
+const factRows = (facts: HTMLElement) => Array.from(facts.querySelectorAll('dt')).map((dt) => [dt.textContent, dt.nextElementSibling?.textContent]);
+
+describe('Visit offer (RadarPhone 2, B11)', () => {
+  it('shows the tag, what is needed, the facts as label and value rows, the countdown and that the address comes after accepting', async () => {
     const soon = new Date(Date.now() + 270_000).toISOString().replace(/\.\d{3}Z$/, 'Z');
     server.use(http.get('/api/bff/practitioner/visits/offer-1', () => HttpResponse.json({ ...OFFER_SAMPLE, expiresAt: soon })));
     const { container } = render(<VisitLoader id="offer-1" />);
     expect(await screen.findByText('New offer')).toBeInTheDocument();
+    expect(screen.getByText('New offer').closest('[data-variant="live"]')).not.toBeNull();
     expect(screen.getByRole('heading', { level: 1, name: 'Fall, no injury' })).toBeInTheDocument();
     const facts = container.querySelector('[data-el="PRAC-OFFER-FACTS"]') as HTMLElement;
-    expect(facts).toHaveTextContent('Area DT4 8 (sector)');
-    expect(facts).toHaveTextContent('Wanted within 2 hrs');
-    expect(facts).toHaveTextContent(/Offer expires in 4:[23]\d/);
-    expect(facts).not.toHaveTextContent('Fits your round');
+    const rows = factRows(facts);
+    expect(rows.map((r) => r[0])).toEqual(['Area', 'Wanted', 'Offer expires in']);
+    expect(rows[0][1]).toBe('DT4 8');
+    expect(rows[1][1]).toBe('Within 2 hrs');
+    expect(rows[2][1]).toMatch(/^04:[23]\d$/);
+    expect(container.querySelector('[data-el="PRAC-OFFER-COUNTDOWN"]')).not.toBeNull();
     expect(screen.getByText('The address and contact appear only after you accept.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Accept visit' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Decline' })).toBeEnabled();
@@ -215,9 +220,25 @@ describe('Visit offer (RadarPhone 2)', () => {
   });
 
   it('shows how much the visit adds to the round only when the back end says', async () => {
-    server.use(http.get('/api/bff/practitioner/visits/offer-1', () => HttpResponse.json({ ...OFFER_SAMPLE, fitsMinutes: 6 })));
-    render(<VisitLoader id="offer-1" />);
-    expect(await screen.findByText(/Fits your round:/)).toHaveTextContent('Fits your round: +6 min to your next visit');
+    const soon = new Date(Date.now() + 270_000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+    server.use(http.get('/api/bff/practitioner/visits/offer-1', () => HttpResponse.json({ ...OFFER_SAMPLE, fitsMinutes: 6, expiresAt: soon })));
+    const { container } = render(<VisitLoader id="offer-1" />);
+    await screen.findByText('Fits your round');
+    expect(factRows(container.querySelector('[data-el="PRAC-OFFER-FACTS"]') as HTMLElement)).toEqual([
+      ['Area', 'DT4 8'],
+      ['Wanted', 'Within 2 hrs'],
+      ['Fits your round', '+6 min to your next visit'],
+      ['Offer expires in', expect.stringMatching(/^\d\d:\d\d$/)],
+    ]);
+  });
+
+  it('shows a shimmer while the visit opens, and says so in words', async () => {
+    const { container } = render(<VisitLoader id="offer-1" />);
+    const status = screen.getByRole('status');
+    expect(status).toHaveTextContent('Opening the visit.');
+    expect(status).toHaveAttribute('aria-busy', 'true');
+    expect(container.querySelector('[data-skeleton]')).not.toBeNull();
+    await screen.findByRole('heading', { level: 1 });
   });
 
   it('counts down each second and becomes expired when the time is up', async () => {
@@ -301,20 +322,30 @@ describe('Visit offer (RadarPhone 2)', () => {
   });
 });
 
-describe('Visit accepted (RadarPhone 3)', () => {
-  it('shows the address and contact to this person, the status list, and the way to maps', async () => {
+describe('Visit accepted (RadarPhone 3, B11)', () => {
+  it('shows the address and contact in one card with the way to maps, and the status as radios under a Status heading', async () => {
     const { container } = render(<VisitLoader id="visit-1" />);
-    expect(await screen.findByText('Accepted')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 1, name: 'Visit 4821' })).toBeInTheDocument();
-    expect(screen.getByText('Address and contact now shown to you only.')).toBeInTheDocument();
-    expect(screen.getByText('1 Synthetic Street')).toBeInTheDocument();
-    expect(screen.getByText('Daughter, 07000 000000')).toBeInTheDocument();
-    expect(screen.getByText('Wanted within 2 hrs.')).toBeInTheDocument();
-    const list = screen.getByRole('group', { name: 'Visit status' });
-    expect(within(list).getAllByRole('button').map((b) => b.textContent)).toEqual(['On my way', 'Arrived', 'Visit done', 'Could not reach the patient']);
-    expect(screen.getByRole('link', { name: 'Open in maps' })).toHaveAttribute('href', 'geo:0,0?q=1%20Synthetic%20Street');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Visit 4821' })).toBeInTheDocument();
+    const details = container.querySelector('[data-el="PRAC-VISIT-DETAILS"]') as HTMLElement;
+    expect(within(details).getByText('1 Synthetic Street')).toBeInTheDocument();
+    expect(within(details).getByText('Contact: Daughter, 07000 000000')).toBeInTheDocument();
+    expect(within(details).getByRole('link', { name: 'Open in maps' })).toHaveAttribute('href', 'geo:0,0?q=1%20Synthetic%20Street');
+    expect(screen.getByText('Status')).toBeInTheDocument();
+    const list = screen.getByRole('radiogroup', { name: 'Visit status' });
+    expect(within(list).getAllByRole('radio').map((r) => r.closest('label')?.textContent)).toEqual(['On my way', 'Arrived', 'Visit done', 'Could not reach the patient']);
+    for (const radio of within(list).getAllByRole('radio')) expect(radio).not.toBeChecked();
     expect(screen.getByRole('button', { name: 'Update status' })).toBeDisabled();
+    expect(screen.queryByText('About how long?')).not.toBeInTheDocument();
     expect(await runAxe(container)).toHaveNoViolations();
+  });
+
+  it('moves between the status radios with the arrow keys', async () => {
+    render(<VisitLoader id="visit-1" />);
+    const first = await screen.findByRole('radio', { name: 'On my way' });
+    first.focus();
+    await userEvent.keyboard('{ArrowDown}');
+    expect(screen.getByRole('radio', { name: 'Arrived' })).toBeChecked();
+    expect(screen.getByRole('button', { name: 'Update status' })).toBeEnabled();
   });
 
   it('shows no address when the back end sends none, and says whom to phone', async () => {
@@ -345,10 +376,11 @@ describe('Visit accepted (RadarPhone 3)', () => {
 
   it('sends the chosen status with an Idempotency-Key and says what was updated', async () => {
     render(<VisitLoader id="visit-1" />);
-    await userEvent.click(await screen.findByRole('button', { name: 'Arrived' }));
-    expect(screen.getByRole('button', { name: 'Arrived' })).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(await screen.findByRole('radio', { name: 'Arrived' }));
+    expect(screen.getByRole('radio', { name: 'Arrived' })).toBeChecked();
     await userEvent.click(screen.getByRole('button', { name: 'Update status' }));
     expect(await screen.findByText('Status updated: Arrived.')).toBeInTheDocument();
+    expect(screen.getByText('Status updated: Arrived.').closest('[role="status"]')).not.toBeNull();
     const call = sent('POST', '/api/bff/practitioner/visits/visit-1/status');
     expect(call?.body).toEqual({ status: 'arrived' });
     expect(call?.idempotencyKey).toMatch(/.{8,}/);
@@ -356,10 +388,15 @@ describe('Visit accepted (RadarPhone 3)', () => {
 
   it('offers an estimate only on the way and only when location sharing is on, and sends minutes, never a position', async () => {
     render(<VisitLoader id="visit-1" />);
-    await userEvent.click(await screen.findByRole('button', { name: 'On my way' }));
+    await userEvent.click(await screen.findByRole('radio', { name: 'Arrived' }));
+    expect(screen.queryByRole('group', { name: 'Estimated arrival' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('radio', { name: 'On my way' }));
     const group = screen.getByRole('group', { name: 'Estimated arrival' });
+    expect(within(group).getByText('About how long?')).toBeInTheDocument();
+    expect(within(group).getAllByRole('button').map((b) => b.textContent)).toEqual(['10 min', '20 min', '30 min', '45 min', '60 min']);
     expect(within(group).getByText('You choose the estimate. Your phone’s position is not sent.')).toBeInTheDocument();
     await userEvent.click(within(group).getByRole('button', { name: '20 min' }));
+    expect(within(group).getByRole('button', { name: '20 min' })).toHaveAttribute('aria-pressed', 'true');
     await userEvent.click(screen.getByRole('button', { name: 'Update status' }));
     await screen.findByText('Status updated: On my way.');
     expect(sent('POST', '/api/bff/practitioner/visits/visit-1/status')?.body).toEqual({ status: 'on-my-way', etaMinutes: 20 });
@@ -368,7 +405,7 @@ describe('Visit accepted (RadarPhone 3)', () => {
   it('offers no estimate when the location is never shared', async () => {
     server.use(http.get('/api/bff/practitioner/visits/visit-1', () => HttpResponse.json({ ...VISIT_SAMPLE, location: 'never' })));
     render(<VisitLoader id="visit-1" />);
-    await userEvent.click(await screen.findByRole('button', { name: 'On my way' }));
+    await userEvent.click(await screen.findByRole('radio', { name: 'On my way' }));
     expect(screen.queryByRole('group', { name: 'Estimated arrival' })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Update status' }));
     await screen.findByText('Status updated: On my way.');
@@ -379,7 +416,7 @@ describe('Visit accepted (RadarPhone 3)', () => {
     server.use(http.get('/api/bff/practitioner/visits/visit-1', () => HttpResponse.json({ ...VISIT_SAMPLE, state: 'on-my-way', etaAt: '2026-10-31T14:50:00Z' })));
     render(<VisitLoader id="visit-1" />);
     expect(await screen.findByText(/^Estimated arrival shared: \d\d:\d\d\.$/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'On my way' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('radio', { name: 'On my way' })).toBeChecked();
   });
 
   it('shows the closed page, with the details gone, once the visit is done', async () => {
@@ -392,16 +429,19 @@ describe('Visit accepted (RadarPhone 3)', () => {
       }),
     );
     const { container } = render(<VisitLoader id="visit-1" />);
-    await userEvent.click(await screen.findByRole('button', { name: 'Visit done' }));
+    await userEvent.click(await screen.findByRole('radio', { name: 'Visit done' }));
     await userEvent.click(screen.getByRole('button', { name: 'Update status' }));
     expect(await screen.findByRole('heading', { name: 'Visit done' })).toBeInTheDocument();
     expect(container.textContent).not.toContain('Synthetic');
     expect(screen.getByRole('link', { name: 'Back to my shift' })).toHaveAttribute('href', '/app/practitioner');
   });
 
-  it('shows a closed visit as closed, with a way back', async () => {
-    render(<VisitLoader id="gone-1" />);
-    expect(await screen.findByRole('heading', { name: 'No longer open' })).toBeInTheDocument();
+  it('shows a closed visit as closed, with the Closed tag, the words and a way back', async () => {
+    const { container } = render(<VisitLoader id="gone-1" />);
+    expect(await screen.findByRole('heading', { level: 1, name: 'No longer open' })).toBeInTheDocument();
+    expect(screen.getByText('Closed').closest('[data-variant="closed"]')).not.toBeNull();
+    expect(screen.getByRole('link', { name: 'Back to my shift' })).toHaveAttribute('href', '/app/practitioner');
+    expect(await runAxe(container)).toHaveNoViolations();
   });
 });
 

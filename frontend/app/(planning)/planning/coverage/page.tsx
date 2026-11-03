@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { CoverageByTime } from '@/components/areas/CoverageByTime';
-import styles from '@/components/console/Console.module.css';
+import styles from '@/components/areas/coverage.module.css';
 import { getSession } from '@/lib/auth/session';
 import { PLANNING_ROLES } from '@/lib/planning/backend';
 

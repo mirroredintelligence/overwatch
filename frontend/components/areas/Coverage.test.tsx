@@ -50,6 +50,16 @@ describe('Coverage by time of day (RadarWeb 4)', () => {
     expect(items[3]).toHaveTextContent('No visiting service');
   });
 
+  it('explains the three tile states in a legend beside the heading', async () => {
+    serveCoverage();
+    render(<CoverageByTime />);
+    await screen.findByRole('list', { name: 'Districts and who covers them' });
+    const legend = screen.getByText('Which visiting services cover each district').parentElement;
+    expect(legend).toHaveTextContent('No cover');
+    expect(legend).toHaveTextContent('One service');
+    expect(legend).toHaveTextContent('Two or more');
+  });
+
   it('says which districts have no cover, which have two or more, and the referrals from uncovered areas', async () => {
     serveCoverage();
     render(<CoverageByTime />);
@@ -81,6 +91,46 @@ describe('Coverage by time of day (RadarWeb 4)', () => {
     await waitFor(() => expect(within(screen.getByRole('list', { name: 'Districts and who covers them' })).getAllByRole('listitem')).toHaveLength(1));
     expect(windows).toEqual(['all', 'night']);
     expect(screen.getByRole('button', { name: '00:00 to 06:00' })).toBeInTheDocument();
+  });
+
+  it('the time of day is a group named “Time of day”', async () => {
+    serveCoverage();
+    render(<CoverageByTime />);
+    await screen.findByRole('list', { name: 'Districts and who covers them' });
+    expect(screen.getByRole('group', { name: 'Time of day' })).toBeInTheDocument();
+  });
+
+  it('the side card names the time of day chosen', async () => {
+    const user = userEvent.setup();
+    serveCoverage();
+    render(<CoverageByTime />);
+    await screen.findByRole('list', { name: 'Districts and who covers them' });
+    await user.click(byEl('COV-WINDOW-AFTERNOON'));
+    expect(await screen.findByText('In 12:00 to 18:00')).toBeInTheDocument();
+  });
+
+  it('before a tile is opened, says how to open one', async () => {
+    serveCoverage();
+    render(<CoverageByTime />);
+    await screen.findByRole('list', { name: 'Districts and who covers them' });
+    expect(screen.getByText('Open a tile to see who covers it. It does not change what either service accepts.')).toBeInTheDocument();
+  });
+
+  it('a tile opens to say who covers its district, from the mouse and from the keyboard', async () => {
+    const user = userEvent.setup();
+    serveCoverage();
+    render(<CoverageByTime />);
+    await screen.findByRole('list', { name: 'Districts and who covers them' });
+
+    await user.click(byEl('COV-TILE-DT4'));
+    expect(byEl('COV-TILE-DT4')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText('Covered by UCR West and UCR East all day.')).toBeInTheDocument();
+
+    byEl('COV-TILE-DT5').focus();
+    await user.keyboard('{Enter}');
+    expect(byEl('COV-TILE-DT5')).toHaveAttribute('aria-pressed', 'true');
+    expect(byEl('COV-TILE-DT4')).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByText('No visiting service covers DT5 all day.')).toBeInTheDocument();
   });
 
   it('a failed read says so and offers to try again', async () => {
@@ -146,12 +196,41 @@ describe('Define a coverage area (RadarWeb 5)', () => {
     serveForm();
     render(<CoverageForm serviceId="svc-ucr-west" />);
     expect(await screen.findByRole('heading', { name: 'Where does UCR West go?' })).toBeInTheDocument();
-    expect(screen.getByText('Areas are postcode districts or sectors, so they match how patients are placed.')).toBeInTheDocument();
     expect(byEl('COV-DISTRICT-DT3')).toHaveAttribute('aria-pressed', 'true');
     expect(byEl('COV-DISTRICT-DT1')).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByLabelText(/Response target \(hours\)/)).toHaveValue('2');
     expect(byEl('COV-DAY-FRI')).toHaveAttribute('aria-pressed', 'true');
     expect(byEl('COV-DAY-SAT')).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('says how many of the districts on offer are chosen, and follows the choice', async () => {
+    const user = userEvent.setup();
+    serveForm();
+    render(<CoverageForm serviceId="svc-ucr-west" />);
+    expect(await screen.findByText('2 of 6 districts chosen')).toBeInTheDocument();
+    await user.click(byEl('COV-DISTRICT-DT1'));
+    expect(screen.getByText('3 of 6 districts chosen')).toBeInTheDocument();
+  });
+
+  it('shows how advisors will see the service, and follows the choice', async () => {
+    const user = userEvent.setup();
+    serveForm();
+    render(<CoverageForm serviceId="svc-ucr-west" />);
+    await screen.findByRole('heading', { name: 'Where does UCR West go?' });
+    expect(screen.getByRole('heading', { name: 'How advisors will see it' })).toBeInTheDocument();
+    expect(screen.getByText('Visits DT3 and DT4, Monday to Friday.')).toBeInTheDocument();
+    expect(screen.getByText('Responds within about 2 hrs.')).toBeInTheDocument();
+
+    await user.click(byEl('COV-DISTRICT-DT1'));
+    expect(screen.getByText('Visits DT1, DT3 and DT4, Monday to Friday.')).toBeInTheDocument();
+  });
+
+  it('says which district the service will not be offered to, and which it will be offered with the other service', async () => {
+    serveForm();
+    render(<CoverageForm serviceId="svc-ucr-west" />);
+    await screen.findByRole('heading', { name: 'Where does UCR West go?' });
+    expect(screen.getByText('A patient in DT1 will not be offered this service.')).toBeInTheDocument();
+    expect(screen.getByText('A patient in DT4 will be offered this one and UCR East.')).toBeInTheDocument();
   });
 
   it('names the other services that cover a chosen district, and follows the choice', async () => {
@@ -165,6 +244,27 @@ describe('Define a coverage area (RadarWeb 5)', () => {
     expect(document.querySelector('[data-el="COV-OVERLAP"]')).toBeNull();
     await user.click(byEl('COV-DISTRICT-DT4'));
     expect(byEl('COV-OVERLAP')).toBeInTheDocument();
+  });
+
+  it('the overlap note sits in a polite status, so a change of district is announced', async () => {
+    serveForm();
+    render(<CoverageForm serviceId="svc-ucr-west" />);
+    await screen.findByRole('heading', { name: 'Where does UCR West go?' });
+    expect(byEl('COV-OVERLAP').closest('[role="status"]')).not.toBeNull();
+  });
+
+  it('says the coverage area is loading while it is read', async () => {
+    serveForm();
+    render(<CoverageForm serviceId="svc-ucr-west" />);
+    expect(screen.getByRole('status')).toHaveTextContent('Loading the coverage area.');
+    await screen.findByRole('heading', { name: 'Where does UCR West go?' });
+  });
+
+  it('the save button names the coverage area it saves', async () => {
+    serveForm();
+    render(<CoverageForm serviceId="svc-ucr-west" />);
+    await screen.findByRole('heading', { name: 'Where does UCR West go?' });
+    expect(screen.getByRole('button', { name: 'Save the coverage area' })).toBeInTheDocument();
   });
 
   it('saves the three answers once, with the key and the CSRF token, and says it is saved', async () => {

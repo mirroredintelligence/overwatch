@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { RegistrationQueue } from '@/components/lead/RegistrationQueue';
+import { RegistrationStage } from '@/components/lead/registration/RegistrationStage';
 
 export const metadata: Metadata = {
   title: 'Registrations · Overwatch',
@@ -8,5 +8,5 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 export default function RegistrationsPage() {
-  return <RegistrationQueue />;
+  return <RegistrationStage stage={0} />;
 }

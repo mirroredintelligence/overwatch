@@ -8,7 +8,7 @@ import { OptionButton } from '@/components/ui/OptionButton';
 import { parseSettings, parseShift, type Location } from '@/lib/practitioner/answers';
 import { useBffRead } from '@/lib/practitioner/browser';
 import { bffRequest } from '@/lib/reporter/browser';
-import { PhoneScreen } from './PhoneScreen';
+import { PhoneFailed, PhoneOpening, PhoneScreen } from './PhoneScreen';
 import styles from './practitioner.module.css';
 
 // Location sharing (RadarPhone 4): only while travelling to a visit, or never. What is shared is an
@@ -29,8 +29,8 @@ export function LocationScreen() {
     if (read.kind === 'ended') router.replace('/app/pin');
   }, [read, router]);
 
-  if (read.kind === 'failed') return <PhoneScreen title="Location" backHref="/app/practitioner"><p>We could not load your choice. Try again shortly.</p></PhoneScreen>;
-  if (read.kind !== 'ready') return <PhoneScreen title="Location" backHref="/app/practitioner"><p role="status">Opening your choice</p></PhoneScreen>;
+  if (read.kind === 'failed') return <PhoneFailed title="Location" backHref="/app/practitioner">We could not load your choice. Try again shortly.</PhoneFailed>;
+  if (read.kind !== 'ready') return <PhoneOpening title="Location" backHref="/app/practitioner" label="Opening your choice." />;
   const choice = picked ?? read.value.location;
 
   const save = async () => {
@@ -53,7 +53,7 @@ export function LocationScreen() {
       backHref="/app/practitioner"
       actions={
         <Button variant="primary" busy={busy} dataEl="PRAC-LOCATION-SAVE-BTN" onClick={() => void save()}>
-          Save choice
+          Save my choice
         </Button>
       }
     >
@@ -66,15 +66,23 @@ export function LocationScreen() {
           Never
         </OptionButton>
       </div>
-      <div className={styles.panel} data-el="PRAC-LOCATION-PROMISES">
+      <div className={styles.card} data-el="PRAC-LOCATION-PROMISES">
         <ul className={styles.lines}>
           <li>The coordinator sees your estimated arrival, not a trail.</li>
           <li>It stops when you arrive.</li>
           <li>It is not used to time or rank you.</li>
         </ul>
       </div>
-      <p className={styles.note}>You can change this at any time in Settings.</p>
-      {saved ? <p role="status">Your choice is saved.</p> : null}
+      {/* There is no settings page for this: the choice is made, and changed, here (brief gap 4). */}
+      <p className={styles.note}>You can change this at any time on this screen.</p>
+      {saved ? (
+        <p className={styles.saved} role="status">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+            <path d="M5 12.5l4.5 4.5L19 7.5" />
+          </svg>
+          <span>Your choice is saved.</span>
+        </p>
+      ) : null}
       {failed ? <Banner tone="warning" title="We could not save that. Try again." /> : null}
     </PhoneScreen>
   );

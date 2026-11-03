@@ -39,12 +39,38 @@ describe('My shift (RadarPhone 1)', () => {
     expect(await runAxe(container)).toHaveNoViolations();
   });
 
-  it('lists an offer waiting, with the need and the sector, and no address', async () => {
+  it('shows a shimmer while it opens, and says so in words', async () => {
+    const { container } = render(<ShiftScreen />);
+    const status = screen.getByRole('status');
+    expect(status).toHaveTextContent('Opening your shift.');
+    expect(status).toHaveAttribute('aria-busy', 'true');
+    expect(container.querySelector('[data-skeleton]')).not.toBeNull();
+    await screen.findByRole('heading', { level: 1 });
+  });
+
+  it('lists an offer waiting as a card with a tag, the need and the sector, and no address', async () => {
     const { container } = render(<ShiftScreen />);
     const link = await screen.findByRole('link', { name: /Fall, no injury/ });
     expect(link).toHaveAttribute('href', '/app/practitioner/offers/offer-1');
-    expect(link).toHaveTextContent('Sector DT4 8, wanted within 2 hrs');
+    expect(link).toHaveTextContent('1 new offer');
+    expect(link).toHaveTextContent('Sector DT4 8 · within 2 hrs');
+    expect(link.querySelector('[data-variant="live"]')).not.toBeNull();
     expect(container.textContent).not.toMatch(/street|07\d{3}|postcode/i);
+  });
+
+  it('counts the offers when there is more than one, and tags each as new', async () => {
+    const second = { id: 'offer-2', need: 'Wound check', sector: 'DT1 2', wantedWithin: 'planned', expiresAt: '2026-10-31T14:50:00Z' };
+    server.use(http.get('/api/bff/practitioner/shift', () => HttpResponse.json({ ...SHIFT_SAMPLE, offers: [...SHIFT_SAMPLE.offers, second] })));
+    render(<ShiftScreen />);
+    expect(await screen.findByText('2 new offers')).toBeInTheDocument();
+    expect(screen.getAllByText('New offer')).toHaveLength(2);
+    expect(screen.getByRole('link', { name: /Wound check/ })).toHaveTextContent('Sector DT1 2 · planned visit');
+  });
+
+  it('says what the location choice is, when it is to share while travelling', async () => {
+    server.use(http.get('/api/bff/practitioner/shift', () => HttpResponse.json({ ...SHIFT_SAMPLE, location: 'travel' })));
+    render(<ShiftScreen />);
+    expect(await screen.findByText('You share an estimated arrival, only while you travel to a visit.')).toBeInTheDocument();
   });
 
   it('sets a status with one press, and clears it with another', async () => {
@@ -98,16 +124,68 @@ describe('My shift (RadarPhone 1)', () => {
 });
 
 describe('Today’s round', () => {
-  it('lists today’s visits in the order the back end gives, with how far on each is', async () => {
+  const ROUND = [
+    { id: 'visit-1', sector: 'DT4 8', state: 'accepted', dueBy: '2026-10-31T14:30:00Z', wantedWithin: 'within 2 hrs' },
+    { id: 'visit-3', sector: 'DT9 9', state: 'offered', dueBy: null, wantedWithin: 'today' },
+    { id: 'visit-4', sector: 'DT2 1', state: 'accepted', dueBy: null, wantedWithin: 'planned' },
+    { id: 'visit-2', sector: 'DT1 2', state: 'done', dueBy: null, wantedWithin: 'today' },
+  ];
+
+  it('shows the next visit first, then the later ones, each with a tag, in the order the back end gives', async () => {
+    server.use(http.get('/api/bff/practitioner/shift', () => HttpResponse.json({ ...SHIFT_SAMPLE, round: ROUND })));
     const { container } = render(<RoundScreen />);
-    const list = await screen.findByRole('list', { name: 'Today’s visits' });
-    const rows = within(list).getAllByRole('link');
-    expect(rows).toHaveLength(2);
-    expect(rows[0]).toHaveAttribute('href', '/app/practitioner/visits/visit-1');
-    expect(rows[0]).toHaveTextContent(/sector DT4 8.*Wanted within 2 hrs.*To do/);
-    expect(rows[1]).toHaveTextContent(/Sector DT1 2.*Wanted today.*Done/);
+    const next = await screen.findByRole('list', { name: 'Next' });
+    const nextRows = within(next).getAllByRole('link');
+    expect(nextRows).toHaveLength(1);
+    expect(nextRows[0]).toHaveAttribute('href', '/app/practitioner/visits/visit-1');
+    expect(nextRows[0]).toHaveTextContent(/\d\d:\d\d · sector DT4 8.*Within 2 hrs.*Accepted/);
+    const later = screen.getByRole('list', { name: 'Later' });
+    const laterRows = within(later).getAllByRole('link');
+    expect(laterRows).toHaveLength(2);
+    expect(laterRows[0]).toHaveTextContent(/Sector DT9 9.*Today.*Offered/);
+    expect(laterRows[1]).toHaveTextContent(/Sector DT2 1.*Planned.*Accepted/);
     expect(container.textContent).not.toMatch(/street|07\d{3}/i);
     expect(await runAxe(container)).toHaveNoViolations();
+  });
+
+  it('keeps finished visits under a closed "Done today (n)" row that opens on request', async () => {
+    server.use(http.get('/api/bff/practitioner/shift', () => HttpResponse.json({ ...SHIFT_SAMPLE, round: ROUND })));
+    render(<RoundScreen />);
+    const toggle = await screen.findByRole('button', { name: 'Done today (1)' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    const done = screen.getByRole('link', { name: /Sector DT1 2/ });
+    expect(done).toHaveAttribute('href', '/app/practitioner/visits/visit-2');
+    expect(done).toHaveTextContent(/Today.*Done/);
+  });
+
+  it('has no Later heading when only one visit is left, and no Done row when none is done', async () => {
+    server.use(http.get('/api/bff/practitioner/shift', () => HttpResponse.json({ ...SHIFT_SAMPLE, round: [ROUND[0]] })));
+    render(<RoundScreen />);
+    await screen.findByRole('list', { name: 'Next' });
+    expect(screen.queryByText('Later')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Done today/ })).not.toBeInTheDocument();
+  });
+
+  it('puts the finished visits in the Done row by their own words, and nothing in Next', async () => {
+    const finished = [
+      { id: 'v-a', sector: 'DT1 1', state: 'not-reached', dueBy: null, wantedWithin: 'today' },
+      { id: 'v-b', sector: 'DT1 2', state: 'declined', dueBy: null, wantedWithin: 'today' },
+    ];
+    server.use(http.get('/api/bff/practitioner/shift', () => HttpResponse.json({ ...SHIFT_SAMPLE, round: finished })));
+    render(<RoundScreen />);
+    expect(await screen.findByRole('button', { name: 'Done today (2)' })).toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: 'Next' })).not.toBeInTheDocument();
+    expect(screen.getByText('Nothing left to do today.')).toBeInTheDocument();
+    expect(screen.getByText('Could not reach')).toBeInTheDocument();
+    expect(screen.getByText('Declined')).toBeInTheDocument();
+  });
+
+  it('shows a shimmer while it opens', async () => {
+    render(<RoundScreen />);
+    expect(screen.getByRole('status')).toHaveTextContent('Opening your round.');
+    await screen.findByRole('heading', { level: 1 });
   });
 
   it('says so when there are no visits', async () => {
@@ -339,15 +417,24 @@ describe('Location sharing (RadarPhone 4)', () => {
       'It stops when you arrive.',
       'It is not used to time or rank you.',
     ]);
-    expect(screen.getByText('You can change this at any time in Settings.')).toBeInTheDocument();
+    expect(screen.getByText('You can change this at any time on this screen.')).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/in Settings/);
+    expect(screen.getByRole('button', { name: 'Save my choice' })).toBeEnabled();
     expect(await runAxe(container)).toHaveNoViolations();
+  });
+
+  it('shows a shimmer while it opens', async () => {
+    render(<LocationScreen />);
+    expect(screen.getByRole('status')).toHaveTextContent('Opening your choice.');
+    await screen.findByRole('heading', { level: 1 });
   });
 
   it('saves the choice, and says so', async () => {
     render(<LocationScreen />);
     await userEvent.click(await screen.findByRole('button', { name: 'Only while I travel to a visit' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Save choice' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save my choice' }));
     expect(await screen.findByText('Your choice is saved.')).toBeInTheDocument();
+    expect(screen.getByText('Your choice is saved.').closest('[role="status"]')).not.toBeNull();
     expect(sent('PUT', '/api/bff/practitioner/settings')?.body).toEqual({ location: 'travel' });
     expect(screen.getByRole('button', { name: 'Only while I travel to a visit' })).toHaveAttribute('aria-pressed', 'true');
   });
@@ -355,7 +442,7 @@ describe('Location sharing (RadarPhone 4)', () => {
   it('says it could not save, and does not say it is saved', async () => {
     server.use(http.put('/api/bff/practitioner/settings', () => HttpResponse.json({ code: 'exception' }, { status: 502 })));
     render(<LocationScreen />);
-    await userEvent.click(await screen.findByRole('button', { name: 'Save choice' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Save my choice' }));
     expect(await screen.findByText('We could not save that. Try again.')).toBeInTheDocument();
     expect(screen.queryByText('Your choice is saved.')).not.toBeInTheDocument();
   });

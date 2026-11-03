@@ -3,14 +3,14 @@ import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { runAxe } from '@/test/a11y';
-import { CONSENTED, VIEW_DETAIL_PROVISIONING, VIEW_DETAIL_READY } from '@/test/fixtures/operator';
+import { CONSENTED, VIEW_DETAIL_ACTIVE, VIEW_DETAIL_PROVISIONING, VIEW_DETAIL_READY } from '@/test/fixtures/operator';
 import { resetOperatorWrites } from '@/test/msw/handlers/operator';
 import { server } from '@/test/msw/server';
 import { TenantDetail } from './TenantDetail';
 
-// One partner organisation's page (TEN-083) as a guided "Go live": a task list of five parts (each a link with its
-// status in words and one line on where it stands) and only the selected part beside it, by default the first that is
-// not completed. A completed part shows a short summary and a Change link. Its identifiers are under a closed
+// One partner organisation's page (TEN-083, board O4) as a guided "Go live" on the stage grid: the five parts as
+// buttons (each with its status as a shape and a word and one line on where it stands) and the open part beside it
+// in its own layer (the others inert and aria-hidden), by default the first that is not completed. A completed part shows a short summary and a Change link. Its identifiers are under a closed
 // "Technical details" disclosure; Go live only when everything is done. Every write is the operator's own, with its
 // CSRF token and one idempotency key per submit, and is the same write as before. A step that was done and not
 // recorded by the platform chain is said so, and is never offered again. No secret is ever shown.
@@ -42,7 +42,8 @@ async function open(detail: unknown = VIEW_DETAIL_PROVISIONING, consent?: unknow
   }
   return user;
 }
-const choose = (user: ReturnType<typeof userEvent.setup>, phase: string) => user.click(within(screen.getByRole('navigation', { name: 'Go live tasks' })).getByRole('link', { name: new RegExp(`^${phase}`) }));
+const parts = () => within(screen.getByRole('region', { name: 'The five parts' }));
+const choose = (user: ReturnType<typeof userEvent.setup>, phase: string) => user.click(parts().getByRole('button', { name: new RegExp(`^${phase}`) }));
 /** The steps shown now. */
 const shownSteps = () => Array.from(document.querySelectorAll('[data-el^="OP-STEP-"]')) as HTMLElement[];
 /** An element's text with its closed disclosures taken out. */
@@ -66,12 +67,20 @@ describe('what the page shows', () => {
     expect(screen.getByText('0 of 5 parts completed')).toBeInTheDocument();
   });
 
-  it('shows the five parts as a task list, each a link with its status in words and a line on where it stands', async () => {
+  it('shows the five parts on the left as buttons, each with its status as a shape and a word and a line on where it stands', async () => {
     await open();
-    const nav = screen.getByRole('navigation', { name: 'Go live tasks' });
-    const items = within(nav).getAllByRole('listitem');
+    const items = parts().getAllByRole('listitem');
     expect(items).toHaveLength(5);
-    items.forEach((li, i) => expect(within(li).getByRole('link').textContent?.replace(/^\d/, '').startsWith(PHASES[i]!)).toBe(true));
+    expect(parts().queryByRole('link')).not.toBeInTheDocument();
+    items.forEach((li, i) => {
+      const button = within(li).getByRole('button');
+      expect(button.textContent?.replace(/^\d/, '').startsWith(PHASES[i]!)).toBe(true);
+      // Status is a shape plus a word: the tag has an aria-hidden svg beside its word.
+      const tag = li.querySelector('[data-variant]') as HTMLElement;
+      expect(tag.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    });
+    expect((items[0]!.querySelector('[data-variant]') as HTMLElement).dataset.variant).not.toBe('todo');
+    expect((items[1]!.querySelector('[data-variant]') as HTMLElement).dataset.variant).toBe('todo');
     expect(items[0]).toHaveTextContent('In progress');
     expect(items[0]).toHaveTextContent('A Microsoft work account is waiting for you to confirm it.');
     expect(items[1]).toHaveTextContent('Not started');
@@ -81,8 +90,7 @@ describe('what the page shows', () => {
 
   it('marks the selected part with aria-current, opens on the first that is not completed, and moves with the choice', async () => {
     const user = await open(ready({ bindings: VIEW_DETAIL_PROVISIONING.bindings.map((b) => ({ ...b, status: 'verified' as const })) }));
-    const nav = screen.getByRole('navigation', { name: 'Go live tasks' });
-    const link = (name: string) => within(nav).getByRole('link', { name: new RegExp(`^${name}`) });
+    const link = (name: string) => parts().getByRole('button', { name: new RegExp(`^${name}`) });
     expect(link('Administrator approval')).toHaveAttribute('aria-current', 'step');
     expect(link('Organisation and sign-in')).not.toHaveAttribute('aria-current');
     expect(link('Organisation and sign-in')).toHaveTextContent('Completed');
@@ -127,8 +135,7 @@ describe('what the page shows', () => {
 
   it('says a part is waiting for them while the approval link is out', async () => {
     await open(ready({ bindings: VIEW_DETAIL_PROVISIONING.bindings.map((b) => ({ ...b, status: 'verified' as const })) }), { invitation: { emailMasked: 'j***@example-trust.test', status: 'pending', createdAt: '2026-11-01T09:00:00Z', expiresAt: '2026-11-08T09:00:00Z', consentedAt: null, reason: null } });
-    const nav = screen.getByRole('navigation', { name: 'Go live tasks' });
-    const item = within(nav).getByRole('link', { name: /^Administrator approval/ }).closest('li') as HTMLElement;
+    const item = parts().getByRole('button', { name: /^Administrator approval/ }).closest('li') as HTMLElement;
     await waitFor(() => expect(item).toHaveTextContent('Waiting for them'));
     expect(item).toHaveTextContent('Approval link sent. Waiting for their administrator.');
   });
@@ -194,7 +201,48 @@ describe('what the page shows', () => {
       await choose(user, phase);
       expect(bare(screen.getByRole('region', { name: phase }))).not.toMatch(jargon);
     }
-    expect(bare(screen.getByRole('navigation', { name: 'Go live tasks' }))).not.toMatch(jargon);
+    expect(bare(screen.getByRole('region', { name: 'The five parts' }))).not.toMatch(jargon);
+  });
+
+  it('puts each part in a layer on the stage grid: only the open one is live, the others are inert and aria-hidden', async () => {
+    const user = await open();
+    const layers = () => Array.from(document.querySelectorAll('[data-layer]')) as HTMLElement[];
+    expect(layers()).toHaveLength(5);
+    expect(layers().map((l) => l.dataset.layer)).toEqual(['current', 'after', 'after', 'after', 'after']);
+    layers().slice(1).forEach((l) => {
+      expect(l).toHaveAttribute('aria-hidden', 'true');
+      expect(l).toHaveAttribute('inert');
+    });
+    expect(layers()[0]).not.toHaveAttribute('inert');
+    await choose(user, 'Reach and agreements');
+    expect(layers().map((l) => l.dataset.layer)).toEqual(['before', 'before', 'before', 'current', 'after']);
+    expect(layers()[3]).toContainElement(screen.getByRole('heading', { level: 2, name: 'Reach and agreements' }));
+    expect(layers().filter((l) => l.hasAttribute('inert'))).toHaveLength(4);
+  });
+
+  it('names the open part on the right and says which part it is', async () => {
+    await open();
+    const stage = screen.getByRole('region', { name: 'Organisation and sign-in' });
+    expect(within(stage).getByText('Part 1 of 5')).toBeInTheDocument();
+  });
+
+  it('says in the header how far along it is, as a word and a shape, and that it is being set up', async () => {
+    await open();
+    expect(screen.getByText('0 of 5 parts completed')).toBeInTheDocument();
+    const tag = screen.getByText('Being set up').closest('[data-variant]') as HTMLElement;
+    expect(tag.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('says the organisation is active, and no longer counts parts, once it is live', async () => {
+    await open(VIEW_DETAIL_ACTIVE, CONSENTED);
+    expect(screen.getByText('Active').closest('[data-variant]')).toHaveAttribute('data-variant', 'live');
+    expect(screen.queryByText(/parts completed/)).not.toBeInTheDocument();
+  });
+
+  it('keeps the note that finished parts fold to one line, and has no prototype-only button', async () => {
+    await open();
+    expect(screen.getByText('Parts you finish fold to one line. You can reopen any of them.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Prototype only/ })).not.toBeInTheDocument();
   });
 
   it('shows a number with its state and whether it has been tested, and never a secret', async () => {

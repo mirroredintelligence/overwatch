@@ -33,42 +33,56 @@ beforeEach(() => {
   answerWith(RADAR_VIEW);
 });
 
+const views = () => screen.getByRole('navigation', { name: 'Options view' });
+
 describe('Radar: who covers this area (RadarWeb 1)', () => {
   it('reads the viewer’s own options only, and heads the page with the district', async () => {
     render(<RadarScreen caseId="4821" />);
     expect(await screen.findByRole('heading', { name: 'Who covers DT4 8XX' })).toBeInTheDocument();
     expect(optionsUrls).toEqual(['?only=own']);
-    expect(screen.getByText('Visiting services show as areas. Hatched means two cover it. Places you go to show as icons.')).toBeInTheDocument();
+    expect(screen.getByText('Who covers DT4 8XX · the patient is shown at the postcode centre')).toBeInTheDocument();
   });
 
-  it('says how many services cover the patient and offers the two next views', async () => {
+  it('shows the shared view toggle with Radar current, and no tabs of its own', async () => {
     render(<RadarScreen caseId="4821" />);
-    expect(await screen.findByText('This patient is covered by 3 services. Their areas overlap here, so compare them.')).toBeInTheDocument();
-    expect(byEl('RADAR-COMPARE-BTN')).toHaveAttribute('href', '/advisor/case/4821/compare');
-    expect(byEl('RADAR-WAYS-BTN')).toHaveAttribute('href', '/advisor/case/4821/ways');
-    const tabs = screen.getByRole('navigation', { name: 'Radar views' });
-    expect(within(tabs).getByRole('link', { name: 'Who covers' })).toHaveAttribute('aria-current', 'page');
-    expect(within(tabs).getByRole('link', { name: 'Back to the map' })).toHaveAttribute('href', '/advisor/case/4821/map');
+    await screen.findByRole('heading', { name: 'Who covers DT4 8XX' });
+    expect(within(views()).getByRole('link', { name: 'Radar' })).toHaveAttribute('aria-current', 'page');
+    expect(within(views()).getByRole('link', { name: 'Compare' })).toHaveAttribute('href', '/advisor/case/4821/compare');
+    expect(within(views()).getByRole('link', { name: 'Ways' })).toHaveAttribute('href', '/advisor/case/4821/ways');
+    expect(within(views()).getByRole('link', { name: 'Map' })).toHaveAttribute('href', '/advisor/case/4821/map');
+    expect(screen.queryByRole('navigation', { name: 'Radar views' })).toBeNull();
   });
 
-  it('the layer chips turn a layer off and on, and say the two layers with no data are not available', async () => {
-    const user = userEvent.setup();
+  it('has a key that names each visiting service, the hatching, the places and the two layers that are off', async () => {
+    render(<RadarScreen caseId="4821" />);
+    await screen.findByRole('heading', { name: 'Who covers DT4 8XX' });
+    const key = within(screen.getByRole('region', { name: 'Key and services' }));
+    expect(key.getByText('UCR West visits this area')).toBeInTheDocument();
+    expect(key.getByText('UCR East visits this area')).toBeInTheDocument();
+    expect(key.getByText('Hospital at home visits this area')).toBeInTheDocument();
+    expect(key.getByText('Both visit: hatched')).toBeInTheDocument();
+    expect(key.getByText('A place to go to')).toBeInTheDocument();
+    expect(key.getByText('Drive-time rings: off, no data yet')).toBeInTheDocument();
+    expect(byEl('RADAR-OFF-NOTE')).toHaveTextContent('Drive-time rings and traffic are off');
+  });
+
+  it('lists who covers the district with each status and figure, and says how many cover the patient', async () => {
+    render(<RadarScreen caseId="4821" />);
+    await screen.findByRole('heading', { name: 'Who covers DT4 8XX' });
+    const covering = within(byEl('RADAR-COVERING'));
+    expect(covering.getByRole('heading', { name: 'Covering DT4 8XX' })).toBeInTheDocument();
+    expect(covering.getByText('Accepting · 4')).toBeInTheDocument();
+    expect(covering.getByText('Limited · 1')).toBeInTheDocument();
+    expect(covering.getByText('Over capacity · +2')).toBeInTheDocument();
+    expect(byEl('RADAR-SUMMARY')).toHaveTextContent('This patient is covered by 3 services. Their areas overlap here, so compare them.');
+  });
+
+  it('draws every area, since there are no layers to turn off', async () => {
     const { container } = render(<RadarScreen caseId="4821" />);
     await screen.findByRole('heading', { name: 'Who covers DT4 8XX' });
-    expect(container.querySelectorAll('circle[stroke-dasharray]')).toHaveLength(3);
-
-    await user.click(byEl('RADAR-LAYER-VISITING'));
-    expect(byEl('RADAR-LAYER-VISITING')).toHaveAttribute('aria-pressed', 'false');
-    expect(container.querySelectorAll('circle[stroke-dasharray]')).toHaveLength(1);
-
-    await user.click(byEl('RADAR-LAYER-HOME'));
-    expect(container.querySelectorAll('circle[stroke-dasharray]')).toHaveLength(0);
-
-    await user.click(byEl('RADAR-LAYER-VISITING'));
-    expect(container.querySelectorAll('circle[stroke-dasharray]')).toHaveLength(2);
-
-    expect(screen.getByRole('button', { name: 'Drive-time rings: not available yet' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Traffic: not available yet' })).toBeDisabled();
+    expect(container.querySelectorAll('[data-el^="RADAR-AREA-"]')).toHaveLength(3);
+    expect(screen.queryByRole('group', { name: 'Layers' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /not available yet/ })).toBeNull();
   });
 
   it('a failed read says so and offers to try again', async () => {
@@ -87,6 +101,7 @@ describe('Radar: who covers this area (RadarWeb 1)', () => {
     render(<RadarScreen caseId="4821" />);
     expect(await screen.findByRole('heading', { name: 'We could not find that postcode' })).toBeInTheDocument();
     expect(byEl('ADV-DISTRICT-DT3')).toBeInTheDocument();
+    expect(within(views()).getByRole('link', { name: 'Radar' })).toHaveAttribute('aria-current', 'page');
     expect(screen.queryByRole('heading', { name: /Who covers/ })).toBeNull();
   });
 
@@ -112,13 +127,26 @@ describe('Radar: who covers this area (RadarWeb 1)', () => {
 });
 
 describe('Compare the covering services (RadarWeb 2)', () => {
-  it('says it is shadow mode and does not pick one', async () => {
+  it('has the patient card, the shared view toggle with Compare current, and how many services are lined up', async () => {
     render(<CompareScreen caseId="4821" />);
     expect(await screen.findByRole('heading', { name: 'Compare for this patient' })).toBeInTheDocument();
-    const banner = byEl('RADAR-SHADOW');
-    expect(banner).toHaveTextContent('Shadow mode');
-    expect(banner).toHaveTextContent('It does not pick one. The advisor and the clinical need decide.');
-    expect(screen.queryByText(/best|recommended|top choice|score/i)).toBeNull();
+    expect(byEl('ADV-CASE-SUMMARY')).toHaveTextContent('DT4 8XX');
+    expect(byEl('ADV-CASE-SUMMARY-EDIT')).toHaveAttribute('href', '/advisor/case/4821');
+    expect(within(views()).getByRole('link', { name: 'Compare' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByText('3 services meet the criteria · same order as the list')).toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Radar views' })).toBeNull();
+  });
+
+  it('does not pick one: no score, no rank and no best mark, said once under the table', async () => {
+    render(<CompareScreen caseId="4821" />);
+    const table = await screen.findByRole('table');
+    const note = byEl('RADAR-SHADOW');
+    expect(note).toHaveTextContent('It does not pick one: there is no score, no rank and no best mark.');
+    expect(note).toHaveTextContent('The advisor and the clinical need decide.');
+    expect(note).toHaveTextContent('A request is only a request, and is not booked until the service confirms.');
+    expect(note).toHaveTextContent('Rows that need a service’s round say Not available, which is not zero.');
+    expect(within(table).queryByText(/best|recommended|top choice|score|rank/i)).toBeNull();
+    expect(screen.queryByText('Shadow mode')).toBeNull();
   });
 
   it('lines up the services that visit or stay remote, in the order sent, and not the places to go', async () => {
@@ -155,14 +183,18 @@ describe('Compare the covering services (RadarWeb 2)', () => {
     }
   });
 
-  it('has a request for each service, grouped with its name, and says a request is only a request', async () => {
+  it('has the same outlined request for each service, grouped with its name, so no column looks recommended', async () => {
     render(<CompareScreen caseId="4821" />);
     await screen.findByRole('table');
+    const requests = new Set<string>();
     for (const name of ['UCR West', 'UCR East', 'Hospital at home']) {
       const group = screen.getByRole('group', { name: `Request ${name}` });
-      expect(within(group).getByRole('button', { name: 'Request booking' })).toBeInTheDocument();
+      const button = within(group).getByRole('button', { name: 'Request booking' });
+      requests.add(button.className);
+      expect(group.closest('td')).toHaveAttribute('data-request', 'outlined');
     }
-    expect(screen.getByText('A request is only a request. It is not booked until the service confirms.')).toBeInTheDocument();
+    // One style for every column.
+    expect(requests.size).toBe(1);
   });
 
   it('“Why these numbers” opens the explanation and closes it again', async () => {
@@ -193,24 +225,42 @@ describe('Compare the covering services (RadarWeb 2)', () => {
 
 describe('Three ways to meet the need (RadarWeb 6, RadarPhone 5)', () => {
   const laneTitles = () => screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent);
+  const lane = (id: string) => document.querySelector(`[data-lane="${id}"]`) as HTMLElement;
 
-  it('has the case line and three lanes with each service and its status', async () => {
+  it('has the shared view toggle with Ways current, the case line and three lanes with each service and its status', async () => {
     render(<WaysScreen caseId="4821" />);
     expect(await screen.findByRole('heading', { name: 'Meeting this need' })).toBeInTheDocument();
+    expect(within(views()).getByRole('link', { name: 'Ways' })).toHaveAttribute('aria-current', 'page');
     expect(byEl('ADV-CASE-SUMMARY')).toHaveTextContent('DT4 8XX');
     expect(laneTitles()).toEqual(['Comes to the patient', 'Remote', 'Goes to a place']);
-    const comes = document.querySelector('[data-lane="comes"]') as HTMLElement;
-    expect(within(comes).getAllByRole('listitem')).toHaveLength(2);
-    expect(within(comes).getByText('UCR West')).toBeInTheDocument();
-    expect(within(comes).getByText('About 25 to 35 min')).toBeInTheDocument();
-    expect(within(document.querySelector('[data-lane="remote"]') as HTMLElement).getByText('Over capacity')).toBeInTheDocument();
-    expect(within(document.querySelector('[data-lane="place"]') as HTMLElement).getByText(/35 to 50 min by road, 5 beds/)).toBeInTheDocument();
+    expect(within(lane('comes')).getAllByRole('listitem')).toHaveLength(2);
+    const west = within(lane('comes')).getAllByRole('listitem')[0];
+    expect(west).toHaveTextContent('UCR West');
+    expect(west).toHaveTextContent('Visits about 25 to 35 min · 9 min ago');
+    expect(west).toHaveTextContent('Accepting');
+    expect(west).toHaveTextContent('4 referrals in the next 2 hrs');
+    const home = within(lane('remote')).getAllByRole('listitem')[0];
+    expect(home).toHaveTextContent('Over capacity');
+    expect(home).toHaveTextContent('+2 over');
+    expect(home).toHaveTextContent('Phone to confirm before offering.');
+    const place = within(lane('place')).getAllByRole('listitem')[0];
+    expect(place).toHaveTextContent('About 35 to 50 min by road');
+    expect(place).toHaveTextContent('· old');
+    expect(place).toHaveTextContent('5 beds free');
+  });
+
+  it('each service has an Open link named for it', async () => {
+    render(<WaysScreen caseId="4821" />);
+    await screen.findByRole('heading', { name: 'Meeting this need' });
+    expect(screen.getByRole('link', { name: 'Open UCR West' })).toHaveAttribute('href', '/advisor/case/4821/options?service=svc-ucr-west');
+    expect(screen.getAllByRole('link', { name: /^Open / })).toHaveLength(4);
   });
 
   it('the answer to can the patient travel changes the order of the lanes and hides nothing', async () => {
     const user = userEvent.setup();
     render(<WaysScreen caseId="4821" />);
     await screen.findByRole('heading', { name: 'Meeting this need' });
+    expect(screen.getByText('This only changes which way is shown first. It never hides a way or a service.')).toBeInTheDocument();
     const services = () => screen.getAllByRole('listitem').filter((item) => item.dataset.el === 'RADAR-WAY-ROW').length;
     expect(services()).toBe(4);
 
@@ -228,12 +278,12 @@ describe('Three ways to meet the need (RadarWeb 6, RadarPhone 5)', () => {
     expect(laneTitles()).toEqual(['Comes to the patient', 'Remote', 'Goes to a place']);
   });
 
-  it('an empty lane says so, and the not-suitable services are listed with why', async () => {
+  it('an empty lane says so, and the services left out are listed with why', async () => {
     const user = userEvent.setup();
     answerWith({ ...RADAR_VIEW, options: RADAR_VIEW.options.filter((option) => option.category !== 'hospital-at-home-or-virtual-ward') });
     render(<WaysScreen caseId="4821" />);
     await screen.findByRole('heading', { name: 'Meeting this need' });
-    expect(within(document.querySelector('[data-lane="remote"]') as HTMLElement).getByText('None for this patient.')).toBeInTheDocument();
+    expect(within(lane('remote')).getByText('None for this patient.')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '1 service not suitable, and why' }));
     expect(screen.getByText('Urgent treatment centre: Open until 20:00, not suited to this need')).toBeInTheDocument();
   });

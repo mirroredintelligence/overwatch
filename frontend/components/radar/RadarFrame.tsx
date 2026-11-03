@@ -9,19 +9,22 @@ import type { CaseView } from '@/lib/advisor/codes';
 import { canChangePostcode, changePostcode, type PostcodeChange } from '@/lib/advisor/postcodeChange';
 import type { OptionsParts } from '@/lib/advisor/options';
 import { useCaseOptions } from '@/lib/radar/useCaseOptions';
-import { RadarTabs, type RadarView } from './RadarTabs';
+import { ViewToggle, type OptionsView } from '@/components/advisor/ViewToggle';
+import { Loading, SkeletonRows } from '@/components/ui/Skeleton';
 import styles from './radar.module.css';
 
 // What every radar screen has in common (RadarWeb 1, 2, 6): the read of the case's options, the loading and
 // failed states, the three states that have no radar to draw (postcode not found, outside every service's
-// area, no service fits), and the tabs. A state with no radar still names a next step: the call is never
-// left at a dead end (W16, W50).
+// area, no service fits), and the shared view toggle. A state with no radar still names a next step: the call
+// is never left at a dead end (W16, W50).
 
 export type RadarContext = {
   parts: OptionsParts;
   /** The case's district, or "this patient" when it has none: for headings. */
   place: string;
   view: CaseView | null;
+  /** The shared view toggle, for the screen to place beside its own hint. */
+  toggle: ReactNode;
 };
 
 export function RadarFrame({
@@ -30,13 +33,19 @@ export function RadarFrame({
   children,
 }: {
   caseId: string;
-  current: RadarView;
+  current: OptionsView;
   children: (context: RadarContext) => ReactNode;
 }) {
   const { load, retry, choose } = useCaseOptions(caseId);
   const [asking, setAsking] = useState(false);
 
-  if (load.kind === 'loading') return <p role="status">Loading the radar.</p>;
+  if (load.kind === 'loading') {
+    return (
+      <Loading label="Loading the radar.">
+        <SkeletonRows count={3} />
+      </Loading>
+    );
+  }
   if (load.kind === 'failed') {
     return (
       <div className={styles.screen}>
@@ -58,7 +67,7 @@ export function RadarFrame({
     return result;
   };
   const ask = asking ? <AskClinicalPanel caseRef={caseId} optionsShown={0} onClose={() => setAsking(false)} /> : null;
-  const tabs = <RadarTabs caseId={caseId} current={current} />;
+  const tabs = <ViewToggle caseId={caseId} current={current} />;
 
   if (parts.notFound) {
     return (
@@ -96,8 +105,7 @@ export function RadarFrame({
 
   return (
     <div className={styles.screen}>
-      {tabs}
-      {children({ parts, place: postcode ?? 'this patient', view })}
+      {children({ parts, place: postcode ?? 'this patient', view, toggle: tabs })}
       {ask}
     </div>
   );

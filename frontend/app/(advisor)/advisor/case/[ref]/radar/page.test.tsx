@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetCsrfCache } from '@/lib/advisor/browser';
@@ -21,14 +21,17 @@ beforeEach(() => {
 
 describe('the radar pages (RadarWeb 1, 2, 6)', () => {
   it.each([
-    ['radar', RadarPage, 'Who covers DT4 8XX'],
-    ['compare', ComparePage, 'Compare for this patient'],
-    ['ways', WaysPage, 'Meeting this need'],
-  ] as const)('the %s page marks the Options step current and shows its screen for the case in the address', async (_name, Page, heading) => {
+    ['radar', RadarPage, 'Who covers DT4 8XX', 'Radar'],
+    ['compare', ComparePage, 'Compare for this patient', 'Compare'],
+    ['ways', WaysPage, 'Meeting this need', 'Ways'],
+  ] as const)('the %s page marks the Options step current and shows its screen for the case in the address', async (_name, Page, heading, tab) => {
     render(await Page({ params: Promise.resolve({ ref: '4821' }) }));
 
     expect(document.querySelector('[data-step="options"]')).toHaveAttribute('aria-current', 'step');
     expect(await screen.findByRole('heading', { name: heading })).toBeInTheDocument();
-    expect(screen.getByRole('navigation', { name: 'Radar views' })).toBeInTheDocument();
+    const views = screen.getByRole('navigation', { name: 'Options view' });
+    expect(within(views).getByRole('link', { name: tab })).toHaveAttribute('aria-current', 'page');
+    expect(within(views).getByRole('link', { name: 'List' })).toHaveAttribute('href', '/advisor/case/4821/options');
+    expect(screen.queryByRole('navigation', { name: 'Radar views' })).toBeNull();
   });
 });

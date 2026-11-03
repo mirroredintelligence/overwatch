@@ -1,0 +1,59 @@
+/* The network history page's own parts: the filter, the ended row and its Last known tag. Tokens only. */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* The ended services are one card, with a rule between rows (the board's card, not a stack of boxes). */
+.entries {
+  box-sizing: border-box;
+  margin: 0;
+  padding: var(--space-1) var(--space-5);
+  list-style: none;
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+}
+
+.entry {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--c-line);
+}
+
+.entry:first-child {
+  border-top: 0;
+}
+
+/* Narrow screens: the name, the date and the tag stack in one column. */
+@media (max-width: 600px) {
+  .entry {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.ended {
+  margin: 0;
+  font-weight: 700;
+}
+
+/* The figure is last known, not current: a dashed outline and the words, never a status colour. */
+.tag {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: 2px dashed var(--c-unknown);
+  border-radius: 999px;
+  color: var(--c-muted);
+  font-size: var(--type-label-size);
+  font-weight: 700;
+}

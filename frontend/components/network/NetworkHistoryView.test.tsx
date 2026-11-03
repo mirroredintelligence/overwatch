@@ -1,4 +1,5 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { runAxe } from '@/test/a11y';
@@ -56,6 +57,89 @@ describe('NetworkHistoryView', () => {
     server.use(http.get('/api/bff/network/directory', () => HttpResponse.json({ code: 'exception' }, { status: 503 })));
     render(<NetworkHistoryView ownHref="/advisor/board" />);
     expect(await screen.findByText('The history could not be read. Try again shortly.')).toBeInTheDocument();
+  });
+
+  it('shows each ended service with a Last known tag, and no figure the data does not carry', async () => {
+    server.use(
+      http.get('/api/bff/network/directory', () =>
+        HttpResponse.json({
+          entries: [
+            { rowRef: 'lst-0090', organisationName: 'Sample Area D', serviceName: 'Former service', category: 'inpatient-beds', active: true, source: 'manual', contactLabel: null, contactPhone: null, location: null, openingHours: [], presentation: 'shown', endedAt: '2026-10-01T09:00:00+00:00', endReason: 'left' },
+          ],
+          systemName: 'a',
+          pathwayName: 'b',
+          timeZone: 'Europe/London',
+        }),
+      ),
+      ...networkBffHandlers,
+    );
+    const { container } = render(<NetworkHistoryView ownHref="/advisor/board" />);
+    await waitFor(() => expect(container.querySelectorAll('[data-el="NET-BOARD-ROW"]')).toHaveLength(1));
+    const row = container.querySelector<HTMLElement>('[data-el="NET-BOARD-ROW"]')!;
+    expect(within(row).getByText('Last known')).toBeInTheDocument();
+  });
+
+  it('filters the history to the services that left, or stopped sharing, and back to all', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get('/api/bff/network/directory', () =>
+        HttpResponse.json({
+          entries: [
+            { rowRef: 'lst-0090', organisationName: 'Sample Area D', serviceName: 'Former service', category: 'inpatient-beds', active: true, source: 'manual', contactLabel: null, contactPhone: null, location: null, openingHours: [], presentation: 'shown', endedAt: '2026-10-01T09:00:00+00:00', endReason: 'left' },
+            { rowRef: 'lst-0091', organisationName: 'Sample Area B', serviceName: 'Stopped service', category: 'reablement', active: true, source: 'manual', contactLabel: null, contactPhone: null, location: null, openingHours: [], presentation: 'shown', endedAt: '2026-10-05T09:00:00+00:00', endReason: 'grant-ended' },
+          ],
+          systemName: 'a',
+          pathwayName: 'b',
+          timeZone: 'Europe/London',
+        }),
+      ),
+      ...networkBffHandlers,
+    );
+    const { container } = render(<NetworkHistoryView ownHref="/advisor/board" />);
+    await waitFor(() => expect(container.querySelectorAll('[data-el="NET-BOARD-ROW"]')).toHaveLength(2));
+    const all = screen.getByRole('button', { name: 'All' });
+    const left = screen.getByRole('button', { name: 'Left the network' });
+    const stopped = screen.getByRole('button', { name: 'Stopped sharing' });
+    expect(all).toHaveAttribute('aria-pressed', 'true');
+    expect(left).toHaveAttribute('aria-pressed', 'false');
+    expect(stopped).toHaveAttribute('aria-pressed', 'false');
+
+    await user.click(left);
+    expect(left).toHaveAttribute('aria-pressed', 'true');
+    expect(all).toHaveAttribute('aria-pressed', 'false');
+    const leftRows = Array.from(container.querySelectorAll<HTMLElement>('[data-el="NET-BOARD-ROW"]'));
+    expect(leftRows).toHaveLength(1);
+    expect(within(leftRows[0]!).getByText('Former service')).toBeInTheDocument();
+
+    await user.click(stopped);
+    const stoppedRows = Array.from(container.querySelectorAll<HTMLElement>('[data-el="NET-BOARD-ROW"]'));
+    expect(stoppedRows).toHaveLength(1);
+    expect(within(stoppedRows[0]!).getByText('Stopped service')).toBeInTheDocument();
+
+    await user.click(all);
+    expect(container.querySelectorAll('[data-el="NET-BOARD-ROW"]')).toHaveLength(2);
+  });
+
+  it('says no service matches a filter that has nothing in it, and how to clear it', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get('/api/bff/network/directory', () =>
+        HttpResponse.json({
+          entries: [
+            { rowRef: 'lst-0090', organisationName: 'Sample Area D', serviceName: 'Former service', category: 'inpatient-beds', active: true, source: 'manual', contactLabel: null, contactPhone: null, location: null, openingHours: [], presentation: 'shown', endedAt: '2026-10-01T09:00:00+00:00', endReason: 'left' },
+          ],
+          systemName: 'a',
+          pathwayName: 'b',
+          timeZone: 'Europe/London',
+        }),
+      ),
+      ...networkBffHandlers,
+    );
+    render(<NetworkHistoryView ownHref="/advisor/board" />);
+    await screen.findByText('Former service');
+    await user.click(screen.getByRole('button', { name: 'Stopped sharing' }));
+    expect(screen.getByText('No services match this filter')).toBeInTheDocument();
+    expect(screen.getByText('Clear the filter to see all organisations.')).toBeInTheDocument();
   });
 
   it('has no axe violations', async () => {

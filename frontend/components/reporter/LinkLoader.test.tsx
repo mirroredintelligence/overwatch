@@ -84,7 +84,7 @@ describe('LinkLoader', () => {
   it('shows a booking request in place, and reads the link once (KI-651)', async () => {
     render(<LinkLoader token={LINK.booking} />);
     expect(await screen.findByRole('button', { name: 'Confirm booking' })).toBeInTheDocument();
-    expect(screen.getByText('Need fall, no injury and frailty')).toBeInTheDocument();
+    expect(screen.getByText('Fall, no injury and frailty')).toBeInTheDocument();
     expect(replace).not.toHaveBeenCalled();
     expect(seenBffReads).toEqual([LINK.booking]);
   });
@@ -108,7 +108,7 @@ describe('LinkLoader', () => {
     const { container } = render(<LinkLoader token={LINK.bookingExpired} />);
     expect(await screen.findByRole('heading', { level: 1, name: 'This request has closed' })).toBeInTheDocument();
     expect(screen.getByText('Reference 4821. Closed at 14:26.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '0300 123 4567' })).toHaveAttribute('href', 'tel:0300 123 4567');
+    expect(screen.getByRole('link', { name: '0300 123 4567' })).toHaveAttribute('href', 'tel:03001234567');
     expect(screen.queryByRole('button', { name: 'Send me a new link' })).toBeNull();
     expect(await runAxe(container)).toHaveNoViolations();
   });

@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { runAxe } from '@/test/a11y';
 import { CONSENTED, VIEW_DETAIL_PROVISIONING, VIEW_DETAIL_READY } from '@/test/fixtures/operator';
 import { resetOperatorWrites, seenOperatorWrites } from '@/test/msw/handlers/operator';
 import { server } from '@/test/msw/server';
@@ -84,5 +85,57 @@ describe('step 2: connect their sign-in', () => {
     server.use(http.get('/api/bff/platform/directory-lookup', () => HttpResponse.json({ domain: 'nowhere.test', directoryId: null })));
     await user.click(within(card).getByRole('button', { name: 'Look up their Microsoft account' }));
     expect(await within(card).findByText('No Microsoft account was found for nowhere.test. Ask the organisation which one they use.')).toBeInTheDocument();
+  });
+});
+
+// The board (O4, part 1): one row for the directory, in the part's states.
+describe('step 2: the directory row for each state', () => {
+  const rowOf = (card: HTMLElement, title: string) => within(card).getByText(title).closest('[data-state]') as HTMLElement;
+  const card = () => step('Connect their Microsoft work accounts');
+
+  it('not started: a dashed row that says nothing is connected, with the word To do', async () => {
+    await open({ ...VIEW_DETAIL_PROVISIONING, directoryId: null, bindings: [], roleMappings: [] }, undefined, 'Organisation and sign-in');
+    const row = rowOf(card(), 'Microsoft work accounts not connected');
+    expect(row).toHaveAttribute('data-state', 'todo');
+    expect(within(row).getByText('To do')).toBeInTheDocument();
+  });
+
+  it('waiting for the operator: an amber row that says it is named and not yet confirmed, and the one button', async () => {
+    await open(VIEW_DETAIL_PROVISIONING, undefined, 'Organisation and sign-in');
+    const row = rowOf(card(), 'Microsoft work accounts named');
+    expect(row).toHaveAttribute('data-state', 'waiting');
+    expect(within(row).getByText('Waiting for you')).toBeInTheDocument();
+    expect(within(card()).getByRole('button', { name: 'Confirm this is their Microsoft account' })).toBeInTheDocument();
+  });
+
+  it('done: a checked row with the day it was confirmed, and no directory id on its face', async () => {
+    await open(VIEW_DETAIL_READY, CONSENTED, 'Organisation and sign-in');
+    const row = rowOf(card(), 'Microsoft work accounts connected');
+    expect(row).toHaveAttribute('data-state', 'done');
+    expect(row).toHaveTextContent(/Confirmed on 21 Oct 2026/);
+    expect(within(row).getByText('Done')).toBeInTheDocument();
+    expect(row).not.toHaveTextContent('11111111-1111-4111-8111-111111111111');
+  });
+
+  it('error on the action: the part stays open, the button stays, and the problem is said in words', async () => {
+    server.use(http.post('/api/bff/platform/tenants/:id/directory/verification', () => HttpResponse.json({ code: 'failed' }, { status: 500 })));
+    const user = await open(VIEW_DETAIL_PROVISIONING, undefined, 'Organisation and sign-in');
+    await user.click(within(card()).getByRole('button', { name: 'Confirm this is their Microsoft account' }));
+    expect(await within(card()).findByRole('alert')).toHaveTextContent('It could not be confirmed. Try again.');
+    expect(within(card()).getByRole('button', { name: 'Confirm this is their Microsoft account' })).toBeEnabled();
+    expect(rowOf(card(), 'Microsoft work accounts named')).toHaveAttribute('data-state', 'waiting');
+  });
+
+  it('keeps the domain check closed under its own disclosure, and the identifiers under technical details', async () => {
+    await open(VIEW_DETAIL_PROVISIONING, undefined, 'Organisation and sign-in');
+    const check = within(card()).getByText('Check an email domain').closest('details') as HTMLElement;
+    expect(check).not.toHaveAttribute('open');
+    const tech = within(card()).getByText('Technical details').closest('details') as HTMLElement;
+    expect(within(tech).getByText('11111111-1111-4111-8111-111111111111')).toBeInTheDocument();
+  });
+
+  it('has no accessibility violations', async () => {
+    await open(VIEW_DETAIL_PROVISIONING, undefined, 'Organisation and sign-in');
+    expect(await runAxe(document.body)).toHaveNoViolations();
   });
 });

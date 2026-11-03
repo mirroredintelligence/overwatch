@@ -1,9 +1,11 @@
 'use client';
 
-import { organisationTypeWord } from '@/lib/operator/words';
+import { StatusTag } from '@/components/ui/StatusTag';
+import { organisationTypeWord, TENANT_STATUS_WORD } from '@/lib/operator/words';
 import { whenText } from '@/lib/tenantAdmin/words';
 import styles from '@/components/admin/admin.module.css';
 import ts from '../Tenant.module.css';
+import parts from './Parts.module.css';
 import { StepSection, type PanelProps } from './shared';
 
 const COUNTRY_WORD: Record<string, string> = { GB: 'United Kingdom', IE: 'Ireland' };
@@ -27,20 +29,28 @@ export function OrganisationStep(props: PanelProps) {
       }
     >
       <p className={ts.text}>Check these are right. They came from the NHS record when the organisation was created, and cannot be changed here.</p>
-      <dl className={styles.facts}>
-        <dt>Name</dt>
-        <dd>{t.displayName}</dd>
-        <dt>Legal name</dt>
-        <dd>{t.legalName}</dd>
-        <dt>Type</dt>
-        <dd>{organisationTypeWord(t.organisationType)}</dd>
-        <dt>NHS code</dt>
-        <dd>{t.odsCode ?? 'None'}</dd>
-        <dt>Country</dt>
-        <dd>{COUNTRY_WORD[t.countryCode] ?? t.countryCode}</dd>
-        <dt>Time zone</dt>
-        <dd>{t.timeZone}</dd>
-      </dl>
+      <div className={parts.row} data-state="done">
+        <span className={parts.mark} aria-hidden="true">
+          ●
+        </span>
+        <div className={parts.rowBody}>
+          <b className={parts.rowTitle}>NHS record checked</b>
+          <span className={parts.rowSub}>{`${t.displayName} · ${t.odsCode ?? 'No NHS code'} · ${TENANT_STATUS_WORD[t.status] ?? t.status}`}</span>
+          <dl className={parts.facts}>
+            <dt>Legal name</dt>
+            <dd>{t.legalName}</dd>
+            <dt>Type</dt>
+            <dd>{organisationTypeWord(t.organisationType)}</dd>
+            <dt>NHS code</dt>
+            <dd>{t.odsCode ?? 'None'}</dd>
+            <dt>Country</dt>
+            <dd>{COUNTRY_WORD[t.countryCode] ?? t.countryCode}</dd>
+            <dt>Time zone</dt>
+            <dd>{t.timeZone}</dd>
+          </dl>
+        </div>
+        <StatusTag variant="done">Done</StatusTag>
+      </div>
     </StepSection>
   );
 }

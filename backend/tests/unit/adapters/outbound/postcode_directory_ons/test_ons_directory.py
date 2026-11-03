@@ -86,3 +86,28 @@ def test_parse_page_keeps_the_points_as_given() -> None:
     assert postcodes[0].postcode == "DT4 0AW"
     assert (postcodes[0].lat, postcodes[0].lon) == (50.6, -2.5)
     assert more is False
+
+
+async def test_a_narrowed_prefix_is_counted_from_the_district_postcodes_not_a_slow_query() -> None:
+    seen: list[dict[str, str]] = []
+
+    def answer(query: dict[str, str]) -> dict[str, Any]:
+        return {
+            "features": [
+                _feature("DT4 0AW", 50.61, -2.46),
+                _feature("DT4 0AX", 50.60, -2.46),
+                _feature("DT4 8SE", 50.60, -2.45),
+            ]
+        }
+
+    count = await OnsPostcodeDirectory(_client(answer, seen=seen)).count("DT4 0")
+    assert count == 2
+    assert all("returnCountOnly" not in query for query in seen)
+    assert seen[0]["where"] == "pcds LIKE 'DT4 %'"
+
+
+async def test_a_malformed_narrowed_prefix_is_refused_before_any_request() -> None:
+    seen: list[dict[str, str]] = []
+    with pytest.raises(ValueError):
+        await OnsPostcodeDirectory(_client({}, seen=seen)).count("DT4 0AW1")
+    assert seen == []

@@ -101,15 +101,25 @@ class OnsPostcodeDirectory:
             raise TransientLookupError("the directory answer is not JSON") from None
 
     async def count(self, prefix: str) -> int:
-        payload = await self._get(
-            {"where": f"pcds LIKE '{_like(prefix)}'", "returnCountOnly": "true", "f": "json"}
-        )
-        if not isinstance(payload, dict) or "error" in payload:
-            raise LookupRejected("the directory refused the count")
-        count = payload.get("count")
-        if type(count) is not int or count < 0:
-            raise TransientLookupError("the directory answer has no count")
-        return count
+        # A bare district is one fast count. A narrowed prefix ("DT4 0") is slow on the directory's
+        # side (about 20 seconds, for a LIKE or a range), so it is counted here from the district's
+        # own postcodes, which come back in pages in well under a second.
+        if " " not in prefix:
+            payload = await self._get(
+                {"where": f"pcds LIKE '{_like(prefix)}'", "returnCountOnly": "true", "f": "json"}
+            )
+            if not isinstance(payload, dict) or "error" in payload:
+                raise LookupRejected("the directory refused the count")
+            count = payload.get("count")
+            if type(count) is not int or count < 0:
+                raise TransientLookupError("the directory answer has no count")
+            return count
+        _like(
+            prefix
+        )  # the same pattern check as the query: a malformed prefix raises before any request
+        district = prefix.split(" ", 1)[0]
+        found = await self.postcodes(district)
+        return sum(1 for point in found if point.postcode.startswith(prefix))
 
     async def postcodes(self, prefix: str) -> list[DirectoryPostcode]:
         where = f"pcds LIKE '{_like(prefix)}'"

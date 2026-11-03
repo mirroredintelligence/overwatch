@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runAxe } from '@/test/a11y';
 import { addressState, resetAddressRequests, seenAddressRequests, seenStepSaves, resetStepSaves } from '@/test/msw/handlers/registration';
 import { LocationForm } from './LocationForm';
@@ -56,6 +56,42 @@ beforeEach(() => {
   ] };
 });
 
+function phone(matches: boolean) {
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn().mockImplementation((query: string) => ({
+      matches,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    })),
+  );
+}
+
+afterEach(() => vi.unstubAllGlobals());
+
+describe('LocationForm: the frame', () => {
+  it('sits in the register frame: the checklist at Location, the help, Save and come back later', async () => {
+    await open();
+    expect(within(screen.getByRole('banner')).getByRole('link', { name: 'Save and come back later' })).toHaveAttribute(
+      'href',
+      '/register?saved=1',
+    );
+    const nav = screen.getByRole('navigation', { name: 'Your registration' });
+    expect(within(nav).getByRole('link', { name: /^Location/ })).toHaveAttribute('aria-current', 'step');
+    expect(within(nav).getByRole('link', { name: /^Organisation/ })).toHaveTextContent('Complete');
+    expect(within(screen.getByRole('complementary', { name: 'Help' })).getByText('Why we ask')).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'Current step' })).getByRole('heading', { level: 1 })).toBeInTheDocument();
+  });
+
+  it('says "Saved a moment ago" in the top bar after Save draft', async () => {
+    await open();
+    await choose('No, we visit patients');
+    await userEvent.click(screen.getByRole('button', { name: 'Save draft' }));
+    await waitFor(() => expect(within(screen.getByRole('banner')).getByText('Saved a moment ago')).toBeInTheDocument());
+  });
+});
+
 describe('LocationForm: the fixed-site question', () => {
   it('shows the question, its options and the hint, and the step label', async () => {
     await open();
@@ -88,6 +124,47 @@ describe('LocationForm: the address lookup', () => {
     expect(seenAddressRequests).toEqual(['DT4 8XX']);
     const group = screen.getByRole('group', { name: 'Choose the address' });
     expect(within(group).getAllByRole('button')).toHaveLength(3);
+  });
+
+  it('pressing Enter in the postcode runs the lookup and does not submit the step', async () => {
+    await open();
+    await choose('Yes, a building or ward');
+    await userEvent.type(screen.getByLabelText('Postcode'), 'dt4 8xx{Enter}');
+    expect(await screen.findByRole('group', { name: 'Choose the address' })).toBeInTheDocument();
+    expect(seenAddressRequests).toEqual(['DT4 8XX']);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(seenStepSaves).toHaveLength(0);
+  });
+
+  it('says how many addresses were found and moves focus to the first one', async () => {
+    await open();
+    await choose('Yes, a building or ward');
+    await findAddress('DT4 8XX');
+    const group = await screen.findByRole('group', { name: 'Choose the address' });
+    expect(screen.getByText('3 addresses found. Choose one.')).toBeInTheDocument();
+    expect(within(group).getAllByRole('button')[0]).toHaveFocus();
+  });
+
+  it('moves between the addresses with the arrow keys, Home and End, without choosing one', async () => {
+    await open();
+    await choose('Yes, a building or ward');
+    await findAddress('DT4 8XX');
+    const group = await screen.findByRole('group', { name: 'Choose the address' });
+    const options = within(group).getAllByRole('button');
+    expect(options[0]).toHaveFocus();
+    await userEvent.keyboard('{ArrowDown}');
+    expect(options[1]).toHaveFocus();
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}');
+    expect(options[0]).toHaveFocus();
+    await userEvent.keyboard('{ArrowUp}');
+    expect(options[2]).toHaveFocus();
+    await userEvent.keyboard('{Home}');
+    expect(options[0]).toHaveFocus();
+    await userEvent.keyboard('{End}');
+    expect(options[2]).toHaveFocus();
+    expect(options.every((option) => option.getAttribute('aria-pressed') === 'false')).toBe(true);
+    await userEvent.keyboard('{Enter}');
+    expect(options[2]).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('an empty lookup shows the not-found error on the postcode field', async () => {
@@ -140,9 +217,10 @@ describe('LocationForm: validation and saving', () => {
   it('Continue with nothing chosen shows the summary, focused, with its links', async () => {
     await open();
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
-    const heading = await screen.findByRole('heading', { name: 'There is a problem' });
+    const heading = await screen.findByRole('heading', { name: '1 problem to fix' });
     const region = heading.closest('[role="alert"]') as HTMLElement;
     expect(region).toHaveFocus();
+    expect(region).toHaveTextContent('▲');
     expect(within(region).getByRole('link', { name: 'Choose whether you have a fixed site' })).toBeInTheDocument();
     expect(seenStepSaves).toHaveLength(0);
   });
@@ -170,7 +248,20 @@ describe('LocationForm: validation and saving', () => {
   it('has no axe violations with errors shown', async () => {
     const { container } = await open();
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
-    await screen.findByRole('heading', { name: 'There is a problem' });
+    await screen.findByRole('heading', { name: '1 problem to fix' });
     expect((await runAxe(container)).violations).toEqual([]);
+  });
+});
+
+describe('LocationForm on a phone', () => {
+  it('puts Continue in the sticky action, with Save and come back later as its link, and goes on when the answers are right', async () => {
+    phone(true);
+    await open();
+    expect(screen.queryByRole('navigation', { name: 'Your registration' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Save and come back later' })).toHaveAttribute('href', '/register?saved=1');
+    await choose('No, we visit patients');
+    const continues = screen.getAllByRole('button', { name: 'Continue' });
+    await userEvent.click(continues[continues.length - 1] as HTMLElement);
+    await waitFor(() => expect(push).toHaveBeenCalledWith(`/register/${ID}/service`));
   });
 });

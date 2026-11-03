@@ -2,18 +2,25 @@
   display: grid;
   gap: var(--space-2);
   padding: var(--space-4);
-  border: 2px solid var(--c-ink);
-  border-radius: var(--radius-card);
+  border-radius: 18px;
+  background: var(--c-tint);
+  text-align: center;
 }
 
 .code {
   margin: 0;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 40px;
+  font-size: 38px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.14em;
+  color: var(--c-primary-dark);
   word-break: break-all;
   user-select: all;
+}
+
+.caption {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  color: var(--c-ink-2);
 }
 
 .confirm {

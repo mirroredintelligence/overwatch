@@ -1,9 +1,176 @@
-.warning {
+/* The help area (boards P4 and Ph2): a hub column of three ways in, the open page beside it. On a phone the
+   hub is the page at /help, and each form or the support code is full screen without it. */
+
+.grid {
+  display: grid;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .grid {
+    grid-template-columns: 340px minmax(0, 1fr);
+    gap: var(--space-5);
+  }
+}
+
+@media (max-width: 899px) {
+  .grid:has([data-help-form]) .hub {
+    display: none;
+  }
+}
+
+.hub {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.hubLabel {
   margin: 0;
-  padding: var(--space-3);
-  border: 2px solid var(--c-ink);
-  border-radius: var(--radius-card);
+  font-size: var(--type-caption-size);
   font-weight: var(--type-label-weight);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.ways {
+  display: grid;
+  gap: var(--space-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.way {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 52px;
+  box-sizing: border-box;
+  padding: 18px 20px;
+  border: 2px solid var(--c-line);
+  border-radius: 22px;
+  background: #fff;
+  color: var(--c-ink);
+  text-decoration: none;
+  transition:
+    transform var(--dur-press) var(--ease-out),
+    border-color var(--dur-state) var(--ease-out);
+}
+
+.way:hover {
+  border-color: var(--c-primary);
+}
+
+.way:active {
+  transform: scale(0.98);
+}
+
+.way:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.wayPrimary {
+  border-color: var(--c-primary);
+  background: var(--c-primary);
+  color: #fff;
+  box-shadow: 0 8px 20px rgb(11 92 140 / 0.28);
+}
+
+.wayPrimary:hover {
+  border-color: var(--c-primary-dark);
+  background: var(--c-primary-dark);
+}
+
+.wayText {
+  display: grid;
+  flex: 1;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.wayTitle {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.wayHint {
+  font-size: 15px;
+  color: var(--c-muted);
+}
+
+.wayPrimary .wayHint {
+  color: #d7e8f2;
+}
+
+.chevron {
+  flex: none;
+  font-size: 22px;
+  color: var(--c-muted);
+}
+
+.wayPrimary .chevron {
+  color: #fff;
+}
+
+.urgent {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--c-muted);
+}
+
+.content {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-4);
+}
+
+/* On a phone the hub page shows the hub first, as the board does. */
+@media (max-width: 899px) {
+  .grid:has([data-help-hub]) .hub {
+    order: -1;
+  }
+}
+
+.card {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-5) 28px;
+  border: 2px solid var(--c-primary);
+  border-radius: 26px;
+  background: #fff;
+  box-shadow: var(--shadow-card);
+}
+
+.cardPlain {
+  border-color: transparent;
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1.2;
+}
+
+.warning {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 10px 14px;
+  border: 2px solid var(--c-limited);
+  border-radius: var(--radius);
+  background: var(--c-amber-tint);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.warning p {
+  margin: 0;
 }
 
 .hint {
@@ -15,4 +182,53 @@
   margin: 0;
   font-size: var(--type-caption-size);
   color: var(--c-ink-2);
+}
+
+.status {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 16px 20px;
+  border-radius: 22px;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.status p {
+  margin: 0;
+}
+
+.sending {
+  background: var(--c-tint);
+}
+
+.sent {
+  background: var(--c-tint);
+}
+
+.sentTitle {
+  margin: 0;
+  font-size: var(--type-title-size);
+}
+
+.failed {
+  border: 2px solid var(--c-surge);
+  background: #fff;
+  font-size: 15px;
+}
+
+.failed b {
+  color: #4b1c69;
+}
+
+.shape {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+}
+
+.failed .shape {
+  color: var(--c-surge);
 }

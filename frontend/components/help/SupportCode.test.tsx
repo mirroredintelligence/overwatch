@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -65,6 +65,26 @@ describe('SupportCode before a code is made', () => {
     render(<SupportCode />);
     await userEvent.click(await screen.findByRole('button', { name: 'Make a support code' }));
     expect(await screen.findByText('A code is live until 18:02.')).toBeInTheDocument();
+  });
+
+  it('tells the person to read the code to the support person, and says support cannot change anything', async () => {
+    render(<SupportCode />);
+    await makeCode();
+    expect(screen.getByText('Read it to the support person')).toBeInTheDocument();
+    expect(screen.getByText('They cannot change anything.')).toBeInTheDocument();
+  });
+
+  it('offers "Check again" beside a live code, and reads the state again when it is pressed', async () => {
+    let reads = 0;
+    server.use(http.get('/api/bff/support/code', () => {
+      reads += 1;
+      return HttpResponse.json(state);
+    }));
+    render(<SupportCode />);
+    await makeCode();
+    const before = reads;
+    await userEvent.click(screen.getByRole('button', { name: 'Check again' }));
+    await waitFor(() => expect(reads).toBeGreaterThan(before));
   });
 
   it('says it could not make a code when the back end fails', async () => {

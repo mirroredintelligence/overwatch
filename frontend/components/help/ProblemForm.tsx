@@ -19,14 +19,21 @@ const KINDS: readonly { value: ProblemKind; label: string }[] = [
   { value: 'something-else', label: 'Something else' },
 ];
 
-export const SEND_FAILED = 'We could not send your report. Try again later.';
+// A circle for the confirmation and a triangle for the failure: the shape and the words carry the meaning.
+function Shape({ kind }: { kind: 'ok' | 'problem' }) {
+  return (
+    <svg viewBox="0 0 18 18" className={styles.shape} aria-hidden="true" focusable="false" fill="currentColor">
+      {kind === 'ok' ? <circle cx="9" cy="9" r="7" /> : <path d="M9 2l8 14H1z" />}
+    </svg>
+  );
+}
 
 export function ProblemForm({ from }: { from: string }) {
   const [kind, setKind] = useState<ProblemKind | null>(null);
   const [text, setText] = useState('');
   const [errors, setErrors] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
   const [sent, setSent] = useState(false);
   const textId = useId();
 
@@ -39,11 +46,11 @@ export function ProblemForm({ from }: { from: string }) {
     }
     setErrors([]);
     setBusy(true);
-    setFailed(null);
+    setFailed(false);
     const result = await bffRequest('/api/bff/help/problems', { method: 'POST', body: checked.value });
     setBusy(false);
     if (!result.ok) {
-      setFailed(SEND_FAILED);
+      setFailed(true);
       return;
     }
     setSent(true);
@@ -51,9 +58,10 @@ export function ProblemForm({ from }: { from: string }) {
 
   if (sent) {
     return (
-      <section className={exec.stack} aria-labelledby="report-sent">
-        <h2 id="report-sent" className={exec.heading}>Thanks. We have your report.</h2>
-      </section>
+      <div role="status" className={`${styles.status} ${styles.sent}`}>
+        <Shape kind="ok" />
+        <h2 className={styles.sentTitle}>Thanks. We have your report.</h2>
+      </div>
     );
   }
 
@@ -93,7 +101,13 @@ export function ProblemForm({ from }: { from: string }) {
       </div>
 
       {errors.length > 0 ? <p role="alert" className={exec.error}>{errors.join(' ')}</p> : null}
-      {failed ? <p role="alert" className={exec.error}>{failed}</p> : null}
+      {busy ? <p role="status" className={`${styles.status} ${styles.sending}`}>Sending your report.</p> : null}
+      {failed ? (
+        <p role="alert" className={`${styles.status} ${styles.failed}`}>
+          <Shape kind="problem" />
+          <span><b>We could not send that.</b> Nothing was lost: your words are still here. Try again.</span>
+        </p>
+      ) : null}
 
       <div className={exec.actions}>
         <Button variant="primary" type="submit" busy={busy} dataEl="HELP-PROBLEM-SEND-BTN">Send report</Button>

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -8,9 +8,10 @@ import { OPERATOR_SAMPLE_CSRF, resetOperatorWrites, seenOperatorWrites } from '@
 import { server } from '@/test/msw/server';
 import { SupportTicketDetail } from './SupportTicketDetail';
 
-// One request of a support person (TEN-083, DEC-1003): where it stands, the cancellation while it waits, the
-// opening with the one-time code the administrator gave (one tenant, one hour, once) and ending the access.
-// The code is typed here and sent in one call: it is never kept, shown again or put in an address.
+// One request of a support person (TEN-083, DEC-1003, board O5): three stages (Asked, They approve, You open it),
+// where it stands as shape plus word, the cancellation while it waits, the opening with the one-time code the
+// administrator gave (one organisation, one hour, once) and ending the access. The code is typed here and sent
+// in one call: it is never kept, shown again or put in an address.
 
 beforeEach(() => {
   resetOperatorWrites();
@@ -24,44 +25,69 @@ async function open(over: Record<string, unknown> = {}) {
   serve(over);
   const user = userEvent.setup();
   render(<SupportTicketDetail id="tkt-1" />);
-  await screen.findByRole('heading', { level: 1, name: 'Request tkt-1' });
+  await screen.findByRole('heading', { level: 2, name: 'Request tkt-1' });
   return user;
+}
+function stage(n: number) {
+  return within(screen.getByRole('list', { name: 'Where the request stands' })).getAllByRole('listitem')[n - 1]!;
 }
 
 describe('a request that is waiting', () => {
-  it('shows the tenant by name, where it stands, the reason, the reference and the times', async () => {
+  it('shows the organisation by name, where it stands, the reason, the reference and when it lapses', async () => {
     await open();
-    expect(screen.getByText('Sample Area A')).toBeInTheDocument();
-    expect(screen.getByText('Waiting for the tenant’s administrator')).toBeInTheDocument();
-    expect(screen.getByText('The board shows a service twice')).toBeInTheDocument();
-    expect(screen.getByText('Help-desk reference HD-1042')).toBeInTheDocument();
-    expect(screen.getByText('Asked 30 Oct 2026, 08:00. Lapses 31 Oct 2026, 08:00.')).toBeInTheDocument();
+    const facts = screen.getByRole('region', { name: 'About the request' });
+    expect(within(facts).getByText('Organisation').nextElementSibling).toHaveTextContent('Sample Area A');
+    expect(within(facts).getByText('Why').nextElementSibling).toHaveTextContent('The board shows a service twice');
+    expect(within(facts).getByText('Help-desk ref').nextElementSibling).toHaveTextContent('HD-1042');
+    expect(within(facts).getByText('Lapses').nextElementSibling).toHaveTextContent('31 Oct 2026, 08:00');
+    expect(screen.getByText('Waiting for their administrator')).toBeInTheDocument();
+  });
+
+  it('shows the three stages, the second as the current one', async () => {
+    await open();
+    expect(stage(1)).toHaveTextContent('1 Asked');
+    expect(stage(1)).toHaveTextContent('30 Oct 2026, 08:00');
+    expect(stage(2)).toHaveTextContent('2 They approve');
+    expect(stage(2)).toHaveTextContent('Waiting');
+    expect(stage(2)).toHaveAttribute('aria-current', 'step');
+    expect(stage(3)).toHaveTextContent('3 You open it');
+    expect(stage(3)).toHaveTextContent('With their code');
+    expect(stage(3)).not.toHaveAttribute('aria-current');
   });
 
   it('can be taken back, with the console’s CSRF token and a key', async () => {
     const user = await open();
-    await user.click(screen.getByRole('button', { name: 'Cancel the request' }));
+    await user.click(screen.getByRole('button', { name: 'Cancel this request' }));
     await waitFor(() => expect(seenOperatorWrites).toHaveLength(1));
     expect(seenOperatorWrites[0]).toMatchObject({ method: 'POST', path: '/api/bff/platform/support-tickets/tkt-1/cancellation', csrf: OPERATOR_SAMPLE_CSRF });
     expect(seenOperatorWrites[0]?.key).toBeTruthy();
     expect(await screen.findByRole('status')).toHaveTextContent('The request is cancelled.');
   });
 
-  it('offers no code to type yet', async () => {
+  it('says the code comes later, and offers no code to type yet', async () => {
     await open();
+    expect(screen.getByText('Not yet. Their administrator has to approve first.')).toBeInTheDocument();
     expect(screen.queryByLabelText('Code from the administrator')).not.toBeInTheDocument();
   });
 });
 
 describe('an approved request', () => {
+  it('makes the third stage current and says how long the code works', async () => {
+    await open({ state: 'approved', decidedAt: '2026-10-30T08:30:00Z' });
+    expect(screen.getByText('Approved: enter the code')).toBeInTheDocument();
+    expect(stage(2)).toHaveTextContent('30 Oct 2026, 08:30');
+    expect(stage(3)).toHaveAttribute('aria-current', 'step');
+    expect(stage(3)).toHaveTextContent('Enter their code');
+    expect(screen.getByText('The code works once. It opens one access, to this organisation only, for one hour.')).toBeInTheDocument();
+  });
+
   it('asks for the code, and opens the access with it, once, then forgets it', async () => {
     const user = await open({ state: 'approved', decidedAt: '2026-10-30T08:30:00Z' });
-    expect(screen.getByText('Approved. Ask the administrator for the code.')).toBeInTheDocument();
     await user.type(screen.getByLabelText('Code from the administrator'), 'k7r4-92qx');
-    await user.click(screen.getByRole('button', { name: 'Open access' }));
+    await user.click(screen.getByRole('button', { name: 'Open' }));
     await waitFor(() => expect(seenOperatorWrites).toHaveLength(1));
     expect(seenOperatorWrites[0]).toMatchObject({ method: 'POST', path: '/api/bff/platform/support-tickets/tkt-1/access', body: { code: 'K7R4-92QX' } });
-    expect(await screen.findByRole('status')).toHaveTextContent('Access is open until 30 Oct 2026, 10:00. It is for this tenant only.');
+    expect(await screen.findByRole('status')).toHaveTextContent('Access is open until 30 Oct 2026, 10:00. It is for this organisation only.');
     expect(document.body.textContent ?? '').not.toContain('K7R4-92QX');
     expect(screen.queryByLabelText('Code from the administrator')).not.toBeInTheDocument();
   });
@@ -69,7 +95,7 @@ describe('an approved request', () => {
   it('refuses a code that is not the shape of one before any call', async () => {
     const user = await open({ state: 'approved' });
     await user.type(screen.getByLabelText('Code from the administrator'), 'abc');
-    await user.click(screen.getByRole('button', { name: 'Open access' }));
+    await user.click(screen.getByRole('button', { name: 'Open' }));
     expect(await screen.findByText('Enter the code as it was given, for example K7R4-92QX.', { selector: 'p' })).toBeInTheDocument();
     expect(seenOperatorWrites).toEqual([]);
   });
@@ -78,7 +104,7 @@ describe('an approved request', () => {
     server.use(http.post('/api/bff/platform/support-tickets/:id/access', () => HttpResponse.json({ code: 'not-found' }, { status: 404 })));
     const user = await open({ state: 'approved' });
     await user.type(screen.getByLabelText('Code from the administrator'), 'K7R4-92QX');
-    await user.click(screen.getByRole('button', { name: 'Open access' }));
+    await user.click(screen.getByRole('button', { name: 'Open' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('That code did not work. Check it with the administrator, or ask them to take it back and approve again.');
     expect(screen.getByLabelText('Code from the administrator')).toHaveValue('');
   });
@@ -88,8 +114,9 @@ describe('an open access', () => {
   it('says when it was opened and what this console does and does not do, and ends it at once on request', async () => {
     const user = await open({ state: 'opened', openedAt: '2026-10-30T09:00:00Z' });
     expect(screen.getByText('Open now')).toBeInTheDocument();
+    expect(stage(3)).toHaveTextContent('30 Oct 2026, 09:00');
     expect(screen.getByText('Opened 30 Oct 2026, 09:00. It lasts one hour.')).toBeInTheDocument();
-    expect(screen.getByText('This console opens and ends the access. It does not read the tenant’s data yet.')).toBeInTheDocument();
+    expect(screen.getByText('This console opens and ends the access. It does not read the organisation’s data yet.')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'End the access now' }));
     await waitFor(() => expect(seenOperatorWrites).toHaveLength(1));
     expect(seenOperatorWrites[0]).toMatchObject({ method: 'DELETE', path: '/api/bff/platform/support-tickets/tkt-1/access' });
@@ -108,24 +135,38 @@ describe('a request that is finished', () => {
     await open({ state });
     expect(screen.getByText(word)).toBeInTheDocument();
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(document.querySelector('[aria-current="step"]')).toBeNull();
+  });
+
+  it('says in the stages where a refused request stopped', async () => {
+    await open({ state: 'refused' });
+    expect(stage(2)).toHaveTextContent('Not approved');
+    expect(stage(3)).toHaveTextContent('Not opened');
   });
 });
 
 describe('failures', () => {
-  it('says it could not find the request on a 404 and could not load it otherwise', async () => {
+  it('says it could not find the request on a 404 and could not load it otherwise, with another try', async () => {
     server.use(http.get('/api/bff/platform/support-tickets/:id', () => HttpResponse.json({ code: 'not-found' }, { status: 404 })));
     const { unmount } = render(<SupportTicketDetail id="nope" />);
     expect(await screen.findByRole('alert')).toHaveTextContent('We could not find that request.');
     unmount();
     server.use(http.get('/api/bff/platform/support-tickets/:id', () => HttpResponse.json({}, { status: 503 })));
     render(<SupportTicketDetail id="tkt-1" />);
-    expect(await screen.findByRole('alert')).toHaveTextContent('We could not load the request.');
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('We could not load the request.');
+    expect(within(alert).getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+  });
+
+  it('says it is loading the request, in words', () => {
+    render(<SupportTicketDetail id="tkt-1" />);
+    expect(screen.getByRole('status')).toHaveTextContent('Loading the request.');
   });
 
   it('says the request could not be taken back, on a failure', async () => {
     server.use(http.post('/api/bff/platform/support-tickets/:id/cancellation', () => HttpResponse.json({}, { status: 409 })));
     const user = await open();
-    await user.click(screen.getByRole('button', { name: 'Cancel the request' }));
+    await user.click(screen.getByRole('button', { name: 'Cancel this request' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('The request could not be taken back. It may have been decided. The page has been read again.');
   });
 

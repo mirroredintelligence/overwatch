@@ -1,14 +1,14 @@
 import type { Metadata } from 'next';
 import { ChangeNumberForm } from '@/components/lead/ChangeNumberForm';
+import { SERVICE_ID } from '@/lib/lead/routeParams';
 
-// Change reporter number (W18). At /lead/reporters/number, with ?service=<id> to choose the service.
+// Change reporter number (W18; INV-03). At /lead/reporters/number, with ?service=<id> to choose the service:
+// the reporters page with that service's "Change their number" row open.
 
 export const metadata: Metadata = {
   title: 'Change reporter number - Overwatch',
   robots: { index: false },
 };
-
-const SERVICE_ID = /^[A-Za-z0-9.-]{1,64}$/;
 
 export default async function ChangeNumberPage({
   searchParams,

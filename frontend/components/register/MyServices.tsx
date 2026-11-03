@@ -2,17 +2,20 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { Loading, SkeletonRows } from '@/components/ui/Skeleton';
+import { StatusTag, type StatusTagVariant } from '@/components/ui/StatusTag';
 import { loadMine, type MyService } from '@/lib/register/browser';
-import styles from './register.module.css';
+import styles from './entry.module.css';
 
-// My services (W26): one row per service the reporter has, its state as a word, and an Edit link to
-// its status page. A new service comes by invitation from the shift lead, never from here.
+// My services (W26, artboard RegStatus): one row per service the reporter has, its state as a shape and a
+// word, and one action to its status page. A new service comes by invitation from the shift lead, never
+// from here: there is no button to register another.
 
-const STATE_WORDS: Record<MyService['state'], string> = {
-  active: 'Active',
-  'pending-approval': 'Pending approval',
-  'review-due': 'Review due',
-  'not-approved': 'Not approved',
+const STATES: Record<MyService['state'], { word: string; variant: StatusTagVariant; action: string }> = {
+  active: { word: 'Active', variant: 'live', action: 'Edit' },
+  'pending-approval': { word: 'Pending approval', variant: 'waiting', action: 'Open' },
+  'review-due': { word: 'Review due', variant: 'due', action: 'Review' },
+  'not-approved': { word: 'Not approved', variant: 'closed', action: 'Open' },
 };
 const LOAD_FAILED = 'We could not load your registration. Try again later.';
 const SIGNED_OUT = 'Please sign in again.';
@@ -34,29 +37,46 @@ export function MyServices() {
   }, []);
 
   return (
-    <div className={styles.stack}>
-      <h1 className={styles.heading}>My services</h1>
-      {load.kind === 'loading' ? <p className={styles.text}>Loading your services.</p> : null}
+    <section className={styles.card} aria-labelledby="my-services-heading">
+      <h1 id="my-services-heading" className={styles.cardHeading}>My services</h1>
+      {load.kind === 'loading' ? (
+        <Loading label="Loading your services.">
+          <SkeletonRows count={3} />
+        </Loading>
+      ) : null}
       {load.kind === 'unavailable' || load.kind === 'signed-out' ? (
         <p className={styles.notice} role="status">{load.kind === 'signed-out' ? SIGNED_OUT : LOAD_FAILED}</p>
       ) : null}
       {load.kind === 'open' ? (
         <ul className={styles.rows}>
-          {load.services.map((service) => (
-            <li key={service.id} className={styles.row}>
-              <div className={styles.rowHead}>
-                <span className={styles.rowTitle}>{service.serviceName}</span>
-                <span className={service.state === 'active' ? styles.complete : styles.attention}>{STATE_WORDS[service.state]}</span>
-              </div>
-              <p className={styles.note}>{service.detail}</p>
-              <Link className={styles.changeLink} href={`/register/${encodeURIComponent(service.id)}/status`} aria-label={`Edit ${service.serviceName}`} data-el="REG-MYSERVICES-EDIT-LINK">
-                Edit
-              </Link>
-            </li>
-          ))}
+          {load.services.map((service) => {
+            const state = STATES[service.state];
+            const attention = service.state === 'review-due';
+            return (
+              <li
+                key={service.id}
+                className={attention ? `${styles.row} ${styles.rowAttention}` : styles.row}
+                data-attention={attention ? 'true' : undefined}
+              >
+                <div className={styles.rowBody}>
+                  <strong className={styles.rowName}>{service.serviceName}</strong>
+                  <p className={styles.rowDetail}>{service.detail}</p>
+                </div>
+                <StatusTag variant={state.variant}>{state.word}</StatusTag>
+                <Link
+                  className={attention ? `${styles.action} ${styles.actionPrimary}` : styles.action}
+                  href={`/register/${encodeURIComponent(service.id)}/status`}
+                  aria-label={`${state.action} ${service.serviceName}`}
+                  data-el="REG-MYSERVICES-EDIT-LINK"
+                >
+                  {state.action}
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       ) : null}
-      <p className={styles.note}>To add a service, ask the shift lead. New services are added by invitation and checked.</p>
-    </div>
+      <p className={styles.rowDetail}>A new service comes by invitation from your shift lead.</p>
+    </section>
   );
 }

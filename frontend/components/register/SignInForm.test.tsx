@@ -63,14 +63,45 @@ async function checkCode(code = '123456') {
 describe('SignInForm: reading the invitation', () => {
   it('reads the link on the page’s own invitation and says whose number the code goes to, by its last three digits', async () => {
     render(<SignInForm inviteToken={INVITE} />);
-    expect(await screen.findByText('We will text a code to the number your invitation was sent to: 07xxx xxx456.')).toBeInTheDocument();
+    expect(await screen.findByText('07xxx xxx456')).toBeInTheDocument();
+    expect(screen.getByText('Use the number your invitation was sent to.')).toBeInTheDocument();
     expect(calls).toEqual([{ path: '/api/bff/identity/invitation', body: { inviteToken: INVITE }, csrf: null }]);
+  });
+
+  it('says which service the invitation is for, above the page heading, and what the code is for', async () => {
+    render(<SignInForm inviteToken={INVITE} />);
+    const chip = await screen.findByText('Invited for Community nursing');
+    const heading = screen.getByRole('heading', { level: 1, name: 'Register your service' });
+    expect(chip.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByText('We text you a code to check it is you.')).toBeInTheDocument();
+  });
+
+  it('keeps the heading and says the invitation is being checked while the link is read', () => {
+    render(<SignInForm inviteToken={INVITE} />);
+    expect(screen.getByRole('heading', { level: 1, name: 'Register your service' })).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Checking your invitation.');
+    expect(screen.queryByRole('button', { name: 'Send code' })).toBeNull();
+  });
+
+  it('says an invitation is needed, in the shift lead’s words, under the send button', async () => {
+    render(<SignInForm inviteToken={INVITE} />);
+    await screen.findByRole('button', { name: 'Send code' });
+    expect(screen.getByText('You need an invitation from your shift lead to register. Check your texts or email for the link.')).toBeInTheDocument();
+    expect(screen.getByText('Having trouble? Ask your shift lead to check your invitation.')).toBeInTheDocument();
+  });
+
+  it('shows the closed words under the heading when the link carries no invitation, with no chip', () => {
+    render(<SignInForm />);
+    expect(screen.getByRole('heading', { level: 1, name: 'Register your service' })).toBeInTheDocument();
+    expect(screen.getByText('We could not find an invitation for this link. Ask the shift lead to check your invitation.')).toBeInTheDocument();
+    expect(screen.queryByText(/^Invited for/)).toBeNull();
   });
 
   it('asks for no number: there is no mobile field to fill in', async () => {
     render(<SignInForm inviteToken={INVITE} />);
     await screen.findByRole('button', { name: 'Send code' });
     expect(screen.queryByLabelText('Mobile number')).toBeNull();
+    expect(screen.queryByRole('textbox')).toBeNull();
   });
 
   it('shows the invitation’s expired and used words, with no send button', async () => {
@@ -111,6 +142,9 @@ describe('SignInForm: sending and checking the code', () => {
       ['/api/bff/identity/code', { purpose: 'registration', inviteToken: INVITE }],
     ]);
     expect(screen.getByText('We sent a code to 07xxx xxx456.')).toBeInTheDocument();
+    // The page keeps its one h1 and the invitation chip on the code step.
+    expect(screen.getByRole('heading', { level: 1, name: 'Register your service' })).toBeInTheDocument();
+    expect(screen.getByText('Invited for Community nursing')).toBeInTheDocument();
   });
 
   it('signs in and goes to the start of the registration the back end names', async () => {

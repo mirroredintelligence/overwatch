@@ -4,7 +4,8 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useId, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { CodeEntry } from '@/components/forms/CodeEntry';
-import styles from './register.module.css';
+import { Loading, Skeleton } from '@/components/ui/Skeleton';
+import styles from './entry.module.css';
 
 // Self-registration sign-in (W23, DEC-900 to DEC-902, artboard RegisterFlow1 panels 1 and 2). The
 // invitation says whose number the code goes to: the page reads the link, shows the last three digits
@@ -18,7 +19,7 @@ export type SignInFormProps = {
 
 type Invitation =
   | { kind: 'loading' }
-  | { kind: 'open'; numberEnding: string }
+  | { kind: 'open'; numberEnding: string; serviceName: string }
   | { kind: 'closed'; message: string }
   | { kind: 'unavailable' };
 type Stage = 'invitation' | 'code';
@@ -78,7 +79,8 @@ export function SignInForm({ inviteToken }: SignInFormProps) {
         if (body.state === 'expired') return setInvitation({ kind: 'closed', message: EXPIRED });
         if (body.state === 'used') return setInvitation({ kind: 'closed', message: USED });
         if (body.state === 'open' && typeof body.numberEnding === 'string') {
-          return setInvitation({ kind: 'open', numberEnding: body.numberEnding });
+          const serviceName = typeof body.serviceName === 'string' ? body.serviceName : '';
+          return setInvitation({ kind: 'open', numberEnding: body.numberEnding, serviceName });
         }
         setInvitation({ kind: 'unavailable' });
       } catch {
@@ -159,50 +161,82 @@ export function SignInForm({ inviteToken }: SignInFormProps) {
     }
   }
 
+  // The heading is the page's one h1 at every step; the chip says which service the invitation is for once it is read.
+  const header = (lede: boolean) => (
+    <div className={styles.head}>
+      {invitation.kind === 'open' && invitation.serviceName !== '' ? (
+        <span className={styles.chip}>Invited for {invitation.serviceName}</span>
+      ) : null}
+      <h1 className={styles.title}>Register your service</h1>
+      {lede ? <p className={styles.lede}>We text you a code to check it is you.</p> : null}
+    </div>
+  );
+
   if (stage === 'code') {
     return (
-      <div className={styles.stack}>
-        <CodeEntry
-          ending={ending}
-          error={codeError}
-          busy={busy}
-          onCheck={(code) => void checkCode(code)}
-          onResend={() => void requestCode()}
-        />
-        {notice !== null ? <p className={styles.notice} role="status">{notice}</p> : null}
-      </div>
+      <>
+        {header(false)}
+        <div className={styles.card}>
+          <CodeEntry
+            ending={ending}
+            error={codeError}
+            busy={busy}
+            onCheck={(code) => void checkCode(code)}
+            onResend={() => void requestCode()}
+          />
+          {notice !== null ? <p className={styles.notice} role="status">{notice}</p> : null}
+        </div>
+      </>
     );
   }
 
   if (invitation.kind === 'loading') {
-    return <p className={styles.text} role="status">Checking your invitation.</p>;
+    return (
+      <>
+        {header(false)}
+        <div className={styles.card}>
+          <Loading label="Checking your invitation.">
+            <Skeleton shape="line" width="70%" />
+            <Skeleton shape="block" />
+          </Loading>
+        </div>
+      </>
+    );
   }
-  if (invitation.kind === 'closed') {
-    return <p className={styles.notice} role="status">{invitation.message}</p>;
-  }
-  if (invitation.kind === 'unavailable') {
-    return <p className={styles.notice} role="status">{UNAVAILABLE}</p>;
+  if (invitation.kind === 'closed' || invitation.kind === 'unavailable') {
+    return (
+      <>
+        {header(false)}
+        <p className={styles.amber} role="status">{invitation.kind === 'closed' ? invitation.message : UNAVAILABLE}</p>
+        <p className={styles.help}>Having trouble? Ask your shift lead to check your invitation.</p>
+      </>
+    );
   }
 
   return (
-    <form
-      id={formId}
-      className={styles.stack}
-      noValidate
-      onSubmit={(event) => {
-        event.preventDefault();
-        void sendCode();
-      }}
-    >
-      <p className={styles.text}>
-        We will text a code to the number your invitation was sent to: 07xxx xxx{invitation.numberEnding}.
-      </p>
-      <Button variant="primary" type="submit" busy={busy} dataEl="REG-SIGNIN-SEND-BTN">
-        Send code
-      </Button>
-      {notice !== null ? <p className={styles.notice} role="status">{notice}</p> : null}
-      <p className={styles.note}>You need an invitation from the shift lead to register. Check your texts or email for the link.</p>
-      <p className={styles.note}>Having trouble? Ask the shift lead to check your invitation.</p>
-    </form>
+    <>
+      {header(true)}
+      <form
+        id={formId}
+        className={styles.form}
+        noValidate
+        onSubmit={(event) => {
+          event.preventDefault();
+          void sendCode();
+        }}
+      >
+        <div className={styles.card}>
+          <p className={styles.fieldLabel}>Mobile number</p>
+          <p className={styles.hint}>Use the number your invitation was sent to.</p>
+          <p className={styles.number}>07xxx xxx{invitation.numberEnding}</p>
+          <Button variant="primary" type="submit" busy={busy} dataEl="REG-SIGNIN-SEND-BTN">
+            Send code
+          </Button>
+          {notice !== null ? <p className={styles.notice} role="status">{notice}</p> : null}
+        </div>
+        <p className={styles.amber}>You need an invitation from your shift lead to register. Check your texts or email for the link.</p>
+        <p className={styles.help}>Having trouble? Ask your shift lead to check your invitation.</p>
+      </form>
+    </>
   );
 }

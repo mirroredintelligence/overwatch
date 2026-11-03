@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import { MyServices } from '@/components/register/MyServices';
-import styles from '@/components/register/register.module.css';
+import styles from '@/components/register/entry.module.css';
 
-// My services (W26): the reporter's services and where each one stands.
+// My services (W26, artboard RegStatus): the reporter's services and where each one stands.
 
 export const metadata: Metadata = {
   title: 'My services - Overwatch',
@@ -11,11 +11,9 @@ export const metadata: Metadata = {
 
 export default async function MyServicesPage() {
   return (
-    <main className={styles.main}>
-      <div className={styles.panel}>
-        <div className={styles.card}>
-          <MyServices />
-        </div>
+    <main className={styles.page}>
+      <div className={`${styles.column} ${styles.columnWide}`}>
+        <MyServices />
       </div>
     </main>
   );

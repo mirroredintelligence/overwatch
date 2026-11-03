@@ -1,0 +1,88 @@
+/* The Contacts page: the four rows on the left, "How staff will see it" on the right (one column on a phone).
+   Colour, size and spacing are tokens from app/tokens.css. */
+.page {
+  box-sizing: border-box;
+  max-width: 80rem;
+  margin: 0 auto;
+  padding: var(--space-4);
+  display: grid;
+  gap: var(--space-5);
+  font-family: var(--font-atkinson, system-ui), system-ui, sans-serif;
+  color: var(--c-ink);
+}
+
+.layout {
+  display: grid;
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.list {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.preview {
+  box-sizing: border-box;
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+}
+
+.previewTitle {
+  margin: 0;
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-lh);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-ink-2);
+}
+
+/* The saved line, as a staff member reads it on a page: inside a dashed edge. */
+.staffLine {
+  margin: 0;
+  padding: var(--space-3);
+  border: 2px dashed var(--c-line);
+  border-radius: var(--radius);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  overflow-wrap: anywhere;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+}
+
+.actions button {
+  min-height: 52px;
+}
+
+.cancel {
+  padding: 0 var(--space-4);
+  border: 0;
+  background: transparent;
+  color: var(--c-ink-2);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.cancel:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+@media (min-width: 60rem) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) 22.5rem;
+  }
+}

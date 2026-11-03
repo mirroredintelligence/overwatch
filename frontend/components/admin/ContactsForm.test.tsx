@@ -29,15 +29,23 @@ describe('ContactsForm', () => {
     }
     const phone = screen.getByRole('group', { name: 'Coordination phone' });
     expect(within(phone).getByLabelText('Label')).toHaveValue('Access team A');
-    expect(within(phone).getByLabelText('Number or address')).toHaveValue('01632 960001');
+    expect(within(phone).getByLabelText('Phone number')).toHaveValue('01632 960001');
     expect(within(screen.getByRole('group', { name: 'Support email' })).getByLabelText('Label')).toHaveValue('');
+  });
+
+  it('labels the number field for its kind: a phone number for the phone kinds, an email address for the others', async () => {
+    const user = await open();
+    expect(within(screen.getByRole('group', { name: 'Coordination phone' })).getByLabelText('Phone number')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Support email/ }));
+    expect(within(screen.getByRole('group', { name: 'Support email' })).getByLabelText('Email address')).toBeInTheDocument();
   });
 
   it('saves one kind at a time, with the CSRF token and a key', async () => {
     const user = await open();
+    await user.click(screen.getByRole('button', { name: /Support email/ }));
     const group = screen.getByRole('group', { name: 'Support email' });
     await user.type(within(group).getByLabelText('Label'), 'Support desk');
-    await user.type(within(group).getByLabelText('Number or address'), 'support@a.example.test');
+    await user.type(within(group).getByLabelText('Email address'), 'support@a.example.test');
     await user.click(within(group).getByRole('button', { name: 'Save support email' }));
     await waitFor(() => expect(seenAdminWrites).toHaveLength(1));
     expect(seenAdminWrites[0]).toMatchObject({
@@ -63,7 +71,7 @@ describe('ContactsForm', () => {
     const user = await open();
     const group = screen.getByRole('group', { name: 'Shift lead escalation' });
     await user.type(within(group).getByLabelText('Label'), 'Shift lead desk');
-    await user.type(within(group).getByLabelText('Number or address'), 'lead@a.example.test');
+    await user.type(within(group).getByLabelText('Phone number'), 'lead@a.example.test');
     await user.click(within(group).getByRole('button', { name: 'Save shift lead escalation' }));
     expect(await within(group).findByText(/An email address does not work here/, { selector: 'p' })).toBeInTheDocument();
     expect(seenAdminWrites).toEqual([]);
@@ -90,6 +98,17 @@ describe('ContactsForm', () => {
     expect(within(email).getByText('Not set')).toBeInTheDocument();
   });
 
+  it('marks the coordination phone and the clinical safety officer as needed to go live while they are not set', async () => {
+    await open();
+    const clinical = screen.getByRole('button', { name: /Clinical safety officer/ });
+    expect(within(clinical).getByText('Needed to go live')).toBeInTheDocument();
+    expect(within(clinical).getByText('An email address. Needed to go live.')).toBeInTheDocument();
+    const shift = screen.getByRole('button', { name: /Shift lead escalation/ });
+    expect(within(shift).queryByText('Needed to go live')).not.toBeInTheDocument();
+    expect(within(shift).getByText('Not set')).toBeInTheDocument();
+    expect(within(screen.getByRole('button', { name: /Coordination phone/ })).queryByText('Needed to go live')).not.toBeInTheDocument();
+  });
+
   it('opens one kind at a time', async () => {
     const user = await open();
     const phone = screen.getByRole('button', { name: /Coordination phone/ });
@@ -101,16 +120,40 @@ describe('ContactsForm', () => {
     expect(phone).toHaveAttribute('aria-expanded', 'false');
   });
 
+  it('cancels an open row: it closes, and what was typed in it is dropped', async () => {
+    const user = await open();
+    await user.click(screen.getByRole('button', { name: /Support email/ }));
+    const group = screen.getByRole('group', { name: 'Support email' });
+    await user.type(within(group).getByLabelText('Label'), 'Typed but not saved');
+    await user.click(within(group).getByRole('button', { name: 'Cancel support email' }));
+    const row = screen.getByRole('button', { name: /Support email/ });
+    expect(row).toHaveAttribute('aria-expanded', 'false');
+    await user.click(row);
+    expect(within(screen.getByRole('group', { name: 'Support email' })).getByLabelText('Label')).toHaveValue('');
+  });
+
   it('shows what was saved in the row straight away, without a reload', async () => {
     const user = await open();
     await user.click(screen.getByRole('button', { name: /Support email/ }));
     const group = screen.getByRole('group', { name: 'Support email' });
     await user.type(within(group).getByLabelText('Label'), 'Support desk');
-    await user.type(within(group).getByLabelText('Number or address'), 'support@a.example.test');
+    await user.type(within(group).getByLabelText('Email address'), 'support@a.example.test');
     await user.click(within(group).getByRole('button', { name: 'Save support email' }));
     const row = screen.getByRole('button', { name: /Support email/ });
     expect(await within(row).findByText('Support desk · support@a.example.test')).toBeInTheDocument();
     expect(within(row).getByText('Set')).toBeInTheDocument();
+  });
+
+  it('shows the saved line in "How staff see it", with the shift lead wording for the shift lead line', async () => {
+    const user = await open();
+    const aside = screen.getByRole('complementary', { name: 'How staff see it' });
+    expect(within(aside).getByText('Open a contact to see how staff will see it.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Shift lead escalation/ }));
+    const group = screen.getByRole('group', { name: 'Shift lead escalation' });
+    await user.type(within(group).getByLabelText('Label'), 'Shift lead desk');
+    await user.type(within(group).getByLabelText('Phone number'), '01632 960002');
+    await user.click(within(group).getByRole('button', { name: 'Save shift lead escalation' }));
+    expect(await within(aside).findByText(/Phone the shift lead:/)).toHaveTextContent('Phone the shift lead: Shift lead desk, 01632 960002. No message is sent.');
   });
 
   it('says it could not load when the read fails', async () => {

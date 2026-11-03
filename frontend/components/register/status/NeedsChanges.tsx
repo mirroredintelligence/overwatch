@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/Button';
-import styles from '../register.module.css';
+import { StatusTag } from '@/components/ui/StatusTag';
+import styles from '../status.module.css';
 
 // Needs changes (W27, ApprovalApplicant panel 3): the notes, who sent them, and the two ways on.
 
@@ -11,8 +12,10 @@ export function NeedsChanges({ notes, noteFrom, registrationId, spoaPhone }: {
 }) {
   const digits = spoaPhone?.replace(/[\s-]/g, '');
   return (
-    <div className={styles.stack}>
-      <span className={styles.attention}>Needs changes</span>
+    <section className={`${styles.card} ${styles.cardProblem}`} aria-label="Needs changes">
+      <div className={styles.tagRow}>
+        <StatusTag variant="problem">Needs changes</StatusTag>
+      </div>
       <h1 className={styles.heading}>A few things to fix</h1>
       <ol className={styles.list} aria-label="Notes from the shift lead">
         {notes.map((note, index) => (
@@ -33,6 +36,6 @@ export function NeedsChanges({ notes, noteFrom, registrationId, spoaPhone }: {
           </Button>
         </div>
       ) : null}
-    </div>
+    </section>
   );
 }

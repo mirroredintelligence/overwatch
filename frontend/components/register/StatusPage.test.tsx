@@ -28,6 +28,11 @@ async function open() {
   return view;
 }
 
+// The status word sits in a StatusTag: the tag's shape and word carry the state, never colour alone.
+function tagOf(word: string) {
+  return screen.getByText(word).closest('[data-variant]');
+}
+
 beforeEach(() => {
   push.mockClear();
   resetStatusState();
@@ -54,6 +59,20 @@ describe('StatusPage: in review', () => {
     expect(screen.getByText('We will tell you by notification.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Back to my services' })).toHaveAttribute('href', '/register/services');
   });
+
+  it('tags the state as waiting, in a region named for it, and shows the tracker by shape: submitted done, checks current, the rest to do', async () => {
+    await open();
+    expect(tagOf('In review')).toHaveAttribute('data-variant', 'waiting');
+    expect(screen.getByRole('region', { name: 'In review' })).toBeInTheDocument();
+    const steps = within(screen.getByRole('list', { name: 'Registration progress' })).getAllByRole('listitem');
+    expect(steps.map((item) => item.querySelector('[data-variant]')?.getAttribute('data-variant'))).toEqual([
+      'confirmed',
+      'waiting',
+      'todo',
+      'todo',
+      'todo',
+    ]);
+  });
 });
 
 describe('StatusPage: needs changes', () => {
@@ -78,6 +97,13 @@ describe('StatusPage: needs changes', () => {
     expect(screen.getByRole('link', { name: 'Fix and resubmit' })).toHaveAttribute('href', `/register/${ID}/review`);
     expect(screen.getByRole('link', { name: '01305 123456' })).toHaveAttribute('href', 'tel:01305123456');
   });
+
+  it('tags the state as a problem, in a region named for it', async () => {
+    state({ status: 'needs-changes', serviceName: 'UCR West', notes: ['Add a cover number.'], noteFrom: { role: 'SPOA shift lead' }, details: { spoaPhone: '01305 123456' } });
+    await open();
+    expect(tagOf('Needs changes')).toHaveAttribute('data-variant', 'problem');
+    expect(screen.getByRole('region', { name: 'Needs changes' })).toBeInTheDocument();
+  });
 });
 
 describe('StatusPage: approved', () => {
@@ -89,6 +115,13 @@ describe('StatusPage: approved', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Send my test notification' }));
     expect(await screen.findByText('Test sent. Answer it on your phone.')).toBeInTheDocument();
     expect(seenStatusActions).toEqual([{ action: 'test', csrf: 'csrf-sample-token' }]);
+  });
+
+  it('tags the state as confirmed, in a region named for it', async () => {
+    state({ status: 'approved', serviceName: 'UCR West' });
+    await open();
+    expect(tagOf('Approved')).toHaveAttribute('data-variant', 'confirmed');
+    expect(screen.getByRole('region', { name: 'Approved' })).toBeInTheDocument();
   });
 });
 
@@ -104,6 +137,13 @@ describe('StatusPage: live', () => {
     expect(within(tile).getByText('Accepting')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Go to the app' })).toHaveAttribute('href', '/');
   });
+
+  it('tags the state as live, in a region named for it', async () => {
+    state({ status: 'live', serviceName: 'UCR East', firstPromptAt: '2026-10-30T16:00:00Z' });
+    await open();
+    expect(tagOf('Live')).toHaveAttribute('data-variant', 'live');
+    expect(screen.getByRole('region', { name: 'Live' })).toBeInTheDocument();
+  });
 });
 
 describe('StatusPage: not approved', () => {
@@ -118,6 +158,13 @@ describe('StatusPage: not approved', () => {
     expect(await screen.findByText('We have asked the shift lead to look again.')).toBeInTheDocument();
     expect(seenStatusActions).toEqual([{ action: 'review-request', csrf: 'csrf-sample-token' }]);
     expect(screen.getByRole('link', { name: 'Close' })).toHaveAttribute('href', '/register/services');
+  });
+
+  it('tags the state as closed, in a region named for it', async () => {
+    state({ status: 'not-approved', serviceName: 'UCR West', reason: 'outside the scope of the pilot' });
+    await open();
+    expect(tagOf('Not approved')).toHaveAttribute('data-variant', 'closed');
+    expect(screen.getByRole('region', { name: 'Not approved' })).toBeInTheDocument();
   });
 });
 
@@ -138,6 +185,13 @@ describe('StatusPage: reverify', () => {
     await userEvent.click(screen.getByRole('button', { name: 'All correct' }));
     expect(await screen.findByText('Your details are confirmed.')).toBeInTheDocument();
     expect(seenStatusActions).toEqual([{ action: 'confirm-details', csrf: 'csrf-sample-token' }]);
+  });
+
+  it('tags the state as due, in a region named for it', async () => {
+    state({ status: 'reverify', serviceName: 'UCR West', details: { spoaPhone: '01305 123456', criteriaOwner: 'Community matron', reportingPhoneEnding: '456' } });
+    await open();
+    expect(tagOf('Re-verify')).toHaveAttribute('data-variant', 'due');
+    expect(screen.getByRole('region', { name: 'Re-verify' })).toBeInTheDocument();
   });
 });
 

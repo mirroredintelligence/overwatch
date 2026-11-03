@@ -1,24 +1,41 @@
 'use client';
 
-import { useRef, useState } from 'react';
-import { Button } from '@/components/ui/Button';
-import { Dialog } from '@/components/ui/Dialog';
+import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { leadPost, newIdempotencyKey } from '@/lib/lead/browser';
 import type { ScreenRow } from '@/lib/screens/admin';
-import dialogStyles from '@/components/advisor/dialog-body.module.css';
+import styles from './ScreenList.module.css';
 
-// Unpair a wall screen (docs/design/network-ui.md section 6, ScreenUnpair; W9I, TEN-072). It asks first,
-// names the screen, and ends it at once at the back end: the screen then goes back to its pairing code.
-// The key and the busy flag live here, so a new dialog for another screen starts with a new key and a
-// second try of the same one sends the same key (the back end then answers it as one revoke).
+// Unpair a wall screen (docs/design/redesign/boards/lead/Screens.dc.html, "Unpair this screen?"; W9I,
+// TEN-072). It asks first, in place of the screen's own card, names the screen and says what happens, and
+// ends it at once at the back end: the screen then goes back to its pairing code. The safe choice (Keep it)
+// has the focus when the question opens, and Escape keeps the screen too. The key and the busy flag live
+// here, so a new question for another screen starts with a new key and a second try of the same one sends
+// the same key (the back end then answers it as one revoke).
 
 export type UnpairOutcome = 'done' | 'gone' | 'ended';
 
-export function ScreenUnpair({ row, onClose, onResult }: { row: ScreenRow; onClose: () => void; onResult: (result: UnpairOutcome) => void }) {
+export function ScreenUnpair({
+  row,
+  status,
+  onClose,
+  onResult,
+}: {
+  row: ScreenRow;
+  /** The screen's status tag, as the card shows it. */
+  status: ReactNode;
+  onClose: () => void;
+  onResult: (result: UnpairOutcome) => void;
+}) {
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const key = useRef<string>(newIdempotencyKey());
   const sending = useRef(false);
+  const keep = useRef<HTMLButtonElement>(null);
+  const titleId = useId();
+
+  useEffect(() => {
+    keep.current?.focus();
+  }, []);
 
   async function unpair() {
     if (sending.current) return;
@@ -34,22 +51,42 @@ export function ScreenUnpair({ row, onClose, onResult }: { row: ScreenRow; onClo
     else setFailed(true);
   }
 
+  function onKeyDown(event: KeyboardEvent<HTMLElement>) {
+    if (event.key !== 'Escape') return;
+    event.stopPropagation();
+    onClose();
+  }
+
   return (
-    <Dialog title={`Unpair ${row.name}?`} dataEl="SCREENS-UNPAIR-DIALOG" onClose={onClose}>
-      <p className={dialogStyles.text}>The screen stops showing the board and returns to its pairing code. You can pair it again at any time.</p>
+    <section className={styles.confirm} aria-labelledby={titleId} data-el="SCREENS-UNPAIR-CONFIRM" onKeyDown={onKeyDown}>
+      <h2 id={titleId} className={styles.kicker}>
+        Unpair this screen?
+      </h2>
+      <div className={styles.confirmHead}>
+        <p className={styles.confirmName}>{row.name}</p>
+        {status}
+      </div>
+      <p className={styles.confirmText}>It stops showing the board at once and goes back to asking for a code. You can pair it again later.</p>
       {failed ? (
-        <p role="alert" className={dialogStyles.error}>
+        <p role="alert" className={styles.confirmError}>
           The screen could not be unpaired. Try again.
         </p>
       ) : null}
-      <div className={dialogStyles.actions}>
-        <Button variant="neutral" onClick={onClose} dataEl="SCREENS-CLAIM-CANCEL-BTN">
-          Cancel
-        </Button>
-        <Button variant="primary" busy={busy} onClick={() => void unpair()} dataEl="SCREENS-UNPAIR-CONFIRM-BTN">
-          Unpair screen
-        </Button>
+      <div className={styles.confirmActions}>
+        <button
+          type="button"
+          className={styles.dangerButton}
+          disabled={busy}
+          aria-busy={busy ? 'true' : undefined}
+          onClick={() => void unpair()}
+          data-el="SCREENS-UNPAIR-CONFIRM-BTN"
+        >
+          {`Unpair ${row.name}`}
+        </button>
+        <button ref={keep} type="button" className={styles.keepButton} onClick={onClose} data-el="SCREENS-CLAIM-CANCEL-BTN">
+          Keep it
+        </button>
       </div>
-    </Dialog>
+    </section>
   );
 }

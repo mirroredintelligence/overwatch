@@ -38,7 +38,34 @@ describe('LostPhone', () => {
     await userEvent.paste('482913');
     await userEvent.click(screen.getByRole('button', { name: 'Check code' }));
     expect(await screen.findByRole('heading', { name: 'Waiting for a call-back' })).toBeInTheDocument();
-    expect(screen.getByText('The shift lead will phone your service on the number on the register. Until then, prompts go to your cover number or the coordination team.')).toBeInTheDocument();
+    expect(screen.getByText('The shift lead will phone your service on the number on the register.')).toBeInTheDocument();
+    expect(screen.getByText('Until then, prompts go to your cover number or the coordination team.')).toBeInTheDocument();
+  });
+
+  it('draws the number step as a card with the note under it and a plain Back that returns to sign in', async () => {
+    render(<LostPhone />);
+    expect(screen.getByRole('heading', { level: 1, name: 'Lost your phone?' })).toBeInTheDocument();
+    expect(screen.getByText('Your old phone is signed out as soon as you verify. The shift lead phones your service before your new phone goes live.')).toHaveAttribute('data-el', 'REP-LOST-NOTE');
+    expect(screen.getByRole('button', { name: 'Send code' })).toHaveAttribute('data-variant', 'primary');
+    const back = screen.getByRole('button', { name: 'Back' });
+    expect(back).toHaveAttribute('data-variant', 'text');
+    await userEvent.click(back);
+    expect(push).toHaveBeenCalledWith('/app/pin');
+  });
+
+  it('marks the wait as not live yet, with a status tag, and offers the phone as the one primary action', async () => {
+    render(<LostPhone />);
+    await userEvent.type(screen.getByLabelText('Mobile number'), '07700 900123');
+    await userEvent.click(screen.getByRole('button', { name: 'Send code' }));
+    const boxes = await screen.findAllByRole('textbox');
+    await userEvent.click(boxes[0]);
+    await userEvent.paste('482913');
+    await userEvent.click(screen.getByRole('button', { name: 'Check code' }));
+    await screen.findByRole('heading', { name: 'Waiting for a call-back' });
+    expect(screen.getByText('Not live yet')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Phone the coordination team on 01632 960001' })).toHaveAttribute('data-variant', 'primary');
+    await userEvent.click(screen.getByRole('button', { name: 'Back to sign in' }));
+    expect(push).toHaveBeenCalledWith('/app/pin');
   });
 
   it('says what went wrong for a wrong code, an expired code and too many tries', async () => {
@@ -114,7 +141,7 @@ describe('SignOutAll', () => {
     await userEvent.paste('482913');
     await userEvent.click(screen.getByRole('button', { name: 'Check code' }));
     await screen.findByRole('heading', { name: 'Waiting for a call-back' });
-    expect(screen.getByRole('link', { name: '01632 960001' })).toHaveAttribute('href', 'tel:01632960001');
+    expect(screen.getByRole('link', { name: /01632 960001/ })).toHaveAttribute('href', 'tel:01632960001');
   });
 
   it('says to phone the coordination team, with no number, when the tenant has set none', async () => {

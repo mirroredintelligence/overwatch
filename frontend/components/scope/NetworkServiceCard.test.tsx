@@ -11,10 +11,10 @@ import { NetworkServiceCard } from './NetworkServiceCard';
 
 const [first, second] = parseDirectory(DIRECTORY_BODY, 'backend').entries;
 
-function card(entry = first!, over: { own?: boolean } = {}) {
+function card(entry = first!, over: { own?: boolean; selected?: boolean } = {}) {
   return render(
     <ul>
-      <NetworkServiceCard entry={entry} own={over.own ?? false} orgRef="org-1" />
+      <NetworkServiceCard entry={entry} own={over.own ?? false} orgRef="org-1" selected={over.selected ?? false} />
     </ul>,
   );
 }
@@ -47,6 +47,18 @@ describe('NetworkServiceCard', () => {
   it('marks the viewer’s own organisation in words', () => {
     card(first!, { own: true });
     expect(screen.getByText('Your organisation')).toBeInTheDocument();
+  });
+
+  it('marks the service that is open beside the list, by the link and the row, and by nothing else', () => {
+    const { container } = card(first!, { selected: true });
+    expect(screen.getByRole('link', { name: 'UCR West' })).toHaveAttribute('aria-current', 'true');
+    expect(container.querySelector('[data-el="NET-SERVICES-ROW"]')).toHaveAttribute('data-selected', 'true');
+  });
+
+  it('marks no row as selected when it is not the open one', () => {
+    const { container } = card(first!, { selected: false });
+    expect(screen.getByRole('link', { name: 'UCR West' })).not.toHaveAttribute('aria-current');
+    expect(container.querySelector('[data-el="NET-SERVICES-ROW"]')).toHaveAttribute('data-selected', 'false');
   });
 
   it('says a paused listing is not available on the network', () => {

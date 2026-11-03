@@ -7123,3 +7123,13 @@ Status: accepted (the owner's request, 2026-11-03, applied under DEC-133) · Aff
 **Consequence.** A signed-in page's title no longer names the organisation. The organisation is shown inside the signed-in shell.
 
 **How to apply.** Do not read the host profile in `app/layout.tsx` or in any metadata that is served before sign-in. If a page needs the organisation in its title after sign-in, read it from the signed-in session, not the host.
+
+## DEC-1329 Postcode districts are checked and their postcode points held as shared geography
+
+**Decision.** A service's postcode districts are chosen in two steps. First the district is checked against the ONS Postcode Directory (February 2026 release, the ONS hosted table on the Open Geography Portal) and the number of postcodes is shown, with a prefix to narrow it (for example `DT4 0`). Second, when the admin confirms, a background job in the workers process reads the postcodes of the confirmed districts from the same directory and stores each one's postcode, latitude and longitude. The points are held once, as registry (shared) geography with no `tenantId`, the same way `StaffRoleRecord` is held (DEC-1327). The district check and the job make no OS Places call; OS Places stays for addresses and radius search.
+
+**Why.** Postcodes and their coordinates are public data, so holding them once avoids a per-tenant copy and a per-tenant download. One directory call gives a district's postcodes in pages of 1000, so the check is one count call and the download a few paged calls, against about 200 OS Places calls for a district's addresses.
+
+**Licence.** The ONS directory is under the Open Government Licence (ONS licences page). Attribution is shown wherever the points are shown.
+
+**How to apply.** Only the platform writer upserts postcode points (pinned platform statements, run from the registry writer). Lead and admin pages read them through a global read. A district is checked before a service may use it, and an unknown district is refused.

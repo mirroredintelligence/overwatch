@@ -1,5 +1,6 @@
 import { ChoiceGroup, Field, StepFrame, type StepProps } from './StepService';
 import styles from './StepCriteria.module.css';
+import { DistrictCheckPanel } from './DistrictCheck';
 
 // Step 3 of "Add a service", "Who it takes" (boards/lead/AddService.dc.html): the needs accepted and not accepted,
 // the ages, the postcode districts and the date the criteria are reviewed by. The board also asks who owns the
@@ -72,6 +73,7 @@ export function StepCriteria({ values, set, toggle, errors, summaryRef, onNext, 
           >
             {(props) => <input {...props} value={values.districts} onChange={(e) => set('districts', e.target.value)} />}
           </Field>
+          <DistrictCheckPanel text={values.districts} />
         </div>
       </div>
       <Field

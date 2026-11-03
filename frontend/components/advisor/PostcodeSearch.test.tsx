@@ -96,12 +96,53 @@ describe('the map: search again saves the postcode and reads the options again',
     );
     render(<MapScreen caseId="4821" />);
 
-    await user.type(await screen.findByLabelText('Postcode'), 'dt4 8xx');
+    // The field starts with the postcode on the case, so a typing slip can be mended in place.
+    const field = await screen.findByLabelText('Postcode');
+    expect(field).toHaveValue('DT4');
+    await user.clear(field);
+    await user.type(field, 'dt4 8xx');
     await user.click(byEl('ADV-POSTCODE-SEARCH-BTN'));
 
     expect(await screen.findByRole('heading', { name: 'Options near DT4' })).toBeInTheDocument();
     expect(saved).toMatchObject({ ifMatch: CASE_ETAG, body: { postcode: 'DT4 8XX', needs: ['frailty'] } });
     expect(reads).toBe(2);
+  });
+
+  it('says what a full postcode looks like beside the field, and says so as an alert when the one typed is not kept', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get('/api/bff/cases/:ref', () => HttpResponse.json(CASE)),
+      http.get('/api/bff/cases/:ref/options', () => HttpResponse.json(NOT_FOUND)),
+    );
+    render(<MapScreen caseId="4821" />);
+
+    const field = await screen.findByLabelText('Postcode');
+    expect(field).toHaveAccessibleDescription('Enter a full postcode, for example DT4 8XX.');
+    expect(screen.queryByRole('alert')).toBeNull();
+
+    await user.clear(field);
+    await user.type(field, 'DT4 8X');
+    await user.click(byEl('ADV-POSTCODE-SEARCH-BTN'));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Enter a full postcode, for example DT4 8XX.');
+    expect(field).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('keeps the way to a clinical advisor and the way back to the list on the card, with no axe violations', async () => {
+    server.use(
+      http.get('/api/bff/cases/:ref', () => HttpResponse.json(CASE)),
+      http.get('/api/bff/cases/:ref/options', () => HttpResponse.json(NOT_FOUND)),
+    );
+    const { container } = render(
+      <main>
+        <MapScreen caseId="4821" />
+      </main>,
+    );
+
+    await screen.findByLabelText('Postcode');
+    expect(screen.getByRole('button', { name: 'Ask a clinical advisor' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Back to the list' })).toBeInTheDocument();
+    expect((await runAxe(container)).violations).toEqual([]);
   });
 
   it('a case that is not complete offers no field (it could not be saved from here)', async () => {
@@ -110,7 +151,7 @@ describe('the map: search again saves the postcode and reads the options again',
       http.get('/api/bff/cases/:ref/options', () => HttpResponse.json(NOT_FOUND)),
     );
     render(<MapScreen caseId="4821" />);
-    expect(await screen.findByRole('heading', { name: 'We could not find that postcode' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'We could not place that postcode in your area' })).toBeInTheDocument();
     expect(screen.queryByLabelText('Postcode')).toBeNull();
   });
 });

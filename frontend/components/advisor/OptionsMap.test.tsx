@@ -70,6 +70,46 @@ describe('OptionsMap (W50)', () => {
     ).toBeInTheDocument();
   });
 
+  it('says that drive-time rings and traffic are off, because there is no data behind them (Map board)', () => {
+    renderMap();
+    const note = screen.getByText(/Drive-time rings and traffic are/);
+    expect(note).toHaveTextContent('Drive-time rings and traffic are off: there is no data behind them yet.');
+  });
+
+  it('each pin names the service and its free figure, with a status shape, so the status is not colour alone', () => {
+    renderMap();
+    const pin = byEl('ADV-MAP-PIN-SVC-UCR-WEST');
+    expect(pin).toHaveTextContent('UCR West · 4');
+    expect(pin).toHaveAttribute('data-status', 'accepting');
+    expect(pin.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
+    // A visiting service reads the same way, and keeps its “(visits)” name.
+    expect(byEl('ADV-MAP-AREA-SVC-HOSPITAL-AT-HOME')).toHaveTextContent('Hospital at home (visits) · 3');
+  });
+
+  it('an over-capacity service shows how far over it is, as the board does (+2)', () => {
+    const [first, ...rest] = MAP_OPTIONS;
+    render(
+      <OptionsMap
+        caseId="4821"
+        postcode="DT4 8XX"
+        patientArea={MAP_VIEW.patientArea}
+        options={[{ ...first, status: 'over-capacity', overBy: 2 }, ...rest]}
+        selectedId={null}
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(byEl('ADV-MAP-PIN-SVC-UCR-WEST')).toHaveTextContent('UCR West · +2');
+    expect(byEl('ADV-MAP-PIN-SVC-UCR-WEST')).toHaveAttribute('data-status', 'over-capacity');
+  });
+
+  it('marks the selected pin as pressed, and only that one', () => {
+    render(
+      <OptionsMap caseId="4821" postcode="DT4 8XX" patientArea={MAP_VIEW.patientArea} options={MAP_OPTIONS} selectedId="svc-ward-b" onSelect={vi.fn()} />,
+    );
+    expect(byEl('ADV-MAP-PIN-SVC-WARD-B')).toHaveAttribute('aria-pressed', 'true');
+    expect(byEl('ADV-MAP-PIN-SVC-UCR-WEST')).toHaveAttribute('aria-pressed', 'false');
+  });
+
   it('selecting a pin reports its service, and shows its card with the travel range', async () => {
     const user = userEvent.setup();
     const { onSelect } = renderMap();

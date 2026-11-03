@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -46,11 +46,35 @@ beforeEach(() => {
 });
 
 describe('choosing a district on the map', () => {
-  it('saves the district pressed with this press’s key and the session’s token, then reads the options again and shows the map', async () => {
+  it('offers the districts as their own card: pick one, then the one primary button says which it will use (MapLost)', async () => {
+    serve(FLAGGED, FOUND);
+    render(<MapScreen caseId="4821" />);
+
+    const card = await screen.findByRole('region', { name: 'We could not place that postcode in your area' });
+    // The case here is not complete, so there is no postcode field to say "Or" after.
+    const group = within(card).getByRole('group', { name: 'Choose a district the services cover' });
+    expect(within(group).getAllByRole('button').map((chip) => chip.textContent)).toEqual(['DT1', 'DT3']);
+    expect(within(card).getByText('These are the districts at least one service covers.')).toBeInTheDocument();
+    // Nothing is chosen for the advisor: the button waits.
+    const use = within(card).getByRole('button', { name: 'Use district' });
+    expect(use).toBeDisabled();
+
+    await userEvent.click(within(group).getByRole('button', { name: 'DT3' }));
+
+    expect(within(group).getByRole('button', { name: 'DT3' })).toHaveAttribute('aria-pressed', 'true');
+    expect(within(group).getByRole('button', { name: 'DT1' })).toHaveAttribute('aria-pressed', 'false');
+    expect(within(card).getByRole('button', { name: 'Use district DT3' })).toBeEnabled();
+    expect(within(card).getByText('The district is saved on the case and the options are read again.')).toBeInTheDocument();
+    expect(within(card).getByRole('link', { name: 'Back to the list' })).toHaveAttribute('href', '/advisor/case/4821/options');
+    expect(chosen).toHaveLength(0);
+  });
+
+  it('saves the district chosen with this press’s key and the session’s token, then reads the options again and shows the map', async () => {
     serve(FLAGGED, FOUND);
     render(<MapScreen caseId="4821" />);
 
     await userEvent.click(await screen.findByRole('button', { name: 'DT3' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Use district DT3' }));
 
     expect(await screen.findByRole('heading', { name: /Options near/ })).toBeInTheDocument();
     expect(chosen).toHaveLength(1);
@@ -75,10 +99,11 @@ describe('choosing a district on the map', () => {
     render(<MapScreen caseId="4821" />);
 
     await userEvent.click(await screen.findByRole('button', { name: 'DT1' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Use district DT1' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('We could not use that district. Try again, or choose another.');
     expect(reads).toBe(1);
-    expect(screen.getByRole('heading', { name: 'We could not find that postcode' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'We could not place that postcode in your area' })).toBeInTheDocument();
   });
 
   it('says the case changed when another save came first (412), and offers the chips again', async () => {
@@ -86,9 +111,11 @@ describe('choosing a district on the map', () => {
     render(<MapScreen caseId="4821" />);
 
     await userEvent.click(await screen.findByRole('button', { name: 'DT1' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Use district DT1' }));
 
     expect(await screen.findByRole('alert')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'DT1' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Use district DT1' })).toBeEnabled();
   });
 });
 

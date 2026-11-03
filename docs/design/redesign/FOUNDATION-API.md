@@ -1,0 +1,22 @@
+# The foundation: what already exists and how to use it
+
+Merged on `rename-overwatch` (DEC-1326). Every unit may import these; none may change them. If you need a change, say so in your report ("shared files I wanted to change") and work around it in your own files.
+
+## Components
+
+Import paths: `AppFrame, type AppFrameProps` from `@/components/shell/AppFrame`; `type FrameItem, type Crumb, type FramePortal, itemIsCurrent` from `@/components/shell/frame`; `Icon, type IconName` from `@/components/shell/icons`; `PageHeader` from `@/components/shell/PageHeader`; `StageGrid, StageArea, StageLayer` from `@/components/ui/StageGrid`; `StatusTag, type StatusTagVariant` from `@/components/ui/StatusTag`; `Loading, Skeleton, SkeletonRows` from `@/components/ui/Skeleton` (the shimmer); `Disclose` from `@/components/admin/Disclose`; `RoleSwitcher` from `@/components/shell/RoleSwitcher`.
+
+- **AppFrame** (client). Props: `portal: 'staff'|'tenant'|'network'|'operator'`; `items: readonly FrameItem[]`; `title?: string` (omitted = the label of the current rail item, `''` = none); `organisation?: string|null`; `breadcrumb?: readonly {label, href?}[]` (the last one is `aria-current`, not a link); `role?: string`; `roles?: readonly string[]` (the chip is the `RoleSwitcher` when `roles.length > 1` and includes `role`, otherwise a plain label); `roleWords?: Record<string,string>`; `signOut?`; `showSignOut?: boolean` (default true); `navLabel?: string` (default `'Main'`); `homeHref?: string`; `children`. `FrameItem = { label; href; icon: IconName; exact?: boolean; alsoMatch?: readonly string[] }`. Items are plain data, so a server component can build them. The frame draws NO `<main>` and NO heading: the page keeps its own. The rail is `data-layout="rail"` above 900px and `"bar"` below (four entries plus a "More" disclosure). `IconName`: home people mail sliders db send share shield buoy building list help more board pulse inbox phone checklist userPlus history calendar bell chart edit key.
+- **Wrappers that keep their old names**: `AdminShell {portal, role?, organisation?, staffRole?, staffRoles?, signOut?, children}` (admin, network, operator layouts) and `AppShell {role, roles?, organisation?, signOut?, children}` (staff layouts; it wraps its children in a centred `.page` column). Pages under those layouts get the frame for free: they must NOT draw their own rail, top bar or sign-out.
+- **PageHeader**: `{ title: string (the h1); actions?: ReactNode; children?: ReactNode (under the title) }`.
+- **StageGrid**: `{ stage: number (controlled, clamped to templates); templates: readonly string[] (the grid-template-columns of each stage, three tracks: list, stage, side); gaps?: readonly string[] (column gap per stage); className?; children }`. Columns and gap animate over `--dur-stage` with `--ease-drawer`. **StageArea**: `{ name: 'list'|'stage'|'side'; children? }` places children in a named area. **StageLayer**: `{ index: number; current: number; variant?: 'stage'|'side'; children }` stacks content inside an area; the non-current layers are `inert` and `aria-hidden`. The parent owns `stage` (map it to the URL: path or `?step=`).
+- **StatusTag**: `{ variant: 'done'|'waiting'|'todo'|'problem'|'live'|'closed'|'over'|'paused'; children: ReactNode (the word) }`. Shape is an inline SVG, `aria-hidden`; the word carries the meaning.
+- **Skeleton**: `<Loading label="Loading the groups."><SkeletonRows count={3} /></Loading>` or single `<Skeleton shape="line|title|chip|avatar|block" width="60%" />` inside a `Loading`. One synchronized shimmer; screen readers hear the label.
+
+## Tokens (`app/tokens.css`)
+
+New: `--c-rail #0B2A3D`, `--c-rail-ink #B9D0DC`, `--c-ground #EEF2F3`, `--shadow-card`, `--shadow-lift`, `--ease-spring` (overshoot, for small things only), `--dur-stage` (560ms). Existing: colours `--c-primary --c-primary-dark --c-ink --c-ink-2 --c-muted --c-line --c-bg --c-tint --c-amber-tint --c-limited --c-closed --c-surge --c-unknown`; `--radius --radius-card --radius-chip --btn-h --focus`; `--space-1..8`; `--type-*`; `--dur-press --dur-tip --dur-menu --dur-sheet --dur-state --dur-onboard`; `--ease-out --ease-in-out --ease-drawer`. Motion durations are zero under reduced motion, so use the tokens for every transition and animation.
+
+## Page background
+
+Cards sit on `--c-ground`, with `--shadow-card`, `--radius-card` (24px) and white (`#fff`) surfaces. A page that is a card stack uses a centred column (max about 56rem); a morphing page uses `StageGrid`.

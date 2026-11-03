@@ -2,16 +2,15 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { bffRequest } from '@/lib/reporter/browser';
 import { Button } from '@/components/ui/Button';
+import { bffRequest } from '@/lib/reporter/browser';
 import { clock } from '@/lib/reporter/times';
-import { Panel } from '../parts/Panel';
-import partStyles from '../parts/Parts.module.css';
-import { StatusMark } from '../parts/StatusMark';
-import styles from '@/components/reporter/Reporter.module.css';
+import capacity from '@/components/reporter/CapacityLink.module.css';
+import styles from './ThanksScreen.module.css';
 
-// After a capacity update (W35): the figure recorded, the next update, and today's reports for this
-// service, newest first. The list is read from the BFF; nothing is kept in the browser.
+// After a capacity update (artboard B6, board 4): the figure recorded, the next update, and today's reports for
+// this service, newest first. The figure is the one just recorded and, like the figure card's, never animates.
+// The list is read from the BFF; nothing is kept in the browser.
 
 type Item = { at: string; value: number; kind?: string };
 
@@ -49,20 +48,31 @@ export function ThanksScreen({
     };
   }, [serviceId, router]);
 
+  const next = clock(nextDue);
+
   return (
-    <main className={styles.page}>
-      <StatusMark tone="done" dataEl="REP-APP-THANKS-MARK" />
-      <h1 className={styles.title}>Thank you</h1>
-      <p className={styles.question}>{`${service}: ${value} ${unit} recorded at ${clock(at)}.`}</p>
-      {clock(nextDue) !== '' ? <Panel dataEl="REP-APP-NEXT-DUE">{`Next update due ${clock(nextDue)}`}</Panel> : null}
-      <section className={partStyles.card} aria-labelledby="rep-app-today">
-        <h2 id="rep-app-today" className={partStyles.cardTitle}>
+    <main className={capacity.stack}>
+      <section className={`${capacity.card} ${capacity.cardStart} ${styles.thanks}`}>
+        <h1 className={`${capacity.heading} ${styles.title}`}>Thank you</h1>
+        <p className={`${capacity.body} ${styles.service}`}>{service}</p>
+        <p className={capacity.figureRow}>
+          <span className={capacity.figure} data-figure={String(value)}>
+            {value}
+          </span>
+          <span className={capacity.unit}>{unit}</span>
+        </p>
+        <p className={`${capacity.body} ${styles.recorded}`}>{`Recorded at ${clock(at)}.`}</p>
+        {next !== '' ? <span className={`${capacity.tag} ${capacity.tagTint}`} data-el="REP-APP-NEXT-DUE">{`Next update due ${next}`}</span> : null}
+      </section>
+      <section className={styles.today} aria-labelledby="rep-app-today">
+        <h2 id="rep-app-today" className={styles.todayTitle}>
           Today
         </h2>
-        <ul className={partStyles.today}>
+        <ul className={styles.list}>
           {items.map((item) => (
-            <li key={`${item.at}-${item.value}`} className={partStyles.todayItem}>
-              <span>{clock(item.at)}</span> <span>{item.value}</span>
+            <li key={`${item.at}-${item.value}`} className={styles.row}>
+              <span className={styles.time}>{clock(item.at)}</span>
+              <span className={styles.what}>{`${item.value} ${unit}`}</span>
             </li>
           ))}
         </ul>

@@ -1,0 +1,64 @@
+/* The thank-you page (artboard B6, board 4): the figure card, then "Today" as a card of rows.
+   The card, tag, figure and button styles are the capacity link's (CapacityLink.module.css). */
+
+/* Element-qualified so they win over the capacity link's classes whatever order the sheets load in. */
+section.thanks {
+  gap: 8px;
+}
+
+h1.title {
+  font-size: 28px;
+}
+
+p.service {
+  font-weight: 700;
+}
+
+p.recorded {
+  font-size: 17px;
+}
+
+.today {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 18px;
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  color: var(--c-ink);
+}
+
+.todayTitle {
+  margin: 0 0 6px;
+  color: var(--c-muted);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 10px 0;
+  border-top: 1px solid var(--c-line);
+  font-size: 18px;
+}
+
+.time {
+  color: var(--c-muted);
+}
+
+.what {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}

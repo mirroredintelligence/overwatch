@@ -1,0 +1,252 @@
+/* The administrator's Overview (board A1): what needs the person on the left, the organisation's facts on the
+   right (340px), one column under 56rem. Tokens from app/tokens.css; the one colour without a token is the
+   amber text of the count, as the board draws it. */
+.page {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: var(--space-5);
+  align-items: start;
+  padding: var(--space-4);
+  font-family: var(--font-atkinson, system-ui), system-ui, sans-serif;
+  color: var(--c-ink);
+}
+
+@media (max-width: 56rem) {
+  .page {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The page's own heading for assistive technology: the top bar shows the visible title. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.needs {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  align-content: start;
+}
+
+.headRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: 700;
+}
+
+.count {
+  padding: 5px var(--space-3);
+  border-radius: 999px;
+  background: var(--c-amber-tint);
+  color: #7a3500;
+  font-weight: 700;
+  font-size: var(--type-caption-size);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.task {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  background: #fff;
+  border: 2px solid transparent;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+/* The one row that is waiting for this person: a 2px amber edge, and its word says so too. */
+.urgent {
+  border-color: var(--c-limited);
+}
+
+.taskText {
+  flex: 1 1 14rem;
+  min-width: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.taskTitle {
+  margin: 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.taskHint {
+  margin: 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  color: var(--c-muted);
+}
+
+/* The one primary action of the screen, in the brand blue with the soft shadow; the others are outlined. */
+.primary,
+.secondary {
+  box-sizing: border-box;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 0 var(--space-5);
+  border-radius: 14px;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.primary {
+  border: 0;
+  background: var(--c-primary);
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(11, 92, 140, 0.28);
+}
+
+.secondary {
+  border: 2px solid var(--c-primary);
+  background: #fff;
+  color: var(--c-primary);
+}
+
+.primary:focus-visible,
+.secondary:focus-visible,
+.link:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.allDone {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-card);
+  background: var(--c-tint);
+}
+
+.allDoneTitle {
+  margin: 0;
+  font-weight: 700;
+  color: var(--c-primary-dark);
+}
+
+.problem {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  background: #fff;
+  border: 2px solid var(--c-surge);
+  border-radius: var(--radius-card);
+}
+
+.text {
+  margin: 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  color: var(--c-ink-2);
+}
+
+.muted {
+  color: var(--c-muted);
+  font-weight: 400;
+}
+
+.aside {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  align-content: start;
+}
+
+.card {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  min-width: 0;
+}
+
+.labelRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.label {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.orgName {
+  margin: 0;
+  font-size: var(--type-title-size);
+  line-height: 1.2;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  font-size: var(--type-body-size);
+}
+
+.facts dt {
+  color: var(--c-muted);
+}
+
+.facts dd {
+  margin: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.link {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--c-primary);
+  font-weight: 700;
+  text-decoration: none;
+}

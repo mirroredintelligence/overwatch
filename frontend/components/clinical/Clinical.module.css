@@ -1,0 +1,378 @@
+/* The clinical advisor's pages (ClinDuty, ClinQueue). Own styles: exec/Exec.module.css is shared and frozen. */
+
+.duty {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 22px;
+  align-items: start;
+}
+
+.card {
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  min-width: 0;
+}
+
+.dutyMain {
+  padding: 34px 38px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.heading {
+  margin: 0;
+  font-size: 32px;
+  line-height: 1.2;
+  font-weight: var(--type-heading-weight);
+  letter-spacing: var(--type-heading-tracking);
+}
+
+.choices {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 52px;
+  padding: 18px 22px;
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--c-ink);
+  font: inherit;
+  font-size: 20px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--dur-state) var(--ease-out), border-color var(--dur-state) var(--ease-out);
+}
+
+.choice:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.choice[aria-pressed='true'] {
+  border-color: var(--c-primary);
+  background: var(--c-tint);
+}
+
+.choiceText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.choiceWords {
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--c-muted);
+}
+
+.dot {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  box-sizing: border-box;
+  border-radius: 50%;
+}
+
+/* Shape and word carry the status; colour is never the only signal. */
+.dotAvailable {
+  background: var(--c-primary);
+}
+
+.dotBusy {
+  border: 3px solid var(--c-limited);
+  background: linear-gradient(90deg, var(--c-limited) 50%, transparent 50%);
+}
+
+.dotAway {
+  border: 3px dashed var(--c-unknown);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: auto;
+  padding-top: 18px;
+  border-top: 1px solid var(--c-line);
+}
+
+.note {
+  margin: 0;
+  max-width: 300px;
+  font-size: 15px;
+  line-height: 1.35;
+  color: var(--c-muted);
+}
+
+.side {
+  padding: 26px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  align-self: start;
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.figure {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 18px;
+  color: var(--c-ink-2);
+}
+
+.figure + .figure {
+  border-top: 1px solid var(--c-line);
+  padding-top: 16px;
+}
+
+.figureNumber {
+  font-size: 56px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--c-primary-dark);
+}
+
+.sideLink {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--c-primary);
+}
+
+.error {
+  margin: 0;
+  color: var(--c-limited);
+  font-weight: 700;
+}
+
+/* The queue */
+
+.queue {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.queueHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+}
+
+.titleGroup {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.queueHeading {
+  margin: 0;
+  font-size: var(--type-heading-size);
+  line-height: var(--type-heading-lh);
+  font-weight: var(--type-heading-weight);
+  letter-spacing: var(--type-heading-tracking);
+}
+
+.status {
+  padding: 6px 14px;
+  border-radius: var(--radius-chip);
+  background: var(--c-tint);
+  color: var(--c-primary-dark);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  padding: 4px;
+  gap: 2px;
+  background: #fff;
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius);
+}
+
+.tab {
+  min-height: 44px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: var(--c-ink-2);
+  font: inherit;
+  font-size: var(--type-label-size);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tab[aria-selected='true'] {
+  background: var(--c-tint);
+  color: var(--c-primary-dark);
+  box-shadow: inset 0 0 0 2px var(--c-primary);
+}
+
+.tab:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.request {
+  padding: 22px 26px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.requestNow {
+  border: 3px solid var(--c-limited);
+}
+
+.urgency {
+  width: 150px;
+  flex: none;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border-radius: var(--radius-chip);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.tagSolid {
+  background: var(--c-limited);
+  color: #fff;
+}
+
+.tagOutline {
+  background: #fff;
+  color: #7a3500;
+  border: 2px solid var(--c-limited);
+}
+
+.tagDot {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.tagSolid .tagDot {
+  background: #fff;
+}
+
+.tagOutline .tagDot {
+  border: 2px solid var(--c-limited);
+}
+
+.wait {
+  margin: 6px 0 0;
+  font-size: var(--type-caption-size);
+  color: var(--c-ink-2);
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.why {
+  margin: 2px 0 0;
+  font-size: 17px;
+  color: var(--c-ink-2);
+}
+
+.requestNote {
+  margin: 0;
+  font-size: 16px;
+  color: var(--c-ink-2);
+}
+
+.take {
+  flex: none;
+}
+
+.oneAtATime {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 16px;
+  line-height: 1.4;
+  color: var(--c-ink-2);
+}
+
+.oneAtATime strong {
+  flex: none;
+  padding: 6px 14px;
+  border-radius: var(--radius-chip);
+  background: var(--c-tint);
+  color: var(--c-primary-dark);
+}
+
+@media (max-width: 900px) {
+  .duty {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .dutyMain {
+    padding: 24px 20px;
+  }
+
+  .actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .request {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .urgency {
+    width: auto;
+  }
+}

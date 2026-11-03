@@ -85,6 +85,47 @@ describe('QueueList, Waiting', () => {
     await waitFor(() => expect(calls).toBe(2));
   });
 
+  it('marks Now with a solid tag and Within 15 min with an outline tag, and only Now is the solid action', async () => {
+    render(<QueueList />);
+    await queueShown();
+    const now = screen.getByRole('article', { name: /Now/ });
+    const soon = screen.getByRole('article', { name: /Within 15 min/ });
+    expect(within(now).getByText('Now')).toHaveAttribute('data-tone', 'solid');
+    expect(within(soon).getByText('Within 15 min')).toHaveAttribute('data-tone', 'outline');
+    expect(within(now).getByRole('button', { name: 'Take it' })).toHaveAttribute('data-variant', 'primary');
+    expect(within(soon).getByRole('button', { name: 'Take it' })).toHaveAttribute('data-variant', 'secondary');
+  });
+
+  it('shows the one-at-a-time note as a tag with its sentence beside it', async () => {
+    render(<QueueList />);
+    await queueShown();
+    expect(screen.getByText('One at a time')).toBeInTheDocument();
+    expect(screen.getByText('Once you take a request, no one else can. It returns to the queue if you do not act in 10 minutes.')).toBeInTheDocument();
+  });
+
+  it('shows the advisor\'s own status beside the heading when the page gives one', async () => {
+    render(<QueueList status="Available" />);
+    await queueShown();
+    expect(screen.getByText('Available')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Requests' })).toBeInTheDocument();
+  });
+
+  it('moves between the tabs with the arrow keys', async () => {
+    render(<QueueList />);
+    await queueShown();
+    screen.getByRole('tab', { name: 'Waiting (2)' }).focus();
+    await userEvent.keyboard('{ArrowRight}');
+    expect(screen.getByRole('tab', { name: 'Mine' })).toHaveAttribute('aria-selected', 'true');
+    await userEvent.keyboard('{End}');
+    expect(screen.getByRole('tab', { name: 'Done' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('shows the loading state as placeholders with a spoken label', () => {
+    server.use(http.get('/api/bff/clinical/requests', () => new Promise(() => {})));
+    render(<QueueList />);
+    expect(screen.getByRole('status')).toHaveTextContent('Loading the requests.');
+  });
+
   it('has no accessibility violations', async () => {
     const { container } = render(<QueueList />);
     await queueShown();

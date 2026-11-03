@@ -1,0 +1,177 @@
+/* The find-a-session page (artboard CFind): the support code is the first card, search is the second.
+   Read-only for other pages: Console.module.css is shared with the learn and planning pages. */
+
+.page {
+  min-height: 100%;
+  background: var(--c-ground);
+  color: var(--c-ink);
+  font-family: var(--font-atkinson), system-ui, sans-serif;
+}
+
+.column {
+  display: grid;
+  gap: var(--space-4);
+  max-width: 56rem;
+  margin: 0 auto;
+  padding: var(--space-4);
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--c-muted);
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: var(--type-title-weight);
+}
+
+.card {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-card);
+  background: Canvas;
+  box-shadow: var(--shadow-card);
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: var(--type-title-weight);
+}
+
+.lead,
+.footnote {
+  margin: 0;
+  color: var(--c-ink-2);
+  font-size: var(--type-body-size);
+  line-height: 1.4;
+}
+
+.footnote {
+  color: var(--c-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+}
+
+.openRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: flex-end;
+}
+
+.field {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 12rem;
+  flex: 1 1 12rem;
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+}
+
+.code {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 56px;
+  padding: 0 var(--space-3);
+  border: 2px solid var(--c-ink-2);
+  border-radius: var(--radius);
+  background: var(--c-bg);
+  color: var(--c-ink);
+  font: inherit;
+  font-size: var(--type-body-size);
+  letter-spacing: 0.08em;
+}
+
+.input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--btn-h);
+  padding: 0 var(--space-3);
+  border: 2px solid var(--c-ink-2);
+  border-radius: var(--radius);
+  background: var(--c-bg);
+  color: var(--c-ink);
+  font: inherit;
+  font-size: var(--type-body-size);
+}
+
+.code:focus-visible,
+.input:focus-visible,
+.more:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.searchHead {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.more {
+  min-height: 44px;
+  padding: 0 var(--space-2);
+  border: 0;
+  background: none;
+  color: var(--c-primary);
+  font: inherit;
+  font-weight: var(--type-label-weight);
+  cursor: pointer;
+}
+
+.fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: flex-end;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.legend {
+  padding: 0;
+  margin-right: var(--space-1);
+  color: var(--c-muted);
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.alert {
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  background: var(--c-amber-tint);
+  color: var(--c-ink);
+  font-weight: var(--type-label-weight);
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

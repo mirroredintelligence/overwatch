@@ -2,22 +2,24 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Button } from '@/components/ui/Button';
 import { OptionButton } from '@/components/ui/OptionButton';
 import { ChipGroup } from '@/components/forms/ChipGroup';
-import { ErrorSummary } from '@/components/forms/ErrorSummary';
 import { TextField } from '@/components/forms/TextField';
 import { saveStep, sessionCsrf, type StepOutcome } from '@/lib/register/browser';
 import { normalisePostcode } from '@/lib/register/postcode';
 import type { LocationAnswers } from '@/lib/register/validate';
 import { validateLocation } from '@/lib/register/validate';
 import type { FieldIssue } from '@/lib/register/types';
-import styles from './register.module.css';
+import { ProblemSummary } from './OrganisationForm';
+import { RegisterStage } from './RegisterStage';
+import styles from './RegisterForm.module.css';
 
-// Registration step 2, where the service is (W24, artboards RegisterFlow1 panel 4 and RegisterMobile
-// panel 3). A fixed site takes its address from a postcode lookup and its hours; a visiting service
-// answers the question and goes on. The postcode lookup is the BFF's, never the browser's.
+// Registration step 2, where the service is (Reg board stage 2). The form sits in the register frame. A fixed
+// site takes its address from a postcode lookup and its hours; a visiting service answers the question and goes
+// on. The postcode lookup is the BFF's, never the browser's. The address list is a group of options that the
+// arrow keys, Home and End move through; Enter in the postcode runs the lookup.
 
 export type LocationFormProps = { registrationId: string };
 
@@ -49,6 +51,7 @@ const NOT_FOUND = 'We could not find that postcode. Check it and try again.';
 const LOOKUP_FAILED = 'We could not look up the address. Try again.';
 const POSITION = 'Position found from the address. You do not need to enter coordinates.';
 const SAVED = 'Draft saved.';
+const SAVED_NOTE = 'Saved a moment ago';
 const NOT_SAVED = 'Your draft is not saved. Finish the answers shown, then save again.';
 const SIGNED_OUT = 'Please sign in again.';
 
@@ -79,6 +82,9 @@ function bodyFrom(answers: LocationAnswers): Record<string, unknown> {
 
 export function LocationForm({ registrationId }: LocationFormProps) {
   const router = useRouter();
+  const form = useRef<HTMLFormElement>(null);
+  const group = useRef<HTMLFieldSetElement>(null);
+  const [savedNote, setSavedNote] = useState<string | undefined>(undefined);
   const [answers, setAnswers] = useState<LocationAnswers>({});
   const [addresses, setAddresses] = useState<Address[] | null>(null);
   const [lookupError, setLookupError] = useState<string | null>(null);
@@ -87,7 +93,25 @@ export function LocationForm({ registrationId }: LocationFormProps) {
   const [busy, setBusy] = useState<'continue' | 'save' | 'find' | null>(null);
 
   const base = `/register/${encodeURIComponent(registrationId)}`;
-  const set = <K extends keyof LocationAnswers>(key: K, value: LocationAnswers[K]) => {
+
+  // A new list of addresses takes focus to its first option, so the keyboard goes straight on to choosing.
+  useEffect(() => {
+    if (addresses !== null && addresses.length > 0) group.current?.querySelector('button')?.focus();
+  }, [addresses]);
+
+  function moveAmongAddresses(event: KeyboardEvent<HTMLFieldSetElement>) {
+    const keys = ['ArrowDown', 'ArrowUp', 'Home', 'End'];
+    if (!keys.includes(event.key)) return;
+    const options = Array.from(event.currentTarget.querySelectorAll('button'));
+    const at = options.indexOf(event.target as HTMLButtonElement);
+    if (at < 0) return;
+    event.preventDefault();
+    const last = options.length - 1;
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? last : event.key === 'ArrowDown' ? (at === last ? 0 : at + 1) : at === 0 ? last : at - 1;
+    options[next]?.focus();
+  }
+
+  const set =<K extends keyof LocationAnswers>(key: K, value: LocationAnswers[K]) => {
     setAnswers((current) => ({ ...current, [key]: value }));
   };
 
@@ -137,6 +161,7 @@ export function LocationForm({ registrationId }: LocationFormProps) {
     setBusy(null);
     if (outcome.kind === 'saved') {
       setErrors([]);
+      setSavedNote(SAVED_NOTE);
       if (mode === 'continue') router.push(`${base}/service`);
       else setNotice(SAVED);
       return;
@@ -154,12 +179,21 @@ export function LocationForm({ registrationId }: LocationFormProps) {
   const dayValues = allDay ? [ALL_DAY] : (answers.days ?? []).map(String);
 
   return (
-    <div className={styles.stack}>
-      <p className={styles.note}>Step 2 of 5 · Location</p>
+    <RegisterStage
+      registrationId={registrationId}
+      stage={2}
+      savedNote={savedNote}
+      phoneAction={{
+        primary: { label: 'Continue', busy: busy === 'continue', onClick: () => form.current?.requestSubmit() },
+      }}
+    >
+    <div className={styles.card}>
+      <p className={styles.step}>Step 2 of 5 · Location</p>
       <h1 className={styles.heading}>Where is the service?</h1>
 
       <form
-        className={styles.stack}
+        ref={form}
+        className={styles.form}
         noValidate
         onSubmit={(event) => {
           event.preventDefault();
@@ -169,7 +203,7 @@ export function LocationForm({ registrationId }: LocationFormProps) {
           if (issues.length === 0) void save('continue');
         }}
       >
-        <ErrorSummary errors={errors} />
+        <ProblemSummary errors={errors} />
         <ChipGroup
           id="fixedSite"
           legend="Do you have a fixed site?"
@@ -187,7 +221,14 @@ export function LocationForm({ registrationId }: LocationFormProps) {
 
         {fixed === true ? (
           <>
-            <div className={styles.stack}>
+            <div
+              className={styles.postcode}
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter' || (event.target as HTMLElement).tagName !== 'INPUT') return;
+                event.preventDefault();
+                void findAddress();
+              }}
+            >
               <TextField
                 id="postcode"
                 label="Postcode"
@@ -203,7 +244,19 @@ export function LocationForm({ registrationId }: LocationFormProps) {
             </div>
 
             {addresses !== null && addresses.length > 0 ? (
-              <fieldset id="address" tabIndex={-1} className={styles.stack} aria-describedby={errorFor(errors, 'address') ? 'address-error' : undefined}>
+              <p className={styles.found} role="status">
+                {addresses.length === 1 ? '1 address found. Choose one.' : `${addresses.length} addresses found. Choose one.`}
+              </p>
+            ) : null}
+            {addresses !== null && addresses.length > 0 ? (
+              <fieldset
+                ref={group}
+                id="address"
+                tabIndex={-1}
+                className={styles.addresses}
+                aria-describedby={errorFor(errors, 'address') ? 'address-error' : undefined}
+                onKeyDown={moveAmongAddresses}
+              >
                 <legend className={styles.legend}>Choose the address</legend>
                 {addresses.map((address) => (
                   <OptionButton
@@ -222,6 +275,7 @@ export function LocationForm({ registrationId }: LocationFormProps) {
             ) : null}
 
             {answers.addressId !== undefined ? <p className={styles.notice}>{POSITION}</p> : null}
+
 
             <TextField
               id="siteName"
@@ -260,7 +314,7 @@ export function LocationForm({ registrationId }: LocationFormProps) {
               dataEl="REG-STEP2-DAY"
             />
             {!allDay ? (
-              <div className={styles.stack}>
+              <div className={styles.pair}>
                 <TextField
                   id="opens"
                   label="Opens"
@@ -292,9 +346,11 @@ export function LocationForm({ registrationId }: LocationFormProps) {
         {notice !== null ? <p className={styles.notice} role="status">{notice}</p> : null}
 
         <div className={styles.actions}>
-          <Button variant="primary" type="submit" busy={busy === 'continue'} dataEl="REG-STEP2-CONTINUE-BTN">
-            Continue
-          </Button>
+          <span className={styles.continue}>
+            <Button variant="primary" type="submit" busy={busy === 'continue'} dataEl="REG-STEP2-CONTINUE-BTN">
+              Continue
+            </Button>
+          </span>
           <Link className={styles.backLink} href={`${base}/organisation`}>
             Back
           </Link>
@@ -304,5 +360,6 @@ export function LocationForm({ registrationId }: LocationFormProps) {
         </div>
       </form>
     </div>
+    </RegisterStage>
   );
 }

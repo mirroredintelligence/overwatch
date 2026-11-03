@@ -1,0 +1,93 @@
+/* Step 4 (boards/lead/AddService.dc.html): three summary cards side by side (one column on a phone), each with
+   Change; then the amber warning. The card around them, the heading and the footer are StepFrame's. */
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.summary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  padding: var(--space-4);
+  border-radius: 16px;
+  background: var(--c-bg);
+}
+
+.k {
+  margin: 0 0 6px;
+  color: var(--c-muted);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.value {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.detail {
+  margin: 0;
+  color: var(--c-ink-2);
+  font-size: 16px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.change {
+  min-height: 44px;
+  margin-top: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--c-ink-2);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.change:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+/* The board's own warning colours: the tint and rule are tokens, the two browns have none. */
+.warning {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 14px var(--space-4);
+  border: 2px solid var(--c-limited);
+  border-radius: var(--radius);
+  background: var(--c-amber-tint);
+  color: #4a2300;
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.warning svg {
+  flex: none;
+  color: #7a3500;
+}
+
+.problem {
+  margin: 0;
+  font-weight: 700;
+  color: var(--c-closed);
+}
+
+@media (max-width: 700px) {
+  .cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

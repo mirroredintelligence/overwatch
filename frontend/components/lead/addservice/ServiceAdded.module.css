@@ -1,0 +1,80 @@
+/* The added state (boards/lead/AddService.dc.html): one white card, at most 700px, content on the left. */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+  box-sizing: border-box;
+  max-width: 700px;
+  padding: var(--space-5) 28px;
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+  color: var(--c-ink);
+}
+
+.tick {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--c-tint);
+  color: var(--c-primary);
+}
+
+.heading {
+  margin: 0;
+  font-size: 32px;
+  line-height: 1.1;
+  font-weight: 700;
+}
+
+.heading:focus {
+  outline: none;
+}
+
+.text {
+  margin: 0;
+  color: var(--c-ink-2);
+  font-size: 19px;
+  line-height: 1.45;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.another {
+  min-height: 54px;
+  padding: 0 var(--space-4);
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--c-ink-2);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.another:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+@media (max-width: 700px) {
+  .card {
+    padding: var(--space-4);
+  }
+
+  .heading {
+    font-size: 26px;
+  }
+}

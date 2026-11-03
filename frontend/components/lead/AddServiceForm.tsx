@@ -5,58 +5,73 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { MorphStage } from '@/components/morph/MorphStage';
 import { StepBar } from '@/components/morph/StepBar';
 import { SummaryPin, type SummaryItem } from '@/components/morph/SummaryPin';
-import { Button } from '@/components/ui/Button';
 import { leadPost, newIdempotencyKey } from '@/lib/lead/browser';
-import { toServiceBody } from '@/lib/lead/serviceForm';
+import { districtsOf, toServiceBody } from '@/lib/lead/serviceForm';
+import { ServiceAdded } from './addservice/ServiceAdded';
+import { StepCheck, acceptedWords, ageWords, dateWords, lower } from './addservice/StepCheck';
+import { StepCriteria } from './addservice/StepCriteria';
 import { StepReporting, cadenceLabel } from './addservice/StepReporting';
-import { CATEGORIES, ChoiceGroup, Field, MEASURES, StepFrame, StepService, labelOf } from './addservice/StepService';
-import { STEP_COUNT, stepOfField, useServiceFormState } from './addservice/useServiceFormState';
+import { CATEGORIES, MEASURES, StepService, labelOf } from './addservice/StepService';
+import { stepOfField, useServiceFormState } from './addservice/useServiceFormState';
 import styles from './addservice/StepService.module.css';
 
-// Add a service reporter (W18, pilot; LDR-03). The lead sets a service up on its behalf, in steps that share one
-// form state in memory (nothing is stored in the browser). The step is in the address as ?step= so Back and a
-// reload work. "Next" checks its own step and shows a summary of problems at the top of it; the last step checks
-// them all, then posts the values as JSON with one Idempotency-Key per attempt, so a second press of a failed
-// save is the same request (H-332). Steps 3 and 4 (Check and Added) are built by LDR-04: for now the third step
-// still ends in Save.
+// Add a service reporter (W18, pilot; LDR-03 and LDR-04). The lead sets a service up on its behalf, in four steps
+// and an added state that share one form state in memory (nothing is stored in the browser). The step is in the
+// address as ?step= so Back and a reload work. "Next" checks its own step and shows a summary of problems at the
+// top of it; the last step ("Check") checks them all, then posts the values as JSON with one Idempotency-Key per
+// attempt, so a second press of a failed save is the same request (H-332). The added state is not an address: it
+// shows while the saved service is held, and "Add another service" starts the whole form again.
 
 const SETUP_PATH = '/lead/services/new';
 const SAVE_PATH = '/api/bff/lead/services';
 
-// The steps built so far, and the board's words for them.
-const STEPS = [{ label: 'The service' }, { label: 'Who reports' }, { label: 'Who it takes' }];
+const STEPS = [{ label: 'The service' }, { label: 'Who reports' }, { label: 'Who it takes' }, { label: 'Check' }];
 
-// The board's three columns (list, stage, side) of each step: the summary opens from step 2.
-const TEMPLATES = ['0px minmax(0,1fr) 0px', '312px minmax(0,1fr) 0px', '312px minmax(0,1fr) 0px'];
-const GAPS = ['0px', '22px', '22px'];
+// The steps of the form (?step=1 to 4) and the added state after them.
+const FORM_STEPS = STEPS.length;
+const ADDED = FORM_STEPS;
 
-const ACCEPTS: [string, string][] = [
-  ['fall-no-injury', 'Fall, no injury'],
-  ['frailty', 'Frailty'],
-  ['wound-care', 'Wound care'],
-  ['iv-therapy', 'IV therapy'],
-  ['palliative', 'Palliative'],
-  ['dementia', 'Dementia'],
+// The board's three columns (list, stage, side) of each step: the summary is open from step 2 to the check.
+const TEMPLATES = [
+  '0px minmax(0,1fr) 0px',
+  '312px minmax(0,1fr) 0px',
+  '312px minmax(0,1fr) 0px',
+  '312px minmax(0,1fr) 0px',
+  '0px minmax(0,1fr) 0px',
 ];
+const GAPS = ['0px', '22px', '22px', '22px', '0px'];
 
-const EXCLUDES: [string, string][] = [
-  ['suspected-fracture', 'Suspected fracture'],
-  ['head-injury-anticoagulants', 'Head injury on anticoagulants'],
-  ['iv-therapy', 'Needs IV therapy'],
-  ['infection-isolation', 'Infection isolation'],
-];
-
-type Saved = { serviceId: string } | null;
-
-const lower = (text: string) => (text === '' ? '' : `${text.charAt(0).toLowerCase()}${text.slice(1)}`);
+type Saved = { serviceId: string | null } | null;
 
 /** The step (from 0) in `?step=` (from 1); anything else is the first. */
 function stepFrom(param: string | null): number {
   const n = Number(param);
-  return Number.isInteger(n) && n >= 1 && n <= STEP_COUNT ? n - 1 : 0;
+  return Number.isInteger(n) && n >= 1 && n <= FORM_STEPS ? n - 1 : 0;
 }
 
+/** The form, started again from blank when "Add another service" is pressed. */
 export function AddServiceForm() {
+  const router = useRouter();
+  const step = stepFrom(useSearchParams().get('step'));
+  const [generation, setGeneration] = useState(0);
+  const [restarting, setRestarting] = useState(false);
+  // Adjusting state while rendering, as React allows: the form is replaced once the address is back on step 1.
+  if (restarting && step === 0) {
+    setRestarting(false);
+    setGeneration(generation + 1);
+  }
+  return (
+    <AddServiceFlow
+      key={generation}
+      onAddAnother={() => {
+        setRestarting(true);
+        router.push(`${SETUP_PATH}?step=1`);
+      }}
+    />
+  );
+}
+
+function AddServiceFlow({ onAddAnother }: { onAddAnother: () => void }) {
   const router = useRouter();
   const step = stepFrom(useSearchParams().get('step'));
   const form = useServiceFormState();
@@ -69,13 +84,15 @@ export function AddServiceForm() {
 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState<Saved>(null);
-  const [notice, setNotice] = useState('');
-  const [noticeIsError, setNoticeIsError] = useState(false);
+  const [problem, setProblem] = useState('');
   const summaryRef = useRef<HTMLDivElement>(null);
   const keyRef = useRef<string | null>(null);
-  // Counts the refused presses of Next or Save. Focus goes to the summary once it has rendered, not before.
+  // Counts the refused presses of Next or Add. Focus goes to the summary once it has rendered, not before.
   const [refusals, setRefusals] = useState(0);
   const focused = useRef(0);
+
+  // Once the service is added the added state shows, whatever the address says.
+  const view = saved !== null ? ADDED : step;
 
   useEffect(() => {
     if (refusals > focused.current && summaryRef.current) {
@@ -102,9 +119,9 @@ export function AddServiceForm() {
     goTo(from + 1, viaKeyboard);
   }
 
-  async function save() {
-    if (saving) return;
-    setNotice('');
+  async function add() {
+    if (saving || saved !== null) return;
+    setProblem('');
     const first = form.checkAll();
     if (first !== null) {
       setRefusals((count) => count + 1);
@@ -118,20 +135,12 @@ export function AddServiceForm() {
     if (result.ok) {
       keyRef.current = null;
       const serviceId = (result.body as { serviceId?: unknown } | undefined)?.serviceId;
-      setSaved(typeof serviceId === 'string' ? { serviceId } : null);
-      setNoticeIsError(false);
-      setNotice('Saved');
+      // The added state shows with a fade, not a step: keyboard or not, the page is already on the last address.
+      setInstant(false);
+      setSaved({ serviceId: typeof serviceId === 'string' ? serviceId : null });
       return;
     }
-    setNoticeIsError(true);
-    setNotice('The service could not be saved.');
-  }
-
-  async function testPrompt() {
-    if (saved === null) return;
-    const result = await leadPost(`/api/bff/lead/services/${encodeURIComponent(saved.serviceId)}/test-prompt`);
-    setNoticeIsError(!result.ok);
-    setNotice(result.ok ? 'Test prompt sent.' : 'The test prompt could not be sent.');
+    setProblem('The service could not be saved.');
   }
 
   // The problems of one check are all on one step; they are shown only there.
@@ -167,7 +176,17 @@ export function AddServiceForm() {
         .join(' · '),
     });
   }
-  const goToKey = (key: string) => back(key === 'service' ? 0 : 1);
+  if (step >= 3 && values.accepts.length > 0) {
+    items.push({
+      key: 'criteria',
+      label: 'Who it takes',
+      value: acceptedWords(values),
+      detail: [`age ${ageWords(values)}`, districtsOf(values.districts).join(', '), `review by ${dateWords(values.reviewBy)}`]
+        .filter(Boolean)
+        .join(' · '),
+    });
+  }
+  const goToKey = (key: string) => back(key === 'service' ? 0 : key === 'reporting' ? 1 : 2);
 
   const layers = [
     () => (
@@ -190,94 +209,51 @@ export function AddServiceForm() {
       />
     ),
     () => (
-      <StepFrame
-        title="Who it takes"
+      <StepCriteria
+        values={values}
+        set={form.set}
+        toggle={form.toggle}
         errors={errorsOf(2)}
         summaryRef={summaryRef}
-        onNext={() => void save()}
+        onNext={(viaKeyboard) => next(2, viaKeyboard)}
         onBack={() => back(1)}
-        nextLabel="Save"
-        busy={saving}
-        dataEl="LEAD-ADD-SAVE-BTN"
-        secondary={
-          <Button variant="secondary" disabled={saved === null} onClick={() => void testPrompt()} dataEl="LEAD-ADD-TEST-BTN">
-            Send a test prompt
-          </Button>
-        }
-      >
-        <ChoiceGroup
-          id="lead-add-accepts"
-          label="Needs you accept"
-          choices={ACCEPTS}
-          selected={values.accepts}
-          onPick={(value) => form.toggle('accepts', value)}
-          idPrefix="LEAD-ADD-ACCEPTS"
-          error={errorsOf(2).find((e) => e.field === 'lead-add-accepts')?.message}
-        />
-        <ChoiceGroup
-          label="Needs you do not accept"
-          choices={EXCLUDES}
-          selected={values.excludes}
-          onPick={(value) => form.toggle('excludes', value)}
-          idPrefix="LEAD-ADD-EXCLUDES"
-        />
-        <Field id="lead-add-age-min" label="Youngest age" error={errorsOf(2).find((e) => e.field === 'lead-add-age-min')?.message}>
-          {(props) => <input {...props} inputMode="numeric" value={values.ageMin} onChange={(e) => form.set('ageMin', e.target.value)} />}
-        </Field>
-        <Field
-          id="lead-add-age-max"
-          label="Oldest age"
-          hint="Leave blank for no limit"
-          error={errorsOf(2).find((e) => e.field === 'lead-add-age-max')?.message}
-        >
-          {(props) => <input {...props} inputMode="numeric" value={values.ageMax} onChange={(e) => form.set('ageMax', e.target.value)} />}
-        </Field>
-        <Field
-          id="lead-add-districts"
-          label="Postcode districts"
-          hint="Like DT4. Separate with commas."
-          error={errorsOf(2).find((e) => e.field === 'lead-add-districts')?.message}
-        >
-          {(props) => <input {...props} value={values.districts} onChange={(e) => form.set('districts', e.target.value)} />}
-        </Field>
-        <Field
-          id="lead-add-review"
-          label="Review criteria by"
-          hint="Advisors see a flag when this date passes"
-          error={errorsOf(2).find((e) => e.field === 'lead-add-review')?.message}
-        >
-          {(props) => <input {...props} type="date" value={values.reviewBy} onChange={(e) => form.set('reviewBy', e.target.value)} />}
-        </Field>
-        <p className={styles.pilot}>Services with neither text nor email are outside the MVP.</p>
-        <p role="status" className={styles.status}>
-          {noticeIsError ? '' : notice}
-        </p>
-        {noticeIsError && notice !== '' ? (
-          <p role="alert" className={styles.problem}>
-            {notice}
-          </p>
-        ) : null}
-      </StepFrame>
+      />
     ),
+    () => (
+      <StepCheck
+        values={values}
+        onChange={(index) => back(index)}
+        onBack={() => back(2)}
+        onAdd={() => void add()}
+        busy={saving}
+        problem={problem}
+      />
+    ),
+    () => <ServiceAdded name={values.name.trim()} serviceId={saved?.serviceId ?? null} onAddAnother={onAddAnother} />,
   ];
 
+  const pinned = view >= 1 && view < ADDED && items.length > 0;
   return (
-    <main className={styles.page} data-step={step}>
-      <div className={styles.bar}>
-        <StepBar label="Setup steps" steps={STEPS} current={step} reached={reached} onSelect={(index) => back(index)} />
-      </div>
-      <div className={styles.pill}>
-        <SummaryPin variant="pill" items={items} onChange={goToKey} />
-      </div>
+    <main className={styles.page} data-step={view}>
+      {view < ADDED ? (
+        <div className={styles.bar}>
+          <StepBar label="Setup steps" steps={STEPS} current={step} reached={reached} onSelect={(index) => back(index)} />
+        </div>
+      ) : null}
+      {view < ADDED ? (
+        <div className={styles.pill}>
+          <SummaryPin variant="pill" items={items} onChange={goToKey} />
+        </div>
+      ) : null}
       <MorphStage
         label="Setup stage"
         className={styles.stage}
-        current={step}
+        current={view}
         templates={TEMPLATES}
         gaps={GAPS}
         instant={instant}
         layers={layers}
-        summary={<SummaryPin items={items} onChange={goToKey} open={step >= 1 && items.length > 0} />}
+        summary={<SummaryPin items={items} onChange={goToKey} open={pinned} />}
       />
     </main>
   );

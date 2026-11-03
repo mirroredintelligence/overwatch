@@ -49,9 +49,10 @@ vi.mock('next/navigation', async () => {
   };
 });
 
-// The shift lead's add-a-service form (W18, pilot; LDR-03: steps 1 and 2 on one form state). The form posts JSON
-// to the BFF, which sends the FHIR Parameters to the back end's $setup. Each step is checked on "Next"; the
-// problems are shown in a summary at the top of the step and inline.
+// The shift lead's add-a-service form (W18, pilot; LDR-03 and LDR-04: four steps and the added state on one form
+// state). The form posts JSON to the BFF, which sends the FHIR Parameters to the back end's $setup. Each step is
+// checked on "Next"; the problems are shown in a summary at the top of the step and inline. Step 4 checks the
+// whole form again, then "Add the service" posts it.
 
 beforeEach(() => {
   resetLeadPosts();
@@ -95,6 +96,13 @@ async function toStep3(user: ReturnType<typeof userEvent.setup>) {
   await fillStep2(user);
   await user.click(screen.getByRole('button', { name: 'Next: who it takes' }));
   await screen.findByRole('heading', { name: 'Who it takes' });
+}
+
+async function toCheck(user: ReturnType<typeof userEvent.setup>) {
+  await toStep3(user);
+  await fillStep3(user);
+  await user.click(screen.getByRole('button', { name: 'Next: check' }));
+  await screen.findByRole('heading', { name: 'Check, then add it' });
 }
 
 describe('AddServiceForm', { timeout: FORM_TIMEOUT_MS }, () => {
@@ -226,14 +234,99 @@ describe('AddServiceForm', { timeout: FORM_TIMEOUT_MS }, () => {
     set.mockRestore();
   });
 
-  it('posts the form as JSON with the CSRF token and an idempotency key, then says Saved and enables the test prompt', async () => {
+  it('has four steps in the bar, the last of them "Check"', () => {
+    render(<AddServiceForm />);
+    const bar = screen.getByRole('navigation', { name: 'Setup steps' });
+    expect(within(bar).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      expect.stringContaining('The service'),
+      expect.stringContaining('Who reports'),
+      expect.stringContaining('Who it takes'),
+      expect.stringContaining('Check'),
+    ]);
+  });
+
+  it('goes from step 3 to the check with "Next: check" once step 3 is right, and puts step 4 in the address', async () => {
+    const user = userEvent.setup();
+    render(<AddServiceForm />);
+    await toCheck(user);
+    expect(nav.state.search).toBe('step=4');
+    const bar = screen.getByRole('navigation', { name: 'Setup steps' });
+    expect(bar.querySelector('[aria-current="step"]')).toHaveTextContent('Check');
+    expect(seenLeadPosts).toHaveLength(0);
+  });
+
+  it('refuses a blank step 3 on "Next: check" with a summary at the top of step 3', async () => {
+    const user = userEvent.setup();
+    render(<AddServiceForm />);
+    await toStep3(user);
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Next: check' }));
+    const summary = await screen.findByRole('alert');
+    expect(summary).toHaveTextContent(/There are \d+ problems/);
+    expect(summary).toHaveFocus();
+    expect(screen.getByRole('heading', { level: 1, name: 'Who it takes' })).toBeInTheDocument();
+    expect(seenLeadPosts).toHaveLength(0);
+  });
+
+  it('shows what was entered on the check, three cards, and the warning', async () => {
+    const user = userEvent.setup();
+    render(<AddServiceForm />);
+    await toCheck(user);
+    expect(screen.getByRole('group', { name: 'The service' })).toHaveTextContent('Reablement');
+    expect(screen.getByRole('group', { name: 'Who reports' })).toHaveTextContent('Phone ending 0456');
+    expect(screen.getByRole('group', { name: 'Who it takes' })).toHaveTextContent('Age 18+');
+    expect(screen.getByText(/Advisors will see these criteria as soon as you add the service/)).toBeInTheDocument();
+  });
+
+  it('adds "Who it takes" to the pinned summary on the check, and does not pin it on step 3', async () => {
     const user = userEvent.setup();
     render(<AddServiceForm />);
     await toStep3(user);
     await fillStep3(user);
-    expect(screen.getByRole('button', { name: 'Send a test prompt' })).toBeDisabled();
-    await user.click(screen.getByRole('button', { name: 'Save' }));
-    expect(await screen.findByRole('status')).toHaveTextContent('Saved');
+    const pin = screen.getByRole('region', { name: 'What you have entered' });
+    expect(pin).not.toHaveTextContent('Who it takes');
+    await user.click(screen.getByRole('button', { name: 'Next: check' }));
+    await screen.findByRole('heading', { name: 'Check, then add it' });
+    expect(pin).toHaveTextContent('Who it takes');
+    expect(pin).toHaveTextContent('Frailty');
+    expect(pin).toHaveTextContent('review by 31 Jan 2031');
+  });
+
+  it('closes the pinned summary once the service is added', async () => {
+    const user = userEvent.setup();
+    render(<AddServiceForm />);
+    await toCheck(user);
+    await user.click(screen.getByRole('button', { name: 'Add the service' }));
+    await screen.findByRole('heading', { level: 1, name: 'Reablement is added' });
+    expect(screen.queryByRole('region', { name: 'What you have entered' })).toBeNull();
+  }, FORM_TIMEOUT_MS);
+
+  it('goes back to the step from "Change" on a card of the check, keeping what was typed', async () => {
+    const user = userEvent.setup();
+    render(<AddServiceForm />);
+    await toCheck(user);
+    const card = screen.getByRole('group', { name: 'Who it takes' });
+    await user.click(within(card).getByRole('button', { name: 'Change who it takes' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Who it takes' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Postcode districts')).toHaveValue('DT4');
+    expect(nav.state.search).toBe('step=3');
+  });
+
+  it('goes back from the check with Back', async () => {
+    const user = userEvent.setup();
+    render(<AddServiceForm />);
+    await toCheck(user);
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Who it takes' })).toBeInTheDocument();
+  });
+
+  it('posts the form as JSON with the CSRF token and an idempotency key from the check, then says the service is added', async () => {
+    const user = userEvent.setup();
+    render(<AddServiceForm />);
+    await toCheck(user);
+    await user.click(screen.getByRole('button', { name: 'Add the service' }));
+    const heading = await screen.findByRole('heading', { level: 1, name: 'Reablement is added' });
+    expect(heading).toHaveFocus();
     expect(seenLeadPosts).toHaveLength(1);
     const [post] = seenLeadPosts;
     expect(post.csrf).toBe('test-csrf-token');
@@ -249,26 +342,38 @@ describe('AddServiceForm', { timeout: FORM_TIMEOUT_MS }, () => {
       districts: ['DT4'],
       accepts: ['frailty'],
     });
-    expect(screen.getByRole('button', { name: 'Send a test prompt' })).toBeEnabled();
   }, FORM_TIMEOUT_MS);
 
-  it('shows the problems of step 3 at the top of step 3 when it is saved with them', async () => {
+  it('offers the invite link for the new service once it is added, and no step bar', async () => {
     const user = userEvent.setup();
     render(<AddServiceForm />);
-    await toStep3(user);
-    await user.click(screen.getByRole('button', { name: 'Save' }));
-    const summary = await screen.findByRole('alert');
-    expect(summary).toHaveTextContent(/There are \d+ problems/);
-    expect(summary).toHaveFocus();
-    expect(seenLeadPosts).toHaveLength(0);
-  });
+    await toCheck(user);
+    await user.click(screen.getByRole('button', { name: 'Add the service' }));
+    await screen.findByRole('heading', { level: 1, name: 'Reablement is added' });
+    expect(screen.getByRole('link', { name: 'Invite the reporter' })).toHaveAttribute('href', '/lead/reporters/invite?service=s-new-1');
+    expect(screen.queryByRole('navigation', { name: 'Setup steps' })).toBeNull();
+  }, FORM_TIMEOUT_MS);
 
-  it('takes the lead back to the step with the first problem when it is saved from step 3 with an earlier step wrong', async () => {
+  it('starts again, blank and on step 1, from "Add another service"', async () => {
     const user = userEvent.setup();
-    nav.set('step=3');
     render(<AddServiceForm />);
-    await fillStep3(user);
-    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await toCheck(user);
+    await user.click(screen.getByRole('button', { name: 'Add the service' }));
+    await screen.findByRole('heading', { level: 1, name: 'Reablement is added' });
+    await user.click(screen.getByRole('button', { name: 'Add another service' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'The service' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Service name')).toHaveValue('');
+    expect(nav.state.search).toBe('step=1');
+    const bar = screen.getByRole('navigation', { name: 'Setup steps' });
+    expect(bar.querySelector('[aria-current="step"]')).toHaveTextContent('The service');
+    expect(seenLeadPosts).toHaveLength(1);
+  }, FORM_TIMEOUT_MS);
+
+  it('takes the lead back to the step with the first problem when it is added from the check with an earlier step wrong', async () => {
+    const user = userEvent.setup();
+    nav.set('step=4');
+    render(<AddServiceForm />);
+    await user.click(screen.getByRole('button', { name: 'Add the service' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'The service' })).toBeInTheDocument();
     expect(await screen.findByRole('alert')).toHaveTextContent(/There are \d+ problems/);
     expect(nav.state.search).toBe('step=1');
@@ -304,11 +409,11 @@ describe('AddServiceForm', { timeout: FORM_TIMEOUT_MS }, () => {
     );
     const user = userEvent.setup();
     render(<AddServiceForm />);
-    await toStep3(user);
-    await fillStep3(user);
-    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await toCheck(user);
+    await user.click(screen.getByRole('button', { name: 'Add the service' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('The service could not be saved.');
-    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(screen.getByRole('heading', { level: 1, name: 'Check, then add it' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Add the service' }));
     await waitFor(() => expect(seenLeadPosts).toHaveLength(2));
     expect(seenLeadPosts[1].idempotencyKey).toBe(seenLeadPosts[0].idempotencyKey);
   }, FORM_TIMEOUT_MS);

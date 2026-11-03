@@ -1,0 +1,20 @@
+/* Step 3: the two ages and the districts share a row, the way the board has them; the pilot note sits under it. */
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.age {
+  flex: 0 1 11rem;
+}
+
+.wide {
+  flex: 1 1 14rem;
+}
+
+.pilot {
+  margin: 0;
+  color: var(--c-ink-2);
+}

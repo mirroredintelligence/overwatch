@@ -257,6 +257,7 @@ export function BookingCard(props: BookingCardProps) {
         <CancelBookingDialog
           kind={pending ? 'request' : 'booking'}
           serviceName={serviceName}
+          sub={pending ? null : `Booking ${booking.reference} · confirmed ${clock(booking.confirmedAt ?? booking.requestedAt)}`}
           busy={props.cancelBusy}
           onConfirm={(reason) => {
             setDialogOpen(false);

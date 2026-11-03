@@ -16,6 +16,8 @@ import styles from './Advisor.module.css';
 export type CancelBookingDialogProps = {
   kind: 'booking' | 'request';
   serviceName: string;
+  /** The line under the title: the booking's reference and confirmation time. */
+  sub?: string | null;
   /** The message to show when the booking moved on before the cancel. */
   conflict?: string | null;
   busy?: boolean;
@@ -23,15 +25,15 @@ export type CancelBookingDialogProps = {
   onKeep: () => void;
 };
 
-export function CancelBookingDialog({ kind, serviceName, conflict = null, busy = false, onConfirm, onKeep }: CancelBookingDialogProps) {
+export function CancelBookingDialog({ kind, serviceName, sub = null, conflict = null, busy = false, onConfirm, onKeep }: CancelBookingDialogProps) {
   const [reason, setReason] = useState<CancelReason | null>(null);
   const request = kind === 'request';
   const title = request ? 'Cancel request' : 'Cancel booking';
 
   return (
-    <Dialog title={title} dataEl="ADV-CANCEL-DIALOG" onClose={onKeep}>
-      <p className={styles.text}>{request ? `Cancel the request to ${serviceName}?` : `Cancel the booking with ${serviceName}?`}</p>
-      <div role="group" aria-label={request ? 'Why cancel the request?' : 'Why cancel the booking?'} className={styles.actions}>
+    <Dialog title={title} sub={sub ?? undefined} dataEl="ADV-CANCEL-DIALOG" onClose={onKeep}>
+      <h3 className={styles.heading}>{request ? `Cancel the request to ${serviceName}?` : `Cancel the booking with ${serviceName}?`}</h3>
+      <div role="group" aria-label={request ? 'Why cancel the request?' : 'Why cancel the booking?'} className={styles.options}>
         {CANCEL_REASONS.map((option) => (
           <OptionButton key={option.code} selected={reason === option.code} dataEl={option.dataEl} onSelect={() => setReason(option.code)}>
             {option.label}
@@ -50,7 +52,7 @@ export function CancelBookingDialog({ kind, serviceName, conflict = null, busy =
         >
           {title}
         </Button>
-        <Button variant="neutral" dataEl="ADV-CANCEL-KEEP-BTN" onClick={onKeep}>
+        <Button variant="secondary" dataEl="ADV-CANCEL-KEEP-BTN" onClick={onKeep}>
           {request ? 'Keep request' : 'Keep booking'}
         </Button>
       </div>

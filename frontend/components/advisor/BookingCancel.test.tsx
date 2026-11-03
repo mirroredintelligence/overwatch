@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -23,7 +23,14 @@ describe('CancelBookingDialog for a confirmed booking', () => {
     expect(screen.getByRole('button', { name: 'Cancel booking' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Cancel booking' })).toHaveAttribute('data-el', 'ADV-CANCEL-CONFIRM-BTN');
     expect(screen.getByRole('button', { name: 'Keep booking' })).toHaveAttribute('data-el', 'ADV-CANCEL-KEEP-BTN');
+    expect(screen.getByRole('button', { name: 'Keep booking' })).toHaveAttribute('data-variant', 'secondary');
+    expect(screen.getByRole('heading', { level: 3, name: 'Cancel the booking with UCR West?' })).toBeInTheDocument();
     expect(await runAxe(container)).toHaveNoViolations();
+  });
+
+  it('shows the booking reference and the confirmation time under the title, when the caller gives them', () => {
+    render(<CancelBookingDialog kind="booking" serviceName="UCR West" sub="Booking 4821 · confirmed 14:19" onConfirm={vi.fn()} onKeep={vi.fn()} />);
+    expect(screen.getByText('Booking 4821 · confirmed 14:19')).toBeInTheDocument();
   });
 
   it('confirms with the reason chosen', async () => {
@@ -101,9 +108,13 @@ describe('WithdrawalAlert (W21, DEC-854)', () => {
     expect(document.activeElement).toBe(dialog);
     expect(screen.getByText('Withdrawn')).toBeInTheDocument();
     expect(screen.getByText('Reason: staffing. Withdrawn 14:41.')).toBeInTheDocument();
-    expect(screen.getByText('Phone the caller now.')).toBeInTheDocument();
-    expect(screen.getByText('Tell them another service is being found.')).toBeInTheDocument();
-    expect(screen.getByText('If nobody acts within 10 minutes the shift lead is alerted.')).toBeInTheDocument();
+    expect(screen.getByText('The patient is not left without a plan: the booking is back with you.')).toBeInTheDocument();
+    const steps = screen.getByRole('list', { name: 'What to do now' });
+    const items = within(steps).getAllByRole('listitem');
+    expect(items).toHaveLength(3);
+    expect(items[0]).toHaveTextContent('Phone the caller now.');
+    expect(items[1]).toHaveTextContent('Tell them another service is being found.');
+    expect(items[2]).toHaveTextContent('If nobody acts within 10 minutes, the shift lead is alerted.');
     expect(screen.getByRole('button', { name: 'I have phoned the caller' })).toHaveAttribute('data-el', 'ADV-WITHDRAWN-PHONED-BTN');
     expect(screen.getByRole('button', { name: 'The caller is already being helped' })).toHaveAttribute('data-el', 'ADV-WITHDRAWN-HELPED-BTN');
     expect(screen.getByRole('button', { name: 'See options again' })).toHaveAttribute('data-el', 'ADV-WITHDRAWN-OPTIONS-BTN');

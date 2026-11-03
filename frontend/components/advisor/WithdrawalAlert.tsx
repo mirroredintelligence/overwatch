@@ -50,7 +50,8 @@ export function WithdrawalAlert({ booking, serviceName, onAcknowledge, onLeaveOp
 
   return (
     <Dialog title={title} role="alertdialog" focusFirst={false} dataEl="ADV-WITHDRAWN-ALERT" onClose={onLeaveOpen}>
-      <p className={styles.badge}>
+      <p className={styles.alertBadge}>
+        <span className={styles.alertShape} aria-hidden="true" />
         <span>{notReached ? 'Not reached' : 'Withdrawn'}</span>
       </p>
       <h3 className={styles.heading}>{notReached ? 'The patient could not be reached' : `${serviceName} can no longer take this patient`}</h3>
@@ -59,9 +60,14 @@ export function WithdrawalAlert({ booking, serviceName, onAcknowledge, onLeaveOp
         <p className={styles.text}>The coordination team is told and will phone the caller.</p>
       ) : (
         <>
-          <p className={styles.text}>Phone the caller now.</p>
-          <p className={styles.text}>Tell them another service is being found.</p>
-          <p className={styles.text}>If nobody acts within 10 minutes the shift lead is alerted.</p>
+          <p className={styles.text}>The patient is not left without a plan: the booking is back with you.</p>
+          <ol className={styles.steps} aria-label="What to do now">
+            <li>
+              <strong>Phone the caller now.</strong>
+            </li>
+            <li>Tell them another service is being found.</li>
+            <li>If nobody acts within 10 minutes, the shift lead is alerted.</li>
+          </ol>
         </>
       )}
       {failed ? (

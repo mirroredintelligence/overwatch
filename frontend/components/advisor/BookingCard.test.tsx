@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BookingState } from '@/lib/advisor/bookings';
@@ -100,6 +100,15 @@ describe('BookingCard: booked', () => {
     expect(screen.getByRole('button', { name: 'Copy summary for SystmOne' })).toHaveAttribute('data-el', 'ADV-BOOK-NEXT-BTN');
     expect(screen.getByRole('button', { name: 'Record outcome' })).toHaveAttribute('data-el', 'ADV-BOOK-OUTCOME-BTN');
     expect(await runAxe(container)).toHaveNoViolations();
+  });
+
+  it('opens the cancel dialog under its title with the booking reference and the confirmation time', async () => {
+    const onCancelBooking = vi.fn();
+    renderCard(STATE_CONFIRMED, { onCancelBooking });
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel booking' }));
+    const dialog = screen.getByRole('dialog', { name: 'Cancel booking' });
+    expect(within(dialog).getByText('Booking 4821 · confirmed 14:19')).toBeInTheDocument();
+    expect(within(dialog).getByRole('heading', { level: 3, name: 'Cancel the booking with UCR West?' })).toBeInTheDocument();
   });
 });
 

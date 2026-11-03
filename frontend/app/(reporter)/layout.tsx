@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
-import { StaffShell } from '@/app/StaffShell';
 
-// The staff header and page frame around every page of this route group (components/shell).
+// No staff header here. The installed app's pages (/app/*) get their frame from app/(reporter)/app/layout.tsx,
+// and the set-up pages (/setup/*) mount their own ProviderShell.
 export default function Layout({ children }: { children: ReactNode }) {
-  return <StaffShell>{children}</StaffShell>;
+  return <>{children}</>;
 }

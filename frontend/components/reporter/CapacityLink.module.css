@@ -1,0 +1,287 @@
+/* The capacity link pages (artboards B1, B2, B3, D1, St): a card stack in the link frame, phone first.
+   Raw colours, each because the boards use one that has no token: #e6ecee (the dashed "not sent" fill),
+   #4b2200 and #7a3500 (the amber panel's text and picture), and the blue shadow under the primary. */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  color: var(--c-ink);
+}
+
+.cardPlain {
+  box-shadow: none;
+  border: 1px solid var(--c-line);
+  padding: 16px 18px;
+  gap: 6px;
+}
+
+.cardStart {
+  align-items: flex-start;
+}
+
+.cardCentre {
+  align-items: center;
+}
+
+.heading {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.15;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.body {
+  margin: 0;
+  color: var(--c-ink-2);
+  font-size: 18px;
+  line-height: 1.45;
+}
+
+.note {
+  margin: 2px 4px 0;
+  color: var(--c-muted);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.noteLarge {
+  margin: 0 4px;
+  color: var(--c-muted);
+  font-size: 16px;
+}
+
+.aside {
+  margin: 0;
+  padding: 0 4px;
+  color: var(--c-ink-2);
+  font-size: 17px;
+  line-height: 1.4;
+}
+
+.asideHead {
+  margin: 0;
+  color: var(--c-muted);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.asideText {
+  margin: 0;
+  color: var(--c-ink-2);
+  font-size: 17px;
+  line-height: 1.4;
+}
+
+/* Tags: a word with a shape, never colour alone. */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: var(--space-2);
+  padding: 6px var(--space-3);
+  border-radius: var(--radius-chip);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.tagTint {
+  background: var(--c-tint);
+  color: var(--c-primary-dark);
+}
+
+.tagDark {
+  background: var(--c-closed);
+  color: #fff;
+}
+
+.tagDashed {
+  background: #e6ecee;
+  color: var(--c-ink-2);
+  border: 2px dashed var(--c-unknown);
+}
+
+.tag svg {
+  flex: none;
+}
+
+/* The round tick on the thank-you card. */
+.tick {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--c-tint);
+  color: var(--c-primary);
+}
+
+/* The figure on the thank-you card: the same size as the figure card's, and as still. */
+.figureRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.figure {
+  flex: none;
+  color: var(--c-primary-dark);
+  font-size: 96px;
+  font-weight: 700;
+  line-height: 0.95;
+  font-variant-numeric: tabular-nums;
+}
+
+.unit {
+  color: var(--c-ink-2);
+  font-size: 19px;
+  line-height: 1.3;
+}
+
+/* Buttons: the primary is 58px, the others 54 and 50, all above the 44px floor. */
+.btn {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 0 var(--space-4);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform var(--dur-press) var(--ease-out);
+}
+
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.btn:focus-visible {
+  outline: var(--focus);
+  outline-offset: 3px;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+}
+
+.btn[aria-busy='true'] {
+  opacity: 0.7;
+}
+
+.primary {
+  min-height: 58px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--c-primary);
+  color: #fff;
+  font-size: 19px;
+  box-shadow: 0 6px 16px rgb(11 92 140 / 0.28);
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--c-primary-dark);
+}
+
+.primaryDark {
+  background: var(--c-closed);
+  box-shadow: none;
+}
+
+.primaryDark:hover:not(:disabled) {
+  background: var(--c-ink-2);
+}
+
+/* Nothing chosen yet: dashed and grey, and it says what to do. */
+.off {
+  border: 2px dashed var(--c-unknown);
+  background: #e6ecee;
+  color: var(--c-muted);
+  box-shadow: none;
+}
+
+.off:hover:not(:disabled) {
+  background: #e6ecee;
+}
+
+.outline {
+  min-height: 54px;
+  border: 2px solid var(--c-primary);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--c-primary);
+  font-size: 18px;
+}
+
+.dashed {
+  min-height: 50px;
+  border: 2px dashed var(--c-unknown);
+  border-radius: 14px;
+  background: transparent;
+  color: var(--c-ink-2);
+  font-size: 17px;
+}
+
+.plain {
+  border: 0;
+  text-decoration: underline;
+}
+
+/* The amber panel that asks once (artboard B2, board 2). */
+.ask {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  background: var(--c-amber-tint);
+  color: #4b2200;
+}
+
+.ask svg {
+  flex: none;
+  color: #7a3500;
+}
+
+.askTitle {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.askText {
+  margin: 4px 0 0;
+  font-size: 17px;
+  line-height: 1.4;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}

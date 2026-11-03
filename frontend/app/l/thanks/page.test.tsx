@@ -21,24 +21,48 @@ describe('the thank-you page', () => {
   it('says what was recorded, when, and when the next update is due, from a sealed detail', async () => {
     const text = await thanks({ d: await sealThanks(RECORDED_ANSWER) });
     expect(text).toContain('Thank you');
-    expect(text).toContain('UCR West: 3 referrals in the next 2 hrs, recorded at 10:12.');
+    expect(text).toContain('|3|');
+    expect(text).toContain('referrals in the next 2 hrs');
+    expect(text).toContain('UCR West, recorded at 10:12.');
     expect(text).toContain('Next update due 12:00');
     expect(text).toContain('See the live board');
     expect(text).toContain('You can close this page.');
   });
 
-  it('opens with the done mark and boxes the next update (Reporter, Confirmation)', async () => {
+  it('opens with the done mark, shows the figure read-only in the same card, and tags the next update (artboard B1, board 3)', async () => {
     const element = await ThanksPage({ searchParams: Promise.resolve({ d: await sealThanks(RECORDED_ANSWER) }) });
     const markup = renderToStaticMarkup(element as React.ReactElement);
     expect(markup).toContain('data-el="REP-LINK-THANKS-MARK"');
     expect(markup).toContain('data-tone="done"');
-    expect(markup).toMatch(/data-el="REP-LINK-NEXT-DUE">Next update due 12:00</);
+    expect(markup).toMatch(/<h1[^>]*>Thank you<\/h1>/);
+    expect(markup).toMatch(/data-figure="3"/);
+    expect(markup).toMatch(/data-el="REP-LINK-NEXT-DUE"[^>]*>Next update due 12:00</);
+    // A read-only figure: nothing on the page edits it, and no button posts.
+    expect(markup).not.toContain('<button');
+    expect(markup).not.toContain('<input');
+  });
+
+  it('is framed as a link page: the mark, no "No login needed" tag', async () => {
+    const element = await ThanksPage({ searchParams: Promise.resolve({ d: await sealThanks(RECORDED_ANSWER) }) });
+    const markup = renderToStaticMarkup(element as React.ReactElement);
+    expect(markup).toContain('Overwatch');
+    expect(markup).not.toContain('No login needed');
+  });
+
+  it('says a figure of 0 as a figure, not as nothing', async () => {
+    const markup = renderToStaticMarkup(
+      (await ThanksPage({ searchParams: Promise.resolve({ d: await sealThanks({ ...RECORDED_ANSWER, value: 0 }) }) })) as React.ReactElement,
+    );
+    expect(markup).toMatch(/data-figure="0"/);
   });
 
   it('says thank you and claims nothing was recorded when the address carries no sealed detail', async () => {
     const text = await thanks({});
     expect(text).toContain('Thank you');
     expect(text).not.toMatch(/recorded at/);
+    expect(text).not.toContain('Next update due');
+    const markup = renderToStaticMarkup((await ThanksPage({ searchParams: Promise.resolve({}) })) as React.ReactElement);
+    expect(markup).not.toContain('data-figure');
     expect(text).toContain('You can close this page.');
   });
 

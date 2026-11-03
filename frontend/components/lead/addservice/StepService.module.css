@@ -24,7 +24,8 @@
   display: none;
 }
 
-.stage {
+/* Scoped to the page: the grid's own min-height is 0, and an equal selector loses to it by order. */
+.page .stage {
   min-height: 42rem;
 }
 

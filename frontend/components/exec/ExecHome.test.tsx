@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import type { Board, BoardEntry } from '@/lib/board/types';
+import type { WeekSummary } from '@/lib/exec/weekSummary';
 import { runAxe } from '@/test/a11y';
 import { ExecHome } from './ExecHome';
 
@@ -61,6 +62,77 @@ describe('ExecHome', () => {
     expect(screen.getByRole('link', { name: 'Alerts on this phone' })).toHaveAttribute('href', '/planning/phone');
     rerender(<ExecHome board={sample} name="Dorset" />);
     expect(screen.queryByRole('link', { name: 'Alerts on this phone' })).not.toBeInTheDocument();
+  });
+
+  it('sits on the planning stage at its home state', () => {
+    const { container } = render(<ExecHome board={sample} name="Dorset" />);
+    expect(container.querySelector('[data-planning-stage]')).toHaveAttribute('data-planning-stage', 'home');
+  });
+
+  it('counts the services in five tiles, each a number and a word', () => {
+    render(<ExecHome board={sample} name="Dorset" />);
+    const group = screen.getByRole('group', { name: 'Services by state' });
+    const tiles = within(group).getAllByRole('listitem');
+    expect(tiles).toHaveLength(5);
+    expect(within(tiles[0]).getByText('1')).toBeInTheDocument();
+    expect(within(tiles[0]).getByText(/Accepting/)).toBeInTheDocument();
+    expect(within(tiles[3]).getByText(/Over capacity/)).toBeInTheDocument();
+    expect(within(tiles[4]).getByText(/Not updated/)).toBeInTheDocument();
+  });
+
+  it('gives each service that needs attention a status in words and an Open link that names the service', () => {
+    render(<ExecHome board={sample} name="Dorset" />);
+    const list = screen.getByRole('list', { name: 'Needs attention (3)' });
+    expect(within(list).getByText('Over capacity')).toBeInTheDocument();
+    expect(within(list).getByText('Not accepting')).toBeInTheDocument();
+    expect(within(list).getByText('Not updated')).toBeInTheDocument();
+    expect(within(list).getByRole('link', { name: 'Open Hospital at home' })).toHaveAttribute('href', '/planning/services/a');
+    expect(within(list).getByRole('link', { name: 'Open Virtual ward' })).toHaveAttribute('href', '/planning/services/c');
+  });
+
+  it('says why the list is empty when nothing needs attention, never a blank', () => {
+    const calm: Board = { ...sample, pressure: 'normal', entries: [sample.entries[4]!, sample.entries[1]!] };
+    render(<ExecHome board={calm} name="Dorset" />);
+    expect(screen.getByText('Nothing needs attention')).toBeInTheDocument();
+    expect(screen.getByText(/All 2 services/)).toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: 'Needs attention (0)' })).not.toBeInTheDocument();
+  });
+
+  describe('the week glance', () => {
+    const week: WeekSummary = {
+      from: '2026-10-17',
+      to: '2026-10-23',
+      referrals: { value: 640, suppressed: false },
+      bestFitUnavailablePct: { value: 4, suppressed: false },
+      onTimePct: { value: 92, suppressed: false },
+      medianMinutesToConfirmed: { value: 9, suppressed: false },
+      updates: { value: 1200, suppressed: false },
+      minutesPerCall: null,
+      timeBackText: null,
+    };
+
+    it('shows the week, the referrals and the updates on time, and the way to the week', () => {
+      render(<ExecHome board={sample} name="Dorset" week={week} />);
+      const glance = screen.getByRole('region', { name: 'This week' });
+      expect(within(glance).getByText('17 to 23 Oct')).toBeInTheDocument();
+      expect(within(glance).getByText('640')).toBeInTheDocument();
+      expect(within(glance).getByText('referrals')).toBeInTheDocument();
+      expect(within(glance).getByText('92%')).toBeInTheDocument();
+      expect(within(glance).getByText('updates on time')).toBeInTheDocument();
+      expect(within(glance).getByRole('link', { name: 'See the week' })).toHaveAttribute('href', '/planning/week');
+    });
+
+    it('never shows a withheld figure as a number', () => {
+      render(<ExecHome board={sample} name="Dorset" week={{ ...week, referrals: { value: null, suppressed: true } }} />);
+      expect(within(screen.getByRole('region', { name: 'This week' })).getByText('fewer than 10')).toBeInTheDocument();
+    });
+
+    it('says so when the week could not be read, and still offers the way to it', () => {
+      render(<ExecHome board={sample} name="Dorset" week={null} />);
+      const glance = screen.getByRole('region', { name: 'This week' });
+      expect(within(glance).getByText('The figures for the week could not be read.')).toBeInTheDocument();
+      expect(within(glance).getByRole('link', { name: 'See the week' })).toBeInTheDocument();
+    });
   });
 
   it('has no accessibility violations', async () => {

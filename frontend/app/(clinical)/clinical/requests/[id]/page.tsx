@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { CaseView } from '@/components/clinical/CaseView';
 import { getSession } from '@/lib/auth/session';
-import { readRequest, readSeen } from '@/lib/clinical/clinicalServer';
+import { readQueue, readRequest, readSeen } from '@/lib/clinical/clinicalServer';
 
 export const metadata: Metadata = { title: 'Case - Overwatch' };
 export const dynamic = 'force-dynamic';
@@ -20,9 +20,11 @@ export default async function ClinicalCasePage({ params }: { params: Promise<{ i
   if (!ID.test(id)) redirect('/clinical/requests');
   const request = await readRequest(session, id).catch(() => null);
   const seen = request !== null && request.glance !== null && request.status !== 'requested' ? await readSeen(session, id).catch(() => null) : null;
+  // The slim queue beside the case: the waiting requests, only while this one is held. A read that fails shows none.
+  const queue = request !== null && request.status === 'in-progress' ? await readQueue(session).catch(() => []) : [];
   return (
     <main>
-      <CaseView requestId={id} request={request} seen={seen} />
+      <CaseView requestId={id} request={request} seen={seen} queue={queue} />
     </main>
   );
 }

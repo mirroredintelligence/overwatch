@@ -1,0 +1,33 @@
+/* The period filter of the access log: three pills, one pressed. Tokens from app/tokens.css only. */
+.periods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.period {
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border: 2px solid var(--c-line);
+  border-radius: 999px;
+  background: Canvas;
+  color: var(--c-ink);
+  font: inherit;
+  font-size: var(--type-label-size);
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-state) var(--ease-out),
+    border-color var(--dur-state) var(--ease-out);
+}
+
+.period[aria-pressed='true'] {
+  border-color: var(--c-primary);
+  background: var(--c-primary);
+  color: Canvas;
+}
+
+.period:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}

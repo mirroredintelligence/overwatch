@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
 import {
   INSIGHT_FRICTION,
@@ -182,6 +182,22 @@ describe('InsightTabs: what the back end answers', () => {
     expect(await screen.findByText('Two releases with at least 10 sessions each are needed to compare.')).toBeInTheDocument();
     expect(screen.getByRole('table', { name: /pipeline health/i })).toBeInTheDocument();
     expect(screen.queryByRole('table', { name: /release comparison/i })).not.toBeInTheDocument();
+  });
+});
+
+describe('InsightTabs: while a view is loading', () => {
+  it('shows the shared shimmer with its words for a screen reader, and not a bare word', async () => {
+    server.use(
+      http.get('/api/bff/console/insight/:tab', async () => {
+        await delay('infinite');
+        return HttpResponse.json({});
+      }),
+    );
+    render(<InsightTabs initialTab="funnels" />);
+
+    const status = await screen.findByRole('status');
+    expect(status).toHaveTextContent('Loading the insight view.');
+    expect(status).toHaveAttribute('aria-busy', 'true');
   });
 });
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Chip } from '@/components/ui/Chip';
+import { Loading, SkeletonRows } from '@/components/ui/Skeleton';
 import {
   DEVICES,
   RANGES,
@@ -20,6 +21,7 @@ import {
   type Vital,
 } from '@/lib/console/insight';
 import styles from '../Console.module.css';
+import insight from './Insight.module.css';
 import { FrictionTab } from './FrictionTab';
 import { FunnelsTab } from './FunnelsTab';
 import { PathsTab } from './PathsTab';
@@ -78,38 +80,40 @@ export function InsightTabs({ initialTab }: { initialTab: InsightTab }) {
 
   return (
     <div className={styles.page}>
-      <div role="tablist" aria-label="Insight views" className={styles.chips}>
-        {TABS.map((name) => (
-          <button
-            key={name}
-            type="button"
-            role="tab"
-            id={`tab-${name}`}
-            aria-selected={tab === name}
-            aria-controls="insight-panel"
-            tabIndex={tab === name ? 0 : -1}
-            data-el={`CON-INS-TAB-${name.toUpperCase()}`}
-            onClick={() => setTab(name)}
-            className={styles.tab}
-          >
-            {TAB_LABELS[name]}
-          </button>
-        ))}
-      </div>
-      <div className={styles.chips} role="group" aria-label="Time range">
-        {RANGES.map((item) => (
-          <Chip
-            key={item.value}
-            pressed={range === item.value}
-            onPressedChange={() => setRange(item.value)}
-            dataEl={`CON-INS-RANGE-${item.value.toUpperCase()}`}
-          >
-            {item.label}
-          </Chip>
-        ))}
+      <div className={insight.toolbar}>
+        <div role="tablist" aria-label="Insight views" className={insight.tabs}>
+          {TABS.map((name) => (
+            <button
+              key={name}
+              type="button"
+              role="tab"
+              id={`tab-${name}`}
+              aria-selected={tab === name}
+              aria-controls="insight-panel"
+              tabIndex={tab === name ? 0 : -1}
+              data-el={`CON-INS-TAB-${name.toUpperCase()}`}
+              onClick={() => setTab(name)}
+              className={insight.tab}
+            >
+              {TAB_LABELS[name]}
+            </button>
+          ))}
+        </div>
+        <div className={insight.rangeGroup} role="group" aria-label="Time range">
+          {RANGES.map((item) => (
+            <Chip
+              key={item.value}
+              pressed={range === item.value}
+              onPressedChange={() => setRange(item.value)}
+              dataEl={`CON-INS-RANGE-${item.value.toUpperCase()}`}
+            >
+              {item.label}
+            </Chip>
+          ))}
+        </div>
       </div>
       {tab !== 'releases' && (
-        <div className={styles.chips} role="group" aria-label="Device">
+        <div className={insight.filters} role="group" aria-label="Device">
           <Chip pressed={device === null} onPressedChange={() => setDevice(null)} dataEl="CON-INS-DEVICE-ALL">
             All devices
           </Chip>
@@ -127,11 +131,15 @@ export function InsightTabs({ initialTab }: { initialTab: InsightTab }) {
       )}
       <div role="tabpanel" id="insight-panel" aria-labelledby={`tab-${tab}`}>
         {error !== null && <p role="alert" className={styles.alert}>{error}</p>}
-        {error === null && data === null && <p className={styles.help}>Loading</p>}
+        {error === null && data === null && (
+          <Loading label="Loading the insight view.">
+            <SkeletonRows count={3} />
+          </Loading>
+        )}
         {data !== null && tab === 'funnels' && (
           <>
             {funnels.length > 1 && (
-              <div className={styles.chips} role="group" aria-label="Funnel">
+              <div className={insight.filters} role="group" aria-label="Funnel">
                 {funnels.map((funnel) => (
                   <Chip
                     key={funnel.name}

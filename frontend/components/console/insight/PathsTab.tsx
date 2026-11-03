@@ -1,5 +1,6 @@
 import type { PathRow } from '@/lib/console/insight';
 import styles from '../Console.module.css';
+import insight from './Insight.module.css';
 
 // Navigation paths (W49): the common route templates, the U-turns and the elements no one used.
 
@@ -14,15 +15,15 @@ export function PathsTab({
   unused: readonly string[] | null;
 }) {
   return (
-    <div className={styles.page}>
-      <section className={styles.section} aria-labelledby="paths-common">
-        <h2 id="paths-common" className={styles.heading}>Most common routes</h2>
+    <section className={insight.panel} aria-label="Paths">
+      <div className={insight.scroll}>
         <table className={styles.table} aria-label="Most common routes table">
+          <caption className={`${insight.eyebrow} ${insight.caption}`}>Most common routes</caption>
           <thead>
             <tr>
               <th scope="col">Route</th>
               <th scope="col">Sessions</th>
-              <th scope="col">Median time on page</th>
+              <th scope="col">Median time</th>
             </tr>
           </thead>
           <tbody>
@@ -35,17 +36,17 @@ export function PathsTab({
             ))}
           </tbody>
         </table>
-      </section>
-      <section className={styles.section} aria-labelledby="paths-uturns">
-        <h2 id="paths-uturns" className={styles.heading}>U-turns: left within 5 s</h2>
+      </div>
+      <section aria-labelledby="paths-uturns">
+        <h2 id="paths-uturns" className={insight.subheading}>U-turns: left within 5 s</h2>
         <ul>
           {uTurns.map((row) => (
             <li key={row.route}>{row.route}: {row.suppressed || row.sessions === null ? 'fewer than 10' : row.sessions}</li>
           ))}
         </ul>
       </section>
-      <section className={styles.section} aria-labelledby="paths-unused">
-        <h2 id="paths-unused" className={styles.heading}>Never used this week</h2>
+      <section aria-labelledby="paths-unused">
+        <h2 id="paths-unused" className={insight.subheading}>Never used this week</h2>
         {unused === null ? (
           <p className={styles.help}>Not measured yet: this needs the list of every control.</p>
         ) : (
@@ -56,6 +57,6 @@ export function PathsTab({
           </ul>
         )}
       </section>
-    </div>
+    </section>
   );
 }

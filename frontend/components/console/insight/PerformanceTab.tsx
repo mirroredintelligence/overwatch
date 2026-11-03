@@ -1,8 +1,10 @@
 import { budgetStatus } from '@/lib/console/budget';
 import type { Slow, Vital } from '@/lib/console/insight';
 import styles from '../Console.module.css';
+import insight from './Insight.module.css';
 
-// Performance against budgets (W49). Each status is a word from budgetStatus.
+// Performance against budgets (W49). Each status is a word from budgetStatus, with a shape beside it: a dot
+// within the budget, a triangle over it. A row over budget is tinted, as the friction rows are.
 
 type Props = {
   vitals: readonly Vital[];
@@ -17,10 +19,10 @@ function show(value: number, unit: Vital['unit']): string {
 
 export function PerformanceTab({ vitals, slowestRoutes, slowestQueries, promptToBoard }: Props) {
   return (
-    <div className={styles.page}>
-      <section className={styles.section} aria-labelledby="vitals-heading">
-        <h2 id="vitals-heading" className={styles.heading}>Web vitals</h2>
+    <section className={insight.panel} aria-label="Performance">
+      <div className={insight.scroll}>
         <table className={styles.table} aria-label="Web vitals table">
+          <caption className={`${insight.eyebrow} ${insight.caption}`}>Web vitals, p75 against budget</caption>
           <thead>
             <tr>
               <th scope="col">Measure</th>
@@ -31,36 +33,48 @@ export function PerformanceTab({ vitals, slowestRoutes, slowestQueries, promptTo
             </tr>
           </thead>
           <tbody>
-            {vitals.map((vital) => (
-              <tr key={`${vital.metric}-${vital.device}`}>
-                <td>{vital.measure}</td>
-                <td>{vital.device}</td>
-                {vital.suppressed || vital.p75 === null ? (
-                  <>
+            {vitals.map((vital) => {
+              if (vital.suppressed || vital.p75 === null) {
+                return (
+                  <tr key={`${vital.metric}-${vital.device}`}>
+                    <td>{vital.measure}</td>
+                    <td>{vital.device}</td>
                     <td>fewer than 10</td>
                     <td>{show(vital.budget, vital.unit)}</td>
                     <td></td>
-                  </>
-                ) : (
-                  <>
-                    <td>{show(vital.p75, vital.unit)}</td>
-                    <td>{show(vital.budget, vital.unit)}</td>
-                    <td>{budgetStatus(vital.p75, vital.budget)}</td>
-                  </>
-                )}
-              </tr>
-            ))}
+                  </tr>
+                );
+              }
+              const status = budgetStatus(vital.p75, vital.budget);
+              const over = status === 'Over budget';
+              return (
+                <tr key={`${vital.metric}-${vital.device}`} data-flagged={over ? '' : undefined}>
+                  <td>{vital.measure}</td>
+                  <td>{vital.device}</td>
+                  <td>
+                    <b>{show(vital.p75, vital.unit)}</b>
+                  </td>
+                  <td>{show(vital.budget, vital.unit)}</td>
+                  <td>
+                    <span className={over ? insight.bad : insight.ok}>
+                      <span aria-hidden="true">{over ? '▲ ' : '● '}</span>
+                      {status}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
-      </section>
-      <section className={styles.section} aria-labelledby="routes-heading">
-        <h2 id="routes-heading" className={styles.heading}>Slowest routes</h2>
+      </div>
+      <section aria-labelledby="routes-heading">
+        <h2 id="routes-heading" className={insight.subheading}>Slowest routes</h2>
         <ol>
           {slowestRoutes.map((route) => (
             <li key={route.name}>{route.name}: p95 {Math.round(route.p95Ms)} ms</li>
           ))}
         </ol>
-        <h2 className={styles.heading}>Slowest Cypher queries</h2>
+        <h2 className={insight.subheading}>Slowest Cypher queries</h2>
         <ol>
           {slowestQueries.map((query) => (
             <li key={query.name}>{query.name}: p95 {Math.round(query.p95Ms)} ms</li>
@@ -71,9 +85,9 @@ export function PerformanceTab({ vitals, slowestRoutes, slowestQueries, promptTo
         <p className={styles.help}>Prompt to board: not measured yet.</p>
       ) : (
         <p>
-          Prompt to board: System time {promptToBoard.systemSeconds} s, Human time {promptToBoard.humanMinutes} min
+          Prompt to board: system time {promptToBoard.systemSeconds} s, human time {promptToBoard.humanMinutes} min.
         </p>
       )}
-    </div>
+    </section>
   );
 }

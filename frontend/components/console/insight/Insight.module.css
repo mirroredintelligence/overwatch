@@ -1,0 +1,257 @@
+/* The insight page's own look (CInsightA and CInsightB): tabs, panels, the funnel bars and the flagged rows.
+   Console.module.css is shared and frozen, so what this page needs beyond it lives here. */
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--chip-h);
+  padding: 0 var(--space-4);
+  border: 2px solid var(--c-line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--c-ink);
+  font: inherit;
+  font-weight: var(--type-label-weight);
+  cursor: pointer;
+  transition: background-color var(--dur-state) var(--ease-out);
+}
+
+.tab:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.tab[aria-selected='true'] {
+  background: var(--c-primary-dark);
+  border-color: var(--c-primary-dark);
+  color: var(--c-bg);
+}
+
+.rangeGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.panel {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--c-muted);
+  font-size: var(--type-label-size);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.caption {
+  caption-side: top;
+  text-align: left;
+}
+
+.scroll {
+  overflow-x: auto;
+}
+
+.funnelLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-4);
+}
+
+.side {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+/* One step of a funnel: name, bar, share, change. The grid is set so the four columns line up. */
+.steps {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step,
+.stepBiggest {
+  display: grid;
+  grid-template-columns: minmax(6rem, 13rem) minmax(0, 1fr) 3.5rem minmax(4.5rem, auto);
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius);
+}
+
+.stepBiggest {
+  background: var(--c-amber-tint);
+}
+
+.stepName {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* A step under 10 sessions: no bar, the words span the three columns that would hold it. */
+.suppressed {
+  grid-column: 2 / span 3;
+  color: var(--c-muted);
+}
+
+.bar {
+  height: 1.375rem;
+  border-radius: 5px;
+  background: var(--c-primary);
+  box-sizing: border-box;
+}
+
+/* The biggest drop's bar: hatched with a border, so it reads without colour. */
+.hatched {
+  border: 2px solid var(--c-limited);
+  background: repeating-linear-gradient(135deg, var(--c-limited) 0 5px, var(--c-amber-tint) 5px 8px);
+}
+
+.pct {
+  font-weight: 700;
+  text-align: right;
+}
+
+.delta {
+  color: var(--c-muted);
+  text-align: right;
+}
+
+.deltaBiggest {
+  color: var(--c-limited);
+  font-weight: 700;
+  text-align: right;
+}
+
+.dropCard {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 2px solid var(--c-limited);
+  border-radius: var(--radius-card);
+  background: #fff;
+}
+
+.dropCard p {
+  margin: 0;
+}
+
+.dropEyebrow {
+  color: var(--c-limited);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.button {
+  min-height: var(--btn-h);
+  padding: 0 var(--space-4);
+  border: 2px solid var(--c-primary);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--c-primary);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.button:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+/* A row the back end flags or the gate holds: a tint, and a word and a shape in the cell. */
+tr[data-flagged] > td {
+  background: var(--c-amber-tint);
+}
+
+.bad,
+.ok {
+  display: inline-block;
+  padding: 1px var(--space-2);
+  border-radius: 999px;
+  font-size: var(--type-caption-size);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.bad {
+  border: 2px solid var(--c-limited);
+  background: #fff;
+  color: var(--c-limited);
+}
+
+.ok {
+  background: var(--c-primary);
+  color: var(--c-bg);
+}
+
+.subheading {
+  margin: var(--space-2) 0 0;
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: var(--type-title-weight);
+}
+
+@media (max-width: 760px) {
+  .funnelLayout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .step,
+  .stepBiggest {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .step > .stepName,
+  .stepBiggest > .stepName {
+    grid-column: 1 / -1;
+  }
+
+  .step > .bar,
+  .stepBiggest > .bar {
+    grid-column: 1 / -1;
+  }
+
+  .suppressed {
+    grid-column: 1 / -1;
+  }
+}

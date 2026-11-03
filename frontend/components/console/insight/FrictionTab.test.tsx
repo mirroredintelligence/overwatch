@@ -56,12 +56,30 @@ describe('FrictionTab', () => {
     expect(screen.getByText('3 elements or pages with fewer than 10 sessions are not shown.')).toBeInTheDocument();
   });
 
-  it('links each control to the sessions for that element, and the page row to none', () => {
+  it('offers no link to example sessions: no route serves them, so the board element is not drawn', () => {
     render(<FrictionTab rows={ROWS} suppressedGroups={0} />);
 
-    const link = screen.getAllByRole('link', { name: /show example sessions/i })[0];
-    expect(link).toHaveAttribute('href', '/console?element=ADV-OPT-REQUEST-BTN');
-    expect(within(screen.getByRole('row', { name: /PAGE/ })).queryByRole('link')).toBeNull();
+    expect(screen.queryByRole('link', { name: /show example sessions/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+  });
+
+  it('shows the friction table without an interactions or examples column, as the board does', () => {
+    render(<FrictionTab rows={ROWS} suppressedGroups={0} />);
+
+    const table = screen.getByRole('table', { name: /friction by element/i });
+    expect(within(table).getByRole('columnheader', { name: 'Rate' })).toBeInTheDocument();
+    expect(within(table).queryByRole('columnheader', { name: 'Interactions' })).not.toBeInTheDocument();
+    expect(within(table).queryByRole('columnheader', { name: 'Examples' })).not.toBeInTheDocument();
+  });
+
+  it('marks a flagged row with its word and a shape, the shape hidden from a screen reader', () => {
+    render(<FrictionTab rows={ROWS} suppressedGroups={0} />);
+
+    const flagged = screen.getByRole('row', { name: /ADV-OPT-REQUEST-BTN/ });
+    expect(flagged).toHaveTextContent('Review');
+    expect(flagged.querySelector('[aria-hidden="true"]')).not.toBeNull();
+    expect(flagged).toHaveAttribute('data-flagged');
+    expect(screen.getByRole('row', { name: /ADV-SEARCH-BTN/ })).not.toHaveAttribute('data-flagged');
   });
 
   it('passes vitest-axe', async () => {

@@ -199,7 +199,7 @@
 }
 
 /* A row the back end flags or the gate holds: a tint, and a word and a shape in the cell. */
-tr[data-flagged] > td {
+:global(tr[data-flagged]) > td {
   background: var(--c-amber-tint);
 }
 

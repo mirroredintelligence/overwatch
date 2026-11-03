@@ -176,32 +176,32 @@
 }
 
 /* The fill of each status, shared by the stacked bar and the row bars. Colour is never the only cue: the words are beside it. */
-[data-status='accepting'] {
+:is(.stack, .track) [data-status='accepting'] {
   background: var(--c-primary);
 }
 
-[data-status='limited'] {
+:is(.stack, .track) [data-status='limited'] {
   background: var(--c-limited);
 }
 
-[data-status='not-accepting'] {
+:is(.stack, .track) [data-status='not-accepting'] {
   background: var(--c-closed);
 }
 
-[data-status='over-capacity'] {
+:is(.stack, .track) [data-status='over-capacity'] {
   background: repeating-linear-gradient(135deg, var(--c-surge) 0 5px, #fff 5px 8px);
 }
 
-[data-status='not-updated'] {
+:is(.stack, .track) [data-status='not-updated'] {
   background: #fff;
   border-left: 2px dashed var(--c-unknown);
 }
 
-[data-status='out-of-hours'] {
+:is(.stack, .track) [data-status='out-of-hours'] {
   background: var(--c-line);
 }
 
-[data-status='unavailable'] {
+:is(.stack, .track) [data-status='unavailable'] {
   background: var(--c-unknown);
 }
 

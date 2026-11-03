@@ -1,0 +1,91 @@
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.table thead th {
+  padding: 6px 4px 6px 4px;
+  border-bottom: 2px solid var(--c-line);
+  color: var(--c-muted);
+  font-size: var(--type-caption-size);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.table thead th:first-child {
+  width: 30%;
+}
+
+.table tbody th,
+.table tbody td {
+  padding: 14px 4px;
+  border-bottom: 1px solid var(--c-ground);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.what {
+  font-size: var(--type-body-size);
+  font-weight: 700;
+  color: var(--c-ink);
+}
+
+.box {
+  display: block;
+  box-sizing: border-box;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: var(--type-body-size);
+  overflow-wrap: anywhere;
+}
+
+.was .box {
+  background: var(--c-bg);
+  color: var(--c-ink);
+}
+
+/* The arrow sits in the gutter after the old value. It is decoration only. */
+.was {
+  position: relative;
+  padding-right: 40px;
+}
+
+.was::after {
+  content: '→' / '';
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 22px;
+  color: var(--c-muted);
+}
+
+.now .box {
+  border: 2px solid var(--c-limited);
+  background: var(--c-amber-tint);
+  color: #4a2300;
+  font-weight: 700;
+}
+
+.same th,
+.same td {
+  border-bottom: 0;
+}
+
+.same td {
+  color: var(--c-muted);
+  font-size: var(--type-label-size);
+}
+
+@media (max-width: 40rem) {
+  .table thead th:first-child {
+    width: 28%;
+  }
+
+  .was {
+    padding-right: 28px;
+  }
+}

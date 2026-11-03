@@ -22,6 +22,23 @@ async function typeDigits(digits: string) {
 }
 
 describe('LockedScreen', () => {
+  it('shows a Locked tag (shape and word) over the heading, with Text me a code as the primary and the other way as secondary (B8)', () => {
+    render(<LockedScreen reason={null} />);
+    expect(screen.getByRole('main')).toBeInTheDocument();
+    expect(screen.getByText('Locked')).toBeInTheDocument();
+    expect(screen.getByText('That was 5 wrong tries. Get a code by text to set a new PIN.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Text me a code' })).toHaveAttribute('data-variant', 'primary');
+    expect(screen.getByRole('button', { name: 'Use text or email instead' })).toHaveAttribute('data-variant', 'secondary');
+  });
+
+  it('keeps the card and the six-digit entry with its resend countdown after Text me a code', async () => {
+    render(<LockedScreen reason={null} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Text me a code' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Enter your code' })).toBeInTheDocument();
+    expect(screen.getByText(/Send a new code in 0:\d\d\./)).toBeInTheDocument();
+    expect(screen.getByRole('main')).toBeInTheDocument();
+  });
+
   it('takes a text code, then a new PIN entered twice, and lands on the app', async () => {
     const { container } = render(<LockedScreen reason={null} />);
     expect(screen.getByRole('heading', { name: 'Your PIN is locked' })).toBeInTheDocument();

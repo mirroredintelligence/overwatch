@@ -7,8 +7,8 @@ import { PinSetup } from '@/components/reporter/setup/PinSetup';
 import { Button } from '@/components/ui/Button';
 import { bffRequest } from '@/lib/reporter/browser';
 import { recordChannelForDevice } from '@/lib/reporter/channel';
-import { StatusMark } from '@/components/reporter/parts/StatusMark';
-import styles from '@/components/reporter/Reporter.module.css';
+import { StatusTag } from '@/components/ui/StatusTag';
+import styles from './Recovery.module.css';
 
 // The locked PIN (W37): a text code, then a new PIN entered twice. "Forgot your PIN?" (the link
 // from the PIN screen) has the same way out, without the five-tries line.
@@ -44,23 +44,45 @@ export function LockedScreen({ reason }: { reason: string | null }) {
   };
 
   if (stage === 'code') {
-    return <CodeEntry caption="Enter the code" sendCode={sendCode} checkCode={checkCode} onVerified={() => setStage('pin')} />;
+    return (
+      <main className={styles.page}>
+        <CodeEntry
+          sendCode={sendCode}
+          checkCode={checkCode}
+          onVerified={() => setStage('pin')}
+          intro={
+            <>
+              <h1 className={styles.title}>Enter your code</h1>
+              <p className={styles.lead}>We sent a code to the number we have for you.</p>
+            </>
+          }
+        />
+      </main>
+    );
   }
   if (stage === 'pin') return <PinSetup doneHref="/app" />;
 
   return (
     <main className={styles.page}>
-      {forgot ? null : <StatusMark tone="closed" dataEl="REP-LOCKED-MARK" />}
-      <h1 className={styles.title}>{forgot ? 'Forgot your PIN?' : 'Your PIN is locked'}</h1>
-      {forgot ? null : <p>That was 5 wrong tries. Get a code by text to set a new PIN.</p>}
-      <p>Nothing was sent or changed.</p>
-      {notice !== null ? <p role="alert">{notice}</p> : null}
-      <Button variant="primary" dataEl="REP-LOCKED-CODE-BTN" onClick={() => void textMe()}>
-        Text me a code
-      </Button>
-      <Button variant="neutral" dataEl="REP-LOCKED-CHANNEL-BTN" onClick={() => void chooseText()}>
-        Use text or email instead
-      </Button>
+      <div className={styles.card}>
+        {forgot ? null : <StatusTag variant="closed">Locked</StatusTag>}
+        <h1 className={styles.title}>{forgot ? 'Forgot your PIN?' : 'Your PIN is locked'}</h1>
+        {forgot ? null : <p className={styles.lead}>That was 5 wrong tries. Get a code by text to set a new PIN.</p>}
+        <p className={styles.note}>Nothing was sent or changed.</p>
+      </div>
+      {notice !== null ? (
+        <p role="alert" className={styles.alert}>
+          {notice}
+        </p>
+      ) : null}
+      <div className={styles.actions}>
+        <Button variant="primary" dataEl="REP-LOCKED-CODE-BTN" onClick={() => void textMe()}>
+          Text me a code
+        </Button>
+        <Button variant="secondary" dataEl="REP-LOCKED-CHANNEL-BTN" onClick={() => void chooseText()}>
+          Use text or email instead
+        </Button>
+      </div>
     </main>
   );
 }

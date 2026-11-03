@@ -39,6 +39,11 @@ describe('result marks', () => {
     const { container } = render(<BookingDecision token={LINK.booking} initialClosed={{ ...CLOSED, state: 'expired' }} />);
     expect(screen.getByRole('heading', { level: 1, name: 'This request has closed' })).toBeInTheDocument();
     expect(markOf(container)).toHaveAttribute('data-tone', 'closed');
+    expect(markOf(container)?.querySelector('svg')).not.toBeNull();
+    expect(markOf(container)).toHaveAttribute('aria-hidden', 'true');
+    // The booking page opens in the link frame, without the "No login needed" tag on a result page.
+    expect(container.querySelector('header')).toHaveTextContent('Overwatch');
+    expect(container.querySelector('header')).not.toHaveTextContent('No login needed');
   });
 
   it('a withdrawn booking shows the closed mark, and a booking cancelled by the coordination team too', () => {

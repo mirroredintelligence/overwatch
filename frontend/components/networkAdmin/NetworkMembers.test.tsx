@@ -38,24 +38,25 @@ describe('what the page says', () => {
     await open();
     const table = byEl('NADM-MEMBERS-TABLE');
     expect(table.tagName).toBe('TABLE');
-    expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Organisation', 'Status', 'Joined', 'Left', 'Agreement version accepted', 'Action']);
+    expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Organisation', 'Status', 'Joined', 'Agreement', 'Action']);
     expect(within(rowOf('Sample Area A')).getByText('Active')).toBeInTheDocument();
     expect(within(rowOf('Sample Area A')).getByText('2 Oct 2026')).toBeInTheDocument();
     expect(within(rowOf('Sample Area C')).getByText('Invited')).toBeInTheDocument();
+    expect(within(rowOf('Sample Area C')).getByText('Not yet')).toBeInTheDocument();
     expect(within(rowOf('Sample Area D')).getByText('Left')).toBeInTheDocument();
-    expect(within(rowOf('Sample Area D')).getByText('28 Oct 2026')).toBeInTheDocument();
+    expect(within(rowOf('Sample Area D')).getByText('Left 28 Oct 2026')).toBeInTheDocument();
     expect(within(rowOf('Sample Area E')).getByText('Removed')).toBeInTheDocument();
   });
 
   it('says in words which row is the network owner’s own', async () => {
     await open();
-    expect(within(rowOf('Sample Lead Organisation')).getByText('Network owner')).toBeInTheDocument();
+    expect(within(rowOf('Sample Lead Organisation')).getByText('(owner)')).toBeInTheDocument();
   });
 
-  it('flags a member that is behind the agreement, in words, with the version that is available', async () => {
+  it('flags a member that is behind the agreement, in words, beside the version it accepted', async () => {
     await open();
-    expect(within(rowOf('Sample Area B')).getByText('Agreement version 2 is available')).toBeInTheDocument();
-    expect(within(rowOf('Sample Area A')).queryByText(/is available/)).not.toBeInTheDocument();
+    expect(within(rowOf('Sample Area B')).getByText('Behind v2')).toBeInTheDocument();
+    expect(within(rowOf('Sample Area A')).queryByText(/Behind/)).not.toBeInTheDocument();
   });
 
   it('shows what each organisation’s sharing is, as states and dates, never a row of data', async () => {
@@ -129,21 +130,29 @@ describe('which network', () => {
 });
 
 describe('adding an organisation', () => {
-  it('opens a dialog with the code field, its help and the two buttons, and returns focus when it is cancelled', async () => {
+  it('opens in place, not in a dialog: the code field, its help, the answer for a wrong code, and the two buttons; focus goes to the code', async () => {
+    const user = await open();
+    await user.click(byEl('NADM-MEMBER-ADD-BTN'));
+    const panel = screen.getByRole('region', { name: 'Add an organisation' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(within(panel).getByLabelText('Organisation code')).toHaveFocus();
+    expect(within(panel).getByText("The code is on the organisation's administration page.")).toBeInTheDocument();
+    expect(within(panel).getByText(/If the code is wrong, ineligible or already invited, the answer is the same/)).toBeInTheDocument();
+    expect(within(panel).getByRole('button', { name: 'Send invitation' })).toBeInTheDocument();
+    expect(within(panel).getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+  });
+
+  it('closes when it is cancelled, gives focus back to the Add button, and sends nothing', async () => {
     const user = await open();
     const opener = byEl('NADM-MEMBER-ADD-BTN');
     await user.click(opener);
-    const dialog = screen.getByRole('dialog', { name: 'Add an organisation' });
-    expect(within(dialog).getByLabelText('Organisation code')).toBeInTheDocument();
-    expect(within(dialog).getByText("The code is on the organisation's administration page.")).toBeInTheDocument();
-    expect(within(dialog).getByRole('button', { name: 'Send invitation' })).toBeInTheDocument();
-    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await user.click(within(screen.getByRole('region', { name: 'Add an organisation' })).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('region', { name: 'Add an organisation' })).not.toBeInTheDocument();
     expect(opener).toHaveFocus();
     expect(seenNetworkAdminWrites).toEqual([]);
   });
 
-  it('sends the code with the CSRF token and says the invitation is sent', async () => {
+  it('sends the code with the CSRF token, says the invitation is sent, and closes the panel', async () => {
     const user = await open();
     await user.click(byEl('NADM-MEMBER-ADD-BTN'));
     await user.type(screen.getByLabelText('Organisation code'), 'sample-area-c');
@@ -151,7 +160,7 @@ describe('adding an organisation', () => {
     await waitFor(() => expect(seenNetworkAdminWrites).toHaveLength(1));
     expect(seenNetworkAdminWrites[0]).toMatchObject({ method: 'POST', path: '/api/bff/network-admin/members', csrf: SAMPLE_CSRF, body: { organisationCode: 'sample-area-c' } });
     expect(await screen.findByRole('status')).toHaveTextContent('Invitation sent.');
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Add an organisation' })).not.toBeInTheDocument();
   });
 
   it('says the one message for a code that is not a code, without sending anything', async () => {
@@ -170,10 +179,10 @@ describe('adding an organisation', () => {
     await user.type(screen.getByLabelText('Organisation code'), 'nobody-here');
     await user.click(screen.getByRole('button', { name: 'Send invitation' }));
     expect(await screen.findByText('We could not add that organisation. Check the code with them.')).toBeInTheDocument();
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Add an organisation' })).toBeInTheDocument();
   });
 
-  it('says it could not be sent, and keeps the dialog, when the back end is down', async () => {
+  it('says it could not be sent, and keeps the panel open, when the back end is down', async () => {
     server.use(http.post('/api/bff/network-admin/members', () => HttpResponse.json({}, { status: 503 })));
     const user = await open();
     await user.click(byEl('NADM-MEMBER-ADD-BTN'));
@@ -234,14 +243,38 @@ describe('ending a membership', () => {
 describe('the agreement', () => {
   it('shows the version in force by its reference, and says that only the reference and version are stored', async () => {
     await open();
-    expect(screen.getByText('Agreement DSA-2026-1, version 2.')).toBeInTheDocument();
-    expect(screen.getByText('Only the reference and version are stored, never the agreement itself.')).toBeInTheDocument();
+    const card = screen.getByRole('region', { name: 'Agreement' });
+    expect(within(card).getByText('DSA-2026-1, version 2')).toBeInTheDocument();
+    expect(within(card).getByText(/Only the reference and version are stored, never the agreement itself\./)).toBeInTheDocument();
+  });
+
+  it('offers the record form only from its button, and opens it in place with the reference focused', async () => {
+    const user = await open();
+    expect(screen.queryByLabelText('Agreement reference')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Record a new agreement' }));
+    expect(screen.getByLabelText('Agreement reference')).toHaveFocus();
     expect(byEl('NADM-AGREEMENT-REFERENCE-INPUT')).toBeInTheDocument();
     expect(byEl('NADM-AGREEMENT-VERSION-INPUT')).toBeInTheDocument();
   });
 
+  it('closes the record form when it is cancelled, and sends nothing', async () => {
+    const user = await open();
+    await user.click(screen.getByRole('button', { name: 'Record a new agreement' }));
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByLabelText('Agreement reference')).not.toBeInTheDocument();
+    expect(seenNetworkAdminWrites).toEqual([]);
+  });
+
+  it('says, before anything is asked, what ending a membership does', async () => {
+    await open();
+    expect(screen.getByRole('region', { name: 'Ending a membership' })).toHaveTextContent(
+      "Its sharing stops now. What it already shared stays in the history, marked with today's date.",
+    );
+  });
+
   it('records a new version: the reference and the version as a number, with the CSRF token', async () => {
     const user = await open();
+    await user.click(screen.getByRole('button', { name: 'Record a new agreement' }));
     await user.type(screen.getByLabelText('Agreement reference'), 'DSA-2026-3');
     await user.type(screen.getByLabelText('Version'), '3');
     await user.click(byEl('NADM-AGREEMENT-RECORD-BTN'));
@@ -257,6 +290,7 @@ describe('the agreement', () => {
     ['no version', 'DSA-2026-3', '', 'Enter the version as a whole number, one or more.'],
   ])('says in words what is wrong with %s, and sends nothing', async (_name, reference, version, message) => {
     const user = await open();
+    await user.click(screen.getByRole('button', { name: 'Record a new agreement' }));
     if (reference !== '') await user.type(screen.getByLabelText('Agreement reference'), reference);
     if (version !== '') await user.type(screen.getByLabelText('Version'), version);
     await user.click(byEl('NADM-AGREEMENT-RECORD-BTN'));

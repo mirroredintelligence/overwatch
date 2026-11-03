@@ -1,0 +1,342 @@
+/* The network week (redesign board NWeek): two figure cards, the stacked status bar and the hours at each
+   pressure on the left, the 7 by 24 pressure grid on the right, the withheld week as its own dashed card.
+   Tokens only. One column at phone width; two columns from 900px. No animation: the figures never move. */
+
+.week {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.header {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.range,
+.note {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-ink-2);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: var(--type-title-weight);
+}
+
+.body {
+  display: grid;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+}
+
+.withheld {
+  border: 2px dashed var(--c-unknown);
+  box-shadow: none;
+}
+
+.withheldText {
+  margin: 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-ink-2);
+}
+
+.gap {
+  margin-top: var(--space-2);
+}
+
+.line {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-ink-2);
+}
+
+.footnote {
+  margin: 0;
+  padding: 0 var(--space-1);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-ink-2);
+}
+
+.hidden {
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  font-weight: 700;
+}
+
+/* The two figure cards. */
+.figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.figure {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+}
+
+.figureValue {
+  font-size: var(--type-display-size);
+  line-height: 1;
+  color: var(--c-primary-dark);
+}
+
+/* Text for assistive technology only. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.figureLabel {
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+}
+
+/* The stacked bar: one segment for each status, sized by its share. Shape (pattern, dashes) as well as colour. */
+.bar {
+  display: flex;
+  height: 34px;
+  overflow: hidden;
+  border: 1px solid var(--c-ink);
+  border-radius: 8px;
+}
+
+.bar > span {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.key,
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.keyItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+}
+
+.keyItem > i {
+  display: inline-block;
+  width: 22px;
+  height: 14px;
+  border-radius: 4px;
+}
+
+/* The symbol is the shape of the status; the word next to it carries the meaning. */
+.keyItem > i {
+  order: -2;
+}
+
+.keyItem[data-symbol]:not([data-symbol=''])::before {
+  content: attr(data-symbol);
+  order: -1;
+}
+
+/* The fill of each status, shared by the bar and its key. */
+:is(.bar, .keyItem) > [data-status='accepting'] {
+  background: var(--c-primary);
+}
+
+:is(.bar, .keyItem) > [data-status='limited'] {
+  background: var(--c-limited);
+}
+
+:is(.bar, .keyItem) > [data-status='not-accepting'] {
+  background: var(--c-closed);
+}
+
+:is(.bar, .keyItem) > [data-status='over-capacity'] {
+  background: repeating-linear-gradient(135deg, var(--c-surge) 0 5px, #fff 5px 8px);
+}
+
+.bar > [data-status='not-updated'] {
+  background: #fff;
+  border-left: 2px dashed var(--c-unknown);
+}
+
+.keyItem > i[data-status='not-updated'] {
+  background: #fff;
+  border: 2px dashed var(--c-unknown);
+}
+
+/* Hours at each pressure. */
+.levels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.level {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border: 2px solid var(--c-primary);
+  border-radius: var(--radius);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+}
+
+.level[data-pressure='watch'] {
+  border-color: var(--c-limited);
+  background: var(--c-amber-tint);
+}
+
+.level[data-pressure='high'] {
+  border-color: var(--c-ink);
+  background: var(--c-limited);
+  color: #fff;
+}
+
+.levelValue {
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+}
+
+/* The 7 by 24 grid. */
+.grid {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gridRow {
+  display: grid;
+  grid-template-columns: 2.75rem repeat(24, minmax(0, 1fr));
+  gap: 2px;
+  align-items: center;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-ink-2);
+}
+
+.mark {
+  grid-column: span 6;
+}
+
+.grid i {
+  display: block;
+  height: 16px;
+  border-radius: 3px;
+}
+
+:is(.gridRow, .keyItem) > i[data-pressure='normal'] {
+  background: var(--c-tint);
+  border: 1px solid var(--c-line);
+}
+
+:is(.gridRow, .keyItem) > i[data-pressure='watch'] {
+  background: repeating-linear-gradient(135deg, var(--c-limited) 0 3px, var(--c-amber-tint) 3px 5px);
+}
+
+:is(.gridRow, .keyItem) > i[data-pressure='high'] {
+  background: var(--c-limited);
+  border: 1px solid var(--c-ink);
+}
+
+:is(.gridRow, .keyItem) > i[data-pressure='none'] {
+  background: #fff;
+  border: 1px dashed var(--c-unknown);
+}
+
+/* The table behind the grid: each hour in words. */
+.table {
+  margin-top: var(--space-1);
+}
+
+.table summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-weight: 700;
+  color: var(--c-primary);
+  cursor: pointer;
+}
+
+.table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table caption {
+  text-align: left;
+  font-size: var(--type-caption-size);
+  color: var(--c-ink-2);
+}
+
+.table th,
+.table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--c-line);
+  text-align: left;
+  vertical-align: top;
+}
+
+@media (min-width: 900px) {
+  .body {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  }
+}

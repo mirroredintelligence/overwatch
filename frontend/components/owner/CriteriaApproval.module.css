@@ -1,0 +1,296 @@
+/* The clinical lead's second approval (the Approve board, and its phone version). Colour, size and spacing are tokens
+   from app/tokens.css; the few raw colours are the board's own (no token exists for them). The motion tokens are
+   zero under reduced motion, so there is no transition here that needs a rule of its own. */
+
+.page {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: var(--space-4);
+  font-family: var(--font-atkinson, system-ui), system-ui, sans-serif;
+  color: var(--c-ink);
+}
+
+.layout {
+  display: grid;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) 400px;
+    gap: var(--space-5);
+  }
+}
+
+.diffCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-5);
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.diffCard:focus {
+  outline: none;
+}
+
+.diffCard:focus-visible {
+  outline: var(--focus);
+  outline-offset: 4px;
+}
+
+.kicker {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.heading {
+  margin: 2px 0 0;
+  font-size: 1.875rem;
+  line-height: 1.1;
+}
+
+.diffTable {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.diffTable th,
+.diffTable td {
+  padding: var(--space-3) var(--space-1);
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--c-ground);
+}
+
+.diffTable thead th {
+  padding: 6px var(--space-1);
+  border-bottom: 2px solid var(--c-line);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.diffTable tbody th {
+  width: 36%;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.diffTable tbody tr:last-child th,
+.diffTable tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.arrow {
+  width: 40px;
+  font-size: 22px;
+  text-align: center;
+  color: var(--c-muted);
+}
+
+.was,
+.now {
+  display: block;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  font-size: 18px;
+}
+
+.was {
+  background: var(--c-bg);
+}
+
+.now {
+  background: var(--c-amber-tint);
+  border: 2px solid var(--c-limited);
+  font-weight: 700;
+  color: #4a2300;
+}
+
+.same th,
+.same td {
+  font-weight: 400;
+  color: var(--c-muted);
+  font-size: 17px;
+}
+
+.same th {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--c-ink);
+}
+
+.reason {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--space-4) var(--space-5);
+  background: var(--c-bg);
+  border-radius: 18px;
+}
+
+.reasonText {
+  margin: 0;
+  font-size: 19px;
+  line-height: 1.4;
+}
+
+.meta {
+  margin: 0;
+  font-size: 15px;
+  color: var(--c-muted);
+}
+
+.full {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: 17px;
+  line-height: 1.4;
+}
+
+.full p {
+  margin: 0;
+}
+
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.rule {
+  padding: var(--space-5);
+  background: var(--c-rail);
+  color: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.ruleKicker {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9fc3d6;
+}
+
+.ruleTitle {
+  margin: 6px 0 8px;
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.ruleBody {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.45;
+  color: #d7e6ee;
+}
+
+.authorNote {
+  margin: 0;
+  padding: var(--space-5);
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.decide {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* On a phone the two decisions stay in reach at the foot of the screen while the diff is read above them. */
+@media (max-width: 899px) {
+  .actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    padding: var(--space-3) 0 var(--space-4);
+    background: linear-gradient(180deg, rgb(238 242 243 / 0), var(--c-ground) 24%);
+  }
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.field label {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.textarea {
+  min-height: 72px;
+  padding: 10px 14px;
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius);
+  font: inherit;
+  font-size: 17px;
+  line-height: 1.3;
+  color: var(--c-ink);
+  background: #fff;
+  resize: vertical;
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+.textarea::placeholder {
+  color: var(--c-muted);
+}
+
+.textarea[aria-invalid='true'] {
+  border-color: var(--c-limited);
+}
+
+.error {
+  margin: 0;
+  font-weight: 700;
+  color: var(--c-limited);
+}
+
+.done {
+  margin: 0;
+  font-weight: 700;
+}
+
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}

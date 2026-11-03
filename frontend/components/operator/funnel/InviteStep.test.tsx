@@ -35,7 +35,7 @@ async function open(detail: unknown = VIEW_DETAIL_PROVISIONING, consent?: unknow
   }
   return user;
 }
-const choose = (user: ReturnType<typeof userEvent.setup>, phase: string) => user.click(within(screen.getByRole('navigation', { name: 'Go live tasks' })).getByRole('link', { name: new RegExp(`^${phase}`) }));
+const choose = (user: ReturnType<typeof userEvent.setup>, phase: string) => user.click(within(screen.getByRole('region', { name: 'The five parts' })).getByRole('button', { name: new RegExp(`^${phase}`) }));
 /** An element's text with its closed disclosures taken out. */
 const bare = (el: HTMLElement) => {
   const clone = el.cloneNode(true) as HTMLElement;

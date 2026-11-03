@@ -1,0 +1,126 @@
+/* The postcode states (postcode not found, out of area): one white card on the stage, the district choice and the
+   next steps as large rows (NoFit board). Its own file: map.module.css belongs to the map. */
+
+.screen {
+  box-sizing: border-box;
+  display: grid;
+  gap: var(--space-4);
+  padding: 30px 34px;
+  background: Canvas;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--type-heading-size);
+  font-weight: var(--type-heading-weight);
+  line-height: var(--type-heading-lh);
+  color: var(--c-ink);
+}
+
+.sub,
+.note {
+  margin: 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  color: var(--c-ink-2);
+}
+
+.note {
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
+}
+
+/* The district chips: buttons that choose a district, at least 48px high, so a thumb can press them. */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.chipsLegend {
+  padding: 0;
+  margin-bottom: var(--space-2);
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  color: var(--c-ink);
+}
+
+.chip {
+  box-sizing: border-box;
+  min-height: 48px;
+  min-width: 48px;
+  padding: 0 20px;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--c-ink);
+  background: Canvas;
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.chip:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.chip:disabled {
+  cursor: default;
+  color: var(--c-muted);
+}
+
+/* The postcode typed again in place. */
+.search {
+  display: grid;
+  gap: var(--space-2);
+  max-width: 24rem;
+}
+
+.field {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--btn-h);
+  padding: 0 var(--space-4);
+  font: inherit;
+  font-size: 20px;
+  color: var(--c-ink);
+  background: Canvas;
+  border: 2px solid var(--c-ink-2);
+  border-radius: var(--radius);
+}
+
+.field:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* The next steps: one large row each, the whole row is the control. */
+.steps {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step > a,
+.step > button {
+  width: 100%;
+  min-height: 64px;
+  justify-content: flex-start;
+  text-align: left;
+  font-size: 19px;
+}

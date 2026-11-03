@@ -28,6 +28,14 @@ describe('CallBar (W10)', () => {
     expect(screen.getByText('Call in progress · 02:14 · Ambulance crew')).toBeInTheDocument();
   });
 
+  it('is a pill with a dot, the dot hidden from readers so only the words are read', () => {
+    render(<CallBar openedAt={OPENED} referrer="Ambulance crew" />);
+
+    const bar = document.querySelector('[data-el="ADV-CALLBAR"]') as HTMLElement;
+    expect(bar.querySelector('[aria-hidden="true"]')).not.toBeNull();
+    expect(bar).toHaveTextContent(/^Call in progress · \d\d:\d\d · Ambulance crew$/);
+  });
+
   it('is not a live region, so the timer is not read out every second', () => {
     render(<CallBar openedAt={OPENED} referrer="Ambulance crew" />);
 

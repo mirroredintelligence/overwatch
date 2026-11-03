@@ -34,6 +34,28 @@ describe('PostcodeNotFound (W50)', () => {
   });
 });
 
+describe('the next steps are large rows in a list (NoFit board)', () => {
+  it('lists four next steps for a postcode not found, each one a link or a button of its own', () => {
+    render(<PostcodeNotFound caseId="4821" onAskClinical={vi.fn()} />);
+
+    const list = screen.getByRole('list', { name: 'Next steps' });
+    const rows = within(list).getAllByRole('listitem');
+    expect(rows).toHaveLength(4);
+    expect(within(rows[0]).getByRole('button', { name: 'Ask a clinical advisor' })).toBeInTheDocument();
+    expect(within(list).getByRole('link', { name: 'Change the postcode' })).toBeInTheDocument();
+    expect(within(list).getByRole('link', { name: 'Phone a service you know has space' })).toBeInTheDocument();
+    expect(within(list).getByRole('link', { name: 'Other routes under local protocol' })).toBeInTheDocument();
+  });
+
+  it('lists three next steps for an area no service covers', () => {
+    render(<OutOfArea caseId="4821" postcode="DT9" onAskClinical={vi.fn()} />);
+
+    const rows = within(screen.getByRole('list', { name: 'Next steps' })).getAllByRole('listitem');
+    expect(rows).toHaveLength(3);
+    expect(within(rows[0]).getByRole('button', { name: 'Ask a clinical advisor' })).toBeInTheDocument();
+  });
+});
+
 describe('OutOfArea (W50)', () => {
   it('says no service covers the area, names the postcode, and offers a next step', () => {
     render(<OutOfArea caseId="4821" postcode="DT4 8XX" onAskClinical={vi.fn()} />);

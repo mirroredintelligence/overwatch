@@ -27,6 +27,23 @@ describe('PostcodeNotFound: search again (MapWeb 3)', () => {
     expect(screen.getByRole('link', { name: 'Phone a service you know has space' })).toHaveAttribute('href', '/advisor/board');
   });
 
+  it('keeps the search field, the district choice and the next steps list together in one card', () => {
+    render(
+      <PostcodeNotFound
+        caseId="4821"
+        onAskClinical={vi.fn()}
+        onSearchAgain={vi.fn()}
+        districts={['DT1']}
+        onChooseDistrict={vi.fn()}
+      />,
+    );
+
+    const card = screen.getByRole('region', { name: 'We could not find that postcode' });
+    expect(card.querySelector('[data-el="ADV-POSTCODE-FIX"]')).not.toBeNull();
+    expect(card.querySelector('[data-el="ADV-DISTRICT-DT1"]')).not.toBeNull();
+    expect(card.querySelector('ul[aria-label="Next steps"]')).not.toBeNull();
+  });
+
   it('sends what was typed, once, and says in words when the postcode was not kept', async () => {
     const user = userEvent.setup();
     const onSearchAgain = vi.fn().mockResolvedValue('invalid');

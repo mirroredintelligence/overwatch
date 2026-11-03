@@ -1,7 +1,7 @@
 import { useId, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import type { PostcodeChange } from '@/lib/advisor/postcodeChange';
-import styles from './map.module.css';
+import styles from './PostcodeStates.module.css';
 
 // The two states the map and the list give when a postcode cannot be used (W50). Each names a next step; a
 // call is never ended here (the same rule as the no-service-fits state, W16). When the back end offered
@@ -132,20 +132,28 @@ export function PostcodeNotFound({
       <p className={styles.sub}>{offered ? 'Check it with the caller, or choose the district.' : 'Check it with the caller.'}</p>
       {onSearchAgain === undefined ? null : <PostcodeSearch onSearchAgain={onSearchAgain} />}
       <Choice districts={districts} onChooseDistrict={onChooseDistrict} />
-      <div className={styles.actions}>
-        <Button variant="secondary" href={`/advisor/case/${id}`}>
-          Change the postcode
-        </Button>
-        <Button variant="secondary" href="/advisor/board" dataEl="ADV-NOFIT-PHONE-BTN">
-          Phone a service you know has space
-        </Button>
-        <Button variant="secondary" href={`/advisor/case/${id}/finish?outcome=no-service-fits`} dataEl="ADV-NOFIT-OTHER-BTN">
-          Other routes under local protocol
-        </Button>
-        <Button variant="primary" dataEl="ADV-NOFIT-CLINICAL-BTN" onClick={() => onAskClinical()}>
-          Ask a clinical advisor
-        </Button>
-      </div>
+      <ul className={styles.steps} aria-label="Next steps">
+        <li className={styles.step}>
+          <Button variant="primary" dataEl="ADV-NOFIT-CLINICAL-BTN" onClick={() => onAskClinical()}>
+            Ask a clinical advisor
+          </Button>
+        </li>
+        <li className={styles.step}>
+          <Button variant="secondary" href={`/advisor/case/${id}`}>
+            Change the postcode
+          </Button>
+        </li>
+        <li className={styles.step}>
+          <Button variant="secondary" href="/advisor/board" dataEl="ADV-NOFIT-PHONE-BTN">
+            Phone a service you know has space
+          </Button>
+        </li>
+        <li className={styles.step}>
+          <Button variant="secondary" href={`/advisor/case/${id}/finish?outcome=no-service-fits`} dataEl="ADV-NOFIT-OTHER-BTN">
+            Other routes under local protocol
+          </Button>
+        </li>
+      </ul>
     </section>
   );
 }
@@ -171,17 +179,23 @@ export function OutOfArea({
         {`${postcode} is outside the areas the services here cover. Do not leave the caller without a next step.`}
       </p>
       <Choice districts={districts} onChooseDistrict={onChooseDistrict} />
-      <div className={styles.actions}>
-        <Button variant="primary" dataEl="ADV-NOFIT-CLINICAL-BTN" onClick={() => onAskClinical()}>
-          Ask a clinical advisor
-        </Button>
-        <Button variant="secondary" href={`/advisor/case/${id}/finish?outcome=out-of-area`} dataEl="ADV-NOFIT-OTHER-BTN">
-          Other routes under local protocol
-        </Button>
-        <Button variant="secondary" href={`/advisor/case/${id}`}>
-          Change the postcode
-        </Button>
-      </div>
+      <ul className={styles.steps} aria-label="Next steps">
+        <li className={styles.step}>
+          <Button variant="primary" dataEl="ADV-NOFIT-CLINICAL-BTN" onClick={() => onAskClinical()}>
+            Ask a clinical advisor
+          </Button>
+        </li>
+        <li className={styles.step}>
+          <Button variant="secondary" href={`/advisor/case/${id}/finish?outcome=out-of-area`} dataEl="ADV-NOFIT-OTHER-BTN">
+            Other routes under local protocol
+          </Button>
+        </li>
+        <li className={styles.step}>
+          <Button variant="secondary" href={`/advisor/case/${id}`}>
+            Change the postcode
+          </Button>
+        </li>
+      </ul>
       <p className={styles.note}>Out-of-area referrals are recorded as an outcome so the coverage can be reviewed.</p>
     </section>
   );

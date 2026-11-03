@@ -7,7 +7,7 @@ import type { Score } from '@/lib/advisor/scores';
 import { runAxe } from '@/test/a11y';
 import { byEl } from '@/test/el';
 import { PATHWAYS_BACKEND_CALLS, PATHWAYS_RESULTS } from '@/test/msw/handlers/advisor';
-import { ScorePickers } from './ScorePickers';
+import { ChoiceChip, ScorePickers } from './ScorePickers';
 
 beforeEach(() => {
   resetCsrfCache();
@@ -35,6 +35,31 @@ function setup(initial: Score[] = []) {
 }
 
 const lastScores = (fn: ReturnType<typeof vi.fn>): Score[] => fn.mock.calls.at(-1)?.[0] as Score[];
+
+describe('ChoiceChip (the board\'s choice chip, shared by the needs form)', () => {
+  it('is a toggle button that reports the change and can be disabled', async () => {
+    const user = userEvent.setup();
+    const onPressedChange = vi.fn();
+    const { rerender } = render(
+      <ChoiceChip pressed={false} onPressedChange={onPressedChange} dataEl="ADV-X">
+        80+
+      </ChoiceChip>,
+    );
+
+    const chip = screen.getByRole('button', { name: '80+' });
+    expect(chip).toHaveAttribute('aria-pressed', 'false');
+    await user.click(chip);
+    expect(onPressedChange).toHaveBeenCalledWith(true);
+
+    rerender(
+      <ChoiceChip pressed onPressedChange={onPressedChange} disabled>
+        80+
+      </ChoiceChip>,
+    );
+    expect(screen.getByRole('button', { name: '80+' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '80+' })).toHaveAttribute('aria-pressed', 'true');
+  });
+});
 
 describe('ScorePickers (W12)', () => {
   it('row "Score from the referrer (optional)" offers the five methods and "Not given"', () => {

@@ -30,7 +30,8 @@ export function CallBar({ openedAt, referrer }: { openedAt: string; referrer: st
   const elapsed = now === null || Number.isNaN(start) ? 0 : now - start;
   return (
     <div className={styles.bar} data-el="ADV-CALLBAR">
-      {`Call in progress · ${elapsedText(elapsed)} · ${referrer}`}
+      <span className={styles.dot} aria-hidden="true" />
+      <span>{`Call in progress · ${elapsedText(elapsed)} · ${referrer}`}</span>
     </div>
   );
 }

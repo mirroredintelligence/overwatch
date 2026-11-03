@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { Chip } from '@/components/ui/Chip';
+import { Loading, Skeleton } from '@/components/ui/Skeleton';
 import {
   AGE_BANDS,
   type AgeCode,
@@ -24,7 +24,9 @@ import { normalisePostcode } from '@/lib/advisor/postcode';
 import type { Score } from '@/lib/advisor/scores';
 import { scoreText } from '@/lib/advisor/summary';
 import { CallBar } from './CallBar';
-import { ScorePickers } from './ScorePickers';
+import { CallStage } from './CallStage';
+import { LiveCount } from './LiveCount';
+import { ChoiceChip, ScorePickers } from './ScorePickers';
 import styles from './NeedsForm.module.css';
 
 // The needs form (W11): who is calling, age, postcode, needs and how soon. Nothing is typed except
@@ -201,12 +203,27 @@ export function NeedsForm({ caseId }: { caseId: string }) {
       needs: on ? [...current.needs.filter((need) => need !== code), code] : current.needs.filter((need) => need !== code),
     }));
 
-  if (load.kind === 'loading') return <p>Loading the case.</p>;
-  if (load.kind === 'failed') return <p role="alert">This case could not be loaded.</p>;
+  if (load.kind === 'loading') {
+    return (
+      <div className={styles.card}>
+        <Loading label="Loading the case.">
+          <Skeleton shape="title" width="40%" />
+          <Skeleton shape="block" />
+        </Loading>
+      </div>
+    );
+  }
+  if (load.kind === 'failed') {
+    return (
+      <p role="alert" className={styles.card}>
+        This case could not be loaded.
+      </p>
+    );
+  }
   if (load.view.closed) {
     return (
-      <section className={styles.form} aria-label="Patient needs">
-        <h1 className={styles.legend}>This call is closed.</h1>
+      <section className={styles.card} aria-label="Patient needs">
+        <h1 className={styles.title}>This call is closed.</h1>
         <p className={styles.note}>The postcode and needs were cleared when it closed. A closed call cannot be changed.</p>
         <Button variant="primary" href="/advisor">
           Start a new call
@@ -217,24 +234,27 @@ export function NeedsForm({ caseId }: { caseId: string }) {
 
   const referrerLabel = labelOf(REFERRERS, draft.referrerType) ?? 'Caller not yet recorded';
 
+  // The count needs the options read, which needs a saved case: no count is given while the form is filled in
+  // (brief section 8, gap 1; nothing is written as a draft to get one).
   return (
-    <section className={styles.form} aria-label="Patient needs">
+    <CallStage step="needs" side={<LiveCount count={null} />}>
       <CallBar openedAt={load.view.openedAt ?? readAt} referrer={referrerLabel} />
-      <form onSubmit={save} noValidate>
-        <h1 className={styles.legend}>Patient needs</h1>
+      <section className={styles.card} aria-label="Patient needs">
+      <form className={styles.form} onSubmit={save} noValidate>
+        <h1 className={styles.title}>Patient needs</h1>
 
         <fieldset className={styles.group}>
           <legend className={styles.legend}>Who is calling?</legend>
           <div className={styles.chips}>
             {REFERRERS.map((referrer) => (
-              <Chip
+              <ChoiceChip
                 key={referrer.code}
                 pressed={draft.referrerType === referrer.code}
                 onPressedChange={() => setReferrer(referrer.code)}
                 dataEl={`ADV-NEEDS-REFERRER-${referrer.id}`}
               >
                 {referrer.label}
-              </Chip>
+              </ChoiceChip>
             ))}
           </div>
         </fieldset>
@@ -243,18 +263,19 @@ export function NeedsForm({ caseId }: { caseId: string }) {
           <legend className={styles.legend}>Age</legend>
           <div className={styles.chips}>
             {AGE_BANDS.map((band) => (
-              <Chip
+              <ChoiceChip
                 key={band.code}
                 pressed={draft.ageBand === band.code}
                 onPressedChange={() => setAge(band.code)}
                 dataEl={`ADV-NEEDS-AGE-${band.id}`}
               >
                 {band.label}
-              </Chip>
+              </ChoiceChip>
             ))}
           </div>
         </fieldset>
 
+        <div className={styles.pair}>
         <div className={styles.field}>
           <label className={styles.label} htmlFor={POSTCODE_ID}>
             Where is the patient? Postcode
@@ -284,17 +305,34 @@ export function NeedsForm({ caseId }: { caseId: string }) {
         </div>
 
         <fieldset className={styles.group}>
+          <legend className={styles.legend}>How soon?</legend>
+          <div className={styles.chips}>
+            {URGENCIES.map((urgency) => (
+              <ChoiceChip
+                key={urgency.code}
+                pressed={draft.urgency === urgency.code}
+                onPressedChange={() => setUrgency(urgency.code)}
+                dataEl={`ADV-NEEDS-URGENCY-${urgency.id}`}
+              >
+                {urgency.label}
+              </ChoiceChip>
+            ))}
+          </div>
+        </fieldset>
+        </div>
+
+        <fieldset className={styles.group}>
           <legend className={styles.legend}>What do they need?</legend>
           <div className={styles.chips}>
             {NEEDS.filter((need) => !need.more).map((need) => (
-              <Chip
+              <ChoiceChip
                 key={need.code}
                 pressed={draft.needs.includes(need.code)}
                 onPressedChange={(on) => toggleNeed(need.code, on)}
                 dataEl={`ADV-NEEDS-NEED-${need.id}`}
               >
                 {need.label}
-              </Chip>
+              </ChoiceChip>
             ))}
             <button
               type="button"
@@ -306,32 +344,16 @@ export function NeedsForm({ caseId }: { caseId: string }) {
             </button>
             {showMore
               ? NEEDS.filter((need) => need.more).map((need) => (
-                  <Chip
+                  <ChoiceChip
                     key={need.code}
                     pressed={draft.needs.includes(need.code)}
                     onPressedChange={(on) => toggleNeed(need.code, on)}
                     dataEl={`ADV-NEEDS-NEED-${need.id}`}
                   >
                     {need.label}
-                  </Chip>
+                  </ChoiceChip>
                 ))
               : null}
-          </div>
-        </fieldset>
-
-        <fieldset className={styles.group}>
-          <legend className={styles.legend}>How soon?</legend>
-          <div className={styles.chips}>
-            {URGENCIES.map((urgency) => (
-              <Chip
-                key={urgency.code}
-                pressed={draft.urgency === urgency.code}
-                onPressedChange={() => setUrgency(urgency.code)}
-                dataEl={`ADV-NEEDS-URGENCY-${urgency.id}`}
-              >
-                {urgency.label}
-              </Chip>
-            ))}
           </div>
         </fieldset>
 
@@ -401,10 +423,13 @@ export function NeedsForm({ caseId }: { caseId: string }) {
           </p>
         ) : null}
 
-        <Button type="submit" variant="primary" busy={saving} disabled={!canContinue} dataEl="ADV-NEEDS-CONTINUE-BTN">
-          See options
-        </Button>
+        <div className={styles.footer}>
+          <Button type="submit" variant="primary" busy={saving} disabled={!canContinue} dataEl="ADV-NEEDS-CONTINUE-BTN">
+            See options
+          </Button>
+        </div>
       </form>
-    </section>
+      </section>
+    </CallStage>
   );
 }

@@ -47,7 +47,8 @@ describe('the wall screen pairing page /screen/pair', () => {
 
   it('shows the pairing screen to a display with no session, and needs no sign-in', async () => {
     render(await WallPairPage());
-    expect(screen.getByRole('heading', { level: 1, name: 'Overwatch wall screen' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Set up in three steps' })).toBeInTheDocument();
+    expect(screen.getByText('Overwatch wall screen')).toBeInTheDocument();
     expect(getSession).toHaveBeenCalled();
   });
 
@@ -59,7 +60,7 @@ describe('the wall screen pairing page /screen/pair', () => {
   it('does not treat a staff session as a paired screen, and shows the pairing screen', async () => {
     vi.mocked(getSession).mockResolvedValue(session('lead'));
     render(await WallPairPage());
-    expect(screen.getByRole('heading', { level: 1, name: 'Overwatch wall screen' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Set up in three steps' })).toBeInTheDocument();
   });
 
   it('takes no input: the address, a query string or a header cannot name a screen, an organisation or a code', () => {

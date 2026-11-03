@@ -1,71 +1,82 @@
-/* The wall display while it waits to be connected (the ScreenPairing artboard, step 1). It is read
-   from across a room: the code is the largest thing on the screen. Nobody types on it, so there is
-   no control. */
+/* The wall display while it waits to be connected (the WallPair artboard, 1600 x 900). It is read from
+   across a room: the code is the largest thing on the screen, at 210px. Nobody types on it, so there
+   is no control, and nothing on it moves. Sizes are the artboard's, in rem (16px = 1rem). */
 .page {
   box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
   min-height: 100dvh;
-  padding: var(--space-6) var(--space-4);
-  background: var(--c-bg);
-  color: var(--c-ink);
+  background: var(--c-rail);
+  color: #fff;
 }
 
-.header {
+.code_side {
   display: flex;
-  align-items: center;
-  margin: calc(var(--space-6) * -1) calc(var(--space-4) * -1) 0;
-  padding: var(--space-4);
-  background: var(--c-ink);
-  color: var(--c-bg);
-}
-
-/* The reversed logo on the dark header, and the screen's purpose beside it in the same heading. */
-.title {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-4);
-  margin: 0;
-  font-size: var(--type-heading-size);
-  line-height: var(--type-heading-lh);
-  font-weight: var(--type-heading-weight);
-  letter-spacing: var(--type-heading-tracking);
-}
-
-.stage {
-  display: flex;
-  flex: 1;
   flex-direction: column;
-  align-items: center;
   justify-content: center;
-  gap: var(--space-5);
-  text-align: center;
+  gap: 2.125rem;
+  padding: 4.375rem 5rem;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.mark {
+  flex: none;
+}
+
+.name {
+  font-size: 2.5rem;
+  line-height: 1.1;
+  font-weight: 700;
+}
+
+.live {
+  display: flex;
+  flex-direction: column;
+  gap: 2.125rem;
+}
+
+.label {
+  margin-bottom: 0.625rem;
+  font-size: 1.75rem;
+  color: var(--c-rail-ink);
 }
 
 .code {
   margin: 0;
-  font-size: 8rem;
+  font-size: 13.125rem;
   line-height: 1;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   font-variant-numeric: tabular-nums;
-  color: var(--c-ink);
+  white-space: nowrap;
+  color: #fff;
 }
 
 .instruction {
+  max-width: 47.5rem;
   margin: 0;
-  font-size: var(--type-title-size);
-  line-height: var(--type-title-lh);
-  font-weight: var(--type-title-weight);
+  font-size: 1.875rem;
+  line-height: 1.4;
+  color: #e6f0f5;
 }
 
 .waiting {
-  margin: 0;
-  font-size: var(--type-body-size);
-  line-height: var(--type-body-lh);
-  color: var(--c-muted);
+  display: flex;
+  align-items: center;
+  gap: 1.375rem;
+  font-size: 1.625rem;
+  line-height: 1.35;
+  color: #d7e6ee;
+}
+
+.ring {
+  flex: none;
+  color: #fff;
 }
 
 .message {
@@ -74,15 +85,92 @@
   text-align: left;
 }
 
-.footer {
+.steps_side {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1.875rem;
+  padding: 4.375rem 4rem;
+  background: #fff;
+  color: var(--c-ink);
+}
+
+.heading {
   margin: 0;
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-lh);
-  color: var(--c-muted);
-  text-align: center;
+  font-size: 2.5rem;
+  line-height: 1.1;
+}
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 1.875rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  display: flex;
+  gap: 1.125rem;
+  align-items: flex-start;
+  font-size: 1.625rem;
+  line-height: 1.35;
+  color: var(--c-ink);
+}
+
+.num {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.875rem;
+  height: 2.875rem;
+  border-radius: 50%;
+  background: var(--c-primary);
+  color: #fff;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.note {
+  margin: 0.5rem 0 0;
+  padding: 1.25rem 1.5rem;
+  border-radius: 1.25rem;
+  background: var(--c-tint);
+  font-size: 1.4375rem;
+  line-height: 1.4;
+  color: var(--c-primary-dark);
+}
+
+/* A smaller display: the code still fits its column. */
+@media (max-width: 1500px) {
+  .code_side {
+    padding: var(--space-6) var(--space-5);
+  }
+
+  .code {
+    font-size: 9rem;
+  }
+}
+
+/* A narrow window: one column, the code first. */
+@media (max-width: 900px) {
+  .page {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .steps_side {
+    padding: var(--space-6) var(--space-4);
+  }
 }
 
 @media (max-width: 600px) {
+  .code_side {
+    padding: var(--space-6) var(--space-4);
+  }
+
   .code {
     font-size: 4.5rem;
   }

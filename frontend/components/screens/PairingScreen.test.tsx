@@ -40,11 +40,46 @@ afterEach(() => {
 describe('PairingScreen', () => {
   it('shows the artboard’s words and the code as two groups of three', async () => {
     await show(api());
-    expect(screen.getByRole('heading', { level: 1, name: 'Overwatch wall screen' })).toBeInTheDocument();
+    expect(screen.getByText('Overwatch wall screen')).toBeInTheDocument();
+    expect(screen.getByText('Connect code')).toBeInTheDocument();
     expect(screen.getByText('482 913')).toBeInTheDocument();
     expect(screen.getByText('Enter this code in the admin page to connect this screen.')).toBeInTheDocument();
-    expect(screen.getByText('Waiting to be connected · code works for 10 minutes')).toBeInTheDocument();
-    expect(screen.getByText('No patient information on this screen')).toBeInTheDocument();
+    expect(
+      screen.getByText('Waiting to be connected. The code works for 10 minutes, then this screen shows a new one.'),
+    ).toBeInTheDocument();
+  });
+
+  it('reads the code digit by digit to a screen reader, in its two groups', async () => {
+    await show(api());
+    expect(screen.getByRole('img', { name: '4 8 2, 9 1 3' })).toHaveTextContent('482 913');
+  });
+
+  it('has the heading "Set up in three steps" and the three steps, in order, on the right', async () => {
+    await show(api());
+    expect(screen.getByRole('heading', { level: 1, name: 'Set up in three steps' })).toBeInTheDocument();
+    const steps = screen.getAllByRole('listitem');
+    expect(steps).toHaveLength(3);
+    expect(steps[0]).toHaveTextContent('On this screen: read the code.');
+    expect(steps[1]).toHaveTextContent(
+      'In the admin page: choose Add a wall screen, enter the code and give the screen a name, for example the room it is in.',
+    );
+    expect(steps[2]).toHaveTextContent(
+      'Done: this screen shows the live board. It shows capacity only, never patient information.',
+    );
+  });
+
+  it('tells the person what happens if the screen goes offline later', async () => {
+    await show(api());
+    expect(
+      screen.getByText('If it goes offline later, the board keeps showing the last known figures and says so.'),
+    ).toBeInTheDocument();
+  });
+
+  it('plays no motion of its own: the wall’s only motion is the reconnect spinner', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const css = readFileSync(resolve(__dirname, 'PairingScreen.module.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(css).not.toMatch(/animation\s*:|@keyframes/);
   });
 
   it('has the element id for the code, and the code is the only thing in it', async () => {
@@ -67,6 +102,7 @@ describe('PairingScreen', () => {
     render(<PairingScreen api={api({ start: vi.fn(() => new Promise<never>(() => {})) })} />);
     expect(screen.getByText('Connecting this screen…')).toBeInTheDocument();
     expect(screen.queryByText(/\d{3} \d{3}/)).toBeNull();
+    expect(screen.getByRole('heading', { level: 1, name: 'Set up in three steps' })).toBeInTheDocument();
   });
 
   it('goes to the board when it is paired', async () => {

@@ -62,7 +62,7 @@ describe('CriteriaFlow', () => {
 
   it('opens the change step first when a link goes straight to the preview, because there is no draft', async () => {
     render(<CriteriaFlow serviceId="s1" initialStep="preview" />);
-    expect(await screen.findByRole('button', { name: 'Preview' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Preview the change' })).toBeInTheDocument();
     expect(currentStep()).toContain('Change');
   });
 

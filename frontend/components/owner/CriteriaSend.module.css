@@ -1,0 +1,111 @@
+/* The send step's card (boards/lead/OwnerReview.dc.html, step 5). Tokens for everything but the white surface, which
+   has no token: the board uses #fff for every card. The stage's own motion is the StageGrid's, so none here. */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: var(--space-5) var(--space-6);
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  color: var(--c-ink);
+  font-family: var(--font-atkinson, system-ui), system-ui, sans-serif;
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--type-heading-size);
+  line-height: var(--type-heading-lh);
+  font-weight: var(--type-heading-weight);
+}
+
+.lede {
+  margin: 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  color: var(--c-ink-2);
+}
+
+.changes {
+  margin: 0;
+  padding-left: var(--space-5);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.label {
+  padding: 0;
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-lh);
+  font-weight: var(--type-label-weight);
+  letter-spacing: var(--type-label-tracking);
+}
+
+.reason {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 84px;
+  padding: var(--space-3) var(--space-4);
+  border: 2px solid var(--c-ink-2);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--c-ink);
+  font: inherit;
+  font-size: var(--type-body-size);
+  line-height: 1.35;
+  resize: vertical;
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-muted);
+}
+
+.fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  border: 0;
+}
+
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.error {
+  margin: 0;
+  font-weight: var(--type-label-weight);
+  color: var(--c-limited);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--c-line);
+}
+
+@media (max-width: 700px) {
+  .card {
+    padding: var(--space-5) var(--space-4);
+  }
+}

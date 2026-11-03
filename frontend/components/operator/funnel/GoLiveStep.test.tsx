@@ -119,7 +119,7 @@ describe('Go live', () => {
     expect(within(theirs).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['To doSet the area’s districts', 'To doAccept the network agreement']);
     expect(within(card).getByRole('heading', { name: 'Their administrators finish these after they sign in' })).toBeInTheDocument();
     expect(within(card).getByText('Overwatch will make Go live available when these are done.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /^Go live/ })).toHaveTextContent('Waiting for them');
+    expect(within(screen.getByRole('region', { name: 'The five parts' })).getByRole('button', { name: /^Go live/ })).toHaveTextContent('Waiting for them');
   });
 
   it('never shows the back end’s own blocker text, merges blockers that say the same thing, and keeps their administrators’ items apart', async () => {

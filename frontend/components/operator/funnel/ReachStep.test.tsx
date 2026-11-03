@@ -177,7 +177,7 @@ describe('step 6: how people reach them', () => {
     expect(within(card()).getByRole('listitem')).toHaveTextContent('Stopped');
     expect(within(card()).queryByRole('button', { name: /Stop using|Send a test text/ })).not.toBeInTheDocument();
     expect(within(card()).getByText(/held for this organisation/)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /^Reach and agreements/ })).toHaveTextContent('Text number not tested');
+    expect(within(screen.getByRole('region', { name: 'The five parts' })).getByRole('button', { name: /^Reach and agreements/ })).toHaveTextContent('Text number not tested');
   });
 
   it('chooses the shared line for sending, and says plainly what it cannot do', async () => {
@@ -191,7 +191,7 @@ describe('step 6: how people reach them', () => {
   it('tests the shared line, and counts it only once a test text has been sent on it', async () => {
     const untested = { ...VIEW_DETAIL_PROVISIONING, numbers: [], sharedLine: { status: 'active', testedAt: null } };
     const user = await open(untested, undefined, 'Reach and agreements');
-    expect(screen.getByRole('link', { name: /^Reach and agreements/ })).toHaveTextContent('Text number not tested');
+    expect(within(screen.getByRole('region', { name: 'The five parts' })).getByRole('button', { name: /^Reach and agreements/ })).toHaveTextContent('Text number not tested');
     const form = within(card()).getByRole('form', { name: 'Send a test text from the shared line' });
     await user.type(within(form).getByLabelText('Mobile phone to send the test to'), '07700 900456');
     await user.click(within(form).getByRole('button', { name: 'Send a test text' }));
@@ -203,7 +203,7 @@ describe('step 6: how people reach them', () => {
   it('counts a tested shared line as a tested text number', async () => {
     const tested = { ...VIEW_DETAIL_PROVISIONING, numbers: [], sharedLine: { status: 'active', testedAt: '2026-10-21T10:00:00Z' } };
     await open(tested, undefined, 'Reach and agreements');
-    expect(screen.getByRole('link', { name: /^Reach and agreements/ })).toHaveTextContent('Text number tested');
+    expect(within(screen.getByRole('region', { name: 'The five parts' })).getByRole('button', { name: /^Reach and agreements/ })).toHaveTextContent('Text number tested');
   });
 
   it('says a web address or number another organisation holds could not be saved, on a 409', async () => {

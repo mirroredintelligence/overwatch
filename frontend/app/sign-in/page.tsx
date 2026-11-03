@@ -1,11 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { TenantHeader } from '@/components/tenant/TenantHeader';
 import { Button } from '@/components/ui';
 import { isSamePathOnly } from '@/lib/auth/access';
 import { copy } from '@/lib/copy';
 import { PRODUCT_NAME } from '@/lib/product';
-import { currentProfile } from '@/lib/tenant/profile';
 import styles from './page.module.css';
 
 export const metadata: Metadata = {
@@ -24,9 +22,9 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 const NO_ACCESS = { lead: `Your account does not have access to ${PRODUCT_NAME}.`, body: 'Ask your shift lead to check your access.' };
 const FAILED = { lead: 'We could not sign you in.', body: 'Try again, or ask your shift lead to check your access.' };
 const CLINICAL_NOTE = 'Clinical advisors see case details, so this uses staff sign-in, not a texted code.';
-// Said on the organisation panel only: the product does not know what kind of organisation this is.
-const LEDE = 'If you work for more than one organisation, this tells you which one you are in.';
-const NOT_YOURS = 'Not your organisation? Use the link your organisation gave you.';
+// One domain serves every organisation (DEC-1327): the organisation is not known until sign-in, so the page
+// names none. A person who works for more than one chooses after signing in.
+const LEDE = 'If you work for more than one organisation, you will choose which one after you sign in.';
 
 function one(value: string | string[] | undefined): string | undefined {
   return typeof value === 'string' ? value : undefined;
@@ -37,10 +35,8 @@ export default async function SignInPage({ searchParams }: { searchParams: Searc
   const error = one(query.error);
   const next = one(query.next);
   const message = error === 'no-access' ? NO_ACCESS : error === 'failed' ? FAILED : undefined;
-  // Which organisation this is: the host's own profile, so a person who works for two always sees which.
-  const profile = await currentProfile();
   const words = copy.signIn();
-  // With no organisation to show, the product's name is the page's first heading.
+  // The product's name is the page's first heading: the address names no organisation (DEC-1327).
   const brand = (
     <>
       <span className={styles.mark}>
@@ -58,12 +54,10 @@ export default async function SignInPage({ searchParams }: { searchParams: Searc
     <main className={styles.main}>
       <div className={styles.layout}>
         <div className={styles.organisation}>
-          {profile === null ? <h1 className={styles.brand}>{brand}</h1> : <p className={styles.brand}>{brand}</p>}
+          <h1 className={styles.brand}>{brand}</h1>
           <div className={styles.hero}>
-            <TenantHeader profile={profile} />
-            {profile !== null ? <p className={styles.lede}>{LEDE}</p> : null}
+            <p className={styles.lede}>{LEDE}</p>
           </div>
-          {profile !== null ? <p className={styles.notYours}>{NOT_YOURS}</p> : null}
         </div>
 
         <div className={styles.content}>

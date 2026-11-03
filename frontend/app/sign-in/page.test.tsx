@@ -31,11 +31,10 @@ async function open(query: Query = {}) {
 const ACCESS_MESSAGE = 'Your account does not have access to Overwatch. Ask your shift lead to check your access.';
 
 describe('sign-in page copy', () => {
-  it('shows the wording from the screen spec, with the organisation as the first heading', async () => {
+  it('shows the wording from the screen spec, with the product as the first heading', async () => {
     setRequestHost(TENANTS.A.host);
     await open();
-    expect(screen.getByRole('heading', { level: 1, name: 'Sample Area A' })).toBeInTheDocument();
-    expect(screen.getByText('You are signing in to')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Overwatch' })).toBeInTheDocument();
     expect(screen.getByText('Overwatch', { selector: 'span' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'Sign in' })).toBeInTheDocument();
     expect(screen.getByText('Use your staff account. There is no new password.')).toBeInTheDocument();
@@ -43,14 +42,13 @@ describe('sign-in page copy', () => {
     expect(screen.getByText('Having trouble? Ask your shift lead to check your access.')).toBeInTheDocument();
   });
 
-  it('shows the desktop rail lines: the organisation line, and what to do if it is not yours', async () => {
+  it('shows the one-domain line: the organisation is chosen after sign-in', async () => {
     setRequestHost(TENANTS.A.host);
     await open();
-    expect(screen.getByText('If you work for more than one organisation, this tells you which one you are in.')).toBeInTheDocument();
-    expect(screen.getByText('Not your organisation? Use the link your organisation gave you.')).toBeInTheDocument();
+    expect(screen.getByText('If you work for more than one organisation, you will choose which one after you sign in.')).toBeInTheDocument();
   });
 
-  it('has one first-level heading, the organisation, or the product name when there is no organisation', async () => {
+  it('has one first-level heading, the product name, whatever host it is opened on', async () => {
     setRequestHost(TENANTS.A.host);
     const first = await open();
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
@@ -152,38 +150,31 @@ describe('sign-in page accessibility', () => {
 });
 
 
-// TEN-049: the page says which organisation it is for, from the host's own profile, and names no
-// organisation type or place of its own.
-describe('sign-in page: the organisation (TEN-049)', () => {
-  it('shows the organisation name of the host it was opened on, as the heading', async () => {
+// DEC-1327: one domain serves every organisation, so the page names none before sign-in. It never reads
+// the host's organisation profile, so a host bound to one tenant cannot put that tenant's name on the page.
+describe('sign-in page: no organisation before sign-in (DEC-1327)', () => {
+  it('never shows the name of the organisation the host is bound to', async () => {
     setRequestHost(TENANTS.A.host);
     await open();
-    expect(screen.getByRole('region', { name: 'Your organisation' })).toHaveTextContent('Sample Area A');
+    expect(document.body.textContent).not.toContain('Sample Area A');
+    expect(screen.queryByRole('region', { name: 'Your organisation' })).toBeNull();
   });
 
-  it('shows another organisation’s name on another host, and never the first', async () => {
+  it('shows the same page on every host', async () => {
     setRequestHost(TENANTS.B.host);
     await open();
-    expect(screen.getByRole('region', { name: 'Your organisation' })).toHaveTextContent('Sample Area B');
-    expect(document.body.textContent).not.toContain('Sample Area A');
-  });
-
-  it('still renders, with the product name as the heading, for a host nobody owns', async () => {
-    setRequestHost('nobody.example.test');
-    await open();
-    expect(screen.queryByRole('region', { name: 'Your organisation' })).toBeNull();
+    expect(document.body.textContent).not.toContain('Sample Area B');
     expect(screen.getByRole('heading', { level: 1, name: 'Overwatch' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Sign in with your staff account' })).toBeInTheDocument();
   });
 
-  it('still renders when the back end cannot be reached', async () => {
+  it('still renders when the back end cannot be reached, because it is not asked', async () => {
     const { http, HttpResponse } = await import('msw');
     const { server } = await import('@/test/msw/server');
     const { PROFILE_URL } = await import('@/test/msw/handlers/profile');
     server.use(http.get(PROFILE_URL, () => HttpResponse.error()));
     setRequestHost(TENANTS.A.host);
     await open();
-    expect(screen.queryByRole('region', { name: 'Your organisation' })).toBeNull();
     expect(screen.getByRole('heading', { level: 1, name: 'Overwatch' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'Sign in' })).toBeInTheDocument();
   });

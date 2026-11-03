@@ -1,0 +1,49 @@
+/* The wall's own ground (artboard WallBoard): the rail's dark blue behind a white-tiled board, read across a
+   room. Dark or light is an open question (brief 9.4); the wall is drawn dark, as the board does. The board is
+   the one renderer (Board.tsx): this only gives it a ground and 3 m sizes, through the tokens it already reads
+   and through its own elements, so Board.module.css and the tiles stay as they are.
+
+   Legibility at 3 m: no text under 20px, service names 30px, status words and the date 22px or more, tile
+   numbers 104px (Tile.module.css, from 1600px wide). No motion here: the wall plays none. */
+.wall {
+  --type-caption-size: 20px;
+  --type-title-size: 30px;
+
+  box-sizing: border-box;
+  min-height: 100dvh;
+  background: var(--c-rail);
+  color: var(--c-rail-ink);
+}
+
+.wall > main {
+  background: transparent;
+}
+
+/* The header, on the dark ground: the heading and the time in white, the line under each in the rail's ink. */
+.wall > main > header h1,
+.wall > main > header time {
+  color: #fff;
+}
+
+.wall > main > header p {
+  color: var(--c-rail-ink);
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+/* The key and the privacy line under the tiles. */
+.wall > main > footer ul {
+  color: #D7E6EE;
+}
+
+.wall > main > footer p {
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+/* The quiet line when the live stream is down. The empty-board line and the banners keep their own white and
+   tinted grounds and dark ink. */
+.wall > main > p[data-el='WALL-STREAM-NOTE'] {
+  color: #D7E6EE;
+}

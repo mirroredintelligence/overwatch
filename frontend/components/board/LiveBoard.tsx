@@ -6,6 +6,7 @@ import type { Board as BoardData } from '@/lib/board/types';
 import type { WallScope } from '@/lib/board/scope';
 import { useBoardFeed, type StreamSource } from '@/lib/board/useBoardFeed';
 import { Board } from './Board';
+import styles from './LiveBoard.module.css';
 import { StatusAnnouncer } from './StatusAnnouncer';
 
 // The wall board, kept current. The page reads the first board on the server; this
@@ -64,7 +65,8 @@ export function LiveBoard({
     onUnpaired: onUnpaired ?? (() => router.replace(PAIR)),
   });
   return (
-    <>
+    // The wall's dark ground (artboard WallBoard), in every state: current, stream paused and last known.
+    <div className={styles.wall} data-el="WALL-GROUND">
       {/* Status changes, said politely once (KI-56). */}
       <StatusAnnouncer board={board} lastKnown={assessment.mode === 'last-known'} />
       {assessment.mode === 'last-known' ? (
@@ -72,6 +74,6 @@ export function LiveBoard({
       ) : (
         <Board board={board} streamPaused={assessment.streamPaused} subtitle={subtitle} heading={heading} scope={scope} fellBackFrom={lastNetworkName} />
       )}
-    </>
+    </div>
   );
 }

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getSession, type Role, type Session } from '@/lib/auth/session';
@@ -71,6 +71,15 @@ describe('wall screen page: which board', () => {
     render(await WallScreenPage());
     expect(screen.getByRole('alert')).toHaveTextContent('No longer showing the network board. Showing: Our organisation.');
     expect(screen.getByText('Showing: Our organisation')).toBeInTheDocument();
+  });
+
+  it('keeps the network board and the fall-back warning inside the wall’s dark ground', async () => {
+    server.use(http.get(`${ROOT}/screens/me/board-scope`, () => HttpResponse.json({ boardScope: 'tenant', fallback: true, fallbackReason: 'network-unavailable', scopeVersion: 4 })));
+    const { container } = render(await WallScreenPage());
+    const ground = container.querySelector<HTMLElement>('[data-el="WALL-GROUND"]') as HTMLElement;
+    expect(ground).not.toBeNull();
+    expect(within(ground).getByRole('alert')).toHaveTextContent('No longer showing the network board');
+    expect(within(ground).getByText('Showing: Our organisation')).toBeInTheDocument();
   });
 
   it('shows the own board, with no warning, for a screen on its own board', async () => {

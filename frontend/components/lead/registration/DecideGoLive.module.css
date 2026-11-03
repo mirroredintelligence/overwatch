@@ -1,0 +1,347 @@
+/* The Decide and Go live steps (board Rev1 layers 4 and 5, phone RvP2). One white card on the page ground; sizes are
+   the board's. Status is a shape plus a word. Motion uses the duration tokens, which are zero under reduced motion. */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: var(--space-5) 28px;
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+  color: var(--c-ink);
+  font-family: var(--font-atkinson, system-ui), system-ui, sans-serif;
+}
+
+.narrow {
+  max-width: 700px;
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 15px;
+  color: var(--c-muted);
+}
+
+.title {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.lede {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+/* The checks and the steps */
+
+.checks {
+  margin: 0;
+  padding: 6px 18px;
+  list-style: none;
+  border-radius: 18px;
+  background: var(--c-bg);
+}
+
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: 10px 0;
+  border-bottom: 1px solid var(--c-line);
+  font-size: var(--type-label-size);
+  line-height: 1.35;
+}
+
+.check:last-child {
+  border-bottom: 0;
+}
+
+.mark {
+  flex: none;
+  font-weight: 700;
+}
+
+.markDone {
+  color: var(--c-primary-dark);
+}
+
+.markOpen {
+  color: var(--c-limited);
+}
+
+.checkBody {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.word {
+  font-weight: 700;
+}
+
+.status {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: 1.4;
+  color: var(--c-ink-2);
+}
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 18px;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.dot {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.dotDone {
+  background: var(--c-primary);
+  color: #fff;
+}
+
+.dotOpen {
+  border: 2px dashed var(--c-unknown);
+  background: #fff;
+  color: var(--c-ink-2);
+}
+
+.stepText {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The note */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.label {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.hint {
+  margin: 0;
+  font-size: 15px;
+  color: var(--c-muted);
+}
+
+.textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 76px;
+  padding: 12px 16px;
+  border: 2px solid var(--c-ink-2);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--c-ink);
+  font: inherit;
+  font-size: 18px;
+  resize: vertical;
+}
+
+.textarea[aria-invalid='true'] {
+  border-color: var(--c-limited);
+}
+
+.textarea:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.error {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  font-weight: 700;
+  color: var(--c-limited);
+}
+
+.polite {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+/* Actions */
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.primary,
+.outline,
+.quiet {
+  box-sizing: border-box;
+  min-height: 54px;
+  border-radius: 16px;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  transition:
+    transform var(--dur-press) var(--ease-out),
+    background-color var(--dur-state) var(--ease-out);
+}
+
+.primary {
+  padding: 0 26px;
+  border: 0;
+  background: var(--c-primary);
+  color: #fff;
+  font-size: 18px;
+  box-shadow: 0 6px 16px rgb(11 92 140 / 0.28);
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--c-primary-dark);
+}
+
+.primary:disabled {
+  background: #c9dce6;
+  color: var(--c-muted);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.outline {
+  padding: 0 22px;
+  border: 2px solid var(--c-primary);
+  background: #fff;
+  color: var(--c-primary);
+  font-size: 17px;
+}
+
+.outline:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.quiet {
+  padding: 0 20px;
+  border: 0;
+  background: transparent;
+  color: var(--c-ink-2);
+  font-size: 17px;
+  text-decoration: underline;
+}
+
+.primary:active:not(:disabled),
+.outline:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.primary:focus-visible,
+.outline:focus-visible,
+.quiet:focus-visible {
+  outline: 3px solid var(--c-ink);
+  outline-offset: 2px;
+}
+
+/* Go live: the board preview and the record */
+
+.preview {
+  padding: 14px var(--space-4);
+  border: 2px solid var(--c-line);
+  border-radius: 18px;
+}
+
+.previewHeading {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.previewRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.previewName {
+  font-size: 20px;
+  overflow-wrap: anywhere;
+}
+
+.previewNote {
+  font-size: 15px;
+  color: var(--c-muted);
+}
+
+.recordHeading {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.record {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--type-label-size);
+}
+
+.recordTime {
+  font-weight: 700;
+}
+
+/* A phone: the actions stack and each is full width (board RvP2) */
+@media (max-width: 720px) {
+  .card {
+    padding: var(--space-4);
+  }
+
+  .title {
+    font-size: 28px;
+  }
+
+  .actions > * {
+    flex: 1 1 100%;
+  }
+}

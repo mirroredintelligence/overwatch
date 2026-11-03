@@ -1,0 +1,88 @@
+/* The team tiles of part 3 (board O4): added = tinted with a solid primary border, not added = dashed, ticked = tinted
+   with a thick border. State is a mark and a word as well as the border. */
+.tiles {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+@media (max-width: 40rem) {
+  .tiles {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.tile {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius);
+  background: #fff;
+  border: 2px dashed var(--c-unknown);
+  color: var(--c-ink);
+  min-width: 0;
+  transition:
+    background-color var(--dur-state) var(--ease-out),
+    border-color var(--dur-state) var(--ease-out);
+}
+
+.tile[data-state='added'],
+.tile[data-state='ticked'] {
+  background: var(--c-tint);
+  border-style: solid;
+  border-color: var(--c-primary);
+}
+
+.tile[data-state='ticked'] {
+  border-width: 3px;
+  padding: calc(var(--space-3) - 1px) calc(var(--space-4) - 1px);
+}
+
+.mark {
+  flex: none;
+  width: 1.5rem;
+  text-align: center;
+  color: var(--c-primary);
+  font-weight: 700;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.body label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.body input[type='checkbox'] {
+  width: 24px;
+  height: 24px;
+  flex: none;
+}
+
+.state {
+  font-size: var(--type-caption-size);
+  font-weight: 700;
+  color: var(--c-primary-dark);
+}
+
+.tile[data-state='missing'] .state {
+  color: var(--c-muted);
+}
+
+.purpose {
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
+  line-height: 1.4;
+}

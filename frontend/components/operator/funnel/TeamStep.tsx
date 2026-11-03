@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { teamName } from '@/lib/operator/funnel';
 import styles from '@/components/admin/admin.module.css';
 import ts from '../Tenant.module.css';
+import tiles from './TeamTiles.module.css';
 import { GROUP_FAILED, Said, StepSection, isConsented, useMemberForm, useWrite, type MadeGroup, type PanelProps } from './shared';
 
 /**
@@ -92,6 +93,16 @@ export function TeamStep(props: PanelProps) {
       }
     >
       <p className={ts.text}>The administrators’ team is the only way anyone gets administrator rights in Overwatch. They run the organisation’s own pages: who is in which team, and its settings.</p>
+      <div className={tiles.tile} data-team="tenant-admin" data-state={hasTeam ? 'added' : 'missing'}>
+        <span className={tiles.mark} aria-hidden="true">
+          {hasTeam ? '✓' : '○'}
+        </span>
+        <div className={tiles.body}>
+          <strong>{teamName('tenant-admin')}</strong>
+          <span className={tiles.state}>{hasTeam ? 'Added to Overwatch' : 'Not added yet'}</span>
+          <span className={tiles.purpose}>Run the organisation</span>
+        </div>
+      </div>
       {props.consent.status === 'loading' ? <p className={styles.muted}>Loading.</p> : null}
       {props.consent.status === 'ok' && !consented ? <p className={ts.text}>You can create their administrators’ team once their administrator has approved Overwatch.</p> : null}
       {consented && !hasTeam ? (

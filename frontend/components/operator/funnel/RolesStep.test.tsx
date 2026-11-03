@@ -47,6 +47,27 @@ describe('step 5: who can do what', () => {
     expect(list[4]).toHaveTextContent('They cannot change anything.');
   });
 
+  it('draws the teams as a named list of tiles, each with a state a person can read', async () => {
+    await open(VIEW_DETAIL_PROVISIONING, undefined, 'Teams and people');
+    const list = within(card()).getByRole('list', { name: 'The other teams' });
+    const tiles = Array.from(list.querySelectorAll('li'));
+    expect(tiles.map((li) => li.getAttribute('data-team'))).toEqual(['advisor', 'lead', 'clinical', 'exec', 'audit', 'owner']);
+    expect(tiles[1]).toHaveAttribute('data-state', 'added');
+    expect(tiles[0]).toHaveAttribute('data-state', 'missing');
+    expect(tiles[1]!.querySelector('[aria-hidden="true"]')).toHaveTextContent('✓');
+    expect(tiles[0]!.querySelector('[aria-hidden="true"]')).toHaveTextContent('○');
+  });
+
+  it('marks a tile ticked, in words, when it is chosen, and back when it is not', async () => {
+    const user = await open(VIEW_DETAIL_PROVISIONING, CONSENTED, 'Teams and people');
+    const tile = () => card().querySelector('[data-team="advisor"]') as HTMLElement;
+    await user.click(await within(card()).findByRole('checkbox', { name: 'Advisors' }));
+    expect(tile()).toHaveAttribute('data-state', 'ticked');
+    expect(within(tile()).getByText('Ticked to add')).toBeInTheDocument();
+    await user.click(within(card()).getByRole('checkbox', { name: 'Advisors' }));
+    expect(tile()).toHaveAttribute('data-state', 'missing');
+  });
+
   it('says the administrators’ team is the only route to administrator rights', async () => {
     await open(VIEW_DETAIL_PROVISIONING, undefined, 'Teams and people');
     expect(card()).toHaveTextContent('The administrators’ team above is the only route to administrator rights: none of these teams gives them.');

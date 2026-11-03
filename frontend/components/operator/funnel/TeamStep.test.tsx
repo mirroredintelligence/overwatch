@@ -57,6 +57,25 @@ describe('step 4: their administrators’ team', () => {
     expect(within(card()).queryByRole('button')).not.toBeInTheDocument();
   });
 
+  it('shows the team as one tile with what it does, "Not added yet" before it is made', async () => {
+    await open(VIEW_DETAIL_PROVISIONING, undefined, 'Teams and people');
+    const tile = card().querySelector('[data-team="tenant-admin"]') as HTMLElement;
+    expect(tile).not.toBeNull();
+    expect(tile).toHaveAttribute('data-state', 'missing');
+    expect(tile).toHaveTextContent('Administrators');
+    expect(tile).toHaveTextContent('Run the organisation');
+    expect(within(tile).getByText('Not added yet')).toBeInTheDocument();
+  });
+
+  it('shows the tile as added once the team exists, in a word as well as a mark', async () => {
+    await open(withAdmin, CONSENTED, 'Teams and people');
+    await within(card()).findByText('Their administrators’ team is added to Overwatch.');
+    const tile = card().querySelector('[data-team="tenant-admin"]') as HTMLElement;
+    expect(tile).toHaveAttribute('data-state', 'added');
+    expect(within(tile).getByText('Added to Overwatch')).toBeInTheDocument();
+    expect(tile.querySelector('[aria-hidden="true"]')).toHaveTextContent('✓');
+  });
+
   it('explains that this team is the only route to administrator rights', async () => {
     await open(VIEW_DETAIL_PROVISIONING, undefined, 'Teams and people');
     expect(card()).toHaveTextContent('The administrators’ team is the only way anyone gets administrator rights in Overwatch.');

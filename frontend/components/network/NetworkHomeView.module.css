@@ -1,0 +1,222 @@
+/* The network home (boards NHome and PH4): the counts by status as five status tiles, who shares, and two
+   actions. Tokens only. One column at phone width; the tiles wrap, and the two cards sit side by side from 720px.
+   Copied from advisor/BoardCounts.module.css (.tile, .figure, .label, .shape) and Network.module.css (.page, .muted):
+   those two files are shared and frozen, so this page keeps its own copy. */
+
+.page {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-height: 100dvh;
+  padding: var(--space-4);
+  background: var(--c-ground);
+  color: var(--c-ink);
+}
+
+@media (min-width: 720px) {
+  .page {
+    padding: var(--space-5) var(--space-6);
+  }
+}
+
+.heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-4);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--type-display-size);
+  line-height: var(--type-display-lh);
+  font-weight: var(--type-display-weight);
+  letter-spacing: var(--type-display-tracking);
+}
+
+.summary {
+  margin: 0;
+  font-size: var(--type-body-size);
+  color: var(--c-ink-2);
+}
+
+.muted {
+  margin: 0;
+  color: var(--c-muted);
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tile {
+  --tone: var(--c-primary);
+  --figure: var(--c-primary);
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  background: #fff;
+  border: 2px solid var(--tone);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.tile[data-status='limited'] {
+  --tone: var(--c-limited);
+  --figure: var(--c-limited);
+}
+
+.tile[data-status='not-accepting'] {
+  --tone: var(--c-closed);
+  --figure: var(--c-closed);
+}
+
+.tile[data-status='over-capacity'] {
+  --tone: var(--c-surge);
+  --figure: var(--c-surge);
+}
+
+.tile[data-status='not-updated'] {
+  --tone: var(--c-unknown);
+  --figure: var(--c-muted);
+  border-style: dashed;
+}
+
+.figure {
+  font-size: 48px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--figure);
+}
+
+.label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  line-height: 1.2;
+  color: var(--c-ink-2);
+}
+
+.shape {
+  display: inline-flex;
+  flex: none;
+  color: var(--tone);
+}
+
+.shape svg {
+  width: 20px;
+  height: 20px;
+}
+
+.split {
+  display: grid;
+  gap: var(--space-4);
+}
+
+@media (min-width: 720px) {
+  .split {
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  }
+}
+
+.card {
+  box-sizing: border-box;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip,
+.chipOwn {
+  padding: var(--space-2) var(--space-3);
+  border: 2px solid var(--c-line);
+  border-radius: 999px;
+  font-size: var(--type-caption-size);
+  font-weight: 700;
+  color: var(--c-ink);
+}
+
+.chipOwn {
+  border-color: var(--c-primary);
+  background: var(--c-tint);
+}
+
+.primary,
+.secondary {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-5);
+  border-radius: var(--radius);
+  font-size: var(--type-label-size);
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+}
+
+.primary {
+  min-height: var(--btn-h);
+  background: var(--c-primary);
+  color: #fff;
+  box-shadow: 0 6px 16px rgb(11 92 140 / 0.28);
+}
+
+.secondary {
+  min-height: 48px;
+  border: 2px solid var(--c-primary);
+  background: #fff;
+  color: var(--c-primary);
+}
+
+.primary:focus-visible,
+.secondary:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.actions {
+  justify-content: center;
+}
+
+.footnote {
+  margin: auto 0 0;
+  font-size: 15px;
+  color: var(--c-muted);
+}

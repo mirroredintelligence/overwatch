@@ -3,6 +3,7 @@
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { type BookingStream, type BookingFetch, useBooking } from '@/lib/advisor/useBooking';
+import styles from './Advisor.module.css';
 import { BookingCard } from './BookingCard';
 
 // The "Request booking" control for one service on the options screen, and the card it leaves behind
@@ -23,10 +24,12 @@ export type BookingPanelProps = {
   /** The two next steps of a confirmed booking card: record the outcome, and copy the summary. */
   onRecordOutcome?: () => void;
   onCopySummary?: () => void;
+  /** The request stage (one option has the room): "Back to options" sits beside the request control until a request exists. */
+  backToOptions?: boolean;
 };
 
 export function BookingPanel(props: BookingPanelProps) {
-  const { caseRef, serviceId, serviceName, servicePhone, openStream, fetcher, now, onSeeOptions, onAskClinical, onRecordOutcome, onCopySummary } = props;
+  const { caseRef, serviceId, serviceName, servicePhone, openStream, fetcher, now, onSeeOptions, onAskClinical, onRecordOutcome, onCopySummary, backToOptions = false } = props;
   const { booking, busy, conflict, failed, request, cancelBusy, cancelConflict, cancel, acknowledge } = useBooking({
     caseRef,
     serviceId,
@@ -57,9 +60,16 @@ export function BookingPanel(props: BookingPanelProps) {
 
   return (
     <div>
-      <Button variant="primary" busy={busy} dataEl="ADV-OPT-REQUEST-BTN" onClick={() => void request()}>
-        Request booking
-      </Button>
+      <div className={styles.actions}>
+        <Button variant="primary" busy={busy} dataEl="ADV-OPT-REQUEST-BTN" onClick={() => void request()}>
+          Request booking
+        </Button>
+        {backToOptions ? (
+          <Button variant="neutral" dataEl="ADV-OPT-BACK-BTN" onClick={() => onSeeOptions?.()}>
+            Back to options
+          </Button>
+        ) : null}
+      </div>
       {conflict ? <Banner tone="warning" title={`${serviceName} already has a request waiting. Phone them instead.`} dataEl="ADV-BOOK-CONFLICT" /> : null}
       {failed ? <Banner tone="warning" title="We could not send the request. Try again." dataEl="ADV-BOOK-FAILED" /> : null}
     </div>

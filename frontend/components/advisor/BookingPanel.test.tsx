@@ -84,6 +84,60 @@ describe('BookingPanel: Request booking', () => {
   });
 });
 
+describe('BookingPanel: Back to options on the request stage', () => {
+  function renderStage(backToOptions: boolean) {
+    return render(
+      <BookingPanel
+        caseRef={CASE_REF}
+        serviceId={SERVICE_ID}
+        serviceName="UCR West"
+        servicePhone={SERVICE_PHONE}
+        backToOptions={backToOptions}
+        onSeeOptions={onSeeOptions}
+        openStream={() => {
+          stream = new FakeStream();
+          return stream;
+        }}
+      />,
+    );
+  }
+
+  it('offers no Back to options on a card in the list, the default', () => {
+    renderPanel();
+    expect(screen.queryByRole('button', { name: 'Back to options' })).toBeNull();
+  });
+
+  it('offers Back to options beside Request booking when the stage asks for it, and it posts nothing', async () => {
+    renderStage(true);
+    await userEvent.click(screen.getByRole('button', { name: 'Back to options' }));
+    expect(onSeeOptions).toHaveBeenCalledTimes(1);
+    expect(seenBookingPosts).toHaveLength(0);
+    expect(screen.getByRole('button', { name: 'Request booking' })).toBeInTheDocument();
+  });
+
+  it('drops Back to options once a request exists: the card has its own next steps', async () => {
+    renderStage(true);
+    await userEvent.click(screen.getByRole('button', { name: 'Request booking' }));
+    await screen.findByText('Requested');
+    expect(screen.queryByRole('button', { name: 'Back to options' })).toBeNull();
+  });
+
+  it('keeps the request control at the primary size and has no axe violations', async () => {
+    const { container } = renderStage(true);
+    expect(screen.getByRole('button', { name: 'Request booking' })).toHaveAttribute('data-variant', 'primary');
+    expect(await runAxe(container)).toHaveNoViolations();
+  });
+
+  it('does not show the booking conflict as a second Request: the 409 banner replaces nothing and the control stays', async () => {
+    render(
+      <BookingPanel caseRef={CASE_REF} serviceId={SERVICE_WITH_OPEN_REQUEST} serviceName="UCR West" servicePhone={SERVICE_PHONE} backToOptions onSeeOptions={onSeeOptions} />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Request booking' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('already has a request waiting');
+    expect(screen.getByRole('button', { name: 'Back to options' })).toBeInTheDocument();
+  });
+});
+
 describe('BookingPanel: live updates', () => {
   it('refetches when a booking.updated event names this service, and shows Booked', async () => {
     renderPanel();

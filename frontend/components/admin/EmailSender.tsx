@@ -1,18 +1,19 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useId, useState, type FormEvent } from 'react';
 import { TextField } from '@/components/forms/TextField';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
+import { Loading, SkeletonRows } from '@/components/ui/Skeleton';
+import { StatusTag } from '@/components/ui/StatusTag';
 import { adminSend, useAdminRead, useSubmitKey } from '@/lib/tenantAdmin/browser';
 import type { Overview } from './AdminOverview';
-import { Loading, SkeletonRows } from '@/components/ui/Skeleton';
-import styles from './admin.module.css';
+import styles from './EmailSender.module.css';
 
 // The email channel (TEN-076, DEC-1007 item 3): the organisation manages its own email sender. The TEXT
 // channel is the platform operator's and the screen says so and shows it read only. The reference of a
 // channel's secret is never shown or typed here (the BFF drops it and refuses it): only whether the channel
-// has sign-in details.
+// has sign-in details. On board A6 (left half): the text card, then the email card with a choice between the
+// organisation's own address and not set up. The shared sender is not offered: it has no back end yet.
 
 type Channel = Overview['channels'][number];
 const ADDRESS = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -21,43 +22,56 @@ export function EmailSender() {
   const { state, reload } = useAdminRead<Overview>('/api/bff/tenant/overview');
   return (
     <main className={styles.page}>
-      <h1 className={styles.title}>Email sender</h1>
-      {state.status === 'loading' ? <Loading label="Loading the email sender."><SkeletonRows count={3} /></Loading> : null}
-      {state.status === 'failed' ? (
-        <p role="alert" className={styles.problem}>
-          We could not load the email sender.
-        </p>
-      ) : null}
-      {state.status === 'ok' ? (
-        <>
-          <TextChannels channels={state.data.channels.filter((c) => c.kind === 'sms')} />
-          <EmailChannels channels={state.data.channels.filter((c) => c.kind === 'email')} onSaved={reload} />
-        </>
-      ) : null}
+      <h1 className={styles.srOnly}>Email sender</h1>
+      <section aria-label="Senders" className={styles.senders}>
+        <h2 className={styles.heading}>Who messages come from</h2>
+        {state.status === 'loading' ? <Loading label="Loading the email sender."><SkeletonRows count={3} /></Loading> : null}
+        {state.status === 'failed' ? (
+          <p role="alert" className={styles.problem}>
+            We could not load the email sender.
+          </p>
+        ) : null}
+        {state.status === 'ok' ? (
+          <>
+            <TextChannels channels={state.data.channels.filter((c) => c.kind === 'sms')} />
+            <EmailChannels channels={state.data.channels.filter((c) => c.kind === 'email')} onSaved={reload} />
+          </>
+        ) : null}
+      </section>
     </main>
   );
 }
 
 function TextChannels({ channels }: { channels: Channel[] }) {
+  const headingId = useId();
   return (
-    <Card heading="Text messages">
-      <p className={styles.text}>Text messages are set up by the platform operator. To change the number or the sender name, ask them.</p>
-      {channels.map((channel) => (
-        <p key={channel.id} className={styles.muted}>{`Sender name ${channel.senderLabel}`}</p>
-      ))}
-    </Card>
+    <section aria-labelledby={headingId} className={styles.card}>
+      <div className={styles.cardHead}>
+        <h3 id={headingId} className={styles.cardTitle}>
+          Text messages
+        </h3>
+        {channels.length > 0 ? <StatusTag variant="live">Using the shared line</StatusTag> : null}
+      </div>
+      <p className={styles.text}>
+        Texts go out from Overwatch&apos;s shared line until your organisation has its own number. People cannot reply by text yet. To change this, ask the
+        platform team.
+      </p>
+    </section>
   );
 }
 
 function EmailChannels({ channels, onSaved }: { channels: Channel[]; onSaved: () => void }) {
+  const headingId = useId();
   return (
-    <Card heading="Email">
-      {channels.length === 0 ? <p className={styles.text}>No email sender is set up yet.</p> : null}
+    <section aria-labelledby={headingId} className={`${styles.card} ${styles.cardEmail}`}>
+      <h3 id={headingId} className={styles.cardTitle}>
+        Email
+      </h3>
       {channels.map((channel) => (
         <EmailForm key={channel.id} channel={channel} onSaved={onSaved} />
       ))}
       {channels.length === 0 ? <EmailForm channel={null} onSaved={onSaved} /> : null}
-    </Card>
+    </section>
   );
 }
 
@@ -68,7 +82,13 @@ function EmailForm({ channel, onSaved }: { channel: Channel | null; onSaved: () 
   const [errors, setErrors] = useState<{ sender?: string; address?: string }>({});
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [chosen, setChosen] = useState(false);
   const submitKey = useSubmitKey();
+  const radioId = useId();
+  const hintId = useId();
+  // The own address is the one choice on offer: it is in force once the organisation has a sender, and
+  // otherwise it is in force once the person picks it. Not picked, the email sender is not set up.
+  const own = channel !== null || chosen;
   const touch = (set: (v: string) => void) => (v: string) => {
     submitKey.fresh();
     set(v);
@@ -108,40 +128,64 @@ function EmailForm({ channel, onSaved }: { channel: Channel | null; onSaved: () 
     void send(body());
   }
 
+  const status =
+    channel === null ? { variant: 'todo' as const, word: 'Not set up' } : channel.status === 'active' ? { variant: 'live' as const, word: 'In use' } : { variant: 'paused' as const, word: 'Stopped' };
+
   return (
-    <form className={styles.stack} onSubmit={submit} noValidate aria-label={channel === null ? 'Add an email sender' : 'Email sender'}>
-      {channel !== null ? (
-        <div className={styles.row}>
-          <span className={channel.status === 'active' ? styles.tag : `${styles.tag} ${styles.tagDashed}`}>{channel.status === 'active' ? 'In use' : 'Stopped'}</span>
-          <span className={styles.muted}>{channel.hasSecret ? 'Sign-in details: held' : 'Sign-in details: not set'}</span>
-        </div>
-      ) : null}
-      <TextField id={`sender-${channel?.id ?? 'new'}`} label="Sender name" value={sender} onChange={touch(setSender)} requirement="none" error={errors.sender} />
-      <TextField id={`address-${channel?.id ?? 'new'}`} label="From address" value={address} onChange={touch(setAddress)} requirement="none" error={errors.address} type="email" />
-      <TextField id={`display-${channel?.id ?? 'new'}`} label="From display name" value={display} onChange={touch(setDisplay)} requirement="none" />
-      {channel !== null ? (
-        <dl className={styles.facts}>
-          <dt>Sender</dt>
-          <dd>{channel.senderLabel}</dd>
-          <dt>Address</dt>
-          <dd>{channel.fromAddress ?? '-'}</dd>
-        </dl>
-      ) : null}
-      {message !== null ? (
-        <p role={message.ok ? 'status' : 'alert'} className={message.ok ? styles.ok : styles.problem}>
-          {message.text}
-        </p>
-      ) : null}
-      <div className={styles.actions}>
-        <Button variant="primary" type="submit" busy={busy} dataEl="ADMIN-EMAIL-SAVE-BTN">
-          {channel === null ? 'Add email sender' : 'Save email sender'}
-        </Button>
-        {channel !== null && channel.status === 'active' ? (
-          <Button variant="neutral" busy={busy} onClick={() => void send(body('retired'))}>
-            Stop using this email sender
-          </Button>
-        ) : null}
+    <form className={styles.form} onSubmit={submit} noValidate aria-label={channel === null ? 'Add an email sender' : 'Email sender'}>
+      <div className={styles.cardHead}>
+        <StatusTag variant={status.variant}>{status.word}</StatusTag>
+        {channel !== null ? <span className={styles.muted}>{channel.hasSecret ? 'Sign-in details: held' : 'Sign-in details: not set'}</span> : null}
       </div>
+      <div className={own ? `${styles.option} ${styles.optionOn}` : styles.option}>
+        <input
+          id={radioId}
+          type="radio"
+          name={`sender-choice-${channel?.id ?? 'new'}`}
+          className={styles.radio}
+          checked={own}
+          onChange={() => setChosen(true)}
+          aria-describedby={hintId}
+        />
+        <div className={styles.optionText}>
+          <label htmlFor={radioId} className={styles.optionTitle}>
+            Use your own address
+          </label>
+          <p id={hintId} className={styles.optionHint}>
+            Choose the sender name and address. We check it before it is used.
+          </p>
+        </div>
+      </div>
+      {own ? (
+        <>
+          <TextField id={`sender-${channel?.id ?? 'new'}`} label="Sender name" value={sender} onChange={touch(setSender)} requirement="none" error={errors.sender} />
+          <TextField
+            id={`address-${channel?.id ?? 'new'}`}
+            label="From address"
+            value={address}
+            onChange={touch(setAddress)}
+            requirement="none"
+            error={errors.address}
+            type="email"
+          />
+          <TextField id={`display-${channel?.id ?? 'new'}`} label="From display name" value={display} onChange={touch(setDisplay)} requirement="none" />
+          {message !== null ? (
+            <p role={message.ok ? 'status' : 'alert'} className={message.ok ? styles.ok : styles.problem}>
+              {message.text}
+            </p>
+          ) : null}
+          <div className={styles.actions}>
+            {channel !== null && channel.status === 'active' ? (
+              <Button variant="neutral" busy={busy} onClick={() => void send(body('retired'))}>
+                Stop using this email sender
+              </Button>
+            ) : null}
+            <Button variant="primary" type="submit" busy={busy} dataEl="ADMIN-EMAIL-SAVE-BTN">
+              Save choice
+            </Button>
+          </div>
+        </>
+      ) : null}
     </form>
   );
 }

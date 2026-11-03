@@ -4,11 +4,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Button } from '@/components/ui/Button';
+import { Loading, SkeletonRows } from '@/components/ui/Skeleton';
 import { bffRequest } from '@/lib/bff/browser';
 import { durationText, londonTime } from '@/lib/board/format';
 import { ADVICE_LABELS } from '@/lib/clinical/advice';
 import { summaryLine, urgencyText, WHY_TEXT, type QueueItem } from '@/lib/clinical/queue';
-import styles from '@/components/exec/Exec.module.css';
+import styles from './Clinical.module.css';
 
 // The clinical lists (W44, ClinicalAdvisor screen 4): Waiting, Mine and Done, each the back end's own
 // list. Waiting refreshes every 15 seconds, and so does the tab being shown. Taking a request is the
@@ -29,7 +30,8 @@ function waitingFor(requestedAt: string, now: number): string {
   return `Waiting ${durationText(minutes)}`;
 }
 
-export function QueueList() {
+/** The advisor's own status, as the page gives it (the heading's neighbour, not the top bar). */
+export function QueueList({ status = null }: { status?: string | null }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('waiting');
   const [items, setItems] = useState<QueueItem[] | null>(null);
@@ -101,62 +103,82 @@ export function QueueList() {
 
   const card = (item: QueueItem) => {
     const line = summaryLine(item.glance);
+    const now = item.urgency === 'now';
     return (
-      <article key={item.id} className={styles.card} aria-label={`${urgencyText(item.urgency)} · ${WHY_TEXT[item.why] ?? item.why}`}>
-        <p className={styles.cardTitle}>{urgencyText(item.urgency)}</p>
-        {tab === 'waiting' ? <p>{waitingFor(item.requestedAt, loadedAt)}</p> : null}
-        {line !== null ? <p>{line}</p> : <p>{CASE_UNREADABLE}</p>}
-        <p>{WHY_TEXT[item.why] ?? item.why}</p>
-        {tab === 'mine' && item.returnsAt !== null ? <p>{`Returns to the queue at ${londonTime(item.returnsAt)}`}</p> : null}
-        {tab === 'done' && item.advice !== null ? (
-          <p>{`Advice given: ${item.advice.choice in ADVICE_LABELS ? ADVICE_LABELS[item.advice.choice as keyof typeof ADVICE_LABELS] : item.advice.choice}`}</p>
-        ) : null}
-        <div className={styles.actions}>
-          {tab === 'waiting' && item.glance !== null ? (
-            <Button variant="primary" busy={busyId === item.id} onClick={() => take(item)} dataEl="CLIN-QUEUE-TAKE-BTN">
-              Take it
-            </Button>
-          ) : null}
-          {tab === 'mine' ? (
-            <Link href={`/clinical/requests/${encodeURIComponent(item.id)}`} className={styles.backLink} data-el="CLIN-QUEUE-OPEN-LINK">
-              Open
-            </Link>
+      <article key={item.id} className={`${styles.card} ${styles.request} ${now ? styles.requestNow : ''}`} aria-label={`${urgencyText(item.urgency)} · ${WHY_TEXT[item.why] ?? item.why}`}>
+        <div className={styles.urgency}>
+          <span className={`${styles.tag} ${now ? styles.tagSolid : styles.tagOutline}`} data-tone={now ? 'solid' : 'outline'}>
+            <span className={styles.tagDot} aria-hidden="true" />
+            {urgencyText(item.urgency)}
+          </span>
+          {tab === 'waiting' ? <p className={styles.wait}>{waitingFor(item.requestedAt, loadedAt)}</p> : null}
+        </div>
+        <div className={styles.body}>
+          {line !== null ? <p className={styles.title}>{line}</p> : <p className={styles.title}>{CASE_UNREADABLE}</p>}
+          <p className={styles.why}>{WHY_TEXT[item.why] ?? item.why}</p>
+          {tab === 'mine' && item.returnsAt !== null ? <p className={styles.requestNote}>{`Returns to the queue at ${londonTime(item.returnsAt)}`}</p> : null}
+          {tab === 'done' && item.advice !== null ? (
+            <p className={styles.requestNote}>{`Advice given: ${item.advice.choice in ADVICE_LABELS ? ADVICE_LABELS[item.advice.choice as keyof typeof ADVICE_LABELS] : item.advice.choice}`}</p>
           ) : null}
         </div>
+        {tab === 'waiting' && item.glance !== null ? (
+          <Button variant={now ? 'primary' : 'secondary'} busy={busyId === item.id} onClick={() => take(item)} dataEl="CLIN-QUEUE-TAKE-BTN">
+            Take it
+          </Button>
+        ) : null}
+        {tab === 'mine' ? (
+          <Link href={`/clinical/requests/${encodeURIComponent(item.id)}`} className={styles.take} data-el="CLIN-QUEUE-OPEN-LINK">
+            Open
+          </Link>
+        ) : null}
       </article>
     );
   };
 
   return (
-    <div className={styles.stack}>
-      <h1 className={styles.heading}>Requests</h1>
-      <div role="tablist" aria-label="Requests" className={styles.tabs}>
-        {TABS.map((name) => (
-          <button
-            key={name}
-            ref={(node) => {
-              tabRefs.current[name] = node;
-            }}
-            type="button"
-            role="tab"
-            id={`clin-${name}-tab`}
-            aria-selected={tab === name}
-            aria-controls="clin-panel"
-            tabIndex={tab === name ? 0 : -1}
-            onClick={() => select(name)}
-            onKeyDown={onTabKey}
-            className={styles.tab}
-            data-el={`CLIN-QUEUE-TAB-${name.toUpperCase()}`}
-          >
-            {label(name)}
-          </button>
-        ))}
+    <div className={styles.queue}>
+      <div className={styles.queueHead}>
+        <div className={styles.titleGroup}>
+          <h1 className={styles.queueHeading}>Requests</h1>
+          {status !== null ? <span className={styles.status}>{status}</span> : null}
+        </div>
+        <div role="tablist" aria-label="Requests" className={styles.tabs}>
+          {TABS.map((name) => (
+            <button
+              key={name}
+              ref={(node) => {
+                tabRefs.current[name] = node;
+              }}
+              type="button"
+              role="tab"
+              id={`clin-${name}-tab`}
+              aria-selected={tab === name}
+              aria-controls="clin-panel"
+              tabIndex={tab === name ? 0 : -1}
+              onClick={() => select(name)}
+              onKeyDown={onTabKey}
+              className={styles.tab}
+              data-el={`CLIN-QUEUE-TAB-${name.toUpperCase()}`}
+            >
+              {label(name)}
+            </button>
+          ))}
+        </div>
       </div>
-      <div role="tabpanel" id="clin-panel" aria-labelledby={`clin-${tab}-tab`} className={styles.stack}>
-        {tab === 'waiting' ? <p className={styles.footer}>{TAKE_NOTE}</p> : null}
+      <div role="tabpanel" id="clin-panel" aria-labelledby={`clin-${tab}-tab`} className={styles.list}>
+        {tab === 'waiting' ? (
+          <p className={styles.oneAtATime}>
+            <strong>One at a time</strong>
+            <span>{TAKE_NOTE}</span>
+          </p>
+        ) : null}
         {message ? <p role="alert" className={styles.error}>{message}</p> : null}
         {failed ? <p role="alert" className={styles.error}>{READ_FAILED}</p> : null}
-        {items === null && !failed ? <p>Loading the requests.</p> : null}
+        {items === null && !failed ? (
+          <Loading label="Loading the requests.">
+            <SkeletonRows count={3} />
+          </Loading>
+        ) : null}
         {items !== null && items.length === 0 && !failed ? (
           <p>{tab === 'waiting' ? 'No requests are waiting.' : tab === 'mine' ? 'You hold no requests.' : 'You have not given advice yet.'}</p>
         ) : null}

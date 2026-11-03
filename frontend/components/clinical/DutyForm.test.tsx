@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { runAxe } from '@/test/a11y';
@@ -39,11 +39,22 @@ describe('DutyForm', () => {
     expect(seenClinical.filter((c) => c.path === '/api/bff/clinical/presence')).toHaveLength(0);
   });
 
-  it('says how many advisors are available and how many requests are waiting', () => {
+  it('shows the right-now figures as numbers with their words, and links to the queue', () => {
     render(<DutyForm available={2} waiting={1} presence={null} />);
-    expect(screen.getByText('1 request waiting')).toBeInTheDocument();
-    expect(screen.getByText('2 clinical advisors available now')).toBeInTheDocument();
+    const now = screen.getByRole('region', { name: 'Right now' });
+    expect(within(now).getByText('1')).toBeInTheDocument();
+    expect(within(now).getByText('request waiting')).toBeInTheDocument();
+    expect(within(now).getByText('2')).toBeInTheDocument();
+    expect(within(now).getByText('clinical advisors available now')).toBeInTheDocument();
+    expect(within(now).getByRole('link', { name: 'Open the queue' })).toHaveAttribute('href', '/clinical/requests');
     expect(screen.getByText('Advisors see how many of you are available. They see your name only after you take a request.')).toBeInTheDocument();
+  });
+
+  it('says what each status means in the words the board uses, as the description of its button', () => {
+    render(<DutyForm available={2} waiting={1} presence={null} />);
+    expect(screen.getByRole('button', { name: 'Available' })).toHaveAccessibleDescription('Advisors can send you requests now.');
+    expect(screen.getByRole('button', { name: 'Busy' })).toHaveAccessibleDescription('You finish what you are doing first. Requests wait in the queue.');
+    expect(screen.getByRole('button', { name: 'Away' })).toHaveAccessibleDescription('You will not get alerts.');
   });
 
   it('says the counts could not be read rather than showing zero', () => {

@@ -1,16 +1,16 @@
 import { render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { runAxe } from '@/test/a11y';
 import HelpPage from './page';
 
-afterEach(() => vi.unstubAllEnvs());
+// The three ways in (safety concern, problem, share) are the hub column of app/help/layout.tsx; this page is
+// what sits beside it: the heading, the one line about who it is for, and the "Need a hand?" ways.
 
 describe('Help page', () => {
-  it('offers the safety concern and the problem report, and says help is one tap away', () => {
+  it('says help works signed in or out and asks for no patient details, and that help is one tap away', () => {
     render(<HelpPage />);
     expect(screen.getByRole('heading', { level: 1, name: 'Help' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Report a safety concern' })).toHaveAttribute('href', '/help/safety');
-    expect(screen.getByRole('link', { name: 'Something is wrong with the tool' })).toHaveAttribute('href', '/help/problem');
+    expect(screen.getByText('Works signed in or out. Nothing here asks for patient details.')).toBeInTheDocument();
     expect(screen.getByText('Help is one tap away on every screen.')).toBeInTheDocument();
   });
 
@@ -22,15 +22,14 @@ describe('Help page', () => {
     expect(screen.getByRole('link', { name: 'Report a problem' })).toHaveAttribute('href', '/help/problem');
   });
 
-  it('always links to "Share my session with support", whatever the old flag says (W56)', () => {
-    vi.stubEnv('NEXT_PUBLIC_SUPPORT_SHARING', 'off');
+  it('marks itself as the hub page, so a phone shows the hub first', () => {
     render(<HelpPage />);
-    expect(screen.getByRole('link', { name: 'Share my session with support' })).toHaveAttribute('href', '/help/share');
+    expect(screen.getByRole('main')).toHaveAttribute('data-help-hub');
   });
 
   it('has no accessibility violations', async () => {
     const { container } = render(<HelpPage />);
-    expect(screen.getByRole('link', { name: 'Report a safety concern' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Help' })).toBeInTheDocument();
     expect(await runAxe(container)).toHaveNoViolations();
   });
 });

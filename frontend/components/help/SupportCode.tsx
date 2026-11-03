@@ -136,7 +136,8 @@ export function SupportCode() {
       {code !== null ? (
         <section className={styles.codeBox} aria-label="Your code">
           <p ref={codeRef} className={styles.code} data-el="HELP-SHARE-CODE">{code.code}</p>
-          <p>{`Valid until ${londonTime(code.expiresAt)}`}</p>
+          <p className={styles.caption}>Read it to the support person</p>
+          <p className={styles.caption}>{`Valid until ${londonTime(code.expiresAt)}`}</p>
         </section>
       ) : null}
       {code === null && live?.active === true && live.expiresAt !== undefined ? (
@@ -149,6 +150,7 @@ export function SupportCode() {
       {stopped ? <p role="status">Sharing stopped.</p> : null}
 
       <p>Support can see the pages you used, the buttons you pressed and any errors. They cannot see what you typed or any patient information.</p>
+      <p>They cannot change anything.</p>
 
       <section className={exec.section} aria-labelledby="share-opened">
         <h2 id="share-opened" className={exec.cardTitle}>Who has opened your session</h2>
@@ -168,6 +170,9 @@ export function SupportCode() {
           <Button variant="primary" onClick={() => void makeCode()} dataEl="HELP-SHARE-MAKE-BTN">Make a support code</Button>
         ) : null}
         {code !== null ? <Button variant="secondary" onClick={copy} dataEl="HELP-SHARE-COPY-BTN">Copy code</Button> : null}
+        {live?.active === true ? (
+          <Button variant="secondary" onClick={() => void readState()} dataEl="HELP-SHARE-CHECK-BTN">Check again</Button>
+        ) : null}
         {live?.active === true ? (
           <Button variant="secondary" onClick={() => setConfirming(true)} dataEl="HELP-SHARE-STOP-BTN">Stop sharing now</Button>
         ) : null}

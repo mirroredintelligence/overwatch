@@ -20,7 +20,15 @@ const CATEGORIES: readonly { value: SafetyCategory; label: string }[] = [
   { value: 'something-else', label: 'Something else' },
 ];
 
-export const SEND_FAILED = 'Could not send your concern. Try again.';
+// A circle for the confirmation and a triangle for the failure: the shape and the words carry the meaning.
+function Shape({ kind }: { kind: 'ok' | 'problem' }) {
+  return (
+    <svg viewBox="0 0 18 18" className={styles.shape} aria-hidden="true" focusable="false" fill="currentColor">
+      {kind === 'ok' ? <circle cx="9" cy="9" r="7" /> : <path d="M9 2l8 14H1z" />}
+    </svg>
+  );
+}
+
 const ERRORS_TITLE = 'Please fix these before sending';
 
 /**
@@ -33,7 +41,7 @@ export function SafetyConcernForm({ coordinationLine = null }: { coordinationLin
   const [text, setText] = useState('');
   const [errors, setErrors] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
   const [sent, setSent] = useState<string | null>(null);
   const referenceId = useId();
   const textId = useId();
@@ -47,11 +55,11 @@ export function SafetyConcernForm({ coordinationLine = null }: { coordinationLin
     }
     setErrors([]);
     setBusy(true);
-    setFailed(null);
+    setFailed(false);
     const result = await bffRequest<{ reference: string }>('/api/bff/help/safety-concerns', { method: 'POST', body: checked.value });
     setBusy(false);
     if (!result.ok) {
-      setFailed(SEND_FAILED);
+      setFailed(true);
       return;
     }
     setSent(result.data.reference);
@@ -60,7 +68,10 @@ export function SafetyConcernForm({ coordinationLine = null }: { coordinationLin
   if (sent !== null) {
     return (
       <section className={exec.stack} aria-labelledby="concern-sent">
-        <h2 id="concern-sent" className={exec.heading}>{`Concern ${sent} sent`}</h2>
+        <div role="status" className={`${styles.status} ${styles.sent}`}>
+          <Shape kind="ok" />
+          <h2 id="concern-sent" className={styles.sentTitle}>{`Concern ${sent} sent`}</h2>
+        </div>
         <p>A clinical safety officer will review it. You will be told when it has been looked at.</p>
         <p>If someone is at risk now, phone the coordination team or follow local procedure.</p>
         {coordinationLine !== null ? <p>{coordinationLine}</p> : null}
@@ -119,11 +130,18 @@ export function SafetyConcernForm({ coordinationLine = null }: { coordinationLin
       </div>
 
       <section className={styles.warning} aria-label="Before you send">
+        <p><b>Before you send:</b> this is read by a person.</p>
         <p>If someone is at risk now, phone the coordination team or follow local procedure first.</p>
         {coordinationLine !== null ? <p>{coordinationLine}</p> : null}
       </section>
 
-      {failed ? <p role="alert" className={exec.error}>{failed}</p> : null}
+      {busy ? <p role="status" className={`${styles.status} ${styles.sending}`}>Sending your concern.</p> : null}
+      {failed ? (
+        <p role="alert" className={`${styles.status} ${styles.failed}`}>
+          <Shape kind="problem" />
+          <span><b>We could not send that.</b> Nothing was lost: your words are still here. Try again.</span>
+        </p>
+      ) : null}
 
       <div className={exec.actions}>
         <Button variant="primary" type="submit" busy={busy} dataEl="HELP-SAFETY-SEND-BTN">Send to the clinical safety officer</Button>

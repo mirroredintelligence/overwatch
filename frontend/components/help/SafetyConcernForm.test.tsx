@@ -76,6 +76,45 @@ describe('SafetyConcernForm', () => {
     expect(screen.getByText('If someone is at risk now, phone the coordination team or follow local procedure first.')).toBeInTheDocument();
   });
 
+  it('leads the warning with "Before you send:" and keeps the "No patient names or details" line', () => {
+    render(<SafetyConcernForm />);
+    expect(screen.getByRole('region', { name: 'Before you send' })).toHaveTextContent(/^Before you send:/);
+    expect(screen.getByText('No patient names or details.')).toBeInTheDocument();
+  });
+
+  it('says it is sending while the concern goes, and holds the button', async () => {
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    server.use(http.post('/api/bff/help/safety-concerns', async () => {
+      await gate;
+      return HttpResponse.json({ reference: 'SC-0192' });
+    }));
+    render(<SafetyConcernForm />);
+    await userEvent.click(screen.getByRole('button', { name: 'Wrong service shown' }));
+    await userEvent.type(screen.getByLabelText('What happened?'), 'Showed a closed unit');
+    await userEvent.click(screen.getByRole('button', { name: 'Send to the clinical safety officer' }));
+    expect(await screen.findByText('Sending your concern.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Send to the clinical safety officer' })).toBeDisabled();
+    release();
+    expect(await screen.findByRole('heading', { name: 'Concern SC-0192 sent' })).toBeInTheDocument();
+  });
+
+  it('says it could not send, in words and a shape, and keeps every word and choice', async () => {
+    server.use(http.post('/api/bff/help/safety-concerns', () => HttpResponse.json({ code: 'unavailable' }, { status: 503 })));
+    render(<SafetyConcernForm />);
+    await userEvent.click(screen.getByRole('button', { name: 'Wrong service shown' }));
+    await userEvent.type(screen.getByLabelText('Case or booking reference (optional)'), 'BK-20418');
+    await userEvent.type(screen.getByLabelText('What happened?'), 'Showed a closed unit');
+    await userEvent.click(screen.getByRole('button', { name: 'Send to the clinical safety officer' }));
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('We could not send that. Nothing was lost: your words are still here. Try again.');
+    expect(alert.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
+    expect(screen.getByLabelText('What happened?')).toHaveValue('Showed a closed unit');
+    expect(screen.getByLabelText('Case or booking reference (optional)')).toHaveValue('BK-20418');
+    expect(screen.getByRole('button', { name: 'Wrong service shown' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Send to the clinical safety officer' })).toBeEnabled();
+  });
+
   it('has no accessibility violations', async () => {
     const { container } = render(<SafetyConcernForm />);
     expect(screen.getByRole('button', { name: 'Send to the clinical safety officer' })).toBeInTheDocument();

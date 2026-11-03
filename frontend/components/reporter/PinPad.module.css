@@ -1,58 +1,95 @@
+/* The keypad of the redesign (R7): 92px keys, 70px high, 20px dots. At 320px the columns shrink to 76px. */
+
 .pad {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: var(--space-3);
 }
 
 .label {
+  align-self: flex-start;
   margin: 0;
   font-size: var(--type-title-size);
   font-weight: var(--type-title-weight);
 }
 
+/* The count is for screen readers: sighted people read the dots. */
 .count {
-  margin: 0;
-  color: var(--c-muted);
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 .dots {
   display: flex;
-  gap: var(--space-2);
+  gap: 14px;
   justify-content: center;
+  margin: var(--space-2) 0 6px;
 }
 
-.dots span {
-  width: 1rem;
-  height: 1rem;
+.dot {
+  box-sizing: border-box;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  border: 2px solid var(--c-ink-2);
+  border: 2px solid var(--c-unknown);
+  transition: background-color var(--dur-press) var(--ease-out), border-color var(--dur-press) var(--ease-out);
 }
 
-.filled {
-  background: var(--c-ink-2);
+.dot[data-filled='true'] {
+  background: var(--c-ink);
+  border-color: var(--c-ink);
 }
 
 .keys {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-2);
+  grid-template-columns: repeat(3, minmax(0, 92px));
+  gap: 12px;
+  margin-top: 6px;
 }
 
 .key {
-  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 70px;
+  padding: 0;
   font: inherit;
-  font-size: var(--type-title-size);
+  font-size: 30px;
+  font-weight: 700;
   color: var(--c-ink);
-  background: var(--c-bg);
-  border: 2px solid var(--c-line);
-  border-radius: var(--radius);
+  background: #fff;
+  border: 0;
+  border-radius: 20px;
+  box-shadow: 0 1px 2px rgb(20 35 43 / 0.08);
+  cursor: pointer;
+  transition: background-color var(--dur-press) var(--ease-out);
+}
+
+.key:active {
+  background: var(--c-tint);
 }
 
 .delete {
-  font-size: var(--type-body-size);
+  color: var(--c-primary-dark);
+  background: var(--c-tint);
+  box-shadow: none;
 }
 
 .key:focus-visible {
   outline: var(--focus) solid 3px;
   outline-offset: 2px;
+}
+
+@media (max-width: 340px) {
+  .keys {
+    grid-template-columns: repeat(3, minmax(0, 76px));
+  }
 }

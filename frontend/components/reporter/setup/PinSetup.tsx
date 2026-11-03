@@ -2,13 +2,16 @@
 
 import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
+import { ProviderShell } from '@/components/provider/ProviderShell';
 import { Banner } from '@/components/ui/Banner';
 import { bffRequest } from '@/lib/reporter/browser';
 import { PinPad } from '../PinPad';
-import styles from './Setup.module.css';
+import setupStyles from './Setup.module.css';
+import styles from './PinSetup.module.css';
 
 // Step 5 of 5 (W34): create the PIN, enter it again, then sign in with it. The PIN is held only in
 // this component for the two entries; it is sent once, to the BFF, and never stored in the browser.
+// No Continue button: the sixth digit moves from create to confirm, and the sixth of the second entry sends.
 
 const MISMATCH = 'The PINs do not match. Try again.';
 
@@ -62,16 +65,27 @@ export function PinSetup({ doneHref = '/setup/all-set' }: { doneHref?: string })
     void setPin(pin);
   };
 
+  const heading = stage === 'create' ? 'Create a 6-digit PIN' : 'Enter it again';
+
   return (
-    <main className={styles.page}>
-      <p className={styles.caption}>Step 5 of 5</p>
-      <h1 className={styles.title}>{stage === 'create' ? 'Create a 6-digit PIN' : 'Enter it again'}</h1>
-      {stage === 'create' ? (
-        <p>You enter it each time you open the app. We text you a code again every 30 days.</p>
-      ) : null}
-      {notice !== null ? <Banner tone="warning" title={notice} /> : null}
-      <PinPad label={stage === 'create' ? 'Create a 6-digit PIN' : 'Enter it again'} onComplete={onComplete} dataEl="ONB" />
-      {busy ? <p role="status">Saving your PIN</p> : null}
-    </main>
+    <ProviderShell step={5}>
+      <div className={styles.stack}>
+        <p className={setupStyles.caption}>Step 5 of 5</p>
+        <h1 className={setupStyles.title}>{heading}</h1>
+        {stage === 'create' ? (
+          <p className={styles.lead}>You enter it each time you open the app. We text you a code again every 30 days.</p>
+        ) : null}
+        {notice !== null ? <Banner tone="warning" title={notice} /> : null}
+        <PinPad label={heading} showLabel={false} onComplete={onComplete} dataEl="ONB" />
+        {stage === 'create' ? (
+          <p className={styles.hint}>At six digits we ask you to enter it once more. No button to press.</p>
+        ) : null}
+        {busy ? (
+          <p role="status" className={styles.hint}>
+            Saving your PIN
+          </p>
+        ) : null}
+      </div>
+    </ProviderShell>
   );
 }

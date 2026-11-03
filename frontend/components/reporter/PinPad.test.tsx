@@ -29,6 +29,29 @@ describe('PinPad', () => {
     expect(onComplete).toHaveBeenCalledWith('123456');
   });
 
+  it('draws Delete as an icon: named for assistive technology, no visible word', () => {
+    render(<PinPad label="Enter your PIN" onComplete={() => undefined} />);
+    const del = screen.getByRole('button', { name: 'Delete' });
+    expect(del.textContent).toBe('');
+    expect(del.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
+  });
+
+  it('draws the digits as a hidden-from-AT row of six dots, filled as keys are pressed', async () => {
+    const { container } = render(<PinPad label="Enter your PIN" onComplete={() => undefined} dataEl="ONB" />);
+    const dots = container.querySelector('[data-el="ONB-DOTS"]') as HTMLElement;
+    expect(dots.querySelectorAll('span').length).toBe(6);
+    expect(dots.querySelectorAll('[data-filled="true"]').length).toBe(0);
+    await userEvent.click(screen.getByRole('button', { name: '4' }));
+    await userEvent.click(screen.getByRole('button', { name: '2' }));
+    expect(dots.querySelectorAll('[data-filled="true"]').length).toBe(2);
+  });
+
+  it('leaves out its own visible label when the page already shows one, and still names the key group', () => {
+    render(<PinPad label="Create a 6-digit PIN" showLabel={false} onComplete={() => undefined} />);
+    expect(screen.queryByText('Create a 6-digit PIN')).toBeNull();
+    expect(screen.getByRole('group', { name: 'Create a 6-digit PIN' })).toBeInTheDocument();
+  });
+
   it('is keyboard-operable with named keys and passes axe', async () => {
     const { container } = render(<PinPad label="Enter your PIN" onComplete={() => undefined} />);
     expect(screen.getAllByRole('button').length).toBe(11);

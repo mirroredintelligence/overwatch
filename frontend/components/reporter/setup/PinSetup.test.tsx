@@ -23,6 +23,27 @@ async function type(digits: string) {
 }
 
 describe('PinSetup', () => {
+  it('is step 5 of 5 in the provider shell, with the explanation and the no-button hint', () => {
+    render(<PinSetup />);
+    expect(screen.getByRole('progressbar', { name: 'Step 5 of 5' })).toBeInTheDocument();
+    expect(screen.getByText('Step 5 of 5')).toBeInTheDocument();
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByText('You enter it each time you open the app. We text you a code again every 30 days.')).toBeInTheDocument();
+    expect(screen.getByText('At six digits we ask you to enter it once more. No button to press.')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('0 of 6 digits entered');
+  });
+
+  it('has no Continue button: the sixth digit moves on by itself, and the dots start empty again', async () => {
+    render(<PinSetup />);
+    expect(screen.queryByRole('button', { name: /continue/i })).toBeNull();
+    await type('12345');
+    expect(screen.getByRole('status')).toHaveTextContent('5 of 6 digits entered');
+    await type('6');
+    expect(screen.getByRole('heading', { name: 'Enter it again' })).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('0 of 6 digits entered');
+    expect(screen.queryByRole('button', { name: /continue/i })).toBeNull();
+  });
+
   it('says the PINs do not match, restarts, and posts nothing', async () => {
     const { container } = render(<PinSetup />);
     await type('123456');

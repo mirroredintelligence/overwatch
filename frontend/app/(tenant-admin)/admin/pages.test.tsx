@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/navigation', async () => {
@@ -44,7 +44,8 @@ describe.each([
 describe('/admin/config/[n]', () => {
   it('shows the version for a whole number', async () => {
     render(await Version({ params: Promise.resolve({ n: '2' }) }));
-    expect(await screen.findByRole('heading', { level: 1, name: 'Version 2' })).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument());
+    expect(screen.getByRole('heading', { level: 1, name: 'Version 2' })).toBeInTheDocument();
   });
 
   it.each(['0', '-1', '1.5', 'abc', '1234567', '03'])('is the page that is not there for %s', async (n) => {

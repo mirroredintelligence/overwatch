@@ -1,0 +1,75 @@
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid var(--c-limited);
+  background: var(--c-amber-tint);
+  color: #7a3500;
+}
+
+.body {
+  font-size: var(--type-body-size);
+  line-height: 1.45;
+  color: var(--c-ink-2);
+}
+
+.error {
+  margin: 0;
+  font-weight: 700;
+  color: #7a3500;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+/* Both choices share one size: 54px high, the same minimum width. */
+.button {
+  box-sizing: border-box;
+  min-height: 54px;
+  min-width: 11rem;
+  padding: 0 26px;
+  border: 2px solid transparent;
+  border-radius: var(--radius);
+  font: inherit;
+  font-size: var(--type-body-size);
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    transform var(--dur-press) var(--ease-out),
+    background-color var(--dur-state) var(--ease-out);
+}
+
+.button:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.button[data-choice='danger'] {
+  border-color: #7a3500;
+  background: #7a3500;
+  color: #fff;
+}
+
+.button[data-choice='safe'] {
+  border-color: var(--c-primary);
+  background: #fff;
+  color: var(--c-primary);
+}

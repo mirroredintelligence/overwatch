@@ -16,6 +16,10 @@ self.addEventListener('activate', function (event) {
 
 self.addEventListener('fetch', function (event) {
   var request = event.request;
+  // A form POST that navigates (the sign-in start, which answers with a redirect to the identity
+  // provider) is left to the browser. Fetching it here follows that redirect from the worker, and
+  // the identity provider's page then fails to load (W32, the role switch in the header).
+  if (request.mode === 'navigate' && request.method !== 'GET') return;
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request).catch(function () {

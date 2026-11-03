@@ -1,0 +1,201 @@
+/* The network directory and one service of it (the board NServices): the list on the left and the open
+   service beside it, one column at phone width. Tokens only; the motion of the stage is StageGrid's. */
+
+.page {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-height: 100dvh;
+  padding: var(--space-4);
+  background: var(--c-ground);
+  color: var(--c-ink);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: var(--type-title-weight);
+}
+
+.muted {
+  margin: 0;
+  color: var(--c-ink-2);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.stage {
+  min-width: 0;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  list-style: none;
+}
+
+/* A layer of the stage sits in normal flow, so the stage area is as tall as the open service. */
+.stage [data-layer] {
+  position: static;
+}
+
+.row {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border: 2px solid #fff;
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+  color: var(--c-ink);
+}
+
+.row[data-selected='true'] {
+  border-color: var(--c-primary);
+}
+
+.rowTitle {
+  margin: 0;
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: var(--type-title-weight);
+  overflow-wrap: anywhere;
+}
+
+.rowTitle a {
+  display: inline-block;
+  min-height: 44px;
+  color: var(--c-ink);
+}
+
+.card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-5);
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+  color: var(--c-ink);
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.name {
+  margin: 0;
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: var(--type-title-weight);
+  overflow-wrap: anywhere;
+}
+
+.own {
+  padding: 1px var(--space-2);
+  border: 2px solid var(--c-primary);
+  border-radius: 999px;
+  background: var(--c-tint);
+  color: var(--c-primary-dark);
+  font-size: var(--type-label-size);
+  font-weight: 700;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--c-line);
+  min-width: 0;
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-lh);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-ink-2);
+}
+
+.pairs {
+  display: grid;
+  grid-template-columns: minmax(0, 9rem) minmax(0, 1fr);
+  gap: var(--space-2) var(--space-3);
+  margin: 0;
+}
+
+.pairs dt {
+  color: var(--c-ink-2);
+}
+
+.pairs dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.phone {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--c-primary-dark);
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--c-primary-dark);
+  font-weight: 700;
+}
+
+.note {
+  margin: 0;
+  color: var(--c-ink-2);
+  font-size: var(--type-label-size);
+}
+
+/* One column at phone width: the list, then the open service under it. */
+@media (max-width: 899px) {
+  .stage {
+    grid-template-areas: 'list' 'stage' !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .stage [data-area='stage'] {
+    margin-top: var(--space-4);
+  }
+}
+
+@media (max-width: 399px) {
+  .pairs {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0 0;
+  }
+
+  .pairs dd {
+    margin-bottom: var(--space-2);
+  }
+}

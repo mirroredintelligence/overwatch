@@ -2,19 +2,22 @@ import { categoryLabel } from '@/lib/board/format';
 import { hoursText } from '@/lib/network/hours';
 import type { NetworkDirectoryEntry } from '@/lib/network/types';
 import { OrgLabel } from './OrgLabel';
-import styles from '@/components/network/Network.module.css';
+import styles from '@/components/network/NetworkServices.module.css';
 
 // One service of the network directory (docs/design/network-ui.md, NetworkServices, TEN-071): its name is
 // the one link, to the detail by the opaque row reference. It says whose service it is, what it is and
 // where, when it is open and how to phone it. A paused listing says it is not available on the network.
+// The service open beside the list is marked by aria-current on its link and by its row's border.
 
-export function NetworkServiceCard({ entry, own, orgRef }: { entry: NetworkDirectoryEntry; own: boolean; orgRef: string }) {
+export function NetworkServiceCard({ entry, own, orgRef, selected = false }: { entry: NetworkDirectoryEntry; own: boolean; orgRef: string; selected?: boolean }) {
   const kind = [categoryLabel(entry.category), entry.location?.postalDistrict ?? null].filter((part): part is string => part !== null).join(' · ');
   const paused = entry.presentation === 'unavailable';
   return (
-    <li className={styles.row} data-el="NET-SERVICES-ROW" data-service-ref={entry.rowRef} data-org-ref={orgRef}>
+    <li className={styles.row} data-el="NET-SERVICES-ROW" data-service-ref={entry.rowRef} data-org-ref={orgRef} data-selected={selected ? 'true' : 'false'}>
       <h2 className={styles.rowTitle}>
-        <a href={`/network/services/${encodeURIComponent(entry.rowRef)}`}>{entry.serviceName}</a>
+        <a href={`/network/services/${encodeURIComponent(entry.rowRef)}`} aria-current={selected ? 'true' : undefined}>
+          {entry.serviceName}
+        </a>
       </h2>
       <OrgLabel name={entry.organisationName} own={own} />
       <p className={styles.muted}>{kind}</p>

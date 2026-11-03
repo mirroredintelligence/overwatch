@@ -78,7 +78,7 @@ describe('CriteriaFlow', () => {
   it('moves to Change from the overview, and back to Review with Cancel', async () => {
     const user = userEvent.setup();
     render(<CriteriaFlow serviceId="s1" initialStep="overview" />);
-    await user.click(await screen.findByRole('button', { name: 'Change' }));
+    await user.click(await screen.findByRole('button', { name: 'Change them' }));
     await waitFor(() => expect(currentStep()).toContain('Change'));
     await user.click(await screen.findByRole('button', { name: 'Cancel' }));
     await waitFor(() => expect(currentStep()).toContain('Review'));

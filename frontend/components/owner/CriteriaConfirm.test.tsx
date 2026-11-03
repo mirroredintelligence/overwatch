@@ -16,7 +16,10 @@ describe('CriteriaConfirm', () => {
   it('asks for a review period before it confirms, and posts the one chosen', async () => {
     const user = userEvent.setup();
     const { container } = render(<CriteriaConfirm serviceId="s1" version={3} />);
-    expect(await screen.findByRole('heading', { level: 2, name: 'Are these still right?' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Are these still right?' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Review again in' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '3 months' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '12 months' })).toBeInTheDocument();
     expect(screen.getByText('By confirming, you say the criteria are current and safe for advisors to rely on.')).toBeInTheDocument();
     expect(screen.getByText('We log your confirmation, the date and your role.')).toBeInTheDocument();
 

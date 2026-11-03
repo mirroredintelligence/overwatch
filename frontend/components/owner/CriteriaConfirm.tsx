@@ -7,9 +7,10 @@ import { bffPost } from '@/lib/bff/client';
 import { REVIEW_PERIODS, reviewPeriodError } from '@/lib/criteria/model';
 import type { ReviewPeriod } from '@/lib/criteria/types';
 import styles from '@/components/lead/lead-forms.module.css';
+import panels from './CriteriaPanels.module.css';
 
-// "Still right" (W30, ui-screens CriteriaOwner screen 3): the owner confirms the current criteria are
-// current and safe, and chooses when to review them again. Nothing changes but the review date.
+// "Still right" (W30, ui-screens CriteriaOwner screen 3, and the board's state 2 Confirm): the owner confirms the
+// current criteria are current and safe, and chooses when to review them again. Nothing changes but the review date.
 
 export function CriteriaConfirm({
   serviceId,
@@ -42,42 +43,46 @@ export function CriteriaConfirm({
 
   return (
     <main className={styles.page}>
-      <p className={styles.meta}>{`Version ${version}`}</p>
-      <h2 className={styles.heading}>Are these still right?</h2>
-      <p className={styles.lede}>By confirming, you say the criteria are current and safe for advisors to rely on.</p>
+      <div className={panels.card}>
+        <p className={panels.meta}>{`Version ${version}`}</p>
+        <h1 className={panels.title}>Are these still right?</h1>
+        <p className={panels.lede}>By confirming, you say the criteria are current and safe for advisors to rely on.</p>
 
-      <fieldset className={styles.fieldset}>
-        <legend>Review again in</legend>
-        {REVIEW_PERIODS.map((period) => (
-          <OptionButton
-            key={period}
-            selected={months === period}
-            onSelect={() => setMonths(period)}
-            dataEl={`OWN-CRIT-REVIEW-${period}`}
-          >
-            {`${period} months`}
-          </OptionButton>
-        ))}
-        {error !== null ? <p role="alert" className={styles.error}>{error}</p> : null}
-      </fieldset>
+        <fieldset className={panels.choices}>
+          <legend>Review again in</legend>
+          <div className={panels.options}>
+            {REVIEW_PERIODS.map((period) => (
+              <OptionButton
+                key={period}
+                selected={months === period}
+                onSelect={() => setMonths(period)}
+                dataEl={`OWN-CRIT-REVIEW-${period}`}
+              >
+                {`${period} months`}
+              </OptionButton>
+            ))}
+          </div>
+          {error !== null ? <p role="alert" className={styles.error}>{error}</p> : null}
+        </fieldset>
 
-      <p className={styles.hint}>We log your confirmation, the date and your role.</p>
-      {failure !== null ? <p role="alert" className={styles.error}>{failure}</p> : null}
-      {done ? <p aria-live="polite">Confirmed.</p> : null}
+        <p className={panels.meta}>We log your confirmation, the date and your role.</p>
+        {failure !== null ? <p role="alert" className={styles.error}>{failure}</p> : null}
+        {done ? <p aria-live="polite">Confirmed.</p> : null}
 
-      <div className={styles.actions}>
-        <Button variant="primary" busy={busy} onClick={confirm} dataEl="OWN-CRIT-CONFIRM-BTN">
-          I confirm
-        </Button>
-        {done ? (
-          <Button variant="secondary" onClick={() => onDone?.()}>
-            Back to the criteria
+        <div className={panels.actions}>
+          <Button variant="primary" busy={busy} onClick={confirm} dataEl="OWN-CRIT-CONFIRM-BTN">
+            I confirm
           </Button>
-        ) : (
-          <Button variant="neutral" onClick={() => onBack?.()}>
-            Back
-          </Button>
-        )}
+          {done ? (
+            <Button variant="secondary" onClick={() => onDone?.()}>
+              Back to the criteria
+            </Button>
+          ) : (
+            <Button variant="neutral" onClick={() => onBack?.()}>
+              Back
+            </Button>
+          )}
+        </div>
       </div>
     </main>
   );

@@ -1,52 +1,69 @@
-.main {
+/* The light half of the split (board O1): a warning notice and the white sign-in card. The brand half is SplitHero. */
+
+.notice {
   display: flex;
-  justify-content: center;
-  padding: var(--space-6) var(--space-4);
-  background: var(--c-bg);
-  min-height: 100vh;
-  box-sizing: border-box;
-  color: var(--c-ink);
-  font-family: var(--font-atkinson, system-ui), system-ui, sans-serif;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-4);
+  background: var(--c-amber-tint);
+  border: 2px solid var(--c-limited);
+  border-radius: var(--radius);
 }
 
-.panel {
-  width: 100%;
-  max-width: 520px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
+.notice > div {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
 }
 
-.product {
-  margin: 0;
-  font-size: var(--type-heading-size);
-  line-height: var(--type-heading-lh);
-  font-weight: var(--type-heading-weight);
-  color: var(--c-primary-dark);
+.icon {
+  flex: none;
+  margin-top: 2px;
+  color: #7a3500;
 }
 
 .card {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  padding: var(--space-5);
-  background: Canvas;
-  border: 1px solid var(--c-line);
+  padding: var(--space-6);
+  background: #fff;
   border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
 }
 
 .heading {
   margin: 0;
-  font-size: var(--type-title-size);
-  line-height: var(--type-title-lh);
+  font-size: var(--type-heading-size);
+  line-height: var(--type-heading-lh);
+  font-weight: var(--type-heading-weight);
 }
 
 .text {
   margin: 0;
   font-size: var(--type-body-size);
   line-height: var(--type-body-lh);
+  color: var(--c-ink-2);
 }
 
 .form {
   display: flex;
+}
+
+.form button {
+  width: 100%;
+  min-height: 60px;
+  gap: var(--space-3);
+  font-size: 20px;
+  border-radius: var(--radius);
+  box-shadow: 0 6px 16px rgb(11 92 140 / 0.28);
+}
+
+.help {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-muted);
 }

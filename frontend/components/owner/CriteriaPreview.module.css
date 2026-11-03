@@ -1,0 +1,121 @@
+/* The owner's preview (boards/lead/OwnerReview.dc.html, state 4): what advisors will see beside what changed. The
+   figures never animate. Colours are tokens; #4a2300 and #7a3500 are the board's own text on the amber tint. */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-5);
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  font-family: var(--font-atkinson, system-ui), system-ui, sans-serif;
+  color: var(--c-ink);
+}
+
+.heading {
+  margin: 0;
+  font-size: 1.875rem;
+  line-height: 1.1;
+}
+
+.panels {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+@media (max-width: 700px) {
+  .panels {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.seen,
+.changed {
+  min-width: 0;
+  padding: 18px;
+  border-radius: 18px;
+}
+
+.seen {
+  border: 2px solid var(--c-line);
+}
+
+.changed {
+  border: 2px solid var(--c-limited);
+  background: var(--c-amber-tint);
+  color: #4a2300;
+}
+
+.kicker {
+  margin: 0 0 var(--space-2);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.changed .kicker {
+  color: #7a3500;
+}
+
+.name {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 700;
+}
+
+.line {
+  margin: 6px 0 0;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--c-ink-2);
+}
+
+.changes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.what {
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.values {
+  margin: 4px 0 0;
+  font-size: 18px;
+}
+
+.sentence {
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.count {
+  margin: var(--space-3) 0 0;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.nothing {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

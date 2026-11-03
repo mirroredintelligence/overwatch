@@ -20,6 +20,23 @@ export function csrfToken(): string | undefined {
   return undefined;
 }
 
+/**
+ * The CSRF token for a write: the cookie when it is set, else the one the session route issues (the cookie
+ * is not set until that route has answered in this browser, so a first write from a fresh sign-in needs it).
+ */
+export async function csrfTokenForWrite(): Promise<string> {
+  const fromCookie = csrfToken();
+  if (fromCookie) return fromCookie;
+  try {
+    const session = await fetch('/api/bff/session', { cache: 'no-store', credentials: 'same-origin' });
+    if (!session.ok) return '';
+    const body = (await session.json().catch(() => null)) as { csrfToken?: unknown } | null;
+    return typeof body?.csrfToken === 'string' ? body.csrfToken : '';
+  } catch {
+    return '';
+  }
+}
+
 /** A new key for one submit: a random UUID where the browser has one, else random hex. */
 export function newIdempotencyKey(): string {
   const random = globalThis.crypto;
@@ -36,7 +53,7 @@ export type LeadResult =
 /** Sends one write to the BFF. The outcome says what the page should show. */
 export async function leadPost(path: string, body?: unknown, idempotencyKey?: string): Promise<LeadResult> {
   const headers: Record<string, string> = {
-    'X-CSRF-Token': csrfToken() ?? '',
+    'X-CSRF-Token': await csrfTokenForWrite(),
     'Idempotency-Key': idempotencyKey ?? newIdempotencyKey(),
   };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
@@ -72,7 +89,7 @@ export async function leadPut(path: string, body: unknown, options: { idempotenc
     response = await fetch(path, {
       method: 'PUT',
       headers: {
-        'X-CSRF-Token': csrfToken() ?? '',
+        'X-CSRF-Token': await csrfTokenForWrite(),
         'Idempotency-Key': options.idempotencyKey,
         'If-Match': options.ifMatch,
         'Content-Type': 'application/json',

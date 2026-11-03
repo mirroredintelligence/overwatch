@@ -1,20 +1,22 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { CoverUntil, NEEDS_DATE, type Until, untilBody } from '@/components/reporter/CoverUntil';
 import { MOBILE_ERROR, MobileNumberField } from '@/components/reporter/MobileNumberField';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
+import { Loading, Skeleton } from '@/components/ui/Skeleton';
+import { StatusTag } from '@/components/ui/StatusTag';
 import { isUkMobile } from '@/lib/forms/ukMobile';
 import { bffRequest } from '@/lib/reporter/browser';
 import { type ChannelWord, recordChannelForSession } from '@/lib/reporter/channel';
 import { inDays } from '@/lib/reporter/times';
-import { SummaryRows } from '@/components/reporter/parts/SummaryRows';
-import styles from '@/components/reporter/Reporter.module.css';
+import styles from './SettingsScreen.module.css';
 
-// Settings (W37). Every value is shown masked, from the back end. Signing out of this phone asks
-// first, in the page, and then clears the session (the device stays this phone's).
+// Settings (W37, artboard B8). Every value is shown masked, from the back end. Signing out of this phone asks
+// first, in the page, and then clears the session (the device stays this phone's). "Sign out of every phone"
+// is a visible link to its own page.
 
 type Settings = {
   channel: string;
@@ -26,8 +28,8 @@ type Settings = {
 
 const CHANNEL_LABEL: Record<string, string> = { app: 'App notification', text: 'Text message', email: 'Email' };
 
-function notificationsState(): 'On' | 'Off' {
-  return typeof Notification !== 'undefined' && Notification.permission === 'granted' ? 'On' : 'Off';
+function notificationsOn(): boolean {
+  return typeof Notification !== 'undefined' && Notification.permission === 'granted';
 }
 
 export function SettingsScreen() {
@@ -93,75 +95,105 @@ export function SettingsScreen() {
   };
 
   if (failed) return <main className={styles.page}><p>We could not load your settings. Try again shortly.</p></main>;
-  if (settings === null) return <main className={styles.page}><p role="status">Opening settings</p></main>;
+  if (settings === null) {
+    return (
+      <main className={styles.page}>
+        <Loading label="Opening settings.">
+          <Skeleton shape="title" width="40%" />
+          <Skeleton shape="block" />
+        </Loading>
+      </main>
+    );
+  }
+
+  const on = notificationsOn();
+  const rows: { label: string; value: ReactNode }[] = [
+    { label: 'Contact me by', value: CHANNEL_LABEL[settings.channel] ?? 'Text message' },
+    { label: 'Notifications', value: on ? <StatusTag variant="live">On</StatusTag> : <StatusTag variant="todo">Off</StatusTag> },
+    { label: 'Phone', value: settings.maskedPhone },
+    { label: 'Cover number', value: settings.maskedCover ?? <StatusTag variant="paused">Not set</StatusTag> },
+    { label: 'Text code needed again', value: inDays(settings.reverifyInDays) },
+  ];
 
   return (
     <main className={styles.page}>
       <h1 className={styles.title}>Settings</h1>
-      <SummaryRows
-        dataEl="REP-SET-SUMMARY"
-        rows={[
-          { label: 'Contact me by', value: CHANNEL_LABEL[settings.channel] ?? 'Text message' },
-          { label: 'Notifications', value: notificationsState() },
-          { label: 'Phone', value: settings.maskedPhone },
-          { label: 'Cover number', value: settings.maskedCover ?? 'Not set' },
-          { label: 'Text code needed again', value: inDays(settings.reverifyInDays) },
-        ]}
-      />
+      <dl className={styles.card} data-el="REP-SET-SUMMARY">
+        {rows.map((row) => (
+          <div key={row.label} className={styles.row}>
+            <dt className={styles.label}>{row.label}</dt>
+            <dd className={styles.value}>{row.value}</dd>
+          </div>
+        ))}
+      </dl>
       {notice !== null ? <Banner tone="warning" title={notice} /> : null}
 
       {channelOpen ? (
-        <fieldset>
+        <fieldset className={styles.group}>
           <legend>How we contact you</legend>
           {(['app', 'text', 'email'] as const).map((word) => (
-            <label key={word} className={styles.question}>
+            <label key={word} className={styles.choice}>
               <input type="radio" name="channel" value={word} checked={channelChoice === word} onChange={() => setChannelChoice(word)} />
-              {` ${CHANNEL_LABEL[word]}`}
+              {CHANNEL_LABEL[word]}
             </label>
           ))}
-          <Button variant="primary" dataEl="REP-SET-CHANNEL-SAVE-BTN" onClick={() => void saveChannel()}>
-            Save how we contact me
-          </Button>
+          <div className={styles.wide}>
+            <Button variant="primary" dataEl="REP-SET-CHANNEL-SAVE-BTN" onClick={() => void saveChannel()}>
+              Save how we contact me
+            </Button>
+          </div>
         </fieldset>
       ) : (
-        <Button variant="neutral" dataEl="REP-SET-CHANNEL-BTN" onClick={() => setChannelOpen(true)}>
-          Change how we contact me
-        </Button>
+        <div className={styles.wide}>
+          <Button variant="secondary" dataEl="REP-SET-CHANNEL-BTN" onClick={() => setChannelOpen(true)}>
+            Change how we contact me
+          </Button>
+        </div>
       )}
 
       {coverOpen ? (
-        <div>
+        <div className={styles.group}>
           <MobileNumberField label="Cover mobile number" value={cover} onChange={setCover} error={coverError} required dataEl="REP-SET-COVER-FIELD" />
           <CoverUntil until={until} date={date} onUntil={setUntil} onDate={setDate} name="cover-until" />
-          <Button variant="primary" dataEl="REP-SET-COVER-SAVE-BTN" onClick={() => void saveCover()}>
-            Save cover number
-          </Button>
+          <div className={styles.wide}>
+            <Button variant="primary" dataEl="REP-SET-COVER-SAVE-BTN" onClick={() => void saveCover()}>
+              Save cover number
+            </Button>
+          </div>
         </div>
       ) : (
-        <Button variant="neutral" dataEl="REP-SET-COVER-BTN" onClick={() => setCoverOpen(true)}>
-          Add a cover number
-        </Button>
+        <div className={styles.wide}>
+          <Button variant="secondary" dataEl="REP-SET-COVER-BTN" onClick={() => setCoverOpen(true)}>
+            Add a cover number
+          </Button>
+        </div>
       )}
-
-      <p>
-        <a href="/app/sign-out-all">Sign out of every phone</a>
-      </p>
 
       {signOutAsk ? (
-        <div role="group" aria-label="Sign out of this phone">
-          <p>Sign out of this phone?</p>
-          <Button variant="primary" dataEl="REP-SET-SIGNOUT-CONFIRM-BTN" onClick={() => void signOut()}>
-            Confirm sign out
-          </Button>
-          <Button variant="neutral" dataEl="REP-SET-SIGNOUT-CANCEL-BTN" onClick={() => setSignOutAsk(false)}>
-            Cancel
-          </Button>
+        <div role="group" aria-label="Sign out of this phone" className={styles.group}>
+          <p className={styles.question}>Sign out of this phone?</p>
+          <div className={styles.wide}>
+            <Button variant="primary" dataEl="REP-SET-SIGNOUT-CONFIRM-BTN" onClick={() => void signOut()}>
+              Confirm sign out
+            </Button>
+          </div>
+          <div className={styles.wide}>
+            <Button variant="neutral" dataEl="REP-SET-SIGNOUT-CANCEL-BTN" onClick={() => setSignOutAsk(false)}>
+              Cancel
+            </Button>
+          </div>
         </div>
       ) : (
-        <Button variant="neutral" dataEl="REP-SET-SIGNOUT-BTN" onClick={() => setSignOutAsk(true)}>
-          Sign out of this phone
-        </Button>
+        <div className={styles.wide}>
+          <Button variant="neutral" dataEl="REP-SET-SIGNOUT-BTN" onClick={() => setSignOutAsk(true)}>
+            Sign out of this phone
+          </Button>
+        </div>
       )}
+
+      <a className={styles.every} href="/app/sign-out-all" data-el="REP-SET-SIGNOUT-ALL-LINK">
+        Sign out of every phone
+      </a>
     </main>
   );
 }

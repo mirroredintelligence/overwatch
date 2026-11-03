@@ -1,0 +1,94 @@
+/* Sign out of every phone (artboard B9): a card with the question, a dark confirm (not red, not the
+   primary blue) and an outlined Cancel. Tokens only (white is the only literal colour). */
+
+.page {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 32rem;
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-4);
+  color: var(--c-ink);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--type-heading-size);
+  line-height: var(--type-heading-lh);
+  font-weight: var(--type-heading-weight);
+  letter-spacing: var(--type-heading-tracking);
+}
+
+.why {
+  margin: 0;
+  color: var(--c-ink-2);
+}
+
+.count {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.wide {
+  display: flex;
+  width: 100%;
+}
+
+.wide > button {
+  width: 100%;
+  min-height: 58px;
+}
+
+/* The dark primary: the ink colour as the ground, white words. */
+.dark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 58px;
+  padding: 0 22px;
+  color: #fff;
+  background: var(--c-ink);
+  border: 0;
+  border-radius: var(--radius);
+  font: inherit;
+  font-size: 19px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    transform var(--dur-press) var(--ease-out),
+    background-color var(--dur-state) var(--ease-out);
+}
+
+.dark:hover:not(:disabled) {
+  background: var(--c-ink-2);
+}
+
+.dark:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.dark:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.dark:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}

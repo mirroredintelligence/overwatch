@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -121,6 +121,53 @@ describe('SettingsScreen', () => {
     await userEvent.click(screen.getByRole('radio', { name: /Email/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Save how we contact me' }));
     expect(await screen.findByText('We could not change how we contact you. Try again.')).toBeInTheDocument();
+  });
+
+  it('says in words that settings are opening while they load, and then shows the Settings heading', async () => {
+    render(<SettingsScreen />);
+    expect(screen.getByRole('status')).toHaveTextContent('Opening settings');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Settings' })).toBeInTheDocument();
+  });
+
+  it('shows notifications and an unset cover number as status tags (shape and word), not bare text', async () => {
+    const { container } = render(<SettingsScreen />);
+    await screen.findByText('07xxx xxx456');
+    const rows = container.querySelector('[data-el="REP-SET-SUMMARY"]') as HTMLElement;
+    const notifications = within(rows).getByText('Notifications').closest('div') as HTMLElement;
+    expect(notifications.querySelector('[data-variant]')).toHaveTextContent('Off');
+    expect(notifications.querySelector('[data-variant] svg[aria-hidden="true"]')).not.toBeNull();
+    const cover = within(rows).getByText('Cover number').closest('div') as HTMLElement;
+    expect(cover.querySelector('[data-variant="paused"]')).toHaveTextContent('Not set');
+  });
+
+  it('shows a cover number that is set as plain masked text, not as the "Not set" tag', async () => {
+    server.use(http.get('/api/bff/reporter/settings', () => HttpResponse.json({ ...SETTINGS, maskedCover: '07xxx xxx789' })));
+    const { container } = render(<SettingsScreen />);
+    await screen.findByText('07xxx xxx789');
+    expect(container.querySelector('[data-variant="paused"]')).toBeNull();
+  });
+
+  it('draws the two change buttons outlined in the primary colour, and sign out of this phone outlined dark', async () => {
+    render(<SettingsScreen />);
+    expect(await screen.findByRole('button', { name: 'Change how we contact me' })).toHaveAttribute('data-variant', 'secondary');
+    expect(screen.getByRole('button', { name: 'Add a cover number' })).toHaveAttribute('data-variant', 'secondary');
+    expect(screen.getByRole('button', { name: 'Sign out of this phone' })).toHaveAttribute('data-variant', 'neutral');
+  });
+
+  it('has a visible "Sign out of every phone" link after the sign out of this phone button', async () => {
+    render(<SettingsScreen />);
+    const thisPhone = await screen.findByRole('button', { name: 'Sign out of this phone' });
+    const everyPhone = screen.getByRole('link', { name: 'Sign out of every phone' });
+    expect(everyPhone).toHaveAttribute('href', '/app/sign-out-all');
+    expect(thisPhone.compareDocumentPosition(everyPhone) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('has no accessibility violations in the open cover form and the sign out question', async () => {
+    const { container } = render(<SettingsScreen />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Add a cover number' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Change how we contact me' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Sign out of this phone' }));
+    expect(await runAxe(container)).toHaveNoViolations();
   });
 
   it('says the settings could not be loaded for a failure, and goes to the PIN for a 401', async () => {

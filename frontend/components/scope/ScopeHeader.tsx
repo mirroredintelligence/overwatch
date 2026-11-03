@@ -18,7 +18,7 @@ export function ScopeHeader({ scope, networkName, switchTo, variant = 'page' }: 
   const text = scope === 'own' ? 'Showing: Our organisation' : `Showing: Network, ${networkName}`;
   const wall = variant === 'wall';
   return (
-    <section className={`${styles.header} ${wall ? styles.wall : ''}`} aria-label="Which board you are viewing" data-scope={scope}>
+    <section className={`${styles.header} ${wall ? styles.wall : ''}`} aria-label="Which board you are viewing" data-scope={scope} data-variant={variant}>
       <p className={styles.label} data-el="SCOPE-HEADER-LABEL">
         {text}
       </p>

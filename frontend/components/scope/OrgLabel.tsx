@@ -8,7 +8,7 @@ export function OrgLabel({ name, own = false }: { name: string; own?: boolean })
   return (
     <p className={styles.org}>
       <span className={styles.orgName}>{name}</span>
-      {own ? <span className={styles.own}>Your organisation</span> : null}
+      {own ? <span className={styles.own} data-own="true">Your organisation</span> : null}
     </p>
   );
 }

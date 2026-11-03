@@ -18,6 +18,14 @@ describe('OwnScopeHeader', () => {
     expect(screen.queryByRole('navigation')).toBeNull();
   });
 
+  it('is the same tinted band as the network header, in the page form', () => {
+    server.use(...networkBffHandlers);
+    render(<OwnScopeHeader ownHref="/lead" networkHref="/network/system-now" />);
+    const header = screen.getByRole('region', { name: 'Which board you are viewing' });
+    expect(header).toHaveAttribute('data-scope', 'own');
+    expect(header).toHaveAttribute('data-variant', 'page');
+  });
+
   it('offers the switch to the network page when the organisation is in a network', async () => {
     server.use(...networkBffHandlers);
     render(<OwnScopeHeader ownHref="/lead" networkHref="/network/system-now" />);

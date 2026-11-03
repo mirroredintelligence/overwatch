@@ -7,18 +7,18 @@
   justify-content: space-between;
   gap: var(--space-2) var(--space-4);
   box-sizing: border-box;
-  padding: var(--space-2) var(--space-4);
-  border: 2px solid var(--c-line);
-  border-radius: var(--radius);
-  background: Canvas;
-  color: var(--c-ink);
+  padding: var(--space-2) var(--space-5);
+  border-bottom: 2px solid var(--c-primary-dark);
+  background: var(--c-tint);
+  color: var(--c-primary-dark);
 }
 
 .label {
   margin: 0;
-  font-size: var(--type-title-size);
-  line-height: var(--type-title-lh);
-  font-weight: var(--type-title-weight);
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-lh);
+  font-weight: 700;
+  color: var(--c-primary-dark);
   overflow-wrap: anywhere;
 }
 
@@ -29,37 +29,38 @@
   letter-spacing: var(--type-display-tracking);
 }
 
+/* One segmented control: two links in a pill, the current one filled. */
 .switch {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
+  overflow: hidden;
+  border: 2px solid var(--c-primary-dark);
+  border-radius: 999px;
+  background: #fff;
 }
 
 .link {
   display: inline-flex;
   align-items: center;
   box-sizing: border-box;
-  min-height: var(--chip-h);
+  min-height: 44px;
   padding: 0 var(--space-4);
-  border: 2px solid var(--c-unknown);
-  border-radius: var(--radius-chip);
-  background: Canvas;
-  color: var(--c-ink);
+  background: #fff;
+  color: var(--c-primary-dark);
   font-size: var(--type-label-size);
+  font-weight: 700;
   text-decoration: none;
+  transition: background var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out);
 }
 
 .link:focus-visible {
   outline: var(--focus);
-  outline-offset: 2px;
+  outline-offset: -4px;
 }
 
 /* The current board is a filled word, not a colour alone: the link also carries aria-current. */
 .link[aria-current='page'] {
-  background: var(--c-primary);
-  border-color: var(--c-primary);
-  color: Canvas;
-  font-weight: 700;
+  background: var(--c-primary-dark);
+  color: #fff;
 }
 
 .org {
@@ -87,13 +88,13 @@
   font-weight: 700;
 }
 
-/* The panel of a state in which the network is not shown. */
+/* The panel of a state in which the network is not shown: the board's neutral "off" tone. */
 .panel {
   box-sizing: border-box;
   padding: var(--space-5);
-  border: 3px dashed var(--c-unknown);
+  border: 2px solid var(--c-ink-2);
   border-radius: var(--radius-card);
-  background: Canvas;
+  background: var(--c-ground);
   color: var(--c-ink);
 }
 
@@ -106,6 +107,10 @@
 
 .panelBody {
   margin: var(--space-2) 0 0;
+}
+
+.panelAction {
+  margin-top: var(--space-4);
 }
 
 /* Read by a screen reader, not seen. */

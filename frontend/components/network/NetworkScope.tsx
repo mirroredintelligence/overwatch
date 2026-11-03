@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { NetworkUnavailable } from '@/components/scope/NetworkUnavailable';
 import type { ScopeLinks } from '@/components/scope/ScopeSwitch';
 import { Chip } from '@/components/ui/Chip';
+import { Loading, Skeleton } from '@/components/ui/Skeleton';
 import { readNetworkList } from '@/lib/network/browser';
 import type { NetworkList, NetworkSummary } from '@/lib/network/types';
 import styles from './Network.module.css';
@@ -51,7 +52,10 @@ export function NetworkScope({ ownHref, networkHref, children }: ScopeLinks & { 
   if (load.kind === 'loading') {
     return (
       <main className={styles.page}>
-        <p role="status">Loading the network</p>
+        <Loading label="Loading the network">
+          <Skeleton shape="title" width="40%" />
+          <Skeleton shape="block" />
+        </Loading>
       </main>
     );
   }

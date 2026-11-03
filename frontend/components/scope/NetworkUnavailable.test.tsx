@@ -30,6 +30,23 @@ describe('not available (every refusal reads the same)', () => {
   });
 });
 
+describe('the neutral panel of a refusal', () => {
+  it('is the neutral "off" tone in every state that is not an offline alert, and the way back is a button-styled link', () => {
+    const { unmount } = render(<NetworkUnavailable reason="not-available" ownHref={OWN} />);
+    expect(screen.getByRole('status')).toHaveAttribute('data-tone', 'off');
+    expect(screen.getByRole('link', { name: 'Back to our organisation' })).toHaveAttribute('data-variant', 'secondary');
+    unmount();
+    render(<NetworkUnavailable reason="paused" networkName="Sample Network" ownHref={OWN} />);
+    expect(screen.getByRole('status')).toHaveAttribute('data-tone', 'off');
+  });
+
+  it('offers the history as a button-styled link when the membership has ended', () => {
+    render(<NetworkUnavailable reason="membership-ended" networkName="Sample Network" ownHref={OWN} historyHref="/network/history" />);
+    expect(screen.getByRole('status')).toHaveAttribute('data-tone', 'off');
+    expect(screen.getByRole('link', { name: 'See history' })).toHaveAttribute('data-variant', 'secondary');
+  });
+});
+
 describe('paused', () => {
   it('names the network, says to phone services, offers to try again, and keeps the scope header', async () => {
     const onRetry = vi.fn();

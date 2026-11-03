@@ -44,7 +44,7 @@ export type NetworkUnavailableProps = {
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className={styles.panel} role="status" data-el="NET-STATE-PANEL">
+    <div className={styles.panel} role="status" data-tone="off" data-el="NET-STATE-PANEL">
       <h1 className={styles.panelTitle}>{title}</h1>
       {children}
     </div>
@@ -56,11 +56,11 @@ export function NetworkUnavailable({ reason, networkName, ownHref, onRetry, hist
     return (
       <Panel title="Network view not available">
         <p className={styles.panelBody}>Ask your administrator.</p>
-        <p className={styles.panelBody}>
-          <a href={ownHref} data-el="NET-STATE-BACK-LINK">
+        <div className={styles.panelAction}>
+          <Button variant="secondary" href={ownHref} dataEl="NET-STATE-BACK-LINK">
             Back to our organisation
-          </a>
-        </p>
+          </Button>
+        </div>
       </Panel>
     );
   }
@@ -74,9 +74,11 @@ export function NetworkUnavailable({ reason, networkName, ownHref, onRetry, hist
         <Panel title="The network view is paused">
           <p className={styles.panelBody}>{`${name} is not sharing capacity at the moment. Phone services to check.`}</p>
           {onRetry !== undefined ? (
-            <Button variant="secondary" onClick={onRetry} dataEl="NET-STATE-RETRY-BTN">
-              Try again
-            </Button>
+            <div className={styles.panelAction}>
+              <Button variant="secondary" onClick={onRetry} dataEl="NET-STATE-RETRY-BTN">
+                Try again
+              </Button>
+            </div>
           ) : null}
         </Panel>
       ) : null}
@@ -84,11 +86,11 @@ export function NetworkUnavailable({ reason, networkName, ownHref, onRetry, hist
         <Panel title={`Your organisation has left ${name}`}>
           <p className={styles.panelBody}>{endedOn === undefined ? 'You can see the history of what was shared.' : `You can see the history of what was shared until ${dayText(endedOn)}.`}</p>
           {historyHref !== undefined ? (
-            <p className={styles.panelBody}>
-              <a href={historyHref} data-el="NET-BOARD-HISTORY-LINK">
+            <div className={styles.panelAction}>
+              <Button variant="secondary" href={historyHref} dataEl="NET-BOARD-HISTORY-LINK">
                 See history
-              </a>
-            </p>
+              </Button>
+            </div>
           ) : null}
         </Panel>
       ) : null}

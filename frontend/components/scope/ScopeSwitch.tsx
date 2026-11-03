@@ -13,7 +13,7 @@ export type ScopeLinks = {
 
 export function ScopeSwitch({ current, ownHref, networkHref }: ScopeLinks & { current: 'own' | 'network' }) {
   return (
-    <nav className={styles.switch} aria-label="Choose the board">
+    <nav className={styles.switch} aria-label="Choose the board" data-segmented="true">
       <a href={ownHref} className={styles.link} aria-current={current === 'own' ? 'page' : undefined} data-el="SCOPE-SWITCH-OWN-LINK">
         Our organisation
       </a>

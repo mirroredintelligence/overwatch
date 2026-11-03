@@ -29,6 +29,7 @@ describe('NetworkScope', () => {
     server.use(...networkBffHandlers);
     page();
     expect(screen.getByRole('status')).toHaveTextContent('Loading the network');
+    expect(screen.getByRole('status')).toHaveAttribute('data-skeleton');
     const shown = await screen.findByTestId('page');
     expect(shown).toHaveTextContent('Sample Network for Sample Area A');
     expect(shown).toHaveAttribute('data-own', '/advisor/board');

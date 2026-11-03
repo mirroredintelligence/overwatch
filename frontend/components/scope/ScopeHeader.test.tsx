@@ -77,6 +77,20 @@ describe('ScopeHeader', () => {
     expect(screen.getByText('Showing: Network, Sample Network')).toBeInTheDocument();
   });
 
+  it('is a tinted band whose form is named by data-variant: page, or wall', () => {
+    const { rerender } = render(<ScopeHeader scope="own" />);
+    expect(screen.getByRole('region', { name: 'Which board you are viewing' })).toHaveAttribute('data-variant', 'page');
+    rerender(<ScopeHeader scope="own" variant="wall" />);
+    expect(screen.getByRole('region', { name: 'Which board you are viewing' })).toHaveAttribute('data-variant', 'wall');
+  });
+
+  it('draws the switch as one segmented control: the links are inside a list-free group in a single nav', () => {
+    render(<ScopeHeader scope="network" networkName="Sample Network" switchTo={LINKS} />);
+    const nav = screen.getByRole('navigation', { name: 'Choose the board' });
+    expect(nav).toHaveAttribute('data-segmented', 'true');
+    expect(within(nav).getAllByRole('link')).toHaveLength(2);
+  });
+
   it('has no axe violations in any form', async () => {
     // One header to a page, as on a real page (a landmark is unique by its name).
     for (const header of [
@@ -99,6 +113,11 @@ describe('ScopeSwitch', () => {
 });
 
 describe('OrgLabel', () => {
+  it('marks the own-row label as a bordered chip with data-own, for the board tile to read', () => {
+    const { container } = render(<OrgLabel name="Sample Area A" own />);
+    expect(container.querySelector('[data-own="true"]')).toHaveTextContent('Your organisation');
+  });
+
   it('shows the organisation’s name', () => {
     render(<OrgLabel name="Sample Area B" />);
     expect(screen.getByText('Sample Area B')).toBeInTheDocument();

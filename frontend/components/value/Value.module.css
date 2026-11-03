@@ -1,33 +1,37 @@
+/* The page is a card stack on the ground colour. Its inline padding keeps the content to 72rem and gives a
+   16px gutter at 320px. The cards wrap to one column below about 16rem each. */
 .page {
   display: grid;
   gap: var(--space-5);
-  max-width: 1440px;
-  margin: 0 auto;
-  padding: var(--space-5) var(--space-4);
+  align-content: start;
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: var(--space-5) max(var(--space-4), calc((100% - 72rem) / 2));
+  background: var(--c-ground);
   font-family: var(--font-atkinson), system-ui, sans-serif;
   color: var(--c-ink);
 }
 
 .bar {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-3);
-  padding-bottom: var(--space-4);
-  border-bottom: 1px solid var(--c-line);
 }
 
-.barTitle {
-  margin: 0;
+.mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--c-rail);
+}
+
+.brand {
   font-size: var(--type-title-size);
   font-weight: var(--type-title-weight);
-}
-
-.barNote {
-  margin: 0;
-  color: var(--c-muted);
-  font-size: var(--type-body-size);
 }
 
 .title {
@@ -36,24 +40,25 @@
   line-height: var(--type-heading-lh);
   font-weight: var(--type-heading-weight);
   letter-spacing: var(--type-heading-tracking);
+  max-width: 48rem;
 }
 
 .cards {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
   gap: var(--space-4);
 }
 
+/* A white surface on the ground, with the shared card shadow and radius. */
 .card {
-  flex: 1 1 280px;
   display: grid;
   gap: var(--space-3);
   align-content: start;
   min-width: 0;
   padding: var(--space-4) var(--space-5);
-  border: 1px solid var(--c-line);
   border-radius: var(--radius-card);
-  background: var(--c-bg);
+  background: #fff;
+  box-shadow: var(--shadow-card);
 }
 
 .cardTitle {
@@ -79,15 +84,21 @@
   line-height: var(--type-body-lh);
 }
 
+/* The dot marks each line; it is decoration, so the words carry the meaning. */
 .ticks li {
   display: flex;
+  align-items: flex-start;
   gap: var(--space-3);
 }
 
-.tick {
+.ticks li::before {
+  content: '';
   flex: none;
-  margin-top: 4px;
-  color: var(--c-primary-dark);
+  width: 8px;
+  height: 8px;
+  margin-top: 0.55em;
+  border-radius: 50%;
+  background: var(--c-primary);
 }
 
 .kit a {
@@ -123,10 +134,89 @@
   border-top: 0;
   color: var(--c-muted);
   font-size: var(--type-caption-size);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .table tbody th {
   font-weight: var(--type-label-weight);
+}
+
+/* A target not yet agreed: a dashed outline, so it reads as a blank to fill. */
+.pending {
+  display: inline-block;
+  padding: 2px 10px;
+  border: 1px dashed var(--c-muted);
+  border-radius: var(--radius-chip);
+  font-size: var(--type-caption-size);
+  color: var(--c-ink-2);
+}
+
+/* The disclosure is a full 44px touch target; the chevron turns when it opens. */
+.more {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  justify-self: start;
+  min-height: 44px;
+  padding: 0 var(--space-2) 0 0;
+  border: 0;
+  background: none;
+  color: var(--c-primary-dark);
+  font: inherit;
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  cursor: pointer;
+}
+
+.more:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.chevron {
+  flex: none;
+  transition: transform var(--dur-state) var(--ease-out);
+}
+
+.chevron[data-open='true'] {
+  transform: rotate(180deg);
+}
+
+.foot {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+}
+
+/* The savings rule is an amber box with a heavy edge; the launch kit a light tint. */
+.rules,
+.kitBox {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+}
+
+.rules {
+  background: var(--c-amber-tint);
+  border: 2px solid var(--c-limited);
+}
+
+.kitBox {
+  background: var(--c-tint);
+}
+
+.boxTitle {
+  margin: 0;
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-lh);
+  font-weight: var(--type-label-weight);
+  letter-spacing: var(--type-label-tracking);
 }
 
 .srOnly {

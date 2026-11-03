@@ -5,11 +5,12 @@ import { useEffect, useState } from 'react';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
+import { StatusTag } from '@/components/ui/StatusTag';
 import { parseSettings, parseShift, SHIFT_STATUSES, type Shift, type ShiftStatus } from '@/lib/practitioner/answers';
 import { useBffRead } from '@/lib/practitioner/browser';
 import { bffRequest } from '@/lib/reporter/browser';
 import { clock } from '@/lib/reporter/times';
-import { PhoneScreen, wantedText } from './PhoneScreen';
+import { PhoneFailed, PhoneOpening, PhoneScreen, wantedText } from './PhoneScreen';
 import styles from './practitioner.module.css';
 
 // My shift (RadarPhone 1): a greeting, the optional status, today's visits and the next one, the offers
@@ -45,8 +46,8 @@ export function ShiftScreen() {
     if (read.kind === 'ended') router.replace('/app/pin');
   }, [read, router]);
 
-  if (read.kind === 'failed') return <PhoneScreen title="My shift" backHref="/app"><p>We could not load your shift. Try again shortly.</p></PhoneScreen>;
-  if (read.kind !== 'ready') return <PhoneScreen title="My shift" backHref="/app"><p role="status">Opening your shift</p></PhoneScreen>;
+  if (read.kind === 'failed') return <PhoneFailed title="My shift" backHref="/app">We could not load your shift. Try again shortly.</PhoneFailed>;
+  if (read.kind !== 'ready') return <PhoneOpening title="My shift" backHref="/app" label="Opening your shift." />;
   const shift = read.value;
   const status = set === null ? shift.status : set.status;
 
@@ -97,15 +98,14 @@ export function ShiftScreen() {
 
       {shift.offers.length === 0 ? null : (
         <div className={styles.group} role="group" aria-label="New offers">
-          <p className={styles.label}>{shift.offers.length === 1 ? '1 new offer' : `${shift.offers.length} new offers`}</p>
+          {shift.offers.length > 1 ? <p className={styles.label}>{`${shift.offers.length} new offers`}</p> : null}
           <ul className={styles.list}>
             {shift.offers.map((offer) => (
               <li key={offer.id}>
-                <a className={styles.item} href={`/app/practitioner/offers/${encodeURIComponent(offer.id)}`} data-el="PRAC-SHIFT-OFFER-LINK">
-                  <span className={styles.itemText}>
-                    <strong>{offer.need}</strong>
-                    <span className={styles.itemMeta}>{`Sector ${offer.sector}, ${wantedText(offer.wantedWithin).toLowerCase()}`}</span>
-                  </span>
+                <a className={`${styles.card} ${styles.offerCard}`} href={`/app/practitioner/offers/${encodeURIComponent(offer.id)}`} data-el="PRAC-SHIFT-OFFER-LINK">
+                  <StatusTag variant="live">{shift.offers.length === 1 ? '1 new offer' : 'New offer'}</StatusTag>
+                  <strong className={styles.cardTitle}>{offer.need}</strong>
+                  <span className={styles.cardMeta}>{`Sector ${offer.sector} · ${wantedText(offer.wantedWithin).replace(/^Wanted /, '').toLowerCase()}`}</span>
                 </a>
               </li>
             ))}
@@ -113,7 +113,7 @@ export function ShiftScreen() {
         </div>
       )}
 
-      <div className={styles.panel} data-el="PRAC-SHIFT-TODAY">
+      <div className={styles.card} data-el="PRAC-SHIFT-TODAY">
         {shift.visitsToday === 0 ? (
           <p className={styles.panelTitle}>Today: no visits yet</p>
         ) : (

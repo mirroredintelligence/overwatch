@@ -15,6 +15,23 @@ from overwatch.domain.codes import Cadence, Channel, Measure, ServiceCategory
 from overwatch.domain.errors import ValidationFailed
 
 ALL_DAYS: Final[frozenset[int]] = frozenset(range(7))
+
+# The unit label a service's count reads with, from what it counts (DEC-1331): the wizard no longer
+# asks for one. The wording is the one the board shows after the number.
+UNIT_LABELS: Final[dict[Measure, str]] = {
+    Measure.FREE_SLOTS: "slots left today",
+    Measure.FREE_BEDS: "beds free",
+    Measure.REFERRALS_ACCEPTABLE: "referrals in the next 2 hrs",
+    Measure.OCCUPIED_PATIENTS: "patients in place",
+    Measure.PACKAGES_FREE: "packages available",
+    Measure.OTHER: "places",
+}
+
+
+def unit_label_for(measure: Measure) -> str:
+    return UNIT_LABELS[measure]
+
+
 MONDAY_TO_FRIDAY: Final[frozenset[int]] = frozenset({0, 1, 2, 3, 4})
 
 LIMITED_LEVEL_PERCENT_DEFAULT: Final = 80  # [ASSUMED] domain-rules.md 1.1

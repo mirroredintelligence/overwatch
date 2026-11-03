@@ -58,7 +58,7 @@ from overwatch.application.use_cases.setup_service_by_lead import (
 )
 from overwatch.domain.codes import Cadence, Channel, Measure, NeedCategory, Role, ServiceCategory
 from overwatch.domain.errors import NotFound, ValidationFailed
-from overwatch.domain.model.service import AvailableTime
+from overwatch.domain.model.service import ALL_DAYS, AvailableTime, unit_label_for
 
 router = APIRouter(prefix="/fhir")
 MOBILE_REFUSAL: Final = "Enter a UK mobile number, for example 07700 900123"
@@ -175,6 +175,28 @@ def _national_mobile(value: object) -> str:
         raise ValidationFailed("mobile", MOBILE_REFUSAL) from None
 
 
+def _available_times(index: Any) -> tuple[AvailableTime, ...]:
+    """The days and hours the service takes referrals (DEC-1331): all day, or From to To on the days
+    chosen (0 is Monday). No day chosen means every day."""
+    days_given = _repeated(index, "day")
+    days = frozenset(_day_number(value) for value in days_given) if days_given else ALL_DAYS
+    if _single(index, "allDay", required=False) == "true":
+        return (AvailableTime(days=days, all_day=True, start=None, end=None),)
+    start = _clock_time(_single(index, "availableFrom", required=True), "availableFrom")
+    end = _clock_time(_single(index, "availableTo", required=True), "availableTo")
+    return (AvailableTime(days=days, all_day=False, start=start, end=end),)
+
+
+def _day_number(value: object) -> int:
+    try:
+        number = int(str(value))
+    except ValueError:
+        raise ValidationFailed("day", "must be a day of the week, 0 to 6") from None
+    if not 0 <= number <= 6:
+        raise ValidationFailed("day", "must be a day of the week, 0 to 6")
+    return number
+
+
 def setup_command(body: object, actor: Actor, key: str) -> SetupServiceCommand:
     """The use case command for one $setup body. Channel and the phone are checked first, so a
     refusal of either does not depend on the rest of the body."""
@@ -196,8 +218,10 @@ def setup_command(body: object, actor: Actor, key: str) -> SetupServiceCommand:
     districts = frozenset(str(value) for value in _repeated(index, "district"))
     if not districts:
         raise ValidationFailed("district", "is required")
-    start = _clock_time(_single(index, "availableFrom", required=True), "availableFrom")
-    end = _clock_time(_single(index, "availableTo", required=True), "availableTo")
+    available = _available_times(index)
+    established = _whole(
+        _single(index, "establishedCapacity", required=True), "establishedCapacity"
+    )
     max_age = _single(index, "ageMax", required=False)
     owner = _single(index, "ownerRoleName", required=False)
     return SetupServiceCommand(
@@ -206,16 +230,13 @@ def setup_command(body: object, actor: Actor, key: str) -> SetupServiceCommand:
         name=str(_single(index, "name", required=True)),
         category=category,
         measure=measure,
-        unit_label=str(_single(index, "unitLabel", required=True)),
-        established_capacity=_whole(
-            _single(index, "establishedCapacity", required=True), "establishedCapacity"
-        ),
-        usual_range=(
-            _whole(_single(index, "usualMin", required=True), "usualMin"),
-            _whole(_single(index, "usualMax", required=True), "usualMax"),
-        ),
+        unit_label=unit_label_for(measure),
+        established_capacity=established,
+        # The range check is 0 to the max capacity until a range is learned from the reports
+        # (DEC-1331).
+        usual_range=(0, established),
         cadence=cadence,
-        available_times=(AvailableTime.every_day(start, end),),
+        available_times=available,
         channel=channel,
         reporter_role_name=str(_single(index, "roleName", required=True)),
         age_min=_whole(_single(index, "ageMin", required=True), "ageMin"),

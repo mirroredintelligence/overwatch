@@ -35,6 +35,7 @@ from overwatch.domain.codes import (
     NeedCategory,
     PractitionerRoleCode,
     Role,
+    ScopeFlag,
     ServiceCategory,
 )
 from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
@@ -46,6 +47,7 @@ from overwatch.domain.model.people import (
     check_email_domain,
     check_staff_text,
 )
+from overwatch.domain.model.registration import ScopeEntry
 from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from overwatch.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
 from overwatch.domain.rules.london_time import to_london
@@ -383,6 +385,17 @@ class SetupServiceByLead:
 
             practitioner_id = await self._reporter_practitioner(uow, contact, command, now)
             await uow.services.save(profile)
+            # The service is in the pilot from set-up (DEC-1331). An invitation refuses a service
+            # with no scope entry, so without this no text was ever sent to the reporter.
+            await uow.scope.save_entry(
+                ScopeEntry(
+                    service_id=service_id,
+                    name=command.name,
+                    category=command.category,
+                    flag=ScopeFlag.IN_PILOT,
+                    date=to_london(now).date(),
+                )
+            )
             await uow.people.save_role(
                 PractitionerRole(
                     id=reporter_role_id,

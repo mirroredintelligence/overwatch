@@ -7143,3 +7143,13 @@ Status: accepted (the owner's request, 2026-11-03, applied under DEC-133) · Aff
 **What it does not do.** It does not give anyone a role: the role still comes from the person's groups and the tenant's mapping, unchanged. It does not take the name from the directory; the identity carries no name, so the name is a placeholder until someone sets it.
 
 **How to apply.** Only the staff exchange creates a practitioner from a sign-in. Other paths (invitations, the host-bound exchange) keep their own records.
+
+## DEC-1331 Setting up a service in the wizard activates it and asks the reporter for capacity
+
+**Decision.** (1) The set-up writes the service's scope entry as in-pilot, in the same unit of work as the service. Without it, the invitation refuses the service (no scope entry), so no text was ever sent for a wizard-made service. (2) The wizard's form asks only for what the service needs: no unit label (the wording comes from what is counted), "Max capacity" in place of "Established", no usual range (the range check is 0 to the max capacity until history exists), a time picker for From and To with an "All day" choice, and the days the service takes referrals. (3) After a successful set-up, the wizard sends the invitation to the reporter's mobile or email, which asks them for the capacity figure.
+
+**Why.** (1) is the cause of the missing text. (2) is the redesign the lead asked for. (3) makes the reporter's first figure arrive on the day the service is set up.
+
+**What it does not do.** It does not change the matching of patients to services (whole districts only), or the reporting rules after the first figure.
+
+**How to apply.** The unit label is derived from what is counted, in one place in the back end. The usual range stays in the data model, so a learned range can replace 0 to max later.

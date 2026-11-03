@@ -37,7 +37,8 @@ beforeEach(() => {
 describe('the service under consideration (KI-768)', () => {
   it('asked from a service\'s card: the dialog names the service and the request sends its id', async () => {
     const user = userEvent.setup();
-    render(<OptionsList caseId="4821" />);
+    // The card's control is in the Request state of the service, opened by ?service=.
+    render(<OptionsList caseId="4821" serviceId="svc-hospital-at-home" />);
 
     await user.click(await screen.findByRole('button', { name: 'Ask about Hospital at home' }));
     expect(await screen.findByText('About: Hospital at home')).toBeInTheDocument();

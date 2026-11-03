@@ -119,6 +119,19 @@ describe('choosing a district on the list', () => {
     expect(await screen.findByRole('heading', { name: "3 services meet this patient's criteria" })).toBeInTheDocument();
     expect(chosen[0]?.body).toEqual({ district: 'DT1' });
     expect(reads).toBe(2);
+    // The rows of the list the choice produced open the Request state, like any other list.
+    expect(screen.getAllByRole('link', { name: /^Open / })).toHaveLength(3);
+    expect(screen.queryByRole('button', { name: 'DT1' })).toBeNull();
+  });
+
+  it('shows the list, not the Request state, for a service id that the district choice made unavailable', async () => {
+    serve(FLAGGED);
+    render(<OptionsList caseId="4821" serviceId="svc-gone" />);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'DT1' }));
+
+    expect(await screen.findByRole('heading', { name: "3 services meet this patient's criteria" })).toBeInTheDocument();
+    expect(screen.queryByRole('complementary', { name: 'Other options' })).toBeNull();
   });
 
   it('keeps the list as it was when the postcode was not found but options exist (no travel times)', async () => {

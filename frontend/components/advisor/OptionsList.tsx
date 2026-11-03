@@ -1,8 +1,11 @@
 'use client';
 
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
+import { STATUS_LABELS } from '@/components/ui/StatusBadge';
 import { bffFetch } from '@/lib/advisor/browser';
 import { chooseDistrict } from '@/lib/advisor/district';
 import type { OptionsParts } from '@/lib/advisor/options';
@@ -15,7 +18,7 @@ import { ViewToggle } from './ViewToggle';
 import { NotSuitableList } from './NotSuitableList';
 import { PhonedDialog } from './PhonedDialog';
 import { OutOfArea, PostcodeNotFound } from './PostcodeStates';
-import { ServiceCard } from './ServiceCard';
+import { numberText, ServiceCard } from './ServiceCard';
 import styles from './OptionsList.module.css';
 
 // The options for a case (W13): the services that meet the hard criteria, in the order the back end
@@ -24,6 +27,8 @@ import styles from './OptionsList.module.css';
 
 export type OptionsListProps = {
   caseId: string;
+  /** The service the URL asks for (?service=): when it is one of the options, that option takes the stage (call step 4). */
+  serviceId?: string | null;
   onCriteria?: (serviceId: string) => void;
   onPhoned?: (serviceId: string) => void;
   /** Called when the advisor asks for clinical advice; the dialog itself is opened here (W45). */
@@ -42,7 +47,8 @@ function headingFor(count: number): string {
 
 type Open = { kind: 'criteria' | 'phoned' | 'declined'; serviceId: string; serviceName: string };
 
-export function OptionsList({ caseId, onCriteria, onPhoned, onAskClinical }: OptionsListProps) {
+export function OptionsList({ caseId, serviceId = null, onCriteria, onPhoned, onAskClinical }: OptionsListProps) {
+  const router = useRouter();
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
   const [open, setOpen] = useState<Open | null>(null);
   // Asking a clinical advisor: about the case (null) or about one service, from its card (KI-768).
@@ -64,10 +70,22 @@ export function OptionsList({ caseId, onCriteria, onPhoned, onAskClinical }: Opt
     void readOptions();
   }, [caseId, readOptions]);
 
+  // The service the URL asks for (?service=), when it is one of this case's options: anything else is ignored.
+  const selectedId = load.kind === 'ready' ? (load.parts.options.find((option) => option.serviceId === serviceId)?.serviceId ?? null) : null;
+  const wasSelected = useRef(false);
+  useEffect(() => {
+    // Back from a service to the list: the heading takes focus, as it does after "See options".
+    if (selectedId === null && wasSelected.current) heading.current?.focus();
+    wasSelected.current = selectedId !== null;
+  }, [selectedId]);
+
   if (load.kind === 'loading') return <p>Loading the options.</p>;
   if (load.kind === 'failed') return <p role="alert">The options could not be read. Try again.</p>;
 
   const { options, notSuitable } = load.parts;
+  const listUrl = `/advisor/case/${encodeURIComponent(caseId)}/options`;
+  const serviceUrl = (id: string) => `${listUrl}?service=${encodeURIComponent(id)}`;
+  const selected = options.find((option) => option.serviceId === selectedId) ?? null;
   // A district chosen from the chips is saved on the case, then the list is read again (W50, W9H DEC-1045).
   const chooseDistrictAndRead = async (district: string): Promise<boolean> => {
     if (!(await chooseDistrict(caseId, district))) return false;
@@ -91,7 +109,44 @@ export function OptionsList({ caseId, onCriteria, onPhoned, onAskClinical }: Opt
   return (
     <section className={styles.list} aria-label="Options">
       <ViewToggle caseId={caseId} current="list" />
-      {options.length === 0 && load.parts.outOfArea ? (
+      {selected !== null ? (
+        <div className={styles.request} data-el="ADV-OPT-REQUEST">
+          <div className={styles.stage}>
+            <ServiceCard
+              caseId={caseId}
+              option={selected}
+              headingLevel={2}
+              backToOptions
+              onSeeOptions={() => router.push(listUrl)}
+              onAskClinical={() => askAbout(selected)}
+              onCriteria={(id) => {
+                opener('criteria')(id);
+                onCriteria?.(id);
+              }}
+              onPhoned={(id) => {
+                opener('phoned')(id);
+                onPhoned?.(id);
+              }}
+              onDeclined={opener('declined')}
+            />
+          </div>
+          <aside className={styles.rail} aria-label="Other options">
+            <p className={styles.railLabel}>Other options</p>
+            <ul className={styles.railList}>
+              {options
+                .filter((option) => option.serviceId !== selected.serviceId)
+                .map((option) => (
+                  <li key={option.serviceId}>
+                    <Link className={`${styles.railLink} ${option.status === 'over-capacity' ? styles.railSurge : ''}`} href={serviceUrl(option.serviceId)} scroll={false}>
+                      <span className={styles.railName}>{option.name}</span>
+                      <span className={styles.railLine}>{`${STATUS_LABELS[option.status]} · ${numberText(option)} ${option.unitLabel ?? ''}`.trim()}</span>
+                    </Link>
+                  </li>
+                ))}
+            </ul>
+          </aside>
+        </div>
+      ) : options.length === 0 && load.parts.outOfArea ? (
         <OutOfArea caseId={caseId} postcode="This postcode" onAskClinical={askClinical} districts={load.parts.districts} onChooseDistrict={chooseDistrictAndRead} />
       ) : options.length === 0 && load.parts.notFound ? (
         <PostcodeNotFound caseId={caseId} onAskClinical={askClinical} districts={load.parts.districts} onChooseDistrict={chooseDistrictAndRead} />
@@ -107,22 +162,7 @@ export function OptionsList({ caseId, onCriteria, onPhoned, onAskClinical }: Opt
           {load.parts.network === 'unavailable' ? <Banner tone="info" title="Other organisations">{NETWORK_UNAVAILABLE}</Banner> : null}
           <div className={styles.cards}>
             {options.map((option) => (
-              <ServiceCard
-                key={option.serviceId}
-                caseId={caseId}
-                option={option}
-                onSeeOptions={() => heading.current?.focus()}
-                onAskClinical={() => askAbout(option)}
-                onCriteria={(id) => {
-                  opener('criteria')(id);
-                  onCriteria?.(id);
-                }}
-                onPhoned={(id) => {
-                  opener('phoned')(id);
-                  onPhoned?.(id);
-                }}
-                onDeclined={opener('declined')}
-              />
+              <ServiceCard key={option.serviceId} caseId={caseId} option={option} variant="row" openHref={serviceUrl(option.serviceId)} />
             ))}
           </div>
         </>
@@ -154,9 +194,9 @@ export function OptionsList({ caseId, onCriteria, onPhoned, onAskClinical }: Opt
         <AskClinicalPanel caseRef={caseId} optionsShown={options.length} service={asking.service} onClose={() => setAsking(null)} />
       ) : null}
 
-      <NotSuitableList items={notSuitable} />
+      {selected === null ? <NotSuitableList items={notSuitable} /> : null}
 
-      {options.length === 0 ? null : (
+      {options.length === 0 || selected !== null ? null : (
         <footer className={styles.footer}>
           <p className={styles.note}>No patient name is stored. Postcode and needs are cleared after the call record closes.</p>
           <div className={styles.actions}>

@@ -174,4 +174,78 @@ describe('ServiceCard (W13)', () => {
     const { container } = render(<ServiceCard caseId="case-1" option={WARD_B} onCriteria={() => {}} onPhoned={() => {}} />);
     expect((await runAxe(container)).violations).toEqual([]);
   });
+
+  it('can put its name in a level-two heading, with the section headings one level down', () => {
+    render(<ServiceCard caseId="case-1" option={UCR_WEST} headingLevel={2} />);
+    expect(screen.getByRole('heading', { level: 2, name: 'UCR West' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: 'Why it fits' })).toBeInTheDocument();
+  });
+});
+
+describe('ServiceCard as a row of the options list (call step 3)', () => {
+  const HREF = '/advisor/case/case-1/options?service=svc-ucr-west';
+
+  it('shows the name, then type, travel and age on one line, the status word, the figure with its unit, and an Open link', () => {
+    render(<ServiceCard caseId="case-1" option={UCR_WEST} variant="row" openHref={HREF} />);
+    const card = screen.getByRole('article', { name: 'UCR West' });
+
+    expect(within(card).getByRole('heading', { level: 3, name: 'UCR West' })).toBeInTheDocument();
+    expect(
+      within(card).getByText(`${categoryLabel('urgent-community-response')} · about 35 to 50 min · updated ${durationText(9)} ago`),
+    ).toBeInTheDocument();
+    expect(within(card).getByText('Accepting')).toBeInTheDocument();
+    expect(byEl('ADV-OPT-NUMBER', card)).toHaveTextContent('4');
+    expect(within(card).getByText('referrals in the next 2 hrs')).toBeInTheDocument();
+    expect(within(card).getByRole('link', { name: 'Open UCR West' })).toHaveAttribute('href', HREF);
+  });
+
+  it('shows "+2" for over capacity, and a card border that is not the colour alone: the word is there too', () => {
+    render(<ServiceCard caseId="case-1" option={HAH} variant="row" openHref={HREF} />);
+    const card = screen.getByRole('article', { name: 'Hospital at home' });
+
+    expect(byEl('ADV-OPT-NUMBER', card)).toHaveTextContent('+2');
+    expect(within(card).getByText('Over capacity')).toBeInTheDocument();
+  });
+
+  it('says "old" in words when the figure is over 2 hrs old, and not otherwise', () => {
+    const { unmount } = render(<ServiceCard caseId="case-1" option={WARD_B} variant="row" openHref={HREF} />);
+    expect(within(screen.getByRole('article', { name: 'Community hospital · Ward B' })).getByText('old')).toBeInTheDocument();
+    unmount();
+    render(<ServiceCard caseId="case-1" option={UCR_WEST} variant="row" openHref={HREF} />);
+    expect(screen.queryByText('old')).toBeNull();
+  });
+
+  it('says when the age is not known, and invents no unit or travel', () => {
+    render(<ServiceCard caseId="case-1" option={{ ...UCR_WEST, dataAgeSeconds: null, travelText: null, unitLabel: null }} variant="row" openHref={HREF} />);
+    const card = screen.getByRole('article', { name: 'UCR West' });
+
+    expect(within(card).getByText(`${categoryLabel('urgent-community-response')} · update time not known`)).toBeInTheDocument();
+    expect(within(card).getByText('Phone to confirm')).toBeInTheDocument();
+  });
+
+  it('is only the summary: no fit reasons, checks, booking, phone or criteria buttons', () => {
+    render(<ServiceCard caseId="case-1" option={UCR_WEST} variant="row" openHref={HREF} />);
+    const card = screen.getByRole('article', { name: 'UCR West' });
+
+    expect(within(card).queryByText('Why it fits')).toBeNull();
+    expect(within(card).queryByText('Check before offering')).toBeNull();
+    for (const name of ['Request booking', 'I phoned', 'They declined', 'Criteria']) {
+      expect(within(card).queryByRole('button', { name })).toBeNull();
+    }
+    expect(within(card).getAllByRole('link')).toHaveLength(1);
+  });
+
+  it('a network service row names its organisation and is opened the same way', () => {
+    render(<ServiceCard caseId="case-1" option={{ ...UCR_WEST, network: { organisation: 'Neighbouring', source: 'Entered by the organisation' } }} variant="row" openHref={HREF} />);
+    const card = screen.getByRole('article', { name: 'UCR West' });
+
+    expect(within(card).getByText('Neighbouring')).toBeInTheDocument();
+    expect(within(card).getByRole('link', { name: 'Open UCR West' })).toBeInTheDocument();
+  });
+
+  it('has no rank, no "best" and no score, and no axe violations', async () => {
+    const { container } = render(<ServiceCard caseId="case-1" option={WARD_B} variant="row" openHref={HREF} />);
+    expect(screen.queryByText(/best|rank|score/i)).toBeNull();
+    expect((await runAxe(container)).violations).toEqual([]);
+  });
 });

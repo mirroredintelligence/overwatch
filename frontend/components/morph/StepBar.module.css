@@ -1,0 +1,113 @@
+/* The pills of the board (AddService.dc.html): 48px tall, 2px border, number disc of 30px. The colour change
+   runs on --dur-state, which keeps its meaning under reduced motion. Done is a tick, not only a colour. */
+
+.bar {
+  min-width: 0;
+}
+
+.list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+}
+
+.pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-sizing: border-box;
+  min-height: 48px;
+  padding: 0 20px 0 10px;
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius-chip);
+  background: #fff;
+  color: var(--c-ink);
+  font: inherit;
+  font-size: var(--type-label-size);
+  font-weight: 700;
+  text-decoration: none;
+  transition:
+    background-color var(--dur-state) var(--ease-hover),
+    color var(--dur-state) var(--ease-hover),
+    border-color var(--dur-state) var(--ease-hover);
+}
+
+button.pill,
+a.pill {
+  cursor: pointer;
+}
+
+.pill:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.pill[data-state='current'] {
+  border-color: var(--c-primary);
+  background: var(--c-primary);
+  color: #fff;
+}
+
+.pill[data-state='ahead'] {
+  color: var(--c-muted);
+}
+
+.num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--c-tint);
+  color: var(--c-primary-dark);
+  font-size: 15px;
+}
+
+.pill[data-state='current'] .num {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
+.pill[data-state='done'] .num {
+  background: var(--c-primary);
+  color: #fff;
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.pill {
+  position: relative;
+}
+
+@media (max-width: 600px) {
+  /* Phone: numbers only for the pills that are not current, so four steps fit at 320px. */
+  .pill {
+    padding: 0 8px 0 8px;
+  }
+
+  .pill:not([data-state='current']) .text {
+    display: none;
+  }
+
+  .pill:not([data-state='current']) {
+    padding: 0 8px;
+  }
+}

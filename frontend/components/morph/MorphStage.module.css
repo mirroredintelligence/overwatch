@@ -1,0 +1,38 @@
+/* The stage fills the space the page gives it. The grid and layers come from StageGrid; the padding of a layer is
+   the board's (4px 6px 20px 2px) so a card's shadow is not clipped. */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.grid {
+  flex: 1;
+  padding: var(--space-2) var(--space-5) var(--space-5);
+}
+
+.region {
+  position: absolute;
+  inset: 0;
+}
+
+.content {
+  min-height: 100%;
+  box-sizing: border-box;
+  padding: 4px 6px 20px 2px;
+}
+
+/* Next or Enter from the keyboard changes the step with no animation. */
+.root[data-instant='true'],
+.root[data-instant='true'] * {
+  transition: none !important;
+}
+
+@media (max-width: 700px) {
+  .grid {
+    padding: var(--space-2) var(--space-4) var(--space-4);
+  }
+}

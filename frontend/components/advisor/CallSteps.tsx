@@ -60,8 +60,13 @@ export function CallSteps({ current, now, next }: CallStepsProps) {
               data-state={done ? 'done' : isCurrent ? 'current' : 'todo'}
               aria-current={isCurrent ? 'step' : undefined}
             >
-              <span className={styles.label}>{step.label}</span>
-              {done ? <span className={styles.done}> Done</span> : null}
+              <span className={styles.number} data-part="number" aria-hidden="true">
+                {index + 1}
+              </span>
+              <span className={styles.label} data-part="label">
+                {step.label}
+              </span>
+              {done ? <span className={styles.done}>Done</span> : null}
             </li>
           );
         })}

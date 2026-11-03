@@ -1,0 +1,73 @@
+/* The segmented control: one white track, one filled segment for the view on screen. Under 600px the
+   track scrolls sideways inside itself rather than the page. */
+
+.wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.control {
+  display: inline-flex;
+  max-width: 100%;
+  padding: var(--space-1);
+  gap: var(--space-1);
+  overflow-x: auto;
+  background: #fff;
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius-chip);
+}
+
+.tab {
+  box-sizing: border-box;
+  min-height: 44px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-chip);
+  color: var(--c-ink);
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background-color var(--dur-state) var(--ease-hover),
+    color var(--dur-state) var(--ease-hover);
+}
+
+.tab[aria-current='page'] {
+  background: var(--c-primary);
+  color: #fff;
+}
+
+.tab:focus-visible,
+.subButton:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.sub {
+  display: inline-flex;
+  gap: var(--space-2);
+}
+
+.subButton {
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  font: inherit;
+  font-weight: var(--type-label-weight);
+  color: var(--c-ink);
+  background: #fff;
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius-chip);
+}
+
+.subButton[aria-pressed='true'] {
+  background: var(--c-tint);
+  border-color: var(--c-primary);
+  color: var(--c-primary-dark);
+}

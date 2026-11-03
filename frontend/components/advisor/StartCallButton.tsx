@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { bffFetch, newIdempotencyKey } from '@/lib/advisor/browser';
+import styles from './StartCallButton.module.css';
 
 // "Start a new call" (ADV-HOME-START-BTN). One press makes one case: the key is generated once per
 // press, and a second press while the first is in flight does nothing. A failed start stays on the
@@ -37,9 +38,11 @@ export function StartCallButton() {
 
   return (
     <>
-      <Button variant="primary" busy={busy} dataEl="ADV-HOME-START-BTN" onClick={start}>
-        Start a new call
-      </Button>
+      <div className={styles.action}>
+        <Button variant="primary" busy={busy} dataEl="ADV-HOME-START-BTN" onClick={start}>
+          Start a new call
+        </Button>
+      </div>
       {failed ? (
         <p role="alert">The call could not be started. Try again.</p>
       ) : null}

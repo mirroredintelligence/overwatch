@@ -1,19 +1,21 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { StatusBadge, type StatusCode } from '@/components/ui/StatusBadge';
+import { Loading, Skeleton } from '@/components/ui/Skeleton';
+import { ShapeIcon, STATUS_LABELS, STATUS_SHAPES, type StatusCode } from '@/components/ui/StatusBadge';
 import { fetchBoardFromBff } from '@/lib/board/client';
 import type { Board } from '@/lib/board/types';
 import styles from './BoardCounts.module.css';
 
 // The five counts on the advisor home (W10), from the same board the wall shows: GET /api/bff/board.
-// Each count has its status word and shape (StatusBadge), so no colour is needed to read it.
+// They are the stripe above the call stage (boards/advisor/Call.dc.html), in the board's order. Each tile has
+// its status shape and its status word, so no colour is needed to read it.
 
 const COUNTED: readonly { status: StatusCode; key: string }[] = [
   { status: 'accepting', key: 'ACCEPTING' },
   { status: 'limited', key: 'LIMITED' },
-  { status: 'not-accepting', key: 'NOT-ACCEPTING' },
   { status: 'over-capacity', key: 'OVER-CAPACITY' },
+  { status: 'not-accepting', key: 'NOT-ACCEPTING' },
   { status: 'not-updated', key: 'NOT-UPDATED' },
 ];
 
@@ -46,19 +48,38 @@ export function BoardCounts() {
     return () => controller.abort();
   }, []);
 
-  if (state.kind === 'loading') return <p>Loading the board.</p>;
-  if (state.kind === 'failed') return <p>The board could not be read. Open the wall board view to try again.</p>;
+  if (state.kind === 'loading') {
+    return (
+      <Loading label="Loading the board.">
+        <div className={styles.tiles}>
+          {COUNTED.map(({ status }) => (
+            <Skeleton key={status} shape="block" />
+          ))}
+        </div>
+      </Loading>
+    );
+  }
+  if (state.kind === 'failed') {
+    return <p className={styles.failed}>The board could not be read. Open the wall board view to try again.</p>;
+  }
 
   return (
-    <ul className={styles.counts}>
-      {COUNTED.map(({ status, key }) => (
-        <li key={status} className={styles.row}>
-          <StatusBadge status={status} />
-          <span className={styles.count} data-el={`ADV-HOME-COUNT-${key}`}>
-            {state.counts[status]}
-          </span>
-        </li>
-      ))}
-    </ul>
+    <div role="group" aria-label="Services by state">
+      <ul className={styles.tiles}>
+        {COUNTED.map(({ status, key }) => (
+          <li key={status} className={styles.tile} data-status={status}>
+            <span className={styles.figure} data-el={`ADV-HOME-COUNT-${key}`}>
+              {state.counts[status]}
+            </span>
+            <span className={styles.label}>
+              <span className={styles.shape}>
+                <ShapeIcon shape={STATUS_SHAPES[status]} />
+              </span>
+              {STATUS_LABELS[status]}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

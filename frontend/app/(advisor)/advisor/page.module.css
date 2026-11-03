@@ -1,0 +1,82 @@
+/* The advisor's overview (ADV-02): the board stripe, the ready-for-calls card and the open cases card.
+   Colours and shadows are the tokens in app/tokens.css; sizes follow boards/advisor/Call.dc.html. */
+
+.board {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.boardLink {
+  margin: 0;
+  font-size: var(--type-caption-size);
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.stage {
+  box-sizing: border-box;
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-5);
+  padding: var(--space-6);
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.heading {
+  margin: 0;
+  font-size: 34px;
+  line-height: 1.1;
+}
+
+.lead {
+  margin: 0;
+  font-size: 19px;
+  line-height: 1.45;
+  color: var(--c-ink-2);
+}
+
+.card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  background: #fff;
+  border-radius: 22px;
+  box-shadow: var(--shadow-card);
+}
+
+.kicker {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.body {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.45;
+  color: var(--c-ink-2);
+}
+
+@media (max-width: 480px) {
+  .stage {
+    padding: var(--space-5);
+  }
+}

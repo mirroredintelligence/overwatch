@@ -6,11 +6,12 @@ import { toBoardEntry } from '@/lib/network/entries';
 import type { NetworkBoardEntry } from '@/lib/network/types';
 import { figureFor, LAST_KNOWN_WARNING, lastKnownFigureFor, UNKNOWN_UNIT, VARIANT } from './Tile';
 import styles from './Tile.module.css';
-import { StyledDiv } from '@/components/ui/Styled';
+import net from './NetworkTile.module.css';
 
-// One service of the network board (docs/design/network-ui.md section 4): the wall tile's look and rules for
-// the figure, with the organisation under the name, and nothing a network does not share (no comment, no
-// pending count, no next-due time). A figure it cannot stand behind is "?" and "Phone to confirm". The one
+// One service of the network board (docs/design/network-ui.md section 4, artboard NBoard): the wall tile's
+// look and rules for the figure, with the organisation under the name, the status under that, and nothing a
+// network does not share (no comment, no pending count, no next-due time, no "Used N of M" or bar: the
+// network entry has no used or total). A figure it cannot stand behind is "?" and "Phone to confirm". The one
 // control on it is the service line, a link to phone the service. A tile carries opaque references only.
 
 export type ServiceLine = { label: string | null; phone: string | null };
@@ -30,9 +31,9 @@ export function isPaused(entry: NetworkBoardEntry): boolean {
 export function ServiceLineText({ entry, lines }: { entry: NetworkBoardEntry; lines: ServiceLines }) {
   if (lines === null || lines === undefined || isPaused(entry)) return null;
   const line = lines[entry.rowRef];
-  if (line?.phone === null || line === undefined) return <p className={styles.meta}>No number shared</p>;
+  if (line?.phone === null || line === undefined) return <p className={net.line}>No number shared</p>;
   return (
-    <p className={styles.meta}>
+    <p className={net.line}>
       {`${line.label ?? 'Service line'} `}
       <PhoneLink serviceName={entry.serviceName} phone={line.phone} dataEl="NET-BOARD-PHONE-LINK" />
     </p>
@@ -73,8 +74,8 @@ export function NetworkTile({
       data-org-ref={orgRef}
       data-status={status}
     >
-      <div className={styles.top}>
-        <div className={styles.who}>
+      <div className={net.top}>
+        <div className={net.who}>
           <h2 className={styles.name}>{entry.serviceName}</h2>
           <OrgLabel name={entry.organisationName} own={own} />
           <p className={styles.category}>{categoryLabel(entry.category)}</p>
@@ -93,22 +94,15 @@ export function NetworkTile({
               {entry.reportedAt === null ? 'No figure reported yet' : `Last known ${londonTime(entry.reportedAt)} · ${dataAgeText(entry.reportedAt, now)}`}
             </p>
           ) : null}
-          <ServiceLineText entry={entry} lines={lines} />
         </div>
       </div>
 
-      {figure.bar === null ? null : (
-        <div className={styles.usage}>
-          <p className={styles.barLabel}>{figure.bar.label}</p>
-          <div className={styles.bar} aria-hidden="true">
-            <StyledDiv className={styles.fill} data-bar-fill css={{ width: `${figure.bar.percent}%` }} />
-          </div>
-        </div>
-      )}
-
-      {paused ? null : (
-        <p className={styles.age}>{lastKnown ? <strong>{LAST_KNOWN_WARNING}</strong> : notUpdated ? <strong>{ageLineText(asWall, now)}</strong> : ageLineText(asWall, now)}</p>
-      )}
+      <div className={net.foot}>
+        {paused ? null : (
+          <p className={styles.age}>{lastKnown ? <strong>{LAST_KNOWN_WARNING}</strong> : notUpdated ? <strong>{ageLineText(asWall, now)}</strong> : ageLineText(asWall, now)}</p>
+        )}
+        <ServiceLineText entry={entry} lines={lines} />
+      </div>
     </article>
   );
 }
@@ -134,7 +128,7 @@ export function NetworkRow({
   const figure = paused ? { big: '?', unit: UNKNOWN_UNIT, bar: null } : lastKnown ? lastKnownFigureFor(asWall) : figureFor(asWall);
   const status = lastKnown || paused ? (lastKnown ? 'last-known' : 'not-updated') : asWall.status;
   const word = { accepting: 'Accepting', limited: 'Limited', 'not-accepting': 'Not accepting', 'over-capacity': 'Over capacity', 'not-updated': 'Not updated', 'out-of-hours': 'Out of hours', 'last-known': 'Last known' }[status];
-  const parts = [categoryLabel(entry.category), word, figure.big, figure.bar?.label ?? null].filter((part): part is string => part !== null);
+  const parts = [categoryLabel(entry.category), word, figure.big];
   return (
     <article className={`${styles.tile} ${lastKnown || paused ? styles.notUpdated : VARIANT[asWall.status]}`} data-el="NET-BOARD-ROW" data-service-ref={entry.rowRef} data-org-ref={orgRef} data-status={status}>
       <h2 className={styles.name}>{entry.serviceName}</h2>

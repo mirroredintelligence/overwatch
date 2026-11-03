@@ -45,6 +45,15 @@ describe('NetworkBoardView', () => {
     expect(screen.getByText('Your organisation')).toBeInTheDocument();
   });
 
+  it('shows the shimmer, announced as "Loading the network board", while the board is read, and no figure', async () => {
+    server.use(http.get('/api/bff/network/board', async () => { await new Promise((resolve) => setTimeout(resolve, 600)); return HttpResponse.json(parseBoard({ ...BOARD_BODY, generated_at: new Date().toISOString() }, 'backend')); }));
+    const { container } = view();
+    await waitFor(() => expect(container).toHaveTextContent('Loading the network board'));
+    expect(container.querySelector('[data-skeleton]')).toHaveAttribute('aria-busy', 'true');
+    expect(container.querySelectorAll('[data-el="NET-BOARD-TILE"]')).toHaveLength(0);
+    expect(await screen.findByRole('heading', { level: 1 })).toBeInTheDocument();
+  });
+
   it('reads the board and the service lines of the network it was offered, by the one networkId key', async () => {
     view();
     await screen.findByRole('heading', { level: 1 });

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { NetworkBoard, type StoppedOrganisation } from '@/components/board/NetworkBoard';
 import type { ServiceLines } from '@/components/board/NetworkTile';
 import { NetworkUnavailable } from '@/components/scope/NetworkUnavailable';
+import { Loading, Skeleton, SkeletonRows } from '@/components/ui/Skeleton';
 import { useNetworkFeed } from '@/lib/board/useNetworkFeed';
 import { readNetworkView } from '@/lib/network/browser';
 import { goneOrganisations } from '@/lib/network/entries';
@@ -73,7 +74,16 @@ function Live({ networkId, networkName, ownOrganisation, ownHref }: { networkId:
     };
   }, [board, networkId]);
 
-  if (feed.status === 'loading') return <main className={styles.page}><p role="status">Loading the network board</p></main>;
+  if (feed.status === 'loading') {
+    return (
+      <main className={styles.page}>
+        <Loading label="Loading the network board">
+          <Skeleton shape="title" width="40%" />
+          <SkeletonRows count={3} />
+        </Loading>
+      </main>
+    );
+  }
   if (feed.status === 'unavailable') return <main className={styles.page}><NetworkUnavailable reason="not-available" ownHref={ownHref} /></main>;
   if (feed.status === 'offline') {
     return (

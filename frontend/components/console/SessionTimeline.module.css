@@ -1,0 +1,165 @@
+/* The session page: the timeline on the left, "What stands out" and the selected event on the right (CSession). */
+
+.page {
+  display: grid;
+  gap: var(--space-4);
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: var(--space-4);
+  color: var(--c-ink);
+  font-family: var(--font-atkinson), system-ui, sans-serif;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.card {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-4);
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+}
+
+.standoutCard {
+  border: 2px solid var(--c-limited);
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: var(--type-label-size);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.standoutCard .eyebrow {
+  color: var(--c-limited);
+}
+
+.side {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  align-content: start;
+}
+
+.tableWrap {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 var(--space-1);
+  font-size: var(--type-body-size);
+}
+
+.table th {
+  padding: var(--space-1) var(--space-2);
+  text-align: left;
+  font-size: var(--type-caption-size);
+  font-weight: 700;
+  color: var(--c-muted);
+}
+
+.table td {
+  padding: var(--space-2);
+  text-align: left;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
+.table td:first-child {
+  border-radius: var(--radius-chip) 0 0 var(--radius-chip);
+}
+
+.table td:last-child {
+  border-radius: 0 var(--radius-chip) var(--radius-chip) 0;
+}
+
+.code {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: var(--type-caption-size);
+}
+
+/* A friction row is shaded and marked with a triangle, so it is not told by colour alone. */
+.friction td {
+  background: var(--c-amber-tint);
+}
+
+.selected td {
+  background: var(--c-tint);
+  box-shadow: inset 0 2px 0 var(--c-primary), inset 0 -2px 0 var(--c-primary);
+}
+
+.friction.selected td {
+  box-shadow: inset 0 2px 0 var(--c-limited), inset 0 -2px 0 var(--c-limited);
+}
+
+.mark {
+  margin-right: 0.25rem;
+}
+
+.press {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 var(--space-2);
+  border: 2px solid transparent;
+  border-radius: var(--radius-chip);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: var(--type-caption-size);
+  cursor: pointer;
+}
+
+.press[aria-pressed='true'] {
+  border-color: var(--c-primary);
+  font-weight: 700;
+}
+
+.lines {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  font-size: var(--type-body-size);
+  line-height: 1.4;
+}
+
+.lines p {
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.note {
+  margin: 0;
+  color: var(--c-muted);
+  font-size: var(--type-caption-size);
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .press {
+    transition: none;
+  }
+}

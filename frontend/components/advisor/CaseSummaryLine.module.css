@@ -1,23 +1,87 @@
-.line {
+/* The pinned patient card: white, 22px radius, the card shadow (Call board, "This patient"). */
+
+.card {
+  box-sizing: border-box;
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  min-height: var(--btn-h);
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 300px;
+  padding: 22px;
+  background: #fff;
+  border-radius: 22px;
+  box-shadow: var(--shadow-card);
 }
 
-.text {
+.kicker {
   margin: 0;
-  font-size: var(--type-body-size);
-  line-height: var(--type-body-lh);
+  font-size: var(--type-caption-size);
+  font-weight: var(--type-label-weight);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.headline {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.1;
   color: var(--c-ink);
 }
 
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  padding: 6px var(--space-3);
+  border-radius: var(--radius-chip);
+  background: var(--c-tint);
+  color: var(--c-ink);
+  font-size: var(--type-caption-size);
+  font-weight: var(--type-label-weight);
+}
+
+.scores {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-ink-2);
+}
+
 .edit {
-  min-height: 44px;
+  box-sizing: border-box;
+  min-height: 48px;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  border: 2px solid var(--c-primary);
+  border-radius: var(--radius);
+  background: #fff;
   color: var(--c-primary);
+  font-size: var(--type-label-size);
   font-weight: var(--type-label-weight);
+  text-decoration: none;
+}
+
+.edit:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+/* On a phone the card is a short strip above the stage, full width. */
+@media (max-width: 900px) {
+  .card {
+    max-width: none;
+    padding: var(--space-4);
+  }
+
+  .headline {
+    font-size: var(--type-title-size);
+  }
 }

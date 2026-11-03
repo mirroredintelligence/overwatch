@@ -5,7 +5,7 @@ import { bffFetch } from '@/lib/advisor/browser';
 import type { CaseView } from '@/lib/advisor/codes';
 import { CaseSummaryLine } from './CaseSummaryLine';
 
-// The one-line summary of the case, read from the BFF (W13). Shows nothing when the case cannot be
+// The pinned patient card of the case, read from the BFF (W13). Shows nothing when the case cannot be
 // read: the options list does not depend on it.
 
 export function CaseSummary({ caseId }: { caseId: string }) {
@@ -29,6 +29,7 @@ export function CaseSummary({ caseId }: { caseId: string }) {
       postcode={view.postcode}
       needs={view.needs}
       urgency={view.urgency}
+      scores={view.scores}
     />
   );
 }

@@ -1,0 +1,69 @@
+/* The call grid on top of StageGrid. A folded column keeps its content, at a fixed width, and fades and
+   drifts as the track closes (the board: 300ms fade, the spring drift). Under 900px the three areas stack:
+   a folded one is not drawn at all. */
+
+.grid {
+  padding: var(--space-1) 0 var(--space-5);
+  align-items: start;
+}
+
+.fold {
+  box-sizing: border-box;
+  opacity: 1;
+  transition:
+    opacity var(--dur-sheet) var(--ease-hover),
+    transform var(--dur-stage) var(--ease-spring);
+}
+
+.foldList {
+  min-width: 270px;
+  padding: var(--space-1) 2px var(--space-5);
+}
+
+.foldSide {
+  min-width: 300px;
+}
+
+.foldList[data-folded='true'] {
+  opacity: 0;
+  transform: translateX(-24px);
+}
+
+.foldSide[data-folded='true'] {
+  opacity: 0;
+  transform: translateX(18px);
+}
+
+.stage {
+  min-width: 0;
+  padding: var(--space-1) 6px var(--space-5) 2px;
+}
+
+/* On the options the side track is empty, so its gap is given back to the stage. */
+.grid[data-stage='2'] > [data-area='stage'] {
+  margin-right: calc(-1 * var(--space-5));
+}
+
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-areas: 'list' 'stage' 'side';
+    column-gap: 0 !important;
+    row-gap: var(--space-4);
+  }
+
+  .grid[data-stage='2'] > [data-area='stage'] {
+    margin-right: 0;
+  }
+
+  .grid[data-stage='0'] > [data-area='list'],
+  .grid[data-stage='1'] > [data-area='list'],
+  .grid[data-stage='2'] > [data-area='side'] {
+    display: none;
+  }
+
+  .foldList,
+  .foldSide {
+    min-width: 0;
+  }
+}

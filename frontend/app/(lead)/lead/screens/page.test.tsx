@@ -37,7 +37,8 @@ describe('the lead page /lead/screens', () => {
   it('shows the list to a shift lead', async () => {
     render(await WallScreensPage());
     expect(screen.getByRole('heading', { level: 1, name: 'Wall screens' })).toBeInTheDocument();
-    expect(await screen.findByRole('table', { name: 'Wall screens in your organisation' })).toBeInTheDocument();
+    expect(await screen.findByRole('list', { name: 'Wall screens in your organisation' })).toBeInTheDocument();
+    expect(screen.getAllByRole('region')).toHaveLength(6);
   });
 
   it('sends nobody to the list unless they are a lead, even if the proxy let them through', async () => {

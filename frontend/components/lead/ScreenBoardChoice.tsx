@@ -5,8 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
 import { leadPut, newIdempotencyKey } from '@/lib/lead/browser';
 import { boardChangedFrom, type BoardChanged, type ChoosableNetwork, type ScreenRow } from '@/lib/screens/admin';
-import dialogStyles from '@/components/advisor/dialog-body.module.css';
-import styles from './Lead.module.css';
+import styles from './ScreenList.module.css';
 
 // Which board a wall screen shows (docs/design/network-ui.md section 6, ScreenBoardChoice, TEN-072): the
 // organisation's own, or a network it is an active member of. The networks are the ones the back end
@@ -69,9 +68,9 @@ export function ScreenBoardChoice({
 
   return (
     <Dialog title={`Which board does ${row.name} show?`} dataEl="SCREENS-BOARD-DIALOG" onClose={onClose}>
-      <div className={dialogStyles.body}>
-        <fieldset className={dialogStyles.group}>
-          <legend className={dialogStyles.legend}>Board</legend>
+      <div className={styles.dialogBody}>
+        <fieldset className={styles.group}>
+          <legend className={styles.legend}>Board</legend>
           <label className={styles.radioRow}>
             <input type="radio" name="board" value={OWN} checked={chosen === OWN} onChange={() => setChosen(OWN)} data-el="SCREENS-BOARD-OWN-RADIO" />
             Our organisation
@@ -83,19 +82,19 @@ export function ScreenBoardChoice({
             </label>
           ))}
         </fieldset>
-        {networks.length === 0 ? <p className={dialogStyles.note}>Your organisation is not in a network.</p> : null}
+        {networks.length === 0 ? <p className={styles.dialogNote}>Your organisation is not in a network.</p> : null}
         {closed ? (
-          <p className={dialogStyles.note}>
+          <p className={styles.dialogNote}>
             {`This screen is set to Network, ${row.networkName ?? 'a network'}, which your organisation can no longer see. It shows Our organisation.`}
           </p>
         ) : null}
-        <p className={dialogStyles.note}>The screen changes the next time it refreshes. Its header always says which board it shows.</p>
+        <p className={styles.dialogNote}>The screen changes the next time it refreshes. Its header always says which board it shows.</p>
         {failed ? (
-          <p role="alert" className={dialogStyles.error}>
+          <p role="alert" className={styles.dialogError}>
             The board could not be changed. Try again.
           </p>
         ) : null}
-        <div className={dialogStyles.actions}>
+        <div className={styles.dialogActions}>
           <Button variant="neutral" onClick={onClose} dataEl="SCREENS-BOARD-CANCEL-BTN">
             Cancel
           </Button>

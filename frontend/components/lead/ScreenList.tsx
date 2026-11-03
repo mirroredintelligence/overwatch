@@ -1,21 +1,24 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { PageHeader } from '@/components/shell/PageHeader';
 import { Button } from '@/components/ui/Button';
+import { StatusTag, type StatusTagVariant } from '@/components/ui/StatusTag';
 import { leadRead } from '@/lib/lead/browser';
 import { dateTimeLine, overdueText } from '@/lib/lead/format';
-import { londonTime } from '@/lib/board/format';
-import { screenListFrom, STATUS_WORDS, type ScreenList as List, type ScreenRow, type ScreenStatus } from '@/lib/screens/admin';
+import { screenListFrom, type ScreenList as List, type ScreenRow, type ScreenStatus } from '@/lib/screens/admin';
 import { ScreenBoardChoice, type BoardOutcome } from './ScreenBoardChoice';
 import { ScreenUnpair, type UnpairOutcome } from './ScreenUnpair';
-import styles from './Lead.module.css';
+import leadStyles from './Lead.module.css';
+import styles from './ScreenList.module.css';
 
-// The shift lead's wall screens page (docs/design/network-ui.md section 6, TEN-072; W9I): the
-// organisation's screens with their place, status in words (and a shape), when each was last seen and
-// which board it shows, and the three things a lead does to one: change its board, unpair it, pair it
-// again. Ages are measured against the back end's clock (`asOf`), never the browser's. Nothing here holds
-// a token, a hash or a pairing secret: the BFF does not send one. A failed read says so and never shows an
-// empty table. The screens' ids and the networks' ids are in memory only, never in an address or an id.
+// The shift lead's wall screens page (docs/design/redesign/boards/lead/Screens.dc.html; docs/design/network-ui.md
+// section 6, TEN-072; W9I): one card per organisation screen with a preview thumbnail, its place, its status in
+// words and shape, when it was last seen and which board it shows. The actions are per state: change the board,
+// pair again, unpair. Unpair asks on the screen's own card, in place. Ages are measured against the back end's
+// clock (`asOf`), never the browser's. Nothing here holds a token, a hash or a pairing secret: the BFF does not
+// send one. A failed read says so and never shows an empty list. The screens' ids and the networks' ids are in
+// memory only, never in an address or an id.
 
 const LIST_URL = '/api/bff/screens';
 const REFRESH_MS = 60_000;
@@ -27,35 +30,32 @@ type Load = { kind: 'loading' } | { kind: 'ready'; list: List } | { kind: 'faile
 type Notice = { tone: 'done' | 'problem' | 'ended'; text: string } | null;
 type Asking = { kind: 'unpair' | 'board'; row: ScreenRow } | null;
 
-const SHAPES: Record<ScreenStatus, string> = {
-  online: 'M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16Z',
-  offline: 'M12 5a7 7 0 1 0 0 14 7 7 0 0 0 0-14Z',
-  waiting: 'M12 4v16M4 12h16',
-  'never-connected': 'M6 6l12 12M18 6 6 18',
-  revoked: 'M5 12h14',
+// The status in words, as the board says them, and the shape that goes with each (StatusTag: the shape is
+// decoration, the word carries the meaning).
+const WORDS: Record<ScreenStatus, string> = {
+  online: 'Online',
+  offline: 'Not showing the board',
+  waiting: 'Waiting for a code',
+  'never-connected': 'Never connected',
+  revoked: 'Unpaired',
 };
 
-function Shape({ status }: { status: ScreenStatus }) {
-  const filled = status === 'online';
-  return (
-    <svg className={styles.screenShape} viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-      <path d={SHAPES[status]} />
-    </svg>
-  );
-}
+const TAGS: Record<ScreenStatus, StatusTagVariant> = {
+  online: 'live',
+  offline: 'closed',
+  waiting: 'waiting',
+  'never-connected': 'todo',
+  revoked: 'paused',
+};
 
-function seenText(row: ScreenRow, asOf: string): string {
-  if (row.lastSeenAt === null) return 'Not seen yet';
-  const minutes = Math.floor((Date.parse(asOf) - Date.parse(row.lastSeenAt)) / MINUTE_MS);
-  return minutes < 1 ? 'Just now' : `${overdueText(minutes)} ago`;
-}
+// The board's eight blank tiles on a live screen's thumbnail. The list carries no board counts, so the tiles are
+// not drawn from them (see the report): they only say that a live board is there.
+const TILES = [0, 1, 2, 3, 4, 5, 6, 7];
 
-/** The status in words: "Online, updated 09:59", "Offline since Fri 30 Oct, 07:40", "Waiting to be connected". */
-function statusText(row: ScreenRow): string {
-  const word = STATUS_WORDS[row.state];
-  if (row.state === 'online' && row.lastSeenAt !== null) return `${word}, updated ${londonTime(row.lastSeenAt)}`;
-  if (row.state === 'offline' && row.lastSeenAt !== null) return `${word} since ${dateTimeLine(Date.parse(row.lastSeenAt))}`;
-  return word;
+/** "just now", "2 min ago", "2 hrs 20 min ago", against the back end's clock. */
+function ago(iso: string, asOf: string): string {
+  const minutes = Math.floor((Date.parse(asOf) - Date.parse(iso)) / MINUTE_MS);
+  return minutes < 1 ? 'just now' : `${overdueText(minutes)} ago`;
 }
 
 const when = (iso: string | null): string => (iso === null ? 'Not recorded' : dateTimeLine(Date.parse(iso)));
@@ -70,10 +70,84 @@ function showsText(row: ScreenRow): { main: string; note: string | null } {
 // Pairing again is for a screen that is not showing the board and is not waiting for its code.
 const CAN_REPAIR: readonly ScreenStatus[] = ['offline', 'never-connected', 'revoked'];
 
+/** The facts line under the status, in the board's words: "Shows X · seen just now", "Last seen 2 hrs ago. Shows X." */
+function Facts({ row, asOf }: { row: ScreenRow; asOf: string }) {
+  const shows = showsText(row).main;
+  if (row.state === 'revoked') return <p className={styles.facts}>Unpaired on {when(row.revokedAt)}.</p>;
+  const seen = row.lastSeenAt === null ? null : ago(row.lastSeenAt, asOf);
+  if (row.state === 'offline') {
+    return (
+      <p className={styles.facts}>
+        {seen === null ? 'Not seen yet' : <>Last seen <time dateTime={row.lastSeenAt ?? undefined}>{seen}</time></>}
+        {`. Shows ${shows}.`}
+      </p>
+    );
+  }
+  return (
+    <p className={styles.facts}>
+      {`Shows ${shows} · `}
+      {seen === null ? 'not seen yet' : <>seen <time dateTime={row.lastSeenAt ?? undefined}>{seen}</time></>}
+    </p>
+  );
+}
+
+function ScreenCard({
+  row,
+  asOf,
+  onBoard,
+  onUnpair,
+  unpairRef,
+}: {
+  row: ScreenRow;
+  asOf: string;
+  onBoard: () => void;
+  onUnpair: () => void;
+  unpairRef: (element: HTMLButtonElement | null) => void;
+}) {
+  const live = row.state !== 'revoked';
+  const note = showsText(row).note;
+  return (
+    <section aria-label={row.name} className={row.state === 'offline' ? `${styles.card} ${styles.cardAlert}` : styles.card}>
+      <div className={row.state === 'online' ? styles.thumb : `${styles.thumb} ${styles.thumbIdle}`} aria-hidden="true" data-el="SCREENS-THUMB">
+        {row.state === 'online' ? TILES.map((tile) => <span key={tile} className={styles.tile} />) : null}
+      </div>
+      <div className={styles.head}>
+        <div className={styles.titles}>
+          <h2 className={styles.name}>{row.name}</h2>
+          <p className={styles.place}>{row.location ?? 'Not given'}</p>
+        </div>
+        <StatusTag variant={TAGS[row.state]}>{WORDS[row.state]}</StatusTag>
+      </div>
+      <Facts row={row} asOf={asOf} />
+      {note === null ? null : <p className={styles.note}>{note}</p>}
+      <div className={styles.actions}>
+        {live ? (
+          <Button variant="secondary" onClick={onBoard} ariaLabel={`Change the board for ${row.name}`} dataEl="SCREENS-BOARD-BTN">
+            Change the board
+          </Button>
+        ) : null}
+        {CAN_REPAIR.includes(row.state) ? (
+          <Button variant="secondary" href={PAIRING_PAGE} ariaLabel={`Pair again for ${row.name}`} dataEl="SCREENS-REPAIR-BTN">
+            Pair again
+          </Button>
+        ) : null}
+        {live ? (
+          <button type="button" ref={unpairRef} className={styles.textAction} onClick={onUnpair} aria-label={`Unpair ${row.name}`} data-el="SCREENS-UNPAIR-BTN">
+            Unpair
+          </button>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 export function ScreenList() {
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
   const [asking, setAsking] = useState<Asking>(null);
   const [notice, setNotice] = useState<Notice>(null);
+  // The Unpair buttons by screen, so a question that closed without a result gives the focus back to its card.
+  const unpairButtons = useRef(new Map<string, HTMLButtonElement>());
+  const returnFocusTo = useRef<string | null>(null);
 
   const reload = useCallback(async () => {
     const result = await leadRead(LIST_URL);
@@ -99,7 +173,18 @@ export function ScreenList() {
     };
   }, [reload]);
 
+  useEffect(() => {
+    if (asking !== null || returnFocusTo.current === null) return;
+    unpairButtons.current.get(returnFocusTo.current)?.focus();
+    returnFocusTo.current = null;
+  }, [asking]);
+
   const list = load.kind === 'ready' ? load.list : null;
+
+  function closeUnpair(row: ScreenRow) {
+    returnFocusTo.current = row.deviceId;
+    setAsking(null);
+  }
 
   function unpaired(row: ScreenRow, result: UnpairOutcome) {
     setAsking(null);
@@ -118,30 +203,34 @@ export function ScreenList() {
     void reload();
   }
 
+  function rememberUnpair(deviceId: string, element: HTMLButtonElement | null) {
+    if (element === null) unpairButtons.current.delete(deviceId);
+    else unpairButtons.current.set(deviceId, element);
+  }
+
   return (
     <main className={styles.page}>
-      <h1 className={styles.title}>Wall screens</h1>
-      <p className={styles.muted}>The screens that show a live board. A screen shows capacity only, never patient information.</p>
-
-      <div className={styles.actions}>
-        <Button variant="primary" href={PAIRING_PAGE} dataEl="SCREENS-ADD-BTN">
-          Add a wall screen
-        </Button>
-        <Button variant="neutral" href="/lead" dataEl="LEAD-SCREENS-BACK-BTN">
-          Back to the shift lead page
-        </Button>
-      </div>
+      <PageHeader
+        title="Wall screens"
+        actions={
+          <Button variant="primary" href={PAIRING_PAGE} dataEl="SCREENS-ADD-BTN">
+            Add a wall screen
+          </Button>
+        }
+      >
+        <p className={styles.intro}>The screens that show a live board. A screen shows capacity only, never patient information.</p>
+      </PageHeader>
 
       {notice !== null && notice.tone === 'done' ? (
-        <p role="status" className={styles.notice}>
+        <p role="status" className={leadStyles.notice}>
           {notice.text}
         </p>
       ) : null}
       {notice !== null && notice.tone !== 'done' ? (
-        <p role="alert" className={styles.fieldError}>
+        <p role="alert" className={leadStyles.fieldError}>
           {notice.text}
           {notice.tone === 'ended' ? (
-            <a className={styles.signInLink} href={SIGN_IN_AGAIN}>
+            <a className={leadStyles.signInLink} href={SIGN_IN_AGAIN}>
               Sign in
             </a>
           ) : null}
@@ -149,77 +238,39 @@ export function ScreenList() {
       ) : null}
 
       {load.kind === 'failed' ? (
-        <p role="alert" className={styles.fieldError}>
+        <p role="alert" className={leadStyles.fieldError}>
           We could not load the screens.
         </p>
       ) : null}
-      {load.kind === 'loading' ? <p className={styles.muted}>Loading the screens.</p> : null}
+      {load.kind === 'loading' ? <p className={leadStyles.muted}>Loading the screens.</p> : null}
 
       {list !== null && list.screens.length === 0 ? <p>No screens are connected yet.</p> : null}
 
       {list !== null && list.screens.length > 0 ? (
-        <div className={styles.scrollBox}>
-          <table className={styles.table} data-el="SCREENS-LIST-TABLE">
-            <caption className={styles.caption}>Wall screens in your organisation</caption>
-            <thead>
-              <tr>
-                <th scope="col">Screen</th>
-                <th scope="col">Where it is</th>
-                <th scope="col">Status</th>
-                <th scope="col">Last seen</th>
-                <th scope="col">Shows</th>
-                <th scope="col">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.screens.map((row) => {
-                const shows = showsText(row);
-                const live = row.state !== 'revoked';
-                return (
-                  <tr key={row.deviceId}>
-                    <td>
-                      <span className={styles.screenName}>{row.name}</span>
-                    </td>
-                    <td>{row.location ?? 'Not given'}</td>
-                    <td>
-                      <span className={styles.screenStatus}>
-                        <Shape status={row.state} />
-                        {statusText(row)}
-                      </span>
-                    </td>
-                    <td>{row.state === 'revoked' ? when(row.revokedAt) : seenText(row, list.asOf)}</td>
-                    <td>
-                      {shows.main}
-                      {shows.note === null ? null : <span className={styles.screenNote}>{shows.note}</span>}
-                    </td>
-                    <td>
-                      <div className={styles.rowActions}>
-                        {live ? (
-                          <Button variant="secondary" onClick={() => setAsking({ kind: 'board', row })} ariaLabel={`Change board for ${row.name}`} dataEl="SCREENS-BOARD-BTN">
-                            Change board
-                          </Button>
-                        ) : null}
-                        {live ? (
-                          <Button variant="secondary" onClick={() => setAsking({ kind: 'unpair', row })} ariaLabel={`Unpair ${row.name}`} dataEl="SCREENS-UNPAIR-BTN">
-                            Unpair
-                          </Button>
-                        ) : null}
-                        {CAN_REPAIR.includes(row.state) ? (
-                          <Button variant="secondary" href={PAIRING_PAGE} ariaLabel={`Re-pair ${row.name}`} dataEl="SCREENS-REPAIR-BTN">
-                            Re-pair
-                          </Button>
-                        ) : null}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <ul className={styles.grid} aria-label="Wall screens in your organisation">
+          {list.screens.map((row) => (
+            <li key={row.deviceId} className={styles.cell}>
+              {asking?.kind === 'unpair' && asking.row.deviceId === row.deviceId ? (
+                <ScreenUnpair
+                  row={row}
+                  status={<StatusTag variant={TAGS[row.state]}>{WORDS[row.state]}</StatusTag>}
+                  onClose={() => closeUnpair(row)}
+                  onResult={(result) => unpaired(row, result)}
+                />
+              ) : (
+                <ScreenCard
+                  row={row}
+                  asOf={list.asOf}
+                  onBoard={() => setAsking({ kind: 'board', row })}
+                  onUnpair={() => setAsking({ kind: 'unpair', row })}
+                  unpairRef={(element) => rememberUnpair(row.deviceId, element)}
+                />
+              )}
+            </li>
+          ))}
+        </ul>
       ) : null}
 
-      {asking?.kind === 'unpair' ? <ScreenUnpair row={asking.row} onClose={() => setAsking(null)} onResult={(result) => unpaired(asking.row, result)} /> : null}
       {asking?.kind === 'board' && list !== null ? (
         <ScreenBoardChoice row={asking.row} networks={list.networks} onClose={() => setAsking(null)} onResult={(outcome) => boardChosen(asking.row, outcome)} />
       ) : null}

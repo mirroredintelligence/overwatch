@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { runAxe } from '@/test/a11y';
 
 vi.mock('next/navigation', async () => {
   const actual = await vi.importActual<typeof import('next/navigation')>('next/navigation');
@@ -31,6 +32,12 @@ describe.each([
   it(`shows ${heading}`, async () => {
     render(<Page />);
     expect(await screen.findByRole('heading', { level: 1, name: heading })).toBeInTheDocument();
+  });
+
+  it(`has no accessibility violation on ${heading}`, async () => {
+    const { container } = render(<Page />);
+    await screen.findByRole('heading', { level: 1, name: heading });
+    expect(await runAxe(container)).toHaveNoViolations();
   });
 });
 

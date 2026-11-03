@@ -1,0 +1,120 @@
+/* The platform audit chain (board O6): a timeline of entries beside the chain check. Tokens from app/tokens.css
+   only, except white, which the foundation names for card surfaces. */
+.page {
+  box-sizing: border-box;
+  max-width: 80rem;
+  margin: 0 auto;
+  padding: var(--space-4);
+  display: grid;
+  gap: var(--space-5);
+  font-family: var(--font-atkinson, system-ui), system-ui, sans-serif;
+  color: var(--c-ink);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--type-heading-size);
+  line-height: var(--type-heading-lh);
+  font-weight: var(--type-heading-weight);
+  letter-spacing: var(--type-heading-tracking);
+  text-wrap: balance;
+}
+
+.layout {
+  display: grid;
+  gap: var(--space-5);
+  align-items: start;
+}
+
+@media (min-width: 60rem) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) 20rem;
+  }
+}
+
+.entries,
+.check {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  align-content: start;
+}
+
+.lede,
+.text {
+  margin: 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  color: var(--c-ink-2);
+  max-width: 40rem;
+}
+
+.muted {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-muted);
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.filter {
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border: 2px solid var(--c-line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--c-ink);
+  font-family: inherit;
+  font-size: var(--type-caption-size);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.filter[aria-pressed='true'] {
+  border-color: var(--c-primary);
+  background: var(--c-primary);
+  color: #fff;
+}
+
+.filter:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.sort {
+  margin-left: auto;
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
+}
+
+.card {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+  padding: var(--space-4);
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+}
+
+.card[data-state='intact'] {
+  background: var(--c-tint);
+}
+
+.intact,
+.broken {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.problem {
+  margin: 0;
+  font-weight: 700;
+  color: var(--c-limited);
+}

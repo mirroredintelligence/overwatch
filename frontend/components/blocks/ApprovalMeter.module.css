@@ -1,0 +1,76 @@
+.meter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.bar {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.segment {
+  flex: 1;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--c-line);
+  transition: background-color var(--dur-state) var(--ease-out);
+}
+
+.segment[data-segment='given'] {
+  background: var(--c-primary);
+}
+
+.words {
+  margin: 0;
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-lh);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.avatar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #d5e5ee; /* the board's soft blue for an initials disc; no token */
+  color: var(--c-ink);
+  font-size: var(--type-caption-size);
+  font-weight: 700;
+}
+
+.avatarOpen {
+  border: 2px dashed var(--c-unknown);
+  background: transparent;
+  color: var(--c-muted);
+}
+
+.who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+}
+
+.when {
+  color: var(--c-muted);
+}

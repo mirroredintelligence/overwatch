@@ -16,6 +16,28 @@ describe('options page (W13)', () => {
     expect(screen.getByText('Loading the options.')).toBeInTheDocument();
   });
 
+  it('?service= of a service of this case opens its Request state, with the other options beside it', async () => {
+    render(await OptionsPage({ params: Promise.resolve({ ref: '4821' }), searchParams: Promise.resolve({ service: 'svc-ward-b' }) }));
+
+    const card = await screen.findByRole('article', { name: 'Community hospital · Ward B' });
+    expect(within(card).getByRole('button', { name: 'Request booking' })).toBeInTheDocument();
+    expect(screen.getByRole('complementary', { name: 'Other options' })).toBeInTheDocument();
+    expect(document.querySelector('[data-step="options"]')).toHaveAttribute('aria-current', 'step');
+  });
+
+  it('takes the first of a repeated ?service=, and ignores one that is not among the options', async () => {
+    const { unmount } = render(
+      await OptionsPage({ params: Promise.resolve({ ref: '4821' }), searchParams: Promise.resolve({ service: ['svc-ucr-west', 'svc-ward-b'] }) }),
+    );
+    expect(await screen.findByRole('article', { name: 'UCR West' })).toBeInTheDocument();
+    expect(screen.getAllByRole('article')).toHaveLength(1);
+    unmount();
+
+    render(await OptionsPage({ params: Promise.resolve({ ref: '4821' }), searchParams: Promise.resolve({ service: 'svc-nowhere' }) }));
+    expect(await screen.findByRole('heading', { name: "3 services meet this patient's criteria" })).toBeInTheDocument();
+    expect(screen.getAllByRole('article')).toHaveLength(3);
+  });
+
   it('has one level-one heading for the page', async () => {
     render(await OptionsPage({ params: Promise.resolve({ ref: '4821' }) }));
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);

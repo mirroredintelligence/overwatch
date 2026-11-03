@@ -54,13 +54,86 @@ describe('OptionsList (W13)', () => {
     expect(await screen.findByRole('heading', { name: 'No service fits right now' })).toBeInTheDocument();
   });
 
-  it('the card buttons reach the page through their props with the service id', async () => {
+  it('each row of the list is a summary with an Open link to the request state of that service, and no booking control', async () => {
+    render(<OptionsList caseId="4821" onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
+    await screen.findByRole('heading', { name: "3 services meet this patient's criteria" });
+
+    expect(screen.getByRole('link', { name: 'Open UCR West' })).toHaveAttribute('href', '/advisor/case/4821/options?service=svc-ucr-west');
+    expect(screen.getByRole('link', { name: 'Open Hospital at home' })).toHaveAttribute('href', '/advisor/case/4821/options?service=svc-hospital-at-home');
+    expect(screen.getAllByRole('link', { name: /^Open / })).toHaveLength(3);
+    expect(screen.queryByRole('button', { name: 'Request booking' })).toBeNull();
+    expect(screen.queryByText('Why it fits')).toBeNull();
+  });
+
+  it('encodes the case and the service in the Open link', async () => {
+    render(<OptionsList caseId="a b" />);
+    await screen.findByRole('heading', { name: "3 services meet this patient's criteria" });
+
+    expect(screen.getByRole('link', { name: 'Open UCR West' })).toHaveAttribute('href', '/advisor/case/a%20b/options?service=svc-ucr-west');
+  });
+
+  it('the Request state: the chosen service takes the stage with its detail and its actions; the others fold into a rail of links', async () => {
+    render(<OptionsList caseId="4821" serviceId="svc-ucr-west" />);
+
+    const detail = await screen.findByRole('article', { name: 'UCR West' });
+    expect(within(detail).getByRole('heading', { level: 2, name: 'UCR West' })).toBeInTheDocument();
+    expect(within(detail).getByText('Why it fits')).toBeInTheDocument();
+    expect(within(detail).getByRole('button', { name: 'Request booking' })).toBeInTheDocument();
+    expect(within(detail).getByRole('button', { name: 'I phoned' })).toBeInTheDocument();
+    expect(within(detail).getByRole('button', { name: 'Back to options' })).toBeInTheDocument();
+    // The list's heading and the other cards are replaced by the rail.
+    expect(screen.queryByRole('heading', { name: "3 services meet this patient's criteria" })).toBeNull();
+    expect(screen.getAllByRole('article')).toHaveLength(1);
+    const rail = screen.getByRole('complementary', { name: 'Other options' });
+    expect(within(rail).getByRole('link', { name: /Hospital at home/ })).toHaveAttribute('href', '/advisor/case/4821/options?service=svc-hospital-at-home');
+    expect(within(rail).getByRole('link', { name: /Community hospital · Ward B/ })).toHaveAttribute('href', '/advisor/case/4821/options?service=svc-ward-b');
+    expect(within(rail).queryByRole('link', { name: /UCR West/ })).toBeNull();
+    expect(within(rail).getByText(/Over capacity/)).toBeInTheDocument();
+  });
+
+  it('a service id that is not among this case’s options is ignored and the list shows', async () => {
+    render(<OptionsList caseId="4821" serviceId="svc-not-here" />);
+
+    expect(await screen.findByRole('heading', { name: "3 services meet this patient's criteria" })).toBeInTheDocument();
+    expect(screen.queryByRole('complementary', { name: 'Other options' })).toBeNull();
+  });
+
+  it('"Back to options" goes to the plain options URL, and when the list returns its heading takes focus', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<OptionsList caseId="4821" serviceId="svc-ucr-west" />);
+    await user.click(await screen.findByRole('button', { name: 'Back to options' }));
+    expect(push).toHaveBeenLastCalledWith('/advisor/case/4821/options');
+
+    rerender(<OptionsList caseId="4821" />);
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: "3 services meet this patient's criteria" })).toHaveFocus());
+    expect(seenOptionsReads).toEqual(['4821']);
+  });
+
+  it('opening and leaving a service reads the options once, not again', async () => {
+    const { rerender } = render(<OptionsList caseId="4821" />);
+    await screen.findByRole('heading', { name: "3 services meet this patient's criteria" });
+    rerender(<OptionsList caseId="4821" serviceId="svc-ward-b" />);
+    await screen.findByRole('complementary', { name: 'Other options' });
+    rerender(<OptionsList caseId="4821" />);
+    await screen.findByRole('heading', { name: "3 services meet this patient's criteria" });
+
+    expect(seenOptionsReads).toEqual(['4821']);
+  });
+
+  it('the Request state has no axe violations', async () => {
+    const { container } = render(<OptionsList caseId="4821" serviceId="svc-ucr-west" />);
+    await screen.findByRole('complementary', { name: 'Other options' });
+
+    expect((await runAxe(container)).violations).toEqual([]);
+  });
+
+  it('the card buttons of the Request state reach the page through their props with the service id', async () => {
     const user = userEvent.setup();
     const onCriteria = vi.fn();
     const onPhoned = vi.fn();
-    render(<OptionsList caseId="4821" onCriteria={onCriteria} onPhoned={onPhoned} onAskClinical={vi.fn()} />);
-    await screen.findByRole('heading', { name: "3 services meet this patient's criteria" });
-    const ucr = screen.getByRole('article', { name: 'UCR West' });
+    render(<OptionsList caseId="4821" serviceId="svc-ucr-west" onCriteria={onCriteria} onPhoned={onPhoned} onAskClinical={vi.fn()} />);
+    const ucr = await screen.findByRole('article', { name: 'UCR West' });
 
     await user.click(within(ucr).getByRole('button', { name: 'I phoned' }));
     await user.click(within(ucr).getByRole('button', { name: 'Criteria' }));
@@ -176,8 +249,8 @@ describe('OptionsList dialogs (W14)', () => {
       ),
     );
     const user = userEvent.setup();
-    render(<OptionsList caseId="4821" onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
-    await screen.findByRole('heading', { name: "3 services meet this patient's criteria" });
+    render(<OptionsList caseId="4821" serviceId="svc-ucr-west" onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
+    await screen.findByRole('article', { name: 'UCR West' });
     const button = within(screen.getByRole('article', { name: 'UCR West' })).getByRole('button', { name: 'Criteria' });
 
     await user.click(button);
@@ -190,9 +263,8 @@ describe('OptionsList dialogs (W14)', () => {
 
   it('"I phoned" and "They declined" open their dialogs for that service', async () => {
     const user = userEvent.setup();
-    render(<OptionsList caseId="4821" onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
-    await screen.findByRole('heading', { name: "3 services meet this patient's criteria" });
-    const card = screen.getByRole('article', { name: 'UCR West' });
+    render(<OptionsList caseId="4821" serviceId="svc-ucr-west" onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
+    const card = await screen.findByRole('article', { name: 'UCR West' });
 
     await user.click(within(card).getByRole('button', { name: 'I phoned' }));
     expect(screen.getByRole('dialog', { name: 'I phoned' })).toBeInTheDocument();
@@ -204,8 +276,8 @@ describe('OptionsList dialogs (W14)', () => {
 
   it('after a saved answer the options are read again, once', async () => {
     const user = userEvent.setup();
-    render(<OptionsList caseId="4821" onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
-    await screen.findByRole('heading', { name: "3 services meet this patient's criteria" });
+    render(<OptionsList caseId="4821" serviceId="svc-ucr-west" onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
+    await screen.findByRole('article', { name: 'UCR West' });
     await user.click(within(screen.getByRole('article', { name: 'UCR West' })).getByRole('button', { name: 'I phoned' }));
     await user.click(screen.getByRole('button', { name: 'Accepting' }));
     await user.type(screen.getByLabelText('How many can they take?'), '2');
@@ -239,13 +311,12 @@ describe('OptionsList with no service that fits (W16)', () => {
 });
 
 
-describe('the booking control on each card (W13, W20)', () => {
-  it('mounts one booking panel per service of the viewer\'s own organisation, and posts the case and the service, once', async () => {
+describe('the booking control of the Request state (W13, W20, call step 4)', () => {
+  it('mounts one booking panel, for the chosen service only, and posts the case and the service, once', async () => {
     const user = userEvent.setup();
-    render(<OptionsList caseId="case-1" />);
-    await screen.findByRole('heading', { name: "3 services meet this patient's criteria" });
-    expect(screen.getAllByRole('button', { name: 'Request booking' })).toHaveLength(3);
-    const ward = screen.getByRole('article', { name: 'Community hospital · Ward B' });
+    render(<OptionsList caseId="case-1" serviceId="svc-ward-b" />);
+    const ward = await screen.findByRole('article', { name: 'Community hospital · Ward B' });
+    expect(screen.getAllByRole('button', { name: 'Request booking' })).toHaveLength(1);
 
     await user.click(within(ward).getByRole('button', { name: 'Request booking' }));
 
@@ -253,14 +324,12 @@ describe('the booking control on each card (W13, W20)', () => {
     expect(seenBookingPosts).toHaveLength(1);
     expect(seenBookingPosts[0]?.body).toEqual({ caseRef: 'case-1', serviceId: 'svc-ward-b' });
     expect(seenBookingPosts[0]?.csrf).toBe('csrf-value-for-the-list');
-    // The other two cards still offer the control: a request is one service's.
-    expect(screen.getAllByRole('button', { name: 'Request booking' })).toHaveLength(2);
   });
 
   it('says the service has a request waiting, on its own card, when the back end refuses a second (409)', async () => {
     server.use(http.post('/api/bff/bookings', () => HttpResponse.json({ code: 'open-request' }, { status: 409 })));
     const user = userEvent.setup();
-    render(<OptionsList caseId="case-1" />);
+    render(<OptionsList caseId="case-1" serviceId="svc-ucr-west" />);
     const ucr = await screen.findByRole('article', { name: 'UCR West' });
 
     await user.click(within(ucr).getByRole('button', { name: 'Request booking' }));
@@ -274,7 +343,7 @@ describe('the booking control on each card (W13, W20)', () => {
     server.use(http.post('/api/bff/bookings', () => HttpResponse.json(STATE_CONFIRMED, { status: 201 })));
     void bookingStore;
     const user = userEvent.setup();
-    render(<OptionsList caseId="case-1" />);
+    render(<OptionsList caseId="case-1" serviceId="svc-ucr-west" />);
     const ucr = await screen.findByRole('article', { name: 'UCR West' });
     await user.click(within(ucr).getByRole('button', { name: 'Request booking' }));
 
@@ -284,17 +353,17 @@ describe('the booking control on each card (W13, W20)', () => {
     expect(push).toHaveBeenLastCalledWith('/advisor/case/case-1/finish#summary');
   });
 
-  it('"Back to options" after a decline brings the advisor to the list again, and reads nothing new (DEC-636)', async () => {
+  it('"Back to options" after a decline takes the advisor to the plain options URL, and reads nothing new (DEC-636)', async () => {
     const { STATE_DECLINED } = await import('@/test/fixtures/bookings');
     server.use(http.post('/api/bff/bookings', () => HttpResponse.json(STATE_DECLINED, { status: 201 })));
     const user = userEvent.setup();
-    render(<OptionsList caseId="case-1" />);
+    render(<OptionsList caseId="case-1" serviceId="svc-ucr-west" />);
     const ucr = await screen.findByRole('article', { name: 'UCR West' });
     await user.click(within(ucr).getByRole('button', { name: 'Request booking' }));
 
     await user.click(await within(ucr).findByRole('button', { name: 'Back to options' }));
 
-    expect(document.activeElement).toBe(screen.getByRole('heading', { name: "3 services meet this patient's criteria" }));
+    expect(push).toHaveBeenLastCalledWith('/advisor/case/case-1/options');
     expect(seenOptionsReads).toHaveLength(1);
   });
 
@@ -303,7 +372,7 @@ describe('the booking control on each card (W13, W20)', () => {
     const { seenAcknowledgements } = await import('@/test/msw/handlers/bookings');
     server.use(http.post('/api/bff/bookings', () => HttpResponse.json(STATE_WITHDRAWN, { status: 201 })));
     const user = userEvent.setup();
-    render(<OptionsList caseId="case-1" />);
+    render(<OptionsList caseId="case-1" serviceId="svc-ucr-west" />);
     const ucr = await screen.findByRole('article', { name: 'UCR West' });
     await user.click(within(ucr).getByRole('button', { name: 'Request booking' }));
 

@@ -2,9 +2,103 @@
   display: grid;
   gap: var(--space-3);
   padding: var(--space-4);
-  background: var(--c-bg);
-  border: 1px solid var(--c-line);
+  background: #fff;
   border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+/* The summary row of the options list (call step 3): name, line, status word, figure, Open. */
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: #fff;
+  border: 2px solid #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+/* Over capacity has its own border as well as its word and shape. */
+.rowSurge {
+  border-color: var(--c-surge);
+}
+
+.rowBody {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-1);
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.rowName {
+  margin: 0;
+  font-size: var(--type-title-size);
+  font-weight: var(--type-title-weight);
+  line-height: var(--type-title-lh);
+  color: var(--c-ink);
+}
+
+.rowCaption {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-muted);
+}
+
+.old {
+  font-weight: 700;
+  color: var(--c-limited);
+}
+
+.rowFigure {
+  text-align: right;
+}
+
+.rowNumber {
+  margin: 0;
+  font-size: 2.75rem;
+  font-weight: var(--type-display-weight);
+  line-height: 1;
+  color: var(--c-primary-dark);
+}
+
+.rowUnit {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
+}
+
+.open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--btn-h);
+  padding: 0 var(--space-4);
+  border: 2px solid var(--c-primary);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--c-primary);
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  text-decoration: none;
+}
+
+.open:hover {
+  background: var(--c-tint);
+}
+
+.open:focus-visible {
+  outline: 3px solid var(--c-ink);
+  outline-offset: 2px;
+}
+
+@media (max-width: 36rem) {
+  .open {
+    flex: 1 1 100%;
+  }
 }
 
 .head {

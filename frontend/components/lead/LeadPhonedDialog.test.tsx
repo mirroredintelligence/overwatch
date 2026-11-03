@@ -1,6 +1,7 @@
 import { http, HttpResponse } from 'msw';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runAxe } from '@/test/a11y';
 import { resetLeadPosts, seenLeadPosts } from '@/test/msw/handlers/lead';
@@ -88,6 +89,38 @@ describe('LeadPhonedDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Save position' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('The position could not be saved. Try again.');
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('asks what they told you as a group, and says what the board will show', () => {
+    renderOpen();
+    expect(screen.getByRole('group', { name: 'What did UCR East tell you?' })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'The board will show this as told by phone, with your name and the time. The service is asked to report by text as usual at the next due time.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('takes focus into the side sheet on open, and gives it back to the card button on close', async () => {
+    function Harness() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>
+            Open the card
+          </button>
+          <LeadPhonedDialog open={open} serviceId={SERVICE_UCR_EAST} serviceName="UCR East" onClose={() => setOpen(false)} />
+        </>
+      );
+    }
+    const user = userEvent.setup();
+    render(<Harness />);
+    const opener = screen.getByRole('button', { name: 'Open the card' });
+    await user.click(opener);
+    const sheet = screen.getByRole('dialog', { name: 'Enter what they told me by phone' });
+    expect(sheet).toContainElement(document.activeElement as HTMLElement);
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(opener).toHaveFocus();
   });
 
   it('is accessible with an answer chosen and an error shown', async () => {

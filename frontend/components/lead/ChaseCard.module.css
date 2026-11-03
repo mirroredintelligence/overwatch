@@ -1,0 +1,150 @@
+.card {
+  box-sizing: border-box;
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-4);
+  background: #fff;
+  color: var(--c-ink);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  font-family: var(--font-atkinson), system-ui, sans-serif;
+}
+
+/* The open card (the board's state 2): a primary outline and the lifted shadow. */
+.open {
+  box-shadow: 0 0 0 2px var(--c-primary), var(--shadow-lift);
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.titleBlock {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.kicker {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-ink-2);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--type-heading-size);
+  line-height: var(--type-heading-lh);
+  font-weight: var(--type-heading-weight);
+  overflow-wrap: anywhere;
+}
+
+.line {
+  margin: 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  color: var(--c-ink-2);
+}
+
+/* Shown as unknown: a dashed outline and the word, never colour alone. */
+.unknown {
+  justify-self: start;
+  margin: 0;
+  padding: 5px 12px;
+  border: 2px dashed var(--c-unknown);
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--c-ink);
+}
+
+/* The ladder: four steps, each with a shape, its time and words, and its state in words. */
+.timeline {
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: var(--space-2);
+}
+
+.step:not(:last-child) {
+  padding-bottom: var(--space-3);
+}
+
+.marker {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  padding-top: 2px;
+}
+
+.step:not(:last-child) .marker::after {
+  content: '';
+  position: absolute;
+  top: 26px;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  margin-left: -1px;
+  background: #c9dce6;
+}
+
+.marker[data-step='escalate'] {
+  color: var(--c-limited);
+}
+
+.stepTitle {
+  margin: 0;
+  font-size: var(--type-body-size);
+  font-weight: 700;
+}
+
+.stepState {
+  margin: 0;
+  font-size: var(--type-body-size);
+  color: var(--c-ink-2);
+}
+
+/* At phone width the ladder is one line of text instead of the four steps. */
+.oneLine {
+  display: none;
+  margin: var(--space-2) 0 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  color: var(--c-ink);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--c-line);
+}
+
+@media (max-width: 600px) {
+  .timeline {
+    display: none;
+  }
+
+  .oneLine {
+    display: block;
+  }
+
+  .actions > * {
+    flex: 1 1 100%;
+  }
+}

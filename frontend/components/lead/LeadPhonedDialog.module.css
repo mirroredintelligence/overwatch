@@ -1,0 +1,64 @@
+/* The side sheet over the counters column (the board's state 2). It sits in the right column and leaves the
+   counters visible; at phone width it fills the screen. Motion tokens are zero under reduced motion. */
+
+.sheet {
+  position: fixed;
+  top: var(--space-4);
+  right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: 50;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: min(430px, calc(100vw - 2 * var(--space-4)));
+  overflow-y: auto;
+  padding: var(--space-4);
+  background: #fff;
+  color: var(--c-ink);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-lift);
+  font-family: var(--font-atkinson), system-ui, sans-serif;
+  animation: slideIn var(--dur-sheet) var(--ease-drawer) both;
+}
+
+.sheet:focus {
+  outline: none;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.title {
+  margin: 0;
+  font-size: var(--type-heading-size);
+  line-height: var(--type-heading-lh);
+  font-weight: var(--type-heading-weight);
+}
+
+.sub {
+  margin: 0;
+  font-size: var(--type-body-size);
+  color: var(--c-ink-2);
+}
+
+.form {
+  display: grid;
+  gap: var(--space-3);
+}
+
+@media (max-width: 600px) {
+  .sheet {
+    inset: 0;
+    width: auto;
+    border-radius: 0;
+  }
+}

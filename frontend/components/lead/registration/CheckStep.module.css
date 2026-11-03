@@ -1,0 +1,321 @@
+/* The two checks the shift lead does by hand: call back, and is it in scope (boards Rev1 and RvP2). One card in the
+   stage area. Sizes are the board's. Motion uses the duration tokens, which are zero under reduced motion. */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: var(--space-5) 28px;
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+  color: var(--c-ink);
+  min-width: 0;
+}
+
+.tight {
+  gap: var(--space-3);
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 15px;
+  color: var(--c-muted);
+}
+
+.title {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.callout {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: 16px;
+  background: var(--c-amber-tint);
+  font-size: 17px;
+  line-height: 1.4;
+}
+
+.numbers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+  margin: 0;
+}
+
+.number {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: 16px;
+  background: var(--c-bg);
+  min-width: 0;
+}
+
+.number dt {
+  font-size: 14px;
+  color: var(--c-muted);
+}
+
+.number dd {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.script {
+  margin: 0;
+  padding: 0 0 0 22px;
+  font-size: 17px;
+  line-height: 1.55;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.label {
+  display: block;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 9px 18px;
+  box-sizing: border-box;
+  border: 2px solid var(--c-line);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--c-ink);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-state) var(--ease-out),
+    border-color var(--dur-state) var(--ease-out),
+    transform var(--dur-press) var(--ease-out);
+}
+
+.chip:active {
+  transform: scale(0.97);
+}
+
+.chip[aria-pressed='true'] {
+  border-color: var(--c-primary);
+  background: var(--c-tint);
+  color: var(--c-primary-dark);
+}
+
+.chip:focus-visible,
+.primary:focus-visible,
+.secondary:focus-visible,
+.text:focus-visible,
+.next:focus-visible {
+  outline: 3px solid var(--c-ink);
+  outline-offset: 2px;
+}
+
+.mark {
+  flex: none;
+  width: 20px;
+  height: 20px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.input,
+.textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 var(--space-4);
+  border: 2px solid var(--c-ink-2);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--c-ink);
+  font: inherit;
+  font-size: 18px;
+}
+
+.input[aria-invalid='true'],
+.textarea[aria-invalid='true'] {
+  border-color: var(--c-limited);
+}
+
+.textarea {
+  min-height: 76px;
+  padding-top: var(--space-3);
+  padding-bottom: var(--space-3);
+  resize: vertical;
+}
+
+.hint {
+  margin: 0;
+  font-size: 15px;
+  color: var(--c-muted);
+}
+
+.error {
+  margin: 0;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--c-limited);
+}
+
+.saved {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  align-items: center;
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: 16px;
+  background: var(--c-tint);
+  color: var(--c-primary-dark);
+  font-weight: 700;
+}
+
+.next {
+  color: var(--c-primary-dark);
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.primary,
+.secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 54px;
+  padding: 0 26px;
+  border-radius: 16px;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.primary {
+  border: 0;
+  background: var(--c-primary);
+  color: #fff;
+  box-shadow: 0 6px 16px rgb(11 92 140 / 0.28);
+}
+
+.primary:disabled {
+  background: var(--c-line);
+  color: var(--c-muted);
+  box-shadow: none;
+  cursor: progress;
+}
+
+.secondary {
+  border: 2px solid var(--c-primary);
+  background: #fff;
+  color: var(--c-primary);
+}
+
+.text {
+  display: inline-flex;
+  align-items: center;
+  min-height: 54px;
+  padding: 0 20px;
+  color: var(--c-ink-2);
+  font-size: 17px;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+/* The questions of the scope check: the words, then three answers (board Rev1, Check 2). */
+.questions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 17px;
+}
+
+.question {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px var(--space-4);
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.questionText {
+  min-width: 0;
+}
+
+.question .row .chip {
+  padding: 8px 16px;
+}
+
+/* Phone is the way to make the call: on a phone it is the one primary action and Save steps back (board RvP2). */
+.phone {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .card {
+    padding: var(--space-4);
+  }
+
+  .numbers {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .question {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .phone {
+    display: inline-flex;
+    order: -1;
+    width: 100%;
+    min-height: 58px;
+    font-size: 19px;
+  }
+
+  .actions .save {
+    border: 2px solid var(--c-primary);
+    background: #fff;
+    color: var(--c-primary);
+    box-shadow: none;
+  }
+}

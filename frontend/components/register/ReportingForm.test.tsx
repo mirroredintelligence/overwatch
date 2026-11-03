@@ -11,18 +11,24 @@ withApplicantHandlers();
 // These flows type through a whole form in one test: the suite's default five seconds is too little on a loaded machine.
 vi.setConfig({ testTimeout: 20_000 });
 
-// Registration step 4, how the service reports capacity (W26, artboard RegisterFlow2 panel 7). The
-// API answer is saved after the reporting answers; a "Yes" reveals its four details.
+// Registration step 4, how the service reports capacity (Reg board stage 4). The API question is a closed row;
+// the API answer is saved after the reporting answers, and a "Yes" reveals its four details.
 
 const push = vi.hoisted(() => vi.fn());
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push, replace: vi.fn() }) }));
 
 const ID = 'REG-SAMPLE-1';
+const API_ROW = /^Does your system have an API\?/;
 
 async function open() {
   const view = render(<ReportingForm registrationId={ID} />);
   await screen.findByRole('heading', { level: 1, name: 'How will you report capacity?' });
   return view;
+}
+
+async function openApi() {
+  const row = screen.getByRole('button', { name: API_ROW });
+  if (row.getAttribute('aria-expanded') !== 'true') await userEvent.click(row);
 }
 
 async function fillValid() {
@@ -33,6 +39,7 @@ async function fillValid() {
   await userEvent.click(screen.getByRole('button', { name: 'Text' }));
   await userEvent.type(screen.getByLabelText('Mobile number'), '07700 900456');
   await userEvent.type(screen.getByLabelText('Who holds this phone'), 'Sample Ward team');
+  await openApi();
   await userEvent.click(screen.getByRole('button', { name: 'No' }));
 }
 
@@ -42,6 +49,16 @@ beforeEach(() => {
 });
 
 describe('ReportingForm: the screen', () => {
+  it('sits in the register frame with Capacity reporting current in the checklist', async () => {
+    await open();
+    const stage = screen.getByRole('region', { name: 'Current step' });
+    expect(within(stage).getByRole('heading', { level: 1, name: 'How will you report capacity?' })).toBeInTheDocument();
+    expect(screen.getAllByRole('main')).toHaveLength(1);
+    expect(within(screen.getByRole('banner')).getByRole('link', { name: 'Save and come back later' })).toBeInTheDocument();
+    const nav = screen.getByRole('navigation', { name: 'Your registration' });
+    expect(within(nav).getByRole('link', { name: /^Capacity reporting/ })).toHaveAttribute('aria-current', 'step');
+  });
+
   it('shows the counts, the usual range, the cadence and the channels, with the app note', async () => {
     await open();
     expect(screen.getByText('Step 4 of 5 · Capacity reporting')).toBeInTheDocument();
@@ -57,6 +74,11 @@ describe('ReportingForm: the screen', () => {
     expect(screen.getByLabelText('Highest usual number')).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'How often do you report?' })).toBeInTheDocument();
     expect(screen.getByText(/App notification needs the app on your home screen/)).toBeInTheDocument();
+  });
+
+  it('says a role, not a person, under "Who holds this phone"', async () => {
+    await open();
+    expect(screen.getByLabelText('Who holds this phone')).toHaveAccessibleDescription('A role, not a person.');
   });
 
   it('channel Email shows the email field and hides the mobile; Text shows the mobile', async () => {
@@ -80,23 +102,42 @@ describe('ReportingForm: the screen', () => {
     expect(seenStepSaves).toHaveLength(0);
   });
 
-  it('an API "Yes" with an http address shows the https error, and reveals the four details', async () => {
+  it('shows the "Other" count error, and the "Who holds this phone" error, under "N problems to fix"', async () => {
     await open();
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    const heading = await screen.findByRole('heading', { name: /problems to fix$/ });
+    const region = heading.closest('[role="alert"]') as HTMLElement;
+    expect(region).toHaveFocus();
+    expect(within(region).getByRole('link', { name: 'Choose what you count' })).toHaveAttribute('href', '#counts');
+    expect(within(region).getByRole('link', { name: 'Enter who holds this phone' })).toHaveAttribute('href', '#holderName');
+    expect(screen.getAllByText('Choose what you count').length).toBeGreaterThanOrEqual(2);
+    const nav = screen.getByRole('navigation', { name: 'Your registration' });
+    expect(within(nav).getByRole('link', { name: /^Capacity reporting/ })).toHaveTextContent('Needs attention');
+  });
+});
+
+describe('ReportingForm: the API question', () => {
+  it('is a closed row that says it is not used in the pilot', async () => {
+    await open();
+    const row = screen.getByRole('button', { name: API_ROW });
+    expect(row).toHaveAttribute('aria-expanded', 'false');
+    expect(row).toHaveAccessibleName(/Not used in the pilot/);
+  });
+
+  it('a "Yes" reveals the four details, and an http address shows the https error and opens the row', async () => {
+    await open();
+    await openApi();
     await userEvent.click(screen.getByRole('button', { name: 'Yes' }));
     for (const label of ['API name', 'API address', 'Connection type', 'Type of data']) {
       expect(screen.getByLabelText(label)).toBeInTheDocument();
     }
     expect(screen.getByText(/Not used in the pilot. If you answer Yes/)).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('API address'), 'http://api.example.test');
+    await userEvent.click(screen.getByRole('button', { name: API_ROW }));
+    expect(screen.getByRole('button', { name: API_ROW })).toHaveAttribute('aria-expanded', 'false');
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect((await screen.findAllByText('Enter the API address, starting https://')).length).toBeGreaterThanOrEqual(1);
-  });
-
-  it('shows the "Other" count error, and the "Who holds this phone" error', async () => {
-    await open();
-    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
-    expect((await screen.findAllByText('Choose what you count')).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('Enter who holds this phone').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole('button', { name: API_ROW })).toHaveAttribute('aria-expanded', 'true');
   });
 });
 

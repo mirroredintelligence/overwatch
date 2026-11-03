@@ -1,0 +1,74 @@
+/* The service and reporting steps (Reg board stages 3 and 4): the open "The service" box, the closed rows' answers
+   and the three-column reporting line. The card, form, heading and actions come from RegisterForm.module.css.
+   Tokens only; the board's 18px box radius and 16px by 18px padding are kept. */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: 16px 18px;
+  border: 2px solid var(--c-primary);
+  border-radius: 18px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 19px;
+  line-height: 1.3;
+  font-weight: 700;
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.triple {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.hint {
+  font-weight: 400;
+  color: var(--c-muted);
+  font-size: var(--type-caption-size);
+}
+
+.flag {
+  font-weight: 700;
+  color: var(--c-limited);
+  font-size: var(--type-caption-size);
+}
+
+.add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-3);
+}
+
+@media (max-width: 899px) {
+  .section {
+    padding: var(--space-4);
+  }
+
+  .pair,
+  .triple {
+    grid-template-columns: 1fr;
+  }
+}

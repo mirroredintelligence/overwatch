@@ -1,0 +1,192 @@
+/* A service opened in place (boards/planning/PService.dc.html). One white card on the stage; the number is the
+   largest thing on it, in the status colour, and never animates. */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  box-sizing: border-box;
+  min-height: 100%;
+  padding: 22px;
+  border-radius: var(--radius-card);
+  background: Canvas;
+  box-shadow: var(--shadow-card);
+  --figure-colour: var(--c-primary-dark);
+}
+
+.card[data-status='limited'] {
+  --figure-colour: var(--c-limited);
+}
+
+.card[data-status='not-accepting'] {
+  --figure-colour: var(--c-closed);
+}
+
+.card[data-status='over-capacity'] {
+  --figure-colour: var(--c-surge);
+}
+
+.card[data-status='not-updated'] {
+  --figure-colour: var(--c-muted);
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.name {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.sub {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
+}
+
+.figure {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.big {
+  margin: 0;
+  font-size: 64px;
+  line-height: 1;
+  font-weight: 700;
+  color: var(--figure-colour);
+}
+
+.small {
+  margin: 0;
+  font-size: 19px;
+  color: var(--c-ink-2);
+}
+
+.used {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
+}
+
+.eyebrow {
+  margin-bottom: var(--space-2);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.today {
+  display: grid;
+}
+
+.strip {
+  position: relative;
+  height: 22px;
+  overflow: hidden;
+  border: 1px solid var(--c-ink);
+  border-radius: 8px;
+  background: var(--c-ground);
+}
+
+.sofar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--c-tint);
+}
+
+/* A tick, wider than a hairline: the moment of the last report is a dashed tick, now a solid one. */
+.mark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  margin-left: -2px;
+  background: var(--c-ink);
+}
+
+.mark[data-mark='reported'] {
+  background: repeating-linear-gradient(180deg, var(--c-ink) 0 4px, Canvas 4px 7px);
+}
+
+.ticks {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  font-size: 14px;
+  color: var(--c-muted);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  font-size: var(--type-caption-size);
+}
+
+.fact {
+  padding: var(--space-3) 14px;
+  border-radius: 14px;
+  background: var(--c-bg);
+}
+
+.fact dt {
+  color: var(--c-muted);
+}
+
+.fact dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: auto;
+}
+
+.footer {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
+}
+
+.alertTitle {
+  margin: 0;
+  font-size: 19px;
+  line-height: 1.3;
+  font-weight: 700;
+}
+
+.alertLine {
+  margin: calc(var(--space-1) * -2) 0 0;
+  font-size: 15px;
+  color: var(--c-muted);
+}
+
+@media (max-width: 600px) {
+  .card {
+    padding: var(--space-4);
+  }
+
+  .big {
+    font-size: 52px;
+  }
+
+  .facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -5,10 +5,9 @@ import { leadPost } from '@/lib/lead/browser';
 import { districtCheckFrom, typedDistricts, type DistrictCheck } from '@/lib/lead/postcodeDistricts';
 import styles from './DistrictCheck.module.css';
 
-// The two steps of a service's postcode districts (DEC-1329). Check: each district typed is verified and
-// its postcode count shown, so the lead can narrow it (type a longer start such as "DT4 0") before anything
-// is queued. Confirm: a checked district is queued for a background download, and the request returns at
-// once; the page never waits for the postcodes.
+// A service takes whole postcode districts (DEC-1329). Check: each district typed is verified and its
+// postcode count shown, so the lead can see its size before anything is queued. Confirm: a checked district
+// is queued for a background download, and the request returns at once; the page never waits for the postcodes.
 
 type Row =
   | { state: 'checking'; prefix: string }
@@ -45,7 +44,7 @@ export function DistrictCheckPanel({ text }: { text: string }) {
         Check districts
       </button>
       <p className={styles.hint}>
-        Too many postcodes? Type a longer start, such as DT4 0, and check again.
+        Each district is checked against the postcode directory. Check it before you confirm it.
       </p>
       {rows.length > 0 ? (
         <ul className={styles.rows} aria-label="District checks">

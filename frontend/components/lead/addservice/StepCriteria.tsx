@@ -68,7 +68,7 @@ export function StepCriteria({ values, set, toggle, errors, summaryRef, onNext, 
           <Field
             id="lead-add-districts"
             label="Postcode districts"
-            hint="Like DT4. Separate with commas."
+            hint="Whole districts, like DT4. Separate with commas."
             error={errorFor('lead-add-districts')}
           >
             {(props) => <input {...props} value={values.districts} onChange={(e) => set('districts', e.target.value)} />}

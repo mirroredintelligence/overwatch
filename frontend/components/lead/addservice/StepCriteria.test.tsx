@@ -107,7 +107,7 @@ describe('StepCriteria', () => {
     const message = 'Enter a postcode district, like DT4';
     render(<Host errors={[{ field: 'lead-add-districts', message }]} />);
     expect(within(screen.getByRole('alert')).getByRole('link', { name: message })).toBeInTheDocument();
-    expect(screen.getByLabelText('Postcode districts')).toHaveAccessibleDescription(`Like DT4. Separate with commas. ${message}`);
+    expect(screen.getByLabelText('Postcode districts')).toHaveAccessibleDescription(`Whole districts, like DT4. Separate with commas. ${message}`);
   });
 
   it('has no axe violations, with problems shown', async () => {

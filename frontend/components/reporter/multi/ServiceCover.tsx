@@ -9,8 +9,9 @@ import { Button } from '@/components/ui/Button';
 import { isUkMobile } from '@/lib/forms/ukMobile';
 import { bffRequest } from '@/lib/reporter/browser';
 import styles from '@/components/reporter/Reporter.module.css';
+import multi from './ServiceCover.module.css';
 
-// Hand one service to a cover phone while away (W38). Only that service moves; the others stay.
+// Hand one service to a cover phone while away (W38, B7). Only that service moves; the others stay.
 
 export function ServiceCover({ serviceId, serviceName }: { serviceId: string; serviceName: string }) {
   const router = useRouter();
@@ -38,15 +39,20 @@ export function ServiceCover({ serviceId, serviceName }: { serviceId: string; se
 
   return (
     <main className={styles.page}>
-      <h1 className={styles.title}>{`Cover for ${serviceName}`}</h1>
-      <p>{`Choose who takes ${serviceName} while you are away. Your other services stay with you.`}</p>
-      <MobileNumberField label="Cover mobile number" value={phone} onChange={setPhone} error={error} required dataEl="REP-COVER-PHONE" />
-      <CoverUntil until={until} date={date} onUntil={setUntil} onDate={setDate} name="until" />
-      <p>We text them a code to check the number. The shift lead is told.</p>
+      <section className={multi.card}>
+        <h1 className={multi.heading}>{`Cover for ${serviceName}`}</h1>
+        <p className={multi.intro}>{`Choose who takes ${serviceName} while you are away. Your other services stay with you.`}</p>
+        <MobileNumberField label="Cover mobile number" value={phone} onChange={setPhone} error={error} required dataEl="REP-COVER-PHONE" />
+        <CoverUntil until={until} date={date} onUntil={setUntil} onDate={setDate} name="until" />
+      </section>
+      <p className={multi.note}>We text them a code to check the number. The shift lead is told.</p>
       {notice !== null ? <Banner tone="warning" title={notice} /> : null}
       <Button variant="primary" busy={busy} dataEl="REP-COVER-SUBMIT-BTN" onClick={() => void submit()}>
         {`Hand over ${serviceName}`}
       </Button>
+      <button type="button" className={multi.cancel} onClick={() => router.push('/app/services')}>
+        Cancel
+      </button>
     </main>
   );
 }

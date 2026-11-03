@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -38,6 +38,23 @@ describe('SetupFlow', () => {
     render(<SetupFlow initial={initial} leaders={[{ id: 'lead-1', name: 'Sample Lead' }]} />);
     await throughToSave();
     await waitFor(() => expect(push).toHaveBeenCalledWith('/planning'));
+  });
+
+  it('shows the three set-up steps, marks the current one, and marks the ones before it done', async () => {
+    render(<SetupFlow initial={initial} leaders={[{ id: 'lead-1', name: 'Sample Lead' }]} />);
+    const steps = screen.getByRole('list', { name: 'Set-up steps' });
+    expect(within(steps).getByText('Welcome').closest('li')).toHaveAttribute('aria-current', 'step');
+    await userEvent.click(screen.getByRole('button', { name: 'Choose my alerts' }));
+    expect(within(steps).getByText('Welcome').closest('li')).not.toHaveAttribute('aria-current');
+    expect(within(steps).getByText('Done,')).toBeInTheDocument();
+    expect(within(steps).getByText('Choose your alerts').closest('li')).toHaveAttribute('aria-current', 'step');
+    expect(within(steps).getByText('Quiet hours and escalation')).toBeInTheDocument();
+  });
+
+  it('heads the alerts step Choose your alerts', async () => {
+    render(<SetupFlow initial={initial} leaders={[{ id: 'lead-1', name: 'Sample Lead' }]} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Choose my alerts' }));
+    expect(screen.getByRole('heading', { level: 1, name: 'Choose your alerts' })).toBeInTheDocument();
   });
 
   it('does not go on when the save fails', async () => {

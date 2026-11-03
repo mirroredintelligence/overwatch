@@ -9,7 +9,9 @@ import { DEPUTY_REQUIRED, hasDeputy } from '@/lib/exec/savePreferences';
 import styles from './Exec.module.css';
 
 // Quiet hours, the acknowledgement window and the deputy (W39, ExecApp2 screen 6). The ladder is you,
-// then your deputy, then the shift lead by phone (U34 sends it; this screen only names it).
+// then your deputy, then the shift lead by phone (U34 sends it; this screen only names it). The set-up flow
+// gives it its own save. The settings page hides that save (showSave false) and saves the whole state itself,
+// so the form reports each change through onChange.
 
 export type EscalationValues = Pick<AlertPreferences, 'quietHours' | 'quietCriticalOnly' | 'ackMinutes' | 'deputy'>;
 
@@ -24,34 +26,57 @@ type Props = {
    * not be read, so it is typed and the screen says why. A list, even an empty one: the deputy is chosen.
    */
   leaders?: Leader[] | null;
+  /** Each change as it is made, with the deputy trimmed. */
+  onChange?: (values: EscalationValues) => void;
+  /** Default true. False when the page has its own save for everything. */
+  showSave?: boolean;
+};
+
+type Draft = {
+  quiet: boolean;
+  criticalOnly: boolean;
+  ackMinutes: AlertPreferences['ackMinutes'];
+  deputy: string;
 };
 
 const QUIET_LABEL = `${QUIET_START} to ${QUIET_END}`;
 
-export function EscalationForm({ initial, busy, onSave, error = null, leaders }: Props) {
-  const [quiet, setQuiet] = useState(initial.quietHours !== null);
-  const [criticalOnly, setCriticalOnly] = useState(initial.quietCriticalOnly);
-  const [ackMinutes, setAckMinutes] = useState(initial.ackMinutes);
+function valuesOf(draft: Draft, criticalOnlyWhenQuietOff: boolean): EscalationValues {
+  return {
+    quietHours: draft.quiet ? { start: QUIET_START, end: QUIET_END } : null,
+    quietCriticalOnly: draft.quiet ? draft.criticalOnly : criticalOnlyWhenQuietOff,
+    ackMinutes: draft.ackMinutes,
+    deputy: draft.deputy.trim(),
+  };
+}
+
+export function EscalationForm({ initial, busy, onSave, error = null, leaders, onChange, showSave = true }: Props) {
   const onList = Array.isArray(leaders) && leaders.some((leader) => leader.id === initial.deputy);
-  // A saved deputy who is no longer on the list is not carried over: another is chosen.
-  const [deputy, setDeputy] = useState(Array.isArray(leaders) && !onList ? '' : initial.deputy);
+  const [draft, setDraft] = useState<Draft>({
+    quiet: initial.quietHours !== null,
+    criticalOnly: initial.quietCriticalOnly,
+    ackMinutes: initial.ackMinutes,
+    // A saved deputy who is no longer on the list is not carried over: another is chosen.
+    deputy: Array.isArray(leaders) && !onList ? '' : initial.deputy,
+  });
   const [deputyError, setDeputyError] = useState(false);
   const deputyId = useId();
   const errorId = useId();
 
+  const edit = (next: Partial<Draft>) => {
+    const updated = { ...draft, ...next };
+    setDraft(updated);
+    onChange?.(valuesOf(updated, initial.quietCriticalOnly));
+  };
+
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!hasDeputy({ deputy })) {
+    if (!hasDeputy({ deputy: draft.deputy })) {
       setDeputyError(true);
       return;
     }
     setDeputyError(false);
-    onSave({
-      quietHours: quiet ? { start: QUIET_START, end: QUIET_END } : null,
-      quietCriticalOnly: quiet ? criticalOnly : initial.quietCriticalOnly,
-      ackMinutes,
-      deputy: deputy.trim(),
-    });
+    onSave(valuesOf(draft, initial.quietCriticalOnly));
   };
 
   return (
@@ -59,23 +84,23 @@ export function EscalationForm({ initial, busy, onSave, error = null, leaders }:
       <fieldset className={styles.plain}>
         <legend className={styles.legend}>Quiet hours</legend>
         <div className={styles.group}>
-          <OptionButton selected={quiet} onSelect={() => setQuiet(true)} dataEl="EXEC-ESC-QUIET-2200-0600">
+          <OptionButton selected={draft.quiet} onSelect={() => edit({ quiet: true })} dataEl="EXEC-ESC-QUIET-2200-0600">
             {QUIET_LABEL}
           </OptionButton>
-          <OptionButton selected={!quiet} onSelect={() => setQuiet(false)} dataEl="EXEC-ESC-QUIET-NONE">
+          <OptionButton selected={!draft.quiet} onSelect={() => edit({ quiet: false })} dataEl="EXEC-ESC-QUIET-NONE">
             None
           </OptionButton>
         </div>
       </fieldset>
 
-      {quiet ? (
+      {draft.quiet ? (
         <fieldset className={styles.plain}>
           <legend className={styles.legend}>During quiet hours, alert me about</legend>
           <div className={styles.group}>
-            <OptionButton selected={criticalOnly} onSelect={() => setCriticalOnly(true)} dataEl="EXEC-ESC-QUIET-CRITICAL">
+            <OptionButton selected={draft.criticalOnly} onSelect={() => edit({ criticalOnly: true })} dataEl="EXEC-ESC-QUIET-CRITICAL">
               Critical only
             </OptionButton>
-            <OptionButton selected={!criticalOnly} onSelect={() => setCriticalOnly(false)} dataEl="EXEC-ESC-QUIET-EVERYTHING">
+            <OptionButton selected={!draft.criticalOnly} onSelect={() => edit({ criticalOnly: false })} dataEl="EXEC-ESC-QUIET-EVERYTHING">
               Everything
             </OptionButton>
           </div>
@@ -88,8 +113,8 @@ export function EscalationForm({ initial, busy, onSave, error = null, leaders }:
           {ACK_CHOICES.map((minutes) => (
             <OptionButton
               key={minutes}
-              selected={ackMinutes === minutes}
-              onSelect={() => setAckMinutes(minutes)}
+              selected={draft.ackMinutes === minutes}
+              onSelect={() => edit({ ackMinutes: minutes })}
               dataEl={`EXEC-ESC-ACK-${minutes}`}
             >
               {`${minutes} min`}
@@ -108,8 +133,8 @@ export function EscalationForm({ initial, busy, onSave, error = null, leaders }:
               <select
                 id={deputyId}
                 className={styles.input}
-                value={deputy}
-                onChange={(event) => setDeputy(event.target.value)}
+                value={draft.deputy}
+                onChange={(event) => edit({ deputy: event.target.value })}
                 aria-invalid={deputyError ? 'true' : undefined}
                 aria-describedby={deputyError ? errorId : undefined}
                 data-el="EXEC-ESC-DEPUTY-SELECT"
@@ -128,8 +153,8 @@ export function EscalationForm({ initial, busy, onSave, error = null, leaders }:
               id={deputyId}
               className={styles.input}
               type="text"
-              value={deputy}
-              onChange={(event) => setDeputy(event.target.value)}
+              value={draft.deputy}
+              onChange={(event) => edit({ deputy: event.target.value })}
               aria-invalid={deputyError ? 'true' : undefined}
               aria-describedby={deputyError ? errorId : undefined}
               autoComplete="off"
@@ -146,11 +171,13 @@ export function EscalationForm({ initial, busy, onSave, error = null, leaders }:
 
       {error ? <p className={styles.error} role="alert">{error}</p> : null}
 
-      <div className={styles.actions}>
-        <Button variant="primary" type="submit" busy={busy} dataEl="EXEC-ESC-SAVE-BTN">
-          Save
-        </Button>
-      </div>
+      {showSave ? (
+        <div className={styles.actions}>
+          <Button variant="primary" type="submit" busy={busy} dataEl="EXEC-ESC-SAVE-BTN">
+            Save
+          </Button>
+        </div>
+      ) : null}
     </form>
   );
 }

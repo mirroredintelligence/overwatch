@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
@@ -35,13 +35,22 @@ describe('AlertSwitches', () => {
     expect(weekly).toHaveAttribute('data-el', 'EXEC-ALERT-WEEKLY-SWITCH');
   });
 
-  it('reveals the 2 or 4 hours choice when not-updated is on, and hides it when off', async () => {
+  it('says On or Off in words beside each switch, and the word follows the switch', async () => {
     render(<Harness />);
-    expect(screen.getByRole('button', { name: '2 hrs' })).toHaveAttribute('aria-pressed', 'true');
+    const weekly = screen.getByRole('switch', { name: /Weekly summary/ });
+    expect(within(weekly).getByText('Off')).toBeInTheDocument();
+    expect(within(screen.getByRole('switch', { name: /Daily summary/ })).getByText('On')).toBeInTheDocument();
+    await userEvent.click(weekly);
+    expect(within(weekly).getByText('On')).toBeInTheDocument();
+  });
+
+  it('reveals the After 2 hrs or After 4 hrs choice under not-updated when it is on, and hides it when off', async () => {
+    render(<Harness />);
+    expect(screen.getByRole('button', { name: 'After 2 hrs' })).toHaveAttribute('aria-pressed', 'true');
     await userEvent.click(screen.getByRole('switch', { name: /A service has not updated/ }));
-    expect(screen.queryByRole('button', { name: '2 hrs' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'After 2 hrs' })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('switch', { name: /A service has not updated/ }));
-    expect(screen.getByRole('button', { name: '4 hrs' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'After 4 hrs' })).toBeInTheDocument();
   });
 
   it('has no accessibility violations', async () => {

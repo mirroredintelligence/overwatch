@@ -1,8 +1,8 @@
 .main {
   display: flex;
   justify-content: center;
-  padding: var(--space-6) var(--space-4);
-  background: var(--c-bg);
+  padding: var(--space-7) var(--space-4);
+  background: var(--c-ground);
   min-height: 100vh;
   box-sizing: border-box;
   color: var(--c-ink);
@@ -10,25 +10,59 @@
 
 .panel {
   width: 100%;
-  max-width: 520px;
+  max-width: 440px;
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  align-items: center;
+  gap: 30px;
+  text-align: center;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 72px;
+  height: 72px;
+  border-radius: 22px;
+  background: var(--c-rail);
 }
 
 .product {
   margin: 0;
+  font-size: clamp(2.25rem, 10vw, 3rem);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  text-align: left;
+}
+
+.line {
+  margin: 0;
+  font-size: clamp(1.125rem, 4vw, 1.3125rem);
+  line-height: 1.45;
+  color: var(--c-ink-2);
 }
 
 .signIn {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: var(--btn-h);
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 64px;
   padding: 0 var(--space-5);
   background: var(--c-primary);
   color: #ffffff;
   border-radius: var(--radius);
+  box-shadow: 0 8px 20px rgb(11 92 140 / 0.3);
+  font-size: 1.3125rem;
   font-weight: 700;
   text-decoration: none;
 }
@@ -41,4 +75,17 @@
 .other {
   margin: 0;
   color: var(--c-muted);
+  font-weight: 700;
+}
+
+.other a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: inherit;
+}
+
+.other a:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
 }

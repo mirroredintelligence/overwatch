@@ -1,6 +1,6 @@
-/* Splash timeline (ms, from mount): ring 200-900, scan 600-1000, core 900-1250, glint 1200-1600,
-   wordmark 1600-2100, hold to 2400, fade 300. Only transform, opacity and clip-path are animated, except the
-   bloom's blur, which is set once and not animated. */
+/* Splash timeline (ms, from mount): the ring and bar settle with one spring 0-900, the dot follows 500-1200,
+   the name is there from the start, hold to 2400, fade 300. Only transform and opacity are animated. Reduced
+   motion turns the animations off, so the finished mark and name are shown static. */
 
 .splash {
   position: fixed;
@@ -9,8 +9,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--c-ink);
-  color: var(--c-bg);
+  background: var(--c-rail);
+  color: #ffffff;
   transition: opacity 300ms ease-out;
 }
 
@@ -20,152 +20,70 @@
 
 .lockup {
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 28px;
 }
 
 .mark {
-  width: clamp(88px, 16vw, 132px);
+  width: clamp(120px, 30vw, 180px);
   height: auto;
   overflow: visible;
+  animation: ring 900ms var(--ease-spring) both;
 }
 
 .ring {
   fill: none;
-  stroke: var(--c-bg);
-  stroke-width: 10;
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  animation: ring-draw 700ms cubic-bezier(0.2, 0.7, 0.2, 1) 200ms forwards;
+  stroke: #ffffff;
+  stroke-width: 1.6;
 }
 
-.scan {
-  fill: var(--c-bg);
-  transform: translateX(-70px);
-  animation: scan 400ms ease-in-out 600ms forwards;
-}
-
-.scan rect {
-  fill: var(--c-bg);
-}
-
-.glint {
-  opacity: 0;
-  transform: translateX(-80px);
-  animation: glint 400ms ease-in-out 1200ms forwards;
-}
-
-.core {
-  fill: var(--c-tint);
+.dot {
+  fill: var(--c-primary);
   transform-box: fill-box;
   transform-origin: center;
-  transform: scale(0);
-  animation: core-in 350ms cubic-bezier(0.3, 1.4, 0.5, 1) 900ms forwards;
-}
-
-.bloom {
-  fill: var(--c-primary);
-  opacity: 0;
-  filter: blur(14px);
-  animation: bloom 700ms ease-out 900ms forwards;
+  animation: dot 700ms var(--ease-spring) 500ms both;
 }
 
 .word {
-  font-family: var(--font-atkinson), system-ui, sans-serif;
   font-weight: 700;
-  font-size: clamp(2rem, 6vw, 4.5rem);
+  font-size: 1.875rem;
   line-height: 1;
-  white-space: nowrap;
-  clip-path: inset(0 100% 0 0);
-  letter-spacing: 0.08em;
-  animation: word-reveal 500ms cubic-bezier(0.2, 0.7, 0.2, 1) 1600ms forwards;
-}
-
-.srOnly {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
+  letter-spacing: -0.005em;
   white-space: nowrap;
 }
 
-@keyframes ring-draw {
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-
-@keyframes scan {
-  to {
-    transform: translateX(70px);
-  }
-}
-
-@keyframes glint {
+@keyframes ring {
   0% {
+    transform: scale(0.6);
     opacity: 0;
-    transform: translateX(-80px);
   }
-  30% {
-    opacity: 0.9;
+  60% {
+    transform: scale(1.06);
+    opacity: 1;
   }
   100% {
-    opacity: 0;
-    transform: translateX(80px);
-  }
-}
-
-@keyframes core-in {
-  to {
     transform: scale(1);
+    opacity: 1;
   }
 }
 
-@keyframes bloom {
+@keyframes dot {
   0% {
-    opacity: 0;
+    transform: scale(0);
   }
-  40% {
-    opacity: 0.5;
+  70% {
+    transform: scale(1.2);
   }
   100% {
-    opacity: 0;
-  }
-}
-
-@keyframes word-reveal {
-  to {
-    clip-path: inset(0 0 0 0);
-    letter-spacing: -0.02em;
+    transform: scale(1);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ring,
-  .scan,
-  .glint,
-  .core,
-  .bloom,
-  .word {
+  .mark,
+  .dot {
     animation: none;
-  }
-
-  .ring {
-    stroke-dashoffset: 0;
-  }
-
-  .scan {
-    transform: none;
-  }
-
-  .core {
-    transform: scale(1);
-  }
-
-  .word {
-    clip-path: inset(0 0 0 0);
-    letter-spacing: -0.02em;
   }
 
   .splash {

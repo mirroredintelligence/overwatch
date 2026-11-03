@@ -13,17 +13,18 @@ const A = parseProfile(TENANTS.A.profile);
 const B = parseProfile(TENANTS.B.profile);
 
 describe('TenantHeader', () => {
-  it('shows the organisation name as the profile gives it, in a labelled region', () => {
+  it('is the page heading: the organisation name as the profile gives it, under “You are signing in to”, in a labelled region', () => {
     render(<TenantHeader profile={A} />);
-    const region = screen.getByRole('region', { name: 'Organisation' });
-    expect(region).toHaveTextContent('Sample Area A');
+    const region = screen.getByRole('region', { name: 'Your organisation' });
+    expect(region).toHaveTextContent('You are signing in to');
     expect(region).toHaveAttribute('data-el', 'TENANT-HEADER');
+    expect(screen.getByRole('heading', { level: 1, name: 'Sample Area A' })).toBeInTheDocument();
   });
 
   it('shows another tenant’s name for another tenant’s profile, and never both', () => {
     const { rerender } = render(<TenantHeader profile={A} />);
     rerender(<TenantHeader profile={B} />);
-    expect(screen.getByRole('region', { name: 'Organisation' })).toHaveTextContent('Sample Area B');
+    expect(screen.getByRole('heading', { level: 1, name: 'Sample Area B' })).toBeInTheDocument();
     expect(document.body.textContent).not.toContain('Sample Area A');
   });
 
@@ -36,7 +37,7 @@ describe('TenantHeader', () => {
     const tricky = parseProfile({ ...TENANTS.A.profile, displayName: '<img src=x onerror=alert(1)> Area' });
     const { container } = render(<TenantHeader profile={tricky} />);
     expect(container.querySelector('img')).toBeNull();
-    expect(screen.getByRole('region', { name: 'Organisation' })).toHaveTextContent('<img src=x onerror=alert(1)> Area');
+    expect(screen.getByRole('heading', { level: 1, name: '<img src=x onerror=alert(1)> Area' })).toBeInTheDocument();
   });
 
   it('holds no tenant id, host, phone number or network in the page', () => {

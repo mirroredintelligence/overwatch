@@ -1,0 +1,101 @@
+/* Artboard B7 (1) and the shared states (Empty): a card per service on the page ground, a 2px amber edge
+   for a service due now, a dashed grey card for a paused one. Colours and spacing are the tokens in app/tokens.css. */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.confirmed {
+  border: 2px solid transparent;
+}
+
+.due {
+  border: 2px solid var(--c-limited);
+}
+
+.paused {
+  background: var(--c-bg);
+  border: 2px dashed var(--c-unknown);
+  box-shadow: none;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.name {
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: var(--type-title-weight);
+}
+
+.detail {
+  margin: 0;
+  color: var(--c-ink-2);
+}
+
+.action a {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 52px;
+}
+
+.note {
+  margin: 0 var(--space-1);
+  color: var(--c-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.emptyMark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--c-tint);
+  color: var(--c-primary);
+}
+
+.emptyTitle {
+  margin: 0;
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: var(--type-title-weight);
+}
+
+.empty p {
+  margin: 0;
+  color: var(--c-ink-2);
+}

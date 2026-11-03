@@ -16,6 +16,26 @@ beforeEach(() => {
 });
 
 describe('ServiceCover', () => {
+  it('shows the card: heading, what the cover does, the mobile field, Until on Tonight, the note, and Cancel', async () => {
+    const { container } = render(<ServiceCover serviceId="svc-east" serviceName="UCR East" />);
+    expect(screen.getByRole('heading', { name: 'Cover for UCR East' })).toBeInTheDocument();
+    expect(screen.getByText('Choose who takes UCR East while you are away. Your other services stay with you.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Cover mobile number')).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Until' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Tonight' })).toBeChecked();
+    expect(screen.getByText('We text them a code to check the number. The shift lead is told.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+    expect(await runAxe(container)).toHaveNoViolations();
+  });
+
+  it('Cancel goes back to My services and sends nothing', async () => {
+    render(<ServiceCover serviceId="svc-east" serviceName="UCR East" />);
+    await userEvent.type(screen.getByLabelText('Cover mobile number'), '07700 900123');
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(push).toHaveBeenCalledWith('/app/services');
+    expect(seenBffRequests.some((r) => r.path.endsWith('/cover'))).toBe(false);
+  });
+
   it('asks for a mobile number and gives the mobile error without one', async () => {
     const { container } = render(<ServiceCover serviceId="svc-east" serviceName="UCR East" />);
     expect(screen.getByRole('heading', { name: 'Cover for UCR East' })).toBeInTheDocument();

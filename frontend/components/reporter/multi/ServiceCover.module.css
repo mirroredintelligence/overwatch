@@ -1,0 +1,55 @@
+/* Artboard B7 (3): a white card with the heading, the intro, the mobile field and Until; a tinted note under it;
+   the primary action; Cancel as a plain underlined text button. */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--type-heading-size);
+  line-height: var(--type-heading-lh);
+  font-weight: var(--type-heading-weight);
+  letter-spacing: var(--type-heading-tracking);
+}
+
+.intro {
+  margin: 0;
+  color: var(--c-ink-2);
+}
+
+.note {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  color: var(--c-primary-dark);
+  background: var(--c-tint);
+  border-radius: var(--radius-card);
+}
+
+.cancel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 52px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--c-ink-2);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.cancel:focus-visible {
+  outline: var(--focus) solid 3px;
+  outline-offset: 2px;
+}

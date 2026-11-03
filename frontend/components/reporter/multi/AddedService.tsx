@@ -4,10 +4,12 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
+import { StatusTag } from '@/components/ui/StatusTag';
 import { bffRequest } from '@/lib/reporter/browser';
 import styles from '@/components/reporter/Reporter.module.css';
+import multi from './AddedService.module.css';
 
-// A service the shift lead has added to this reporter (W38). The reporter says whether they look
+// A service the shift lead has added to this reporter (W38, B7). The reporter says whether they look
 // after it; the service goes live only after the lead's own check.
 
 export function AddedService({ serviceId, serviceName }: { serviceId: string; serviceName: string }) {
@@ -25,9 +27,12 @@ export function AddedService({ serviceId, serviceName }: { serviceId: string; se
 
   return (
     <main className={styles.page}>
-      <h1 className={styles.title}>{`${serviceName} has been added`}</h1>
-      <p>{`The shift lead added ${serviceName} to your account. Do you look after it?`}</p>
-      <p>We check this with the service before it goes live. Your other services are not affected.</p>
+      <section className={multi.card}>
+        <StatusTag variant="waiting">Waiting for you</StatusTag>
+        <h1 className={multi.heading}>{`${serviceName} has been added`}</h1>
+        <p className={multi.question}>{`The shift lead added ${serviceName} to your account. Do you look after it?`}</p>
+        <p className={multi.check}>We check this with the service before it goes live. Your other services are not affected.</p>
+      </section>
       {notice !== null ? <Banner tone="warning" title={notice} /> : null}
       <Button variant="primary" busy={busy} dataEl="REP-ADDED-YES-BTN" onClick={() => void answer(true)}>
         {`Yes, I look after ${serviceName}`}

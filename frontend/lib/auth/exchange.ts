@@ -54,12 +54,69 @@ export async function exchangeStaffToken(
   now: Date = new Date(),
   role?: Role,
 ): Promise<StaffExchange> {
+  return staffExchange('/auth/token', host, role === undefined ? { idToken } : { idToken, role }, idToken, now);
+}
+
+/**
+ * The staff token for the tenant the person chose (DEC-1327): the back end checks the person's groups
+ * against that tenant's own directory and mapping, so the tenant named here is trusted for nothing.
+ */
+export async function exchangeStaffTokenForTenant(
+  idToken: string,
+  host: string | null,
+  tenant: string,
+  now: Date = new Date(),
+  role?: Role,
+): Promise<StaffExchange> {
+  const body = role === undefined ? { idToken, tenant } : { idToken, tenant, role };
+  return staffExchange('/auth/staff/token', host, body, idToken, now);
+}
+
+/** The tenants this person holds a staff role in (DEC-1327): none is the one refusal. */
+export async function staffTenants(idToken: string, host: string | null): Promise<StaffTenant[]> {
   if (typeof idToken !== 'string' || idToken.length === 0 || idToken.length > ID_TOKEN_MAX_LENGTH) {
     throw new SignInRefused('bad-token');
   }
   let reply;
   try {
-    reply = await callLinkApi({ method: 'POST', path: '/auth/token', host, body: role === undefined ? { idToken } : { idToken, role } });
+    reply = await callLinkApi({ method: 'POST', path: '/auth/staff/tenants', host, body: { idToken } });
+  } catch (error) {
+    if (error instanceof LinkApiError) throw new SignInRefused('exchange-failed');
+    throw error;
+  }
+  if (reply.status === 403) return [];
+  if (reply.status !== 200) throw new SignInRefused('exchange-failed');
+  const answer = reply.body;
+  if (typeof answer !== 'object' || answer === null || Array.isArray(answer)) throw new SignInRefused('exchange-answer');
+  const { tenants } = answer as Record<string, unknown>;
+  if (!Array.isArray(tenants)) throw new SignInRefused('exchange-answer');
+  return tenants.map(readTenant);
+}
+
+/** One tenant of the picker, from the back end's answer. Anything else is not believed. */
+export type StaffTenant = { id: string; name: string; roles: Role[] };
+
+const TENANT_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
+const TENANT_NAME_MAX = 200;
+
+function readTenant(value: unknown): StaffTenant {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new SignInRefused('exchange-answer');
+  const { id, name, roles } = value as Record<string, unknown>;
+  if (typeof id !== 'string' || !TENANT_ID.test(id)) throw new SignInRefused('exchange-answer');
+  if (typeof name !== 'string' || name.length === 0 || name.length > TENANT_NAME_MAX) throw new SignInRefused('exchange-answer');
+  if (!Array.isArray(roles) || roles.length === 0 || !roles.every((role) => typeof role === 'string' && isStaffRole(role))) {
+    throw new SignInRefused('exchange-answer');
+  }
+  return { id, name, roles: roles as Role[] };
+}
+
+async function staffExchange(path: string, host: string | null, body: Record<string, unknown>, idToken: string, now: Date): Promise<StaffExchange> {
+  if (typeof idToken !== 'string' || idToken.length === 0 || idToken.length > ID_TOKEN_MAX_LENGTH) {
+    throw new SignInRefused('bad-token');
+  }
+  let reply;
+  try {
+    reply = await callLinkApi({ method: 'POST', path, host, body });
   } catch (error) {
     if (error instanceof LinkApiError) throw new SignInRefused('exchange-failed');
     throw error; // A missing back-end address is a set-up fault, named by its variable.

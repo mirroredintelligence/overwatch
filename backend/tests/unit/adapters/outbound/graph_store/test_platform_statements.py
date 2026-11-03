@@ -46,6 +46,16 @@ from overwatch.application.tenancy import (
 # The only platform statements, with the exact text of each: a change to a line here is a change to
 # what writes the tenant registry. It needs a reason on PLATFORM_QUERY_IDS and a reviewer's eye.
 EXPECTED_TEXT = {
+    # DEC-1327: the staff registry's writes, run only by the platform's sync.
+    "Q-STAFF-ROLE-UPSERT": (
+        "MERGE (s:StaffRoleRecord {id: $id}) SET s.tenantRef = $tenantRef, "
+        "s.practitionerKey = $practitionerKey, s.role = $role, s.status = 'active', "
+        "s.updatedAt = $updatedAt"
+    ),
+    "Q-STAFF-ROLE-END": (
+        "MATCH (s:StaffRoleRecord {tenantRef: $tenantRef, status: 'active'}) "
+        "WHERE NOT s.id IN $keepIds SET s.status = 'ended', s.updatedAt = $updatedAt"
+    ),
     "Q-TENANT-REG-CREATE": "CREATE (t:Tenant {id: $id}) SET t += $props RETURN t.id AS id",
     "Q-TENANT-REG-SAVE": (
         "MATCH (t:Tenant {id: $id, epoch: $expectedEpoch, status: $expectedStatus}) "
@@ -135,6 +145,8 @@ EXPECTED_MODE = {
     query_id: "read" if query_id in READ_ONLY else "write" for query_id in EXPECTED_TEXT
 }
 EXPECTED_PARAMETERS = {
+    "Q-STAFF-ROLE-UPSERT": {"id", "tenantRef", "practitionerKey", "role", "updatedAt"},
+    "Q-STAFF-ROLE-END": {"tenantRef", "keepIds", "updatedAt"},
     "Q-TENANT-REG-CREATE": {"id", "props"},
     "Q-TENANT-REG-SAVE": {"id", "expectedEpoch", "expectedStatus", "props"},
     "Q-TENANT-REG-SET-HOST": {"id", "host"},
@@ -184,7 +196,7 @@ def _pin(monkeypatch: pytest.MonkeyPatch, cypher: str, query_id: str = "Q-TEST-P
 def test_the_platform_list_is_the_registry_statements_and_the_platforms_own_records() -> None:
     assert set(PLATFORM_QUERY_IDS) == set(EXPECTED_TEXT)
     assert set(PLATFORM_STATEMENTS) == set(EXPECTED_TEXT)
-    assert len(PLATFORM_QUERY_IDS) == 7 + 2 + 4 + 6
+    assert len(PLATFORM_QUERY_IDS) == 7 + 2 + 4 + 6 + 2
 
 
 def test_no_id_is_on_both_the_global_and_the_platform_list() -> None:
@@ -497,4 +509,6 @@ def test_the_platform_records_carry_no_tenant_so_the_invariant_check_knows_them(
 def test_no_platform_record_statement_writes_a_tenant_scoped_label() -> None:
     for query_id in PLATFORM_QUERY_IDS:
         labels = set(re.findall(r"\(\w*:(\w+)", REGISTRY.get(query_id).cypher))
-        assert labels <= {"Tenant", "TenantNumber"} | PLATFORM_RECORD_LABELS, query_id
+        assert labels <= {"Tenant", "TenantNumber", "StaffRoleRecord"} | PLATFORM_RECORD_LABELS, (
+            query_id
+        )

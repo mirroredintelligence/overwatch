@@ -18,6 +18,7 @@ import pytest
 
 from overwatch.adapters.outbound.graph_store import health, network_registry, tenant_directory  # noqa: F401
 from overwatch.adapters.outbound.graph_store import queries as queries_module
+from overwatch.adapters.outbound.graph_store import staff_registry as _staff_registry  # noqa: F401
 from overwatch.adapters.outbound.graph_store.driver import run_global_query, run_query
 from overwatch.adapters.outbound.graph_store.queries import (
     GLOBAL_QUERY_IDS,
@@ -67,6 +68,11 @@ EXPECTED_TEXT = {
     "Q-TENANT-BY-ENTRA": (
         "MATCH (t:Tenant {entraDirectoryId: $directoryId}) RETURN properties(t) AS tenant"
     ),
+    # DEC-1327: the staff registry's read, by the person's account reference (registry data only).
+    "Q-STAFF-ROLES-OF": (
+        "MATCH (r:StaffRoleRecord {practitionerKey: $practitionerKey, status: 'active'}) "
+        "RETURN properties(r) AS record"
+    ),
     # TEN-031: the two whole-graph counts of the start-up and daily invariant check. They scan every
     # node, so they name no label, and they return only a label set or a relationship type and a
     # count: never a property value.
@@ -92,6 +98,7 @@ EXPECTED_PARAMETERS = {
     "Q-TENANT-ACTIVE-LINE": {"id"},
     "Q-TENANT-BY-HOST": {"host"},
     "Q-TENANT-BY-ENTRA": {"directoryId"},
+    "Q-STAFF-ROLES-OF": {"practitionerKey"},
     "Q-INVARIANT-UNSTAMPED": {"registryLabels"},
     "Q-INVARIANT-CROSS-SCOPE": set(),
 }
@@ -130,7 +137,7 @@ def test_the_allowlist_is_the_ping_the_directory_and_the_two_invariant_counts() 
     # Eleven of the ping, the directory and the counts, and the nineteen of the network registry
     # (TEN-051), which `test_network_registry_statements.py` and `network_registry_pins.py` pin.
     assert set(GLOBAL_QUERY_IDS) == set(EXPECTED_TEXT) | set(NETWORK_DIGESTS)
-    assert len(GLOBAL_QUERY_IDS) == 11 + 19
+    assert len(GLOBAL_QUERY_IDS) == 12 + 19
     assert set(GLOBAL_WRITE_IDS) <= set(NETWORK_DIGESTS)
     assert queries_module.GLOBAL_WHOLE_GRAPH_IDS == WHOLE_GRAPH
 
@@ -178,7 +185,8 @@ def test_every_global_statement_reads_never_mentions_the_tenant_and_takes_known_
 
 def test_every_global_statement_names_registry_labels_only() -> None:
     assert (
-        frozenset({"Tenant", "TenantNumber"}) | NETWORK_REGISTRY_LABELS == GLOBAL_STATEMENT_LABELS
+        frozenset({"Tenant", "TenantNumber", "StaffRoleRecord"}) | NETWORK_REGISTRY_LABELS
+        == GLOBAL_STATEMENT_LABELS
     )
     for query_id in GLOBAL_QUERY_IDS:
         labels = set(re.findall(r"\(\w*:(\w+)", REGISTRY.get(query_id).cypher))

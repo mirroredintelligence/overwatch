@@ -12,7 +12,7 @@ A unique constraint is what stops a second tenant claiming a host, a directory o
 adapter answers `Conflict`, with a fixed message that names no value.
 """
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Final
 
@@ -40,6 +40,7 @@ from overwatch.application.ports.outbound.tenants import (
     normalise_host,
 )
 from overwatch.domain.errors import Conflict, NotFound, ValidationFailed
+from overwatch.domain.model.staff_registry import StaffRoleRecord
 from overwatch.domain.model.tenant import NumberStatus, Tenant, TenantStatus, check_tenant_id
 
 EXISTS_MESSAGE: Final = "a tenant with this id already exists"
@@ -320,3 +321,63 @@ def _registry_tenant(props: Mapping[str, Any]) -> RegistryTenant:
     host = normalise_host(props.get("host"))
     directory = normalise_directory_id(props.get("entraDirectoryId"))
     return RegistryTenant(tenant=tenant_from_properties(props), host=host, directory_id=directory)
+
+
+# ---------------------------------------------------------------- the staff registry (DEC-1327)
+#
+# The platform's sync writes which tenants a person holds a staff role in. Only this module runs
+# platform statements, so the writer lives here; the global read is in `staff_registry.py`.
+
+_STAFF_UPSERT = NamedQuery(
+    id="Q-STAFF-ROLE-UPSERT",
+    cypher=(
+        "MERGE (s:StaffRoleRecord {id: $id}) SET s.tenantRef = $tenantRef, "
+        "s.practitionerKey = $practitionerKey, s.role = $role, s.status = 'active', "
+        "s.updatedAt = $updatedAt"
+    ),
+    mode="write",
+    scope="platform",
+)
+_STAFF_END = NamedQuery(
+    id="Q-STAFF-ROLE-END",
+    cypher=(
+        "MATCH (s:StaffRoleRecord {tenantRef: $tenantRef, status: 'active'}) "
+        "WHERE NOT s.id IN $keepIds SET s.status = 'ended', s.updatedAt = $updatedAt"
+    ),
+    mode="write",
+    scope="platform",
+)
+REGISTRY.register(_STAFF_UPSERT)
+REGISTRY.register(_STAFF_END)
+
+
+class Neo4jStaffRoles:
+    """Makes one tenant's staff roles match a sync: each record active, every other active record of
+    the tenant ended. One transaction, so a reader never sees the tenant half done."""
+
+    def __init__(self, connection: Neo4jConnection) -> None:
+        self._connection = connection
+
+    async def replace_tenant(
+        self, tenant_id: str, records: Sequence[StaffRoleRecord], now: datetime
+    ) -> None:
+        async def work(tx: AsyncManagedTransaction) -> None:
+            for record in records:
+                await run_platform_query(
+                    tx,
+                    _STAFF_UPSERT,
+                    id=record.id,
+                    tenantRef=record.tenant_id,
+                    practitionerKey=record.practitioner_key,
+                    role=record.role.value,
+                    updatedAt=now,
+                )
+            await run_platform_query(
+                tx,
+                _STAFF_END,
+                tenantRef=tenant_id,
+                keepIds=[record.id for record in records],
+                updatedAt=now,
+            )
+
+        await self._connection.run_write(work)

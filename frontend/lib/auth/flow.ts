@@ -11,7 +11,7 @@ import {
   verifyIdToken,
   type Transaction,
 } from './oidc';
-import { exchangeStaffToken, STAFF_ROLES } from './exchange';
+import { exchangeStaffTokenForTenant, staffTenants, STAFF_ROLES, type StaffTenant } from './exchange';
 import { requestHost } from './host';
 import {
   baseCookieOptions,
@@ -80,7 +80,58 @@ export async function unsealTransaction(value: string, now: Date, purpose: strin
     if (typeof next !== 'string' || (next !== '' && !isSamePathOnly(next))) return null;
     const role = payload.role ?? '';
     if (typeof role !== 'string' || (role !== '' && !isStaffRoleWord(role))) return null;
-    return { state, nonce, verifier, next, role };
+    const tenant = payload.tenant ?? '';
+    if (typeof tenant !== 'string' || (tenant !== '' && !TENANT_ID.test(tenant))) return null;
+    return { state, nonce, verifier, next, role, tenant };
+  } catch {
+    return null;
+  }
+}
+
+/** Where the picker is shown, and the cookie that holds its choices (DEC-1327). */
+export const CHOOSE = '/sign-in/choose';
+export const CHOICE_COOKIE = 'overwatch_choice';
+export const CHOICE_SECONDS = 600;
+const CHOICE_PURPOSE = 'overwatch-staff-choice';
+
+export function choiceCookie(maxAge: number) {
+  return { ...baseCookieOptions(), httpOnly: true, sameSite: 'lax' as const, path: CHOOSE, maxAge };
+}
+
+/**
+ * The picker's choices, sealed with a purpose of their own and a short life. The list names tenants and
+ * roles only; it is never a token, and choosing one starts a fresh sign-in whose exchange checks it.
+ */
+export async function sealChoice(tenants: StaffTenant[], now: Date): Promise<string> {
+  const seconds = Math.floor(now.getTime() / 1000);
+  return new EncryptJWT({ tenants })
+    .setProtectedHeader(ENCRYPTION)
+    .setIssuedAt(seconds)
+    .setExpirationTime(seconds + CHOICE_SECONDS)
+    .encrypt(await transactionKey(CHOICE_PURPOSE));
+}
+
+export async function unsealChoice(value: string, now: Date): Promise<StaffTenant[] | null> {
+  const key = await transactionKey(CHOICE_PURPOSE); // A missing secret is a fault, not "no choice".
+  if (!value) return null;
+  try {
+    const { payload } = await jwtDecrypt(value, key, {
+      keyManagementAlgorithms: ['dir'],
+      contentEncryptionAlgorithms: ['A256GCM'],
+      currentDate: now,
+    });
+    const list = payload.tenants;
+    if (!Array.isArray(list) || list.length === 0 || list.length > 50) return null;
+    const tenants: StaffTenant[] = [];
+    for (const item of list) {
+      if (typeof item !== 'object' || item === null) return null;
+      const { id, name, roles } = item as Record<string, unknown>;
+      if (typeof id !== 'string' || !TENANT_ID.test(id)) return null;
+      if (typeof name !== 'string' || name.length === 0 || name.length > 200) return null;
+      if (!Array.isArray(roles) || !roles.every((r) => typeof r === 'string' && isStaffRoleWord(r))) return null;
+      tenants.push({ id, name, roles: roles as Role[] });
+    }
+    return tenants;
   } catch {
     return null;
   }
@@ -98,20 +149,27 @@ function note(reason: string): void {
   console.warn(`staff sign-in refused: ${reason}`);
 }
 
-/** The start form's `next` and `role` (DEC-1324). A role that is not a staff role is ignored, as no role is. */
-export async function startForm(request: Request): Promise<{ next: string; role: string }> {
+/**
+ * The start form's `next`, `role` (DEC-1324) and `tenant` (DEC-1327, the picker's choice). A role that is not
+ * a staff role is ignored, as no role is; a tenant that is not a tenant id is ignored, as none was chosen.
+ */
+export async function startForm(request: Request): Promise<{ next: string; role: string; tenant: string }> {
   try {
     const form = await request.formData();
     const next = form.get('next');
     const role = form.get('role');
+    const tenant = form.get('tenant');
     return {
       next: typeof next === 'string' && isSamePathOnly(next) ? next : '',
       role: typeof role === 'string' && isStaffRoleWord(role) ? role : '',
+      tenant: typeof tenant === 'string' && TENANT_ID.test(tenant) ? tenant : '',
     };
   } catch {
-    return { next: '', role: '' };
+    return { next: '', role: '', tenant: '' };
   }
 }
+
+const TENANT_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
 
 export async function nextFrom(request: Request): Promise<string> {
   return (await startForm(request)).next;
@@ -125,8 +183,8 @@ function isStaffRoleWord(value: string): value is Role {
 export async function startSignIn(request: Request): Promise<Response> {
   try {
     const config = await loadEntraConfig();
-    const { next, role } = await startForm(request);
-    const transaction = newTransaction(next, role);
+    const { next, role, tenant } = await startForm(request);
+    const transaction = newTransaction(next, role, tenant);
     const sealed = await sealTransaction(transaction, new Date());
     const store = await cookies();
     store.set(TRANSACTION_COOKIE, sealed, transactionCookie(TRANSACTION_SECONDS));
@@ -175,8 +233,22 @@ export async function completeSignIn(request: Request): Promise<Response> {
     const idToken = await exchangeCode(config, code, transaction);
     await verifyIdToken(config, idToken, transaction.nonce, now);
 
-    // The back end signs the token and says the role. The Host is the one this request came to.
-    const result = await exchangeStaffToken(idToken, hostOf(request), now, transaction.role ? (transaction.role as Role) : undefined);
+    // DEC-1327: the one domain serves every tenant, so no tenant is named by the host. The person's
+    // staff roles say which tenants they hold: one is signed in straight away, several show the picker.
+    const role = transaction.role ? (transaction.role as Role) : undefined;
+    const addressed = hostOf(request);
+    let tenant = transaction.tenant;
+    if (tenant === '') {
+      const choices = await staffTenants(idToken, addressed);
+      if (choices.length === 0) return see(NO_ACCESS);
+      if (choices.length > 1) {
+        store.set(CHOICE_COOKIE, await sealChoice(choices, now), choiceCookie(CHOICE_SECONDS));
+        return see(CHOOSE);
+      }
+      tenant = choices[0].id;
+    }
+    // The back end signs the token and says the role. The tenant is checked against the person's groups.
+    const result = await exchangeStaffTokenForTenant(idToken, addressed, tenant, now, role);
     if (result.kind === 'refused') return see(NO_ACCESS);
     const { grant } = result;
     // The session is for one tenant and one host (DEC-600): the tenant is the one the back end signed

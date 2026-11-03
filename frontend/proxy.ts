@@ -24,6 +24,7 @@ import { buildCsp, securityHeaders } from '@/lib/security/csp';
 
 const NO_STORE = 'no-store';
 const SIGN_IN_PATH = '/sign-in';
+const CHOOSE_PATH = '/sign-in/choose'; // the tenant picker (DEC-1327)
 const OPERATOR_SIGN_IN_PATH = '/operator/sign-in';
 
 function newNonce(): string {
@@ -92,8 +93,12 @@ async function decide(request: NextRequest): Promise<Decision> {
 export async function proxy(request: NextRequest): Promise<NextResponse> {
   const nonce = newNonce();
   // The sign-in page's form posts to our start route, which redirects to the provider; the browser
-  // checks that redirect against this page's form-action. Exactly this path, no other, names it.
-  const signInPage = request.nextUrl.pathname === SIGN_IN_PATH || (request.nextUrl.pathname === OPERATOR_SIGN_IN_PATH);
+  // checks that redirect against this page's form-action. Exactly these paths, no other, name it: the
+  // sign-in page, the operator's, and the tenant picker (DEC-1327), whose choice starts the same sign-in.
+  const signInPage =
+    request.nextUrl.pathname === SIGN_IN_PATH ||
+    request.nextUrl.pathname === OPERATOR_SIGN_IN_PATH ||
+    request.nextUrl.pathname === CHOOSE_PATH;
   const authority = signInPage ? entraAuthorityOrigin() : null;
   const policy = buildCsp(nonce, process.env.NODE_ENV === 'development', {
     formActionOrigins: authority === null ? [] : [authority],

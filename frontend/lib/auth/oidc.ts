@@ -24,7 +24,8 @@ export type EntraConfig = {
 };
 
 /** `role` is the role the person asked to sign in as, or '' for the highest their groups give (DEC-1324). */
-export type Transaction = { state: string; nonce: string; verifier: string; next: string; role: string };
+/** `tenant` is the tenant the picker chose (DEC-1327); empty when none was chosen up front. */
+export type Transaction = { state: string; nonce: string; verifier: string; next: string; role: string; tenant: string };
 
 export const REFUSALS = [
   'transaction',
@@ -162,8 +163,8 @@ function random(): string {
   return randomBytes(32).toString('base64url');
 }
 
-export function newTransaction(next: string, role: string = ''): Transaction {
-  return { state: random(), nonce: random(), verifier: random(), next, role };
+export function newTransaction(next: string, role: string = '', tenant: string = ''): Transaction {
+  return { state: random(), nonce: random(), verifier: random(), next, role, tenant };
 }
 
 export function authorizeUrl(config: EntraConfig, transaction: Transaction): URL {

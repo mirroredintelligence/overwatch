@@ -9,19 +9,21 @@ from overwatch.adapters.outbound.graph_store.migrations_tenant import REGISTRY_L
 from overwatch.adapters.outbound.graph_store.queries import PLATFORM_RECORD_LABELS
 
 
-def test_the_platform_records_have_one_migration_in_the_block_of_wave_9_bundle_c() -> None:
-    assert [m.id for m in PLATFORM_MIGRATIONS] == ["0190_platform_records"]
+def test_the_platform_records_are_the_migrations_of_the_platform_block() -> None:
+    # 0190 is the platform's own records (TEN-075); 0191 is the staff registry (DEC-1327).
+    assert [m.id for m in PLATFORM_MIGRATIONS] == ["0190_platform_records", "0191_staff_registry"]
     assert all(190 <= int(m.id.split("_", 1)[0]) <= 194 for m in PLATFORM_MIGRATIONS)
-    assert PLATFORM_MIGRATIONS[0] in MIGRATIONS
+    assert all(migration in MIGRATIONS for migration in PLATFORM_MIGRATIONS)
 
 
 def test_each_statement_is_one_idempotent_schema_statement_and_nothing_is_dropped() -> None:
-    (migration,) = PLATFORM_MIGRATIONS
-    assert migration.loops == () and dict(migration.params) == {}
-    assert len(migration.statements) == 5
-    for statement in migration.statements:
-        assert re.match(r"CREATE (CONSTRAINT|INDEX) \w+ IF NOT EXISTS FOR \(n:\w+\)", statement)
-        assert not re.search(r"\b(DROP|DELETE|DETACH|SET|MERGE|REMOVE)\b", statement)
+    counts = {"0190_platform_records": 5, "0191_staff_registry": 3}
+    for migration in PLATFORM_MIGRATIONS:
+        assert migration.loops == () and dict(migration.params) == {}
+        assert len(migration.statements) == counts[migration.id]
+        for statement in migration.statements:
+            assert re.match(r"CREATE (CONSTRAINT|INDEX) \w+ IF NOT EXISTS FOR \(n:\w+\)", statement)
+            assert not re.search(r"\b(DROP|DELETE|DETACH|SET|MERGE|REMOVE)\b", statement)
 
 
 def test_the_keys_are_the_ones_the_adapters_lean_on() -> None:

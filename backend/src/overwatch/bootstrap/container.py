@@ -44,9 +44,13 @@ from overwatch.adapters.outbound.graph_store.connection import Neo4jConnection, 
 from overwatch.adapters.outbound.graph_store.invariants import Neo4jTenantInvariants
 from overwatch.adapters.outbound.graph_store.migrations import apply_migrations
 from overwatch.adapters.outbound.graph_store.platform_audit import Neo4jPlatformAudit
+from overwatch.adapters.outbound.graph_store.staff_registry import Neo4jStaffRegistry
 from overwatch.adapters.outbound.graph_store.support_ticket_store import Neo4jSupportTickets
 from overwatch.adapters.outbound.graph_store.tenant_directory import Neo4jTenantDirectory
-from overwatch.adapters.outbound.graph_store.tenant_registry import Neo4jTenantRegistry
+from overwatch.adapters.outbound.graph_store.tenant_registry import (
+    Neo4jStaffRoles,
+    Neo4jTenantRegistry,
+)
 from overwatch.adapters.outbound.graph_store.unit_of_work import neo4j_uow_factory
 from overwatch.adapters.outbound.ids_uuid.uuid_ids import UuidGenerator
 from overwatch.adapters.outbound.postcodes_local.centroids import CsvPostcodeLocator
@@ -96,6 +100,7 @@ from overwatch.application.ports.outbound.invariants import (
 )
 from overwatch.application.ports.outbound.platform_audit import PlatformAuditLog
 from overwatch.application.ports.outbound.sealing import ContentSealer
+from overwatch.application.ports.outbound.staff_registry import StaffRegistry
 from overwatch.application.ports.outbound.telemetry_query import (
     SessionFilters,
     SessionSummary,
@@ -194,6 +199,9 @@ class Container:
     # The registry's writes (TEN-028, DEC-503): the platform operator's door, held only by the
     # operator use cases (`bootstrap/provisioning.py`) and never by a tenant's own code.
     tenant_registry: TenantRegistry
+    # The staff registry (DEC-1327): which tenants a person holds a staff role in. Read by the
+    # sign-in; written only by the platform's sync (`SyncStaffRegistry`), never by a tenant.
+    staff_registry: StaffRegistry
     # Secrets by reference (DEC-131 item 4): the tenant record holds the reference, never the value.
     secrets: SecretStore
     # The FHIR profile validator (R14): pure Python, no store and no external provider.
@@ -590,6 +598,7 @@ def build(
         uow_factory=uow_factory,
         tenants=directory,
         tenant_registry=Neo4jTenantRegistry(neo4j),
+        staff_registry=Neo4jStaffRegistry(neo4j, Neo4jStaffRoles(neo4j)),
         secrets=store,
         validator=ProfileValidator(),
         redis=redis,
@@ -685,6 +694,7 @@ def build_for_tests(
         uow_factory=uow_factory,
         tenants=directory,
         tenant_registry=Neo4jTenantRegistry(neo4j),
+        staff_registry=Neo4jStaffRegistry(neo4j, Neo4jStaffRoles(neo4j)),
         secrets=store,
         validator=ProfileValidator(),
         redis=resolved_redis,

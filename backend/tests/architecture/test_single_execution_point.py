@@ -56,6 +56,13 @@ TENANCY_KERNEL = "application/tenancy.py"
 # which binds the tenant a message carries once the directory lists it as active (DEC-165).
 BINDING_MODULES: frozenset[str] = frozenset(
     {
+        # DEC-1327: the staff sign-in on one domain. Its tenant-chosen route binds the tenant the
+        # picker named, after the exchange has checked that the person's own groups give a role on
+        # that tenant's verified directory (`ExchangeStaffToken`); the host is never read for it.
+        "overwatch.adapters.inbound.fhir_rest.routes_auth",
+        # DEC-1327: the platform's staff registry sync binds each active tenant in turn, to read its
+        # verified directory and role mappings, as the outbox relay does; it writes nothing else.
+        "overwatch.application.use_cases.staff_registry",
         "overwatch.adapters.inbound.link_pages.capacity_links",
         "overwatch.adapters.inbound.sms_webhook.routes",
         "overwatch.adapters.inbound.workers.outbox_relay",
@@ -124,6 +131,9 @@ BINDING_MODULES: frozenset[str] = frozenset(
 TENANT_PARAMETER_MODULES: frozenset[str] = frozenset(
     {
         "overwatch.adapters.outbound.graph_store.tenant_directory",
+        # DEC-1327: the staff registry's write takes the id of the tenant whose roles it replaces.
+        # It is the platform sync's write (a platform statement has no `$tenant`), never a tenant's.
+        "overwatch.adapters.outbound.graph_store.staff_registry",
         "overwatch.adapters.outbound.graph_store.network_registry",
         # TEN-028: the registry's writes take the id of the tenant they work on (a platform
         # statement has no `$tenant`), exactly as the directory does.

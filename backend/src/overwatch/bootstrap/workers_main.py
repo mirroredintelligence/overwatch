@@ -117,6 +117,7 @@ from overwatch.bootstrap.secret_store import (
     settings_from_vault,
 )
 from overwatch.bootstrap.settings import Settings
+from overwatch.bootstrap.staff_registry_sync import build_staff_registry_sync
 from overwatch.bootstrap.telemetry import start_telemetry
 from overwatch.bootstrap.tenant_senders import (
     TenantSenderResolver,
@@ -501,7 +502,12 @@ async def serve(
                 ),
             ),
         )
-        await run_workers([runner.serve for runner in runners], stop)
+        loops = [runner.serve for runner in runners]
+        # The staff registry's sync (DEC-1327): keeps each person's tenants current.
+        staff_sync = build_staff_registry_sync(container, settings, http)
+        if staff_sync is not None:
+            loops.append(staff_sync.serve)
+        await run_workers(loops, stop)
     finally:
         await http.aclose()
         await bus.close()

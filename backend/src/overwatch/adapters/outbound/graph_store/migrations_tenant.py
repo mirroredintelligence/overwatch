@@ -46,6 +46,8 @@ REGISTRY_LABELS: Final = (
     "PlatformAuditHead",
     "PlatformAuditEntry",
     "SupportAccessTicket",
+    # The staff registry (DEC-1327, migration 0191): which tenants a person holds a role in.
+    "StaffRoleRecord",
 )
 
 

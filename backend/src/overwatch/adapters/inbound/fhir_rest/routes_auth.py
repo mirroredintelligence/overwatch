@@ -50,6 +50,7 @@ from overwatch.application.ports.outbound.platform_audit import PlatformAudit, P
 from overwatch.application.ports.outbound.tokens import SecretStore
 from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from overwatch.application.rate_limits import PlatformRateLimiter
+from overwatch.application.tenancy import bind_tenant
 from overwatch.application.use_cases.exchange_token import (
     EXCHANGE_REFUSED_MESSAGE,
     MAX_CREDENTIAL_LENGTH,
@@ -63,15 +64,21 @@ from overwatch.application.use_cases.exchange_token import (
     IssuedToken,
     NetworkOwnership,
 )
+from overwatch.application.use_cases.staff_registry import StaffTenantChoices
 from overwatch.domain.codes import Role
+from overwatch.domain.errors import ValidationFailed
 from overwatch.domain.model.device import Device
-from overwatch.domain.model.tenant import Tenant
+from overwatch.domain.model.tenant import Tenant, TenantStatus, check_tenant_id
 from overwatch.domain.rules.token_exchange import STAFF_ROLE_PRIORITY
 
 log = logging.getLogger(__name__)
 
 AUTH_PREFIX: Final = "/auth"
 STAFF_PATH: Final = f"{AUTH_PREFIX}/token"
+# The staff sign-in on one domain (DEC-1327): the tenants the person holds a role in, then the token
+# for the one the picker chose.
+STAFF_TENANTS_PATH: Final = f"{AUTH_PREFIX}/staff/tenants"
+STAFF_TENANT_PATH: Final = f"{AUTH_PREFIX}/staff/token"
 DEVICE_PATH: Final = f"{AUTH_PREFIX}/device-token"
 OPERATOR_PATH: Final = f"{AUTH_PREFIX}/operator-token"
 ACTION_OPERATOR_SIGNED_IN: Final = "operator-signed-in"
@@ -234,6 +241,65 @@ async def exchange_staff(
         )
     except ExchangeRefused:
         return _forbidden()
+    return _issued(issued)
+
+
+class StaffTenantBody(StaffCredentialBody):
+    """The staff sign-in to one tenant the person holds a staff role in (DEC-1327): the tenant the
+    picker chose, named by its id."""
+
+    tenant: str = Field(min_length=1, max_length=64)
+
+
+@router.post(STAFF_TENANTS_PATH, dependencies=[Depends(exchange_rate_limit)])
+async def staff_tenants(request: Request, body: CredentialBody) -> Response:
+    """The tenants this person holds a staff role in, by name and role (DEC-1327). No host is read:
+    the one domain serves every tenant, and the person's verified identity says which."""
+    container = _container(request)
+    use_case = StaffTenantChoices(
+        _deps(request).verifier, _secrets(request), container.staff_registry, container.tenants
+    )
+    try:
+        choices = await use_case.execute(body.idToken)
+    except ExchangeRefused:
+        return _forbidden()
+    answer = {
+        "tenants": [
+            {"id": choice.tenant_id, "name": choice.name, "roles": [r.value for r in choice.roles]}
+            for choice in choices
+        ]
+    }
+    return JSONResponse(answer, headers=_HEADERS)
+
+
+@router.post(STAFF_TENANT_PATH, dependencies=[Depends(exchange_rate_limit)])
+async def exchange_staff_for_tenant(request: Request, body: StaffTenantBody) -> Response:
+    """The staff token for the tenant the picker chose (DEC-1327). The tenant is named by the body,
+    and is trusted for nothing on its own: the exchange checks the person's groups against that
+    tenant's own directory and role mapping, exactly as the host-bound exchange does."""
+    try:
+        asked = _asked_role(body.role)
+        tenant_id = check_tenant_id(body.tenant)
+    except (ValueError, ValidationFailed):
+        return _forbidden()
+    container = _container(request)
+    tenant = await container.tenants.get(tenant_id)
+    if tenant is None or tenant.status is not TenantStatus.ACTIVE:
+        return _forbidden()
+    use_case = ExchangeStaffToken(
+        container.uow_factory,
+        container.clock,
+        _deps(request).verifier,
+        _secrets(request),
+        _deps(request).ownership,
+    )
+    with bind_tenant(tenant.id):
+        try:
+            issued = await use_case.execute(
+                ExchangeStaffCommand(tenant=tenant, credential=body.idToken, role=asked)
+            )
+        except ExchangeRefused:
+            return _forbidden()
     return _issued(issued)
 
 

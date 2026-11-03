@@ -38,4 +38,17 @@ PLATFORM_MIGRATIONS: Final[tuple[Migration, ...]] = (
             "FOR (n:SupportAccessTicket) ON (n.requestedBy, n.requestedAt)",
         ),
     ),
+    Migration(
+        "0191_staff_registry",
+        statements=(
+            # Which tenants a person holds a staff role in (DEC-1327): one record per tenant, role
+            # and account reference; the sign-in seeks by the account reference, the sync by tenant.
+            "CREATE CONSTRAINT staff_role_record_id IF NOT EXISTS "
+            "FOR (n:StaffRoleRecord) REQUIRE n.id IS UNIQUE",
+            "CREATE INDEX staff_role_practitioner IF NOT EXISTS "
+            "FOR (n:StaffRoleRecord) ON (n.practitionerKey, n.status)",
+            "CREATE INDEX staff_role_tenant IF NOT EXISTS "
+            "FOR (n:StaffRoleRecord) ON (n.tenantRef, n.status)",
+        ),
+    ),
 )

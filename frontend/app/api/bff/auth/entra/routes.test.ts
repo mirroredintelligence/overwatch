@@ -16,14 +16,13 @@ import {
   DIRECTORY_UNBOUND,
   ENTRA_ENV,
   OID_ADVISOR,
-  OID_B,
   OID_LEAD,
   PUBLIC_URL,
   SIGN_IN_HOST,
 } from '@/test/oidc/constants';
 import type { FakeEntra, FakeUser, Tamper } from '@/test/oidc/fake-entra';
 import { startFakeEntra, stubEntraEnv } from '@/test/oidc/harness';
-import { standInToken, tenantOfHost } from '@/test/fixtures/exchange';
+import { tenantOfHost } from '@/test/fixtures/exchange';
 import { GET as callback } from './callback/route';
 import { POST as start } from './start/route';
 
@@ -35,7 +34,6 @@ vi.mock('next/headers', async () => {
 const TRANSACTION_COOKIE = 'overwatch_oidc';
 const START_URL = `${PUBLIC_URL}/api/bff/auth/entra/start`;
 const OTHER_HOST = 'trust-b.example.test';
-const OID_B_USER = OID_B;
 
 let fake: FakeEntra;
 
@@ -142,7 +140,7 @@ describe('POST /api/bff/auth/entra/start', () => {
   it('accepts no tenant, directory, hint or role from the request, in the body or the query', async () => {
     const response = await start(
       startRequest(
-        { tenant: 'trust-b', tenantId: 'trust-b', tid: DIRECTORY_B, directory: DIRECTORY_B, login_hint: 'x', domain_hint: 'y', role: 'lead', client_id: 'other' },
+        { tenantId: 'trust-b', tid: DIRECTORY_B, directory: DIRECTORY_B, login_hint: 'x', domain_hint: 'y', role: 'lead', client_id: 'other' },
         `?tenant=trust-b&tid=${DIRECTORY_B}&directory=${DIRECTORY_B}&role=lead&redirect_uri=https://evil.example`,
       ),
     );
@@ -200,11 +198,12 @@ describe('GET /api/bff/auth/entra/callback: a good sign-in', () => {
     expect(Date.parse(outcome.session!.expiresAt)).toBe(claims.exp! * 1000);
   });
 
-  it('asks the back end once, with the ID token as the only thing in the body, and keeps the Entra object id out of the session', async () => {
+  it('asks the back end for the tenants, then for the token of the one tenant, with the ID token as the only thing it sends, and keeps the Entra object id out of the session', async () => {
     const outcome = await signIn({ oid: OID_ADVISOR, roles: ['Overwatch.Advisor'], tid: DIRECTORY_A });
-    expect(seenExchanges).toHaveLength(1);
-    expect(seenExchanges[0]).toMatchObject({ path: '/auth/token', host: SIGN_IN_HOST, authorization: null });
+    expect(seenExchanges.map((e) => e.path)).toEqual(['/auth/staff/tenants', '/auth/staff/token']);
+    expect(seenExchanges[0]).toMatchObject({ authorization: null });
     expect(Object.keys(seenExchanges[0]!.body as object)).toEqual(['idToken']);
+    expect(Object.keys(seenExchanges[1]!.body as object).sort()).toEqual(['idToken', 'tenant']);
     expect(JSON.stringify(outcome.session)).not.toContain(OID_ADVISOR);
   });
 
@@ -302,11 +301,11 @@ describe('GET /api/bff/auth/entra/callback: who may not sign in', () => {
     expect(outcome.transactionWrites[0]?.options.maxAge).toBe(0);
   });
 
-  it('gives the one access message to a person from a directory the host’s tenant has not bound: no session, no hint why', async () => {
+  it('gives the one access message to a person whose directory no tenant has bound: no session, no hint why', async () => {
     const outcome = await signIn({ oid: OID_ADVISOR, roles: ['Overwatch.Lead'], tid: DIRECTORY_UNBOUND }, { fields: {} });
     expectNoSession(outcome);
     expect(outcome.location).toBe('/sign-in?error=no-access');
-    const other = await signIn({ oid: OID_ADVISOR, roles: ['Overwatch.Lead'], tid: DIRECTORY_B });
+    const other = await signIn({ oid: OID_ADVISOR, roles: ['Overwatch.Lead'], tid: '44444444-4444-4444-8444-444444444444' });
     expect(other.location).toBe(outcome.location);
     expect(other.body).toBe(outcome.body);
   });
@@ -320,7 +319,7 @@ describe('GET /api/bff/auth/entra/callback: who may not sign in', () => {
   });
 
   it.each([404, 429, 500, 503])('gives a failed sign-in, not the access message, when the back end answers %i', async (status) => {
-    server.use(http.post(`${BACKEND_ROOT}/auth/token`, () => HttpResponse.json({}, { status })));
+    server.use(http.post(`${BACKEND_ROOT}/auth/staff/tenants`, () => HttpResponse.json({}, { status })));
     const outcome = await signIn({ oid: OID_ADVISOR, roles: ['Overwatch.Advisor'], tid: DIRECTORY_A });
     expectNoSession(outcome);
     expect(outcome.location).toBe('/sign-in?error=failed');
@@ -328,7 +327,7 @@ describe('GET /api/bff/auth/entra/callback: who may not sign in', () => {
 
   it('gives a failed sign-in when the back end cannot be reached, and logs one fixed word', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    server.use(http.post(`${BACKEND_ROOT}/auth/token`, () => HttpResponse.error()));
+    server.use(http.post(`${BACKEND_ROOT}/auth/staff/tenants`, () => HttpResponse.error()));
     const outcome = await signIn({ oid: OID_ADVISOR, roles: ['Overwatch.Advisor'], tid: DIRECTORY_A });
     expectNoSession(outcome);
     expect(outcome.location).toBe('/sign-in?error=failed');
@@ -485,8 +484,11 @@ describe('GET /api/bff/auth/entra/callback: the checks that stop a forged or rep
   });
 });
 
-describe('tenant: it is the host the browser came to, decided by the back end, and nothing else', () => {
+describe('tenant: chosen by the back end from the person’s staff roles, on one domain (DEC-1327)', () => {
   const as = (oid: string, tid: string, roles = ['Overwatch.Advisor']): FakeUser => ({ oid, roles, tid });
+  // A directory no tenant has bound: no tenant lists this person.
+  const UNBOUND_DIRECTORY = '33333333-3333-4333-8333-333333333333';
+  const CHOICE = 'overwatch_choice';
 
   async function callbackOn(host: string, user: FakeUser, extra: Record<string, string> = {}) {
     const begun = await start(startRequest());
@@ -498,49 +500,44 @@ describe('tenant: it is the host the browser came to, decided by the back end, a
     return { response, session: write ? await unsealSession(write.value) : null };
   }
 
-  it('sends the host the callback came to, so each tenant’s host gets that tenant’s answer for the same person', async () => {
+  it('signs a person straight in to the one tenant they hold a role in, and the address they used does not choose it', async () => {
     const a = await callbackOn(SIGN_IN_HOST, as(OID_ADVISOR, DIRECTORY_A));
-    expect(a.session?.role).toBe('advisor');
-    expect(seenExchanges.at(-1)?.host).toBe(SIGN_IN_HOST);
-    // A member of directory A on the host that has bound directory B: the one refusal, no session.
-    const wrong = await callbackOn(OTHER_HOST, as(OID_ADVISOR, DIRECTORY_A));
-    expect(wrong.session).toBeNull();
-    expect(wrong.response.headers.get('location')).toBe('/sign-in?error=no-access');
-    expect(seenExchanges.at(-1)?.host).toBe(OTHER_HOST);
-    const b = await callbackOn(OTHER_HOST, as(OID_B_USER, DIRECTORY_B));
-    expect(b.session?.role).toBe('advisor');
-    expect(b.session?.backendToken).not.toBe(a.session?.backendToken);
-  });
-
-  it('makes the session for the tenant the back end signed the token for, and for the host the callback came to (TEN-044)', async () => {
-    const a = await callbackOn(SIGN_IN_HOST, as(OID_ADVISOR, DIRECTORY_A));
-    const b = await callbackOn(OTHER_HOST, as(OID_B_USER, DIRECTORY_B));
-    expect(a.session).toMatchObject({ tenantId: tenantOfHost(SIGN_IN_HOST), host: SIGN_IN_HOST });
-    expect(b.session).toMatchObject({ tenantId: tenantOfHost(OTHER_HOST), host: OTHER_HOST });
-    expect(a.session?.tenantId).not.toBe(b.session?.tenantId);
+    expect(a.session).toMatchObject({ role: 'advisor', tenantId: tenantOfHost(SIGN_IN_HOST), host: SIGN_IN_HOST });
+    expect(seenExchanges.map((e) => e.path)).toEqual(['/auth/staff/tenants', '/auth/staff/token']);
+    const again = await callbackOn(OTHER_HOST, as(OID_ADVISOR, DIRECTORY_A));
+    expect(again.session?.tenantId).toBe(tenantOfHost(SIGN_IN_HOST));
     expect(decodeJwt(a.session!.backendToken).tenant).toBe(a.session?.tenantId);
   });
 
-  it('makes no session from a token that names no tenant, a network or a malformed tenant, and says the sign-in failed', async () => {
-    for (const tenant of [undefined, '', 'net-capacity', 'Trust A', 7]) {
-      resetCookieWrites();
-      server.use(
-        http.post(`${BACKEND_ROOT}/auth/token`, () => {
-          const exp = Math.floor(Date.now() / 1000) + 3600;
-          const token = standInToken({ sub: 'stf-0123456789abcdef0123456789abcdef', role: 'advisor', services: [], tenant, epoch: 1, aud: 'overwatch-api', iat: exp - 3600, exp });
-          return HttpResponse.json({ token, expiresAt: new Date(exp * 1000).toISOString(), role: 'advisor' });
-        }),
-      );
-      const outcome = await callbackOn(SIGN_IN_HOST, as(OID_ADVISOR, DIRECTORY_A));
-      expect(outcome.session, String(tenant)).toBeNull();
-      expect(outcome.response.headers.get('location')).toBe('/sign-in?error=failed');
-    }
+  it('gives the one access message to a person whose directory no tenant has bound: no session', async () => {
+    const outcome = await callbackOn(SIGN_IN_HOST, as(OID_ADVISOR, UNBOUND_DIRECTORY));
+    expect(outcome.session).toBeNull();
+    expect(outcome.response.headers.get('location')).toBe('/sign-in?error=no-access');
   });
 
-  it('keeps the same person apart on two hosts: the subject the back end derives differs', async () => {
-    const a = await callbackOn('shared.example.test', as(OID_ADVISOR, DIRECTORY_A));
-    const b = await callbackOn(SIGN_IN_HOST, as(OID_ADVISOR, DIRECTORY_A));
-    expect(a.session?.sub).not.toBe(b.session?.sub);
+  it('shows the picker for several tenants, signs in to the one chosen, and refuses a tenant the person does not hold', async () => {
+    server.use(
+      http.post(`${BACKEND_ROOT}/auth/staff/tenants`, () =>
+        HttpResponse.json({
+          tenants: [
+            { id: tenantOfHost(SIGN_IN_HOST), name: 'Fortrus Limited', roles: ['advisor'] },
+            { id: tenantOfHost(OTHER_HOST), name: 'Trust B', roles: ['advisor'] },
+          ],
+        }),
+      ),
+    );
+    const picker = await callbackOn(SIGN_IN_HOST, as(OID_ADVISOR, DIRECTORY_A));
+    expect(picker.session).toBeNull();
+    expect(picker.response.headers.get('location')).toBe('/sign-in/choose');
+    expect(lastWrite(CHOICE)?.value).toBeTruthy();
+
+    const chosen = await signIn(as(OID_ADVISOR, DIRECTORY_A), { fields: { tenant: tenantOfHost(SIGN_IN_HOST) } });
+    expect(chosen.session).toMatchObject({ role: 'advisor', tenantId: tenantOfHost(SIGN_IN_HOST) });
+    expect(seenExchanges.at(-1)?.path).toBe('/auth/staff/token');
+
+    const notHeld = await signIn(as(OID_ADVISOR, DIRECTORY_A), { fields: { tenant: tenantOfHost(OTHER_HOST) } });
+    expect(notHeld.session).toBeNull();
+    expect(notHeld.response.headers.get('location')).toBe('/sign-in?error=no-access');
   });
 
   it.each([
@@ -550,11 +547,11 @@ describe('tenant: it is the host the browser came to, decided by the back end, a
     ['directory', DIRECTORY_B],
     ['host', OTHER_HOST],
     ['organization', DIRECTORY_B],
-  ])('ignores %s=%s in the callback query and in the start body', async (name, value) => {
-    const outcome = await signIn(as(OID_ADVISOR, DIRECTORY_A), { callbackQuery: { [name]: value }, fields: { [name]: value } });
-    expect(outcome.session?.role).toBe('advisor');
-    expect(seenExchanges.at(-1)?.host).toBe(SIGN_IN_HOST);
-    expect(Object.keys(seenExchanges.at(-1)!.body as object)).toEqual(['idToken']);
+  ])('does not read a tenant from %s=%s in the callback query', async (name, value) => {
+    const outcome = await signIn(as(OID_ADVISOR, DIRECTORY_A), { callbackQuery: { [name]: value } });
+    expect(outcome.session).toMatchObject({ role: 'advisor', tenantId: tenantOfHost(SIGN_IN_HOST) });
+    expect(seenExchanges.at(-1)?.path).toBe('/auth/staff/token');
+    expect(Object.keys(seenExchanges.at(-1)!.body as object).sort()).toEqual(['idToken', 'tenant']);
   });
 
   it.each([
@@ -562,10 +559,20 @@ describe('tenant: it is the host the browser came to, decided by the back end, a
     ['X-Forwarded-Host', OTHER_HOST],
     ['Forwarded', `host=${OTHER_HOST}`],
     ['X-Original-Host', OTHER_HOST],
-  ])('ignores the %s header: only the Host the browser used names the tenant', async (name, value) => {
+  ])('ignores the %s header when it names the tenant', async (name, value) => {
     const outcome = await callbackOn(SIGN_IN_HOST, as(OID_ADVISOR, DIRECTORY_A), { [name]: value });
-    expect(outcome.session?.role).toBe('advisor');
-    expect(seenExchanges.at(-1)?.host).toBe(SIGN_IN_HOST);
+    expect(outcome.session).toMatchObject({ role: 'advisor', tenantId: tenantOfHost(SIGN_IN_HOST) });
+  });
+
+  it('says the sign-in failed, and makes no session, when the tenant list is not the contract’s answer', async () => {
+    server.use(
+      http.post(`${BACKEND_ROOT}/auth/staff/tenants`, () =>
+        HttpResponse.json({ tenants: [{ id: 'Trust A', name: 'Not a tenant id', roles: ['advisor'] }] }),
+      ),
+    );
+    const outcome = await callbackOn(SIGN_IN_HOST, as(OID_ADVISOR, DIRECTORY_A));
+    expect(outcome.session).toBeNull();
+    expect(outcome.response.headers.get('location')).toBe('/sign-in?error=failed');
   });
 
   it('does not let a token signed for directory A pass as directory B’s, whatever its other claims say', async () => {

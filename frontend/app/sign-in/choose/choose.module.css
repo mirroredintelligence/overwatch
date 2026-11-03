@@ -1,0 +1,98 @@
+/* The tenant picker (DEC-1327). Tokens only; the card and the choices are sized for a phone first. */
+
+.page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: var(--space-6, 24px) var(--space-4, 16px);
+  background: var(--c-ground, #eef2f3);
+}
+
+.card {
+  width: 100%;
+  max-width: 34rem;
+  background: #fff;
+  border-radius: var(--radius-card, 24px);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-6, 24px);
+  display: grid;
+  gap: var(--space-4, 16px);
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: var(--type-caption-size, 16px);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--type-heading-size, 28px);
+  color: var(--c-ink);
+}
+
+.lede,
+.note {
+  margin: 0;
+  color: var(--c-ink-2);
+  font-size: var(--type-body-size, 18px);
+}
+
+.note {
+  color: var(--c-muted);
+  font-size: var(--type-caption-size, 16px);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3, 12px);
+}
+
+.list form {
+  margin: 0;
+}
+
+.choice {
+  width: 100%;
+  min-height: 56px;
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  padding: var(--space-3, 12px) var(--space-4, 16px);
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius, 14px);
+  background: var(--c-bg);
+  color: var(--c-ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.choice:hover {
+  border-color: var(--c-primary);
+}
+
+.choice:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.name {
+  font-size: var(--type-title-size, 22px);
+  font-weight: 700;
+}
+
+.roles {
+  font-size: var(--type-caption-size, 16px);
+  color: var(--c-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .choice {
+    transition: none;
+  }
+}

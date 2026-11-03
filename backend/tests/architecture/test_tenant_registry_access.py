@@ -33,6 +33,9 @@ NETWORK_REGISTRY = f"{GRAPH_STORE}/network_registry.py"
 # TEN-031, which counts over the whole graph and returns label names and counts only).
 GLOBAL_RUNNERS = frozenset(
     {
+        # DEC-1327: the staff registry's read, by a person's account reference, before a tenant is
+        # bound (registry data only).
+        f"{GRAPH_STORE}/staff_registry.py",
         f"{GRAPH_STORE}/driver.py",
         f"{GRAPH_STORE}/health.py",
         DIRECTORY,

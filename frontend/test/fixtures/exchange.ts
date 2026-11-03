@@ -129,7 +129,9 @@ export function staffExchange(
     iat: issuedAt,
     exp: expires,
   });
-  return { status: 200, body: { token, expiresAt: iso(expires), role } };
+  // Every role the groups give, highest first (DEC-1324), as the back end answers them.
+  const roles = PRIORITY.filter((candidate) => held.includes(candidate));
+  return { status: 200, body: { token, expiresAt: iso(expires), role, roles } };
 }
 
 /** `POST /auth/device-token` for a request addressed to `host`, with `Authorization: Bearer <device token>`. */

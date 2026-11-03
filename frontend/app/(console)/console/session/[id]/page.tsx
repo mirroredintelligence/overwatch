@@ -14,9 +14,21 @@ export const dynamic = 'force-dynamic';
 
 type Events = { events: unknown[]; standout: unknown[] };
 
+// A moment named by a copied link (`?at=<offset in ms>`). Anything else is ignored.
+function momentOf(value: string | string[] | undefined): number | undefined {
+  if (typeof value !== 'string' || !/^\d{1,9}$/.test(value)) return undefined;
+  return Number(value);
+}
+
 // The timeline needs a support code or an approved ticket for this session. Without one the back
 // end refuses with 403, and the page says so and points back to the way in.
-export default async function SessionPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function SessionPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ at?: string | string[] }>;
+}) {
   const session = await getSession();
   if (!session || !CONSOLE_ROLES.includes(session.role)) {
     return (
@@ -61,6 +73,11 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
   }
 
   return (
-    <SessionTimeline sessionId={sessionId} initialEvents={events.events} initialStandout={events.standout} />
+    <SessionTimeline
+      sessionId={sessionId}
+      initialEvents={events.events}
+      initialStandout={events.standout}
+      initialAt={momentOf((await searchParams).at)}
+    />
   );
 }

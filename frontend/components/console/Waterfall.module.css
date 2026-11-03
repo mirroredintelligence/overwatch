@@ -1,0 +1,146 @@
+/* The trace page: the chart on the left, the slowest step and the span table on the right (CTrace). */
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.card {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-4);
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+}
+
+.slowestCard {
+  border: 2px solid var(--c-limited);
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: var(--type-label-size);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.slowestCard .eyebrow {
+  color: var(--c-limited);
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--c-muted);
+  font-size: var(--type-caption-size);
+}
+
+.side {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-1) var(--space-2);
+  align-items: center;
+  padding: var(--space-2) var(--space-1);
+  border-top: 1px solid var(--c-line);
+  font-size: var(--type-body-size);
+}
+
+.row[data-slowest='true'] {
+  background: var(--c-amber-tint);
+  border-radius: var(--radius-chip);
+}
+
+.label {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: var(--type-caption-size);
+}
+
+.time {
+  grid-column: 2;
+  grid-row: 1;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.track {
+  position: relative;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  height: 1.125rem;
+  border-radius: 5px;
+  background: var(--c-ground);
+}
+
+.bar {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 5px;
+  background: var(--c-primary);
+}
+
+.bar[data-status='error'] {
+  background: var(--c-closed);
+}
+
+/* The slowest step is hatched and outlined, so it is not told by colour alone. */
+.bar[data-slowest='true'] {
+  box-sizing: border-box;
+  border: 2px solid var(--c-limited);
+  background: repeating-linear-gradient(135deg, var(--c-limited) 0 5px, var(--c-amber-tint) 5px 8px);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+@media (min-width: 600px) {
+  .row {
+    grid-template-columns: 16rem minmax(0, 1fr) 4.5rem;
+  }
+
+  .label {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .track {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .time {
+    grid-column: 3;
+    grid-row: 1;
+    text-align: right;
+  }
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar {
+    transition: none;
+  }
+}

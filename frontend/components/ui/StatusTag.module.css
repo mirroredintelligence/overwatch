@@ -29,6 +29,16 @@
   color: Canvas;
 }
 
+.confirmed {
+  background: var(--c-tint);
+  color: var(--c-primary-dark);
+}
+
+.due {
+  background: var(--c-amber-tint);
+  color: var(--c-limited);
+}
+
 .waiting {
   background: var(--c-amber-tint);
   color: var(--c-limited);

@@ -5,7 +5,7 @@ import { StatusTag, type StatusTagVariant } from './StatusTag';
 
 // Shape plus word, never colour alone: each variant has its own shape (decorative) and the word the page gives.
 
-const VARIANTS: readonly StatusTagVariant[] = ['done', 'waiting', 'todo', 'problem', 'live', 'closed', 'over', 'paused'];
+const VARIANTS: readonly StatusTagVariant[] = ['done', 'waiting', 'todo', 'problem', 'live', 'closed', 'over', 'paused', 'confirmed', 'due'];
 
 describe('StatusTag', () => {
   it.each(VARIANTS)('%s shows its word and a decorative shape', (variant) => {
@@ -31,6 +31,8 @@ describe('StatusTag', () => {
     distinct('done', 'problem');
     distinct('problem', 'closed');
     distinct('todo', 'paused');
+    distinct('done', 'confirmed');
+    distinct('waiting', 'due');
   });
 
   it('is named by its word alone', () => {

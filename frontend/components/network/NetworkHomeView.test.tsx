@@ -2,25 +2,26 @@ import { render, screen, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { runAxe } from '@/test/a11y';
-import { SYSTEM_NOW_BODY } from '@/test/fixtures/network';
+import { OTHER_ORGANISATION, OWN_ORGANISATION, SYSTEM_NOW_BODY, THIRD_ORGANISATION } from '@/test/fixtures/network';
 import { networkBffHandlers, resetNetworkBff, seenNetworkBff } from '@/test/msw/handlers/networkBff';
 import { server } from '@/test/msw/server';
 import { parseSystemNow } from '@/lib/network/parse';
 import { NetworkHomeView } from './NetworkHomeView';
 
-// WB11, known issue W10-K3 (docs/design/network-ui.md section 9, "Advisor home counts" and "Exec home"): the
-// counts of the network's rows by status, with the scope header, for the advisor's home and the executive's.
-// No pending count, no next-due time, no organisation named: a count of rows. The executive's alerts stay
-// the organisation's own (DEC-136 item 9) and the page says so.
+// WB11, known issue W10-K3 (docs/design/network-ui.md section 9, "Advisor home counts" and "Exec home"), and the
+// network home board (planning-analytics-network.md, Network, /network/home; boards NHome and PH4): the counts of
+// the network's rows by status as five status tiles, the organisations that share (the viewer's own first, with
+// the number of services each shares), two actions, and the scope header. No pending count, no next-due time,
+// no service named. The executive's alerts stay the organisation's own (DEC-136 item 9) and the page says so.
 
 const advisor = () => render(<NetworkHomeView audience="advisor" ownHref="/advisor" />);
 const exec = () => render(<NetworkHomeView audience="exec" ownHref="/planning" />);
 
 describe('NetworkHomeView: the advisor’s home counts over the network', () => {
-  it('says which board it is, and has the advisor’s own heading, with the switch back to the advisor home', async () => {
+  it('says which board it is, and has the page heading, with the switch back to the advisor home', async () => {
     server.use(...networkBffHandlers);
     advisor();
-    expect(await screen.findByRole('heading', { level: 1, name: 'Ready for calls' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Network home' })).toBeInTheDocument();
     const header = await screen.findByRole('region', { name: 'Which board you are viewing' });
     expect(header).toHaveTextContent('Showing: Network, Sample Network');
     expect(within(header).getByRole('link', { name: 'Our organisation' })).toHaveAttribute('href', '/advisor');
@@ -39,12 +40,12 @@ describe('NetworkHomeView: the advisor’s home counts over the network', () => 
     for (const word of ['Accepting', 'Limited', 'Not accepting', 'Over capacity', 'Not updated']) expect(screen.getAllByText(word).length).toBeGreaterThan(0);
   });
 
-  it('says how many are not available on the network, and has no pending count and no organisation or service named', async () => {
+  it('says how many are not available on the network, and has no pending count and no organisation or service named in the counts', async () => {
     server.use(...networkBffHandlers);
     const { container } = advisor();
     await screen.findByText('4 services from 3 organisations');
     expect(screen.getByText('1 not available on the network')).toBeInTheDocument();
-    expect(container.textContent).not.toMatch(/pending|next due|Sample Area|UCR/i);
+    expect(container.textContent).not.toMatch(/pending|next due|UCR/i);
   });
 
   it('is read only: the note, and no button to book or to start a call from the network’s numbers', async () => {
@@ -87,10 +88,10 @@ describe('NetworkHomeView: the advisor’s home counts over the network', () => 
 });
 
 describe('NetworkHomeView: the executive’s home over the network', () => {
-  it('has the network’s name as its heading, with the switch back to the executive home, and the same counts', async () => {
+  it('has the page heading, with the switch back to the executive home, and the same counts', async () => {
     server.use(...networkBffHandlers);
     const { container } = exec();
-    expect(await screen.findByRole('heading', { level: 1, name: 'Sample Network' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Network home' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Which board you are viewing' })).toHaveTextContent('Showing: Network, Sample Network');
     expect(within(screen.getByRole('region', { name: 'Which board you are viewing' })).getByRole('link', { name: 'Our organisation' })).toHaveAttribute('href', '/planning');
     await screen.findByText('4 services from 3 organisations');
@@ -104,10 +105,11 @@ describe('NetworkHomeView: the executive’s home over the network', () => {
     expect(document.querySelector('[data-el="EXEC-ALERT"]')).toBeNull();
   });
 
-  it('links to the network’s services, where the detail of a service is', async () => {
+  it('offers the two actions of the board: the network board, and the services of the network', async () => {
     server.use(...networkBffHandlers);
     exec();
-    expect(await screen.findByRole('link', { name: 'See all services in the network' })).toHaveAttribute('href', '/network/services');
+    expect(await screen.findByRole('link', { name: 'Open the network board' })).toHaveAttribute('href', '/network/board');
+    expect(screen.getByRole('link', { name: 'See the services' })).toHaveAttribute('href', '/network/services');
   });
 
   it('shows the pressure of the network as a state, when it is raised', async () => {
@@ -115,6 +117,33 @@ describe('NetworkHomeView: the executive’s home over the network', () => {
     server.use(...networkBffHandlers.filter((handler) => !String(handler.info.path).includes('system-now')));
     exec();
     expect(await screen.findByText('Network pressure is high')).toBeInTheDocument();
+  });
+});
+
+describe('NetworkHomeView: who shares the network', () => {
+  it('lists each organisation once, the viewer’s own first and marked, with the number of services each shares', async () => {
+    server.use(...networkBffHandlers);
+    advisor();
+    const who = await screen.findByRole('region', { name: 'Who shares' });
+    const chips = within(who)
+      .getAllByRole('listitem')
+      .map((item) => item.textContent);
+    expect(chips).toEqual([`${OWN_ORGANISATION} · 1 · Your organisation`, `${OTHER_ORGANISATION} · 2`, `${THIRD_ORGANISATION} · 1`]);
+  });
+
+  it('says the figures are each organisation’s own, and not ranked', async () => {
+    server.use(...networkBffHandlers);
+    advisor();
+    expect(await screen.findByText('Figures are reported by each organisation. Not ranked.')).toBeInTheDocument();
+  });
+
+  it('says the organisations could not be read, and keeps the counts, when the board cannot be read', async () => {
+    server.use(http.get('/api/bff/network/board', () => HttpResponse.json({ code: 'unavailable' }, { status: 503 })), ...networkBffHandlers);
+    const { container } = advisor();
+    expect(await screen.findByText('The organisations could not be read.')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Who shares' })?.querySelectorAll('li').length ?? 0).toBe(0);
+    await screen.findByText('4 services from 3 organisations');
+    expect(container.querySelector('[data-el="NET-HOME-COUNT-ACCEPTING"]')).toHaveTextContent('1');
   });
 });
 

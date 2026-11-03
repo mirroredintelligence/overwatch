@@ -1,0 +1,133 @@
+.page {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.header {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.range {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  color: var(--c-ink-2);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: var(--type-title-weight);
+}
+
+.body {
+  display: grid;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.figures,
+.side {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+  align-content: start;
+}
+
+@media (min-width: 900px) {
+  .body {
+    grid-template-columns: minmax(0, 1fr) 360px;
+  }
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--space-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tile {
+  display: grid;
+  gap: var(--space-1);
+  align-content: start;
+  padding: var(--space-4);
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.tileValue {
+  font-size: var(--type-display-size);
+  line-height: 1;
+  font-weight: var(--type-title-weight);
+  color: var(--c-primary-dark);
+}
+
+.tileLabel {
+  font-size: var(--type-body-size);
+  color: var(--c-ink-2);
+}
+
+.tileNote {
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
+}
+
+.card {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4);
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.sentence {
+  margin: 0;
+  font-size: var(--type-body-size);
+  line-height: 1.4;
+}
+
+.note {
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  background: var(--c-amber-tint);
+  color: var(--c-ink-2);
+  font-size: var(--type-caption-size);
+  line-height: 1.4;
+}
+
+.sum {
+  margin: 0;
+  font-size: var(--type-body-size);
+  font-weight: var(--type-label-weight);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.footer {
+  margin: 0;
+  padding: 0 var(--space-1);
+  font-size: var(--type-caption-size);
+  line-height: 1.45;
+  color: var(--c-ink-2);
+}

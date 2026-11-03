@@ -26,34 +26,61 @@ const summary: WeekSummary = {
 const prefs: AlertPreferences = { ...DEFAULT_ALERT_PREFERENCES, deputy: 'pr-0042' };
 
 describe('WeekSummary time back', () => {
-  it('shows no placeholder: it says how many updates and that the time saved is not measured yet', () => {
+  it('shows the [x] placeholder while the baseline is not measured, with the estimate note', () => {
     render(<WeekSummaryView summary={summary} prefs={prefs} />);
-    expect(screen.getByText('412 updates by text, app or email.')).toBeInTheDocument();
-    expect(screen.getByText(/The time this saved is not measured yet/)).toBeInTheDocument();
-    expect(screen.queryByText(/\[x\]/)).not.toBeInTheDocument();
+    expect(screen.getByText('412 updates by text, app or email. Each replaces about one phone call of [x] minutes.')).toBeInTheDocument();
+    expect(screen.getByText('An estimate until we measure the baseline.')).toBeInTheDocument();
+    expect(screen.queryByText(/not measured yet/)).not.toBeInTheDocument();
+  });
+
+  it('keeps the sum behind a disclosure, closed at first', () => {
+    render(<WeekSummaryView summary={summary} prefs={prefs} />);
+    expect(screen.getByRole('button', { name: 'Show the sum' })).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('opens the sum on request, with the placeholder in it while unmeasured', async () => {
+    render(<WeekSummaryView summary={summary} prefs={prefs} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Show the sum' }));
+    expect(screen.getByRole('button', { name: 'Show the sum' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('412 × [x] minutes')).toBeInTheDocument();
   });
 
   it('shows the back end\'s own sentence when it sends one', () => {
     render(<WeekSummaryView summary={{ ...summary, timeBackText: 'About 20 hours of phone calls.' }} prefs={prefs} />);
     expect(screen.getByText('About 20 hours of phone calls.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Show the sum' })).not.toBeInTheDocument();
   });
 });
 
 describe('WeekSummary', () => {
-  it('shows the four figures with their words, and the footnote', () => {
+  it('shows the four figures with their words and the line under each', () => {
     render(<WeekSummaryView summary={summary} prefs={prefs} />);
     expect(screen.getByRole('heading', { level: 1, name: 'This week' })).toBeInTheDocument();
     const tiles = within(screen.getByRole('list', { name: 'Figures for the week' })).getAllByRole('listitem');
-    expect(tiles[0]).toHaveTextContent('640referrals');
-    expect(tiles[1]).toHaveTextContent('18%best fit not available');
-    expect(tiles[2]).toHaveTextContent('92%capacity updates on time');
-    expect(tiles[3]).toHaveTextContent('4 minmedian time to a confirmed booking');
-    expect(screen.getByText('Counts under 10 are hidden. Outcomes are not shown yet.')).toBeInTheDocument();
+    expect(tiles[0]).toHaveTextContent('640referralsLast complete week');
+    expect(tiles[1]).toHaveTextContent('18%best fit not availableFull, closed or not updated');
+    expect(tiles[2]).toHaveTextContent('92%capacity updates on timeUpdates by the due time');
+    expect(tiles[3]).toHaveTextContent('4 minmedian to a confirmed bookingRequest sent to confirmed');
   });
 
-  it('shows the sum behind the estimate once the minutes are set', () => {
+  it('shows the footnote, with the no-patient-information line', () => {
+    render(<WeekSummaryView summary={summary} prefs={prefs} />);
+    expect(
+      screen.getByText('Counts under 10 are hidden. Outcomes are not shown yet. No patient information on this screen.'),
+    ).toBeInTheDocument();
+  });
+
+  it('shows the sum behind the estimate once the minutes are set', async () => {
     render(<WeekSummaryView summary={{ ...summary, minutesPerCall: 4 }} prefs={prefs} />);
+    expect(screen.queryByText('An estimate until we measure the baseline.')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Show the sum' }));
     expect(screen.getByText('about 1,648 minutes (412 × 4)')).toBeInTheDocument();
+  });
+
+  it('shows the Every Monday card with its heading and sentence', () => {
+    render(<WeekSummaryView summary={summary} prefs={prefs} />);
+    expect(screen.getByRole('heading', { level: 2, name: 'Every Monday' })).toBeInTheDocument();
+    expect(screen.getByText('Get this summary by email, so there is one less meeting to hold.')).toBeInTheDocument();
   });
 
   it('shows "fewer than 10" for a withheld figure, and no percentage', () => {

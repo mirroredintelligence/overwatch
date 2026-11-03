@@ -1,15 +1,30 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
+import { PageHeader } from '@/components/shell/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
+import { Loading, SkeletonRows } from '@/components/ui/Skeleton';
 import { isUkMobile } from '@/lib/forms/ukMobile';
-import { leadGet, leadPost, newIdempotencyKey } from '@/lib/lead/browser';
-import styles from './Lead.module.css';
+import { listOf, textOf } from '@/lib/lead/answers';
+import { leadGet, leadPost, leadRead, newIdempotencyKey } from '@/lib/lead/browser';
+import { SETUP_STEPS, stuckAt, type SetupSteps } from '@/lib/lead/setupProgress';
+import { ReporterDetail } from './ReporterDetail';
+import { ReporterList } from './ReporterList';
+import { ReporterStage } from './ReporterStage';
+import type { Invitation } from './SetupTracker';
+import styles from './ChangeNumberForm.module.css';
+import stageStyles from './ReporterStage.module.css';
 
-// Change a reporter's number for leave or cover (W18, pilot). The old number stops working as soon as
-// the change is saved. The full new number is never shown back: the answer carries the last four digits
-// only, and the field is cleared once the change is saved (H-331).
+// Change a reporter's number for leave or cover (W18, pilot; INV-03). It is the Detail state of the reporters
+// page with the "Change their number" row open: the list of invitations stays, and the row sits among the
+// open reporter's actions. A reporter whose set-up is complete has no actions, and a service with no invitation
+// has no detail, so there the same row is on a card. The old number stops working as soon as the change is
+// saved. The full new number is never shown back: the answer carries the last four digits only, and the field
+// is cleared once the change is saved (H-331).
+
+const REPORTERS = '/lead/reporters';
 
 const COVERS: [string, string][] = [
   ['today', 'Today'],
@@ -31,6 +46,29 @@ function choicesFrom(value: unknown): Choice[] {
   );
 }
 
+/** The invitations, read as SetupTracker reads them (its parser is not exported). */
+function invitationsFrom(body: unknown): Invitation[] {
+  return listOf(body, 'items').map((item) => {
+    const row = item as Record<string, unknown>;
+    const steps = row.steps as Record<string, unknown>;
+    const flags = {} as SetupSteps;
+    for (const step of SETUP_STEPS) {
+      if (typeof steps?.[step] !== 'boolean') throw new Error('step');
+      flags[step] = steps[step] as boolean;
+    }
+    return {
+      id: textOf(row.id),
+      serviceId: textOf(row.serviceId),
+      serviceName: textOf(row.serviceName),
+      role: textOf(row.role),
+      steps: flags,
+      invitedAt: textOf(row.invitedAt),
+      lastSeen: textOf(row.lastSeen),
+      firstReportAt: typeof row.firstReportAt === 'string' ? row.firstReportAt : null,
+    };
+  });
+}
+
 /** The last four digits of the service's current number, read for the service it was read for. */
 type Reading = { service: string; ending: string | null };
 
@@ -41,7 +79,14 @@ function endingOf(value: unknown): string | null {
   return typeof ending === 'string' ? ending : null;
 }
 
-export function ChangeNumberForm({ serviceId }: { serviceId?: string }) {
+type RowProps = {
+  serviceId?: string;
+  /** Show the service choice (the card), or take the service as given (the open reporter). */
+  withChoice: boolean;
+  onNotice: (text: string, failed: boolean) => void;
+};
+
+function NumberRow({ serviceId, withChoice, onNotice }: RowProps) {
   const [services, setServices] = useState<Choice[]>([]);
   const [service, setService] = useState<string>(serviceId ?? '');
   const [reading, setReading] = useState<Reading | null>(null);
@@ -49,14 +94,17 @@ export function ChangeNumberForm({ serviceId }: { serviceId?: string }) {
   const [until, setUntil] = useState<string | null>(null);
   const [mobileError, setMobileError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
-  const [testing, setTesting] = useState<string | null>(null);
+  const [open, setOpen] = useState(true);
   const keyRef = useRef<string | null>(null);
   const mobileId = useId();
   const groupId = useId();
+  const panelId = useId();
+  const serviceFieldId = useId();
 
   useEffect(() => {
+    if (!withChoice) return;
     let cancelled = false;
     leadGet('/api/bff/lead/services')
       .then((value) => {
@@ -68,7 +116,7 @@ export function ChangeNumberForm({ serviceId }: { serviceId?: string }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [withChoice]);
 
   useEffect(() => {
     if (service === '') return;
@@ -114,7 +162,8 @@ export function ChangeNumberForm({ serviceId }: { serviceId?: string }) {
     }
     keyRef.current = null;
     const ending = (result.body as { numberEnding?: unknown } | undefined)?.numberEnding;
-    setSaved(typeof ending === 'string' ? ending : '');
+    setSaved(true);
+    onNotice(typeof ending === 'string' ? `New number ending ${ending} saved` : 'New number saved', false);
     if (typeof ending === 'string') setReading({ service, ending });
     setMobile('');
   }
@@ -122,23 +171,18 @@ export function ChangeNumberForm({ serviceId }: { serviceId?: string }) {
   async function testText() {
     if (service === '') return;
     const result = await leadPost(`/api/bff/lead/services/${encodeURIComponent(service)}/test-prompt`);
-    setTesting(result.ok ? 'Test text sent.' : 'The test text could not be sent.');
+    onNotice(result.ok ? 'Test text sent.' : 'The test text could not be sent.', !result.ok);
   }
 
-  return (
-    <main className={styles.page}>
-      <header className={styles.stack}>
-        <p className={styles.muted}>Cover for leave</p>
-        <h1 className={styles.title}>Change reporter number</h1>
-      </header>
-
-      <form onSubmit={(event) => void save(event)} noValidate className={styles.stack}>
+  const fields = (
+    <form onSubmit={(event) => void save(event)} noValidate id={panelId} className={styles.panel} hidden={withChoice ? false : !open}>
+      {withChoice ? (
         <div className={styles.field}>
-          <label htmlFor="lead-num-service" className={styles.fieldLabel}>
+          <label htmlFor={serviceFieldId} className={styles.label}>
             Service
           </label>
           <select
-            id="lead-num-service"
+            id={serviceFieldId}
             className={styles.input}
             value={service}
             onChange={(event) => setService(event.target.value)}
@@ -151,67 +195,174 @@ export function ChangeNumberForm({ serviceId }: { serviceId?: string }) {
             ))}
           </select>
         </div>
+      ) : null}
 
-        <div className={styles.field}>
-          <label htmlFor={mobileId} className={styles.fieldLabel}>
-            New mobile number
-          </label>
-          {mobileError ? (
-            <p role="alert" className={styles.fieldError}>
-              {mobileError}
-            </p>
-          ) : null}
-          <input
-            id={mobileId}
-            className={styles.input}
-            inputMode="tel"
-            autoComplete="off"
-            value={mobile}
-            onChange={(event) => setMobile(event.target.value)}
-          />
-        </div>
+      {currentEnding !== null ? <p className={styles.muted}>{`Current number ends ${currentEnding}`}</p> : null}
 
-        {currentEnding !== null ? <p className={styles.muted}>{`Current number ends ${currentEnding}`}</p> : null}
-
-        <div role="group" aria-labelledby={groupId} className={styles.choices}>
-          <p id={groupId} className={styles.fieldLabel}>
-            How long?
+      <div className={styles.field}>
+        <label htmlFor={mobileId} className={styles.label}>
+          New mobile number
+        </label>
+        {mobileError ? (
+          <p role="alert" className={styles.error}>
+            {mobileError}
           </p>
-          <div className={styles.chipRow}>
-            {COVERS.map(([value, text]) => (
-              <Chip
-                key={value}
-                pressed={until === value}
-                onPressedChange={() => setUntil(value)}
-                dataEl={`LEAD-NUM-UNTIL-${value.toUpperCase()}`}
-              >
-                {text}
-              </Chip>
-            ))}
-          </div>
-        </div>
+        ) : null}
+        <input
+          id={mobileId}
+          className={styles.input}
+          inputMode="tel"
+          autoComplete="off"
+          placeholder="07700 900456"
+          value={mobile}
+          onChange={(event) => setMobile(event.target.value)}
+        />
+      </div>
 
-        <p className={styles.muted}>The old number stops working as soon as you save. Both numbers are logged.</p>
-
-        <div className={styles.actions}>
-          <Button variant="secondary" disabled={saved === null} onClick={() => void testText()} dataEl="LEAD-NUM-TEST-BTN">
-            Send a test text
-          </Button>
-          <Button variant="primary" type="submit" busy={saving} dataEl="LEAD-NUM-SAVE-BTN">
-            Save
-          </Button>
+      <div role="group" aria-labelledby={groupId} className={styles.field}>
+        <p id={groupId} className={styles.label}>
+          How long?
+        </p>
+        <div className={styles.chips}>
+          {COVERS.map(([value, text]) => (
+            <Chip
+              key={value}
+              pressed={until === value}
+              onPressedChange={() => setUntil(value)}
+              dataEl={`LEAD-NUM-UNTIL-${value.toUpperCase()}`}
+            >
+              {text}
+            </Chip>
+          ))}
         </div>
-      </form>
+      </div>
+
+      <p className={styles.muted}>The old number stops working as soon as you save. Both numbers are logged.</p>
 
       {failure ? (
-        <p role="alert" className={styles.fieldError}>
+        <p role="alert" className={styles.error}>
           {failure}
         </p>
       ) : null}
-      <p role="status" className={styles.line}>
-        {saved !== null ? `New number ending ${saved} saved` : ''}
-        {testing !== null ? ` ${testing}` : ''}
+
+      <div className={styles.buttons}>
+        <Button variant="secondary" type="submit" busy={saving} dataEl="LEAD-NUM-SAVE-BTN">
+          Send a new invitation
+        </Button>
+        <Button variant="secondary" disabled={!saved} onClick={() => void testText()} dataEl="LEAD-NUM-TEST-BTN">
+          Send a test text
+        </Button>
+      </div>
+    </form>
+  );
+
+  if (withChoice) {
+    return (
+      <section className={styles.card} aria-labelledby={`${panelId}-h`}>
+        <h2 id={`${panelId}-h`} className={styles.cardHeading}>
+          Change their number
+        </h2>
+        <p className={styles.muted}>The new number gets a fresh code. The old one stops working.</p>
+        {fields}
+      </section>
+    );
+  }
+
+  return (
+    <div className={styles.row}>
+      <button type="button" className={styles.toggle} aria-expanded={open} aria-controls={panelId} onClick={() => setOpen(!open)}>
+        <span>Change their number</span>
+        <svg className={styles.chevron} width="18" height="18" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+          <path d="M5 12l5-5 5 5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {fields}
+    </div>
+  );
+}
+
+export function ChangeNumberForm({ serviceId }: { serviceId?: string }) {
+  const router = useRouter();
+  const [items, setItems] = useState<Invitation[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [now] = useState(() => Date.now());
+  const [notice, setNotice] = useState<{ text: string; failed: boolean } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void leadRead('/api/bff/lead/invitations').then((result) => {
+      if (cancelled) return;
+      try {
+        if (!result.ok) throw new Error('refused');
+        setItems(invitationsFrom(result.body));
+      } catch {
+        setFailed(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const onNotice = (text: string, isFailed: boolean) => setNotice({ text, failed: isFailed });
+  const open = serviceId !== undefined ? (items?.find((item) => item.serviceId === serviceId) ?? null) : null;
+
+  let list;
+  if (failed) {
+    list = (
+      <div className={stageStyles.card} role="alert" data-tone="error">
+        <h2 className={stageStyles.cardHeading}>
+          <span aria-hidden="true">▲ </span>We could not load set-up progress
+        </h2>
+        <p className={stageStyles.cardText}>Nothing has been lost. You can still change the number.</p>
+      </div>
+    );
+  } else if (items === null) {
+    list = (
+      <Loading label="Loading the set-up progress.">
+        <SkeletonRows count={3} />
+      </Loading>
+    );
+  } else {
+    list = (
+      <ReporterList
+        items={items}
+        now={now}
+        currentId={open?.id ?? null}
+        onOpen={(id) => router.push(`${REPORTERS}?invitation=${encodeURIComponent(id)}`)}
+      />
+    );
+  }
+
+  let detail;
+  if (serviceId !== undefined && items === null && !failed) {
+    detail = (
+      <Loading label="Loading the reporter.">
+        <SkeletonRows count={3} />
+      </Loading>
+    );
+  } else if (open !== null && stuckAt(open.steps) !== null) {
+    detail = (
+      <ReporterDetail
+        key={open.id}
+        item={open}
+        now={now}
+        onBack={() => router.push(REPORTERS)}
+        onNotice={onNotice}
+        changeNumber={<NumberRow serviceId={open.serviceId} withChoice={false} onNotice={onNotice} />}
+      />
+    );
+  } else {
+    detail = <NumberRow serviceId={serviceId} withChoice onNotice={onNotice} />;
+  }
+
+  return (
+    <main className={stageStyles.page}>
+      <PageHeader title="Reporters" />
+      <p role={notice?.failed ? 'alert' : 'status'} className={stageStyles.notice} data-failed={notice?.failed ?? false}>
+        {notice?.text ?? ''}
       </p>
+      <ReporterStage state="number" list={list} detail={detail} />
     </main>
   );
 }

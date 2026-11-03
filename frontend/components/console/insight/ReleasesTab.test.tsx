@@ -59,6 +59,33 @@ describe('ReleasesTab', () => {
     expect(within(pipeline).getByRole('row', { name: /messages\.outbound/ })).toHaveTextContent('1');
   });
 
+  it('names the two releases as the columns of the comparison', () => {
+    render(<ReleasesTab compare={{ old: '1.4.1', new: '1.4.2' }} measures={[measure({})]} pipeline={[]} />);
+
+    const measures = screen.getByRole('table', { name: /release comparison/i });
+    expect(within(measures).getByRole('columnheader', { name: '1.4.1' })).toBeInTheDocument();
+    expect(within(measures).getByRole('columnheader', { name: '1.4.2' })).toBeInTheDocument();
+  });
+
+  it('shows n/a for a queue with no oldest message, and marks a dead-lettered queue with a shape', () => {
+    render(
+      <ReleasesTab
+        compare={null}
+        measures={[]}
+        pipeline={[
+          { name: 'messages.outbound', active: 2, deadLettered: 0, oldestSeconds: null },
+          { name: 'booking.events', active: 0, deadLettered: 1, oldestSeconds: 4 },
+        ]}
+      />,
+    );
+
+    const pipeline = screen.getByRole('table', { name: /pipeline health/i });
+    expect(within(pipeline).getByRole('row', { name: /messages\.outbound/ })).toHaveTextContent('n/a');
+    const dead = within(pipeline).getByRole('row', { name: /booking\.events/ });
+    expect(dead.querySelector('[aria-hidden="true"]')).not.toBeNull();
+    expect(within(pipeline).getByRole('row', { name: /messages\.outbound/ }).querySelector('[aria-hidden="true"]')).toBeNull();
+  });
+
   it('passes vitest-axe', async () => {
     const { container } = render(
       <ReleasesTab compare={{ old: '1.4.2', new: '1.4.3' }} measures={[measure({})]} pipeline={[]} />,

@@ -1,0 +1,253 @@
+/* One step of "Add a service" is one white card (boards/lead/AddService.dc.html): a 30px heading, the fields 18px
+   apart, a rule, then Back on the left and the one primary button on the right. Shared by every step. */
+
+/* The page around the steps: the step bar, the stage, and on a phone the one-line summary pill. The layers of the
+   stage are positioned inside it, so it is given the height of the tallest card of its step. */
+
+.page {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: 76rem;
+  margin: 0 auto;
+  padding: var(--space-4) var(--space-5) 0;
+  color: var(--c-ink);
+  font-family: var(--font-atkinson), system-ui, sans-serif;
+}
+
+.bar {
+  min-width: 0;
+}
+
+.pill {
+  display: none;
+}
+
+.stage {
+  min-height: 42rem;
+}
+
+.page[data-step='1'] .stage {
+  min-height: 40rem;
+}
+
+.page[data-step='2'] .stage {
+  min-height: 66rem;
+}
+
+.status {
+  margin: 0;
+  font-size: var(--type-body-size);
+}
+
+.problem {
+  margin: 0;
+  font-weight: 700;
+  color: var(--c-closed);
+}
+
+.pilot {
+  margin: 0;
+  color: var(--c-ink-2);
+}
+
+@media (max-width: 700px) {
+  .page {
+    padding: var(--space-3) var(--space-4) 0;
+  }
+
+  .pill {
+    display: block;
+  }
+
+  /* One step per screen: the summary column stays closed, its pill is shown instead. */
+  .stage > div {
+    grid-template-columns: 0px minmax(0, 1fr) 0px !important;
+    column-gap: 0 !important;
+  }
+
+  .stage [data-pin] {
+    display: none;
+  }
+
+  .stage {
+    min-height: 78rem;
+  }
+
+  .page[data-step='1'] .stage {
+    min-height: 74rem;
+  }
+
+  .page[data-step='2'] .stage {
+    min-height: 120rem;
+  }
+}
+
+.form {
+  margin: 0;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-sizing: border-box;
+  padding: var(--space-5) 28px;
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+  color: var(--c-ink);
+}
+
+.heading {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.15;
+  font-weight: 700;
+}
+
+.heading:focus {
+  outline: none;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.label {
+  margin: 0 0 var(--space-2);
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-lh);
+  font-weight: 700;
+}
+
+.hint {
+  order: 3;
+  margin: 6px 0 0;
+  font-size: 15px;
+  line-height: 1.35;
+  color: var(--c-muted);
+}
+
+.error {
+  order: 2;
+  margin: 6px 0 0;
+  font-size: var(--type-caption-size);
+  font-weight: 700;
+  color: var(--c-closed);
+}
+
+.input {
+  order: 1;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 var(--space-4);
+  border: 2px solid var(--c-ink-2);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--c-ink);
+  font: inherit;
+  font-size: 19px;
+}
+
+.input:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.input[aria-invalid='true'] {
+  border-color: var(--c-closed);
+  border-style: dashed;
+}
+
+.choices {
+  min-width: 0;
+}
+
+.chipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.row > * {
+  flex: 1 1 9rem;
+}
+
+.note {
+  margin: 0;
+  padding: 14px var(--space-4);
+  border-radius: var(--radius);
+  background: var(--c-bg);
+  color: var(--c-ink-2);
+  font-size: var(--type-caption-size);
+  line-height: 1.4;
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--c-line);
+}
+
+.footerText {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-left: auto;
+}
+
+.back {
+  min-height: 54px;
+  padding: 0 var(--space-4);
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--c-ink-2);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.back:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+@media (max-width: 700px) {
+  .card {
+    padding: var(--space-4);
+  }
+
+  .heading {
+    font-size: 26px;
+  }
+
+  .actions,
+  .actions > * {
+    flex: 1 1 100%;
+  }
+}

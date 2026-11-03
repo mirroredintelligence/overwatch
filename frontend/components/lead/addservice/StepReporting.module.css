@@ -1,0 +1,21 @@
+/* Step 2: the number (or address) and the role sit side by side, the way the board has them. */
+
+.pair {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+}
+
+.pair > * {
+  flex: 1 1 14rem;
+}
+
+.note {
+  margin: 0;
+  padding: 14px var(--space-4);
+  border-radius: var(--radius);
+  background: var(--c-bg);
+  color: var(--c-ink-2);
+  font-size: var(--type-caption-size);
+  line-height: 1.4;
+}

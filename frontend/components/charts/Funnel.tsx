@@ -1,4 +1,3 @@
-import type { CSSProperties } from 'react';
 import { ChartTable, type ChartTableData } from './ChartTable';
 import styles from './Funnel.module.css';
 
@@ -36,7 +35,7 @@ export function Funnel({
               data-step={i}
               data-biggest={i === biggest ? 'true' : undefined}
               className={styles.bar}
-              style={{ width: `${Math.min(100, Math.max(0, s.value))}%` } as CSSProperties}
+              data-css={JSON.stringify({ width: `${Math.min(100, Math.max(0, s.value))}%` })}
             />
             <b className={styles.value}>
               {s.value}

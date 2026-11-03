@@ -47,9 +47,9 @@ function Today({ reportedAt, now }: { reportedAt: string; now: string }) {
     <div className={styles.today} role="group" aria-label="Today">
       <div className={styles.eyebrow}>Today</div>
       <div className={styles.strip} role="img" aria-label={`Last reported at ${reported}, now ${current}`}>
-        <span className={styles.sofar} style={{ width: percent(minutesOfDay(current)) }} />
-        <span className={styles.mark} data-mark="reported" style={{ left: percent(minutesOfDay(reported)) }} />
-        <span className={styles.mark} data-mark="now" style={{ left: percent(minutesOfDay(current)) }} />
+        <span className={styles.sofar} data-css={JSON.stringify({ width: percent(minutesOfDay(current)) })} />
+        <span className={styles.mark} data-mark="reported" data-css={JSON.stringify({ left: percent(minutesOfDay(reported)) })} />
+        <span className={styles.mark} data-mark="now" data-css={JSON.stringify({ left: percent(minutesOfDay(current)) })} />
       </div>
       <div className={styles.ticks}>
         <span>00:00</span>

@@ -148,7 +148,7 @@ export function PersonLookup({
               aria-selected={index === active}
               aria-disabled={!usable}
               className={`${styles.result} ${index === active ? styles.resultActive : ''} ${usable ? '' : styles.resultOff}`}
-              style={{ animationDelay: `${Math.min(index, 6) * 28}ms` }}
+              data-css={JSON.stringify({ animationDelay: `${Math.min(index, 6) * 28}ms` })}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => pick(person)}
             >

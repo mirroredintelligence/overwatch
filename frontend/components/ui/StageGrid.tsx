@@ -30,7 +30,7 @@ export function StageGrid({ stage, templates, gaps, className, children }: Stage
     <div
       className={className ? `${styles.grid} ${className}` : styles.grid}
       data-stage={Math.min(Math.max(Math.trunc(stage), 0), templates.length - 1)}
-      style={{ gridTemplateColumns: columns, columnGap: gap }}
+      data-css={JSON.stringify({ gridTemplateColumns: columns, columnGap: gap })}
     >
       {children}
     </div>

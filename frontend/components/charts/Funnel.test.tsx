@@ -34,8 +34,8 @@ describe('Funnel', () => {
     const { container } = setup();
     const bars = container.querySelectorAll<HTMLElement>('[data-step-bar]');
     expect(bars).toHaveLength(4);
-    expect(bars[1].style.width).toBe('82%');
-    expect(bars[3].style.width).toBe('41%');
+    expect(JSON.parse(bars[1].dataset.css ?? '{}').width).toBe('82%');
+    expect(JSON.parse(bars[3].dataset.css ?? '{}').width).toBe('41%');
   });
 
   it('shows the drop from the step before', () => {

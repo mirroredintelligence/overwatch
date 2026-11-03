@@ -36,7 +36,7 @@ describe('LaunchSplash', () => {
     const overlay = container.querySelector<HTMLElement>('[data-el="LAUNCH-SPLASH"]');
     expect(overlay).not.toBeNull();
     expect(overlay).toHaveAttribute('aria-hidden', 'true');
-    expect(overlay?.style.pointerEvents).toBe('none');
+    expect(JSON.parse(overlay?.dataset.css ?? '{}')).toEqual({ pointerEvents: 'none' });
     act(() => void vi.advanceTimersByTime(3000));
     expect(container.querySelector('[data-el="LAUNCH-SPLASH"]')).toBeNull();
   });

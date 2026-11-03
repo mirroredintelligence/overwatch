@@ -1,4 +1,3 @@
-import type { CSSProperties } from 'react';
 import { ChartTable, type ChartTableData } from './ChartTable';
 import styles from './StackedBar.module.css';
 
@@ -43,7 +42,7 @@ export function StackedBar({
               data-tone={s.tone}
               data-pattern={s.pattern}
               className={styles.segment}
-              style={{ flexGrow: s.value, flexBasis: 0 } as CSSProperties}
+              data-css={JSON.stringify({ flexGrow: s.value, flexBasis: 0 })}
             />
           ))}
       </div>

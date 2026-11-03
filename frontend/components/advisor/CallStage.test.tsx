@@ -32,7 +32,7 @@ describe('CallStage: the grid of a call (Call board, four stages)', () => {
     const { container } = render(stage(step));
 
     expect(grid(container)).toHaveAttribute('data-stage', index);
-    expect(grid(container).style.gridTemplateColumns).toBe(COLUMNS[step]);
+    expect(JSON.parse(grid(container).dataset.css ?? '{}').gridTemplateColumns).toBe(COLUMNS[step]);
   });
 
   it('puts the summary, the stage and the side in their areas', () => {

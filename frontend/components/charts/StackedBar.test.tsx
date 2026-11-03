@@ -34,8 +34,8 @@ describe('StackedBar', () => {
     const { container } = setup();
     const parts = container.querySelectorAll<HTMLElement>('[data-segment]');
     expect(parts).toHaveLength(5);
-    expect(parts[0].style.flexGrow).toBe('52');
-    expect(parts[3].style.flexGrow).toBe('6');
+    expect(JSON.parse(parts[0].dataset.css ?? '{}').flexGrow).toBe(52);
+    expect(JSON.parse(parts[3].dataset.css ?? '{}').flexGrow).toBe(6);
   });
 
   it('gives each segment a pattern as well as a colour', () => {

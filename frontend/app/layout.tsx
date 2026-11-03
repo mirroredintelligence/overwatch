@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { LaunchSplash } from '@/components/brand/LaunchSplash';
 import { RegisterServiceWorker } from '@/components/pwa/RegisterServiceWorker';
 import { BfcacheGuard } from '@/components/session/BfcacheGuard';
+import { InlineStyles } from '@/components/ui/InlineStyles';
 import { PRODUCT_NAME } from '@/lib/product';
 import { currentProfile } from '@/lib/tenant/profile';
 import { Telemetry } from './Telemetry';
@@ -43,6 +44,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en-GB" className={atkinson.variable}>
       <body>
+        <InlineStyles />
         <BfcacheGuard />
         <Telemetry />
         {children}

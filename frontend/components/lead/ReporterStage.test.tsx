@@ -23,7 +23,7 @@ function grid(container: HTMLElement): HTMLElement {
 describe('ReporterStage', () => {
   it('browse: the list takes the width and the stage panels are out of reach', () => {
     const { container } = show('browse');
-    expect(grid(container).style.gridTemplateColumns).toBe('minmax(0,1fr) 0px 0px');
+    expect(JSON.parse(grid(container).dataset.css ?? '{}').gridTemplateColumns).toBe('minmax(0,1fr) 0px 0px');
     expect(screen.getByRole('button', { name: 'The list' })).toBeInTheDocument();
     expect(screen.getByText('Compose panel').closest('[data-layer]')).toHaveAttribute('inert');
     expect(screen.getByText('Detail panel').closest('[data-layer]')).toHaveAttribute('inert');
@@ -31,7 +31,7 @@ describe('ReporterStage', () => {
 
   it('compose: the list is 420px and the compose panel is the stage', () => {
     const { container } = show('compose');
-    expect(grid(container).style.gridTemplateColumns).toBe('420px minmax(0,1fr) 0px');
+    expect(JSON.parse(grid(container).dataset.css ?? '{}').gridTemplateColumns).toBe('420px minmax(0,1fr) 0px');
     expect(screen.getByText('Compose panel').closest('[data-layer]')).not.toHaveAttribute('inert');
     expect(screen.getByText('Detail panel').closest('[data-layer]')).toHaveAttribute('inert');
     expect(screen.getByRole('button', { name: 'The list' })).toBeInTheDocument();
@@ -39,14 +39,14 @@ describe('ReporterStage', () => {
 
   it('detail: the list is 340px and the detail is the stage', () => {
     const { container } = show('detail');
-    expect(grid(container).style.gridTemplateColumns).toBe('340px minmax(0,1fr) 0px');
+    expect(JSON.parse(grid(container).dataset.css ?? '{}').gridTemplateColumns).toBe('340px minmax(0,1fr) 0px');
     expect(screen.getByText('Detail panel').closest('[data-layer]')).not.toHaveAttribute('inert');
     expect(screen.getByText('Compose panel').closest('[data-layer]')).toHaveAttribute('inert');
   });
 
   it('number: the same columns as detail, and the detail stays the stage', () => {
     const { container } = show('number');
-    expect(grid(container).style.gridTemplateColumns).toBe('340px minmax(0,1fr) 0px');
+    expect(JSON.parse(grid(container).dataset.css ?? '{}').gridTemplateColumns).toBe('340px minmax(0,1fr) 0px');
     expect(screen.getByText('Detail panel').closest('[data-layer]')).not.toHaveAttribute('inert');
   });
 

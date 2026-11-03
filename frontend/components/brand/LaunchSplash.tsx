@@ -26,7 +26,7 @@ export function LaunchSplash() {
 
   if (!showing) return null;
   return (
-    <div aria-hidden="true" style={{ pointerEvents: 'none' }} data-el="LAUNCH-SPLASH">
+    <div aria-hidden="true" data-css={JSON.stringify({ pointerEvents: 'none' })} data-el="LAUNCH-SPLASH">
       <Splash onComplete={() => setShowing(false)} />
     </div>
   );

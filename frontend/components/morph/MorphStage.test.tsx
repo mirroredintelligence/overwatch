@@ -77,9 +77,9 @@ describe('MorphStage', () => {
   it('sets the columns of the current stage on the grid', () => {
     const { container, rerender } = render(stage(1));
     const grid = container.querySelector('[data-stage]') as HTMLElement;
-    expect(grid.style.gridTemplateColumns).toBe(TEMPLATES[1]);
+    expect(JSON.parse(grid.dataset.css ?? '{}').gridTemplateColumns).toBe(TEMPLATES[1]);
     rerender(stage(3));
-    expect((container.querySelector('[data-stage]') as HTMLElement).style.gridTemplateColumns).toBe(TEMPLATES[3]);
+    expect(JSON.parse(((container.querySelector('[data-stage]') as HTMLElement)).dataset.css ?? '{}').gridTemplateColumns).toBe(TEMPLATES[3]);
   });
 
   it('puts the summary in the list area and does not give it to the stage', () => {

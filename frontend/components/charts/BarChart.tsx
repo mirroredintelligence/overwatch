@@ -1,4 +1,3 @@
-import type { CSSProperties } from 'react';
 import { ChartTable, type ChartTableData } from './ChartTable';
 import styles from './BarChart.module.css';
 
@@ -31,8 +30,8 @@ export function BarChart({
         <div className={styles.plot}>
           {threshold ? (
             <>
-              <div data-threshold className={styles.threshold} style={{ bottom: `${share(threshold.value) * 100}%` }} />
-              <span className={styles.thresholdLabel} style={{ bottom: `calc(${share(threshold.value) * 100}% + 4px)` }}>
+              <div data-threshold className={styles.threshold} data-css={JSON.stringify({ bottom: `${share(threshold.value) * 100}%` })} />
+              <span className={styles.thresholdLabel} data-css={JSON.stringify({ bottom: `calc(${share(threshold.value) * 100}% + 4px)` })}>
                 {threshold.label}
               </span>
             </>
@@ -43,7 +42,7 @@ export function BarChart({
               data-bar
               data-flagged={b.flagged ? 'true' : undefined}
               className={styles.bar}
-              style={{ '--share': share(b.value) } as CSSProperties}
+              data-css={JSON.stringify({ '--share': share(b.value) })}
             >
               <b className={styles.value}>{b.value}</b>
               <i className={styles.fill} />

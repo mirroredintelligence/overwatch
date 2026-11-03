@@ -52,7 +52,7 @@ describe('RegisterStage on a wide screen', () => {
           <h1>x</h1>
         </RegisterStage>,
       );
-      const value = (container.querySelector('[data-stage]') as HTMLElement).style.gridTemplateColumns;
+      const value = JSON.parse((container.querySelector('[data-stage]') as HTMLElement).dataset.css!).gridTemplateColumns;
       unmount();
       return value;
     };

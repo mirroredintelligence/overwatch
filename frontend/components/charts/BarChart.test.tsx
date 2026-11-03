@@ -50,8 +50,8 @@ describe('BarChart', () => {
     const bars = container.querySelectorAll<HTMLElement>('[data-bar]');
     expect(bars).toHaveLength(4);
     // max = 5 + 1 headroom = 6, as the board
-    expect(bars[0].style.getPropertyValue('--share')).toBe(String(2 / 6));
-    expect(bars[2].style.getPropertyValue('--share')).toBe(String(5 / 6));
+    expect(JSON.parse(bars[0].dataset.css ?? '{}')['--share']).toBe(2 / 6);
+    expect(JSON.parse(bars[2].dataset.css ?? '{}')['--share']).toBe(5 / 6);
   });
 
   it('names the threshold line in words', () => {

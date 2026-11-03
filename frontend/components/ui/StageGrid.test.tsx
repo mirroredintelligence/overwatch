@@ -25,7 +25,7 @@ describe('StageGrid', () => {
   it.each([0, 1, 2, 3])('sets the columns of stage %i', (stage) => {
     const { container } = grid(stage);
     const el = container.firstElementChild as HTMLElement;
-    expect(el.style.gridTemplateColumns).toBe(TEMPLATES[stage]);
+    expect(JSON.parse(el.dataset.css ?? '{}').gridTemplateColumns).toBe(TEMPLATES[stage]);
     expect(el).toHaveAttribute('data-stage', String(stage));
   });
 
@@ -47,30 +47,30 @@ describe('StageGrid', () => {
         <p>x</p>
       </StageGrid>,
     );
-    expect((container.firstElementChild as HTMLElement).style.columnGap).toBe('0px');
+    expect(JSON.parse((container.firstElementChild as HTMLElement).dataset.css ?? '{}').columnGap).toBe('0px');
     rerender(
       <StageGrid stage={2} templates={TEMPLATES} gaps={['0px', '0px', '22px', '22px']}>
         <p>x</p>
       </StageGrid>,
     );
-    expect((container.firstElementChild as HTMLElement).style.columnGap).toBe('22px');
+    expect(JSON.parse((container.firstElementChild as HTMLElement).dataset.css ?? '{}').columnGap).toBe('22px');
     rerender(
       <StageGrid stage={2} templates={TEMPLATES}>
         <p>x</p>
       </StageGrid>,
     );
-    expect((container.firstElementChild as HTMLElement).style.columnGap).toBe('var(--space-5)');
+    expect(JSON.parse((container.firstElementChild as HTMLElement).dataset.css ?? '{}').columnGap).toBe('var(--space-5)');
   });
 
   it('keeps the last template for a stage past the end, and the first for one before it', () => {
     const { container, rerender } = grid(9);
-    expect((container.firstElementChild as HTMLElement).style.gridTemplateColumns).toBe(TEMPLATES[3]);
+    expect(JSON.parse((container.firstElementChild as HTMLElement).dataset.css ?? '{}').gridTemplateColumns).toBe(TEMPLATES[3]);
     rerender(
       <StageGrid stage={-2} templates={TEMPLATES}>
         <p>x</p>
       </StageGrid>,
     );
-    expect((container.firstElementChild as HTMLElement).style.gridTemplateColumns).toBe(TEMPLATES[0]);
+    expect(JSON.parse((container.firstElementChild as HTMLElement).dataset.css ?? '{}').gridTemplateColumns).toBe(TEMPLATES[0]);
   });
 });
 

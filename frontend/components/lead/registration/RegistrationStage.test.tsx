@@ -16,7 +16,7 @@ describe('RegistrationStage', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Registrations' })).toBeInTheDocument();
     expect(await screen.findByRole('list', { name: 'Registrations to review' })).toBeInTheDocument();
     expect(grid(container)).toHaveAttribute('data-stage', '0');
-    expect(grid(container).style.gridTemplateColumns).toMatch(/^minmax\(0,\s*1fr\) 0px/);
+    expect(JSON.parse(grid(container).dataset.css!).gridTemplateColumns).toMatch(/^minmax\(0,\s*1fr\) 0px/);
     expect(screen.queryByRole('link', { name: /Back to registrations/ })).toBeNull();
     expect(container.querySelector('[role="main"]')).not.toBeNull();
     expect(await runAxe(container)).toHaveNoViolations();
@@ -28,7 +28,7 @@ describe('RegistrationStage', () => {
         <RegistrationOverview id="r1" />
       </RegistrationStage>,
     );
-    expect(grid(container).style.gridTemplateColumns).toMatch(/^380px/);
+    expect(JSON.parse(grid(container).dataset.css!).gridTemplateColumns).toMatch(/^380px/);
     expect(await screen.findByRole('heading', { level: 1, name: 'UCR East' })).toBeInTheDocument();
     const queue = await screen.findByRole('list', { name: 'Registrations to review' });
     expect(within(queue).getAllByRole('listitem')[0]).toHaveAttribute('aria-current', 'true');
@@ -41,7 +41,7 @@ describe('RegistrationStage', () => {
         <p>The scope check</p>
       </RegistrationStage>,
     );
-    expect(grid(container).style.gridTemplateColumns).toMatch(/^300px/);
+    expect(JSON.parse(grid(container).dataset.css!).gridTemplateColumns).toMatch(/^300px/);
     expect(screen.getByText('The scope check')).toBeInTheDocument();
     expect(await screen.findByRole('list', { name: 'Registrations to review' })).toBeInTheDocument();
     // The step draws its own heading and landmark: the stage adds none of its own.

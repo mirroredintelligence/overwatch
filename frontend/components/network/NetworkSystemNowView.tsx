@@ -44,7 +44,7 @@ function StackedBar({ now }: { now: NetworkSystemNow }) {
   return (
     <div role="img" aria-label={name} className={view.stack}>
       {ROWS.filter(([key]) => now.byStatus[key] > 0).map(([key]) => (
-        <span key={key} data-status={key} style={{ flexGrow: now.byStatus[key] }} />
+        <span key={key} data-status={key} data-css={JSON.stringify({ flexGrow: now.byStatus[key] })} />
       ))}
     </div>
   );
@@ -112,7 +112,7 @@ function Counts({ networkId, networkName, ownHref }: { networkId: string; networ
                       <dt data-symbol={symbol}>{word}</dt>
                       <dd className={view.count}>{now.byStatus[key]}</dd>
                       <dd className={view.track} aria-hidden="true">
-                        <i data-status={key} style={{ width: `${shareOf(now.byStatus[key], now.services)}%` }} />
+                        <i data-status={key} data-css={JSON.stringify({ width: `${shareOf(now.byStatus[key], now.services)}%` })} />
                       </dd>
                     </div>
                   ))}

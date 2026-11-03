@@ -80,7 +80,7 @@ function StatusBar({ week }: { week: Week }) {
       {drawn.length > 0 ? (
         <div role="img" aria-label={name} className={styles.bar}>
           {drawn.map(({ status, value }) => (
-            <span key={status} data-status={status} style={{ flexGrow: value ?? 0 }} />
+            <span key={status} data-status={status} data-css={JSON.stringify({ flexGrow: value ?? 0 })} />
           ))}
         </div>
       ) : null}

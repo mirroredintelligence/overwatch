@@ -134,3 +134,9 @@ body {
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
+
+/* Next.js renders its route announcer with an inline position:absolute, which the strict style policy
+   blocks. The same rule here applies it from the stylesheet, which the policy allows. */
+next-route-announcer {
+  position: absolute;
+}

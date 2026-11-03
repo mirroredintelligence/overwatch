@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { VIEW_DETAIL_PROVISIONING } from '@/test/fixtures/operator';
+import { CONSENTED, VIEW_DETAIL_PROVISIONING, VIEW_DETAIL_READY } from '@/test/fixtures/operator';
 import { resetOperatorWrites, seenOperatorWrites } from '@/test/msw/handlers/operator';
 import { server } from '@/test/msw/server';
 import { TenantDetail } from '../TenantDetail';
@@ -36,6 +36,30 @@ const lastWrite = () => seenOperatorWrites[seenOperatorWrites.length - 1];
 const step = (name: string) => screen.getByRole('region', { name });
 
 describe('step 7: agreements', () => {
+  it('says how many of the three are recorded, and that they are recommended, not required', async () => {
+    await open(VIEW_DETAIL_PROVISIONING, undefined, 'Reach and agreements');
+    const card = step('Agreements (recommended)');
+    const row = within(card).getByRole('group', { name: 'Agreements, recommended, not required' });
+    expect(within(row).getByText('Agreements')).toBeInTheDocument();
+    expect(within(row).getByText('recommended, not required')).toBeInTheDocument();
+    expect(within(row).getByText('Data sharing, privacy impact, clinical safety')).toBeInTheDocument();
+    expect(within(row).getByText('1 of 3 recorded')).toBeInTheDocument();
+    expect(row.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
+  });
+
+  it('says all three are recorded when they are', async () => {
+    await open(VIEW_DETAIL_READY, CONSENTED, 'Reach and agreements');
+    const row = within(step('Agreements (recommended)')).getByRole('group', { name: 'Agreements, recommended, not required' });
+    expect(within(row).getByText('3 of 3 recorded')).toBeInTheDocument();
+  });
+
+  it('says none are recorded when none are', async () => {
+    const none = { ...VIEW_DETAIL_PROVISIONING, tenant: { ...VIEW_DETAIL_PROVISIONING.tenant, references: { dsa: null, dpia: null, dcb0160: null } } };
+    await open(none, undefined, 'Reach and agreements');
+    const row = within(step('Agreements (recommended)')).getByRole('group', { name: 'Agreements, recommended, not required' });
+    expect(within(row).getByText('0 of 3 recorded')).toBeInTheDocument();
+  });
+
   it('records the references that were filled in and needs at least one', async () => {
     const user = await open(VIEW_DETAIL_PROVISIONING, undefined, 'Reach and agreements');
     const card = step('Agreements (recommended)');

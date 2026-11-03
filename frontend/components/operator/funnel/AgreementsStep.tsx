@@ -3,8 +3,10 @@
 import { useState, type FormEvent } from 'react';
 import { TextField } from '@/components/forms/TextField';
 import { Button } from '@/components/ui/Button';
+import { StatusTag } from '@/components/ui/StatusTag';
 import styles from '@/components/admin/admin.module.css';
 import ts from '../Tenant.module.css';
+import r from './Reach.module.css';
 import { Said, StepSection, useWrite, type PanelProps } from './shared';
 
 /** Step 7. The three agreements, each named by a reference. Any one can be sent alone; each is optional text. */
@@ -34,10 +36,20 @@ export function AgreementsStep(props: PanelProps) {
       }
     });
   }
-  const held = (v: string | null) => v ?? 'Not recorded';
+  const recorded = [refs.dsa, refs.dpia, refs.dcb0160].filter((v) => v !== null).length;
+  const held =(v: string | null) => v ?? 'Not recorded';
   return (
     <StepSection step={props.step} heading={props.heading}>
       <p className={ts.text}>These agreements are recommended. The organisation can go live without them, but it is better to have each in place, and the clinical safety case in particular. Record the reference of each one that is. Overwatch keeps the reference, not the document. Each can be a number, a code or a few words.</p>
+      <div role="group" aria-label="Agreements, recommended, not required" className={`${r.row} ${r.rowOptional}`}>
+        <p className={r.rowTitle}>
+          <strong>Agreements</strong> <span className={r.rowNote}>recommended, not required</span>
+        </p>
+        <div className={r.rowTag}>
+          <StatusTag variant={recorded === 3 ? 'done' : 'todo'}>{`${recorded} of 3 recorded`}</StatusTag>
+        </div>
+        <p className={r.rowDetail}>Data sharing, privacy impact, clinical safety</p>
+      </div>
       {[refs.dsa, refs.dpia, refs.dcb0160].some((r) => r !== null) ? (
         <dl className={styles.facts}>
           <dt>Data sharing agreement</dt>

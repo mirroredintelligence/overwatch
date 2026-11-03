@@ -1,0 +1,65 @@
+/* Part 4 of the go-live funnel (board O4): "where it stands" rows for the web address and the text number, and the
+   dashed agreements row. Tokens only. Status is a shape and a word (StatusTag), never colour alone. */
+.stands {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+/* One row: the title and the detail on the left, the status on the right. Reading order is title, status, detail. */
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'title tag'
+    'detail tag';
+  align-items: center;
+  gap: var(--space-1) var(--space-4);
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius);
+  background: var(--c-bg);
+}
+
+@media (max-width: 30rem) {
+  .row {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'title'
+      'tag'
+      'detail';
+    justify-items: start;
+  }
+}
+
+.rowOptional {
+  border: 2px dashed var(--c-unknown);
+  background: transparent;
+}
+
+.rowTitle {
+  grid-area: title;
+  margin: 0;
+  font-weight: 700;
+}
+
+.rowNote {
+  font-weight: 400;
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
+}
+
+.rowTag {
+  grid-area: tag;
+  margin: 0;
+}
+
+.rowDetail {
+  grid-area: detail;
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-muted);
+  overflow-wrap: anywhere;
+}

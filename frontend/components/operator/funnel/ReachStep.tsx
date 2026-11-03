@@ -4,9 +4,11 @@ import { useId, useState, type FormEvent } from 'react';
 import { TextField } from '@/components/forms/TextField';
 import { isUkMobile } from '@/lib/forms/ukMobile';
 import { Button } from '@/components/ui/Button';
+import { StatusTag } from '@/components/ui/StatusTag';
 import { whenText } from '@/lib/tenantAdmin/words';
 import styles from '@/components/admin/admin.module.css';
 import ts from '../Tenant.module.css';
+import r from './Reach.module.css';
 import { E164, NUMBER_STATE, Said, StepSection, useWrite, type PanelProps } from './shared';
 
 const TEST_TEXT_FAILED: Record<number, string> = {
@@ -117,6 +119,9 @@ export function ReachStep(props: PanelProps) {
       });
   }
   const numbers = props.detail.numbers;
+  // A number counts as tested only while it is in use: a stopped one is held, not working.
+  const testedOwn = numbers.some((n) => n.status === 'active' && n.testedAt !== null);
+  const testedShared = shared !== null && shared.status === 'active' && shared.testedAt !== null;
   const hostFirst = props.isNext && props.detail.host === null;
   const numberFirst = props.isNext && !hostFirst && numbers.length === 0 && shared === null;
   const testFirst = props.isNext && !hostFirst && !numberFirst;
@@ -152,7 +157,22 @@ export function ReachStep(props: PanelProps) {
         )
       }
     >
-      <p className={ts.text}>{props.detail.host === null ? 'No web address is set yet.' : `Their web address is ${props.detail.host}.`}</p>
+      <dl className={r.stands}>
+        <div className={r.row}>
+          <dt className={r.rowTitle}>Web address</dt>
+          <dd className={r.rowTag}>
+            <StatusTag variant={props.detail.host === null ? 'todo' : 'done'}>{props.detail.host === null ? 'Address not set' : 'Address set'}</StatusTag>
+          </dd>
+          <dd className={r.rowDetail}>{props.detail.host === null ? 'No web address is set yet.' : `Their web address is ${props.detail.host}.`}</dd>
+        </div>
+        <div className={r.row}>
+          <dt className={r.rowTitle}>Text number</dt>
+          <dd className={r.rowTag}>
+            <StatusTag variant={testedOwn || testedShared ? 'done' : 'todo'}>{testedOwn || testedShared ? 'Number tested' : 'Number not tested'}</StatusTag>
+          </dd>
+          <dd className={r.rowDetail}>{testedOwn ? 'Their own number, test text sent.' : testedShared ? 'Shared line, test text sent. Sending only.' : 'No text number has been tested yet.'}</dd>
+        </div>
+      </dl>
       <form className={ts.form} onSubmit={saveHost} noValidate aria-label="Set the web address">
         <TextField id="tenant-host" label="Web address" value={host} onChange={(v) => { hostWrite.fresh(); setHost(v); }} requirement="none" hint="What people type to reach Overwatch for this organisation." />
         <Said say={hostWrite.say} />

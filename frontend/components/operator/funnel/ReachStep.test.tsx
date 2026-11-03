@@ -39,6 +39,46 @@ const step = (name: string) => screen.getByRole('region', { name });
 describe('step 6: how people reach them', () => {
   const card = () => step('Web address and text number');
 
+  describe('where it stands (board O4, part 4)', () => {
+    const row = (label: string) => within(card()).getByText(label, { selector: 'dt' }).closest('div') as HTMLElement;
+
+    it('shows the web address and the text number as two rows, each with a status in shape and word', async () => {
+      await open(VIEW_DETAIL_PROVISIONING, undefined, 'Reach and agreements');
+      expect(within(row('Web address')).getByText('Address not set')).toBeInTheDocument();
+      expect(within(row('Web address')).getByText('No web address is set yet.')).toBeInTheDocument();
+      expect(within(row('Text number')).getByText('Number not tested')).toBeInTheDocument();
+      expect(within(row('Text number')).getByText('No text number has been tested yet.')).toBeInTheDocument();
+      expect(row('Web address').querySelector('svg[aria-hidden="true"]')).not.toBeNull();
+      expect(row('Text number').querySelector('svg[aria-hidden="true"]')).not.toBeNull();
+    });
+
+    it('says the address is set and the number is tested once they are', async () => {
+      await open(VIEW_DETAIL_READY, CONSENTED, 'Reach and agreements');
+      expect(within(row('Web address')).getByText('Address set')).toBeInTheDocument();
+      expect(within(row('Web address')).getByText('Their web address is tenant-b.example.test.')).toBeInTheDocument();
+      expect(within(row('Text number')).getByText('Number tested')).toBeInTheDocument();
+      expect(within(row('Text number')).getByText('Their own number, test text sent.')).toBeInTheDocument();
+    });
+
+    it('says a tested shared line is sending only', async () => {
+      const tested = { ...VIEW_DETAIL_PROVISIONING, numbers: [], sharedLine: { status: 'active', testedAt: '2026-10-21T10:00:00Z' } };
+      await open(tested, undefined, 'Reach and agreements');
+      expect(within(row('Text number')).getByText('Number tested')).toBeInTheDocument();
+      expect(within(row('Text number')).getByText('Shared line, test text sent. Sending only.')).toBeInTheDocument();
+    });
+
+    it('does not count a stopped number as tested', async () => {
+      const stopped = { ...VIEW_DETAIL_READY, numbers: VIEW_DETAIL_READY.numbers.map((n) => ({ ...n, status: 'retired' })) };
+      await open(stopped, CONSENTED, 'Reach and agreements');
+      expect(within(row('Text number')).getByText('Number not tested')).toBeInTheDocument();
+    });
+
+    it('has no axe violations on the status rows', async () => {
+      await open(VIEW_DETAIL_READY, CONSENTED, 'Reach and agreements');
+      expect(await runAxe(document.body)).toHaveNoViolations();
+    });
+  });
+
   it('sets the web address', async () => {
     const user = await open(VIEW_DETAIL_PROVISIONING, undefined, 'Reach and agreements');
     await user.type(within(card()).getByLabelText('Web address'), 'tenant-b.example.test');

@@ -1,0 +1,24 @@
+/* The criteria owner's landing (boards/lead/Patterns, "Owner with several services"): each service is one row that
+   opens its overview, with a chevron to say so. The row is at least 52px tall, the primary target size. */
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 52px;
+  color: inherit;
+  text-decoration: none;
+  font-family: var(--font-atkinson, system-ui), system-ui, sans-serif;
+}
+
+.row:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.chevron {
+  flex: none;
+  font-size: 22px;
+  line-height: 1;
+}

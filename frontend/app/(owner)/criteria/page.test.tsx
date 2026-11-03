@@ -28,9 +28,18 @@ describe('the criteria landing page', () => {
     const { container } = render(await CriteriaLandingPage());
     expect(screen.getByRole('heading', { level: 1, name: 'Your services' })).toBeInTheDocument();
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
-    const links = within(screen.getByRole('list')).getAllByRole('link');
+    const list = screen.getByRole('list', { name: 'Your services' });
+    const links = within(list).getAllByRole('link');
     expect(links.map((a) => a.getAttribute('href'))).toEqual(['/criteria/s1', '/criteria/urgent%20care%2F2']);
     expect(await runAxe(container)).toHaveNoViolations();
+  });
+
+  it('shows a chevron on each service row that assistive technology does not read', async () => {
+    getSession.mockResolvedValue(session('owner', ['s1', 's2']));
+    render(await CriteriaLandingPage());
+    for (const link of screen.getAllByRole('link')) {
+      expect(link.querySelector('[aria-hidden="true"]')).not.toBeNull();
+    }
   });
 
   it('goes straight to the overview when there is one service', async () => {
@@ -42,7 +51,7 @@ describe('the criteria landing page', () => {
     getSession.mockResolvedValue(session('owner', []));
     const { container } = render(await CriteriaLandingPage());
     expect(screen.getByRole('heading', { level: 1, name: 'Your services' })).toBeInTheDocument();
-    expect(screen.getByText('No services to review')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('No services to review');
     expect(screen.getByRole('link', { name: 'Help' })).toHaveAttribute('href', '/help');
     expect(screen.queryByRole('list')).toBeNull();
     expect(await runAxe(container)).toHaveNoViolations();

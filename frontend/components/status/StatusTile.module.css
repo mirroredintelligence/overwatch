@@ -1,0 +1,111 @@
+/* The large status tile. Status is a glyph and a word (StatusTag) plus colour; a not-updated tile has a dashed edge and an
+   over-capacity tile has a hatched band, so the state is also shape. Live figures never animate. */
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-4) var(--space-4) var(--space-4);
+  border: 2px solid Canvas;
+  border-radius: var(--radius-card);
+  background: Canvas;
+  box-shadow: var(--shadow-card);
+  box-sizing: border-box;
+}
+
+.notUpdated {
+  border-style: dashed;
+  border-color: var(--c-unknown);
+}
+
+.over {
+  height: var(--space-2);
+  flex: none;
+  margin-bottom: var(--space-1);
+  border-radius: var(--radius-chip);
+  background-color: var(--c-tint);
+  background-image: repeating-linear-gradient(-45deg, var(--c-surge) 0 4px, transparent 4px 9px);
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.name {
+  margin: 0;
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: var(--type-title-weight);
+  overflow-wrap: anywhere;
+}
+
+.own {
+  display: inline-block;
+  padding: 1px var(--space-2);
+  border: 2px solid var(--c-primary);
+  border-radius: var(--radius-chip);
+  background: var(--c-tint);
+  color: var(--c-primary-dark);
+  font-size: var(--type-caption-size);
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.org {
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-muted);
+}
+
+.figureRow {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.figure {
+  font-size: var(--type-display-size);
+  line-height: 1;
+  font-weight: 700;
+  color: var(--c-primary-dark);
+  font-variant-numeric: tabular-nums;
+}
+
+.figureLabel {
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-lh);
+  color: var(--c-ink-2);
+}
+
+.updated {
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-ink-2);
+}
+
+.extra {
+  font-size: var(--type-label-size);
+  font-weight: 700;
+}
+
+.tile[data-status='limited'] .figure {
+  color: var(--c-limited);
+}
+
+.tile[data-status='not-accepting'] .figure {
+  color: var(--c-closed);
+}
+
+.tile[data-status='over-capacity'] .figure {
+  color: var(--c-surge);
+}
+
+.tile[data-status='not-updated'] .figure {
+  color: var(--c-muted);
+}

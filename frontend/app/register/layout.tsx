@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
-import { StaffShell } from '@/app/StaffShell';
 
-// The staff header and page frame around every page of this area (components/shell).
+// The register pages have no session and no staff header: each page draws its own RegisterStage
+// (components/register), the frame with the checklist, or the phone shell on a small screen.
 export default function Layout({ children }: { children: ReactNode }) {
-  return <StaffShell>{children}</StaffShell>;
+  return <>{children}</>;
 }

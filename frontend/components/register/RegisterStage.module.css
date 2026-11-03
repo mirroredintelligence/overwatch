@@ -1,0 +1,232 @@
+/* The register frame on a wide screen (Reg board): a top bar, then list | stage | side in a StageGrid. */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  min-height: 560px;
+  background: var(--c-ground);
+  color: var(--c-ink);
+}
+
+.top {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: 72px;
+  padding: 0 28px;
+  box-sizing: border-box;
+  background: #fff;
+  border-bottom: 1px solid var(--c-line);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 20px;
+}
+
+.chip {
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--c-tint);
+  color: var(--c-primary-dark);
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.saved {
+  margin-left: auto;
+  font-size: 15px;
+  color: var(--c-muted);
+}
+
+.later {
+  display: inline-flex;
+  align-items: center;
+  min-height: 46px;
+  padding: 0 18px;
+  box-sizing: border-box;
+  border: 2px solid var(--c-ink);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--c-ink);
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.later:focus-visible {
+  outline: 3px solid var(--c-ink);
+  outline-offset: 2px;
+}
+
+.main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 22px 28px;
+}
+
+.grid {
+  flex: 1;
+}
+
+.list {
+  width: 290px;
+  padding: 4px 0;
+}
+
+.step {
+  padding: 4px 6px 20px 2px;
+}
+
+.help {
+  padding: 4px 2px;
+}
+
+/* The cards the start and submitted pages put in the stage (Reg board). */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 700px;
+  box-sizing: border-box;
+  padding: 26px 30px;
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+}
+
+.centred {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.heading {
+  margin: 0;
+  font-size: 34px;
+  line-height: 1.1;
+}
+
+.lead {
+  margin: 0;
+  font-size: 19px;
+  line-height: 1.45;
+  color: var(--c-ink-2);
+}
+
+.ready,
+.next {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 18px;
+}
+
+.next {
+  gap: 14px;
+}
+
+.ready li,
+.next li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.number {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--c-tint);
+  color: var(--c-primary-dark);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.mark {
+  flex: none;
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+}
+
+.mark[data-done='true'] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--c-primary);
+  color: #fff;
+}
+
+.mark[data-done='false'] {
+  border: 2px dashed var(--c-unknown);
+}
+
+.tick {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--c-tint);
+  color: var(--c-primary);
+}
+
+.done {
+  margin: 0;
+  font-size: 32px;
+  line-height: 1.1;
+}
+
+.text {
+  margin: 0;
+  font-size: 17px;
+  color: var(--c-ink-2);
+}
+
+.cardActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+@media (max-width: 899px) {
+  /* On a phone the sticky action is the primary action. */
+  .cardActions {
+    display: none;
+  }
+
+  .card {
+    padding: 0;
+    background: none;
+    box-shadow: none;
+  }
+}
+
+.phoneLater {
+  margin: var(--space-4) 0 0;
+}
+
+.phoneLater a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--c-ink-2);
+  font-weight: 700;
+}

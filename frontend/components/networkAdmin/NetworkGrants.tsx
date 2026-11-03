@@ -1,19 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
-import { Dialog } from '@/components/ui/Dialog';
+import { Chip } from '@/components/ui/Chip';
+import { Loading, SkeletonRows } from '@/components/ui/Skeleton';
+import { StatusTag, type StatusTagVariant } from '@/components/ui/StatusTag';
 import { BASE, post, useAdminRead, useNotice, type GrantsRead } from '@/lib/networkAdmin/browser';
 import type { GrantRow } from '@/lib/networkAdmin/views';
 import { approvalWord, dateText, PURPOSE_WORD, SCOPE_WORD, waitsForOwner } from '@/lib/networkAdmin/words';
-import styles from '../admin/admin.module.css';
+import styles from './NetworkGrants.module.css';
 import { OwnedNetworkGate } from './OwnedNetworkGate';
 
-// The grants of the network (TEN-080, design N1: NetworkGrants). The owner approves or declines a grant that
-// waits for it. A grant takes two approvals, the organisation's and the owner's, from two different people;
-// the owner never ends a member's grant (only the grantor does, DEC-132 item 3) and sees no field of a
-// member's data: the screen shows who, which kind, for what, from when and where the approvals stand.
+// The grants of the network (TEN-080, design NGrants). The owner approves or declines a grant that waits for it,
+// and filters the grants by where their two approvals stand. A grant takes two approvals, the organisation's and
+// the owner's, from two different people; the owner never ends a member's grant (only the grantor does, DEC-132
+// item 3) and sees no field of a member's data: the table shows who, which kind, from when and where the approvals
+// stand. A decline asks first, in place, under the table.
 
 export function NetworkGrants() {
   return (
@@ -24,10 +26,33 @@ export function NetworkGrants() {
   );
 }
 
+type Filter = 'mine' | 'organisation' | 'approved' | 'declined';
+const FILTERS: readonly (readonly [Filter, string])[] = [
+  ['mine', 'Waiting for me'],
+  ['organisation', 'Waiting for the organisation'],
+  ['approved', 'Approved'],
+  ['declined', 'Declined'],
+];
+const HOLDS: Readonly<Record<Filter, (grant: GrantRow) => boolean>> = {
+  mine: (grant) => waitsForOwner(grant),
+  organisation: (grant) => grant.status === 'owner-approved',
+  approved: (grant) => grant.status === 'approved',
+  declined: (grant) => grant.status === 'declined',
+};
+
+/** The shape and word of where a grant's approvals stand (the word is the approval, the shape is decoration). */
+function approvalTag(grant: GrantRow): StatusTagVariant {
+  if (waitsForOwner(grant)) return 'waiting';
+  if (grant.status === 'owner-approved') return 'todo';
+  if (grant.status === 'approved') return 'done';
+  return 'closed';
+}
+
 function Grants({ query }: { query: string }) {
   const { state, reload } = useAdminRead<GrantsRead>(`${BASE}/grants${query}`);
   const { notice, say } = useNotice();
   const [busy, setBusy] = useState<string | null>(null);
+  const [filter, setFilter] = useState<Filter>('mine');
   const [declining, setDeclining] = useState<GrantRow | null>(null);
 
   async function approve(grant: GrantRow) {
@@ -45,7 +70,13 @@ function Grants({ query }: { query: string }) {
     }
   }
 
-  if (state.status === 'loading') return <p className={styles.muted}>Loading the grants.</p>;
+  if (state.status === 'loading') {
+    return (
+      <Loading label="Loading the grants.">
+        <SkeletonRows count={3} />
+      </Loading>
+    );
+  }
   if (state.status === 'failed') {
     return (
       <p role="alert" className={styles.problem}>
@@ -53,6 +84,8 @@ function Grants({ query }: { query: string }) {
       </p>
     );
   }
+  const grants = state.data.grants;
+  const shown = grants.filter(HOLDS[filter]);
   return (
     <>
       {notice !== null ? (
@@ -60,79 +93,133 @@ function Grants({ query }: { query: string }) {
           {notice.text}
         </p>
       ) : null}
-      <Card heading={state.data.network.name}>
-        <div className={styles.scroll}>
-          <table className={styles.table} data-el="NADM-GRANTS-TABLE">
-            <caption>Grants</caption>
-            <thead>
-              <tr>
-                <th scope="col">Organisation</th>
-                <th scope="col">Scope</th>
-                <th scope="col">Purpose</th>
-                <th scope="col">From</th>
-                <th scope="col">To</th>
-                <th scope="col">Approval</th>
-                <th scope="col">Version</th>
-                <th scope="col">
-                  <span className={styles.srOnly}>Action</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {state.data.grants.length === 0 ? (
-                <tr>
-                  <td colSpan={8}>
-                    Nothing here yet.
-                    <span className={styles.muted}>{' When an organisation agrees to share, it appears here for you to approve.'}</span>
-                  </td>
-                </tr>
-              ) : (
-                state.data.grants.map((grant) => (
-                  <tr key={grant.id} data-row-ref={grant.id}>
-                    <td>{grant.organisation}</td>
-                    <td>{SCOPE_WORD[grant.scope]}</td>
-                    <td>{PURPOSE_WORD}</td>
-                    <td>{dateText(grant.effectiveFrom)}</td>
-                    <td>{grant.effectiveTo === null ? 'No end date' : dateText(grant.effectiveTo)}</td>
-                    <td>{approvalWord(grant)}</td>
-                    <td>{grant.version}</td>
-                    <td>
-                      {waitsForOwner(grant) ? (
-                        <div className={styles.actions}>
-                          <Button variant="primary" busy={busy === grant.id} dataEl="NADM-GRANT-APPROVE-BTN" onClick={() => void approve(grant)}>
-                            Approve<span className={styles.srOnly}>{` ${SCOPE_WORD[grant.scope]} grant of ${grant.organisation}`}</span>
-                          </Button>
-                          <Button variant="neutral" dataEl="NADM-GRANT-DECLINE-BTN" onClick={() => setDeclining(grant)}>
-                            Decline<span className={styles.srOnly}>{` ${SCOPE_WORD[grant.scope]} grant of ${grant.organisation}`}</span>
-                          </Button>
-                        </div>
-                      ) : null}
-                    </td>
+      <div className={styles.columns}>
+        <div className={styles.column}>
+          <div role="group" aria-label="Which grants" className={styles.chips}>
+            {FILTERS.map(([id, label]) => (
+              <Chip key={id} pressed={filter === id} onPressedChange={() => setFilter(id)}>
+                {`${label} ${grants.filter(HOLDS[id]).length}`}
+              </Chip>
+            ))}
+          </div>
+          <section className={styles.card}>
+            <div className={styles.scroll}>
+              <table className={styles.table} data-el="NADM-GRANTS-TABLE">
+                <caption className={styles.srOnly}>Grants</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Organisation</th>
+                    <th scope="col">Scope</th>
+                    <th scope="col">From</th>
+                    <th scope="col">Approval</th>
+                    <th scope="col">
+                      <span className={styles.srOnly}>Action</span>
+                    </th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                </thead>
+                <tbody>
+                  {shown.length === 0 ? (
+                    <tr>
+                      <td colSpan={5}>
+                        Nothing here yet.
+                        <span className={styles.muted}>{' When an organisation agrees to share, it appears here for you to approve.'}</span>
+                      </td>
+                    </tr>
+                  ) : (
+                    shown.map((grant) => (
+                      <tr key={grant.id} data-row-ref={grant.id}>
+                        <td>{grant.organisation}</td>
+                        <td>{SCOPE_WORD[grant.scope]}</td>
+                        <td>{dateText(grant.effectiveFrom)}</td>
+                        <td>
+                          <StatusTag variant={approvalTag(grant)}>{approvalWord(grant)}</StatusTag>
+                        </td>
+                        <td>
+                          {waitsForOwner(grant) ? (
+                            <div className={styles.actions}>
+                              <Button variant="primary" busy={busy === grant.id} dataEl="NADM-GRANT-APPROVE-BTN" onClick={() => void approve(grant)}>
+                                Approve<span className={styles.srOnly}>{` ${SCOPE_WORD[grant.scope]} grant of ${grant.organisation}`}</span>
+                              </Button>
+                              <Button variant="neutral" dataEl="NADM-GRANT-DECLINE-BTN" onClick={() => setDeclining(grant)}>
+                                Decline<span className={styles.srOnly}>{` ${SCOPE_WORD[grant.scope]} grant of ${grant.organisation}`}</span>
+                              </Button>
+                            </div>
+                          ) : grant.status === 'approved' && grant.effectiveTo !== null ? (
+                            `to ${dateText(grant.effectiveTo)}`
+                          ) : null}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            {declining !== null ? (
+              <DeclineConfirm
+                grant={declining}
+                onClose={() => setDeclining(null)}
+                onDeclined={() => {
+                  setDeclining(null);
+                  say(true, 'Grant declined.');
+                  reload();
+                }}
+              />
+            ) : null}
+          </section>
         </div>
-      </Card>
-      {declining !== null ? (
-        <DeclineDialog
-          grant={declining}
-          onClose={() => setDeclining(null)}
-          onDeclined={() => {
-            setDeclining(null);
-            say(true, 'Grant declined.');
-            reload();
-          }}
-        />
-      ) : null}
+        <div className={styles.column}>
+          <section className={styles.card}>
+            <h2 className={styles.eyebrow}>What each scope shares</h2>
+            <ul className={styles.scopes}>
+              <li>
+                <span aria-hidden="true" className={styles.bullet}>
+                  ●
+                </span>
+                <div>
+                  <b>Capacity</b>Status and figure of each listed service, with the time reported.
+                </div>
+              </li>
+              <li>
+                <span aria-hidden="true" className={styles.bullet}>
+                  ●
+                </span>
+                <div>
+                  <b>Directory</b>Service name, category, district, opening hours and service line.
+                </div>
+              </li>
+              <li>
+                <span aria-hidden="true" className={styles.bullet}>
+                  ●
+                </span>
+                <div>
+                  <b>Criteria</b>The current version only: what is accepted, not accepted, ages, districts.
+                </div>
+              </li>
+            </ul>
+          </section>
+          <section className={styles.never}>
+            <h2 className={styles.eyebrowDark}>Never shared</h2>
+            <p className={styles.neverText}>
+              {`Anything about a patient or a person: cases, bookings, reporters’ numbers, comments, audit. Each grant is for one purpose, "${PURPOSE_WORD}", and has dates.`}
+            </p>
+          </section>
+          <p className={styles.note}>Approving or declining is recorded with the date in History.</p>
+        </div>
+      </div>
     </>
   );
 }
 
-function DeclineDialog({ grant, onClose, onDeclined }: { grant: GrantRow; onClose: () => void; onDeclined: () => void }) {
+function DeclineConfirm({ grant, onClose, onDeclined }: { grant: GrantRow; onClose: () => void; onDeclined: () => void }) {
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const question = useRef<HTMLHeadingElement>(null);
+  const questionId = useId();
+
+  // The question is the first thing a keyboard or screen reader user needs when it opens.
+  useEffect(() => {
+    question.current?.focus();
+  }, []);
 
   async function decline() {
     if (busy) return;
@@ -145,21 +232,27 @@ function DeclineDialog({ grant, onClose, onDeclined }: { grant: GrantRow; onClos
   }
 
   return (
-    <Dialog title="Decline this grant?" sub={`${SCOPE_WORD[grant.scope]} for ${grant.organisation}`} onClose={onClose}>
-      <p className={styles.text}>A declined grant is closed. The organisation can propose a new one.</p>
+    <section aria-labelledby={questionId} className={styles.confirm}>
+      <h2 id={questionId} ref={question} tabIndex={-1} className={styles.confirmTitle}>
+        Decline this grant?
+      </h2>
+      <p className={styles.text}>
+        <b>{`${SCOPE_WORD[grant.scope]} grant of ${grant.organisation}`}</b>
+      </p>
+      <p className={styles.text}>{`${grant.organisation} will not appear on the network board until a grant is approved.`}</p>
       {problem !== null ? (
         <p role="alert" className={styles.problem}>
           {problem}
         </p>
       ) : null}
       <div className={styles.actions}>
-        <Button variant="primary" busy={busy} dataEl="NADM-GRANT-DECLINE-CONFIRM-BTN" onClick={() => void decline()}>
+        <Button variant="secondary" busy={busy} dataEl="NADM-GRANT-DECLINE-CONFIRM-BTN" onClick={() => void decline()}>
           Decline
         </Button>
         <Button variant="neutral" onClick={onClose} dataEl="SCREENS-BOARD-CANCEL-BTN">
           Cancel
         </Button>
       </div>
-    </Dialog>
+    </section>
   );
 }

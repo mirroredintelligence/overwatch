@@ -1,0 +1,162 @@
+/* The network's history (board NAdminHistory): one dated list of decisions, filtered by kind. Each row is a date, a
+   mark and the decision; below 40rem the mark and the date share a line and the decision sits under them, so the
+   page never scrolls sideways at 320px. */
+
+.page {
+  box-sizing: border-box;
+  display: grid;
+  align-content: start;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  min-width: 0;
+}
+
+@media (min-width: 900px) {
+  .page {
+    padding: var(--space-5) var(--space-6);
+  }
+}
+
+.title {
+  margin: 0;
+  font-size: var(--type-heading-size);
+  line-height: var(--type-heading-lh);
+  font-weight: var(--type-heading-weight);
+  letter-spacing: var(--type-heading-tracking);
+  text-wrap: balance;
+}
+
+.text {
+  margin: 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  color: var(--c-ink-2);
+}
+
+.muted {
+  display: block;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-muted);
+}
+
+.note {
+  margin: 0;
+  padding: 0 var(--space-1);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-muted);
+}
+
+.problem {
+  margin: 0;
+  font-weight: 700;
+  color: var(--c-limited);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.card {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: var(--space-2) var(--space-5);
+  border-radius: var(--radius-card);
+  background: #fff;
+  color: var(--c-ink);
+  box-shadow: var(--shadow-card);
+}
+
+.empty {
+  margin: 0;
+  padding: var(--space-4) 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 4px var(--space-3);
+  align-items: start;
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--c-line);
+}
+
+.item:first-child {
+  border-top: 0;
+}
+
+.date {
+  grid-column: 2;
+  grid-row: 1;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  font-weight: 700;
+  color: var(--c-ink-2);
+}
+
+.dot {
+  grid-column: 1;
+  grid-row: 1;
+  width: 12px;
+  height: 12px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--c-primary);
+}
+
+/* A decision that closed something: a hollow mark, so the kind is shape as well as the word. */
+.closed {
+  box-sizing: border-box;
+  border: 3px solid var(--c-closed);
+  background: #fff;
+}
+
+.what {
+  grid-column: 2;
+  grid-row: 2;
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+}
+
+.what b {
+  font-size: var(--type-body-size);
+}
+
+.what small {
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-muted);
+}
+
+@media (min-width: 40rem) {
+  .item {
+    grid-template-columns: 130px 18px minmax(0, 1fr);
+  }
+
+  .date {
+    grid-column: 1;
+  }
+
+  .dot {
+    grid-column: 2;
+  }
+
+  .what {
+    grid-column: 3;
+    grid-row: 1;
+  }
+}

@@ -27,6 +27,14 @@ describe('NotSuitableList (W13)', () => {
     expect(screen.getByRole('button', { name: '1 service not suitable, and why' })).toBeInTheDocument();
   });
 
+  it('marks the disclosure chevron as decorative, so the words carry the open and closed state', () => {
+    const { container } = render(<NotSuitableList items={OPTIONS_VIEW.notSuitable} />);
+    const chevron = container.querySelector('button svg');
+
+    expect(chevron).not.toBeNull();
+    expect(chevron).toHaveAttribute('aria-hidden', 'true');
+  });
+
   it('has no axe violations when open', async () => {
     const user = userEvent.setup();
     const { container } = render(<NotSuitableList items={OPTIONS_VIEW.notSuitable} />);

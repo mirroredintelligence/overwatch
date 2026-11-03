@@ -1,0 +1,237 @@
+/* The booking request page (artboard B4, shared states St): a card stack in the link frame or the app, phone
+   first. Every colour is a token. The primary is 58px, the others 54px, all above the 44px floor. */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 20px;
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  color: var(--c-ink);
+}
+
+.cardTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.label {
+  margin: 0;
+  color: var(--c-muted);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.heading {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.1;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.question {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1.15;
+  font-weight: 700;
+}
+
+.heading:focus-visible,
+.question:focus-visible {
+  outline: var(--focus);
+  outline-offset: 4px;
+}
+
+.subhead {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.summary {
+  margin: 0;
+  color: var(--c-ink-2);
+  font-size: 18px;
+}
+
+.hint {
+  margin: 0;
+  color: var(--c-muted);
+  font-size: 16px;
+}
+
+.body {
+  margin: 0;
+  color: var(--c-ink-2);
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+.bodySmall {
+  margin: 0;
+  color: var(--c-muted);
+  font-size: 17px;
+  line-height: 1.4;
+}
+
+.phone {
+  color: var(--c-primary);
+  font-weight: 700;
+}
+
+.only {
+  padding: 6px var(--space-3);
+  border-radius: var(--radius-chip);
+  background: var(--c-tint);
+  color: var(--c-primary-dark);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.facts {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.fact {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--c-line);
+  font-size: 18px;
+}
+
+.fact dt {
+  color: var(--c-muted);
+}
+
+.fact dd {
+  margin: 0;
+  font-weight: 700;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.cardNote {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--c-line);
+  color: var(--c-muted);
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.note {
+  margin: 2px 4px 0;
+  color: var(--c-muted);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.noteLarge {
+  margin: 0 4px;
+  color: var(--c-muted);
+  font-size: 16px;
+}
+
+/* Buttons */
+.btn {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 0 var(--space-4);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform var(--dur-press) var(--ease-out);
+}
+
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.btn:focus-visible {
+  outline: var(--focus);
+  outline-offset: 3px;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+}
+
+.btn[aria-busy='true'] {
+  opacity: 0.7;
+}
+
+.primary {
+  min-height: 58px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--c-primary);
+  color: #fff;
+  font-size: 19px;
+  box-shadow: 0 6px 16px rgb(11 92 140 / 0.28);
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--c-primary-dark);
+}
+
+.outline,
+.outlineDark,
+.dark {
+  min-height: 54px;
+  border-radius: 14px;
+  font-size: 18px;
+}
+
+.outline {
+  border: 2px solid var(--c-primary);
+  background: #fff;
+  color: var(--c-primary);
+}
+
+.outlineDark {
+  border: 2px solid var(--c-ink-2);
+  background: #fff;
+  color: var(--c-ink);
+}
+
+.dark {
+  border: 2px solid var(--c-ink);
+  background: var(--c-ink);
+  color: #fff;
+}
+
+.outline:hover:not(:disabled),
+.outlineDark:hover:not(:disabled) {
+  background: var(--c-bg);
+}
+
+.dark:hover:not(:disabled) {
+  background: var(--c-ink-2);
+}

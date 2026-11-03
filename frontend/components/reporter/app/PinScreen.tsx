@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { PinPad } from '@/components/reporter/PinPad';
 import { Banner } from '@/components/ui/Banner';
 import { bffRequest } from '@/lib/reporter/browser';
-import styles from '@/components/reporter/Reporter.module.css';
+import styles from './PinScreen.module.css';
 
 // Sign in with the PIN (W35). Wrong tries are counted by the back end; this screen says how many
 // are left and moves on when the back end says the PIN is locked or a text code is needed.
@@ -36,18 +36,22 @@ export function PinScreen() {
   return (
     <main className={styles.page}>
       <h1 className={styles.title}>Enter your PIN</h1>
-      {notice !== null ? <Banner tone="warning" title={notice} /> : null}
-      <PinPad label="Enter your PIN" onComplete={(pin) => void submit(pin)} dataEl="REP-APP" />
-      {busy ? <p role="status">Checking your PIN</p> : null}
-      <p className={styles.footer}>
+      {notice !== null ? (
+        <div className={styles.notice}>
+          <Banner tone="warning" title={notice} />
+        </div>
+      ) : null}
+      <PinPad label="Enter your PIN" showLabel={false} onComplete={(pin) => void submit(pin)} dataEl="REP-APP" />
+      {busy ? (
+        <p role="status" className={styles.checking}>
+          Checking your PIN
+        </p>
+      ) : null}
+      <div role="group" aria-label="Other ways to sign in" className={styles.more}>
         <a href="/app/locked?reason=forgot">Forgot your PIN?</a>
-      </p>
-      <p className={styles.footer}>
         <a href="/app/lost-phone">Lost your phone?</a>
-      </p>
-      <p className={styles.footer}>
         <a href="/sign-in?next=/planning">Sign in with your organisation account</a>
-      </p>
+      </div>
     </main>
   );
 }

@@ -1,0 +1,60 @@
+/* Enter the PIN (artboard B6, frame 1): a centred column on the page ground, the heading, the dots and
+   keys of the PinPad, then the ways out as plain underlined links. The top bar is the frame's; the tab bar
+   is left out on this route by the frame. */
+
+.page {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  max-width: 32rem;
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-4);
+  color: var(--c-ink);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--type-heading-size);
+  line-height: var(--type-heading-lh);
+  font-weight: var(--type-heading-weight);
+  letter-spacing: var(--type-heading-tracking);
+  text-align: center;
+}
+
+.notice {
+  width: 100%;
+}
+
+.checking {
+  margin: 0;
+  color: var(--c-muted);
+  text-align: center;
+}
+
+.more {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.more a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  color: var(--c-ink-2);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.more a:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-chip);
+}

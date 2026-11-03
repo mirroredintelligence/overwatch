@@ -1,55 +1,55 @@
-/* The wall's offline banner. Large, with a heavy border, a shape and words, so it
-   is seen across a room without relying on colour. */
+/* The offline banner (artboard BoardDown): the amber tint, a 2px limited border, a filled "!" mark and words, so
+   it is seen across a room without relying on colour. The dark brown ink has no token, so it is declared here. */
 .banner {
+  --banner-offline-ink: #4A2300;
+
   box-sizing: border-box;
   display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-4) var(--space-5);
-  border: 4px dashed var(--c-ink);
-  border-left-style: solid;
-  border-left-width: 12px;
-  border-radius: var(--radius-card);
-  background: Canvas;
-  color: var(--c-ink);
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-5);
+  border: 2px solid var(--c-limited);
+  border-radius: 18px;
+  background: var(--c-amber-tint);
+  color: var(--banner-offline-ink);
 }
 
-.head {
+.mark {
+  flex: none;
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-}
-
-.icon {
-  flex: none;
-  display: inline-flex;
-  width: 3rem;
-  height: 3rem;
-}
-
-/* The shape is drawn by the status badge's icon, which sizes itself to the text; fill the box instead. */
-.icon > svg {
-  width: 100%;
-  height: 100%;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--c-limited);
+  color: Canvas;
+  font-size: var(--type-title-size);
+  font-weight: 700;
 }
 
 .title {
-  margin: 0;
-  font-size: var(--type-display-size);
-  line-height: var(--type-display-lh);
-  font-weight: var(--type-display-weight);
-}
-
-.body {
   margin: 0;
   font-size: var(--type-title-size);
   line-height: var(--type-title-lh);
   font-weight: 700;
 }
 
+.body {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: 1.35;
+}
+
 .refreshed {
   margin: 0;
   color: var(--c-ink-2);
-  font-size: var(--type-title-size);
-  line-height: var(--type-title-lh);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+}
+
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }

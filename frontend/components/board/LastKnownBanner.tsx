@@ -1,4 +1,3 @@
-import { ShapeIcon } from '@/components/ui/StatusBadge';
 import { dataAgeText, londonTime } from '@/lib/board/format';
 import type { Assessment } from '@/lib/board/liveness';
 import styles from './LastKnownBanner.module.css';
@@ -13,15 +12,15 @@ export function LastKnownBanner({ lastKnown }: { lastKnown: LastKnown }) {
   return (
     <div className={styles.wrap}>
       <div role="alert" className={styles.banner} data-el="WALL-OFFLINE-BANNER">
-        <div className={styles.head}>
-          <span className={styles.icon}>
-            <ShapeIcon shape="dashed-circle" />
-          </span>
+        <span className={styles.mark} aria-hidden="true">
+          !
+        </span>
+        <div>
           <p className={styles.title}>{`Tool offline since ${londonTime(lastKnown.since)}`}</p>
+          <p className={styles.body}>
+            Figures are the last known and may be wrong. Use the whiteboard and phone process.
+          </p>
         </div>
-        <p className={styles.body}>
-          Figures are the last known and may be wrong. Use the whiteboard and phone process.
-        </p>
       </div>
       <p className={styles.refreshed} data-el="WALL-LAST-REFRESH">
         {`Board last refreshed ${londonTime(lastKnown.asOf)} · ${dataAgeText(lastKnown.asOf, lastKnown.now)}`}

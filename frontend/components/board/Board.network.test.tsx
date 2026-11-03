@@ -27,6 +27,12 @@ describe('Board: network mode', () => {
     expect(document.body.textContent).not.toContain('Dorset Capacity A');
   });
 
+  it('keeps the network’s name as its heading in the advisor view too, never "Board right now" over another board', () => {
+    render(<Board board={BOARD_A} scope={NETWORK} view="advisor" />);
+    expect(screen.getByRole('heading', { level: 1, name: 'West Dorset system capacity' })).toBeInTheDocument();
+    expect(screen.queryByText('Board right now')).toBeNull();
+  });
+
   it('has no sorting line in its footer, and still says no patient information is on the screen', () => {
     render(<Board board={BOARD_A} scope={NETWORK} />);
     expect(document.body.textContent).not.toMatch(/Sorted by|Not ranked/);

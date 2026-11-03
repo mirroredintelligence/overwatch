@@ -73,6 +73,17 @@ describe('LastKnownBanner', () => {
     expect(screen.getByText(/Board last refreshed/)).toHaveTextContent('14:02');
   });
 
+  it('carries a "!" mark in a circle that is not read out, so the alert says only its words', () => {
+    render(<LastKnownBanner lastKnown={lastKnown()} />);
+    const mark = screen.getByText('!');
+
+    expect(mark).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getByRole('alert')).toContainElement(mark);
+    expect(screen.getByRole('alert').textContent?.replace('!', '')).toBe(
+      'Tool offline since 14:02Figures are the last known and may be wrong. Use the whiteboard and phone process.',
+    );
+  });
+
   it('has a stable element id for tests and has no axe violations', async () => {
     const { container } = render(<LastKnownBanner lastKnown={lastKnown()} />);
 

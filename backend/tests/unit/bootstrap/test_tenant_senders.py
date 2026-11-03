@@ -374,7 +374,10 @@ def test_the_status_callback_is_the_inbound_webhook_of_this_deployment() -> None
         status_callback_url(Settings(base_url="https://overwatch.mirroredintelligence.com/"))
         == STATUS_URL
     )
-    assert status_callback_url(Settings(base_url="https://overwatch.example")) == STATUS_URL
+    assert (
+        status_callback_url(Settings(base_url="https://overwatch.example"))
+        == "https://overwatch.example/webhooks/sms/twilio/status"
+    )
 
 
 # Email through Twilio's own Email API: the tenant's own subaccount, the same credentials as its

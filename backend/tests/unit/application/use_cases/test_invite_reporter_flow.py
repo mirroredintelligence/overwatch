@@ -175,8 +175,8 @@ async def test_the_text_i1_carries_a_link_that_resolves_to_the_invitation_and_th
     assert text.startswith("Overwatch: You are invited to report capacity for UCR West. ")
     assert text.endswith(" Valid for 48 hrs.")
     link = text.split("Set up takes about 3 minutes: ")[1].split(" Valid")[0]
-    assert link.startswith("https://overwatch.mirroredintelligence.com/i/")
-    token = link.removeprefix("https://overwatch.mirroredintelligence.com/i/")
+    assert link.startswith("https://overwatch.example/i/")
+    token = link.removeprefix("https://overwatch.example/i/")
     record = await LinkTokenService(world.units.link_tokens, SECRETS, world.clock).resolve(token)
     assert record is not None
     assert record.purpose == "invite"
@@ -207,7 +207,7 @@ async def test_the_stored_copy_of_the_text_holds_no_token() -> None:
 
     communication = world.units.communications.sent[0]
     assert communication.message_id == "I1"
-    assert "https://overwatch.mirroredintelligence.com/i/[link]" in communication.payload_text
+    assert "https://overwatch.example/i/[link]" in communication.payload_text
     token = world.units.outbox.messages[0].payload["text"].split("/i/")[1].split(" ")[0]
     assert token not in communication.payload_text
     assert communication.recipient_role_id in world.units.people.roles

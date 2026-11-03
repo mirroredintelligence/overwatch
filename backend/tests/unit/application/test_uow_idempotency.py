@@ -73,7 +73,7 @@ def test_there_is_one_class_of_that_name_in_the_source() -> None:
     for path in sorted(PACKAGE_ROOT.rglob("*.py")):
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             if isinstance(node, ast.ClassDef) and node.name.lstrip("_") == "UnitOfWorkIdempotency":
-                found.append(str(path.relative_to(PACKAGE_ROOT)))
+                found.append(path.relative_to(PACKAGE_ROOT).as_posix())
 
     assert found == ["application/uow_idempotency.py"]
 

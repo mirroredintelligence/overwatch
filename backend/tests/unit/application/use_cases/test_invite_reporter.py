@@ -139,7 +139,7 @@ def test_a_naive_send_time_is_refused() -> None:
 def test_the_link_is_the_tenant_host_the_invitation_path_and_the_token() -> None:
     assert (
         invitation_link("https://overwatch.example", "abc123")
-        == "https://overwatch.mirroredintelligence.com/i/abc123"
+        == "https://overwatch.example/i/abc123"
     )
 
 
@@ -153,7 +153,7 @@ def test_a_trailing_slash_on_the_host_makes_no_difference() -> None:
 def test_the_stored_copy_of_the_link_holds_no_token() -> None:
     assert (
         redacted_invitation_link("https://overwatch.example")
-        == "https://overwatch.mirroredintelligence.com/i/[link]"
+        == "https://overwatch.example/i/[link]"
     )
 
 

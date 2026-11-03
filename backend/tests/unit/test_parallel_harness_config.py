@@ -15,7 +15,7 @@ import pytest
 
 BACKEND = Path(__file__).resolve().parents[2]
 REPO = BACKEND.parent
-SKILL = REPO / ".claude" / "skills" / "overwatch-delivery"
+SKILL = REPO / ".claude" / "skills" / "diucs-delivery"
 LOCK_NAME = "overwatch-neo4j-tests.lock"
 
 # Files an agent reads as instructions. The ledger, the evidence files and decisions.md are

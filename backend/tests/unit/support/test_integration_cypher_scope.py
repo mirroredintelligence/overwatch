@@ -92,7 +92,7 @@ def _modules() -> list[Path]:
         *sorted((TESTS / "integration").rglob("*.py")),
         *sorted((TESTS / "support").glob("*.py")),
     ]
-    return [path for path in paths if str(path.relative_to(TESTS)) not in EXEMPT]
+    return [path for path in paths if path.relative_to(TESTS).as_posix() not in EXEMPT]
 
 
 def test_the_guard_sees_an_unscoped_statement_and_a_scoped_one() -> None:
@@ -132,9 +132,9 @@ def test_no_integration_module_binds_a_fixed_tenant_id(name: str) -> None:
     offenders = []
     for module in _modules():
         tree = ast.parse(module.read_text(encoding="utf-8"))
-        if _is_private(tree) or str(module.relative_to(TESTS)) in NO_DATABASE:
+        if _is_private(tree) or module.relative_to(TESTS).as_posix() in NO_DATABASE:
             continue
         if pattern.search(module.read_text(encoding="utf-8")):
-            offenders.append(str(module.relative_to(TESTS)))
+            offenders.append(module.relative_to(TESTS).as_posix())
 
     assert offenders == [], f"modules that bind the fixed tenant {name!r}: {offenders}"

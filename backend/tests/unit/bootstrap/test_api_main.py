@@ -117,7 +117,7 @@ def test_preparing_the_process_with_a_missing_secret_stops_before_anything_is_bu
 
 def test_the_production_profile_refuses_the_placeholder_public_url() -> None:
     with pytest.raises(ApiConfigError, match="OVERWATCH_BASE_URL"):
-        check_settings(Settings(profile="production"))
+        check_settings(Settings(profile="production", base_url="https://overwatch.example"))
 
 
 def test_the_production_profile_refuses_a_public_url_that_is_not_https() -> None:

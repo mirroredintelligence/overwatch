@@ -1,0 +1,55 @@
+/* The banner row above the tiles (artboards BoardSurge and BoardQuiet): a shape, a title and a line of words.
+   The tint, the shape and the title all say it; none of them carries it alone. The purple tint and its ink
+   have no token, so they are declared once here for the contrast test to read. */
+.banner {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-5);
+  border-radius: 18px;
+}
+
+.pressure {
+  --banner-pressure-bg: #F1E8F7;
+  --banner-pressure-ink: #3B1558;
+
+  background: var(--banner-pressure-bg);
+  color: var(--banner-pressure-ink);
+}
+
+.quiet {
+  background: var(--c-tint);
+  color: var(--c-primary-dark);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: 700;
+}
+
+.text {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: 1.35;
+}
+
+.quiet .text {
+  color: var(--c-ink);
+}
+
+.pressureShape {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  background: var(--c-surge);
+  clip-path: polygon(50% 4%, 100% 96%, 0 96%);
+}
+
+.quietShape {
+  flex: none;
+  width: 30px;
+  height: 30px;
+}

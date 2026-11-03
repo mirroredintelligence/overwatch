@@ -120,6 +120,62 @@ describe('Board layout', () => {
   });
 });
 
+describe('Board: the advisor view and its banners (BoardNormal, BoardSurge, BoardQuiet, BoardDown, PBoard)', () => {
+  const banners = css('PressureBanner.module.css');
+  const offline = css('LastKnownBanner.module.css');
+  const bannerColours = new Map<string, string>();
+  for (const m of (banners + offline).matchAll(/(--banner-[\w-]+)\s*:\s*(#[0-9a-fA-F]{6})\s*;/g)) bannerColours.set(m[1], m[2]);
+  const banner = (name: string) => bannerColours.get(name) ?? '';
+  const phone = /@media\s*\(max-width:\s*759px\)\s*\{([\s\S]*?)\n\}/.exec(board)?.[1] ?? '';
+
+  it('sits in the frame without a page of its own: no full height, no ground, no padding', () => {
+    expect(rule(board, '.advisor')).toMatch(/min-height:\s*0/);
+    expect(rule(board, '.advisor')).toMatch(/background:\s*transparent/);
+    expect(rule(board, '.advisor')).toMatch(/padding:\s*0/);
+  });
+
+  it('puts the heading and the one primary action on a row, the action at least 56px tall', () => {
+    expect(rule(board, '.heading')).toMatch(/justify-content:\s*space-between/);
+    expect(rule(board, '.action')).toMatch(/flex:\s*none/);
+    expect(rule(board, '.action > \\*')).toMatch(/min-height:\s*56px/);
+  });
+
+  it('on a phone the primary action is sticky at the bottom, full width and 58px tall', () => {
+    expect(rule(phone, '.action')).toMatch(/position:\s*sticky/);
+    expect(rule(phone, '.action')).toMatch(/bottom:/);
+    expect(rule(phone, '.action > \\*')).toMatch(/min-height:\s*58px/);
+    expect(rule(phone, '.action > \\*')).toMatch(/width:\s*100%/);
+  });
+
+  it('the pressure banner is purple, with a triangle: the surge tint, 4.5:1 for its words and 3:1 for its shape', () => {
+    expect(banner('--banner-pressure-bg').toUpperCase()).toBe('#F1E8F7');
+    expect(contrastRatio(banner('--banner-pressure-ink'), banner('--banner-pressure-bg'))).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(colour('--c-surge'), banner('--banner-pressure-bg'))).toBeGreaterThanOrEqual(3);
+    expect(rule(banners, '.pressureShape')).toMatch(/clip-path:\s*polygon\(/);
+  });
+
+  it('the quiet banner is the primary tint, with the primary dark title and ink words at 4.5:1', () => {
+    expect(rule(banners, '.quiet')).toMatch(/background:\s*var\(--c-tint\)/);
+    expect(contrastRatio(colour('--c-primary-dark'), colour('--c-tint'))).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(colour('--c-ink'), colour('--c-tint'))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('the offline banner is the amber tint with a 2px limited border and a filled "!" mark at 4.5:1', () => {
+    expect(rule(offline, '.banner')).toMatch(/background:\s*var\(--c-amber-tint\)/);
+    expect(rule(offline, '.banner')).toMatch(/border:\s*2px solid var\(--c-limited\)/);
+    expect(contrastRatio(banner('--banner-offline-ink'), colour('--c-amber-tint'))).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(WHITE, colour('--c-limited'))).toBeGreaterThanOrEqual(4.5);
+    expect(rule(offline, '.mark')).toMatch(/border-radius:\s*50%/);
+  });
+
+  it('the banners and the loading placeholders have no animation or transition of their own, and no text under 16px', () => {
+    expect(board + banners + offline).not.toMatch(/\b(animation|transition)\s*:/);
+    for (const m of (board + banners + offline).matchAll(/font-size:\s*([\d.]+)(rem|px)/g)) {
+      expect(m[2] === 'rem' ? Number(m[1]) * 16 : Number(m[1])).toBeGreaterThanOrEqual(16);
+    }
+  });
+});
+
 describe('StatusChip (BoardNormal, BoardQuiet, BoardDown)', () => {
   it('the four current states are filled pills with white text; not updated is a white pill with a dashed border', () => {
     expect(rule(chip, '.accepting')).toMatch(/background:\s*var\(--c-primary\)/);

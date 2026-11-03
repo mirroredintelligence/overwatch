@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { runAxe } from '@/test/a11y';
 import { BOARD_A, BOARD_QUIET, BOARD_SURGE, MAIN_ENTRIES, QUIET_ENTRIES, SURGE_ENTRIES } from '@/test/fixtures/board';
-import { Board } from './Board';
+import { Board, BoardLoading } from './Board';
 
 function tiles(container: HTMLElement): HTMLElement[] {
   return Array.from(container.querySelectorAll<HTMLElement>('[data-el="WALL-TILE"]'));
@@ -326,5 +326,117 @@ describe('Board: the variant tiles together (W07)', () => {
       expect(container.textContent).not.toContain('Neighbouring');
       unmount();
     }
+  });
+});
+
+describe('Board: the advisor view (BoardNormal, BoardDown)', () => {
+  const lastKnown = {
+    mode: 'last-known' as const,
+    reason: 'offline' as const,
+    since: '2026-10-23T13:02:00Z',
+    asOf: '2026-10-23T13:02:00Z',
+    now: '2026-10-23T13:12:00Z',
+    ageMs: 600_000,
+  };
+  const START = <button type="button">Start a new call</button>;
+
+  it('is headed "Board right now", with the time, the date and the words that it is the wall board', () => {
+    const { container } = render(<Board board={BOARD_A} view="advisor" action={START} />);
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Board right now' })).toBeInTheDocument();
+    const line = container.querySelector('[data-el="BOARD-SUBLINE"]');
+    expect(line).toHaveTextContent('14:12 · Friday 23 October · the same board as the wall');
+    expect(line?.querySelector('time')).toHaveAttribute('datetime', '2026-10-23T13:12:00Z');
+    expect(container.textContent).not.toContain('Dorset urgent care capacity');
+  });
+
+  it('puts the one primary action in the header, before the tiles', () => {
+    render(<Board board={BOARD_A} view="advisor" action={START} />);
+    const button = screen.getByRole('button', { name: 'Start a new call' });
+
+    expect(screen.getAllByRole('button')).toHaveLength(1);
+    expect(button.compareDocumentPosition(screen.getByRole('list', { name: 'Services' }))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  it('draws no action unless it is given one, and keeps the wall heading in the wall view', () => {
+    render(<Board board={BOARD_A} />);
+
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.getByRole('heading', { level: 1, name: 'Dorset urgent care capacity' })).toBeInTheDocument();
+  });
+
+  it('is headed "Board: last known" while last known, says which time it is and when the figures stop, and offers no new call', () => {
+    const { container } = render(
+      <Board board={BOARD_A} view="advisor" action={START} lastKnown={{ ...lastKnown, now: '2026-10-23T13:30:00Z' }} />,
+    );
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Board: last known' })).toBeInTheDocument();
+    expect(container.querySelector('[data-el="BOARD-SUBLINE"]')).toHaveTextContent(
+      '14:30 on this screen · figures are from before 14:02',
+    );
+    expect(screen.queryByRole('button', { name: 'Start a new call' })).toBeNull();
+    expect(screen.getByRole('alert')).toHaveTextContent('Tool offline since 14:02');
+  });
+
+  it('keeps the key and the no-patient-information line, and has no axe violations', async () => {
+    const { container } = render(<Board board={BOARD_A} view="advisor" action={START} />);
+
+    expect(screen.getByRole('list', { name: 'Status key' })).toBeInTheDocument();
+    expect(screen.getByText('No patient information on this screen')).toBeInTheDocument();
+    expect(tiles(container)).toHaveLength(9);
+    expect(await runAxe(container)).toHaveNoViolations();
+  });
+
+  it('has no axe violations on the surge, quiet and last known boards', async () => {
+    for (const props of [{ board: BOARD_SURGE }, { board: BOARD_QUIET }, { board: BOARD_A, lastKnown }]) {
+      const { container, unmount } = render(<Board {...props} view="advisor" action={START} />);
+      expect(tiles(container)).toHaveLength(9);
+      expect(await runAxe(container)).toHaveNoViolations();
+      unmount();
+    }
+  });
+});
+
+describe('Board: the quiet banner (BoardQuiet)', () => {
+  it('says "Quiet overnight", how many services are out of hours until when, and how many take referrals, above the grid', () => {
+    const { container } = render(<Board board={BOARD_QUIET} />);
+    const banner = container.querySelector('[data-el="WALL-QUIET-BANNER"]');
+
+    expect(banner).toHaveTextContent('Quiet overnight');
+    expect(banner).toHaveTextContent('6 of 9 services are out of hours until 08:00, so they are not counted. 3 take referrals now.');
+    expect(banner?.compareDocumentPosition(screen.getByRole('list', { name: 'Services' }))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  it('is not shown on the normal board, and not while the figures are last known', () => {
+    const lastKnown = {
+      mode: 'last-known' as const,
+      reason: 'offline' as const,
+      since: '2026-10-24T01:30:00Z',
+      asOf: '2026-10-24T01:30:00Z',
+      now: '2026-10-24T01:40:00Z',
+      ageMs: 600_000,
+    };
+    expect(render(<Board board={BOARD_A} />).container.querySelector('[data-el="WALL-QUIET-BANNER"]')).toBeNull();
+    const down = render(<Board board={BOARD_QUIET} lastKnown={lastKnown} />);
+    expect(down.container.querySelector('[data-el="WALL-QUIET-BANNER"]')).toBeNull();
+  });
+});
+
+describe('BoardLoading (BoardLoading)', () => {
+  it('is a busy page headed "Board right now", with one polite "Loading the board." and nine tile-shaped placeholders', () => {
+    const { container } = render(<BoardLoading />);
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Board right now' })).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Loading the board.');
+    expect(container.querySelector('main')).toHaveAttribute('aria-busy', 'true');
+    expect(container.querySelectorAll('[data-el="BOARD-LOADING-TILE"]')).toHaveLength(9);
+  });
+
+  it('shows no figure and no status word, and has no axe violations', async () => {
+    const { container } = render(<BoardLoading />);
+
+    expect(container.querySelector('[data-el="WALL-TILE"]')).toBeNull();
+    expect(container.textContent).not.toMatch(/Accepting|Limited|Not accepting|Over capacity/);
+    expect(await runAxe(container)).toHaveNoViolations();
   });
 });

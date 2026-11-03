@@ -22,6 +22,16 @@ describe('the wall board’s scope header', () => {
   });
 });
 
+describe('the advisor view’s scope header', () => {
+  it('keeps saying which board it is (the switch itself appears once the networks are read), and ignores the tenant heading', () => {
+    render(<Board board={BOARD_A} view="advisor" heading="Dorset Capacity A" ownSwitch={{ ownHref: '/advisor/board', networkHref: '/network/board' }} />);
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Board right now' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Which board you are viewing' })).toHaveTextContent('Showing: Our organisation');
+    expect(document.body.textContent).not.toContain('Dorset Capacity A');
+  });
+});
+
 describe('the heading', () => {
   it('is the tenant’s own heading when the page gives one', () => {
     render(<Board board={BOARD_A} heading="Dorset Capacity A" />);

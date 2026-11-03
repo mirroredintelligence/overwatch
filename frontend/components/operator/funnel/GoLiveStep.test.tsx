@@ -116,7 +116,7 @@ describe('Go live', () => {
     expect(within(card).queryByRole('list', { name: 'Still to do' })).not.toBeInTheDocument();
     expect(within(card).queryByRole('button')).not.toBeInTheDocument();
     const theirs = within(card).getByRole('list', { name: 'Their administrators finish these' });
-    expect(within(theirs).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['Set the area’s districts', 'Accept the network agreement']);
+    expect(within(theirs).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['To doSet the area’s districts', 'To doAccept the network agreement']);
     expect(within(card).getByRole('heading', { name: 'Their administrators finish these after they sign in' })).toBeInTheDocument();
     expect(within(card).getByText('Overwatch will make Go live available when these are done.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /^Go live/ })).toHaveTextContent('Waiting for them');
@@ -153,7 +153,7 @@ describe('Go live', () => {
       'Go live 1 thing left',
     ]);
     const theirs = within(within(card).getByRole('list', { name: 'Their administrators finish these' })).getAllByRole('listitem').map((li) => li.textContent);
-    expect(theirs).toEqual(['Approve their settings', 'Set the support contacts', 'Set how long records are kept', 'Set the names they use for their systems', 'Set the area’s districts', 'Accept the network agreement']);
+    expect(theirs).toEqual(['To doApprove their settings', 'To doSet the support contacts', 'To doSet how long records are kept', 'To doSet the names they use for their systems', 'To doSet the area’s districts', 'To doAccept the network agreement']);
     expect(text).not.toContain('No team has been given anything to do yet');
   });
 
@@ -178,6 +178,24 @@ describe('Go live', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Go live' })).toBeInTheDocument();
     expect(within(step('Go live')).getByText(/This organisation is live since 22 Oct 2026/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Go live' })).not.toBeInTheDocument();
+  });
+
+  it('shows a live organisation in a banner that says who can now sign in', async () => {
+    await open(VIEW_DETAIL_ACTIVE);
+    const banner = within(step('Go live')).getByRole('status');
+    expect(banner).toHaveTextContent(/This organisation is live since 22 Oct 2026/);
+    expect(banner).toHaveTextContent('Staff of every role can sign in at their address.');
+  });
+
+  it('explains when Go live opens, and shows each task of their administrators as a To do tag with its words', async () => {
+    await open({ ...VIEW_DETAIL_PROVISIONING, activation: { ready: false, blockers: ['Retention set for every data class', 'Area districts set'] } }, undefined, 'Go live');
+    const card = step('Go live');
+    expect(within(card).getByText('Their administrators finish these after they sign in. Go live is available when every one is done and the four parts before it are finished.')).toBeInTheDocument();
+    const theirs = await within(card).findByRole('list', { name: 'Their administrators finish these' });
+    const tags =theirs.querySelectorAll('[data-variant="todo"]');
+    expect(tags).toHaveLength(within(theirs).getAllByRole('listitem').length);
+    expect(tags.length).toBeGreaterThan(0);
+    expect(tags[0]).toHaveTextContent('To do');
   });
 
   it('has no axe violations when ready', async () => {

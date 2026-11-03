@@ -23,6 +23,21 @@ async function open(detail: unknown = VIEW_DETAIL_PROVISIONING) {
 }
 const lastWrite = () => seenOperatorWrites[seenOperatorWrites.length - 1];
 
+describe('the Look after it panel', () => {
+  it('is headed Look after it and says the state as a tag with a word: Live, or Suspended', async () => {
+    await open(VIEW_DETAIL_ACTIVE);
+    const live = screen.getByRole('region', { name: 'Look after it' });
+    expect(within(live).getByRole('heading', { name: 'Look after it' })).toBeInTheDocument();
+    expect(live.querySelector('[data-variant="live"]')).toHaveTextContent('Live');
+  });
+
+  it('says Suspended with a paused tag for a suspended organisation', async () => {
+    await open(VIEW_DETAIL_SUSPENDED);
+    const panel = screen.getByRole('region', { name: 'Look after it' });
+    expect(panel.querySelector('[data-variant="paused"]')).toHaveTextContent('Suspended');
+  });
+});
+
 describe('suspending, resuming and starting to close', () => {
   it('suspends a live organisation with a mode and a reason, after a dialog that says what each mode does', async () => {
     const user = await open(VIEW_DETAIL_ACTIVE);

@@ -7,6 +7,8 @@ import { whenText } from '@/lib/tenantAdmin/words';
 import type { Funnel, FunnelStep, PhaseId } from '@/lib/operator/funnel';
 import styles from '@/components/admin/admin.module.css';
 import ts from '../Tenant.module.css';
+import gl from './GoLive.module.css';
+import { StatusTag } from '@/components/ui/StatusTag';
 import { useStep, type LifecycleProps } from './shared';
 
 // The last step of the Go live page (TEN-083). Going live is asked for in a dialog that says what it does, and sent
@@ -26,10 +28,13 @@ export function GoLiveStep(props: LifecycleProps & { funnel: Funnel; step: Funne
   return (
     <div id="step-golive" className={ts.step} data-el="OP-STEP-GOLIVE" data-state={state}>
       {status !== 'provisioning' ? (
-        <p className={styles.ok}>{`This organisation is live${props.detail.tenant.activatedAt !== null ? ` since ${whenText(props.detail.tenant.activatedAt)}` : ''}.`}</p>
+        <div className={gl.live} role="status">
+          <b>{`This organisation is live${props.detail.tenant.activatedAt !== null ? ` since ${whenText(props.detail.tenant.activatedAt)}` : ''}.`}</b>
+          <span>Staff of every role can sign in at their address.</span>
+        </div>
       ) : funnel.canGoLive ? (
-        <div className={ts.ready}>
-          <p className={ts.text}>Everything is ready. Once it is live, their people can sign in.</p>
+        <div className={gl.ready}>
+          <p className={gl.lede}>Everything is ready. Once it is live, their people can sign in.</p>
           <div className={styles.actions}>
             <Button variant="primary" busy={busy} onClick={() => setAsking(true)} dataEl="OP-ACTIVATE-BTN">
               Go live
@@ -38,14 +43,15 @@ export function GoLiveStep(props: LifecycleProps & { funnel: Funnel; step: Funne
         </div>
       ) : (
         <>
+          <p className={gl.lede}>Their administrators finish these after they sign in. Go live is available when every one is done and the four parts before it are finished.</p>
           {left.length > 0 ? (
-            <>
-              <h3 className={ts.blockTitle}>What is left for you</h3>
-              <ul className={ts.leftList} aria-label="Still to do">
+            <div className={gl.block}>
+              <h3 className={gl.blockTitle}>What is left for you</h3>
+              <ul className={gl.rows} aria-label="Still to do">
                 {left.map((item) => (
-                  <li key={item.phase}>
+                  <li key={item.phase} className={gl.row}>
                     <a
-                      className={ts.leftLink}
+                      className={gl.link}
                       href={`#phase-${item.phase}`}
                       onClick={(event) => {
                         event.preventDefault();
@@ -58,22 +64,25 @@ export function GoLiveStep(props: LifecycleProps & { funnel: Funnel; step: Funne
                   </li>
                 ))}
               </ul>
-            </>
+            </div>
           ) : (
             <p className={styles.ok}>Everything you have to do is done.</p>
           )}
           {funnel.byThem.length > 0 ? (
-            <div className={ts.theirs}>
-              <h3 className={ts.blockTitle}>Their administrators finish these after they sign in</h3>
-              <ul className={ts.theirList} aria-label="Their administrators finish these">
+            <div className={gl.block}>
+              <h3 className={gl.blockTitle}>Their administrators finish these after they sign in</h3>
+              <ul className={gl.rows} aria-label="Their administrators finish these">
                 {funnel.byThem.map((words) => (
-                  <li key={words}>{words}</li>
+                  <li key={words} className={gl.row}>
+                    <StatusTag variant="todo">To do</StatusTag>
+                    <span className={gl.rowText}>{words}</span>
+                  </li>
                 ))}
               </ul>
-              <p className={styles.muted}>Overwatch will make Go live available when these are done.</p>
+              <p className={gl.note}>Overwatch will make Go live available when these are done.</p>
             </div>
           ) : left.length === 0 ? (
-            <p className={styles.muted}>Overwatch will make Go live available when it has checked everything.</p>
+            <p className={gl.note}>Overwatch will make Go live available when it has checked everything.</p>
           ) : null}
         </>
       )}

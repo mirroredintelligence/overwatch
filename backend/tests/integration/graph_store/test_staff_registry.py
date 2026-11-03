@@ -3,8 +3,9 @@
 What is proved, on a graph that holds two tenants' records:
 
 - a sync makes a tenant's records active, and a read by a person's account reference finds them;
-- a sync that no longer finds a person ends their record, and another tenant's record is untouched;
-- a sync that finds the same people again adds no second record (one id per tenant, person and role);
+- a sync that no longer finds a person ends their record, and another tenant's is untouched;
+- a sync that finds the same people again adds no second record (one id per tenant, person,
+  role);
 - a person no tenant lists reads nothing.
 
 Synthetic values only. The fixtures are the registry test's: a private Neo4j for the run.
@@ -24,7 +25,7 @@ from overwatch.domain.model.staff_registry import StaffRoleRecord
 from overwatch.domain.rules.token_exchange import account_ref
 
 # The fixtures of the tenant registry's integration test: one private Neo4j for this module's run.
-from tests.integration.graph_store.test_tenant_registry import connection, harness_driver  # noqa: F401
+from tests.integration.graph_store.test_tenant_registry import connection, harness_driver  # noqa: F401, F811
 
 pytestmark = [pytest.mark.schema]
 
@@ -65,21 +66,29 @@ async def test_a_sync_makes_a_person_findable_by_their_account_reference(
     registry: Neo4jStaffRegistry, harness_driver: AsyncDriver
 ) -> None:
     key = account_ref(KEY, DIR_A, PERSON)
-    await registry.replace_tenant("tenant-one", [record("tenant-one", PERSON, DIR_A, Role.LEAD)], NOW)
+    await registry.replace_tenant(
+        "tenant-one", [record("tenant-one", PERSON, DIR_A, Role.LEAD)], NOW
+    )
     found = await registry.active_roles(key)
     assert [(r.tenant_id, r.role, r.status) for r in found] == [("tenant-one", Role.LEAD, "active")]
 
 
 @pytest.mark.asyncio(loop_scope="session")
-async def test_a_sync_that_no_longer_finds_a_person_ends_their_record_and_leaves_other_tenants_alone(
+async def test_a_sync_that_no_longer_finds_a_person_ends_their_record(
     registry: Neo4jStaffRegistry, harness_driver: AsyncDriver
 ) -> None:
-    await registry.replace_tenant("tenant-two", [record("tenant-two", PERSON, DIR_A, Role.ADVISOR)], NOW)
-    await registry.replace_tenant("tenant-three", [record("tenant-three", OTHER, DIR_B, Role.LEAD)], NOW)
+    await registry.replace_tenant(
+        "tenant-two", [record("tenant-two", PERSON, DIR_A, Role.ADVISOR)], NOW
+    )
+    await registry.replace_tenant(
+        "tenant-three", [record("tenant-three", OTHER, DIR_B, Role.LEAD)], NOW
+    )
     await registry.replace_tenant("tenant-two", [], NOW)
     assert await count_active(harness_driver, "tenant-two") == 0
     assert await count_active(harness_driver, "tenant-three") == 1
-    assert await registry.active_roles(account_ref(KEY, DIR_A, PERSON)) == ()
+    # Other tests here leave their own records for the same person: only tenant-two must be gone.
+    found = await registry.active_roles(account_ref(KEY, DIR_A, PERSON))
+    assert all(record.tenant_id != "tenant-two" for record in found)
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -94,4 +103,7 @@ async def test_the_same_people_found_again_add_no_second_record(
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_a_person_no_tenant_lists_reads_nothing(registry: Neo4jStaffRegistry) -> None:
-    assert await registry.active_roles(account_ref(KEY, DIR_B, "77777777-7777-4777-8777-777777777777")) == ()
+    assert (
+        await registry.active_roles(account_ref(KEY, DIR_B, "77777777-7777-4777-8777-777777777777"))
+        == ()
+    )

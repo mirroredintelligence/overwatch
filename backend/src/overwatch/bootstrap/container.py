@@ -53,6 +53,7 @@ from overwatch.adapters.outbound.graph_store.tenant_registry import (
 )
 from overwatch.adapters.outbound.graph_store.unit_of_work import neo4j_uow_factory
 from overwatch.adapters.outbound.ids_uuid.uuid_ids import UuidGenerator
+from overwatch.adapters.outbound.postcode_directory_ons.ons_directory import OnsPostcodeDirectory
 from overwatch.adapters.outbound.postcodes_local.centroids import CsvPostcodeLocator
 from overwatch.adapters.outbound.telemetry.azure_monitor_query import (
     AzureMonitorTelemetryQuery,
@@ -69,6 +70,7 @@ from overwatch.adapters.testing.fixed_geo import (
     FixedTravelTime,
 )
 from overwatch.adapters.testing.fixed_ids import SequentialIds
+from overwatch.adapters.testing.fixed_postcode_directory import FixedPostcodeDirectory
 from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
 from overwatch.adapters.testing.fixed_terminology import FixedTerminology
 from overwatch.adapters.testing.fixture_telemetry import FixtureTelemetryQuery
@@ -98,7 +100,12 @@ from overwatch.application.ports.outbound.invariants import (
     TenantInvariants,
     TenantInvariantViolated,
 )
+from overwatch.application.ports.outbound.lookups import TransientLookupError
 from overwatch.application.ports.outbound.platform_audit import PlatformAuditLog
+from overwatch.application.ports.outbound.postcode_directory import (
+    DirectoryPostcode,
+    PostcodeDirectory,
+)
 from overwatch.application.ports.outbound.sealing import ContentSealer
 from overwatch.application.ports.outbound.staff_registry import StaffRegistry
 from overwatch.application.ports.outbound.telemetry_query import (
@@ -230,6 +237,9 @@ class Container:
     geocoder: Geocoder
     # The ODS sample and the local display names (I12). The live ODS service is not built.
     terminology: Terminology
+    # The ONS Postcode Directory (DEC-1329): the district check. Without the HTTP client it refuses
+    # every answer, so the check reports unavailable rather than a count it cannot give.
+    postcode_directory: PostcodeDirectory
     # The HTTP client behind the geocoder, closed by shutdown(); None when there is no geocoder.
     http: httpx.AsyncClient | None
     # The support console's raw telemetry (O07): Azure Monitor in a process that has a workspace and
@@ -509,6 +519,17 @@ class NoGeocoder:
         return []
 
 
+class NoPostcodeDirectory:
+    """The postcode directory of a process with no HTTP client: a check cannot answer, so the form
+    says so rather than reporting a district as not found (fail closed, DEC-1329)."""
+
+    async def count(self, prefix: str) -> int:
+        raise TransientLookupError("the postcode directory is not configured")
+
+    async def postcodes(self, prefix: str) -> list[DirectoryPostcode]:
+        raise TransientLookupError("the postcode directory is not configured")
+
+
 class NoTelemetry:
     """The telemetry query of a process with no workspace or no client: every read is refused, so
     the console says it cannot show telemetry rather than showing an empty timeline (fail closed,
@@ -617,6 +638,7 @@ def build(
         geocoder=NoGeocoder()
         if http is None or key is None
         else OsPlacesGeocoder(http, key.get_secret_value()),
+        postcode_directory=NoPostcodeDirectory() if http is None else OnsPostcodeDirectory(http),
         terminology=LocalTerminology(settings.terminology_dir, settings.pathways_dx_file),
         http=http,
         telemetry=(
@@ -707,6 +729,7 @@ def build_for_tests(
         postcodes=FixedPostcodeLocator({}, {}),
         travel=FixedTravelTime(TravelRange(low_minutes=10, high_minutes=20, source="test fixed")),
         geocoder=FixedGeocoder({}),
+        postcode_directory=FixedPostcodeDirectory({}),
         terminology=FixedTerminology({}, {}),
         http=None,
         telemetry=(

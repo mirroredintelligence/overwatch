@@ -48,6 +48,8 @@ REGISTRY_LABELS: Final = (
     "SupportAccessTicket",
     # The staff registry (DEC-1327, migration 0191): which tenants a person holds a role in.
     "StaffRoleRecord",
+    # The shared postcode points (DEC-1329, migration 0192): postcodes are public, held once.
+    "PostcodePoint",
 )
 
 

@@ -51,4 +51,16 @@ PLATFORM_MIGRATIONS: Final[tuple[Migration, ...]] = (
             "FOR (n:StaffRoleRecord) ON (n.tenantRef, n.status)",
         ),
     ),
+    Migration(
+        "0192_postcode_points",
+        statements=(
+            # The shared postcode points of the confirmed districts (DEC-1329): one node per
+            # postcode,
+            # keyed by the postcode, read by district.
+            "CREATE CONSTRAINT postcode_point_id IF NOT EXISTS "
+            "FOR (n:PostcodePoint) REQUIRE n.id IS UNIQUE",
+            "CREATE INDEX postcode_point_district IF NOT EXISTS "
+            "FOR (n:PostcodePoint) ON (n.district)",
+        ),
+    ),
 )

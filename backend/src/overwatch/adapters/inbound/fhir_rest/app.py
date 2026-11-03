@@ -125,6 +125,7 @@ def create_app(
         routes_network_admin,
         routes_network_events,
         routes_network_views,
+        routes_postcode_districts,
         routes_public,
         routes_registration,
         routes_registration_session,
@@ -185,6 +186,7 @@ def create_app(
     app.include_router(routes_registration.router)
     app.include_router(routes_registration_session.router)
     app.include_router(routes_registration_views.router)
+    app.include_router(routes_postcode_districts.router)
     app.include_router(routes_criteria.router)
     app.include_router(routes_criteria_views.router)
 

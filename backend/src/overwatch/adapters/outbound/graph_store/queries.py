@@ -79,6 +79,10 @@ GLOBAL_QUERY_IDS: Final[Mapping[str, str]] = MappingProxyType(
             "reads the active StaffRoleRecord registry nodes of one account reference: registry "
             "data only, read by a sign-in before a tenant is bound (DEC-1327)"
         ),
+        "Q-POSTCODE-POINTS-OF": (
+            "reads the postcode points of one district from the shared registry: public data, no "
+            "tenant (DEC-1329)"
+        ),
         "Q-TENANT-GET": (
             "reads one Tenant registry node by id: registry data only, and the caller needs the "
             "record before a tenant is bound"
@@ -248,6 +252,10 @@ PLATFORM_QUERY_IDS: Final[Mapping[str, str]] = MappingProxyType(
             "ends the active StaffRoleRecord registry nodes of one tenant that the sync did not "
             "find again"
         ),
+        "Q-POSTCODE-POINT-UPSERT": (
+            "makes one PostcodePoint registry node of a confirmed district's download, keyed by "
+            "its postcode, so a retried download refreshes rather than adds (DEC-1329)"
+        ),
         "Q-TENANT-REG-CREATE": (
             "creates one Tenant registry node, in provisioning, with a new id: the tenant exists "
             "nowhere else yet, so no tenant is bound"
@@ -338,6 +346,7 @@ GLOBAL_STATEMENTS: Final[Mapping[str, str]] = MappingProxyType(
     {
         "Q-NEO4J-PING": "505067033faf8e26ec2f3ea6c987e7e79bb32316d5db6e84ad32b16ff2e6f81b",
         "Q-STAFF-ROLES-OF": "951582c40c58b7d736dff3bb152b5f7189d55681e41a28d9f60de6125287cdae",
+        "Q-POSTCODE-POINTS-OF": "8372d221a89f560c7952854775b540eee76df5c073691677593f64c0a0149a42",
         "Q-TENANT-GET": "965a4ab096723692fa714be037e194e81dc2a8b017d6fc3e71c9f6a87b2b80be",
         "Q-TENANT-LIST-ACTIVE": "8060d795ec86eea21ee4368cc2406b7530211faec8750e3e4ec23529f20d340d",
         "Q-TENANT-ACTIVE-IDS": "230af35beaafb4e989676fe9c7dc999173adc599ee2e13a65b004b8475a7ed98",
@@ -402,6 +411,9 @@ PLATFORM_STATEMENTS: Final[Mapping[str, str]] = MappingProxyType(
     {
         "Q-STAFF-ROLE-UPSERT": "be368c979f53fff2fc0a03eeb5fb3fdc24bbfe844ada59b871d93ef2128ac4c4",
         "Q-STAFF-ROLE-END": "d489f4f68b4393c7343a865902a0ae3247248bbe7d013b411c88e173447b879c",
+        "Q-POSTCODE-POINT-UPSERT": (
+            "60818cbceb422b1e8fcdaaadd6c44a242cffcccf366a4478b55163fb3a80e7ca"
+        ),
         "Q-TENANT-REG-CREATE": ("e16c9163a9fb8d58cc0956502926eb28780534514897f52767d7957196dc85db"),
         "Q-TENANT-REG-SAVE": ("3c91de7d4e95ffc373d5a925b99dead381fc377f9c5494b0f33a209e7042da6c"),
         "Q-TENANT-REG-SET-HOST": (
@@ -468,8 +480,7 @@ def statement_digest(cypher: str) -> str:
 GLOBAL_STATEMENT_LABELS: Final[frozenset[str]] = frozenset(
     # `StaffRoleRecord` is registry data too (DEC-1327): no tenant property, read before a tenant is
     # bound, so the sign-in can find the tenants a person holds a role in.
-    {"Tenant", "TenantNumber", "StaffRoleRecord"}
-    | NETWORK_REGISTRY_LABELS
+    {"Tenant", "TenantNumber", "StaffRoleRecord", "PostcodePoint"} | NETWORK_REGISTRY_LABELS
 )
 # The platform's own records (TEN-075): the platform audit chain and the support-access tickets.
 # Like the registry they carry no `tenantId`; only a platform statement may name them. A global

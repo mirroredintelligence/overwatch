@@ -529,6 +529,12 @@ TENANT_FREE = {
 BINDS_ITSELF = {
     ("GET", "/public/tenant-profile"): "tenant from the host, by bind_host_tenant (TEN-040)",
     ("POST", "/auth/token"): "tenant from the host, by bind_sign_in_tenant (TEN-043, DEC-1321)",
+    ("POST", "/auth/staff/tenants"): (
+        "no host: the verified identity lists the tenants its staff roles hold (DEC-1327); no token"
+    ),
+    ("POST", "/auth/staff/token"): (
+        "the tenant the picker chose, named by the body and checked active and held (DEC-1327)"
+    ),
     ("POST", "/auth/device-token"): "tenant from the host, by resolve_active_device (TEN-043)",
     ("POST", "/auth/operator-token"): "no tenant: the operator directory's own token (TEN-043)",
     ("POST", "/screens/pairing"): "tenant from the host (R15)",

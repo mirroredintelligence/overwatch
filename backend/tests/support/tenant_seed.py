@@ -38,6 +38,7 @@ UNSTAMPED_OK: Final = frozenset(
         "PlatformAuditEntry",
         "SupportAccessTicket",
         "StaffRoleRecord",
+        "PostcodePoint",
     }
 )
 

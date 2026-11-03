@@ -27,6 +27,7 @@ from overwatch.adapters.outbound.graph_store.tenant_directory import (
     tenant_from_properties,
     tenant_properties,
 )
+from overwatch.application.ports.outbound.postcode_directory import DirectoryPostcode
 from overwatch.application.ports.outbound.tenant_registry import (
     RegistryTenant,
     TenantNumberRecord,
@@ -350,6 +351,21 @@ _STAFF_END = NamedQuery(
 REGISTRY.register(_STAFF_UPSERT)
 REGISTRY.register(_STAFF_END)
 
+# One postcode point (DEC-1329): the node is keyed by the postcode, so a retried download refreshes
+# the point rather than adding one. One statement per point, in one transaction (UNWIND is not
+# allowed in a
+# platform statement).
+_POINT_UPSERT = NamedQuery(
+    id="Q-POSTCODE-POINT-UPSERT",
+    cypher=(
+        "MERGE (p:PostcodePoint {id: $id}) SET p.district = $district, p.postcode = $postcode, "
+        "p.lat = $lat, p.lon = $lon, p.updatedAt = $updatedAt"
+    ),
+    mode="write",
+    scope="platform",
+)
+REGISTRY.register(_POINT_UPSERT)
+
 
 class Neo4jStaffRoles:
     """Makes one tenant's staff roles match a sync: each record active, every other active record of
@@ -381,3 +397,28 @@ class Neo4jStaffRoles:
             )
 
         await self._connection.run_write(work)
+
+
+class Neo4jPostcodePoints:
+    """Writes the postcode points of a download (DEC-1329). One transaction for the whole batch,
+    so a reader never sees a district half stored; the statement is idempotent by postcode."""
+
+    def __init__(self, connection: Neo4jConnection) -> None:
+        self._connection = connection
+
+    async def upsert(self, points: Sequence[DirectoryPostcode], now: datetime) -> int:
+        async def work(tx: AsyncManagedTransaction) -> int:
+            for point in points:
+                await run_platform_query(
+                    tx,
+                    _POINT_UPSERT,
+                    id=point.postcode,
+                    district=point.postcode.split(" ")[0],
+                    postcode=point.postcode,
+                    lat=point.lat,
+                    lon=point.lon,
+                    updatedAt=now,
+                )
+            return len(points)
+
+        return await self._connection.run_write(work)

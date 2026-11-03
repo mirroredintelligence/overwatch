@@ -11,13 +11,17 @@ from overwatch.adapters.outbound.graph_store.queries import PLATFORM_RECORD_LABE
 
 def test_the_platform_records_are_the_migrations_of_the_platform_block() -> None:
     # 0190 is the platform's own records (TEN-075); 0191 is the staff registry (DEC-1327).
-    assert [m.id for m in PLATFORM_MIGRATIONS] == ["0190_platform_records", "0191_staff_registry"]
+    assert [m.id for m in PLATFORM_MIGRATIONS] == [
+        "0190_platform_records",
+        "0191_staff_registry",
+        "0192_postcode_points",
+    ]
     assert all(190 <= int(m.id.split("_", 1)[0]) <= 194 for m in PLATFORM_MIGRATIONS)
     assert all(migration in MIGRATIONS for migration in PLATFORM_MIGRATIONS)
 
 
 def test_each_statement_is_one_idempotent_schema_statement_and_nothing_is_dropped() -> None:
-    counts = {"0190_platform_records": 5, "0191_staff_registry": 3}
+    counts = {"0190_platform_records": 5, "0191_staff_registry": 3, "0192_postcode_points": 2}
     for migration in PLATFORM_MIGRATIONS:
         assert migration.loops == () and dict(migration.params) == {}
         assert len(migration.statements) == counts[migration.id]

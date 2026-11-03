@@ -85,6 +85,11 @@ EXPECTED_TEXT = {
 # The platform's own records (TEN-075): the registry's list and detail reads, the platform audit
 # chain and the support-access tickets. Each is reviewed here exactly like the seven above.
 EXPECTED_TEXT |= {
+    # DEC-1329: one shared postcode point, keyed by its postcode (public data, no tenant).
+    "Q-POSTCODE-POINT-UPSERT": (
+        "MERGE (p:PostcodePoint {id: $id}) SET p.district = $district, p.postcode = $postcode, "
+        "p.lat = $lat, p.lon = $lon, p.updatedAt = $updatedAt"
+    ),
     "Q-TENANT-REG-LIST": "MATCH (t:Tenant) RETURN properties(t) AS tenant ORDER BY t.id",
     "Q-TENANT-REG-GET": ("MATCH (t:Tenant {id: $id}) RETURN properties(t) AS tenant, t.id AS id"),
     "Q-PLATFORM-AUDIT-LOCK": (
@@ -147,6 +152,7 @@ EXPECTED_MODE = {
 EXPECTED_PARAMETERS = {
     "Q-STAFF-ROLE-UPSERT": {"id", "tenantRef", "practitionerKey", "role", "updatedAt"},
     "Q-STAFF-ROLE-END": {"tenantRef", "keepIds", "updatedAt"},
+    "Q-POSTCODE-POINT-UPSERT": {"id", "district", "postcode", "lat", "lon", "updatedAt"},
     "Q-TENANT-REG-CREATE": {"id", "props"},
     "Q-TENANT-REG-SAVE": {"id", "expectedEpoch", "expectedStatus", "props"},
     "Q-TENANT-REG-SET-HOST": {"id", "host"},
@@ -196,7 +202,7 @@ def _pin(monkeypatch: pytest.MonkeyPatch, cypher: str, query_id: str = "Q-TEST-P
 def test_the_platform_list_is_the_registry_statements_and_the_platforms_own_records() -> None:
     assert set(PLATFORM_QUERY_IDS) == set(EXPECTED_TEXT)
     assert set(PLATFORM_STATEMENTS) == set(EXPECTED_TEXT)
-    assert len(PLATFORM_QUERY_IDS) == 7 + 2 + 4 + 6 + 2
+    assert len(PLATFORM_QUERY_IDS) == 7 + 2 + 4 + 6 + 2 + 1
 
 
 def test_no_id_is_on_both_the_global_and_the_platform_list() -> None:
@@ -509,6 +515,13 @@ def test_the_platform_records_carry_no_tenant_so_the_invariant_check_knows_them(
 def test_no_platform_record_statement_writes_a_tenant_scoped_label() -> None:
     for query_id in PLATFORM_QUERY_IDS:
         labels = set(re.findall(r"\(\w*:(\w+)", REGISTRY.get(query_id).cypher))
-        assert labels <= {"Tenant", "TenantNumber", "StaffRoleRecord"} | PLATFORM_RECORD_LABELS, (
-            query_id
-        )
+        assert (
+            labels
+            <= {
+                "Tenant",
+                "TenantNumber",
+                "StaffRoleRecord",
+                "PostcodePoint",
+            }
+            | PLATFORM_RECORD_LABELS
+        ), query_id

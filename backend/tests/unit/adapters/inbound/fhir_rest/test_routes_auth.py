@@ -119,6 +119,19 @@ class _Devices:
         return self._devices.get(token_hash)
 
 
+class _People:
+    """The practitioner records of a tenant; a first staff sign-in makes one (DEC-1330)."""
+
+    def __init__(self) -> None:
+        self.practitioners: dict[str, Any] = {}
+
+    async def get_practitioner(self, practitioner_id: str) -> Any:
+        return self.practitioners.get(practitioner_id)
+
+    async def save_practitioner(self, practitioner: Any) -> None:
+        self.practitioners[practitioner.id] = practitioner
+
+
 class _Unit:
     def __init__(self, container: _Container) -> None:
         self.unit_scope = current_scope()
@@ -126,6 +139,7 @@ class _Unit:
         self.tenant_config = container.configs[scope]
         self.audit = container.audit
         self.devices = _Devices(container.devices.get(scope, {}))
+        self.people = _People()
         self.link_tokens = None
 
     async def __aenter__(self) -> _Unit:

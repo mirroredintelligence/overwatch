@@ -47,6 +47,7 @@ from overwatch.application.use_cases.exchange_token import (
 from overwatch.domain.codes import Role
 from overwatch.domain.errors import DomainError
 from overwatch.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
+from overwatch.domain.model.people import Practitioner
 from overwatch.domain.model.tenant import SuspendMode, Tenant, TenantStatus
 from overwatch.domain.model.tenant_records import (
     BindingStatus,
@@ -140,9 +141,21 @@ class _Audit:
         self.entries.append(entry)
 
 
+class _People:
+    def __init__(self) -> None:
+        self.practitioners: dict[str, Practitioner] = {}
+
+    async def get_practitioner(self, practitioner_id: str) -> Practitioner | None:
+        return self.practitioners.get(practitioner_id)
+
+    async def save_practitioner(self, practitioner: Practitioner) -> None:
+        self.practitioners[practitioner.id] = practitioner
+
+
 class _Uow:
     def __init__(self, config: _Config, audit: _Audit, scope: ScopeId | None) -> None:
         self.tenant_config = config
+        self.people = _People()
         self.audit = audit
         self._scope = scope
         self.commits = 0
@@ -172,12 +185,14 @@ class _World:
 
     configs: dict[str, _Config] = field(default_factory=dict)
     audit: _Audit = field(default_factory=_Audit)
+    people: _People = field(default_factory=lambda: _People())
     units: list[_Uow] = field(default_factory=list)
 
     def factory(self) -> _Uow:
         scope = current_scope_or_none()
         config = self.configs[scope.value] if scope is not None else _Config([], [])
         uow = _Uow(config, self.audit, scope)
+        uow.people = self.people
         self.units.append(uow)
         return uow
 
@@ -902,3 +917,20 @@ async def test_with_no_role_asked_the_highest_is_given_as_before_and_all_are_lis
 
     assert issued.role is Role.LEAD
     assert issued.roles == (Role.LEAD, Role.ADVISOR)
+
+
+# ----------------------------------------------------- staff: the practitioner record (DEC-1330)
+
+
+async def test_the_first_staff_sign_in_makes_the_practitioner_record_and_a_second_adds_none() -> (
+    None
+):
+    built = world()
+    use_case = staff_use_case(built, accepting())
+    issued = await exchange(use_case)
+    subject = decode_bff_token(issued.token, SIGNING, NOW).sub
+    await exchange(use_case)
+    practitioner = await built.people.get_practitioner(subject)
+    assert practitioner is not None
+    assert (practitioner.active, practitioner.display_name) == (True, "Staff member")
+    assert len(built.people.practitioners) == 1

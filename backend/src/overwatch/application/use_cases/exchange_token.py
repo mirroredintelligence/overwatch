@@ -50,6 +50,7 @@ from overwatch.application.tenant_resolution import EntryKind, EntryRefused
 from overwatch.domain.codes import Role
 from overwatch.domain.errors import DomainError, NotFound
 from overwatch.domain.model.device import Device
+from overwatch.domain.model.people import Practitioner
 from overwatch.domain.model.tenant import Tenant
 from overwatch.domain.model.tenant_records import RoleMapping
 from overwatch.domain.rules.bff_token import (
@@ -85,6 +86,9 @@ MAX_CREDENTIAL_LENGTH: Final = 8192
 
 USE_CASE_STAFF: Final = "ExchangeStaffToken"
 ACTION_TOKEN_ISSUED: Final = "token-issued"
+# The name of a person's practitioner record made at their first staff sign-in (DEC-1330): the
+# directory holds no name for them here, so the record says so until the name is set.
+STAFF_NAME_PLACEHOLDER: Final = "Staff member"
 EXCHANGE_CHANNEL: Final = "api"
 
 
@@ -228,6 +232,17 @@ class ExchangeStaffToken:
             subject = staff_subject(
                 account_key, tenant.id, identity.directory_id, identity.object_id
             )
+            # The person's practitioner record in this organisation (DEC-1330): made at the first
+            # staff sign-in, so the person can act as a named practitioner (set up, report).
+            if await uow.people.get_practitioner(subject) is None:
+                await uow.people.save_practitioner(
+                    Practitioner(
+                        id=subject,
+                        active=True,
+                        display_name=STAFF_NAME_PLACEHOLDER,
+                        phone_hash=None,
+                    )
+                )
             expires_at = expiry(now, STAFF_TOKEN_LIFETIME)
             token = encode_bff_token(
                 BffClaims(

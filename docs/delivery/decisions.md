@@ -7133,3 +7133,13 @@ Status: accepted (the owner's request, 2026-11-03, applied under DEC-133) · Aff
 **Licence.** The ONS directory is under the Open Government Licence (ONS licences page). Attribution is shown wherever the points are shown.
 
 **How to apply.** Only the platform writer upserts postcode points (pinned platform statements, run from the registry writer). Lead and admin pages read them through a global read. A district is checked before a service may use it, and an unknown district is refused.
+
+## DEC-1330 A staff member's practitioner record is made at their first staff sign-in
+
+**Decision.** When a staff person signs in for a tenant (the staff token exchange, DEC-1327), the back end makes their `Practitioner` record in that tenant if it does not exist. The record's id is the person's staff subject (the keyed account reference), it is active, and its name is "Staff member" until the name is set. The exchange runs the check in the same unit of work as the token audit entry, so a sign-in never leaves a token without its record.
+
+**Why.** A shift lead's actions name them as a practitioner (set up a service, own its criteria). A staff person who signs in through the staff exchange had no practitioner record in the tenant, so "Add a service" failed with "the lead is not a practitioner of this organisation" after the lead had signed in successfully.
+
+**What it does not do.** It does not give anyone a role: the role still comes from the person's groups and the tenant's mapping, unchanged. It does not take the name from the directory; the identity carries no name, so the name is a placeholder until someone sets it.
+
+**How to apply.** Only the staff exchange creates a practitioner from a sign-in. Other paths (invitations, the host-bound exchange) keep their own records.

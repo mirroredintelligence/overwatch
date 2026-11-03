@@ -1,0 +1,106 @@
+/* The rail of the other options (Call board, step 4): a white card, one bordered row per option. The border
+   colour follows the status and shape plus word carry the meaning. */
+
+.rail {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: 18px;
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+}
+
+.heading {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.empty {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  color: var(--c-ink-2);
+}
+
+.item {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--c-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform var(--dur-press) var(--ease-out),
+    background-color var(--dur-state) var(--ease-out);
+}
+
+.item:hover {
+  background: var(--c-bg);
+}
+
+.item:active {
+  transform: scale(0.98);
+}
+
+.item:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.item[data-status='over-capacity'] {
+  border-color: var(--c-surge);
+}
+
+.item[data-status='limited'] {
+  border-color: var(--c-limited);
+}
+
+.item[data-status='not-accepting'] {
+  border-color: var(--c-closed);
+}
+
+.item[data-status='not-updated'],
+.item[data-status='last-known'] {
+  border-style: dashed;
+  border-color: var(--c-unknown);
+}
+
+.name {
+  font-weight: 700;
+}
+
+.detail {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 15px;
+  color: var(--c-ink-2);
+}
+
+.detail svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}

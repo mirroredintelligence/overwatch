@@ -21,9 +21,11 @@ export type OptionBookingProps = {
   /** Back to the options: after a cancel, a decline, an expiry, or "See options again". */
   onSeeOptions?: () => void;
   onAskClinical?: () => void;
+  /** The request stage: show "Back to options" beside the request control. */
+  backToOptions?: boolean;
 };
 
-export function OptionBooking({ caseId, option, onSeeOptions, onAskClinical }: OptionBookingProps) {
+export function OptionBooking({ caseId, option, onSeeOptions, onAskClinical, backToOptions }: OptionBookingProps) {
   const router = useRouter();
   const finish = `/advisor/case/${encodeURIComponent(caseId)}/finish`;
   return (
@@ -35,6 +37,7 @@ export function OptionBooking({ caseId, option, onSeeOptions, onAskClinical }: O
       openStream={openStream}
       onSeeOptions={onSeeOptions}
       onAskClinical={onAskClinical}
+      backToOptions={backToOptions}
       onRecordOutcome={() => router.push(finish)}
       onCopySummary={() => router.push(`${finish}#summary`)}
     />

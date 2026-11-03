@@ -27,15 +27,73 @@ function serve(version: Record<string, unknown>) {
 describe('a version you wrote', () => {
   it('shows what it changes, its state and its approvals, and says you cannot approve it', async () => {
     render(<VersionDetail version={3} />);
-    expect(await screen.findByRole('heading', { level: 1, name: 'Version 3' })).toBeInTheDocument();
-    expect(screen.getByText('Waiting for approval')).toBeInTheDocument();
-    expect(screen.getByText('0 of 2 approvals')).toBeInTheDocument();
-    const diff = screen.getByRole('table', { name: 'What changed' });
-    const row = within(diff).getByRole('row', { name: /Pressure watch from/ });
-    expect(within(row).getByText('4')).toBeInTheDocument();
-    expect(within(row).getByText('5')).toBeInTheDocument();
-    expect(screen.getByText('You wrote this change. It needs two other people to approve it.')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Approve/ })).not.toBeInTheDocument();
+    await screen.findByRole('complementary', { name: 'Approval' });
+    expect(screen.getByRole('heading', { level: 1, name: 'Version 3' })).toBeInTheDocument();
+    expect(screen.getByText('Waiting for approval · 0 of 2')).toBeInTheDocument();
+    expect(screen.getAllByText('Clinical').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByRole('img', { name: '0 of 2 approvals' })).toBeInTheDocument();
+    const card = within(screen.getByRole('region', { name: 'What changed' })).getByRole('region', { name: 'Pressure watch from' });
+    expect(within(within(card).getByRole('group', { name: 'Was' })).getByText('4')).toBeInTheDocument();
+    expect(within(within(card).getByRole('group', { name: 'Now' })).getByText('5')).toBeInTheDocument();
+    expect(screen.getByText(/You cannot approve it\./)).toHaveTextContent(
+      'You wrote this change. You cannot approve it. Ask another administrator, or someone in a role that can approve.',
+    );
+  });
+
+  it('shows the approve button disabled and named for the author, and no dialog opens', async () => {
+    const user = userEvent.setup();
+    render(<VersionDetail version={3} />);
+    const button = await screen.findByRole('button', { name: 'Approve (not for the author)' });
+    expect(button).toBeDisabled();
+    await user.click(button);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Approve version/ })).not.toBeInTheDocument();
+  });
+
+  it('has no withdraw button, and says to ask a platform operator', async () => {
+    render(<VersionDetail version={3} />);
+    await screen.findByRole('heading', { level: 1, name: 'Version 3' });
+    expect(screen.queryByRole('button', { name: /Withdraw/ })).not.toBeInTheDocument();
+    expect(screen.getByText('Ask a platform operator to withdraw this draft.')).toBeInTheDocument();
+  });
+
+  it('says which version it replaces, and links back to all versions', async () => {
+    render(<VersionDetail version={3} />);
+    await screen.findByRole('heading', { level: 1, name: 'Version 3' });
+    expect(screen.getByText(/replaces version 2/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /All versions/ })).toHaveAttribute('href', '/admin/config');
+  });
+});
+
+describe('the approval panel', () => {
+  it('says in words, for the approver, that the author cannot approve a clinical change', async () => {
+    serve(OTHER);
+    render(<VersionDetail version={5} />);
+    expect(await screen.findByRole('complementary', { name: 'Approval' })).toHaveTextContent('Approvals must come from people other than the one who wrote it.');
+    expect(screen.getByRole('img', { name: '0 of 2 approvals' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Approve version 5' })).toBeEnabled();
+  });
+
+  it('counts the approvals given so far', async () => {
+    serve({ ...OTHER, approvals: 1 });
+    render(<VersionDetail version={5} />);
+    expect(await screen.findByRole('img', { name: '1 of 2 approvals' })).toBeInTheDocument();
+    expect(screen.getByText('Waiting for approval · 1 of 2')).toBeInTheDocument();
+  });
+
+  it('shows a draft that has no approval yet as a draft', async () => {
+    serve({ ...OTHER, status: 'draft' });
+    render(<VersionDetail version={5} />);
+    expect(await screen.findByText('Draft · 0 of 2')).toBeInTheDocument();
+  });
+});
+
+describe('while it loads', () => {
+  it('says what is loading, under the version number', async () => {
+    server.use(http.get('/api/bff/tenant/config/versions/3', () => new Promise<never>(() => {})));
+    render(<VersionDetail version={3} />);
+    expect(screen.getByRole('heading', { level: 1, name: 'Version 3' })).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Loading this version.');
   });
 });
 
@@ -98,6 +156,13 @@ describe('a version nobody can approve any more', () => {
     render(<VersionDetail version={2} />);
     expect(await screen.findByText('In force')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Approve/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Ask a platform operator/)).not.toBeInTheDocument();
+  });
+
+  it('says a replaced version is replaced, with no button', async () => {
+    render(<VersionDetail version={1} />);
+    expect(await screen.findByText('Replaced')).toBeInTheDocument();
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 });
 

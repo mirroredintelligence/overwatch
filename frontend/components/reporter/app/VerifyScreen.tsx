@@ -6,10 +6,11 @@ import { CodeEntry, type CheckResult } from '@/components/reporter/CodeEntry';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { bffRequest } from '@/lib/reporter/browser';
-import styles from '@/components/reporter/Reporter.module.css';
+import styles from './Recovery.module.css';
 
-// The 30-day check (W37): a text code to the reporter's own number, then back to the app. The
-// number is shown masked, from the settings the BFF reads.
+// The 30-day check (W37, B8): a text code to the number the back end holds for this phone's device, then
+// back to the app. The same screen morphs to the six-digit entry after Send code. The board shows the
+// number masked; the phone has no session to read it from here, so the words say "the number we have".
 
 export function VerifyScreen() {
   const router = useRouter();
@@ -25,25 +26,47 @@ export function VerifyScreen() {
     return { ok: false, triesLeft: typeof body?.triesLeft === 'number' ? body.triesLeft : null };
   };
 
-  if (started) return <CodeEntry caption="Check it is you" sendCode={sendCode} checkCode={checkCode} onVerified={() => router.replace('/app')} />;
+  if (started) {
+    return (
+      <main className={styles.page}>
+        <CodeEntry
+          sendCode={sendCode}
+          checkCode={checkCode}
+          onVerified={() => router.replace('/app')}
+          intro={
+            <>
+              <h1 className={styles.title}>Enter your code</h1>
+              <p className={styles.lead}>We sent a code to the number we have for you.</p>
+            </>
+          }
+        >
+          <p className={styles.note}>After 5 wrong tries you must ask for a new code.</p>
+        </CodeEntry>
+      </main>
+    );
+  }
 
   return (
     <main className={styles.page}>
-      <h1 className={styles.title}>Check it is you</h1>
-      <p>It has been 30 days. We will text a code to the number we have for you.</p>
-      <p>You do not need to do this again for another 30 days.</p>
+      <div className={styles.card}>
+        <h1 className={styles.title}>Check it is you</h1>
+        <p className={styles.lead}>It has been 30 days. We will text a code to the number we have for you.</p>
+        <p className={styles.note}>You do not need to do this again for another 30 days.</p>
+      </div>
       {notice !== null ? <Banner tone="warning" title={notice} /> : null}
-      <Button
-        variant="primary"
-        dataEl="REP-VERIFY-SEND-BTN"
-        onClick={async () => {
-          setNotice(null);
-          if (await sendCode()) setStarted(true);
-          else setNotice('We could not send a code. Try again shortly.');
-        }}
-      >
-        Send code
-      </Button>
+      <div className={styles.actions}>
+        <Button
+          variant="primary"
+          dataEl="REP-VERIFY-SEND-BTN"
+          onClick={async () => {
+            setNotice(null);
+            if (await sendCode()) setStarted(true);
+            else setNotice('We could not send a code. Try again shortly.');
+          }}
+        >
+          Send code
+        </Button>
+      </div>
     </main>
   );
 }

@@ -23,6 +23,23 @@ beforeEach(() => {
 });
 
 describe('VerifyScreen', () => {
+  it('shows the check as one card with Send code the only primary action, and morphs to the six-digit entry on the same screen (B8)', async () => {
+    render(<VerifyScreen />);
+    expect(screen.getByRole('main')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Check it is you' })).toBeInTheDocument();
+    expect(screen.getByText('You do not need to do this again for another 30 days.')).toBeInTheDocument();
+    expect(screen.getAllByRole('button')).toHaveLength(1);
+    await userEvent.click(screen.getByRole('button', { name: 'Send code' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Enter your code' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Check it is you' })).toBeNull();
+    expect(screen.getByRole('main')).toBeInTheDocument();
+    expect(screen.getByText('We sent a code to the number we have for you.')).toBeInTheDocument();
+    expect(screen.getByText(/Send a new code in 0:\d\d\. The code works for 10 minutes\./)).toBeInTheDocument();
+    expect(screen.getByText('After 5 wrong tries you must ask for a new code.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Check code' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Send code' })).toBeNull();
+  });
+
   it('asks for a reverify code with no number, reads nothing behind a session (there is none yet), and passes axe', async () => {
     const { container } = render(<VerifyScreen />);
     expect(screen.getByText('It has been 30 days. We will text a code to the number we have for you.')).toBeInTheDocument();

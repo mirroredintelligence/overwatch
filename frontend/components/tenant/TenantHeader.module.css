@@ -1,11 +1,39 @@
+/* The hero of the sign-in page: it sits on the dark organisation panel (desktop) or header (phone). The
+   colours are the board's: #9FC3D6 has no token. */
+
 .header {
   display: block;
+  color: #fff;
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9fc3d6;
 }
 
 .name {
-  margin: 0;
-  font-size: var(--type-body-size);
-  line-height: var(--type-body-lh);
+  margin: 6px 0 0;
+  font-size: 34px;
+  line-height: 1.08;
   font-weight: 700;
-  color: var(--c-ink);
+  color: #fff;
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 900px) {
+  .eyebrow {
+    font-size: 14px;
+  }
+
+  .name {
+    margin-top: 10px;
+    font-size: 60px;
+    line-height: 1.04;
+    letter-spacing: -0.01em;
+  }
 }

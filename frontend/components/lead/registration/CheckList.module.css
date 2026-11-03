@@ -1,0 +1,71 @@
+/* The automatic checks (board Rev1 ".ck" rows). Text on white is 4.5:1 or better. */
+
+.section {
+  min-width: 0;
+}
+
+.heading {
+  margin: 0 0 var(--space-1);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: 10px 0;
+  border-bottom: 1px solid var(--c-line);
+  font-size: var(--type-label-size);
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+.item:last-child {
+  border-bottom: 0;
+}
+
+.pass,
+.problem {
+  flex: none;
+  font-weight: 700;
+}
+
+.pass {
+  color: var(--c-primary-dark);
+}
+
+.problem {
+  color: var(--c-limited);
+}
+
+.text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.empty {
+  margin: 0;
+  color: var(--c-muted);
+  font-size: var(--type-caption-size);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

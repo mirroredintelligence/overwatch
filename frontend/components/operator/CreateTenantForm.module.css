@@ -1,0 +1,370 @@
+/* Create an organisation (O3): three parts as cards on the page ground, and a "What will be created" card beside them
+   on a wide screen, under them on a narrow one. Tokens from app/tokens.css; the one raw colour is the white of a
+   card, which the tokens do not name. */
+.page {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 80rem;
+  margin: 0 auto;
+  padding: var(--space-4);
+  display: grid;
+  gap: var(--space-5);
+  font-family: var(--font-atkinson, system-ui), system-ui, sans-serif;
+  color: var(--c-ink);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--type-heading-size);
+  line-height: var(--type-heading-lh);
+  font-weight: var(--type-heading-weight);
+  letter-spacing: var(--type-heading-tracking);
+  text-wrap: balance;
+}
+
+.lede {
+  margin: 0;
+  max-width: 40rem;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  color: var(--c-ink-2);
+}
+
+.layout {
+  display: grid;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@media (min-width: 60rem) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) 21rem;
+    gap: var(--space-5);
+  }
+}
+
+.steps {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.part {
+  margin: 0;
+  min-width: 0;
+  padding: var(--space-4);
+  border: 0;
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+  display: grid;
+  gap: var(--space-3);
+}
+
+.partOpen {
+  box-shadow: var(--shadow-lift);
+  outline: 2px solid var(--c-primary);
+  outline-offset: -2px;
+}
+
+.partSkipped {
+  box-shadow: none;
+  border: 1px dashed var(--c-unknown);
+  opacity: 0.9;
+}
+
+/* The legend is the part's heading. It floats so the part's content flows beneath it. */
+.legend {
+  float: left;
+  width: 100%;
+  padding: 0;
+  margin: 0 0 var(--space-2);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--type-subheading-size, 1.25rem);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.num {
+  flex: none;
+  width: 2.125rem;
+  height: 2.125rem;
+  border-radius: 50%;
+  border: 3px solid var(--c-primary);
+  color: var(--c-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--type-body-size);
+  box-sizing: border-box;
+}
+
+.numDone {
+  background: var(--c-primary);
+  color: #fff;
+}
+
+.numSkipped {
+  border-style: dashed;
+  border-color: var(--c-unknown);
+  color: var(--c-muted);
+}
+
+.text {
+  margin: 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  color: var(--c-ink-2);
+}
+
+.muted {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-muted);
+}
+
+.skipWord {
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
+  font-weight: 700;
+}
+
+.doneRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  border-radius: var(--radius-chip);
+  background: var(--c-tint);
+  padding: var(--space-3) var(--space-4);
+}
+
+.found {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  border-radius: var(--radius-chip);
+  background: var(--c-tint);
+  padding: var(--space-3) var(--space-4);
+}
+
+.lookup {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: minmax(0, 1fr);
+  align-items: end;
+}
+
+@media (min-width: 36rem) {
+  .lookup {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
+
+.disclosure {
+  font-size: var(--type-body-size);
+}
+
+.disclosure summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-weight: 700;
+  color: var(--c-primary);
+}
+
+.disclosure summary:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.disclosure > :not(summary) {
+  margin-top: var(--space-2);
+}
+
+.typeSet {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.typeLegend {
+  padding: 0;
+  margin: 0 0 var(--space-2);
+  font-size: var(--type-body-size);
+  font-weight: 700;
+}
+
+.typeCards {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+}
+
+.typeCard {
+  position: relative;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-3);
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius-chip);
+  background: #fff;
+  font-size: var(--type-body-size);
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    border-color var(--dur-state) var(--ease-out),
+    background-color var(--dur-state) var(--ease-out);
+}
+
+.typeCard:has(input:checked) {
+  border-color: var(--c-primary);
+  background: var(--c-tint);
+  box-shadow: 0 0 0 2px var(--c-primary) inset;
+}
+
+.typeCard:focus-within {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.typeInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.mappingRow {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: minmax(0, 1fr);
+  align-items: end;
+  padding: var(--space-3);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-chip);
+}
+
+@media (min-width: 36rem) {
+  .mappingRow {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 12rem) auto;
+  }
+}
+
+.submitRow {
+  margin-top: var(--space-2);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+/* The one primary action is taller than the rest (52 px or more). */
+.submitRow > button {
+  min-height: 3.5rem;
+  padding-inline: var(--space-5);
+  font-size: var(--type-subheading-size, 1.25rem);
+}
+
+/* The side card: what will be created, and, once a record is chosen, what part 1 looked like. */
+.aside {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.summary {
+  margin: 0;
+  padding: var(--space-4);
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.kicker {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.summaryName {
+  margin: 0;
+  font-size: var(--type-subheading-size, 1.25rem);
+  font-weight: 700;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.facts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-2) var(--space-3);
+  font-size: var(--type-body-size);
+}
+
+.facts dt {
+  color: var(--c-muted);
+}
+
+.facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.summaryNote {
+  margin: 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--c-line);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-muted);
+}
+
+.before {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--c-line);
+  background: #fff;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.beforeQuery {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-3);
+  border: 2px solid var(--c-ink-2);
+  border-radius: var(--radius-chip);
+  overflow-wrap: anywhere;
+}
+
+.beforePick {
+  padding: var(--space-2) var(--space-3);
+  border: 2px solid var(--c-primary);
+  border-radius: var(--radius-chip);
+  background: var(--c-tint);
+  overflow-wrap: anywhere;
+}

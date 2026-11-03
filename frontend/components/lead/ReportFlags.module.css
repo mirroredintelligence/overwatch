@@ -1,0 +1,265 @@
+/* Reports to check: tabs, then the master list (380px) and the open flag as a white card (the Flags board).
+   Narrow: the list is the page, and a tap opens the flag as a step of its own with the primary action fixed
+   above the bottom bar. The step that is not shown is display:none, so it is not reachable. */
+
+.page {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 80rem;
+  margin: 0 auto;
+  color: var(--c-ink);
+  font-family: var(--font-atkinson), system-ui, sans-serif;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-height: 46px;
+  padding: 0 20px;
+  border: 2px solid var(--c-line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--c-ink);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-state) var(--ease-out),
+    border-color var(--dur-state) var(--ease-out);
+}
+
+.tab[aria-selected='true'] {
+  border-color: var(--c-primary);
+  background: var(--c-primary);
+  color: #fff;
+}
+
+.tab:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.failure {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 2px solid var(--c-limited);
+  border-radius: 18px;
+  background: var(--c-amber-tint);
+}
+
+.failureText {
+  flex: 1 1 14rem;
+  margin: 0;
+  color: var(--c-limited);
+  font-weight: 700;
+}
+
+.empty {
+  margin: 0;
+  padding: var(--space-5) var(--space-4);
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+  color: var(--c-ink-2);
+  font-size: var(--type-body-size);
+}
+
+.stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.list {
+  min-width: 0;
+}
+
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  box-sizing: border-box;
+  min-width: 0;
+  padding: var(--space-4);
+  /* Room under the content for the fixed primary action. */
+  padding-bottom: calc(var(--space-4) + 84px);
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+  animation: flagIn var(--dur-state) var(--ease-out);
+}
+
+@keyframes flagIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: var(--space-1);
+  min-height: 44px;
+  padding: 0 var(--space-2) 0 0;
+  border: 0;
+  background: transparent;
+  color: var(--c-primary);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.back:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.kicker {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.name {
+  margin: 2px 0 0;
+  font-size: 26px;
+  line-height: 1.1;
+}
+
+.reason {
+  margin: var(--space-2) 0 0;
+  font-size: 18px;
+  line-height: 1.35;
+  color: var(--c-ink-2);
+}
+
+.explain {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.act {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border-radius: 16px;
+  background: var(--c-bg);
+}
+
+.actName {
+  flex: none;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.actText {
+  font-size: 16px;
+  line-height: 1.4;
+  color: var(--c-ink-2);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--c-line);
+}
+
+.primary > * {
+  min-height: 54px;
+}
+
+.suspend {
+  margin-left: auto;
+}
+
+.notice {
+  margin: 0;
+  min-height: 1.4em;
+  font-size: var(--type-body-size);
+  color: var(--c-ink-2);
+}
+
+.footnote {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--c-muted);
+}
+
+/* ---- Narrow: one step at a time ------------------------------------------------------------------------ */
+
+@media (max-width: 899.98px) {
+  .stage[data-step='list'] .detail {
+    display: none;
+  }
+
+  .stage[data-step='detail'] .list {
+    display: none;
+  }
+
+  .primary {
+    position: fixed;
+    right: var(--space-4);
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px) + var(--space-2));
+    left: var(--space-4);
+    z-index: 10;
+  }
+
+  .primary > * {
+    width: 100%;
+    min-height: 56px;
+  }
+
+  .suspend {
+    margin-left: 0;
+  }
+}
+
+@media (min-width: 900px) {
+  .stage {
+    grid-template-columns: 380px minmax(0, 1fr);
+    align-items: start;
+    gap: 22px;
+  }
+
+  .detail {
+    padding: 26px 30px;
+  }
+
+  .back {
+    display: none;
+  }
+}

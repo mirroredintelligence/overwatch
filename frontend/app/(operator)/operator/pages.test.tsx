@@ -87,7 +87,7 @@ describe('the pages', () => {
   it('shows the tenants, the creation, the audit chain and the support requests at their addresses', async () => {
     const cases: [React.ReactElement, string][] = [
       [await Home(), 'Tenants'],
-      [<NewTenant key="n" />, 'Create a tenant'],
+      [<NewTenant key="n" />, 'Create an organisation'],
       [<Audit key="a" />, 'Audit chain'],
     ];
     for (const [page, heading] of cases) {

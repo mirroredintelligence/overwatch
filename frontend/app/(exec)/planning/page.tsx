@@ -8,6 +8,8 @@ import { getSession } from '@/lib/auth/session';
 import { readBoard } from '@/lib/board/read';
 import type { Board } from '@/lib/board/types';
 import { ALERT_ROLES } from '@/lib/exec/alertsServer';
+import { readWeekSummary } from '@/lib/exec/weekServer';
+import { weekEndingDefault, type WeekSummary } from '@/lib/exec/weekSummary';
 
 export const metadata: Metadata = { title: 'Home - Overwatch' };
 export const dynamic = 'force-dynamic';
@@ -23,6 +25,13 @@ export default async function ExecHomePage() {
   } catch {
     board = null;
   }
+  // The week at a glance beside the home. When it cannot be read the home still shows, and says so there.
+  let week: WeekSummary | null = null;
+  try {
+    week = await readWeekSummary(session, weekEndingDefault(new Date()));
+  } catch {
+    week = null;
+  }
   if (board === null) {
     return (
       <main>
@@ -34,7 +43,7 @@ export default async function ExecHomePage() {
     <main>
       {/* Which board the home is of (WB11). The network's counts are the executive's alone: a lead has none. */}
       {session.role === 'exec' ? <OwnScopeHeader ownHref="/planning" networkHref="/network/home" /> : <ScopeHeader scope="own" />}
-      <ExecHome board={board} name={board.organisation ?? 'Your system'} phoneAlerts={session.role === 'exec'} />
+      <ExecHome board={board} name={board.organisation ?? 'Your system'} phoneAlerts={session.role === 'exec'} week={week} />
     </main>
   );
 }

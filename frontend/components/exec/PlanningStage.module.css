@@ -1,0 +1,378 @@
+/* The planning stage (boards/planning/Morph.dc.html). The tiles fold from large to a strip as the layout moves
+   from home to a service; the grid's columns and layers are the foundation StageGrid's. Live figures never
+   animate for style: the box around a number resizes, the number itself changes size at once and does not fade
+   or change colour. Under 900px the stage is one column, one state at a time (boards/planning/PH1.dc.html). */
+
+.stage {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.tiles {
+  display: flex;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tile {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 2px;
+  height: 116px;
+  padding: var(--space-3) var(--space-4);
+  border: 2px solid var(--tile-colour, var(--c-primary));
+  border-radius: var(--radius-card);
+  background: Canvas;
+  box-shadow: var(--shadow-card);
+  transition:
+    height var(--dur-stage) var(--ease-drawer),
+    padding var(--dur-stage) var(--ease-drawer),
+    border-radius var(--dur-stage) var(--ease-drawer);
+}
+
+.tile[data-status='limited'] {
+  --tile-colour: var(--c-limited);
+}
+
+.tile[data-status='not-accepting'] {
+  --tile-colour: var(--c-closed);
+}
+
+.tile[data-status='over-capacity'] {
+  --tile-colour: var(--c-surge);
+}
+
+/* Not updated: a dashed border and a muted number, in words as well. */
+.tile[data-status='not-updated'] {
+  --tile-colour: var(--c-unknown);
+  border-style: dashed;
+}
+
+.number {
+  font-size: 48px;
+  line-height: 1;
+  font-weight: 700;
+  color: var(--tile-colour, var(--c-primary));
+}
+
+.tile[data-status='not-updated'] .number {
+  color: var(--c-muted);
+}
+
+.word {
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-lh);
+  font-weight: 700;
+  color: var(--c-ink-2);
+}
+
+[data-compact='true'] .tile {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-3);
+  height: 48px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius);
+}
+
+[data-compact='true'] .number {
+  font-size: 24px;
+}
+
+[data-compact='true'] .word {
+  font-size: 15px;
+}
+
+/* The grid: the morphing region has a height of its own, and its layers scroll inside it. */
+.grid {
+  height: max(30rem, calc(100dvh - 22rem));
+  padding-bottom: var(--space-2);
+}
+
+.pad {
+  box-sizing: border-box;
+  min-height: 100%;
+  padding: var(--space-1) 6px var(--space-5) 2px;
+}
+
+.rail {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-card);
+  background: Canvas;
+  box-shadow: var(--shadow-card);
+}
+
+.eyebrow {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.railList {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.railItem {
+  display: grid;
+  gap: var(--space-1);
+  justify-items: start;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: var(--space-2) var(--space-3);
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius);
+  color: var(--c-ink);
+  text-decoration: none;
+}
+
+.railItem[data-status='over-capacity'] {
+  border-color: var(--c-surge);
+}
+
+.railItem[data-status='not-updated'] {
+  border-style: dashed;
+  border-color: var(--c-unknown);
+}
+
+.railItem[aria-current='page'] {
+  background: var(--c-tint);
+  border-color: var(--c-primary);
+}
+
+.railItem:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.railName {
+  font-weight: 700;
+}
+
+/* The home's own pieces (ExecHome): the attention rows, the empty state and the week glance. */
+
+.attention {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.attentionHeading {
+  margin: 0;
+  font-size: 26px;
+  line-height: var(--type-title-lh);
+  font-weight: 700;
+}
+
+.rows {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  border: 2px solid Canvas;
+  border-radius: 18px;
+  background: Canvas;
+  box-shadow: var(--shadow-card);
+}
+
+.row[data-status='over-capacity'] {
+  border-color: var(--c-surge);
+}
+
+.row[data-status='not-updated'] {
+  border-style: dashed;
+  border-color: var(--c-unknown);
+}
+
+.rowText {
+  flex: 1;
+  min-width: 0;
+}
+
+.rowName {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.rowLine {
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
+}
+
+.open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 48px;
+  min-width: 64px;
+  padding: 0 20px;
+  border: 2px solid var(--c-primary);
+  border-radius: var(--radius);
+  background: Canvas;
+  color: var(--c-primary);
+  font-size: var(--type-label-size);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.open:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.empty {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 2px dashed var(--c-line);
+  border-radius: 16px;
+  color: var(--c-ink-2);
+}
+
+.emptyTitle {
+  font-size: var(--type-title-size);
+  font-weight: 700;
+  color: var(--c-ink);
+}
+
+.card {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  border-radius: var(--radius-card);
+  background: Canvas;
+  box-shadow: var(--shadow-card);
+}
+
+.range {
+  margin: 0;
+  color: var(--c-muted);
+}
+
+.figures {
+  display: flex;
+  gap: 18px;
+  margin: var(--space-2) 0 var(--space-3);
+}
+
+.figure {
+  font-size: 36px;
+  line-height: 1;
+  font-weight: 700;
+  color: var(--c-primary-dark);
+}
+
+@media (max-width: 600px) {
+  .row {
+    flex-wrap: wrap;
+    padding: var(--space-3) var(--space-4);
+    border-radius: 20px;
+  }
+
+  .rowName {
+    font-size: 18px;
+  }
+
+  .open {
+    margin-left: auto;
+  }
+}
+
+/* A phone: one column, the current state's layers in the page's own flow, the rest not drawn. The side column
+   at home (the week glance) is not drawn; the week is one tap away in the bar. */
+@media (max-width: 900px) {
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-2);
+  }
+
+  .tile,
+  [data-compact='true'] .tile {
+    height: auto;
+    min-height: 44px;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius);
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 2px;
+  }
+
+  .number,
+  [data-compact='true'] .number {
+    font-size: 30px;
+  }
+
+  .word,
+  [data-compact='true'] .word {
+    font-size: 14px;
+  }
+
+  [data-compact='true'] .tile {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  [data-compact='true'] .number {
+    font-size: 22px;
+  }
+
+  .grid {
+    height: auto;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-areas: 'list' 'stage' 'side';
+    column-gap: 0 !important;
+    row-gap: var(--space-4);
+  }
+
+  .grid [data-layer='current'] {
+    position: relative;
+  }
+
+  .grid [data-layer='before'],
+  .grid [data-layer='after'] {
+    display: none;
+  }
+
+  .grid [data-area='side'] {
+    overflow: visible;
+  }
+
+  [data-planning-stage='home'] .grid [data-area='side'],
+  [data-planning-stage='home'] .grid [data-area='stage'] {
+    display: none;
+  }
+
+  [data-planning-stage='service'] .grid [data-area='list'],
+  [data-planning-stage='alert'] .grid [data-area='list'],
+  [data-planning-stage='alert'] .grid [data-area='stage'] {
+    display: none;
+  }
+}

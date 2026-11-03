@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { AlertList } from '@/components/exec/AlertList';
 import { Banner } from '@/components/ui/Banner';
 import { getSession } from '@/lib/auth/session';
+import { readBoard } from '@/lib/board/read';
 import { ALERT_ROLES, openAlerts } from '@/lib/exec/alertsServer';
 import type { AlertItem } from '@/lib/exec/alerts';
 
@@ -25,9 +26,11 @@ export default async function ExecAlertsPage() {
       </main>
     );
   }
+  // The duty coordinator's number is the board's (DEC-777), or none: the call is left out when it cannot be read.
+  const phone = await readBoard(session).then((board) => board.coordinationPhone ?? null).catch(() => null);
   return (
     <main>
-      <AlertList open={open} />
+      <AlertList open={open} coordinationPhone={phone} />
     </main>
   );
 }

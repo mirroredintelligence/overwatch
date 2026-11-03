@@ -1,0 +1,230 @@
+/* The network's grants (board NGrants): a table of grants beside what each scope shares. The two columns become one
+   below 1120px, and the table scrolls inside its card, so the page never scrolls sideways at 320px. */
+
+.page {
+  box-sizing: border-box;
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  min-width: 0;
+}
+
+@media (min-width: 900px) {
+  .page {
+    padding: var(--space-5) var(--space-6);
+  }
+}
+
+.title {
+  margin: 0;
+  font-size: var(--type-heading-size);
+  line-height: var(--type-heading-lh);
+  font-weight: var(--type-heading-weight);
+  letter-spacing: var(--type-heading-tracking);
+  text-wrap: balance;
+}
+
+.text {
+  margin: 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+}
+
+.muted {
+  display: block;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-muted);
+}
+
+.note {
+  margin: 0;
+  padding: 0 var(--space-1);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-muted);
+}
+
+.problem {
+  margin: 0;
+  font-weight: 700;
+  color: var(--c-limited);
+}
+
+.ok {
+  margin: 0;
+  font-weight: 700;
+}
+
+.columns {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.column {
+  display: grid;
+  align-content: start;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+@media (min-width: 1120px) {
+  .columns {
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+    gap: 20px;
+  }
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.card {
+  box-sizing: border-box;
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-card);
+  background: #fff;
+  color: var(--c-ink);
+  box-shadow: var(--shadow-card);
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-lh);
+  font-weight: var(--type-label-weight);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.scroll {
+  overflow-x: auto;
+  overscroll-behavior: contain;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+}
+
+.table th {
+  padding: var(--space-2);
+  border-bottom: 2px solid var(--c-line);
+  text-align: left;
+  font-size: var(--type-caption-size);
+  font-weight: 700;
+  color: var(--c-muted);
+}
+
+.table td {
+  padding: var(--space-3) var(--space-2);
+  border-bottom: 1px solid var(--c-line);
+  vertical-align: middle;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* What each scope shares: a bullet, a bold name, and the sentence the board draws beside it. */
+.scopes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.scopes li {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  font-size: var(--type-body-size);
+  line-height: 1.35;
+}
+
+.scopes b {
+  display: block;
+}
+
+.bullet {
+  flex: none;
+  color: var(--c-primary);
+}
+
+/* Never shared: the one dark card, on the rail colour. */
+.never {
+  box-sizing: border-box;
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-card);
+  background: var(--c-rail);
+  color: #fff;
+  box-shadow: var(--shadow-card);
+}
+
+.eyebrowDark {
+  margin: 0;
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-lh);
+  font-weight: var(--type-label-weight);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-rail-ink);
+}
+
+.neverText {
+  margin: 0;
+  font-size: var(--type-body-size);
+  line-height: 1.4;
+  color: var(--c-rail-ink);
+}
+
+/* The decline question, in place under the table: a bordered box, not a dialog. */
+.confirm {
+  box-sizing: border-box;
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 2px solid var(--c-ink);
+  border-radius: 14px;
+  background: var(--c-bg);
+}
+
+.confirmTitle {
+  margin: 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  font-weight: 700;
+}
+
+.confirmTitle:focus-visible {
+  outline: 3px solid var(--c-primary);
+  outline-offset: 2px;
+}

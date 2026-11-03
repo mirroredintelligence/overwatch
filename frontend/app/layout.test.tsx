@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 // next/font/google fetches the font at build time, so the test replaces it with
 // a stub that records the options the layout passes.
@@ -8,11 +8,7 @@ const atkinson = vi.hoisted(() => ({
 vi.mock('next/font/google', () => atkinson);
 
 import { PRODUCT_NAME } from '@/lib/product';
-import { resetProfileCache } from '@/lib/tenant/profile';
-import { resetCookieWrites, setRequestHost } from '@/test/cookies';
-import { BACKEND_ROOT } from '@/test/fixtures/links';
-import { TENANTS } from '@/test/tenants';
-import RootLayout, { generateMetadata } from './layout';
+import RootLayout, { metadata } from './layout';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
@@ -40,44 +36,24 @@ describe('root layout', () => {
 });
 
 
-// TEN-045 and TEN-049: the page title and description name the product, never a place or a service of
-// their own; the organisation's own name, when the host has a profile, comes from the profile.
-describe('root layout metadata (TEN-045, TEN-049)', () => {
-  beforeEach(() => {
-    vi.stubEnv('OVERWATCH_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
-    resetCookieWrites();
-    resetProfileCache();
-  });
-  afterEach(() => vi.unstubAllEnvs());
-
+// TEN-045 and DEC-1328: the page title and description name the product, never an organisation or a place.
+// The host is one domain for every staff person, so no host's profile name may reach the title.
+describe('root layout metadata (TEN-045, DEC-1328)', () => {
   it('names the product with one constant', () => {
     expect(PRODUCT_NAME).toBe('Overwatch');
   });
 
-  it('puts the organisation name before the product in the title, for the host the page is served on', async () => {
-    setRequestHost(TENANTS.A.host);
-    const metadata = await generateMetadata();
-    expect(metadata.title).toEqual({
-      default: `Sample Area A | ${PRODUCT_NAME}`,
-      template: `%s | Sample Area A | ${PRODUCT_NAME}`,
-    });
+  it('is the product alone, with a page title in front of it', () => {
+    expect(metadata.title).toEqual({ default: PRODUCT_NAME, template: `%s | ${PRODUCT_NAME}` });
   });
 
-  it('puts another organisation’s name for another host, and never the first’s', async () => {
-    setRequestHost(TENANTS.B.host);
-    const title = JSON.stringify((await generateMetadata()).title);
-    expect(title).toContain('Sample Area B');
-    expect(title).not.toContain('Sample Area A');
+  it('never names an organisation, whichever host the page is served on', () => {
+    const title = JSON.stringify(metadata.title);
+    expect(title).not.toMatch(/Sample Area|Fortrus|Dorset/i);
   });
 
-  it('is the product alone for a host nobody owns, or when the profile cannot be read', async () => {
-    setRequestHost('nobody.example.test');
-    expect((await generateMetadata()).title).toEqual({ default: PRODUCT_NAME, template: `%s | ${PRODUCT_NAME}` });
-  });
-
-  it('has a description that is neutral: no place, organisation, service or system name', async () => {
-    setRequestHost(TENANTS.A.host);
-    const description = String((await generateMetadata()).description);
+  it('has a description that is neutral: no place, organisation, service or system name', () => {
+    const description = String(metadata.description);
     expect(description).toBeTruthy();
     expect(description).not.toMatch(/dorset|trust|spoa|single point|nhs|icb|systmone|Sample/i);
   });

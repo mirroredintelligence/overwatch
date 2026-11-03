@@ -7113,3 +7113,13 @@ Status: accepted (the owner's request, 2026-11-03, applied under DEC-133) · Aff
 - **Names.** The reporter `Practitioner` and `PractitionerRole` already exist (`domain/model/people.py`, tenant-scoped, with service and phone hash). The staff records are `StaffPractitioner` (keyed hash of the directory object id) and `StaffRoleRecord` (`tenantRef`, `practitionerKey`, `role`, `status`), both registry nodes with no `tenantId`, as `NetworkMembership` is.
 - **Writes.** The pinned registry writes run only in the operator's use cases (`tenant_registry.py`, DEC-142), so a tenant administrator's member change does not write them. Instead a platform job reads each tenant's role groups through Graph, using the tenant's own consent (`admin_consent.py`), and upserts `StaffRoleRecord` through pinned platform statements. Membership removals end the record on the next run.
 - **Why staleness is safe.** A stale record can only show a picker entry. Access is still decided by the token's groups against the tenant's own role mapping in `ExchangeStaffToken`, which is unchanged.
+
+## DEC-1328 The page title names the product alone, on every page
+
+**Decision.** The root layout's title is `Overwatch` (with `%s | Overwatch` for a page's own title). It no longer takes the organisation's name from the host profile. This changes TEN-049, which put "<organisation> | Overwatch" in the title.
+
+**Why.** Under DEC-1327 every staff person signs in on one domain, and the organisation is chosen after sign-in. The host's profile is therefore one organisation's name, and the sign-in page showed it to everyone ("Sign in | FORTRUS LIMITED | Overwatch"). That is the leak DEC-1327 removed from the page body, still present in the title.
+
+**Consequence.** A signed-in page's title no longer names the organisation. The organisation is shown inside the signed-in shell.
+
+**How to apply.** Do not read the host profile in `app/layout.tsx` or in any metadata that is served before sign-in. If a page needs the organisation in its title after sign-in, read it from the signed-in session, not the host.

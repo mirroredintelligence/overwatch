@@ -6,7 +6,6 @@ import { RegisterServiceWorker } from '@/components/pwa/RegisterServiceWorker';
 import { BfcacheGuard } from '@/components/session/BfcacheGuard';
 import { InlineStyles } from '@/components/ui/InlineStyles';
 import { PRODUCT_NAME } from '@/lib/product';
-import { currentProfile } from '@/lib/tenant/profile';
 import { Telemetry } from './Telemetry';
 import './tokens.css';
 import './skeleton.css';
@@ -21,20 +20,16 @@ const atkinson = Atkinson_Hyperlegible({
   display: 'swap',
 });
 
-// The head names the product and no place of its own (TEN-045). The organisation's name, when the
-// host has a profile, comes from the profile (TEN-049): "<organisation> | Overwatch", and a page's
-// own title goes in front. With no profile (an unknown host, a back end that is down) it is the
-// product alone. The description is the same for everyone.
-export async function generateMetadata(): Promise<Metadata> {
-  const name = (await currentProfile())?.displayName;
-  const tail = name === undefined ? PRODUCT_NAME : `${name} | ${PRODUCT_NAME}`;
-  return {
-    title: { default: tail, template: `%s | ${tail}` },
-    description: 'Urgent-care capacity',
-    manifest: '/manifest.webmanifest',
-    appleWebApp: { capable: true, title: 'Overwatch', statusBarStyle: 'default' },
-  };
-}
+// The head names the product and no organisation (TEN-045, DEC-1328). Every staff sign-in is on one
+// domain, so the host cannot say which organisation a visitor belongs to before sign-in; a host's
+// profile name would leak one organisation's name to everyone. The organisation is shown inside the
+// signed-in shell instead. The description is the same for everyone.
+export const metadata: Metadata = {
+  title: { default: PRODUCT_NAME, template: `%s | ${PRODUCT_NAME}` },
+  description: 'Urgent-care capacity',
+  manifest: '/manifest.webmanifest',
+  appleWebApp: { capable: true, title: 'Overwatch', statusBarStyle: 'default' },
+};
 
 export const viewport: Viewport = {
   themeColor: '#0B5C8C',

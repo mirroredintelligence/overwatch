@@ -7,8 +7,8 @@ import { expect, test } from '@playwright/test';
 test('the root page names the product and the organisation of its host, and no other place', async ({ page }) => {
   await page.goto('/');
 
-  // The host's own profile gives the organisation's name (TEN-049); the product follows it.
-  await expect(page).toHaveTitle('Sample Area A | Overwatch');
+  // The title names the product alone; the organisation is shown inside the signed-in shell (DEC-1328).
+  await expect(page).toHaveTitle('Overwatch');
   await expect(page.getByRole('heading', { level: 1, name: 'Overwatch' })).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('lang', 'en-GB');
   expect(await page.locator('body').innerText()).not.toMatch(/dorset|trust|spoa|single point/i);

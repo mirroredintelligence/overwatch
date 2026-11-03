@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -22,6 +22,44 @@ async function typePin(digits: string) {
 }
 
 describe('PinScreen', () => {
+  it('has one main landmark with the heading as the only visible "Enter your PIN" (B6)', () => {
+    render(<PinScreen />);
+    const main = screen.getByRole('main');
+    expect(within(main).getByRole('heading', { level: 1, name: 'Enter your PIN' })).toBeInTheDocument();
+    expect(screen.getAllByText('Enter your PIN')).toHaveLength(1);
+    expect(screen.getByRole('group', { name: 'Enter your PIN' })).toBeInTheDocument();
+  });
+
+  it('shows the six dots and the digit count, and the delete key (B6)', async () => {
+    render(<PinScreen />);
+    expect(screen.getByRole('status')).toHaveTextContent('0 of 6 digits entered');
+    await userEvent.click(screen.getByRole('button', { name: '1' }));
+    await userEvent.click(screen.getByRole('button', { name: '2' }));
+    expect(screen.getByRole('status')).toHaveTextContent('2 of 6 digits entered');
+    await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    expect(screen.getByRole('status')).toHaveTextContent('1 of 6 digits entered');
+  });
+
+  it('keeps the other ways in as links under the pad, in a labelled group (B6)', () => {
+    render(<PinScreen />);
+    const more = screen.getByRole('group', { name: 'Other ways to sign in' });
+    expect(within(more).getByRole('link', { name: 'Forgot your PIN?' })).toBeInTheDocument();
+    expect(within(more).getByRole('link', { name: 'Lost your phone?' })).toHaveAttribute('href', '/app/lost-phone');
+    expect(within(more).getByRole('link', { name: 'Sign in with your organisation account' })).toBeInTheDocument();
+  });
+
+  it('says in words that the PIN is being checked, and shows no tab bar of its own', async () => {
+    server.use(http.post('/api/bff/identity/pin/verify', async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      return HttpResponse.json({ ok: false, triesLeft: 1 });
+    }));
+    render(<PinScreen />);
+    await typePin('000000');
+    expect(await screen.findByText('Checking your PIN')).toBeInTheDocument();
+    expect(await screen.findByText('That PIN is not right. 1 try left.')).toBeInTheDocument();
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+  });
+
   it('offers an executive the organisation sign-in, which comes back to their home (W9H)', () => {
     render(<PinScreen />);
     expect(screen.getByRole('link', { name: 'Sign in with your organisation account' })).toHaveAttribute('href', '/sign-in?next=/planning');

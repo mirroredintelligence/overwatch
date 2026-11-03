@@ -31,12 +31,21 @@ describe('AllSet', () => {
     expect(saved?.body).toMatchObject({ consentWordingVersion: 'v1' });
   });
 
-  it('shows the summary and the test-notification and go-to-app actions, and passes axe', async () => {
+  it('shows the success heading, the lead line and one Open Overwatch action, and passes axe', async () => {
     const { container } = render(<AllSet />);
-    expect(await screen.findByRole('heading', { name: 'All set' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Send me a test notification' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Go to the app' })).toHaveAttribute('href', '/app');
+    expect(await screen.findByRole('heading', { level: 1, name: 'You are all set' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open Overwatch' })).toHaveAttribute('href', '/app');
     expect(await runAxe(container)).toHaveNoViolations();
+  });
+
+  it('shows the test-notification action beside the summary, as before', async () => {
+    render(<AllSet />);
+    expect(await screen.findByRole('button', { name: 'Send me a test notification' })).toBeInTheDocument();
+  });
+
+  it('shows a shimmer in the shape of the summary while it loads, with a spoken label', () => {
+    render(<AllSet />);
+    expect(screen.getByText('Loading your set-up summary.')).toBeInTheDocument();
   });
 
   it('tells the reporter when the subscription could not be saved, and does not claim it was', async () => {
@@ -66,18 +75,44 @@ describe('AllSet', () => {
   it('does not ask for a subscription when notifications were not allowed', async () => {
     vi.stubGlobal('Notification', Object.assign(function () {}, { permission: 'denied' }));
     render(<AllSet />);
-    await screen.findByRole('heading', { name: 'All set' });
+    await screen.findByRole('heading', { name: 'You are all set' });
     expect(subscribeToPush).not.toHaveBeenCalled();
     expect(seenBffRequests.some((r) => r.path === '/api/bff/push/subscriptions')).toBe(false);
   });
 
-  it('shows the summary in words: the service, how we contact, the number as masked, the next update in clock time and the days', async () => {
+  it('shows four rows in words: the service, how we contact, the number as masked and the next update in clock time', async () => {
     render(<AllSet />);
-    expect(await screen.findByText('UCR West')).toBeInTheDocument();
+    expect((await screen.findByText('Service')).nextElementSibling).toHaveTextContent('UCR West');
+    expect(screen.getByText('We contact you by')).toBeInTheDocument();
     expect(screen.getByText('App notification')).toBeInTheDocument();
+    expect(screen.getByText('Phone')).toBeInTheDocument();
     expect(screen.getByText('07xxx xxx456')).toBeInTheDocument();
-    expect(screen.getByText('12:00')).toBeInTheDocument();
-    expect(screen.getByText('In 30 days')).toBeInTheDocument();
+    expect(screen.getByText('Next update due')).toBeInTheDocument();
+    expect(screen.getAllByText('12:00').length).toBeGreaterThan(0);
+  });
+
+  it('drops the role and PIN rows, which the summary does not carry', async () => {
+    render(<AllSet />);
+    await screen.findByText('Next update due');
+    expect(screen.queryByText('Your role')).toBeNull();
+    expect(screen.queryByText('PIN')).toBeNull();
+  });
+
+  it('says the first request time in the lead line when the summary has one', async () => {
+    render(<AllSet />);
+    expect(await screen.findByText(/Your first request arrives at/)).toBeInTheDocument();
+  });
+
+  it('says how the answers work, without a time, when there is no next update', async () => {
+    server.use(
+      http.get('/api/bff/reporter/setup-summary', () =>
+        HttpResponse.json({ service: 'UCR West', contactBy: 'text', maskedPhone: '07xxx xxx456', nextUpdateDue: null, textCodeInDays: 1 }),
+      ),
+    );
+    render(<AllSet />);
+    expect(await screen.findByText('Not set')).toBeInTheDocument();
+    expect(screen.getByText('Answer each request the way you will every time: pick the number and send.')).toBeInTheDocument();
+    expect(screen.queryByText(/Your first request arrives at/)).toBeNull();
   });
 
   it.each([
@@ -92,7 +127,6 @@ describe('AllSet', () => {
     render(<AllSet />);
     expect(await screen.findByText(label)).toBeInTheDocument();
     expect(screen.getByText('Not set')).toBeInTheDocument();
-    expect(screen.getByText('In 1 day')).toBeInTheDocument();
   });
 
   it('says the summary could not be loaded, and does not show a made-up one', async () => {
@@ -100,6 +134,7 @@ describe('AllSet', () => {
     render(<AllSet />);
     expect(await screen.findByText('We could not load your summary. Your set-up is saved.')).toBeInTheDocument();
     expect(screen.queryByText('Service')).toBeNull();
+    expect(screen.queryByText('Loading your set-up summary.')).toBeNull();
   });
 
   it('sends the test notification and says it is on its way', async () => {

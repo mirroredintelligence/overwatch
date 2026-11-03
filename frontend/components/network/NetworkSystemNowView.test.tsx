@@ -15,18 +15,30 @@ import { NetworkSystemNowView } from './NetworkSystemNowView';
 
 const view = () => render(<NetworkSystemNowView ownHref="/lead" />);
 const withBody = (over: Record<string, unknown>) => parseSystemNow({ ...SYSTEM_NOW_BODY, ...over }, 'backend');
+const FOOTNOTE = "Your organisation's own chase cards, escalation ladder and requests are on your own System now, not here.";
 
 describe('NetworkSystemNowView', () => {
-  it('shows the scope header, the title and each count with its word', async () => {
+  it('shows the scope header, the title and each status with its word and its number', async () => {
     server.use(...networkBffHandlers);
     view();
     expect(await screen.findByRole('heading', { level: 1, name: 'Sample Network system now' })).toBeInTheDocument();
     const counts = await screen.findByRole('group', { name: 'Services by status' });
     expect(screen.getByRole('region', { name: 'Which board you are viewing' })).toHaveTextContent('Showing: Network, Sample Network');
-    for (const [word, n] of [['Accepting', '1'], ['Limited', '1'], ['Not accepting', '0'], ['Over capacity', '0'], ['Not updated', '1'], ['Out of hours', '0'], ['Not available on the network', '1']]) {
+    for (const [word, n] of [['Accepting', '1'], ['Limited', '1'], ['Not accepting', '0'], ['Over capacity', '0'], ['Not updated', '1'], ['Out of hours', '0'], ['Not on the network', '1']]) {
       const term = within(counts).getByText(word);
       expect(term.parentElement).toHaveTextContent(n as string);
     }
+  });
+
+  it('draws one stacked bar with every status and its number, as one image with a name', async () => {
+    server.use(...networkBffHandlers);
+    view();
+    await screen.findByText('4 services from 3 organisations');
+    expect(
+      screen.getByRole('img', {
+        name: 'Of 4 services: 1 accepting, 1 limited, 0 not accepting, 0 over capacity, 1 not updated, 0 out of hours, 1 not on the network',
+      }),
+    ).toBeInTheDocument();
   });
 
   it('says how many services from how many organisations, and when', async () => {
@@ -46,24 +58,33 @@ describe('NetworkSystemNowView', () => {
   it('says the pressure is high as a state, with the count and where it starts, when the alert is raised', async () => {
     server.use(http.get('/api/bff/network/system-now', () => HttpResponse.json(withBody({ pressure: 'high', alert: { raised: true, level: 'high', limited_or_worse: 6, watch_from: 3, high_from: 5 } }))), ...networkBffHandlers);
     view();
-    const notice = await screen.findByText('Network pressure is high');
-    expect(notice.closest('[data-el="SCOPE-BANNER-NOTICE"]')).toHaveTextContent('6 services are limited, not accepting or over capacity. High from 5.');
+    const title = await screen.findByText('Network pressure is high.');
+    expect(title.parentElement).toHaveTextContent('Network pressure is high. 6 services are limited, not accepting or over capacity. High from 5.');
     expect(document.body.textContent).not.toMatch(/you must|should|escalate|call/i);
   });
 
-  it('says the pressure is rising at the watch level', async () => {
+  it('says the pressure is rising at the watch level, with the count of services and where it starts', async () => {
     server.use(http.get('/api/bff/network/system-now', () => HttpResponse.json(withBody({ pressure: 'watch', alert: { raised: false, level: 'watch', limited_or_worse: 3, watch_from: 3, high_from: 5 } }))), ...networkBffHandlers);
     view();
-    const notice = await screen.findByText('Network pressure is rising');
-    expect(notice.closest('[data-el="SCOPE-BANNER-NOTICE"]')).toHaveTextContent('3 services are limited, not accepting or over capacity. Rising from 3.');
+    const title = await screen.findByText('Network pressure is rising.');
+    expect(title.parentElement).toHaveTextContent('Network pressure is rising. 3 services are limited, not accepting or over capacity. Rising from 3.');
   });
 
-  it('names no organisation, no service and no chase or request (a network has none)', async () => {
+  it('names no organisation, no service and no chase or request in the counts (a network has none)', async () => {
     server.use(...networkBffHandlers);
     const { container } = view();
     await screen.findByText('4 services from 3 organisations');
-    expect(container.textContent).not.toMatch(/Sample Area|UCR West|chas|pending|request/i);
+    const withoutFootnote = (container.textContent ?? '').replace(FOOTNOTE, '');
+    expect(withoutFootnote).not.toMatch(/Sample Area|UCR West|chas|pending|request/i);
     expect(container.innerHTML).not.toMatch(/trust-|tenant|net-sample/i);
+  });
+
+  it('says what this is and that the footnote points to the organisation own System now', async () => {
+    server.use(...networkBffHandlers);
+    view();
+    expect(await screen.findByText(/It names no organisation and no service\./)).toBeInTheDocument();
+    expect(screen.getByText(/It is never an instruction\./)).toBeInTheDocument();
+    expect(screen.getByText(FOOTNOTE)).toBeInTheDocument();
   });
 
   it('says one service from one organisation in the singular', async () => {
@@ -72,7 +93,7 @@ describe('NetworkSystemNowView', () => {
     expect(await screen.findByText('1 service from 1 organisation')).toBeInTheDocument();
   });
 
-  it('is "not available" when refused, and keeps the last good counts when a later read fails', async () => {
+  it('is "not available" when refused, and says the network could not be read when a read fails with no counts yet', async () => {
     server.use(http.get('/api/bff/network/system-now', () => HttpResponse.json({ code: 'not-found' }, { status: 404 })), ...networkBffHandlers);
     const refused = view();
     expect(await screen.findByText('Network view not available')).toBeInTheDocument();
@@ -81,6 +102,8 @@ describe('NetworkSystemNowView', () => {
     server.use(http.get('/api/bff/network/system-now', () => HttpResponse.json({ code: 'exception' }, { status: 503 })));
     view();
     expect(await screen.findByText('The network could not be read. Try again shortly.')).toBeInTheDocument();
+    expect(screen.queryByText('Accepting')).toBeNull();
+    expect(screen.queryByText('0')).toBeNull();
   });
 
   it('has no axe violations', async () => {

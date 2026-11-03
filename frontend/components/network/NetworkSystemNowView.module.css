@@ -1,0 +1,220 @@
+/* The network "System now" page: a pressure notice, one stacked bar of every status, the counts, and what this is.
+   Tokens only. One column at phone width; two columns from 900px. No animation: the figures never move. */
+
+.page {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-height: 100%;
+  padding: var(--space-4);
+  background: var(--c-ground);
+  color: var(--c-ink);
+}
+
+.layout {
+  display: grid;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+}
+
+.dashed {
+  border: 2px dashed var(--c-unknown);
+  box-shadow: none;
+}
+
+.cardHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-ink-2);
+}
+
+.meta {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-ink-2);
+}
+
+.body {
+  margin: 0;
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-lh);
+}
+
+.muted {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-ink-2);
+}
+
+.footnote {
+  margin: 0;
+  padding: 0 var(--space-1);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-ink-2);
+}
+
+.notice {
+  box-sizing: border-box;
+  padding: var(--space-3) var(--space-4);
+  border: 2px solid var(--c-limited);
+  border-radius: var(--radius);
+  background: var(--c-amber-tint);
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-lh);
+}
+
+.alert {
+  box-sizing: border-box;
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 2px solid var(--c-limited);
+  border-radius: var(--radius);
+  background: #fff;
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-lh);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* The stacked bar: one segment per status, sized by its count. Shape (pattern, dashes) as well as colour. */
+.stack {
+  display: flex;
+  height: 30px;
+  overflow: hidden;
+  border: 1px solid var(--c-ink);
+  border-radius: 8px;
+}
+
+.stack > span {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.rows {
+  margin: 0;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--c-line);
+}
+
+.row:first-child {
+  border-top: 0;
+}
+
+.row dt {
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+}
+
+/* The symbol is the shape of the status; the word next to it carries the meaning. */
+.row dt[data-symbol]:not([data-symbol=""])::before {
+  content: attr(data-symbol) " ";
+}
+
+.count {
+  margin: 0;
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: var(--type-title-weight);
+  text-align: right;
+}
+
+.track {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.track > i {
+  display: block;
+  height: 16px;
+  border-radius: 5px;
+}
+
+/* The fill of each status, shared by the stacked bar and the row bars. Colour is never the only cue: the words are beside it. */
+[data-status='accepting'] {
+  background: var(--c-primary);
+}
+
+[data-status='limited'] {
+  background: var(--c-limited);
+}
+
+[data-status='not-accepting'] {
+  background: var(--c-closed);
+}
+
+[data-status='over-capacity'] {
+  background: repeating-linear-gradient(135deg, var(--c-surge) 0 5px, #fff 5px 8px);
+}
+
+[data-status='not-updated'] {
+  background: #fff;
+  border-left: 2px dashed var(--c-unknown);
+}
+
+[data-status='out-of-hours'] {
+  background: var(--c-line);
+}
+
+[data-status='unavailable'] {
+  background: var(--c-unknown);
+}
+
+@media (min-width: 900px) {
+  .layout {
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  }
+
+  .row {
+    grid-template-columns: 12.5rem 3.75rem minmax(0, 1fr);
+  }
+
+  .track {
+    grid-column: auto;
+  }
+}

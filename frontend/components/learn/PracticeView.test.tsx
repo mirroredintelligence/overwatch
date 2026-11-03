@@ -18,10 +18,35 @@ describe('PracticeView', () => {
     fetchSpy.mockRestore();
   });
 
+  it('names the lesson being practised', () => {
+    render(<PracticeView lessonId="correct-a-figure" />);
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Practice' })).toBeInTheDocument();
+    expect(screen.getByText('Correct a figure · 2 minutes')).toBeInTheDocument();
+  });
+
+  it('shows the "send a new number" answer, which also ends the practice and sends nothing', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    render(<PracticeView lessonId="correct-a-figure" />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Send a new number' }));
+
+    expect(screen.getByRole('status')).toHaveTextContent('Practice done');
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+
   it('leaves practice back to the lesson', () => {
     render(<PracticeView lessonId="correct-a-figure" />);
 
     expect(screen.getByRole('link', { name: 'Leave practice' })).toHaveAttribute('href', '/learn/correct-a-figure');
+  });
+
+  it('has a way back and the bottom bar of Home, Learn and Help', () => {
+    render(<PracticeView lessonId="correct-a-figure" />);
+
+    expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/learn/correct-a-figure');
+    expect(screen.getByRole('navigation', { name: 'Sections' })).toBeInTheDocument();
   });
 
   it('passes vitest-axe', async () => {

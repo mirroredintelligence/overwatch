@@ -25,6 +25,14 @@ describe('HelpPanel', () => {
     expect(screen.getByText('The number is not set for your service yet. Ask your shift lead.')).toBeInTheDocument();
   });
 
+  it('is a card with a heading and the ways as a named list', () => {
+    render(<HelpPanel spoaPhone={null} />);
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Need a hand?' })).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Ways to get help' })).toBeInTheDocument();
+    expect(screen.getByText('Help is one tap away on every screen.')).toBeInTheDocument();
+  });
+
   it('passes vitest-axe', async () => {
     const { container } = render(<HelpPanel spoaPhone="01305 000000" />);
 

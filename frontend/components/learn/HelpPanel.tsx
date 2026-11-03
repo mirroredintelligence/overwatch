@@ -1,6 +1,5 @@
 import { Button } from '@/components/ui/Button';
 import { telHref } from '@/lib/exec/call';
-import styles from '../console/Console.module.css';
 import layout from './Learn.module.css';
 
 // "Need a hand?" (W53, TrainingPhone screen 4). The coordination team number comes from the service's own
@@ -10,9 +9,9 @@ import layout from './Learn.module.css';
 
 export function HelpPanel({ spoaPhone, champion }: { spoaPhone: string | null; champion?: string }) {
   return (
-    <section className={styles.section} aria-labelledby="help-heading">
-      <h2 id="help-heading" className={styles.heading}>Need a hand?</h2>
-      <ul className={layout.ways}>
+    <section className={layout.helpCard} aria-labelledby="help-heading">
+      <h2 id="help-heading" className={layout.helpHeading}>Need a hand?</h2>
+      <ul className={layout.ways} aria-label="Ways to get help">
         <li>
           <Button variant="secondary" href="/help" dataEl="HELP-GUIDE-LINK">Read the one-page guide</Button>
         </li>
@@ -29,7 +28,7 @@ export function HelpPanel({ spoaPhone, champion }: { spoaPhone: string | null; c
           <Button variant="secondary" href="/help/problem" dataEl="HELP-REPORT-LINK">Report a problem</Button>
         </li>
       </ul>
-      <p className={styles.help}>Help is one tap away on every screen.</p>
+      <p className={layout.helpNote}>Help is one tap away on every screen.</p>
     </section>
   );
 }

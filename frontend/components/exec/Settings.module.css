@@ -1,0 +1,224 @@
+/* The alert set-up and settings screens (PSettings): the switch card, the window chips under a switch, and the
+   set-up stepper. The shared exec styles (Exec.module.css) keep the escalation form and the other exec screens. */
+
+.page {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.card {
+  padding: var(--space-2) var(--space-4);
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.item {
+  display: grid;
+}
+
+.switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 52px;
+  padding: var(--space-3) 0;
+  border: 0;
+  border-top: 1px solid var(--c-line);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.item:first-child .switch {
+  border-top: 0;
+}
+
+.switch:focus-visible,
+.chip:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.switchText {
+  display: grid;
+  gap: 2px;
+}
+
+.switchTitle {
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+}
+
+.switchHint {
+  font-size: var(--type-caption-size);
+  color: var(--c-ink-2);
+}
+
+/* The state in words, and the knob beside it. On is filled; off is outlined, with the knob at the left. */
+.toggle {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 44px;
+  padding: 0 6px 0 14px;
+  border: 2px solid var(--c-primary);
+  border-radius: 999px;
+  background: var(--c-primary);
+  color: #fff;
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  transition: background-color var(--dur-state) var(--ease-out), color var(--dur-state) var(--ease-out);
+}
+
+.toggle[data-on='false'] {
+  flex-direction: row-reverse;
+  padding: 0 14px 0 6px;
+  border-color: var(--c-ink-2);
+  background: #fff;
+  color: var(--c-ink-2);
+}
+
+.knob {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0 0 var(--space-3);
+  border: 0;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: 2px solid var(--c-line);
+  border-radius: 999px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  cursor: pointer;
+}
+
+.chip[aria-pressed='true'] {
+  border-color: var(--c-primary);
+  background: var(--c-tint);
+  color: var(--c-primary-dark);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.saveRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  color: var(--c-ink-2);
+}
+
+.error {
+  margin: 0;
+  font-weight: var(--type-label-weight);
+}
+
+/* The set-up page: a stepper beside the step on a wide screen, above it on a narrow one. */
+.setup {
+  display: grid;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.steps {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-2) 0;
+  list-style: none;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--type-label-size);
+  color: var(--c-ink-2);
+}
+
+.step[aria-current='step'] {
+  font-weight: var(--type-label-weight);
+  color: var(--c-ink);
+}
+
+.mark {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  box-sizing: border-box;
+  border: 2px dashed var(--c-unknown);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--c-ink-2);
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+}
+
+.mark[data-state='done'],
+.mark[data-state='current'] {
+  border-style: solid;
+  color: #fff;
+}
+
+.mark[data-state='done'] {
+  border-color: var(--c-primary);
+  background: var(--c-primary);
+}
+
+.mark[data-state='current'] {
+  border-color: var(--c-primary-dark);
+  background: var(--c-primary-dark);
+}
+
+@media (min-width: 50rem) {
+  .setup {
+    grid-template-columns: 280px minmax(0, 1fr);
+    gap: var(--space-5);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toggle {
+    transition: none;
+  }
+}

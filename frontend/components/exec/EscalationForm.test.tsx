@@ -33,6 +33,20 @@ describe('EscalationForm', () => {
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ ackMinutes: 15, deputy: 'pr-0042' }));
   });
 
+  it('reports each change as it is made, so the settings page can save the whole state with its one button', async () => {
+    const onChange = vi.fn();
+    render(<EscalationForm initial={initial} busy={false} onSave={vi.fn()} onChange={onChange} />);
+    await userEvent.click(screen.getByRole('button', { name: '15 min' }));
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ ackMinutes: 15, deputy: '' }));
+    await userEvent.click(screen.getByRole('button', { name: 'None' }));
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ quietHours: null }));
+  });
+
+  it('hides its own Save when the page has one save for everything', () => {
+    render(<EscalationForm initial={initial} busy={false} onSave={vi.fn()} showSave={false} />);
+    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+  });
+
   it('has no accessibility violations', async () => {
     const { container } = render(<EscalationForm initial={initial} busy={false} onSave={vi.fn()} />);
     expect(await runAxe(container)).toHaveNoViolations();

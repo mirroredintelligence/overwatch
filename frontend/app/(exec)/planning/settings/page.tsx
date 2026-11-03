@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { SettingsForm } from '@/components/exec/SettingsForm';
+import { PageHeader } from '@/components/shell/PageHeader';
 import { Banner } from '@/components/ui/Banner';
 import { getSession } from '@/lib/auth/session';
 import { readLeaders } from '@/lib/exec/leaders';
@@ -25,7 +26,7 @@ export default async function ExecSettingsPage() {
   }
   return (
     <main>
-      <h1>Alert settings</h1>
+      <PageHeader title="Alert settings" />
       <SettingsForm initial={stored.preferences} leaders={await readLeaders(session)} />
     </main>
   );

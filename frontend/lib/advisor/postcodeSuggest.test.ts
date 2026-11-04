@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { suggestPostcodes } from './postcodeSuggest';
+import { locatePostcode, suggestPostcodes } from './postcodeSuggest';
 
 // The advisor's postcode suggestions (DEC-1332): a lookup that cannot answer offers nothing, and never blocks
 // the typed postcode.
@@ -35,5 +35,27 @@ describe('suggestPostcodes', () => {
   it('keeps only text in the answer', async () => {
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ postcodes: ['DT4 4FD', 7, null] }), { status: 200 }));
     expect(await suggestPostcodes('DT4')).toEqual(['DT4 4FD']);
+  });
+});
+
+describe('locatePostcode', () => {
+  it('asks the BFF with the typed postcode and returns its position', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ status: 'found', lat: 50.609209, lon: -2.456099 }), { status: 200 }),
+    );
+    expect(await locatePostcode('DT4 4GB')).toEqual({ status: 'found', lat: 50.609209, lon: -2.456099 });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/bff/advisor/postcodes/locate?postcode=DT4%204GB');
+  });
+
+  it('says not found when the back end does', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ status: 'not-found' }), { status: 200 }));
+    expect(await locatePostcode('DT4 8XX')).toEqual({ status: 'not-found' });
+  });
+
+  it('says unavailable when the lookup fails, and never throws', async () => {
+    fetchMock.mockResolvedValueOnce(new Response('{}', { status: 503 }));
+    expect(await locatePostcode('DT4 4GB')).toEqual({ status: 'unavailable' });
+    fetchMock.mockRejectedValueOnce(new Error('offline'));
+    expect(await locatePostcode('DT4 4GB')).toEqual({ status: 'unavailable' });
   });
 });

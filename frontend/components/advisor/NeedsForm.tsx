@@ -21,7 +21,7 @@ import {
 } from '@/lib/advisor/codes';
 import { bffFetch, newIdempotencyKey } from '@/lib/advisor/browser';
 import { normalisePostcode } from '@/lib/advisor/postcode';
-import { suggestPostcodes } from '@/lib/advisor/postcodeSuggest';
+import { locatePostcode, type PostcodeLocation, suggestPostcodes } from '@/lib/advisor/postcodeSuggest';
 import type { Score } from '@/lib/advisor/scores';
 import { scoreText } from '@/lib/advisor/summary';
 import { CallBar } from './CallBar';
@@ -109,6 +109,8 @@ export function NeedsForm({ caseId }: { caseId: string }) {
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [postcodeSuggestions, setPostcodeSuggestions] = useState<string[]>([]);
+  // The position OS Places gave for the postcode last left in the field (DEC-1340). Shown, never stored.
+  const [located, setLocated] = useState<PostcodeLocation | null>(null);
   const [showMore, setShowMore] = useState(false);
   const [postcodeError, setPostcodeError] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -168,8 +170,10 @@ export function NeedsForm({ caseId }: { caseId: string }) {
     if (normal !== null) {
       setDraft((current) => ({ ...current, postcode: normal }));
       setPostcodeError(false);
+      void locatePostcode(normal).then(setLocated);
       return;
     }
+    setLocated(null);
     // An empty field is not an error until something is typed; a wrong one says what a right one looks like.
     setPostcodeError(draft.postcode.trim() !== '');
   }
@@ -295,6 +299,7 @@ export function NeedsForm({ caseId }: { caseId: string }) {
             onChange={(event) => {
               const typed = event.target.value;
               setDraft((current) => ({ ...current, postcode: typed }));
+              setLocated(null);
               void suggestPostcodes(typed).then(setPostcodeSuggestions);
             }}
             onBlur={onPostcodeBlur}
@@ -309,6 +314,15 @@ export function NeedsForm({ caseId }: { caseId: string }) {
           </datalist>
           {district !== null ? (
             <p className={styles.note}>{`On record: postcode district ${district}. Type the full postcode only to change it.`}</p>
+          ) : null}
+          {located !== null ? (
+            <p className={styles.note} role="status" data-el="ADV-NEEDS-POSTCODE-LOOKUP">
+              {located.status === 'found'
+                ? `Found: ${located.lat.toFixed(5)}, ${located.lon.toFixed(5)} (OS Places).`
+                : located.status === 'not-found'
+                  ? 'Not found. Check the postcode.'
+                  : 'The postcode lookup is unavailable. The postcode is still saved as typed.'}
+            </p>
           ) : null}
           {postcodeError ? (
             <p id={POSTCODE_ERROR_ID} className={styles.error}>

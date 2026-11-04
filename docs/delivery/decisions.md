@@ -7153,3 +7153,15 @@ Status: accepted (the owner's request, 2026-11-03, applied under DEC-133) · Aff
 **What it does not do.** It does not change the matching of patients to services (whole districts only), or the reporting rules after the first figure.
 
 **How to apply.** The unit label is derived from what is counted, in one place in the back end. The usual range stays in the data model, so a learned range can replace 0 to max later.
+
+## DEC-1340 The advisor's postcode lookup uses OS Places (owner decision, changes DEC-047's local-only rule for this lookup)
+
+**Decision.** The owner has decided that the advisor's postcode lookup may send the postcode the advisor types to Ordnance Survey Places, the service the ambulance service already uses. This replaces the earlier rule that patient postcodes never leave the Trust, for this lookup only. (1) Only the typed postcode is sent. No name, age, need, case reference or other field goes with it. (2) The key is held in Azure Key Vault as `os-places-api-key` and is read by the back end at run time; it is never in code, config, a commit or a chat. (3) The prefix suggestions in the postcode list stay on the local file and send nothing out. (4) A found postcode shows its position on the form, and the position is not stored: DEC-067 and DEC-398 (district only on a case) stand.
+
+**Why.** The local file holds only the DT and BH postcodes, so a lookup for anywhere else found nothing. The owner chose OS Places over a full local file.
+
+**What it does not do.** It does not add coordinates to a case, change the matching of patients to services, or send anything from the outcome, booking or invitation paths.
+
+**Open.** Information governance has not signed this off in writing. The owner has the decision; the sign-off is still to be recorded. Until it is, this lookup is the only path that sends a patient postcode outside the Trust.
+
+**How to apply.** The OS Places adapter is the only code that calls Ordnance Survey. A failed or slow call shows "not found" and never blocks the form, as with the suggestions.

@@ -67,8 +67,9 @@ from overwatch.adapters.inbound.fhir_rest.subscription_mapping import ALERT_CODE
 from overwatch.application.actor import Actor
 from overwatch.application.ports.outbound.cache import Cache
 from overwatch.application.ports.outbound.clock import Clock
-from overwatch.application.ports.outbound.geo import PostcodeLocator
+from overwatch.application.ports.outbound.geo import Geocoder, PostcodeLocator
 from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.lookups import LookupRejected, TransientLookupError
 from overwatch.application.ports.outbound.sealing import ContentSealer
 from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from overwatch.application.uow_idempotency import UnitOfWorkIdempotency
@@ -102,6 +103,7 @@ from overwatch.application.use_cases.safety_concern import (
 from overwatch.domain.codes import Role, code_system_url
 from overwatch.domain.errors import NotAllowed, ValidationFailed
 from overwatch.domain.rules.clinical_queue import Presence
+from overwatch.domain.rules.postcode import normalise_postcode
 from overwatch.domain.rules.safety_report import (
     MAX_TEXT_LENGTH,
     ProblemCategory,
@@ -143,6 +145,8 @@ class _Container(Protocol):
     def clock(self) -> Clock: ...
     @property
     def postcodes(self) -> PostcodeLocator: ...
+    @property
+    def geocoder(self) -> Geocoder: ...
     @property
     def ids(self) -> IdGenerator: ...
     @property
@@ -304,6 +308,29 @@ async def suggest_postcodes(
         return FhirJSONResponse(content={"postcodes": []}, headers=NO_STORE)
     found = _container(request).postcodes.suggest(prefix)
     return FhirJSONResponse(content={"postcodes": found}, headers=NO_STORE)
+
+
+@router.get("/clinical/postcodes/locate")
+async def locate_postcode(
+    request: Request,
+    actor: Annotated[Actor, Depends(require_role(*ADVISORS))],
+) -> Response:
+    """The position of the postcode the advisor typed (DEC-1340): OS Places answers for the postcode
+    itself, and only the typed postcode is sent. Nothing is stored. A lookup that cannot answer says
+    so, and never blocks the form."""
+    postcode = normalise_postcode(request.query_params.get("postcode", ""))
+    if postcode is None:
+        raise ValidationFailed("postcode", "Enter a full postcode, for example DT4 8XX")
+    try:
+        found = await _container(request).geocoder.find_addresses(postcode)
+    except TransientLookupError, LookupRejected:
+        return FhirJSONResponse(content={"status": "unavailable"}, headers=NO_STORE)
+    if not found:
+        return FhirJSONResponse(content={"status": "not-found"}, headers=NO_STORE)
+    position = found[0].position
+    return FhirJSONResponse(
+        content={"status": "found", "lat": position.lat, "lon": position.lon}, headers=NO_STORE
+    )
 
 
 @router.get("/clinical/available")

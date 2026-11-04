@@ -21,3 +21,29 @@ export async function suggestPostcodes(typed: string, signal?: AbortSignal): Pro
     return [];
   }
 }
+
+/** The position of a full postcode from OS Places (DEC-1340). Only the typed postcode is sent, through the BFF.
+ *  A lookup that cannot answer is 'unavailable', so the form still saves the postcode as typed. */
+export type PostcodeLocation =
+  | { status: 'found'; lat: number; lon: number }
+  | { status: 'not-found' }
+  | { status: 'unavailable' };
+
+export async function locatePostcode(postcode: string, signal?: AbortSignal): Promise<PostcodeLocation> {
+  try {
+    const response = await fetch(`/api/bff/advisor/postcodes/locate?postcode=${encodeURIComponent(postcode)}`, {
+      cache: 'no-store',
+      credentials: 'same-origin',
+      signal,
+    });
+    if (!response.ok) return { status: 'unavailable' };
+    const body = (await response.json()) as { status?: unknown; lat?: unknown; lon?: unknown };
+    if (body.status === 'not-found') return { status: 'not-found' };
+    if (body.status === 'found' && typeof body.lat === 'number' && typeof body.lon === 'number') {
+      return { status: 'found', lat: body.lat, lon: body.lon };
+    }
+    return { status: 'unavailable' };
+  } catch {
+    return { status: 'unavailable' };
+  }
+}

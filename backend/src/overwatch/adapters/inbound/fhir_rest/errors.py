@@ -128,6 +128,8 @@ def _conflict(request: Request, exc: Any) -> Response:
 def _validation_failed(request: Request, exc: Any) -> Response:
     # The domain message is plain words that name the rule. The domain must keep values out of it.
     assert isinstance(exc, ValidationFailed)
+    # The field name only, so a refusal can be traced in the logs without the request's values (DEC-1338).
+    log.warning("request refused: field=%s", exc.field)
     return operation_outcome(400, "invalid", exc.message, expression=exc.field)
 
 

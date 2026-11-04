@@ -439,6 +439,7 @@ async def invite_reporter(
                 container.clock,
                 container.ids,
                 link_base_url_for=container.link_base_url_for,
+                sealer=container.sealer,
             ).execute(command)
         except NotAllowed as error:
             refused = refusal_outcome(error)

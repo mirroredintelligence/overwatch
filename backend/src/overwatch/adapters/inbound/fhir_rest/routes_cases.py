@@ -400,6 +400,7 @@ async def advisor_phoned(
             container.ids,
             UnitOfWorkIdempotency(container.uow_factory),
             zones=DirectoryZones(container.tenants),
+            sealer=container.sealer,
         ),
         container.uow_factory,
     )

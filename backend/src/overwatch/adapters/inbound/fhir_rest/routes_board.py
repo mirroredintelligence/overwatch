@@ -80,6 +80,7 @@ async def confirm_capacity(
             container.ids,
             UnitOfWorkIdempotency(container.uow_factory),
             zones=DirectoryZones(container.tenants),
+            sealer=container.sealer,
         )
         # A lead confirms for the service after phoning it; a reporter confirms from the app.
         source = ReportSource.ADVISOR_PHONED if actor.role is Role.LEAD else ReportSource.APP

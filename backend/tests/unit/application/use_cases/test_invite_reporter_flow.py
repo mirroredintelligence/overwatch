@@ -11,6 +11,7 @@ from typing import Any
 
 import pytest
 
+from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
 from overwatch.adapters.testing.fixed_clock import FixedClock
 from overwatch.adapters.testing.fixed_ids import SequentialIds
 from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
@@ -59,6 +60,25 @@ LEAD = Actor(
 ADVISOR = replace(LEAD, role=Role.ADVISOR)
 
 
+SEALER = AesGcmContentSealer(SECRETS)
+TENANT_ID = "tenant-a"
+
+
+def _text_of(message) -> str:
+    """The text an outbox message carries, opened the way the sender opens it (DEC-1336)."""
+    import json
+
+    body = json.loads(
+        SEALER.unseal(
+            message.payload["sealed_content"],
+            message_id=message.id,
+            tenant_id=TENANT_ID,
+            recipient_role_id=message.payload["recipient_role_id"],
+        )
+    )
+    return body["text"]
+
+
 class World:
     def __init__(self, flag: ScopeFlag = ScopeFlag.IN_PILOT) -> None:
         self.units = StubUnits()
@@ -88,6 +108,7 @@ class World:
             self.clock,
             self.ids,
             link_base_url_for=lambda scope: "https://overwatch.example",
+            sealer=SEALER,
         )
         self.resend = ResendInvitation(
             self.units,
@@ -95,6 +116,7 @@ class World:
             self.clock,
             self.ids,
             link_base_url_for=lambda scope: "https://overwatch.example",
+            sealer=SEALER,
         )
 
     def command(self, **changes: Any) -> InviteReporterCommand:
@@ -171,7 +193,7 @@ async def test_the_text_i1_carries_a_link_that_resolves_to_the_invitation_and_th
     payload = sent[0].payload
     assert payload["message_id"] == "I1"
     assert payload["channel"] == "text"
-    text = payload["text"]
+    text = _text_of(sent[0])
     assert text.startswith("Overwatch: You are invited to report capacity for UCR West. ")
     assert text.endswith(" Valid for 48 hrs.")
     link = text.split("Set up takes about 3 minutes: ")[1].split(" Valid")[0]
@@ -208,7 +230,7 @@ async def test_the_stored_copy_of_the_text_holds_no_token() -> None:
     communication = world.units.communications.sent[0]
     assert communication.message_id == "I1"
     assert "https://overwatch.example/i/[link]" in communication.payload_text
-    token = world.units.outbox.messages[0].payload["text"].split("/i/")[1].split(" ")[0]
+    token = _text_of(world.units.outbox.messages[0]).split("/i/")[1].split(" ")[0]
     assert token not in communication.payload_text
     assert communication.recipient_role_id in world.units.people.roles
 
@@ -333,7 +355,7 @@ async def test_a_person_who_already_holds_the_number_is_reused_not_made_twice() 
 async def test_a_resend_burns_the_old_link_issues_a_new_one_and_texts_again() -> None:
     world = World()
     first = await world.invite.execute(world.command())
-    old_text = world.units.outbox.messages[0].payload["text"]
+    old_text = _text_of(world.units.outbox.messages[0])
     old_token = old_text.split("/i/")[1].split(" ")[0]
     world.clock.advance(timedelta(hours=30))
     later = world.clock.now()
@@ -348,7 +370,7 @@ async def test_a_resend_burns_the_old_link_issues_a_new_one_and_texts_again() ->
     assert old.used_at == later
     sent = [m for m in world.units.outbox.messages if m.event_type == "SendMessage"]
     assert len(sent) == 2
-    new_token = sent[1].payload["text"].split("/i/")[1].split(" ")[0]
+    new_token = _text_of(sent[1]).split("/i/")[1].split(" ")[0]
     new = await service.resolve(new_token)
     assert new is not None
     assert new.used_at is None

@@ -27,6 +27,7 @@ from overwatch.application.actor import Actor, require_actor_in_bound_tenant, te
 from overwatch.application.idempotency import IdempotencyStore
 from overwatch.application.ports.outbound.clock import Clock
 from overwatch.application.ports.outbound.ids import IdGenerator
+from overwatch.application.ports.outbound.sealing import ContentSealer
 from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from overwatch.application.tenant_settings import TenantZones, as_zones, read_settings
 from overwatch.application.use_cases.report_capacity import (
@@ -122,6 +123,7 @@ class ConfirmCapacity:
         ids: IdGenerator,
         idempotency: IdempotencyStore,
         zones: TenantZones | None = None,
+        sealer: ContentSealer | None = None,
     ) -> None:
         """`zones` is the tenant's time zone source; None is London, the one zone on the allow-list
         (KI-415). The serving process passes `DirectoryZones`."""
@@ -130,6 +132,7 @@ class ConfirmCapacity:
         self._ids = ids
         self._idempotency = idempotency
         self._zones = as_zones(zones)
+        self._sealer = sealer
 
     async def execute(self, command: ConfirmCapacityCommand) -> ConfirmCapacityResult:
         # Before anything is read, the early replay included: the actor's tenant is the bound one
@@ -210,6 +213,7 @@ class ConfirmCapacity:
                 now=now,
                 ids=self._ids,
                 send_echo=send_echo,
+                sealer=self._sealer,
                 replaced_value=None,
                 use_case=USE_CASE,
                 audit_snapshot={

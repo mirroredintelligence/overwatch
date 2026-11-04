@@ -280,7 +280,7 @@ async def exchange_staff_for_tenant(request: Request, body: StaffTenantBody) -> 
     try:
         asked = _asked_role(body.role)
         tenant_id = check_tenant_id(body.tenant)
-    except (ValueError, ValidationFailed):
+    except ValueError, ValidationFailed:
         return _forbidden()
     container = _container(request)
     tenant = await container.tenants.get(tenant_id)

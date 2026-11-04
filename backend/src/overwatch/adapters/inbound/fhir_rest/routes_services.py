@@ -405,6 +405,7 @@ async def create_report(
             container.ids,
             UnitOfWorkIdempotency(container.uow_factory),
             zones=DirectoryZones(container.tenants),
+            sealer=container.sealer,
         )
         try:
             result = await use_case.execute(command)

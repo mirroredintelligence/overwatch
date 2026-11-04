@@ -21,7 +21,9 @@ from overwatch.application.ports.outbound.clock import Clock
 from overwatch.application.ports.outbound.ids import IdGenerator
 from overwatch.application.ports.outbound.messaging import Communication
 from overwatch.application.ports.outbound.outbox import OutboxMessage, outbox_message_for
+from overwatch.application.ports.outbound.sealing import ContentSealer
 from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.sealed_send import seal_outbound_text, tenant_of
 from overwatch.application.tenancy import ScopeKind, TenantMismatch, TenantNotBound
 from overwatch.application.tenant_settings import TenantZones, as_zones, read_settings
 from overwatch.application.use_cases.missed_report_ladder import stop_answered_ladders
@@ -200,6 +202,7 @@ async def record_report(
     policy: TenantPolicy = DEFAULT_POLICY,
     config_version: int | None = None,
     zone: ZoneInfo = LONDON,
+    sealer: ContentSealer | None = None,
 ) -> ReportCapacityResult:
     """Store one report with its status change, echo, audit entry and outbox messages, inside the
     caller's unit of work. The caller commits. U02 reuses this function (DEC-100).
@@ -272,9 +275,20 @@ async def record_report(
             delivery_status="queued",
         )
         await uow.communications.add(communication)
+        # The echo is sealed like every outbound text (DEC-1336). Without a sealer, none is written.
+        if sealer is None:
+            raise DomainError("the echo sealer is not configured")
+        outbox_id = ids.new_id()
+        sealed = seal_outbound_text(
+            sealer,
+            outbox_id=outbox_id,
+            tenant_id=tenant_of(uow.unit_scope),
+            recipient_role_id=send_echo,
+            text=text,
+        )
         await uow.outbox.add(
             OutboxMessage(
-                id=ids.new_id(),
+                id=outbox_id,
                 topic=MESSAGES_TOPIC,
                 event_type=SEND_MESSAGE,
                 payload={
@@ -282,7 +296,7 @@ async def record_report(
                     "message_id": message_id.value,
                     "channel": Channel.TEXT.value,
                     "recipient_role_id": send_echo,
-                    "text": text,
+                    "sealed_content": sealed,
                 },
                 created_at=now,
             )
@@ -382,6 +396,7 @@ class ReportCapacity:
         ids: IdGenerator,
         idempotency: IdempotencyStore,
         zones: TenantZones | None = None,
+        sealer: ContentSealer | None = None,
     ) -> None:
         """`zones` is the tenant's time zone source; None is London, the one zone on the allow-list
         (KI-415). The serving process passes `DirectoryZones`."""
@@ -390,6 +405,7 @@ class ReportCapacity:
         self._ids = ids
         self._idempotency = idempotency
         self._zones = as_zones(zones)
+        self._sealer = sealer
 
     async def execute(self, command: ReportCapacityCommand) -> ReportCapacityResult:
         # Before anything is read, the early replay included: the actor's tenant is the bound one
@@ -498,6 +514,7 @@ class ReportCapacity:
                 now=now,
                 ids=self._ids,
                 send_echo=send_echo,
+                sealer=self._sealer,
                 replaced_value=command.replaced_value,
                 flag=command.flag,
                 audit_detail=command.audit_detail,

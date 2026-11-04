@@ -25,7 +25,9 @@ from overwatch.application.ports.outbound.identity import PhoneHasher, normalise
 from overwatch.application.ports.outbound.ids import IdGenerator
 from overwatch.application.ports.outbound.messaging import Communication
 from overwatch.application.ports.outbound.outbox import OutboxMessage, outbox_message_for
+from overwatch.application.ports.outbound.sealing import ContentSealer
 from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from overwatch.application.sealed_send import seal_outbound_text, tenant_of
 from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound
 from overwatch.application.tenant_settings import resolve_link_base
 from overwatch.application.use_cases.send_prompts import LinkTokenServiceFactory
@@ -38,7 +40,7 @@ from overwatch.domain.codes import (
     Role,
     ScopeFlag,
 )
-from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.errors import Conflict, DomainError, NotAllowed, NotFound, ValidationFailed
 from overwatch.domain.events import ReporterInvited
 from overwatch.domain.messages.catalogue import MessageId
 from overwatch.domain.messages.templates import RenderedMessage, render
@@ -180,6 +182,7 @@ async def _send_text(
     uow: UnitOfWork,
     ids: IdGenerator,
     *,
+    sealer: ContentSealer | None,
     now: datetime,
     service_name: str,
     link: str,
@@ -202,9 +205,23 @@ async def _send_text(
         delivery_status="queued",
     )
     await uow.communications.add(communication)
+    # The invitation text is sealed like every outbound text (DEC-1336), bound to its outbox message
+    # and tenant.
+    if sealer is None:
+        raise DomainError("the invitation sealer is not configured")
+    outbox_id = ids.new_id()
+    sealed = seal_outbound_text(
+        sealer,
+        outbox_id=outbox_id,
+        tenant_id=tenant_of(uow.unit_scope),
+        recipient_role_id=role_id,
+        text=sent.text,
+        subject=sent.subject,
+        html=sent.html,
+    )
     await uow.outbox.add(
         OutboxMessage(
-            id=ids.new_id(),
+            id=outbox_id,
             topic=MESSAGES_TOPIC,
             event_type=SEND_MESSAGE,
             payload={
@@ -212,9 +229,7 @@ async def _send_text(
                 "message_id": sent.message_id.value,
                 "channel": Channel.TEXT.value,
                 "recipient_role_id": role_id,
-                "text": sent.text,
-                "subject": sent.subject,
-                "html": sent.html,
+                "sealed_content": sealed,
             },
             created_at=now,
         )
@@ -231,6 +246,7 @@ class InviteReporter:
         ids: IdGenerator,
         *,
         link_base_url_for: LinkBaseUrlFor,
+        sealer: ContentSealer | None = None,
     ) -> None:
         """`link_tokens` builds the link service over the unit's own repository. The link host of
         a tenant comes from its configuration, through `link_base_url_for`."""
@@ -240,6 +256,7 @@ class InviteReporter:
         self._clock = clock
         self._ids = ids
         self._link_base_url_for = link_base_url_for
+        self._sealer = sealer
 
     async def execute(self, command: InviteReporterCommand) -> InviteReporterResult:
         lead_id = check_may_invite(command.actor)
@@ -332,6 +349,7 @@ class InviteReporter:
             await _send_text(
                 uow,
                 self._ids,
+                sealer=self._sealer,
                 now=now,
                 service_name=entry.name,
                 link=invitation_link(base_url, token),
@@ -382,12 +400,14 @@ class ResendInvitation:
         ids: IdGenerator,
         *,
         link_base_url_for: LinkBaseUrlFor,
+        sealer: ContentSealer | None = None,
     ) -> None:
         self._uow_factory = uow_factory
         self._link_tokens = link_tokens
         self._clock = clock
         self._ids = ids
         self._link_base_url_for = link_base_url_for
+        self._sealer = sealer
 
     async def execute(self, command: ResendInvitationCommand) -> InviteReporterResult:
         check_may_invite(command.actor)
@@ -436,6 +456,7 @@ class ResendInvitation:
             await _send_text(
                 uow,
                 self._ids,
+                sealer=self._sealer,
                 now=now,
                 service_name=entry.name,
                 link=invitation_link(base_url, token),

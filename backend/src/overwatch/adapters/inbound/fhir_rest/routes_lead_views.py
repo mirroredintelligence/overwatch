@@ -382,6 +382,7 @@ async def record_phoned(
                 container.ids,
                 UnitOfWorkIdempotency(container.uow_factory),
                 zones=DirectoryZones(container.tenants),
+                sealer=container.sealer,
             ),
             container.uow_factory,
         ).execute(
@@ -420,6 +421,7 @@ async def resend_invitation(
             container.clock,
             container.ids,
             link_base_url_for=container.link_base_url_for,
+            sealer=container.sealer,
         ).execute(
             ResendInvitationCommand(idempotency_key=key, actor=actor, invitation_id=invitation_id)
         )

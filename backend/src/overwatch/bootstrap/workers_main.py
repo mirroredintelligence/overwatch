@@ -369,6 +369,7 @@ async def serve(
                 container.ids,
                 store,
                 zones=DirectoryZones(container.tenants),
+                sealer=container.sealer,
             ),
             ConfirmCapacity(
                 container.uow_factory,
@@ -376,6 +377,7 @@ async def serve(
                 container.ids,
                 store,
                 zones=DirectoryZones(container.tenants),
+                sealer=container.sealer,
             ),
             respond_to_booking=RespondToBooking(
                 container.uow_factory,

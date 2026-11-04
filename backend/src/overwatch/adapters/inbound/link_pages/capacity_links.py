@@ -137,6 +137,9 @@ class _Container(Protocol):
     def clock(self) -> Clock: ...
 
     @property
+    def sealer(self) -> ContentSealer: ...
+
+    @property
     def ids(self) -> IdGenerator: ...
 
     @property
@@ -199,6 +202,7 @@ def _purposes(container: _Container, deps: LinkPagesDeps, tenant: Tenant) -> Lin
                 container.ids,
                 idempotency,
                 zones=DirectoryZones(container.tenants),
+                sealer=container.sealer,
             ),
             ConfirmCapacity(
                 container.uow_factory,
@@ -206,6 +210,7 @@ def _purposes(container: _Container, deps: LinkPagesDeps, tenant: Tenant) -> Lin
                 container.ids,
                 idempotency,
                 zones=DirectoryZones(container.tenants),
+                sealer=container.sealer,
             ),
             zone=zone_named(tenant.time_zone),
         ),

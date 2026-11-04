@@ -197,6 +197,7 @@ def _reporting(container: _Container) -> ReporterReporter:
             container.ids,
             idempotency,
             zones=_zones(container),
+            sealer=container.sealer,
         ),
         ConfirmCapacity(
             container.uow_factory,
@@ -204,6 +205,7 @@ def _reporting(container: _Container) -> ReporterReporter:
             container.ids,
             idempotency,
             zones=_zones(container),
+            sealer=container.sealer,
         ),
         _zones(container),
     )

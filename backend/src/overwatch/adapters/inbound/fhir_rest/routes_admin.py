@@ -469,6 +469,7 @@ async def resolve_report_flag(
                     container.ids,
                     UnitOfWorkIdempotency(container.uow_factory),
                     zones=DirectoryZones(container.tenants),
+                    sealer=container.sealer,
                 ),
                 container.uow_factory,
             ),

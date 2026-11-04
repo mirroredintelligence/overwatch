@@ -385,6 +385,7 @@ async def serve(
                 booking_sealer,
             ),
             set_decline_reason=SetDeclineReason(container.uow_factory, store, container.clock),
+            sealer=booking_sealer,
         )
         senders = TenantSenderResolver(
             container.tenants,

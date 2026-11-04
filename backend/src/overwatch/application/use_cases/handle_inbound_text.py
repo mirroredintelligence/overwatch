@@ -19,6 +19,7 @@ Decisions: DEC-148.
 """
 
 import hashlib
+import json
 from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
@@ -32,13 +33,14 @@ from overwatch.application.ports.outbound.clock import Clock
 from overwatch.application.ports.outbound.ids import IdGenerator
 from overwatch.application.ports.outbound.messaging import Communication
 from overwatch.application.ports.outbound.outbox import OutboxMessage
+from overwatch.application.ports.outbound.sealing import ContentSealer
 from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
 from overwatch.application.prompt_judgement import (
     answered_since_prompt,
     figure_is_out_of_date,
     number_after_prompt,
 )
-from overwatch.application.tenancy import current_tenant
+from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_tenant
 from overwatch.application.use_cases.confirm_capacity import (
     ConfirmCapacityCommand,
     ConfirmCapacityResult,
@@ -63,6 +65,7 @@ from overwatch.domain.codes import (
 from overwatch.domain.errors import (
     ConfirmLimitReached,
     Conflict,
+    DomainError,
     LatestReportChanged,
     NothingToConfirm,
     ValidationFailed,
@@ -212,6 +215,12 @@ class _BookingRead:
     role_ids: dict[str, str]
     open_refs: tuple[OpenBookingRef, ...]
     latest: tuple[Booking, ...]
+
+
+def _reply_scope(unit_scope: ScopeId | None) -> ScopeId:
+    if unit_scope is None or unit_scope.kind is not ScopeKind.TENANT:
+        raise TenantNotBound
+    return unit_scope
 
 
 def _instant(name: str, value: datetime) -> datetime:
@@ -470,6 +479,7 @@ class HandleInboundText:
         *,
         respond_to_booking: _RespondsToBooking | None = None,
         set_decline_reason: _SetsDeclineReason | None = None,
+        sealer: ContentSealer | None = None,
     ) -> None:
         """`respond_to_booking` and `set_decline_reason` make a booking reply by text (U22). Without
         them a booking word is answered as before: not handled, no reply."""
@@ -482,6 +492,7 @@ class HandleInboundText:
         self._confirm_capacity = confirm_capacity
         self._respond = respond_to_booking
         self._set_reason = set_decline_reason
+        self._sealer = sealer
 
     async def execute(self, command: HandleInboundTextCommand) -> HandleInboundTextResult:
         received = _instant("received_at", command.received_at)
@@ -1167,9 +1178,27 @@ class HandleInboundText:
             in_response_to=plan.prompt_id or None,
         )
         await uow.communications.add(communication)
+        # The text is sealed like every other outbound message: the sender refuses a payload with the
+        # text in the clear (DEC-1336). The sealing is bound to this outbox message, tenant and recipient.
+        if self._sealer is None:
+            raise DomainError("the reply sealer is not configured")
+        outbox_id = self._ids.new_id()
+        content = json.dumps(
+            {"text": reply.text, "subject": None, "html": None},
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        )
+        scope = _reply_scope(uow.unit_scope)
+        sealed = self._sealer.seal(
+            content,
+            message_id=outbox_id,
+            tenant_id=scope.value,
+            recipient_role_id=reply.role_id,
+        )
         await uow.outbox.add(
             OutboxMessage(
-                id=self._ids.new_id(),
+                id=outbox_id,
                 topic=MESSAGES_TOPIC,
                 event_type=SEND_MESSAGE,
                 payload={
@@ -1177,7 +1206,7 @@ class HandleInboundText:
                     "message_id": reply.message_id.value,
                     "channel": Channel.TEXT.value,
                     "recipient_role_id": reply.role_id,
-                    "text": reply.text,
+                    "sealed_content": sealed,
                 },
                 created_at=now,
             )

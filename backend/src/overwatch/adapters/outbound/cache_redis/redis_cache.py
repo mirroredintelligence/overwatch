@@ -15,7 +15,10 @@ from collections.abc import AsyncIterator, Callable
 from datetime import timedelta
 from typing import Final, Self, cast
 
+from redis import exceptions as redis_errors
 from redis.asyncio import Redis
+from redis.asyncio.retry import Retry
+from redis.backoff import ExponentialBackoff
 
 from overwatch.application.ports.outbound.cache import (
     CacheScopeMismatch,
@@ -115,6 +118,10 @@ def _escape_pattern(text: str) -> str:
     return "".join("\\" + character if character in "*?[]\\" else character for character in text)
 
 
+HEALTH_CHECK_SECONDS: Final = 30
+RETRIES: Final = 3
+
+
 class RedisCache:
     """The Cache port on Redis. The client must decode responses (see from_url)."""
 
@@ -124,7 +131,20 @@ class RedisCache:
 
     @classmethod
     def from_url(cls, url: str) -> RedisCache:
-        return cls(Redis.from_url(url, decode_responses=True))
+        # One long-lived client. An idle connection is closed by the network, and without these
+        # settings every call after that fails until the process restarts (DEC-1333). A health check
+        # finds dead idle connections, keepalive stops the network closing them, and a connection
+        # error is retried on a fresh connection.
+        return cls(
+            Redis.from_url(
+                url,
+                decode_responses=True,
+                health_check_interval=HEALTH_CHECK_SECONDS,
+                socket_keepalive=True,
+                retry=Retry(ExponentialBackoff(), RETRIES),
+                retry_on_error=[redis_errors.ConnectionError, redis_errors.TimeoutError],
+            )
+        )
 
     async def get(self, key: str) -> str | None:
         names = scoped_names()

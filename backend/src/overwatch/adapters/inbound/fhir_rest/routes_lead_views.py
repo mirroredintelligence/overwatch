@@ -51,6 +51,7 @@ from overwatch.application.use_cases.advisor_phoned import (
     RecordAdvisorPhoned,
     RecordAdvisorPhonedCommand,
 )
+from overwatch.application.use_cases.ask_capacity_now import AskCapacityNow
 from overwatch.application.use_cases.invite_reporter import (
     LinkBaseUrlFor,
     ResendInvitation,
@@ -296,6 +297,24 @@ async def read_invitations(
 
 
 _PHONED_KEYS: Final = frozenset({"told", "value"})
+
+
+@router.post("/services/{service_id}/ask")
+async def ask_for_capacity(
+    service_id: str, request: Request, actor: Annotated[Actor, Depends(require_role(*LEAD))]
+) -> Response:
+    """Ask the service for its capacity figure now (DEC-1335). Queued, not sent here: the prompt
+    sender sends it and records it as the open question."""
+    key = idempotency_key(request)
+    container = _container(request)
+
+    async def run() -> Response:
+        result = await AskCapacityNow(
+            container.uow_factory, container.ids, container.clock
+        ).execute(actor, service_id)
+        return _answer({"queued": True, "dueAt": _at(result.due_at)})
+
+    return await replay_or_run(request, actor, f"lead-ask:{service_id}:{key}", run)
 
 
 @router.post("/services/{service_id}/remind")

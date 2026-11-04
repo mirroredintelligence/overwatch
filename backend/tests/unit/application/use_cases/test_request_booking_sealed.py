@@ -42,8 +42,9 @@ TENANT = "tenant-unit-a"
 SERVICE_ID = "ucr-west"
 ROLE_ID = "role-1"
 TOKEN = "Tq7-LinkTokenAbCdEfGhIjKlMnOpQrSt_u"
-LINK_HOST = "https://unit.overwatch.example"
-FULL_LINK = f"{LINK_HOST}/l/{TOKEN}"
+# The tenant's link base is the host with its /l path (DirectoryLinkBase), as in production.
+LINK_HOST = "https://unit.overwatch.example/l"
+FULL_LINK = f"{LINK_HOST}/{TOKEN}"
 DISTRICT = "DT4"
 
 

@@ -61,8 +61,9 @@ BOOKING_PURPOSE: Final = "booking-request"
 """The link token purpose of a booking request (L01 names booking purposes by this prefix)."""
 USE_CASE: Final = "RequestBooking"
 AUDIT_ACTION: Final = "C"
-REQUEST_LINK_PATH: Final = "/l/"
-"""The booking page is `/l/<token>/booking` (L02); the request link opens it."""
+REQUEST_LINK_PATH: Final = "/"
+"""The request link is `<base>/<token>`. The base already ends in `/l` (DirectoryLinkBase), so the
+link is `https://<host>/l/<token>`, the page that opens the booking (DEC-1339)."""
 URGENCY_WORDING: Final[dict[Urgency, str]] = {
     Urgency.WITHIN_2_HRS: "within 2 hrs",
     Urgency.TODAY: "today",

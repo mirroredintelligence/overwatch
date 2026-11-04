@@ -136,7 +136,9 @@ def invitation_expiry(sent_at: datetime) -> datetime:
 
 
 def invitation_link(base_url: str, token: str) -> str:
-    return f"{base_url.rstrip('/')}{INVITE_LINK_PATH}{token}"
+    # The invitation is at the host's root: the base's /l path (DirectoryLinkBase) is taken off (DEC-1339).
+    root = base_url.rstrip('/').removesuffix('/l')
+    return f"{root}{INVITE_LINK_PATH}{token}"
 
 
 def redacted_invitation_link(base_url: str) -> str:

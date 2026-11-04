@@ -163,7 +163,7 @@ def test_a_malformed_file_is_refused_on_load_and_names_no_value(
     assert "NOT-A-CODE" not in str(refused.value)
 
 
-# ----------------------------------------------------------- the advisor's typed postcode (DEC-1332)
+# ------------------------------------------------------- the advisor's typed postcode (DEC-1332)
 
 
 def test_a_typed_district_is_offered_its_postcodes_in_order(locator: CsvPostcodeLocator) -> None:

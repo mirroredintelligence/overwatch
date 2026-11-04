@@ -155,3 +155,38 @@
     width: 100%;
   }
 }
+
+.picker {
+  position: relative;
+}
+
+.list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  list-style: none;
+  max-height: 260px;
+  overflow-y: auto;
+  background: Canvas;
+  color: var(--c-ink);
+  border: 2px solid var(--c-ink-2);
+  border-radius: var(--radius);
+}
+
+.option {
+  min-height: var(--btn-h);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-4);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.optionActive {
+  background: var(--c-ink);
+  color: Canvas;
+}

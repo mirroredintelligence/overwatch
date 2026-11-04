@@ -26,6 +26,7 @@ import type { Score } from '@/lib/advisor/scores';
 import { scoreText } from '@/lib/advisor/summary';
 import { CallBar } from './CallBar';
 import { CallStage } from './CallStage';
+import { PostcodePicker } from './PostcodePicker';
 import { LiveCount } from './LiveCount';
 import { ChoiceChip, ScorePickers } from './ScorePickers';
 import styles from './NeedsForm.module.css';
@@ -287,31 +288,28 @@ export function NeedsForm({ caseId }: { caseId: string }) {
           <label className={styles.label} htmlFor={POSTCODE_ID}>
             Where is the patient? Postcode
           </label>
-          <input
+          <PostcodePicker
             id={POSTCODE_ID}
-            name="postcode"
-            type="text"
-            className={styles.input}
-            autoComplete="off"
-            spellCheck={false}
-            list={POSTCODE_LIST_ID}
+            listId={POSTCODE_LIST_ID}
             value={draft.postcode}
-            onChange={(event) => {
-              const typed = event.target.value;
+            options={postcodeSuggestions}
+            invalid={postcodeError}
+            describedBy={postcodeError ? POSTCODE_ERROR_ID : undefined}
+            dataEl="ADV-NEEDS-POSTCODE"
+            onType={(typed) => {
               setDraft((current) => ({ ...current, postcode: typed }));
               setLocated(null);
               void suggestPostcodes(typed).then(setPostcodeSuggestions);
             }}
+            onPick={(postcode) => {
+              setDraft((current) => ({ ...current, postcode }));
+              setPostcodeError(false);
+              setPostcodeSuggestions([]);
+              setLocated(null);
+              void locatePostcode(postcode).then(setLocated);
+            }}
             onBlur={onPostcodeBlur}
-            aria-invalid={postcodeError ? 'true' : undefined}
-            aria-describedby={postcodeError ? POSTCODE_ERROR_ID : undefined}
-            data-el="ADV-NEEDS-POSTCODE"
           />
-          <datalist id={POSTCODE_LIST_ID} data-el="ADV-NEEDS-POSTCODE-LIST">
-            {postcodeSuggestions.map((postcode) => (
-              <option key={postcode} value={postcode} />
-            ))}
-          </datalist>
           {district !== null ? (
             <p className={styles.note}>{`On record: postcode district ${district}. Type the full postcode only to change it.`}</p>
           ) : null}

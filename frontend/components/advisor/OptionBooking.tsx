@@ -1,5 +1,6 @@
 'use client';
 
+import { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import type { OptionView } from '@/lib/advisor/options';
 import { BookingPanel } from './BookingPanel';
@@ -28,6 +29,8 @@ export type OptionBookingProps = {
 export function OptionBooking({ caseId, option, onSeeOptions, onAskClinical, backToOptions }: OptionBookingProps) {
   const router = useRouter();
   const finish = `/advisor/case/${encodeURIComponent(caseId)}/finish`;
+  // A confirmed booking moves on to the summary by itself (the service's text is the trigger).
+  const onConfirmed = useCallback(() => router.push(`${finish}#summary`), [router, finish]);
   return (
     <BookingPanel
       caseRef={caseId}
@@ -40,6 +43,7 @@ export function OptionBooking({ caseId, option, onSeeOptions, onAskClinical, bac
       backToOptions={backToOptions}
       onRecordOutcome={() => router.push(finish)}
       onCopySummary={() => router.push(`${finish}#summary`)}
+      onConfirmed={onConfirmed}
     />
   );
 }

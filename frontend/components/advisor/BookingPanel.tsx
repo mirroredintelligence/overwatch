@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { type BookingStream, type BookingFetch, useBooking } from '@/lib/advisor/useBooking';
@@ -24,18 +25,27 @@ export type BookingPanelProps = {
   /** The two next steps of a confirmed booking card: record the outcome, and copy the summary. */
   onRecordOutcome?: () => void;
   onCopySummary?: () => void;
+  /** Called once, when the booking is confirmed (the service's text arrives on the live stream): the next step opens by itself. */
+  onConfirmed?: () => void;
   /** The request stage (one option has the room): "Back to options" sits beside the request control until a request exists. */
   backToOptions?: boolean;
 };
 
 export function BookingPanel(props: BookingPanelProps) {
-  const { caseRef, serviceId, serviceName, servicePhone, openStream, fetcher, now, onSeeOptions, onAskClinical, onRecordOutcome, onCopySummary, backToOptions = false } = props;
+  const { caseRef, serviceId, serviceName, servicePhone, openStream, fetcher, now, onSeeOptions, onAskClinical, onRecordOutcome, onCopySummary, onConfirmed, backToOptions = false } = props;
   const { booking, busy, conflict, failed, request, cancelBusy, cancelConflict, cancel, acknowledge } = useBooking({
     caseRef,
     serviceId,
     openStream,
     fetcher,
   });
+  const confirmed = booking?.status === 'confirmed';
+  const advanced = useRef(false);
+  useEffect(() => {
+    if (!confirmed || advanced.current) return;
+    advanced.current = true;
+    onConfirmed?.();
+  }, [confirmed, onConfirmed]);
 
   if (booking !== null) {
     return (

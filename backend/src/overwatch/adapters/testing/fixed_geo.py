@@ -68,6 +68,10 @@ class FixedPostcodeLocator:
         key = normalise_district(district)
         return None if key is None else self._districts.get(key)
 
+    def suggest(self, prefix: str) -> list[str]:
+        typed = " ".join(prefix.split()).upper()
+        return sorted(key for key in self._postcodes if key.startswith(typed))[:10] if typed else []
+
     def locate(self, postcode: str) -> Located | None:
         """Exact when the full postcode is in the table; otherwise its district's position, marked
         approximate, for a full postcode or a partial one ('DT4 8X') whose district is in the table.

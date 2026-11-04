@@ -10,8 +10,10 @@ Nothing from the body is copied into a property or a log line. A cancel is a no-
 that is not pending (DEC-102 item 2).
 """
 
+import contextlib
 import json
 import re
+from collections.abc import Awaitable, Callable
 from dataclasses import replace
 from datetime import UTC, datetime
 from typing import cast
@@ -91,20 +93,39 @@ class ServiceBusEventBus:
             self._senders[name] = sender
         return sender
 
+    async def _send(self, name: str, send: Callable[[ServiceBusSender], Awaitable[None]]) -> None:
+        """Send through this queue's cached sender. A sender whose connection dropped (an idle
+        connection is closed by the network) stays broken for the life of the process, so the
+        failed sender is dropped and the send is tried once more on a fresh one (DEC-1333)."""
+        sender = self._sender(name)
+        try:
+            await send(sender)
+        except ServiceBusError, OSError:
+            self._senders.pop(name, None)
+            with contextlib.suppress(Exception):
+                await sender.close()
+            await send(self._sender(name))
+
     async def publish(self, message: BusMessage) -> None:
         if message.topic not in TOPICS:
             raise ValidationFailed("topic", "not a known topic")
         check_publishable(message)
-        await self._sender(message.topic).send_messages(
-            to_service_bus_message(stamped_with_current_span(message))
+        await self._send(
+            message.topic,
+            lambda sender: sender.send_messages(
+                to_service_bus_message(stamped_with_current_span(message))
+            ),
         )
 
     async def enqueue(self, queue: str, message: BusMessage) -> None:
         if queue not in QUEUES:
             raise ValidationFailed("queue", "not a known queue")
         check_publishable(message)
-        await self._sender(queue).send_messages(
-            to_service_bus_message(stamped_with_current_span(message))
+        await self._send(
+            queue,
+            lambda sender: sender.send_messages(
+                to_service_bus_message(stamped_with_current_span(message))
+            ),
         )
 
     async def schedule(self, queue: str, message: BusMessage, enqueue_at: datetime) -> int:

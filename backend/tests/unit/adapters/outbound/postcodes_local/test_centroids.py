@@ -161,3 +161,38 @@ def test_a_malformed_file_is_refused_on_load_and_names_no_value(
     assert refused.value.field == field
     assert "DT4 8XX" not in str(refused.value)
     assert "NOT-A-CODE" not in str(refused.value)
+
+
+# ----------------------------------------------------------- the advisor's typed postcode (DEC-1332)
+
+
+def test_a_typed_district_is_offered_its_postcodes_in_order(locator: CsvPostcodeLocator) -> None:
+    found = locator.suggest("DT4")
+    assert found == sorted(found)
+    assert found and all(postcode.startswith("DT4 ") for postcode in found)
+
+
+def test_a_typed_inward_start_narrows_the_offer(locator: CsvPostcodeLocator) -> None:
+    found = locator.suggest("dt4  8")
+    assert found and all(postcode.startswith("DT4 8") for postcode in found)
+
+
+def test_no_more_than_the_suggestion_limit_is_offered(locator: CsvPostcodeLocator) -> None:
+    assert len(locator.suggest("DT")) <= centroids.SUGGESTIONS
+
+
+@pytest.mark.parametrize("typed", ["", "DT4 8XXX", "DT4'; --", "ZZ99", "hello"])
+def test_text_that_is_not_a_district_or_a_start_of_one_is_offered_nothing(
+    locator: CsvPostcodeLocator, typed: str
+) -> None:
+    assert locator.suggest(typed) == []
+
+
+def test_a_suggestion_never_opens_a_socket(
+    locator: CsvPostcodeLocator, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def refuse(*args: Any, **kwargs: Any) -> None:
+        raise AssertionError("the patient's typed postcode must not leave the process")
+
+    monkeypatch.setattr(socket, "socket", refuse)
+    locator.suggest("DT4")

@@ -507,6 +507,9 @@ class NoPostcodes:
     """The postcode locator of a process with no centroid file: nothing is located, so the advisor
     sees no position rather than a guessed one (fail closed, I11)."""
 
+    def suggest(self, prefix: str) -> list[str]:
+        return []
+
     def centroid(self, postcode: str) -> LatLon | None:
         return None
 

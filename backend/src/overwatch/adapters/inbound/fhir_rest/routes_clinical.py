@@ -67,6 +67,7 @@ from overwatch.adapters.inbound.fhir_rest.subscription_mapping import ALERT_CODE
 from overwatch.application.actor import Actor
 from overwatch.application.ports.outbound.cache import Cache
 from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.geo import PostcodeLocator
 from overwatch.application.ports.outbound.ids import IdGenerator
 from overwatch.application.ports.outbound.sealing import ContentSealer
 from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
@@ -140,6 +141,8 @@ class ProblemBody(BaseModel):
 class _Container(Protocol):
     @property
     def clock(self) -> Clock: ...
+    @property
+    def postcodes(self) -> PostcodeLocator: ...
     @property
     def ids(self) -> IdGenerator: ...
     @property
@@ -286,6 +289,21 @@ async def read_presence(
     return FhirJSONResponse(
         content={"presence": own, "available": view.available}, headers=NO_STORE
     )
+
+
+@router.get("/clinical/postcodes")
+async def suggest_postcodes(
+    request: Request,
+    actor: Annotated[Actor, Depends(require_role(*ADVISORS))],
+) -> Response:
+    """The postcodes an advisor may pick from as they type (DEC-1332). Answered from the local file
+    only: the typed prefix never leaves the Trust. A prefix that is not a district, or a typed
+    start of one, gets none."""
+    prefix = request.query_params.get("prefix", "")
+    if len(prefix) > 8:
+        return FhirJSONResponse(content={"postcodes": []}, headers=NO_STORE)
+    found = _container(request).postcodes.suggest(prefix)
+    return FhirJSONResponse(content={"postcodes": found}, headers=NO_STORE)
 
 
 @router.get("/clinical/available")

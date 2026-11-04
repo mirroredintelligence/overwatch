@@ -17,6 +17,7 @@ from overwatch.adapters.outbound.bus_servicebus.service_bus import (
     to_service_bus_message,
 )
 from overwatch.application.ports.outbound.event_bus import (
+    QUEUES,
     REASON_TENANT_MISSING,
     BusMessage,
     MessageTenantError,
@@ -464,3 +465,45 @@ def test_what_the_adapter_builds_is_what_from_wire_accepts() -> None:
     )
 
     assert message == _capacity({"measure": 4})
+
+
+async def test_a_send_on_a_broken_connection_is_tried_once_more_on_a_fresh_sender() -> None:
+    """A sender whose connection the network dropped stays broken for the process, so the bus drops
+    it and tries the send once more on a new sender (DEC-1333). Sample queue name, no network."""
+    from azure.servicebus.exceptions import ServiceBusError
+
+    from overwatch.adapters.outbound.bus_servicebus.service_bus import ServiceBusEventBus
+
+    created: list[object] = []
+
+    class _Sender:
+        def __init__(self, broken: bool) -> None:
+            self.broken = broken
+
+        async def send_messages(self, message: object) -> None:
+            if self.broken:
+                raise ServiceBusError("connection reset")
+
+        async def close(self) -> None:
+            return None
+
+    class _Client:
+        def get_queue_sender(self, name: str) -> _Sender:
+            sender = _Sender(broken=not created)
+            created.append(sender)
+            return sender
+
+        def get_topic_sender(self, name: str) -> _Sender:
+            return _Sender(broken=False)
+
+    bus = ServiceBusEventBus(_Client())  # type: ignore[arg-type]
+    sent: list[object] = []
+
+    async def send(sender: object) -> None:
+        await sender.send_messages("message")  # type: ignore[attr-defined]
+        sent.append(sender)
+
+    queue = next(iter(sorted(QUEUES)))
+    await bus._send(queue, send)
+    assert len(created) == 2
+    assert sent == [created[1]]

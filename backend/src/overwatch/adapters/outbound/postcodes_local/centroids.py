@@ -13,6 +13,7 @@ says so (approximate=True). A partial postcode such as 'DT4 8X', or a district o
 at its district. Anything else is None: nothing is guessed.
 """
 
+import bisect
 import csv
 import math
 from pathlib import Path
@@ -35,12 +36,17 @@ LATITUDE_RANGE: Final = (49.5, 61.0)
 LONGITUDE_RANGE: Final = (-8.7, 2.0)
 
 
+# How many postcodes an advisor's typed prefix is offered at most (DEC-1332).
+SUGGESTIONS: Final = 10
+
+
 class CsvPostcodeLocator:
     """The PostcodeLocator of the production profile, loaded once from the CSV file."""
 
     def __init__(self, path: Path | str) -> None:
         self._postcodes: dict[str, LatLon] = {}
         self._districts: dict[str, LatLon] = {}
+        self._sorted: list[str] = []
         self._load(Path(path))
 
     def _load(self, path: Path) -> None:
@@ -57,6 +63,7 @@ class CsvPostcodeLocator:
                 district = postcode_district(key)
                 lat_sum, lon_sum, count = sums.get(district, (0.0, 0.0, 0))
                 sums[district] = (lat_sum + position.lat, lon_sum + position.lon, count + 1)
+        self._sorted = sorted(self._postcodes)
         for district, (lat_sum, lon_sum, count) in sums.items():
             self._districts[district] = LatLon(lat_sum / count, lon_sum / count)
 
@@ -89,6 +96,22 @@ class CsvPostcodeLocator:
         """The mean of the file's postcodes in this district, or None."""
         key = normalise_district(district)
         return None if key is None else self._districts.get(key)
+
+    def suggest(self, prefix: str) -> list[str]:
+        """The full postcodes in the file that start with the typed prefix (DEC-1332). A prefix that
+        is not a district or a typed start of one is offered nothing."""
+        typed = " ".join(prefix.split()).upper()
+        if not typed or partial_district(typed) is None or len(typed) > 8:
+            return []
+        start = bisect.bisect_left(self._sorted, typed)
+        found: list[str] = []
+        for key in self._sorted[start:]:
+            if not key.startswith(typed):
+                break
+            found.append(key)
+            if len(found) == SUGGESTIONS:
+                break
+        return found
 
     def locate(self, postcode: str) -> Located | None:
         """The position for a full or partial postcode, or a district. Exact when the postcode is

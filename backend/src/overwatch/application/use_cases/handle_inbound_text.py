@@ -1178,8 +1178,9 @@ class HandleInboundText:
             in_response_to=plan.prompt_id or None,
         )
         await uow.communications.add(communication)
-        # The text is sealed like every other outbound message: the sender refuses a payload with the
-        # text in the clear (DEC-1336). The sealing is bound to this outbox message, tenant and recipient.
+        # The text is sealed like every other outbound message: the sender refuses a payload with
+        # the text in the clear (DEC-1336). The sealing is bound to this outbox message, its tenant
+        # and its recipient.
         if self._sealer is None:
             raise DomainError("the reply sealer is not configured")
         outbox_id = self._ids.new_id()

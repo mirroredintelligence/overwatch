@@ -140,8 +140,12 @@ class ReplyProcessor:
     async def _run(self, command: HandleInboundTextCommand) -> HandleInboundTextResult:
         try:
             return await self._use_case.execute(command)
-        except ValidationFailed:
-            # Its text can name the field and the value: it is not repeated.
+        except ValidationFailed as error:
+            # Its text can name the value: only the field name is logged, so a refusal can be traced
+            # without the reply's text (DEC-1334).
+            logger.warning(
+                "inbound reply refused: consumer=%s field=%s", CONSUMER_NAME, error.field
+            )
             raise PermanentError(USE_CASE_REFUSED) from None
 
     async def _mark(self, message: BusMessage) -> bool:

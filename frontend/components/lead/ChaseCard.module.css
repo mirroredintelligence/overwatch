@@ -148,3 +148,53 @@
     flex: 1 1 100%;
   }
 }
+
+/* The split button (DEC-1335): the main action, and a caret that opens the less-used actions. */
+.split {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.caret {
+  min-width: 44px;
+  min-height: 44px;
+  border: 2px solid currentColor;
+  border-left: none;
+  border-radius: 0 999px 999px 0;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 5;
+  display: grid;
+  min-width: 220px;
+  padding: 6px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+}
+
+.item {
+  min-height: 44px;
+  padding: 0 12px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.item:hover,
+.item:focus-visible {
+  background: #e8f1f7;
+}
+

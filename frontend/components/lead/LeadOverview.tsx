@@ -229,8 +229,29 @@ export function LeadOverview({ disclosures = [] }: { disclosures?: readonly Lead
       setNoticeFailed(false);
       setNotice('Reminder sent');
     } else {
+      // The back end answers 409 when no reminder is waiting: say so, so the press is not silent (DEC-1335).
       setNoticeFailed(true);
-      setNotice('The reminder could not be sent. Try again.');
+      setNotice(
+        result.status === 409
+          ? 'No reminder is waiting to send. Ask for capacity now instead.'
+          : 'The reminder could not be sent. Try again.',
+      );
+    }
+  }
+
+  async function askNow(serviceId: string) {
+    setNotice('');
+    const result = await leadPost(`/api/bff/lead/services/${encodeURIComponent(serviceId)}/ask`);
+    if (result.ok) {
+      setNoticeFailed(false);
+      setNotice('Asked for capacity. The text is on its way.');
+    } else {
+      setNoticeFailed(true);
+      setNotice(
+        result.status === 409
+          ? 'A capacity request is already due for this service.'
+          : 'The request could not be sent. Try again.',
+      );
     }
   }
 
@@ -342,6 +363,7 @@ export function LeadOverview({ disclosures = [] }: { disclosures?: readonly Lead
                               <ChaseCard
                                 item={item}
                                 onEnterPhoned={() => go(item.serviceId, true)}
+                                onAsk={() => void askNow(item.serviceId)}
                                 onRemind={() => void remind(item.serviceId)}
                               />
                             </div>
@@ -410,6 +432,7 @@ export function LeadOverview({ disclosures = [] }: { disclosures?: readonly Lead
                     <ChaseCard
                       item={stageItem}
                       onEnterPhoned={() => go(stageItem.serviceId, true)}
+                      onAsk={() => void askNow(stageItem.serviceId)}
                       onRemind={() => void remind(stageItem.serviceId)}
                       onClose={closeChase}
                     />

@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import { ShapeIcon } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/Button';
 import { clockTime, overdueText } from '@/lib/lead/format';
@@ -11,6 +11,8 @@ import styles from './ChaseCard.module.css';
 export type ChaseCardProps = {
   item: ChaseItem;
   onEnterPhoned: () => void;
+  /** Asks the service for its capacity figure now (DEC-1335). */
+  onAsk: () => void;
   onRemind: () => void;
   /** Set on the open card (the board's state 2): it gets a Close button and the suspend link. */
   onClose?: () => void;
@@ -66,8 +68,9 @@ export function LadderTimeline({ ladder }: { ladder: readonly LadderRow[] }) {
   );
 }
 
-export function ChaseCard({ item, onEnterPhoned, onRemind, onClose }: ChaseCardProps) {
+export function ChaseCard({ item, onEnterPhoned, onAsk, onRemind, onClose }: ChaseCardProps) {
   const headingId = useId();
+  const [menuOpen, setMenuOpen] = useState(false);
   const open = onClose !== undefined;
   return (
     <section
@@ -97,16 +100,44 @@ export function ChaseCard({ item, onEnterPhoned, onRemind, onClose }: ChaseCardP
         <Button variant="primary" dataEl="LEAD-CHASE-PHONED-BTN" onClick={onEnterPhoned}>
           Enter what they told me by phone
         </Button>
-        <Button variant="secondary" dataEl="LEAD-CHASE-REMIND-BTN" onClick={onRemind}>
-          Send reminder again
-        </Button>
-        <Button
-          variant="neutral"
-          href={`/lead/reporters/number?service=${encodeURIComponent(item.serviceId)}`}
-          dataEl="LEAD-CHASE-NUMBER-LINK"
-        >
-          Change number
-        </Button>
+        <div className={styles.split} data-el="LEAD-CHASE-ASK-SPLIT">
+          <Button variant="secondary" dataEl="LEAD-CHASE-ASK-BTN" onClick={onAsk}>
+            Ask for capacity now
+          </Button>
+          <button
+            type="button"
+            className={styles.caret}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            aria-label="More ways to ask"
+            data-el="LEAD-CHASE-MORE-BTN"
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            <span aria-hidden="true">▾</span>
+          </button>
+          {menuOpen ? (
+            <div role="menu" className={styles.menu} data-el="LEAD-CHASE-MORE-MENU">
+              <button
+                type="button"
+                role="menuitem"
+                className={styles.item}
+                onClick={() => {
+                  setMenuOpen(false);
+                  onRemind();
+                }}
+              >
+                Send reminder again
+              </button>
+              <a
+                role="menuitem"
+                className={styles.item}
+                href={`/lead/reporters/number?service=${encodeURIComponent(item.serviceId)}`}
+              >
+                Change number
+              </a>
+            </div>
+          ) : null}
+        </div>
         {open ? (
           <Button
             variant="neutral"

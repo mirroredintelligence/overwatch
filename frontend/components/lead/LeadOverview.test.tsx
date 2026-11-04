@@ -251,7 +251,7 @@ describe('LeadOverview: a read that fails (H-330)', () => {
 
     it('switches off the actions that need fresh data, and keeps the page readable', async () => {
       await failTheNextRead();
-      for (const button of screen.getAllByRole('button', { name: 'Send reminder again' })) expect(button).toBeDisabled();
+      for (const button of screen.getAllByRole('button', { name: 'Ask for capacity now' })) expect(button).toBeDisabled();
       for (const button of screen.getAllByRole('button', { name: 'Enter what they told me by phone' })) expect(button).toBeDisabled();
       expect(screen.getByRole('button', { name: 'Ask for an update now' })).toBeDisabled();
       expect(screen.getByRole('button', { name: 'Try again' })).toBeEnabled();
@@ -262,7 +262,7 @@ describe('LeadOverview: a read that fails (H-330)', () => {
       fail = false;
       await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
       await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
-      for (const button of screen.getAllByRole('button', { name: 'Send reminder again' })) expect(button).toBeEnabled();
+      for (const button of screen.getAllByRole('button', { name: 'Ask for capacity now' })) expect(button).toBeEnabled();
       expect(screen.getByRole('button', { name: 'Ask for an update now' })).toBeEnabled();
     });
   });
@@ -271,8 +271,9 @@ describe('LeadOverview: a read that fails (H-330)', () => {
 describe('LeadOverview: acting on a service', () => {
   it('sends the reminder with the CSRF token and an idempotency key, then says it was sent', async () => {
     await loaded();
-    const [first] = screen.getAllByRole('button', { name: 'Send reminder again' });
+    const [first] = screen.getAllByRole('button', { name: 'More ways to ask' });
     await userEvent.click(first);
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Send reminder again' }));
     expect(await screen.findByRole('status')).toHaveTextContent('Reminder sent');
     expect(seenLeadPosts).toHaveLength(1);
     expect(seenLeadPosts[0]).toMatchObject({
@@ -280,6 +281,15 @@ describe('LeadOverview: acting on a service', () => {
       csrf: 'test-csrf-token',
     });
     expect(seenLeadPosts[0].idempotencyKey).toBeTruthy();
+  });
+
+  it('asks the service for its capacity now from the split button, then says the text is on its way', async () => {
+    await loaded();
+    const [first] = screen.getAllByRole('button', { name: 'Ask for capacity now' });
+    await userEvent.click(first);
+    expect(await screen.findByRole('status')).toHaveTextContent('Asked for capacity. The text is on its way.');
+    expect(seenLeadPosts[0].path).toMatch(/\/ask$/);
+    expect(seenLeadPosts[0].csrf).toBe('test-csrf-token');
   });
 
   it('asks the service for an update from the getting-old card', async () => {
@@ -382,7 +392,7 @@ describe('LeadOverview: a chase opens (the morph)', () => {
     window.history.replaceState(null, '', '/lead?chase=s-gone');
     await loaded();
     expect(screen.queryByRole('button', { name: 'Close' })).not.toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'Send reminder again' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Ask for capacity now' })).toHaveLength(2);
   });
 
   it('follows Back: the address going back to the list closes the card', async () => {

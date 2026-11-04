@@ -214,4 +214,8 @@ export const leadHandlers = [
     await recorded(request, `/api/bff/lead/services/${String(params.id)}/remind`);
     return HttpResponse.json({ state: 'sent' }, { status: 202, headers: NO_STORE });
   }),
+  http.post('/api/bff/lead/services/:id/ask', async ({ request, params }) => {
+    await recorded(request, `/api/bff/lead/services/${String(params.id)}/ask`);
+    return HttpResponse.json({ queued: true, dueAt: null }, { status: 202, headers: NO_STORE });
+  }),
 ];

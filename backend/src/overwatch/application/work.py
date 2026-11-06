@@ -34,6 +34,10 @@ class WorkKind(StrEnum):
     # The close of a visit offer (DEC-1308 item 7): once its time is up, or a day after it was
     # accepted, whatever is left of it (the sealed address and contact, the sector) is erased.
     VISIT_CLOSE = "visit-close"
+    # The two texts to a duty manager about the end of a shift (DEC-1341 item 4): 15 minutes before
+    # it ends and 15 minutes after, each only if the shift is still the one it was scheduled for.
+    SHIFT_ENDING = "shift-ending"
+    SHIFT_ENDED = "shift-ended"
 
 
 SCHEDULED = "scheduled"

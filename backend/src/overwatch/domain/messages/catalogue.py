@@ -52,6 +52,8 @@ class MessageId(StrEnum):
     S1 = "S1"
     S2 = "S2"
     S3 = "S3"
+    S4 = "S4"
+    S5 = "S5"
 
 
 # The three wording fields a tenant supplies (TEN-022). Each is checked by check_tenant_text.

@@ -28,6 +28,9 @@ def test_the_work_kinds_are_named_as_the_spec_names_them() -> None:
         "projection-heartbeat",
         # Added by DEC-1308: the close of a visit offer.
         "visit-close",
+        # Added by DEC-1341: the texts about the end of a duty manager's shift.
+        "shift-ending",
+        "shift-ended",
     }
 
 

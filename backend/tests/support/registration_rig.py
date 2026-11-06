@@ -66,6 +66,27 @@ class StubPeople(_Part):
             if role.practitioner_id == practitioner_id and role.active
         ]
 
+    async def roster_for_service(self, service_id: str) -> list[PractitionerRole]:
+        return [
+            role
+            for role in self.roles.values()
+            if role.service_id == service_id
+            and role.code is PractitionerRoleCode.ROSTER_DUTY_MANAGER
+            and (role.active or role.period_end is None)
+        ]
+
+    async def roster_roles_for_phone_hash(self, phone_hash: str) -> list[PractitionerRole]:
+        people = {
+            person.id for person in self.practitioners.values() if person.phone_hash == phone_hash
+        }
+        return [
+            role
+            for role in self.roles.values()
+            if role.practitioner_id in people
+            and role.code is PractitionerRoleCode.ROSTER_DUTY_MANAGER
+            and (role.active or role.period_end is None)
+        ]
+
     async def reporter_roles_for_service(
         self, service_id: str, now: datetime
     ) -> list[PractitionerRole]:

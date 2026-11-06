@@ -30,6 +30,10 @@ from overwatch.application.ports.outbound.ids import IdGenerator
 from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
 from overwatch.application.use_cases.lead_views import check_lead, ending
 from overwatch.application.use_cases.setup_service_by_lead import international
+from overwatch.application.use_cases.shift_notices import (
+    cancel_shift_notices,
+    schedule_shift_notices,
+)
 from overwatch.domain.codes import Channel, PractitionerRoleCode
 from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
 from overwatch.domain.model.people import (
@@ -161,6 +165,7 @@ class RemoveRosterManager:
                 raise NotFound("no roster duty manager with this id")
             if roster_state(role, now) is RosterState.REMOVED:
                 raise NotFound("no roster duty manager with this id")
+            await cancel_shift_notices(uow, role.id, now)
             await uow.people.save_role(replace(role, active=False, period_end=now))
             await uow.audit.append(
                 AuditEntry(
@@ -211,8 +216,11 @@ class ShiftChange:
     shift_end: datetime | None
 
 
-async def _off_shift(uow: UnitOfWork, role: PractitionerRole) -> PractitionerRole:
-    off = replace(role, active=False, period_end=None)
+async def _off_shift(uow: UnitOfWork, role: PractitionerRole, now: datetime) -> PractitionerRole:
+    """The shift ends now. The role stays active with its period ended, so the board can tell how
+    long nobody has been on (DEC-1341 item 6); nothing is sent to a role whose period has ended."""
+    await cancel_shift_notices(uow, role.id, now)
+    off = replace(role, period_end=now)
     await uow.people.save_role(off)
     return off
 
@@ -230,9 +238,10 @@ class CheckIn:
     """A person on the roster goes on shift for every service they are on the roster of; the shift
     of whoever was on for each of those services ends (newest replaces last, DEC-1341 item 5)."""
 
-    def __init__(self, uow_factory: UnitOfWorkFactory, clock: Clock) -> None:
+    def __init__(self, uow_factory: UnitOfWorkFactory, clock: Clock, ids: IdGenerator) -> None:
         self._uow_factory = uow_factory
         self._clock = clock
+        self._ids = ids
 
     async def execute(self, phone_hash: str, hours: int | None, actor: Actor) -> list[ShiftChange]:
         length = check_hours(hours)
@@ -249,10 +258,11 @@ class CheckIn:
                     continue
                 for other in await uow.people.roster_for_service(role.service_id):
                     if other.id != role.id and roster_state(other, now) is RosterState.ON_SHIFT:
-                        await _off_shift(uow, other)
-                await uow.people.save_role(
-                    replace(role, active=True, period_start=now, period_end=end)
-                )
+                        await _off_shift(uow, other, now)
+                await cancel_shift_notices(uow, role.id, now)
+                started = replace(role, active=True, period_start=now, period_end=end)
+                await uow.people.save_role(started)
+                await schedule_shift_notices(uow, self._ids, started, now)
                 await uow.audit.append(
                     AuditEntry(
                         action=CHECK_IN_ACTION,
@@ -284,7 +294,7 @@ class SignOff:
                 if role.service_id is None or roster_state(role, now) is not RosterState.ON_SHIFT:
                     continue
                 profile = await uow.services.get(role.service_id)
-                await _off_shift(uow, role)
+                await _off_shift(uow, role, now)
                 await uow.audit.append(
                     AuditEntry(
                         action=SIGN_OFF_ACTION,

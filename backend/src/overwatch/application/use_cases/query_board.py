@@ -10,12 +10,12 @@ one confirmation query for all services (DEC-088 supersedes DEC-085 item 1).
 """
 
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Final
 
 from overwatch.application.actor import Actor, require_actor_in_bound_tenant
 from overwatch.application.ports.outbound.clock import Clock
-from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
 from overwatch.domain.codes import Cadence, Role, ServiceCategory, Status
 from overwatch.domain.errors import NotAllowed
 from overwatch.domain.model.capacity import CapacityReport
@@ -86,6 +86,7 @@ class QueryBoard:
             suspended = await uow.flags.services_with_flag(SERVICE_FLAG_SUSPENDED)
             reports = await uow.capacity.latest_for_services(service_ids)
             open_bookings = await uow.bookings.open_for_services(service_ids)
+            gaps = await _staffing_gaps(uow, service_ids, now)
             confirmed: dict[str, list[datetime]] = {}
             if reports:
                 # One read for every service with a report. The earliest report time is the
@@ -102,6 +103,7 @@ class QueryBoard:
                 len(open_bookings.get(profile.id, [])),
                 profile.id in suspended,
                 now,
+                (gaps[profile.id],) if profile.id in gaps else None,
             )
             for profile in profiles
         ]
@@ -117,6 +119,37 @@ class QueryBoard:
         )
 
 
+STAFFING_GRACE: Final = timedelta(minutes=15)
+"""How long after the last duty manager's shift ended a rostered service is still shown as it was,
+before the board says nobody is on and the figure is stale (DEC-1341 item 6)."""
+_STAFFED_STATUSES: Final = frozenset(
+    {Status.ACCEPTING, Status.LIMITED, Status.NOT_ACCEPTING, Status.OVER_CAPACITY}
+)
+
+
+async def _staffing_gaps(
+    uow: UnitOfWork, service_ids: list[str], now: datetime
+) -> dict[str, datetime | None]:
+    """The rostered services with nobody on shift past the grace, each with when the last shift
+    ended (None when nobody was ever on). A service with no roster is not read here, and a service
+    with anyone reporting for it (an always-on reporter, or a roster duty manager on shift) is
+    staffed."""
+    gaps: dict[str, datetime | None] = {}
+    for service_id in service_ids:
+        roster = await uow.people.roster_for_service(service_id)
+        if not roster or await uow.people.reporter_roles_for_service(service_id, now):
+            continue
+        ended = [
+            role.period_end
+            for role in roster
+            if role.active and role.period_end is not None and role.period_end <= now
+        ]
+        last_end = max(ended) if ended else None
+        if last_end is None or now >= last_end + STAFFING_GRACE:
+            gaps[service_id] = last_end
+    return gaps
+
+
 def _entry(
     profile: ServiceProfile,
     report: CapacityReport | None,
@@ -124,10 +157,34 @@ def _entry(
     pending: int,
     suspended: bool,
     now: datetime,
+    staffing_gap: tuple[datetime | None] | None = None,
 ) -> BoardEntry:
     if suspended:
         profile = replace(profile, suspended=True)
     state = compute_status(profile, report, confirmed_at, now)
+    if staffing_gap is not None and state.status in _STAFFED_STATUSES:
+        # Nobody is on shift to keep the figure true, so it is stale whatever its age (DEC-1341).
+        # The last figure stays in `used` for the chase card; the board shows it as not updated.
+        (gap_start,) = staffing_gap
+        return BoardEntry(
+            service_id=profile.id,
+            name=profile.name,
+            category=profile.category,
+            status=Status.NOT_UPDATED,
+            effective_available=None,
+            over_by=None,
+            used=state.used,
+            established=profile.established_capacity,
+            pending=pending,
+            unit_label=profile.unit_label,
+            comment=profile.comment,
+            reported_at=None if report is None else report.effective_at,
+            next_due_at=next_due(profile, now),
+            was_due_at=now if gap_start is None else gap_start,
+            cadence=profile.cadence,
+            overdue=True,
+            stale_warning=True,
+        )
     return BoardEntry(
         service_id=profile.id,
         name=profile.name,

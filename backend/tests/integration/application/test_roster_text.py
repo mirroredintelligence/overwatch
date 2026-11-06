@@ -102,7 +102,7 @@ class Rig:
             ReportCapacity(factory, self.clock, ids, store, sealer=TEST_SEALER),
             ConfirmCapacity(factory, self.clock, ids, store, sealer=TEST_SEALER),
             sealer=TEST_SEALER,
-            check_in=CheckIn(factory, self.clock),
+            check_in=CheckIn(factory, self.clock, ids),
             sign_off=SignOff(factory, self.clock),
         )
         self._count = 0

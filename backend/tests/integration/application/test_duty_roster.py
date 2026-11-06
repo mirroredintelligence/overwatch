@@ -26,8 +26,20 @@ from overwatch.application.use_cases.duty_roster import (
     RemoveRosterManager,
     SignOff,
 )
-from overwatch.domain.codes import Cadence, Channel, Measure, Role, ServiceCategory
+from overwatch.application.use_cases.query_board import QueryBoard, QueryBoardQuery
+from overwatch.domain.codes import (
+    Cadence,
+    Channel,
+    Measure,
+    PractitionerRoleCode,
+    ReportSource,
+    ReportType,
+    Role,
+    ServiceCategory,
+    Status,
+)
 from overwatch.domain.errors import Conflict, NotAllowed, ValidationFailed
+from overwatch.domain.model.capacity import CapacityReport
 from overwatch.domain.model.people import Practitioner, PractitionerRole, RosterState
 from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.integration.application.conftest import Seed
@@ -73,7 +85,7 @@ class Rig:
         self.add = AddRosterManager(uow_factory, self.clock, ids, HASHER)
         self.remove = RemoveRosterManager(uow_factory, self.clock)
         self.list = ListRoster(uow_factory, self.clock)
-        self.check_in = CheckIn(uow_factory, self.clock)
+        self.check_in = CheckIn(uow_factory, self.clock, ids)
         self.sign_off = SignOff(uow_factory, self.clock)
 
     async def add_person(self, name: str, mobile: str, service: str = "ucr-west") -> str:
@@ -241,3 +253,126 @@ async def test_a_removed_person_can_be_added_again(rig: Rig) -> None:
     await rig.add_person("Ana Duty", ANA)
 
     assert await rig.states() == {"Ana Duty": RosterState.OFF_SHIFT}
+
+
+# --- the board when nobody is on shift (DEC-1341 item 6) ---------------------------
+
+
+async def _report(rig: Rig, service: str = "ucr-west", minutes_ago: int = 10) -> None:
+    async with rig.uow_factory() as uow:
+        await uow.capacity.add(
+            CapacityReport(
+                id=f"obs-{service}-{int(rig.clock.now().timestamp())}",
+                service_id=service,
+                value=4,
+                measure=Measure.REFERRALS_ACCEPTABLE,
+                effective_at=rig.clock.now() - timedelta(minutes=minutes_ago),
+                source=ReportSource.TEXT,
+                report_type=ReportType.NUMBER,
+            )
+        )
+        await uow.commit()
+
+
+async def _board_status(rig: Rig, service: str = "ucr-west") -> Status:
+    board = await QueryBoard(rig.uow_factory, rig.clock).execute(QueryBoardQuery(LEAD))
+    return next(entry.status for entry in board.entries if entry.service_id == service)
+
+
+async def test_a_rostered_service_with_nobody_ever_on_shift_is_stale_on_the_board(rig: Rig) -> None:
+    await rig.add_person("Ana Duty", ANA)
+    await _report(rig)
+
+    assert await _board_status(rig) is Status.NOT_UPDATED
+
+
+async def test_a_rostered_service_with_someone_on_shift_shows_its_figure(rig: Rig) -> None:
+    await rig.add_person("Ana Duty", ANA)
+    await _report(rig)
+    await rig.check_in.execute(_hash(ANA), 8, LEAD)
+
+    assert await _board_status(rig) is not Status.NOT_UPDATED
+
+
+async def test_a_service_stays_as_it_was_for_fifteen_minutes_after_the_last_shift_ends(
+    rig: Rig,
+) -> None:
+    await rig.add_person("Ana Duty", ANA)
+    await _report(rig)
+    await rig.check_in.execute(_hash(ANA), 2, LEAD)
+
+    rig.clock.set(NOW + timedelta(hours=2, minutes=14))
+    await _report(rig, minutes_ago=1)
+    inside = await _board_status(rig)
+    rig.clock.set(NOW + timedelta(hours=2, minutes=16))
+    await _report(rig, minutes_ago=1)
+    outside = await _board_status(rig)
+
+    assert inside is not Status.NOT_UPDATED
+    assert outside is Status.NOT_UPDATED
+
+
+async def test_signing_off_starts_the_same_fifteen_minutes(rig: Rig) -> None:
+    await rig.add_person("Ana Duty", ANA)
+    await _report(rig)
+    await rig.check_in.execute(_hash(ANA), 8, LEAD)
+    await rig.sign_off.execute(_hash(ANA), LEAD)
+
+    inside = await _board_status(rig)
+    rig.clock.set(NOW + timedelta(minutes=16))
+    outside = await _board_status(rig)
+
+    assert inside is not Status.NOT_UPDATED
+    assert outside is Status.NOT_UPDATED
+
+
+async def test_the_next_person_going_on_shift_makes_the_figure_current_again(rig: Rig) -> None:
+    await rig.add_person("Ana Duty", ANA)
+    await rig.add_person("Ben Duty", BEN)
+    await _report(rig)
+    await rig.check_in.execute(_hash(ANA), 2, LEAD)
+    rig.clock.set(NOW + timedelta(hours=3))
+    await _report(rig, minutes_ago=1)
+    assert await _board_status(rig) is Status.NOT_UPDATED
+
+    await rig.check_in.execute(_hash(BEN), 4, LEAD)
+
+    assert await _board_status(rig) is not Status.NOT_UPDATED
+
+
+async def test_a_service_with_an_always_on_reporter_is_never_stale_for_want_of_a_roster_shift(
+    rig: Rig,
+) -> None:
+    await rig.add_person("Ana Duty", ANA)
+    await _report(rig)
+    async with rig.uow_factory() as uow:
+        await uow.people.save_practitioner(
+            Practitioner(id="prac-rep", active=True, display_name="Duty manager", phone_hash=None)
+        )
+        await uow.people.save_role(
+            PractitionerRole(
+                id="role-rep",
+                practitioner_id="prac-rep",
+                service_id="ucr-west",
+                code=PractitionerRoleCode.DUTY_MANAGER,
+                active=True,
+                channel=Channel.TEXT,
+                period_start=NOW - timedelta(days=1),
+            )
+        )
+        await uow.commit()
+
+    assert await _board_status(rig) is not Status.NOT_UPDATED
+
+
+async def test_a_service_with_no_roster_is_not_changed(rig: Rig) -> None:
+    await _report(rig)
+    assert await _board_status(rig) is not Status.NOT_UPDATED
+
+
+async def test_a_closed_service_is_shown_closed_not_stale(rig: Rig) -> None:
+    await rig.add_person("Ana Duty", ANA)
+    await _report(rig)
+    rig.clock.set(datetime(2026, 11, 6, 22, 0, tzinfo=UTC))
+
+    assert await _board_status(rig) is Status.OUT_OF_HOURS

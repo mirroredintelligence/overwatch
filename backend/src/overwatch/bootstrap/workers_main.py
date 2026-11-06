@@ -389,7 +389,7 @@ async def serve(
             ),
             set_decline_reason=SetDeclineReason(container.uow_factory, store, container.clock),
             sealer=booking_sealer,
-            check_in=CheckIn(container.uow_factory, container.clock),
+            check_in=CheckIn(container.uow_factory, container.clock, container.ids),
             sign_off=SignOff(container.uow_factory, container.clock),
         )
         senders = TenantSenderResolver(

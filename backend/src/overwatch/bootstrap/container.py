@@ -162,6 +162,7 @@ from overwatch.application.use_cases.missed_report_ladder import (
 from overwatch.application.use_cases.request_booking import LinkBaseUrlFor
 from overwatch.application.use_cases.review_registration import AreaDistrictsFor
 from overwatch.application.use_cases.send_prompts import SendPromptCommand, SendPrompts, prompt_key
+from overwatch.application.use_cases.shift_notices import SendShiftNotice, shift_notice_handlers
 from overwatch.application.use_cases.suspend_service import WordingFor
 from overwatch.application.use_cases.tenant_config import ReadTenantConfig
 from overwatch.application.use_cases.tenant_invariants import (
@@ -473,6 +474,12 @@ def _scheduled_work(
     # The close of a visit offer (DEC-1308 item 7): erases what an unanswered or unfinished one
     # holds.
     handlers.update(visit_close_handlers(CloseVisitOffer(uow_factory, clock, ids)))
+    # The texts 15 minutes before and after a duty manager's shift ends (DEC-1341).
+    handlers.update(
+        shift_notice_handlers(
+            SendShiftNotice(uow_factory, clock, ids, AesGcmContentSealer(secrets))
+        )
+    )
     # The daily criteria review run (U31).
     reviews = RunCriteriaReviews(uow_factory, ids, clock, AesGcmContentSealer(secrets))
     handlers[WorkKind.CRITERIA_REVIEW_REMINDER] = criteria_review_handler(reviews)

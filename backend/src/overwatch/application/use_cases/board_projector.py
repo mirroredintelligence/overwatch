@@ -38,7 +38,7 @@ from overwatch.application.use_cases.query_board import (
     QueryBoard,
     QueryBoardQuery,
 )
-from overwatch.domain.codes import Role, ServiceCategory, Status
+from overwatch.domain.codes import Cadence, Role, ServiceCategory, Status
 from overwatch.domain.errors import NotAllowed, ValidationFailed
 from overwatch.domain.rules.pressure import Pressure
 
@@ -108,6 +108,9 @@ def _entry_to_dict(entry: BoardEntry) -> dict[str, Any]:
         "reported_at": _optional_utc_text(entry.reported_at),
         "next_due_at": _optional_utc_text(entry.next_due_at),
         "was_due_at": _optional_utc_text(entry.was_due_at),
+        "cadence": None if entry.cadence is None else entry.cadence.value,
+        "overdue": entry.overdue,
+        "stale_warning": entry.stale_warning,
     }
 
 
@@ -127,6 +130,10 @@ def _entry_from_dict(data: Mapping[str, Any]) -> BoardEntry:
         reported_at=_optional_time(data["reported_at"]),
         next_due_at=_optional_time(data["next_due_at"]),
         was_due_at=_optional_time(data["was_due_at"]),
+        # Entries cached before these fields existed read as not known and not late (DEC-1343).
+        cadence=None if data.get("cadence") is None else Cadence(data["cadence"]),
+        overdue=bool(data.get("overdue", False)),
+        stale_warning=bool(data.get("stale_warning", False)),
     )
 
 

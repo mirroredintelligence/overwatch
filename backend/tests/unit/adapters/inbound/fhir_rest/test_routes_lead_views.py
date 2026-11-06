@@ -175,7 +175,15 @@ async def test_nothing_to_chase_is_an_empty_list_and_not_a_missing_one() -> None
         body = (await http.get("/lead/overview", headers=LEAD_AUTH)).json()
 
     assert body["chasing"] == [] and body["gettingOld"] == []
-    assert set(body) == {"chasing", "gettingOld", "covering", "counts", "reportingToday"}
+    assert set(body) == {
+        "chasing",
+        "gettingOld",
+        "covering",
+        "counts",
+        "reportingToday",
+        "underPressure",
+        "underutilised",
+    }
 
 
 async def test_a_cover_made_before_the_number_was_kept_shows_a_blank_ending() -> None:

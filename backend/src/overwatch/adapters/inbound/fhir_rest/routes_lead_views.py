@@ -3,7 +3,7 @@ one use case and maps the result to camelCase JSON. Only the shift lead reaches 
 any other role is the non-revealing 404).
 
 GET  /lead/overview                    chasing (with the ladder), gettingOld, covering, counts,
-                                       reportingToday
+                                       reportingToday, underPressure, underutilised (DEC-1343)
 POST /lead/services/{id}/remind        Idempotency-Key; 200 {reminded: true}; 409 when no reminder
                                        is waiting
 POST /lead/services/{id}/test-prompt   Idempotency-Key; optional {"channel"}; 200
@@ -201,6 +201,26 @@ async def read_overview(
             ],
             "counts": {key: view.counts[status] for status, key in _COUNT_KEYS.items()},
             "reportingToday": view.reporting_today,
+            "underPressure": [
+                {
+                    "serviceId": item.service_id,
+                    "name": item.name,
+                    "status": item.status.value,
+                    "reason": item.reason,
+                    "usedPercent": item.used_percent,
+                }
+                for item in view.under_pressure
+            ],
+            "underutilised": [
+                {
+                    "serviceId": item.service_id,
+                    "name": item.name,
+                    "usedPercent": item.used_percent,
+                    "spare": item.spare,
+                    "unitLabel": item.unit_label,
+                }
+                for item in view.underutilised
+            ],
         }
     )
 

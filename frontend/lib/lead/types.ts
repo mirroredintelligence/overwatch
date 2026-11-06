@@ -41,6 +41,24 @@ export type CoveringItem = {
   until: string | null;
 };
 
+/** A service under pressure (DEC-1343). `usedPercent` is null when its figure is old: no percentage is invented. */
+export type PressureItem = {
+  serviceId: string;
+  name: string;
+  status: StatusCode;
+  reason: string;
+  usedPercent: number | null;
+};
+
+/** A service with room that is not being used (DEC-1343). Only a fresh figure is ever listed. */
+export type UnderutilisedItem = {
+  serviceId: string;
+  name: string;
+  usedPercent: number;
+  spare: number;
+  unitLabel: string;
+};
+
 export type SystemCounts = {
   accepting: number;
   limited: number;
@@ -55,4 +73,8 @@ export type LeadOverview = {
   covering: CoveringItem[];
   counts: SystemCounts;
   reportingToday: number;
+  /** Absent when the back end did not send them (an older back end during a roll-out): the cards are then not shown,
+   *  rather than saying nothing is under pressure. */
+  underPressure?: PressureItem[];
+  underutilised?: UnderutilisedItem[];
 };

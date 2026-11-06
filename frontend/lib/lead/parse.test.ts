@@ -26,3 +26,22 @@ describe('parseOverview', () => {
     expect(() => parseOverview(bad)).toThrow(LeadParseError);
   });
 });
+
+describe('parseOverview: the pressure lists (DEC-1343)', () => {
+  it('leaves them out, and does not make them empty, when the back end did not send them', () => {
+    const older: Record<string, unknown> = { ...structuredClone(OVERVIEW_SHIFT_LEAD) };
+    delete older.underPressure;
+    delete older.underutilised;
+    const parsed = parseOverview(older);
+    expect(parsed.underPressure).toBeUndefined();
+    expect(parsed.underutilised).toBeUndefined();
+  });
+
+  it('reads an old figure as a null percentage and refuses an unknown status', () => {
+    const parsed = parseOverview(structuredClone(OVERVIEW_SHIFT_LEAD));
+    expect(parsed.underPressure?.[2]?.usedPercent).toBeNull();
+    const bad = structuredClone(OVERVIEW_SHIFT_LEAD) as unknown as { underPressure: Array<{ status: string }> };
+    bad.underPressure[0].status = 'bogus';
+    expect(() => parseOverview(bad)).toThrow(LeadParseError);
+  });
+});

@@ -17,6 +17,7 @@ import { ChaseCard } from './ChaseCard';
 import { CoveringList } from './CoveringList';
 import { DisclosureRow } from './DisclosureRow';
 import { OldFigureCard } from './OldFigureCard';
+import { UnderPressureList, UnderutilisedList } from './PressureLists';
 import { SystemCounts } from './SystemCounts';
 import styles from './LeadOverview.module.css';
 
@@ -460,6 +461,8 @@ export function LeadOverview({ disclosures = [] }: { disclosures?: readonly Lead
             <div className={styles.side}>
               <div className={styles.sideBody}>
                 <SystemCounts counts={overview.counts} reportingToday={overview.reportingToday} />
+                {overview.underPressure === undefined ? null : <UnderPressureList items={overview.underPressure} />}
+                {overview.underutilised === undefined ? null : <UnderutilisedList items={overview.underutilised} />}
                 <CoveringList items={overview.covering} />
               </div>
             </div>

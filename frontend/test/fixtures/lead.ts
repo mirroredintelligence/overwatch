@@ -54,6 +54,14 @@ export const OVERVIEW_SHIFT_LEAD: LeadOverview = {
   ],
   counts: { accepting: 4, limited: 2, notAccepting: 1, overCapacity: 1, notUpdated: 1 },
   reportingToday: 9,
+  underPressure: [
+    { serviceId: 'svc-over', name: 'Hospital at home', status: 'over-capacity', reason: '2 over normal capacity', usedPercent: 120 },
+    { serviceId: 'svc-limited', name: 'Reablement', status: 'limited', reason: 'Limited: 1 left of 10', usedPercent: 90 },
+    { serviceId: 'svc-old', name: 'SDEC · Site 2', status: 'not-accepting', reason: 'Figure is old. Confirm before redirecting demand.', usedPercent: null },
+  ],
+  underutilised: [
+    { serviceId: 'svc-room', name: 'Virtual ward', usedPercent: 20, spare: 8, unitLabel: 'beds free' },
+  ],
 };
 
 export const OVERVIEW_NOTHING_TO_CHASE: LeadOverview = {

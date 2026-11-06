@@ -1,5 +1,5 @@
 import type { StatusCode } from '@/components/ui/StatusBadge';
-import type { LadderRow, LadderStep, LeadOverview } from './types';
+import type { LadderRow, LadderStep, LeadOverview, PressureItem, UnderutilisedItem } from './types';
 
 // Reads the BFF's overview answer. A shape that is not the one the page knows is an error, never a
 // partly filled page: an empty list would read as "nothing to chase" (H-330).
@@ -99,5 +99,35 @@ export function parseOverview(value: unknown): LeadOverview {
       notUpdated: count(counts.notUpdated),
     },
     reportingToday: count(value.reportingToday),
+    ...(value.underPressure === undefined ? {} : { underPressure: pressureList(value.underPressure) }),
+    ...(value.underutilised === undefined ? {} : { underutilised: underusedList(value.underutilised) }),
   };
+}
+
+function pressureList(raw: unknown): PressureItem[] {
+  return list(raw).map((item) => {
+    if (!isObject(item)) throw new LeadParseError();
+    const status = STATUSES.find((s) => s === item.status);
+    if (status === undefined) throw new LeadParseError();
+    return {
+      serviceId: text(item.serviceId),
+      name: text(item.name),
+      status,
+      reason: text(item.reason),
+      usedPercent: item.usedPercent === null || item.usedPercent === undefined ? null : count(item.usedPercent),
+    };
+  });
+}
+
+function underusedList(raw: unknown): UnderutilisedItem[] {
+  return list(raw).map((item) => {
+    if (!isObject(item)) throw new LeadParseError();
+    return {
+      serviceId: text(item.serviceId),
+      name: text(item.name),
+      usedPercent: count(item.usedPercent),
+      spare: count(item.spare),
+      unitLabel: text(item.unitLabel),
+    };
+  });
 }

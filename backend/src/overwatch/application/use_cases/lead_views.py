@@ -106,12 +106,120 @@ class CoveringItem:
 
 
 @dataclass(frozen=True, slots=True)
+class PressureItem:
+    """A service under pressure (DEC-1343). `used_percent` is None when its figure is old: the lead
+    is told to confirm before redirecting demand, and no percentage is invented."""
+
+    service_id: str
+    name: str
+    status: Status
+    reason: str
+    used_percent: int | None
+
+
+@dataclass(frozen=True, slots=True)
+class UnderutilisedItem:
+    """A service with room that is not being used (DEC-1343). Only a fresh figure counts: a stale or
+    unknown one is never listed as spare capacity."""
+
+    service_id: str
+    name: str
+    used_percent: int
+    spare: int
+    unit_label: str
+
+
+@dataclass(frozen=True, slots=True)
 class LeadOverviewView:
     chasing: tuple[ChaseItem, ...]
     getting_old: tuple[GettingOldItem, ...]
     covering: tuple[CoveringItem, ...]
     counts: dict[Status, int]
     reporting_today: int
+    under_pressure: tuple[PressureItem, ...] = ()
+    underutilised: tuple[UnderutilisedItem, ...] = ()
+
+
+UNDERUTILISED_USED_AT_MOST: Final = 0.60
+"""A service is underutilised when at most this share of its capacity is used (DEC-1343)."""
+UNDERUTILISED_SPARE_AT_LEAST: Final = 0.25
+"""...and at least this share of its capacity is free."""
+_PRESSURE_STATUSES: Final = (Status.OVER_CAPACITY, Status.NOT_ACCEPTING, Status.LIMITED)
+_PRESSURE_RANK: Final = {Status.OVER_CAPACITY: 0, Status.NOT_ACCEPTING: 1, Status.LIMITED: 2}
+STALE_PRESSURE_REASON: Final = "Figure is old. Confirm before redirecting demand."
+
+
+def _figure_unusable(entry: BoardEntry) -> bool:
+    """The figure is late or old, so it is not the current capacity (DEC-1343)."""
+    return entry.status is Status.NOT_UPDATED or entry.overdue or entry.stale_warning
+
+
+def _used_percent(entry: BoardEntry) -> int | None:
+    if entry.used is None or entry.established <= 0:
+        return None
+    return round(100 * entry.used / entry.established)
+
+
+def _pressure_reason(entry: BoardEntry) -> str:
+    if entry.status is Status.OVER_CAPACITY:
+        return (
+            "Over normal capacity"
+            if entry.over_by is None
+            else f"{entry.over_by} over normal capacity"
+        )
+    if entry.status is Status.NOT_ACCEPTING:
+        return "Not accepting referrals"
+    if entry.effective_available is None:
+        return "Limited"
+    return f"Limited: {entry.effective_available} left of {entry.established}"
+
+
+def under_pressure(entries: tuple[BoardEntry, ...]) -> tuple[PressureItem, ...]:
+    """Services over capacity, not accepting or limited, most pressed first. A figure that is old is
+    listed last with no percentage and the words to confirm first. A late report is the chase list's
+    job and is not repeated here."""
+    items: list[tuple[tuple[int, int, int, str], PressureItem]] = []
+    for entry in entries:
+        if entry.status not in _PRESSURE_STATUSES:
+            continue
+        if _figure_unusable(entry):
+            item = PressureItem(
+                entry.service_id, entry.name, entry.status, STALE_PRESSURE_REASON, None
+            )
+            items.append(((1, 0, 0, entry.name), item))
+            continue
+        used = _used_percent(entry)
+        item = PressureItem(
+            entry.service_id, entry.name, entry.status, _pressure_reason(entry), used
+        )
+        spare = entry.effective_available if entry.effective_available is not None else 0
+        items.append(((0, _PRESSURE_RANK[entry.status], spare, entry.name), item))
+    return tuple(item for _, item in sorted(items, key=lambda pair: pair[0]))
+
+
+def underutilised(entries: tuple[BoardEntry, ...]) -> tuple[UnderutilisedItem, ...]:
+    """Services accepting with at most 60% used and at least 25% free, most spare first. A stale or
+    unknown figure is never listed (DEC-1343)."""
+    found: list[UnderutilisedItem] = []
+    for entry in entries:
+        if entry.status is not Status.ACCEPTING or _figure_unusable(entry):
+            continue
+        if entry.used is None or entry.effective_available is None or entry.established <= 0:
+            continue
+        used_share = entry.used / entry.established
+        spare_share = entry.effective_available / entry.established
+        if used_share > UNDERUTILISED_USED_AT_MOST or spare_share < UNDERUTILISED_SPARE_AT_LEAST:
+            continue
+        found.append(
+            UnderutilisedItem(
+                entry.service_id,
+                entry.name,
+                round(100 * used_share),
+                entry.effective_available,
+                entry.unit_label,
+            )
+        )
+    return tuple(sorted(found, key=lambda item: (-item.spare, item.name, item.service_id)))
 
 
 def _last_value_text(entry: BoardEntry) -> str:
@@ -203,6 +311,8 @@ class GetLeadOverview:
             reporting_today=sum(
                 1 for at in reports.values() if at is not None and to_london(at).date() == today
             ),
+            under_pressure=under_pressure(board.entries),
+            underutilised=underutilised(board.entries),
         )
 
 

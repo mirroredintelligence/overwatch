@@ -71,5 +71,7 @@ function backEndShape() {
     covering: OVERVIEW_SHIFT_LEAD.covering,
     counts: OVERVIEW_SHIFT_LEAD.counts,
     reportingToday: OVERVIEW_SHIFT_LEAD.reportingToday,
+    underPressure: OVERVIEW_SHIFT_LEAD.underPressure,
+    underutilised: OVERVIEW_SHIFT_LEAD.underutilised,
   };
 }

@@ -137,7 +137,7 @@ def invitation_expiry(sent_at: datetime) -> datetime:
 
 def invitation_link(base_url: str, token: str) -> str:
     # The invitation is at the host's root, so the base's /l path (DirectoryLinkBase) is taken off.
-    root = base_url.rstrip('/').removesuffix('/l')
+    root = base_url.rstrip("/").removesuffix("/l")
     return f"{root}{INVITE_LINK_PATH}{token}"
 
 
@@ -260,6 +260,27 @@ class InviteReporter:
         self._link_base_url_for = link_base_url_for
         self._sealer = sealer
 
+    async def _give_lead_post(
+        self, uow: UnitOfWork, lead_id: str, now: datetime
+    ) -> PractitionerRole:
+        """A lead who signed in through Entra has a practitioner record and no shift-lead post, so
+        the first invitation gave a 404 (the actor is the lead by their token, DEC-1330). The post
+        is made here, once, for a named active practitioner; a lead with no record is refused."""
+        practitioner = await uow.people.get_practitioner(lead_id)
+        if practitioner is None or not practitioner.active:
+            raise NotAllowed("the lead holds no shift lead post")
+        post = PractitionerRole(
+            id=self._ids.new_id(),
+            practitioner_id=lead_id,
+            service_id=None,
+            code=LEAD_POST_CODE,
+            active=True,
+            channel=None,
+            period_start=now,
+        )
+        await uow.people.save_role(post)
+        return post
+
     async def execute(self, command: InviteReporterCommand) -> InviteReporterResult:
         lead_id = check_may_invite(command.actor)
         check_role_name("role_label", command.role_label)
@@ -293,7 +314,7 @@ class InviteReporter:
                 raise Conflict("this service already has a registration: resend its invitation")
             lead = lead_post(await uow.people.roles_for_practitioner(lead_id))
             if lead is None:
-                raise NotAllowed("the lead holds no shift lead post")
+                lead = await self._give_lead_post(uow, lead_id, now)
 
             invitee = await uow.people.find_by_phone_hash(phone_hash)
             invitee_id = invitee.id if invitee is not None else self._ids.new_id()

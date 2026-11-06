@@ -152,6 +152,14 @@ class _Container(Protocol):
     def secrets(self) -> SecretStore: ...
 
 
+def failure_name(error: BaseException) -> str:
+    """The class of an unexpected failure with its module (redis.exceptions.ConnectionError, not
+    ConnectionError), so the log says which dependency failed. Never the message: it can carry a
+    host or a value."""
+    kind = type(error)
+    return f"{kind.__module__}.{kind.__qualname__}"
+
+
 def _json(status: int, body: dict[str, Any], headers: dict[str, str] | None = None) -> Response:
     return JSONResponse(body, status_code=status, headers={**_NO_STORE, **(headers or {})})
 
@@ -302,7 +310,7 @@ async def _guarded(run: Callable[[], Awaitable[Response]]) -> Response:
             {"Retry-After": str(error.retry_after_seconds)},
         )
     except Exception as error:
-        log.error("link request failed: %s", type(error).__name__)
+        log.error("link request failed: %s", failure_name(error))
         return _json(500, {"state": "error"})
 
 

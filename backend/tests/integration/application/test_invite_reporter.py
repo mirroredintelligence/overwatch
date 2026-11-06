@@ -276,3 +276,77 @@ async def test_an_advisor_cannot_invite_and_the_same_key_twice_is_one_invitation
     sent = [m for m in await rig.outbox() if m.event_type == "SendMessage"]
     assert len(sent) == 1
     assert await count_nodes(neo4j_driver, "Task") == 2  # the invitation and the registration
+
+
+# --- a staff-sign-in lead has no shift-lead post: the 404 after a set-up
+
+
+STAFF_LEAD = replace(LEAD, practitioner_id="prac-staff")
+
+
+async def _staff_practitioner_without_a_post(uow_factory: UnitOfWorkFactory) -> None:
+    """What the first staff sign-in leaves: a practitioner record and no role (DEC-1330)."""
+    async with uow_factory() as uow:
+        await uow.people.save_practitioner(
+            Practitioner(id="prac-staff", active=True, display_name="Staff member", phone_hash=None)
+        )
+        await uow.commit()
+
+
+async def test_a_lead_from_a_staff_sign_in_can_invite_and_is_given_the_shift_lead_post(
+    rig: Rig, uow_factory: UnitOfWorkFactory
+) -> None:
+    await _staff_practitioner_without_a_post(uow_factory)
+
+    result = await rig.invite.execute(rig.command(actor=STAFF_LEAD))
+
+    assert result.invitation_id
+    async with uow_factory() as uow:
+        posts = [
+            role
+            for role in await uow.people.roles_for_practitioner("prac-staff")
+            if role.code is PractitionerRoleCode.SHIFT_LEAD
+        ]
+    assert len(posts) == 1
+    assert posts[0].active and posts[0].service_id is None
+
+
+async def test_a_second_invitation_by_the_same_lead_does_not_make_a_second_post(
+    rig: Rig, uow_factory: UnitOfWorkFactory
+) -> None:
+    await _staff_practitioner_without_a_post(uow_factory)
+    async with uow_factory() as uow:
+        await uow.scope.save_entry(
+            ScopeEntry(
+                service_id="svc-second",
+                name="Second",
+                category=ServiceCategory.URGENT_COMMUNITY_RESPONSE,
+                flag=ScopeFlag.IN_PILOT,
+                date=date(2026, 10, 29),
+                reason="",
+            )
+        )
+        await uow.commit()
+    await rig.invite.execute(rig.command(actor=STAFF_LEAD))
+
+    await rig.invite.execute(
+        rig.command(
+            actor=STAFF_LEAD,
+            idempotency_key="invite-2",
+            service_id="svc-second",
+            mobile="07700 900456",
+        )
+    )
+
+    async with uow_factory() as uow:
+        posts = [
+            role
+            for role in await uow.people.roles_for_practitioner("prac-staff")
+            if role.code is PractitionerRoleCode.SHIFT_LEAD
+        ]
+    assert len(posts) == 1
+
+
+async def test_an_actor_with_no_practitioner_record_is_still_refused(rig: Rig) -> None:
+    with pytest.raises(NotAllowed):
+        await rig.invite.execute(rig.command(actor=replace(LEAD, practitioner_id="prac-nobody")))

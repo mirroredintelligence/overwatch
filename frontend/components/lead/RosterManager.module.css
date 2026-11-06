@@ -1,0 +1,139 @@
+/* The duty roster of one service (DEC-1341): the people on it, and the form to add one. */
+
+.lead {
+  margin: 0;
+  max-width: 44em;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  color: var(--c-ink-2);
+}
+
+.card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 44em;
+  margin: var(--space-4) 0;
+  padding: 20px 22px;
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+  color: var(--c-ink);
+  font-family: var(--font-atkinson), system-ui, sans-serif;
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--type-title-size);
+  font-weight: var(--type-title-weight);
+}
+
+.none,
+.failed {
+  margin: 0;
+  font-size: var(--type-body-size);
+  color: var(--c-ink-2);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.name {
+  font-size: var(--type-label-size);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.detail {
+  font-size: var(--type-body-size);
+  color: var(--c-ink-2);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  max-width: 24em;
+}
+
+.label {
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+}
+
+.input {
+  box-sizing: border-box;
+  min-height: var(--btn-h);
+  width: 100%;
+  padding: 0 var(--space-4);
+  font: inherit;
+  font-size: 20px;
+  color: var(--c-ink);
+  background: Canvas;
+  border: 2px solid var(--c-ink-2);
+  border-radius: var(--radius);
+}
+
+.input:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.error {
+  margin: 0;
+  padding-left: var(--space-2);
+  border-left: 4px solid var(--c-surge);
+  font-size: var(--type-body-size);
+  font-weight: 700;
+}
+
+.message {
+  margin: 0;
+  padding-left: var(--space-2);
+  border-left: 4px solid var(--c-primary);
+  font-size: var(--type-body-size);
+  font-weight: 700;
+}
+
+.message[data-failed='true'] {
+  border-left-color: var(--c-surge);
+}
+
+.back {
+  margin: 0;
+  font-size: var(--type-body-size);
+}

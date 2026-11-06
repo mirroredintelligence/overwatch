@@ -132,6 +132,9 @@ export function ChaseCard({ item, onEnterPhoned, onAsk, onRemind, asking = false
               >
                 Send reminder again
               </button>
+              <a role="menuitem" className={styles.item} href={`/lead/services/${encodeURIComponent(item.serviceId)}/roster`}>
+                Duty managers
+              </a>
               <a
                 role="menuitem"
                 className={styles.item}

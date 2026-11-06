@@ -101,6 +101,15 @@ describe('ChaseCard', () => {
     expect(onAsk).not.toHaveBeenCalled();
   });
 
+  it('links "Duty managers" to the roster of this service, from the menu (DEC-1341)', async () => {
+    render(<ChaseCard item={item} onEnterPhoned={vi.fn()} onAsk={vi.fn()} onRemind={vi.fn()} />);
+    await userEvent.click(screen.getByRole('button', { name: 'More ways to ask' }));
+    expect(screen.getByRole('menuitem', { name: 'Duty managers' })).toHaveAttribute(
+      'href',
+      '/lead/services/s-virtual-ward/roster',
+    );
+  });
+
   it('shows no Close button and no suspend link on a card in the list', () => {
     render(<ChaseCard item={item} onEnterPhoned={vi.fn()} onAsk={vi.fn()} onRemind={vi.fn()} />);
     expect(screen.queryByRole('button', { name: 'Close' })).toBeNull();

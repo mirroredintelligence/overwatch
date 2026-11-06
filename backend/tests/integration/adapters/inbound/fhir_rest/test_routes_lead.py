@@ -277,3 +277,106 @@ async def test_another_tenants_reporter_role_reads_as_not_found(
         headers={"Idempotency-Key": "change-0002", **token_headers(tenant_id, Role.LEAD)},
     )
     assert response.status_code == 404
+
+
+# --- the duty roster (DEC-1341) -----------------------------------------------------
+
+ROSTER = "/lead/services/{service}/roster"
+ROSTER_KEY = {"Idempotency-Key": "roster-0001"}
+
+
+async def _add_manager(
+    client: AsyncClient, tenant: str, service: str, name: str, mobile: str, key: str
+) -> int:
+    response = await client.post(
+        ROSTER.format(service=service),
+        json={"name": name, "mobile": mobile},
+        headers={"Idempotency-Key": key, **token_headers(tenant, Role.LEAD)},
+    )
+    return response.status_code
+
+
+async def test_a_lead_adds_a_duty_manager_and_the_roster_lists_them_off_shift(
+    api_client: AsyncClient, lead_world: None, tenant_id: str
+) -> None:
+    status = await _add_manager(api_client, tenant_id, SERVICE_A, "Ana Duty", NUMBER, "ros-1")
+    assert status == 201
+
+    response = await api_client.get(
+        ROSTER.format(service=SERVICE_A), headers=token_headers(tenant_id, Role.LEAD)
+    )
+
+    assert response.status_code == 200, response.text
+    [manager] = response.json()["managers"]
+    assert manager["name"] == "Ana Duty"
+    assert manager["state"] == "off-shift"
+    assert manager["numberEnding"] == "0123"
+    assert manager["shiftEnd"] is None
+    assert "07700" not in response.text
+
+
+async def test_the_same_person_added_twice_is_a_409(
+    api_client: AsyncClient, lead_world: None, tenant_id: str
+) -> None:
+    await _add_manager(api_client, tenant_id, SERVICE_A, "Ana Duty", NUMBER, "ros-2")
+
+    status = await _add_manager(api_client, tenant_id, SERVICE_A, "Ana D", NUMBER, "ros-3")
+
+    assert status == 409
+
+
+async def test_a_removed_duty_manager_is_off_the_roster(
+    api_client: AsyncClient, lead_world: None, tenant_id: str
+) -> None:
+    await _add_manager(api_client, tenant_id, SERVICE_A, "Ana Duty", NUMBER, "ros-4")
+    listed = await api_client.get(
+        ROSTER.format(service=SERVICE_A), headers=token_headers(tenant_id, Role.LEAD)
+    )
+    role_id = listed.json()["managers"][0]["roleId"]
+
+    removed = await api_client.delete(
+        f"/lead/roster/{role_id}", headers=token_headers(tenant_id, Role.LEAD)
+    )
+
+    assert removed.status_code == 200, removed.text
+    after = await api_client.get(
+        ROSTER.format(service=SERVICE_A), headers=token_headers(tenant_id, Role.LEAD)
+    )
+    assert after.json() == {"managers": []}
+
+
+async def test_only_a_shift_lead_reaches_the_roster(
+    api_client: AsyncClient, lead_world: None, tenant_id: str
+) -> None:
+    advisor = token_headers(tenant_id, Role.ADVISOR)
+    listed = await api_client.get(ROSTER.format(service=SERVICE_A), headers=advisor)
+    added = await api_client.post(
+        ROSTER.format(service=SERVICE_A),
+        json={"name": "Ana Duty", "mobile": NUMBER},
+        headers={**ROSTER_KEY, **advisor},
+    )
+    assert listed.status_code == 404
+    assert added.status_code == 404
+
+
+async def test_a_roster_body_with_a_missing_or_unknown_field_is_a_400(
+    api_client: AsyncClient, lead_world: None, tenant_id: str
+) -> None:
+    headers = {**ROSTER_KEY, **token_headers(tenant_id, Role.LEAD)}
+    missing = await api_client.post(
+        ROSTER.format(service=SERVICE_A), json={"name": "Ana Duty"}, headers=headers
+    )
+    unknown = await api_client.post(
+        ROSTER.format(service=SERVICE_A),
+        json={"name": "Ana Duty", "mobile": NUMBER, "tenant": "x"},
+        headers={"Idempotency-Key": "roster-0002", **token_headers(tenant_id, Role.LEAD)},
+    )
+    assert missing.status_code == 400
+    assert unknown.status_code == 400
+
+
+async def test_a_service_of_another_tenant_has_no_roster_for_this_lead(
+    api_client: AsyncClient, lead_world: None, tenant_id: str
+) -> None:
+    status = await _add_manager(api_client, tenant_id, SERVICE_B, "Ana Duty", NUMBER, "ros-5")
+    assert status == 404

@@ -15,6 +15,11 @@ GET  /lead/invitations                 each invitation with the steps of the set
 POST /lead/services/{id}/phoned        Idempotency-Key; {"told", "value"}; what the service said by
                                        phone, with no case (RecordAdvisorPhoned, U13, DEC-920); 201
                                        {reportId, value}
+GET  /lead/services/{id}/roster         the duty roster: name, last four digits, on or off shift
+                                       (DEC-1341)
+POST /lead/services/{id}/roster        Idempotency-Key; {"name", "mobile"}; add a duty manager;
+                                       201 {roleId}
+DELETE /lead/roster/{roleId}           take a duty manager off the roster for good
 POST /lead/invitations/{id}/resend     Idempotency-Key; the invitation text again (U24)
 POST /lead/invitations/{id}/switch-to-text   Idempotency-Key; 200 {channel: "text"}
 
@@ -37,6 +42,7 @@ from overwatch.adapters.inbound.fhir_rest.routes_registration import NO_STORE
 from overwatch.application.actor import Actor
 from overwatch.application.idempotency import format_instant
 from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.identity import HmacPhoneHasher
 from overwatch.application.ports.outbound.ids import IdGenerator
 from overwatch.application.ports.outbound.sealing import ContentSealer
 from overwatch.application.ports.outbound.tenants import TenantDirectory
@@ -52,6 +58,12 @@ from overwatch.application.use_cases.advisor_phoned import (
     RecordAdvisorPhonedCommand,
 )
 from overwatch.application.use_cases.ask_capacity_now import AskCapacityNow
+from overwatch.application.use_cases.duty_roster import (
+    AddRosterManager,
+    AddRosterManagerCommand,
+    ListRoster,
+    RemoveRosterManager,
+)
 from overwatch.application.use_cases.invite_reporter import (
     LinkBaseUrlFor,
     ResendInvitation,
@@ -335,6 +347,72 @@ async def ask_for_capacity(
         return _answer({"queued": True, "dueAt": _at(result.due_at)})
 
     return await replay_or_run(request, actor, f"lead-ask:{service_id}:{key}", run)
+
+
+_ROSTER_KEYS: Final = frozenset({"name", "mobile"})
+
+
+@router.get("/services/{service_id}/roster")
+async def roster(
+    service_id: str, request: Request, actor: Annotated[Actor, Depends(require_role(*LEAD))]
+) -> Response:
+    """The duty managers pre-registered for a service and who is on shift now (DEC-1341). The number
+    is its last four digits."""
+    container = _container(request)
+    entries = await ListRoster(container.uow_factory, container.clock).execute(actor, service_id)
+    return _answer(
+        {
+            "managers": [
+                {
+                    "roleId": entry.role_id,
+                    "name": entry.name,
+                    "numberEnding": entry.number_ending,
+                    "state": entry.state.value,
+                    "shiftEnd": None if entry.shift_end is None else _at(entry.shift_end),
+                }
+                for entry in entries
+            ]
+        }
+    )
+
+
+@router.post("/services/{service_id}/roster", status_code=201)
+async def add_roster_manager(
+    service_id: str, request: Request, actor: Annotated[Actor, Depends(require_role(*LEAD))]
+) -> Response:
+    """Add a person, by name and mobile number, to a service's duty roster (DEC-1341). They are off
+    shift until they text ON."""
+    key = idempotency_key(request)
+    body = await _optional_json(request)
+    if set(body) - _ROSTER_KEYS:
+        raise ValidationFailed("body", "names a value this route does not take")
+    name, mobile = body.get("name"), body.get("mobile")
+    if not isinstance(name, str) or not isinstance(mobile, str):
+        raise ValidationFailed("body", "needs a name and a mobile number")
+    container = _container(request)
+
+    async def run() -> Response:
+        result = await AddRosterManager(
+            container.uow_factory,
+            container.clock,
+            container.ids,
+            HmacPhoneHasher(container.secrets),
+        ).execute(AddRosterManagerCommand(actor, service_id, name, mobile))
+        return FhirJSONResponse(
+            content={"roleId": result.role_id}, status_code=201, headers=NO_STORE
+        )
+
+    return await replay_or_run(request, actor, f"lead-roster-add:{service_id}:{key}", run)
+
+
+@router.delete("/roster/{role_id}")
+async def remove_roster_manager(
+    role_id: str, request: Request, actor: Annotated[Actor, Depends(require_role(*LEAD))]
+) -> Response:
+    """Take a person off a service's duty roster for good (DEC-1341)."""
+    container = _container(request)
+    await RemoveRosterManager(container.uow_factory, container.clock).execute(actor, role_id)
+    return _answer({"removed": True})
 
 
 @router.post("/services/{service_id}/remind")

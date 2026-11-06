@@ -133,6 +133,26 @@ export const leadHandlers = [
   ),
   http.get('/api/bff/lead/overview', () => HttpResponse.json(OVERVIEW_SHIFT_LEAD, { headers: NO_STORE })),
   http.get('/api/bff/lead/services', () => HttpResponse.json({ services: SERVICE_CHOICES }, { headers: NO_STORE })),
+  // The duty roster of a service (DEC-1341): one person off shift and one on shift until 18:00 London.
+  http.get('/api/bff/lead/services/:id/roster', () =>
+    HttpResponse.json(
+      {
+        managers: [
+          { roleId: 'role-ana', name: 'Ana Duty', numberEnding: '0111', state: 'on-shift', shiftEnd: '2026-11-06T18:00:00Z' },
+          { roleId: 'role-ben', name: 'Ben Duty', numberEnding: '0222', state: 'off-shift', shiftEnd: null },
+        ],
+      },
+      { headers: NO_STORE },
+    ),
+  ),
+  http.post('/api/bff/lead/services/:id/roster', async ({ request, params }) => {
+    await recorded(request, `/api/bff/lead/services/${String(params.id)}/roster`);
+    return HttpResponse.json({ roleId: 'role-new' }, { status: 201, headers: NO_STORE });
+  }),
+  http.post('/api/bff/lead/roster/:id/remove', async ({ request, params }) => {
+    await recorded(request, `/api/bff/lead/roster/${String(params.id)}/remove`);
+    return HttpResponse.json({ removed: true }, { headers: NO_STORE });
+  }),
   http.post('/api/bff/lead/services', async ({ request }) => {
     await recorded(request, '/api/bff/lead/services');
     return HttpResponse.json({ serviceId: 's-new-1' }, { status: 201, headers: NO_STORE });

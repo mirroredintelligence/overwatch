@@ -48,6 +48,20 @@ export function outcomeFromAddress(value: unknown): TextOutcome | null {
 }
 
 /**
+ * A booking the service has confirmed, from the address (`?outcome=accepted-and-booked&destination=<service>`): the
+ * finish screen then has the outcome and the place chosen already (DEC-1344). Anything else is null.
+ */
+export function bookedFromAddress(outcome: unknown, destination: unknown): { destination: string } | null {
+  if (outcome !== 'accepted-and-booked' || typeof destination !== 'string') return null;
+  return SERVICE_ID.test(destination) ? { destination } : null;
+}
+
+/** The address of the finish screen for a booking the service confirmed (DEC-1344). */
+export function bookedFinishAddress(caseId: string, serviceId: string): string {
+  return `/advisor/case/${encodeURIComponent(caseId)}/finish?outcome=accepted-and-booked&destination=${encodeURIComponent(serviceId)}`;
+}
+
+/**
  * The strict read of a save. The outcome and the reason are codes on their lists; a destination, when
  * given, is a service id. Anything else is refused, so nothing outside the lists is recorded.
  */

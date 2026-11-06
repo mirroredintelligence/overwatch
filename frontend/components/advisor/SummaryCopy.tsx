@@ -32,7 +32,18 @@ function useWideScreen(): boolean {
   return useSyncExternalStore(subscribeWide, isWide, () => false);
 }
 
-export function SummaryCopy({ summary }: { summary: SummaryView }) {
+export type SummaryCopyProps = {
+  summary: SummaryView;
+  /** Copying also records the outcome and closes the case (DEC-1344): the button and a line say so. */
+  closesOnCopy?: boolean;
+  /** Called after the summary is on the clipboard; true when the outcome was saved, false when it could not be. */
+  onCopied?: () => Promise<boolean>;
+};
+
+const COPIED_AND_CLOSING = 'Copied to clipboard. Closing the case.';
+const COPIED_NOT_SAVED = 'Copied, but the outcome could not be saved. Use Save outcome.';
+
+export function SummaryCopy({ summary, closesOnCopy = false, onCopied }: SummaryCopyProps) {
   const [status, setStatus] = useState<string | null>(null);
   const [fallback, setFallback] = useState(false);
   const plain = useRef<HTMLPreElement>(null);
@@ -52,7 +63,16 @@ export function SummaryCopy({ summary }: { summary: SummaryView }) {
   function copy() {
     // The write starts inside the click, as the browser requires for the clipboard.
     navigator.clipboard.writeText(text).then(
-      () => setStatus(COPIED),
+      () => {
+        if (!closesOnCopy || onCopied === undefined) {
+          setStatus(COPIED);
+          return;
+        }
+        setStatus(COPIED_AND_CLOSING);
+        void onCopied().then((saved) => {
+          if (!saved) setStatus(COPIED_NOT_SAVED);
+        });
+      },
       () => {
         setFallback(true);
         setStatus(PRESS_CTRL_C);
@@ -72,7 +92,7 @@ export function SummaryCopy({ summary }: { summary: SummaryView }) {
   );
   const copyButton = (
     <Button variant="secondary" dataEl="ADV-FIN-COPY-BTN" onClick={copy}>
-      Copy summary
+      {closesOnCopy ? 'Copy summary and close the case' : 'Copy summary'}
     </Button>
   );
   const plainText = fallback ? (

@@ -1,6 +1,6 @@
 'use client';
 
-import { type FormEvent, useCallback, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
 import { OptionButton } from '@/components/ui/OptionButton';
@@ -33,36 +33,72 @@ export type OutcomeFormProps = {
   onClosed: (closedAt: string) => void;
   /** Called when the service the call went to is chosen (or cleared), so the summary can name it (H-322). */
   onDestinationChange?: (serviceId: string | null) => void;
+  /** A booking the service confirmed: the outcome and the service are chosen already (DEC-1344). */
+  initialOutcome?: OutcomeCode | null;
+  initialDestination?: string | null;
+  /** Called with what is chosen now, so copying the summary can record it and close the case (DEC-1344). */
+  onSelectionChange?: (selection: { outcome: OutcomeCode | TextOutcome | null; destination: string | null }) => void;
 };
+
+// Only the viewer's own services: the back end refuses a destination that is another organisation's.
+const OPTIONS_URL = (caseId: string) => `/api/bff/cases/${encodeURIComponent(caseId)}/options?only=own`;
 
 type Chosen = OutcomeCode | TextOutcome | null;
 type Services = { kind: 'idle' } | { kind: 'loading' } | { kind: 'ready'; list: { serviceId: string; name: string }[] } | { kind: 'failed' };
 
-export function OutcomeForm({ caseId, preselect, onClosed, onDestinationChange }: OutcomeFormProps) {
-  const [outcome, setOutcome] = useState<Chosen>(preselect);
+function servicesState(reply: Awaited<ReturnType<typeof bffFetch<OptionsParts>>>): Services {
+  return reply.ok
+    ? {
+        kind: 'ready',
+        list: reply.body.options
+          .filter((item) => item.network === null)
+          .map((item) => ({ serviceId: item.serviceId, name: item.name })),
+      }
+    : { kind: 'failed' };
+}
+
+export function OutcomeForm({
+  caseId,
+  preselect,
+  onClosed,
+  onDestinationChange,
+  initialOutcome = null,
+  initialDestination = null,
+  onSelectionChange,
+}: OutcomeFormProps) {
+  const [outcome, setOutcome] = useState<Chosen>(preselect ?? initialOutcome);
   const [bestFit, setBestFit] = useState<BestFitCode | null>(null);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [destination, setDestination] = useState<string | null>(null);
-  const [services, setServices] = useState<Services>({ kind: 'idle' });
+  const [destination, setDestination] = useState<string | null>(initialDestination);
+  // A booking already chosen shows its service by name, so its services are being read from the start (DEC-1344).
+  const [services, setServices] = useState<Services>(
+    initialOutcome !== null && takesDestination(initialOutcome) ? { kind: 'loading' } : { kind: 'idle' },
+  );
   const textOutcome = preselect !== null ? TEXT_OUTCOMES[preselect] : null;
   const needsDestination = outcome !== null && takesDestination(outcome);
 
   const readServices = useCallback(async () => {
     setServices({ kind: 'loading' });
-    // Only the viewer's own services: the back end refuses a destination that is another organisation's.
-    const reply = await bffFetch<OptionsParts>(`/api/bff/cases/${encodeURIComponent(caseId)}/options?only=own`);
-    setServices(
-      reply.ok
-        ? {
-            kind: 'ready',
-            list: reply.body.options
-              .filter((item) => item.network === null)
-              .map((item) => ({ serviceId: item.serviceId, name: item.name })),
-          }
-        : { kind: 'failed' },
-    );
+    setServices(servicesState(await bffFetch<OptionsParts>(OPTIONS_URL(caseId))));
   }, [caseId]);
+
+  // A booking already chosen shows its service by name: its services are read when the screen opens (DEC-1344).
+  const readAtOpen = initialOutcome !== null && takesDestination(initialOutcome);
+  useEffect(() => {
+    if (!readAtOpen) return;
+    let live = true;
+    bffFetch<OptionsParts>(OPTIONS_URL(caseId)).then((reply) => {
+      if (live) setServices(servicesState(reply));
+    });
+    return () => {
+      live = false;
+    };
+  }, [readAtOpen, caseId]);
+
+  useEffect(() => {
+    onSelectionChange?.({ outcome, destination: needsDestination ? destination : null });
+  }, [outcome, destination, needsDestination, onSelectionChange]);
 
   function chooseDestination(serviceId: string | null) {
     setDestination(serviceId);

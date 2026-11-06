@@ -353,10 +353,13 @@ describe('the booking control of the Request state (W13, W20, call step 4)', () 
     const ucr = await screen.findByRole('article', { name: 'UCR West' });
     await user.click(within(ucr).getByRole('button', { name: 'Request booking' }));
 
+    const finish = '/advisor/case/case-1/finish?outcome=accepted-and-booked&destination=svc-ucr-west';
+    // The confirmation moves the screen on by itself, with the outcome and the service chosen (DEC-1344).
+    await waitFor(() => expect(push).toHaveBeenCalledWith(`${finish}#summary`));
     await user.click(await within(ucr).findByRole('button', { name: 'Record outcome' }));
-    expect(push).toHaveBeenLastCalledWith('/advisor/case/case-1/finish');
+    expect(push).toHaveBeenLastCalledWith(finish);
     await user.click(within(ucr).getByRole('button', { name: 'Copy summary for SystmOne' }));
-    expect(push).toHaveBeenLastCalledWith('/advisor/case/case-1/finish#summary');
+    expect(push).toHaveBeenLastCalledWith(`${finish}#summary`);
   });
 
   it('"Back to options" after a decline takes the advisor to the plain options URL, and reads nothing new (DEC-636)', async () => {

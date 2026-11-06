@@ -3,6 +3,7 @@
 import { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import type { OptionView } from '@/lib/advisor/options';
+import { bookedFinishAddress } from '@/lib/advisor/outcome';
 import { BookingPanel } from './BookingPanel';
 
 // The booking control of one service on the options list and the map (W13, W20, W50): the panel for this
@@ -28,8 +29,9 @@ export type OptionBookingProps = {
 
 export function OptionBooking({ caseId, option, onSeeOptions, onAskClinical, backToOptions }: OptionBookingProps) {
   const router = useRouter();
-  const finish = `/advisor/case/${encodeURIComponent(caseId)}/finish`;
-  // A confirmed booking moves on to the summary by itself (the service's text is the trigger).
+  // A confirmed booking moves on to the summary by itself (the service's text is the trigger), with the outcome
+  // and the service already chosen (DEC-1344).
+  const finish = bookedFinishAddress(caseId, option.serviceId);
   const onConfirmed = useCallback(() => router.push(`${finish}#summary`), [router, finish]);
   return (
     <BookingPanel

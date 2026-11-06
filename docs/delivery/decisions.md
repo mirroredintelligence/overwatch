@@ -7197,3 +7197,13 @@ Status: accepted (owner, 2026-11-06). The product name stays Overwatch; the name
 2. **Not adopted.** A single "patient places available" total (it adds beds, slots, referrals and packages); results sorted by status (a stale "accepting" must never rank first); 11 to 12 px text and a no-scroll paged layout; status shown by a colour-only dot; inline styles (our CSP blocks them). Our status colours, type scale, shapes-plus-words status marks and travel-time ordering are kept.
 3. **Safety rules kept.** A stale or unknown figure is explicit and is never counted as spare capacity in any list. The wall board is unchanged.
 4. **Order.** Steps 1 and 2 first (one change to the options read), then 3, 4 and 5, each deployed on its own.
+
+## DEC-1344 A confirmed booking moves to the SystmOne summary with the outcome and the place chosen; copying the summary records the outcome and closes the case (owner decision)
+
+Status: accepted (owner, 2026-11-06).
+
+1. **On confirmation.** When the service's confirmation text arrives, the advisor's screen moves to the finish screen by itself. Its address names the outcome and the service (`?outcome=accepted-and-booked&destination=<service>`), so "Accepted and booked" and the service the call went to (the location) are chosen already, and the summary names the service.
+2. **Copying closes the case.** "Copy summary" writes the summary to the clipboard and then records the outcome and closes the case. The button says so ("Copy summary and close the case"). The summary is built only while the case is open, and closing clears the postcode and needs, so the clipboard write comes first.
+3. **Only when the outcome is complete.** Copying closes the case only when an outcome is chosen and, for a booking or a redirect, the service is too. The advisor can change the outcome before copying; the case closes with what is chosen then. With nothing chosen, copying only copies and the case stays open.
+4. **When it goes wrong.** If the clipboard refuses, the text is shown to copy by hand and the case is not closed. If the outcome cannot be saved after a copy, the screen says so and "Save outcome" still works.
+5. **Not changed.** The back end's rules for an outcome (a booking or redirect names its service, every other names none) and the clearing of the postcode on close are as they were.

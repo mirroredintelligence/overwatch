@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { bffFetch } from '@/lib/advisor/browser';
-import type { TextOutcome } from '@/lib/advisor/outcome';
+import { bffFetch, newIdempotencyKey } from '@/lib/advisor/browser';
+import { type OutcomeCode, takesDestination, type TextOutcome } from '@/lib/advisor/outcome';
 import type { SummaryView } from '@/lib/advisor/summary';
 import { CallClosed } from './CallClosed';
 import { OutcomeForm } from './OutcomeForm';
@@ -15,9 +15,17 @@ import styles from './finish.module.css';
 // page as well as from the state. The closed state is the same address with ?closed=1, replaced
 // rather than pushed, so Back does not return to the form.
 
-type Props = { caseId: string; preselect: TextOutcome | null; closed?: boolean };
+type Props = {
+  caseId: string;
+  preselect: TextOutcome | null;
+  /** A booking the service confirmed: the outcome and the service it went to are chosen already (DEC-1344). */
+  booked?: { destination: string } | null;
+  closed?: boolean;
+};
 
-export function FinishScreen({ caseId, preselect, closed: closedAtAddress = false }: Props) {
+type Selection = { outcome: OutcomeCode | TextOutcome | null; destination: string | null };
+
+export function FinishScreen({ caseId, preselect, booked = null, closed: closedAtAddress = false }: Props) {
   const router = useRouter();
   const [summary, setSummary] = useState<SummaryView | null>(null);
   const [failed, setFailed] = useState(false);
@@ -26,7 +34,13 @@ export function FinishScreen({ caseId, preselect, closed: closedAtAddress = fals
   const [reference, setReference] = useState<string | null>(null);
   // The service the call went to, once the advisor chooses it: the summary is read again naming it, so the
   // referral that is copied says where the patient went, how it was booked and how old the figure was.
-  const [destination, setDestination] = useState<string | null>(null);
+  const [destination, setDestination] = useState<string | null>(booked?.destination ?? null);
+  // What the form has chosen now: copying the summary records it and closes the case once it is complete (DEC-1344).
+  const [selection, setSelection] = useState<Selection>({
+    outcome: booked === null ? null : 'accepted-and-booked',
+    destination: booked?.destination ?? null,
+  });
+  const onSelectionChange = useCallback((next: Selection) => setSelection(next), []);
 
   useEffect(() => {
     // A case that was closed at the address has no summary to read: the back end would refuse it.
@@ -54,6 +68,33 @@ export function FinishScreen({ caseId, preselect, closed: closedAtAddress = fals
 
   if (closed) return <CallClosed reference={reference} />;
 
+  const closeCase = () => {
+    setSummary(null);
+    setClosed(true);
+    router.replace(`/advisor/case/${encodeURIComponent(caseId)}/finish?closed=1`);
+  };
+
+  // The outcome chosen is complete when it is chosen and, for a booking or a redirect, the service is too.
+  const completeOutcome =
+    selection.outcome !== null && (!takesDestination(selection.outcome) || selection.destination !== null)
+      ? selection.outcome
+      : null;
+
+  // Copying the summary records the outcome and closes the case (DEC-1344). False when it could not be saved.
+  async function recordAfterCopy(): Promise<boolean> {
+    if (completeOutcome === null) return true;
+    const body: Record<string, string> = { outcome: completeOutcome };
+    if (takesDestination(completeOutcome) && selection.destination !== null) body.destinationServiceId = selection.destination;
+    const reply = await bffFetch<{ closedAt: string }>(`/api/bff/cases/${encodeURIComponent(caseId)}/outcome`, {
+      method: 'POST',
+      body,
+      idempotencyKey: newIdempotencyKey(),
+    });
+    if (!reply.ok) return false;
+    closeCase();
+    return true;
+  }
+
   // The line under the heading names the destination once the summary has it (the board's "Reference 4821 · UCR West").
   const line =
     reference === null
@@ -70,16 +111,15 @@ export function FinishScreen({ caseId, preselect, closed: closedAtAddress = fals
         <OutcomeForm
           caseId={caseId}
           preselect={preselect}
+          initialOutcome={booked === null ? null : 'accepted-and-booked'}
+          initialDestination={booked?.destination ?? null}
+          onSelectionChange={onSelectionChange}
           onDestinationChange={setDestination}
-          onClosed={() => {
-            setSummary(null);
-            setClosed(true);
-            router.replace(`/advisor/case/${encodeURIComponent(caseId)}/finish?closed=1`);
-          }}
+          onClosed={closeCase}
         />
       </section>
       <div className={styles.side}>
-        {summary !== null ? <SummaryCopy summary={summary} /> : null}
+        {summary !== null ? <SummaryCopy summary={summary} closesOnCopy={completeOutcome !== null} onCopied={recordAfterCopy} /> : null}
         {summary === null && failed ? (
           <section className={styles.card}>
             <p role="alert" className={styles.error}>

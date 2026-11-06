@@ -24,6 +24,38 @@ function renderCard(option: OptionView, handlers = {}) {
   return props;
 }
 
+describe('ServiceCard: a late or old figure and the reporting strip (DEC-1343)', () => {
+  it('says "Current capacity unavailable" and shows the last figure small, not as the number', () => {
+    renderCard({
+      ...UCR_WEST,
+      figureUnavailable: true,
+      overdue: true,
+      lastFigure: 3,
+      dataAgeSeconds: 3 * 3600,
+      unitLabel: 'beds free',
+    });
+    const card = screen.getByRole('article', { name: 'UCR West' });
+    expect(within(card).getByText('Current capacity unavailable')).toBeInTheDocument();
+    expect(within(card).getByText('Last reported: 3 beds free · 3 hrs ago')).toBeInTheDocument();
+    expect(card.querySelector('[data-el="ADV-OPT-NUMBER"]')).toBeNull();
+  });
+
+  it('shows the reporting strip with the schedule in words', () => {
+    renderCard({
+      ...UCR_WEST,
+      reportedAt: '2026-11-06T11:00:00Z',
+      nextDueAt: '2026-11-06T13:00:00Z',
+      cadence: 'every-2-hrs',
+      overdue: true,
+    });
+    const strip = byEl('ADV-OPT-REPORTING', screen.getByRole('article', { name: 'UCR West' }));
+    expect(strip).toHaveTextContent('Last update11:00');
+    expect(strip).toHaveTextContent('ReportsEvery 2 hrs');
+    expect(strip).toHaveTextContent('Next update due13:00');
+    expect(strip).toHaveTextContent('ReportingOverdue');
+  });
+});
+
 describe('ServiceCard (W13)', () => {
   it('shows the name, category, status, number, unit, response, data age, why it fits and what to check', () => {
     renderCard(UCR_WEST);

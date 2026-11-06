@@ -15,7 +15,14 @@ from fhir.resources.R4B.parameters import Parameters
 
 from overwatch.adapters.inbound.fhir_rest.mapping import board_to_parameters, report_to_fhir
 from overwatch.application.use_cases.query_board import Board, BoardEntry
-from overwatch.domain.codes import Measure, ReportSource, ReportType, ServiceCategory, Status
+from overwatch.domain.codes import (
+    Cadence,
+    Measure,
+    ReportSource,
+    ReportType,
+    ServiceCategory,
+    Status,
+)
 from overwatch.domain.model.capacity import CapacityReport
 from overwatch.domain.rules.pressure import Pressure
 
@@ -136,6 +143,8 @@ def test_the_parts_are_in_board_entry_field_order() -> None:
         "comment",
         "reportedAt",
         "nextDueAt",
+        "overdue",
+        "staleFigure",
     ]
 
 
@@ -187,12 +196,16 @@ def test_every_board_entry_field_is_a_part_so_a_new_field_must_be_mapped() -> No
         "reported_at": "reportedAt",
         "next_due_at": "nextDueAt",
         "was_due_at": "wasDueAt",
+        "cadence": "cadence",
+        "overdue": "overdue",
+        "stale_warning": "staleFigure",
     }
     assert {field.name for field in fields(BoardEntry)} == set(camel)
     full = replace(
         WEST,
         over_by=1,
         was_due_at=FRAILTY_WAS_DUE,
+        cadence=Cadence.EVERY_2_HRS,
     )
 
     parts = _parts(_named(_parameters(replace(BOARD, entries=(full,))), "entry")[0])

@@ -7188,3 +7188,12 @@ Status: accepted (the owner approved new first-prompt wording, 2026-11-06; the s
 2. **The wording.** With a window the text is as before. With none it reads "Overwatch: {service}. How many {unit}? Send a number (0 = closed). By {reply_by}." (text, email and push). The proposed "How many {unit} are free right now?" gave "How many beds free are free right now?" for the label "beds free", so the question is the unit label alone. The wording is the owner's to change.
 3. **Chase card.** The first row of the ladder ("Text sent") is Done only when the prompt for that due time stored a result that sent a message; a skipped or unrun prompt shows not done.
 4. **Tests.** Four integration tests that pinned the old rule were rewritten. Integration tests built without a sealer after DEC-1336 now take a shared test sealer (`tests/support/sealing.py`).
+
+## DEC-1343 Adopting from the AQIKO command-centre designs: stale figure hidden, a reporting strip, Underutilised, drill-down counts, a day chart (owner decision)
+
+Status: accepted (owner, 2026-11-06). The product name stays Overwatch; the name AQIKO in the design files is ignored.
+
+1. **Adopted.** (1) A figure that is late or old is not shown as the big number: the service card says "Current capacity unavailable" and shows the last figure small, as "Last reported". (2) A reporting strip on each service: last update, how often it reports, next update due, on schedule or overdue (judged against what that service promised). (3) The shift lead gets an "Underutilised" list beside "Under pressure", with "Unknown" instead of a percentage when the figure is stale. (4) The advisor's status counts filter and drill down to a list of services. (5) A day chart for a service that breaks where its capacity is unknown.
+2. **Not adopted.** A single "patient places available" total (it adds beds, slots, referrals and packages); results sorted by status (a stale "accepting" must never rank first); 11 to 12 px text and a no-scroll paged layout; status shown by a colour-only dot; inline styles (our CSP blocks them). Our status colours, type scale, shapes-plus-words status marks and travel-time ordering are kept.
+3. **Safety rules kept.** A stale or unknown figure is explicit and is never counted as spare capacity in any list. The wall board is unchanged.
+4. **Order.** Steps 1 and 2 first (one change to the options read), then 3, 4 and 5, each deployed on its own.

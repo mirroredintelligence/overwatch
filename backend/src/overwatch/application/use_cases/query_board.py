@@ -16,7 +16,7 @@ from typing import Final
 from overwatch.application.actor import Actor, require_actor_in_bound_tenant
 from overwatch.application.ports.outbound.clock import Clock
 from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from overwatch.domain.codes import Role, ServiceCategory, Status
+from overwatch.domain.codes import Cadence, Role, ServiceCategory, Status
 from overwatch.domain.errors import NotAllowed
 from overwatch.domain.model.capacity import CapacityReport
 from overwatch.domain.model.flags import SERVICE_FLAG_SUSPENDED
@@ -51,6 +51,12 @@ class BoardEntry:
     reported_at: datetime | None
     next_due_at: datetime | None
     was_due_at: datetime | None
+    cadence: Cadence | None = None
+    """How often the service promised to report (DEC-1343)."""
+    overdue: bool = False
+    """The service's own report is past due, judged against its cadence (DEC-1343)."""
+    stale_warning: bool = False
+    """The figure is older than the tenant's stale limit (DEC-1343)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,4 +143,7 @@ def _entry(
         reported_at=None if report is None else report.effective_at,
         next_due_at=next_due(profile, now),
         was_due_at=state.freshness.was_due,
+        cadence=profile.cadence,
+        overdue=state.freshness.overdue,
+        stale_warning=state.freshness.stale_warning,
     )

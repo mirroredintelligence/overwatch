@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import type { OptionView } from '@/lib/advisor/options';
 import { categoryLabel, durationText } from '@/lib/board/format';
+import { lastReportedLine, reportingStrip } from '@/lib/advisor/reporting';
 import { NetworkServiceLine } from './NetworkServiceLine';
 import { OptionBooking } from './OptionBooking';
 import { ServicePhone } from './ServicePhone';
@@ -40,6 +41,8 @@ const NOT_KNOWN = 'Not recorded';
 const UNIT_UNKNOWN = 'Phone to confirm';
 
 export function numberText(option: OptionView): string {
+  // A late or old figure is never the current capacity (DEC-1343): the number is unknown, not the last one.
+  if (option.figureUnavailable) return '?';
   if (option.status === 'over-capacity' && option.overBy !== null) return `+${option.overBy}`;
   if (option.effectiveAvailable !== null) return String(option.effectiveAvailable);
   return '?';
@@ -73,7 +76,9 @@ function ServiceRow({ option, openHref }: { option: OptionView; openHref?: strin
         <p className={styles.rowNumber} data-el="ADV-OPT-NUMBER">
           {numberText(option)}
         </p>
-        <p className={styles.rowUnit}>{option.unitLabel ?? UNIT_UNKNOWN}</p>
+        <p className={styles.rowUnit}>
+          {option.figureUnavailable ? 'Current capacity unavailable' : (option.unitLabel ?? UNIT_UNKNOWN)}
+        </p>
       </div>
       {openHref === undefined ? null : (
         <Link className={styles.open} href={openHref} scroll={false} aria-label={`Open ${option.name}`} data-el="ADV-OPT-OPEN-LINK">
@@ -89,6 +94,7 @@ export function ServiceCard({ caseId, option, variant = 'full', openHref, headin
   const Name = headingLevel === 2 ? 'h2' : 'h3';
   const Section = headingLevel === 2 ? 'h3' : 'h4';
   const network = option.network;
+  const strip = reportingStrip(option);
   const checks = option.staleWarning
     ? [...option.checks, 'Data is over 2 hrs old. Consider phoning.']
     : option.checks;
@@ -104,12 +110,39 @@ export function ServiceCard({ caseId, option, variant = 'full', openHref, headin
         <StatusBadge status={option.status} />
       </header>
 
-      <div className={styles.figure}>
-        <p className={styles.number} data-el="ADV-OPT-NUMBER">
-          {numberText(option)}
-        </p>
-        <p className={styles.unit}>{option.unitLabel ?? UNIT_UNKNOWN}</p>
-      </div>
+      {option.figureUnavailable ? (
+        <div className={styles.unavailableBlock} data-el="ADV-OPT-UNAVAILABLE">
+          <p className={styles.unavailable}>Current capacity unavailable</p>
+          <p className={styles.lastReported}>{lastReportedLine(option)}</p>
+        </div>
+      ) : (
+        <div className={styles.figure}>
+          <p className={styles.number} data-el="ADV-OPT-NUMBER">
+            {numberText(option)}
+          </p>
+          <p className={styles.unit}>{option.unitLabel ?? UNIT_UNKNOWN}</p>
+        </div>
+      )}
+      {strip === null ? null : (
+        <dl className={styles.strip} data-el="ADV-OPT-REPORTING">
+          <div className={styles.stripItem}>
+            <dt>Last update</dt>
+            <dd>{strip.lastUpdate}</dd>
+          </div>
+          <div className={styles.stripItem}>
+            <dt>Reports</dt>
+            <dd>{strip.frequency}</dd>
+          </div>
+          <div className={styles.stripItem}>
+            <dt>Next update due</dt>
+            <dd>{strip.nextDue}</dd>
+          </div>
+          <div className={styles.stripItem}>
+            <dt>Reporting</dt>
+            <dd className={strip.overdue ? styles.old : undefined}>{strip.schedule}</dd>
+          </div>
+        </dl>
+      )}
 
       <p className={styles.line}>{`Response or travel: ${option.travelText ?? NOT_KNOWN}`}</p>
       <p className={styles.line}>{dataAgeLine(option)}</p>

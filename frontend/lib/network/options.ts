@@ -27,6 +27,15 @@ function viewOf(option: NetworkOption): OptionView {
     travelText: travel === null ? null : travelText(travel.lowMinutes, travel.highMinutes),
     dataAgeSeconds: option.dataAgeSeconds,
     staleWarning: option.dataAgeSeconds !== null && option.dataAgeSeconds > STALE_AFTER_SECONDS,
+    // Another organisation's service: its reporting times are not shared, only the figure and its age.
+    reportedAt: null,
+    nextDueAt: null,
+    cadence: null,
+    lastFigure: null,
+    overdue: false,
+    figureUnavailable:
+      option.status === 'not-updated' ||
+      (option.dataAgeSeconds !== null && option.dataAgeSeconds > STALE_AFTER_SECONDS),
     criteriaVersion: option.criteriaVersion,
     fits: option.fits,
     checks: option.warnings,

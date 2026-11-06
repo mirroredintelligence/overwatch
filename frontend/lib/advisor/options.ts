@@ -38,6 +38,21 @@ export type OptionView = {
   travelText: string | null;
   dataAgeSeconds: number | null;
   staleWarning: boolean;
+  /** When the figure was reported, as an instant (DEC-1343). Null when none, or for a network service. */
+  reportedAt: string | null;
+  /** When the service's next report is due (DEC-1343). */
+  nextDueAt: string | null;
+  /** How often the service promised to report: 'every-2-hrs', 'twice-a-day' or 'once-a-day'. */
+  cadence: string | null;
+  /** The last figure the service reported, to show small as "Last reported" (DEC-1343). */
+  lastFigure: number | null;
+  /** The service's own report is past due, judged against what it promised (the back end's word). */
+  overdue: boolean;
+  /**
+   * The figure must not be shown as the current capacity: the report is late, or the figure is old
+   * (the back end's stale limit or the flat 2 hrs here), or the status is Not updated (DEC-1343).
+   */
+  figureUnavailable: boolean;
   criteriaVersion: number | null;
   fits: string[];
   checks: string[];
@@ -102,6 +117,7 @@ type Part = {
   valueInteger?: unknown;
   valueDecimal?: unknown;
   valueBoolean?: unknown;
+  valueDateTime?: unknown;
   part?: unknown;
 };
 
@@ -128,6 +144,13 @@ function list(parts: Part[], name: string): string[] {
 function decimal(parts: Part[], name: string): number | null {
   const found = parts.find((part) => part.name === name);
   return typeof found?.valueDecimal === 'number' && Number.isFinite(found.valueDecimal) ? found.valueDecimal : null;
+}
+
+function instant(parts: Part[], name: string): string | null {
+  const found = parts.find((part) => part.name === name);
+  return typeof found?.valueDateTime === 'string' && !Number.isNaN(Date.parse(found.valueDateTime))
+    ? found.valueDateTime
+    : null;
 }
 
 function flag(parts: Part[], name: string): boolean {
@@ -199,6 +222,16 @@ function optionOf(parts: Part[]): OptionView | null {
     travelText: travelText(low, high),
     dataAgeSeconds,
     staleWarning: dataAgeSeconds !== null && dataAgeSeconds > STALE_AFTER_SECONDS,
+    reportedAt: instant(parts, 'reportedAt'),
+    nextDueAt: instant(parts, 'nextDueAt'),
+    cadence: text(parts, 'cadence'),
+    lastFigure: whole(parts, 'lastFigure'),
+    overdue: flag(parts, 'overdue'),
+    figureUnavailable:
+      flag(parts, 'overdue') ||
+      flag(parts, 'staleFigure') ||
+      status === 'not-updated' ||
+      (dataAgeSeconds !== null && dataAgeSeconds > STALE_AFTER_SECONDS),
     criteriaVersion: whole(parts, 'criteriaVersion'),
     fits: list(parts, 'fits'),
     checks: list(parts, 'checks'),

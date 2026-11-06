@@ -43,6 +43,61 @@ describe('optionsFromParameters (W13)', () => {
     expect(at(60)).toBe(false);
   });
 
+  it('reads when the service reported, when it is due, how often, and its last figure (DEC-1343)', () => {
+    const one = (extra: object[]) =>
+      optionsFromParameters({
+        resourceType: 'Parameters',
+        parameter: [
+          { name: 'option', part: [
+            { name: 'serviceId', valueString: 's' },
+            { name: 'name', valueString: 'S' },
+            { name: 'status', valueCode: 'accepting' },
+            { name: 'criteriaVersion', valueInteger: 1 },
+            { name: 'dataAgeSeconds', valueInteger: 60 },
+            ...extra,
+          ] },
+        ],
+      })?.options[0];
+
+    const late = one([
+      { name: 'reportedAt', valueDateTime: '2026-11-06T11:00:00Z' },
+      { name: 'nextDueAt', valueDateTime: '2026-11-06T13:00:00Z' },
+      { name: 'cadence', valueCode: 'every-2-hrs' },
+      { name: 'lastFigure', valueInteger: 3 },
+      { name: 'overdue', valueBoolean: true },
+    ]);
+    expect(late).toMatchObject({
+      reportedAt: '2026-11-06T11:00:00Z',
+      nextDueAt: '2026-11-06T13:00:00Z',
+      cadence: 'every-2-hrs',
+      lastFigure: 3,
+      overdue: true,
+      figureUnavailable: true,
+    });
+    expect(one([])).toMatchObject({ overdue: false, figureUnavailable: false, reportedAt: null, cadence: null });
+  });
+
+  it('does not show a figure as current when the back end says it is stale, or the status is not updated', () => {
+    const base = (status: string, extra: object[]) =>
+      optionsFromParameters({
+        resourceType: 'Parameters',
+        parameter: [
+          { name: 'option', part: [
+            { name: 'serviceId', valueString: 's' },
+            { name: 'name', valueString: 'S' },
+            { name: 'status', valueCode: status },
+            { name: 'criteriaVersion', valueInteger: 1 },
+            { name: 'dataAgeSeconds', valueInteger: 60 },
+            ...extra,
+          ] },
+        ],
+      })?.options[0].figureUnavailable;
+
+    expect(base('accepting', [{ name: 'staleFigure', valueBoolean: true }])).toBe(true);
+    expect(base('not-updated', [])).toBe(true);
+    expect(base('accepting', [])).toBe(false);
+  });
+
   it('shows a status the rules do not know as Not updated, never as accepting', () => {
     const view = optionsFromParameters({
       resourceType: 'Parameters',

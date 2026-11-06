@@ -369,6 +369,18 @@ def _option_part(option: Option) -> dict[str, Any]:
         parts.append(
             {"name": "dataAgeSeconds", "valueInteger": int(option.data_age.total_seconds())}
         )
+    # The reporting strip and the stale rule (DEC-1343): what the service promised, when it last
+    # reported, when it is next due, and whether it is late.
+    if option.reported_at is not None:
+        parts.append({"name": "reportedAt", "valueDateTime": format_instant(option.reported_at)})
+    if option.next_due_at is not None:
+        parts.append({"name": "nextDueAt", "valueDateTime": format_instant(option.next_due_at)})
+    if option.cadence is not None:
+        parts.append({"name": "cadence", "valueCode": option.cadence.value})
+    if option.last_figure is not None:
+        parts.append({"name": "lastFigure", "valueInteger": option.last_figure})
+    parts.append({"name": "overdue", "valueBoolean": option.overdue})
+    parts.append({"name": "staleFigure", "valueBoolean": option.stale_warning})
     parts.extend({"name": "fits", "valueString": fit} for fit in option.fits)
     parts.extend({"name": "checks", "valueString": check} for check in option.warnings)
     return {"name": "option", "part": parts}

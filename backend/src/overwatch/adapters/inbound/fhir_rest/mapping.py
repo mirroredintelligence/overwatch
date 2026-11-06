@@ -89,6 +89,11 @@ def _entry(entry: BoardEntry) -> dict[str, Any]:
         parts.append(_date_time("nextDueAt", entry.next_due_at))
     if entry.was_due_at is not None:
         parts.append(_date_time("wasDueAt", entry.was_due_at))
+    # What the service promised and whether it is late (DEC-1343). Additive; the wall ignores them.
+    if entry.cadence is not None:
+        parts.append(_code("cadence", entry.cadence.value))
+    parts.append({"name": "overdue", "valueBoolean": entry.overdue})
+    parts.append({"name": "staleFigure", "valueBoolean": entry.stale_warning})
     return {"name": "entry", "part": parts}
 
 

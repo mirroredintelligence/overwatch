@@ -35,7 +35,7 @@ from overwatch.application.ports.outbound.geo import (
 from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from overwatch.application.use_cases.open_case import check_role, missing_fields
 from overwatch.application.use_cases.query_board import BoardEntry, QueryBoard, QueryBoardQuery
-from overwatch.domain.codes import AgeBand, NeedCategory, ServiceCategory, Status
+from overwatch.domain.codes import AgeBand, Cadence, NeedCategory, ServiceCategory, Status
 from overwatch.domain.errors import Conflict, NotFound, ValidationFailed
 from overwatch.domain.model.criteria import ServiceCriteria
 from overwatch.domain.model.flags import SERVICE_FLAG_SUSPENDED
@@ -191,6 +191,15 @@ class Option:
     is read only. None for the viewer's own services."""
     organisation_source: str | None = None
     """Where a network service's directory entry came from, as the card says it."""
+    reported_at: datetime | None = None
+    """When the figure was reported (DEC-1343); None for a network option or no report yet."""
+    next_due_at: datetime | None = None
+    cadence: Cadence | None = None
+    overdue: bool = False
+    stale_warning: bool = False
+    last_figure: int | None = None
+    """The last figure the service reported, kept so a late or old figure can be shown small, as
+    "Last reported", and never as the current capacity (DEC-1343)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -519,6 +528,14 @@ class FilterOptions:
                 else coverage_of(candidate.covers, self._district_place)
             ),
             legs=travel_legs(entry.name, travel),
+            reported_at=entry.reported_at,
+            next_due_at=entry.next_due_at,
+            cadence=entry.cadence,
+            overdue=entry.overdue,
+            stale_warning=entry.stale_warning,
+            last_figure=(
+                entry.effective_available if entry.effective_available is not None else entry.used
+            ),
         )
 
     def _district_place(self, district: str) -> LatLon | None:

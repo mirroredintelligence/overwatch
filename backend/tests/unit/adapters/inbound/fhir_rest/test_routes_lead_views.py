@@ -15,6 +15,11 @@ from typing import Any
 import pytest
 
 from overwatch.application.use_cases.missed_report_ladder import LadderStepResult
+from overwatch.application.use_cases.send_prompts import (
+    SendPromptResult,
+    _StoredPrompt,
+    prompt_key,
+)
 from overwatch.application.work import SCHEDULED, ScheduledWork, WorkKind
 from overwatch.domain.codes import (
     Channel,
@@ -60,6 +65,29 @@ def _digits(text: str) -> bool:
 # ------------------------------------------------------------------------------- the overview
 
 
+async def test_the_first_ladder_row_is_done_only_when_the_prompt_sent_a_message() -> None:
+    due = datetime(2026, 10, 30, 8, 0, tzinfo=UTC)
+    sent = _world()
+    await sent.units.idempotency.put(
+        prompt_key("svc-a", due),
+        _StoredPrompt("fingerprint", SendPromptResult(True, ("c1",), None)),
+    )
+    skipped = _world()
+    await skipped.units.idempotency.put(
+        prompt_key("svc-a", due),
+        _StoredPrompt("fingerprint", SendPromptResult(False, (), "skipped")),
+    )
+
+    rows = {}
+    for name, rig in (("sent", sent), ("skipped", skipped)):
+        async with client(rig) as http:
+            response = await http.get("/lead/overview", headers=LEAD_AUTH)
+        rows[name] = response.json()["chasing"][0]["ladder"][0]
+
+    assert rows["sent"] == {"step": "prompt", "at": "2026-10-30T08:00:00Z", "done": True}
+    assert rows["skipped"]["done"] is False
+
+
 async def test_the_overview_gives_who_to_chase_what_is_getting_old_and_who_is_covering() -> None:
     rig = _world()
     async with client(rig) as http:
@@ -75,7 +103,7 @@ async def test_the_overview_gives_who_to_chase_what_is_getting_old_and_who_is_co
             "overdueMinutes": 120,
             "lastValueText": "2 beds",
             "ladder": [
-                {"step": "prompt", "at": "2026-10-30T08:00:00Z", "done": True},
+                {"step": "prompt", "at": "2026-10-30T08:00:00Z", "done": False},
                 {"step": "reminder", "at": "2026-10-30T08:30:00Z", "done": True},
                 {"step": "phone-task", "at": "2026-10-30T09:00:00Z", "done": True},
                 {"step": "escalate", "at": "2026-10-30T09:30:00Z", "done": False},

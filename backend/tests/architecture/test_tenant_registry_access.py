@@ -36,6 +36,9 @@ GLOBAL_RUNNERS = frozenset(
         # DEC-1327: the staff registry's read, by a person's account reference, before a tenant is
         # bound (registry data only).
         f"{GRAPH_STORE}/staff_registry.py",
+        # DEC-1329: the postcode points of a district, shared geography read before a tenant is
+        # bound (no patient data).
+        f"{GRAPH_STORE}/postcode_points.py",
         f"{GRAPH_STORE}/driver.py",
         f"{GRAPH_STORE}/health.py",
         DIRECTORY,

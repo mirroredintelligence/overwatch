@@ -31,6 +31,7 @@ from overwatch.application.use_cases.change_reporter_number import COVER_KEY_PRE
 from overwatch.application.use_cases.missed_report_ladder import LADDER_OFFSETS
 from overwatch.application.use_cases.query_board import BoardEntry, QueryBoard, QueryBoardQuery
 from overwatch.application.use_cases.registration_draft import read_draft
+from overwatch.application.use_cases.send_prompts import prompt_went_out
 from overwatch.application.work import DONE, ScheduledWork, WorkKind
 from overwatch.domain.codes import Role, Status
 from overwatch.domain.errors import NotAllowed, NotFound
@@ -118,10 +119,12 @@ def _last_value_text(entry: BoardEntry) -> str:
     return NO_FIGURE if figure is None else f"{figure} {entry.unit_label}"
 
 
-def _ladder(was_due: datetime, works: list[ScheduledWork]) -> tuple[LadderRow, ...]:
-    """The prompt (done: it went out) and each later step. A step with a scheduled job of its own
-    says whether it ran; one with none shows when it would have run, not done."""
-    rows = [LadderRow(STEP_PROMPT, was_due, True)]
+def _ladder(
+    was_due: datetime, works: list[ScheduledWork], prompt_sent: bool
+) -> tuple[LadderRow, ...]:
+    """The prompt (done only when it sent a message) and each later step. A step with a scheduled
+    job of its own says whether it ran; one with none shows when it would have run, not done."""
+    rows = [LadderRow(STEP_PROMPT, was_due, prompt_sent)]
     for step, kind in LADDER:
         mine = sorted(
             (work for work in works if work.kind is kind and work.due_at >= was_due),
@@ -163,7 +166,11 @@ class GetLeadOverview:
                             due_at=entry.was_due_at,
                             overdue_minutes=int((now - entry.was_due_at).total_seconds() // 60),
                             last_value_text=_last_value_text(entry),
-                            ladder=_ladder(entry.was_due_at, works),
+                            ladder=_ladder(
+                                entry.was_due_at,
+                                works,
+                                await prompt_went_out(uow, entry.service_id, entry.was_due_at),
+                            ),
                         )
                     )
                 for role in await uow.people.reporter_roles_for_service(entry.service_id, now):

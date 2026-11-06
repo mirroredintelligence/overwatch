@@ -152,6 +152,13 @@ def prompt_key(service_id: str, due: datetime) -> str:
     return f"prompt:{service_id}:{due.astimezone(UTC).isoformat()}"
 
 
+async def prompt_went_out(uow: UnitOfWork, service_id: str, due: datetime) -> bool:
+    """True when the prompt for this service at this due time sent a message. A prompt that was
+    skipped, or has not run, did not, so the chase card must not say a text went out."""
+    stored = await uow.idempotency.get(prompt_key(service_id, due))
+    return isinstance(stored, _StoredPrompt) and stored.result.sent
+
+
 RACED_MESSAGE: Final = "this prompt is being sent by another request"
 """What the loser of a race for one due prompt is told. Two racers compute results that differ only
 in their record ids, so the idempotency store's own text ("a different result is already stored

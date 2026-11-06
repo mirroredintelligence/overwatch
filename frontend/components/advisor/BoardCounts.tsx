@@ -68,15 +68,21 @@ export function BoardCounts() {
       <ul className={styles.tiles}>
         {COUNTED.map(({ status, key }) => (
           <li key={status} className={styles.tile} data-status={status}>
-            <span className={styles.figure} data-el={`ADV-HOME-COUNT-${key}`}>
-              {state.counts[status]}
-            </span>
-            <span className={styles.label}>
-              <span className={styles.shape}>
-                <ShapeIcon shape={STATUS_SHAPES[status]} />
+            <a
+              className={styles.tileLink}
+              href={`/advisor/services?status=${status}`}
+              aria-label={`${STATUS_LABELS[status]}: ${state.counts[status]}. Show these services`}
+            >
+              <span className={styles.figure} data-el={`ADV-HOME-COUNT-${key}`}>
+                {state.counts[status]}
               </span>
-              {STATUS_LABELS[status]}
-            </span>
+              <span className={styles.label}>
+                <span className={styles.shape}>
+                  <ShapeIcon shape={STATUS_SHAPES[status]} />
+                </span>
+                {STATUS_LABELS[status]}
+              </span>
+            </a>
           </li>
         ))}
       </ul>

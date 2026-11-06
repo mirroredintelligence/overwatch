@@ -1,0 +1,115 @@
+/* The services by state (DEC-1343). Text keeps the body size; nothing here scrolls the page sideways. */
+
+.page {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4) 0;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--chip-h);
+  padding: 0 var(--space-4);
+  font: inherit;
+  font-size: var(--type-body-size);
+  font-weight: 700;
+  color: var(--c-ink);
+  background: #fff;
+  border: 2px solid var(--c-line);
+  border-radius: 9999px;
+  cursor: pointer;
+}
+
+.chip[aria-pressed='true'] {
+  border-color: var(--c-ink);
+  background: var(--c-ground);
+}
+
+.chip:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.shape {
+  display: inline-flex;
+}
+
+.note,
+.none,
+.failed {
+  margin: 0;
+  font-size: var(--type-body-size);
+  color: var(--c-ink-2);
+}
+
+.rows {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.text {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.name {
+  margin: 0;
+  font-size: var(--type-title-size);
+  font-weight: var(--type-title-weight);
+  overflow-wrap: anywhere;
+}
+
+.caption {
+  margin: 0;
+  font-size: var(--type-body-size);
+  color: var(--c-ink-2);
+}
+
+.figure {
+  text-align: right;
+}
+
+.number {
+  margin: 0;
+  font-size: 2.75rem;
+  font-weight: var(--type-display-weight);
+  line-height: 1;
+  color: var(--c-primary-dark);
+}
+
+.unit {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
+}
+
+.unavailable {
+  margin: 0;
+  max-width: 14em;
+  font-size: var(--type-body-size);
+  font-weight: 700;
+  color: var(--c-ink);
+}

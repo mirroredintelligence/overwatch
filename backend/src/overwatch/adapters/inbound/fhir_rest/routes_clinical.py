@@ -65,6 +65,7 @@ from overwatch.adapters.inbound.fhir_rest.parameters import (
 from overwatch.adapters.inbound.fhir_rest.routes_alerts import alert_list
 from overwatch.adapters.inbound.fhir_rest.subscription_mapping import ALERT_CODE
 from overwatch.application.actor import Actor
+from overwatch.application.idempotency import format_instant
 from overwatch.application.ports.outbound.cache import Cache
 from overwatch.application.ports.outbound.clock import Clock
 from overwatch.application.ports.outbound.geo import Geocoder, PostcodeLocator
@@ -73,6 +74,7 @@ from overwatch.application.ports.outbound.lookups import LookupRejected, Transie
 from overwatch.application.ports.outbound.sealing import ContentSealer
 from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from overwatch.application.uow_idempotency import UnitOfWorkIdempotency
+from overwatch.application.use_cases.capacity_history import DEFAULT_HOURS, ReadCapacityHistory
 from overwatch.application.use_cases.clinical_advice import (
     ADVICE_CHOICES,
     ADVICE_REASONS,
@@ -330,6 +332,42 @@ async def locate_postcode(
     position = found[0].position
     return FhirJSONResponse(
         content={"status": "found", "lat": position.lat, "lon": position.lon}, headers=NO_STORE
+    )
+
+
+@router.get("/clinical/services/{service_id}/history")
+async def capacity_history(
+    service_id: str,
+    request: Request,
+    actor: Annotated[Actor, Depends(require_role(*ADVISORS))],
+) -> Response:
+    """What a service reported over the last day, for the day chart (DEC-1343): each point is what
+    it could take at the time, or how far over it was, and `staleAfterSeconds` says how long a
+    figure counts, so the chart breaks where the capacity was unknown."""
+    raw = request.query_params.get("hours", "")
+    hours = int(raw) if raw.isdigit() else DEFAULT_HOURS
+    container = _container(request)
+    result = await ReadCapacityHistory(container.uow_factory, container.clock).execute(
+        actor, service_id, hours
+    )
+    return FhirJSONResponse(
+        content={
+            "unitLabel": result.unit_label,
+            "established": result.established,
+            "since": format_instant(result.since),
+            "until": format_instant(result.until),
+            "staleAfterSeconds": int(result.stale_after.total_seconds()),
+            "points": [
+                {
+                    "at": format_instant(point.at),
+                    "available": point.available,
+                    "overBy": point.over_by,
+                    "status": point.status.value,
+                }
+                for point in result.points
+            ],
+        },
+        headers=NO_STORE,
     )
 
 

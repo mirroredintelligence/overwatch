@@ -1,0 +1,98 @@
+/* The day chart (DEC-1343). Colours come from tokens; the gap is hatched, never colour alone. */
+
+.figure {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.caption {
+  font-size: var(--type-body-size);
+  font-weight: 700;
+  color: var(--c-ink);
+}
+
+.chart {
+  width: 100%;
+  height: auto;
+  max-width: 640px;
+}
+
+.axis {
+  stroke: var(--c-ink-2);
+  stroke-width: 2;
+}
+
+.grid {
+  stroke: var(--c-line);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+
+.line {
+  stroke: var(--c-primary-dark);
+  stroke-width: 3;
+  stroke-linejoin: miter;
+}
+
+.point {
+  fill: var(--c-primary-dark);
+  stroke: #fff;
+  stroke-width: 1.5;
+}
+
+.gap {
+  stroke: var(--c-ink-2);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.hatch {
+  stroke: var(--c-ink-2);
+  stroke-width: 1.5;
+  opacity: 0.45;
+}
+
+.label {
+  fill: var(--c-ink-2);
+  font-size: 14px;
+}
+
+.unknownLabel {
+  fill: var(--c-ink);
+  font-size: 16px;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: #fff;
+  stroke-width: 4px;
+}
+
+.details summary {
+  cursor: pointer;
+  font-size: var(--type-body-size);
+  color: var(--c-ink-2);
+}
+
+.details summary:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.table {
+  border-collapse: collapse;
+  margin-top: var(--space-2);
+  font-size: var(--type-body-size);
+}
+
+.table th,
+.table td {
+  padding: 4px var(--space-3);
+  border-bottom: 1px solid var(--c-line);
+  text-align: left;
+}
+
+.note {
+  margin: 0;
+  font-size: var(--type-body-size);
+  color: var(--c-ink-2);
+}

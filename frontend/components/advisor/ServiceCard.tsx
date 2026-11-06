@@ -4,6 +4,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import type { OptionView } from '@/lib/advisor/options';
 import { categoryLabel, durationText } from '@/lib/board/format';
 import { lastReportedLine, reportingStrip } from '@/lib/advisor/reporting';
+import { DayChart } from './DayChart';
 import { NetworkServiceLine } from './NetworkServiceLine';
 import { OptionBooking } from './OptionBooking';
 import { ServicePhone } from './ServicePhone';
@@ -123,6 +124,7 @@ export function ServiceCard({ caseId, option, variant = 'full', openHref, headin
           <p className={styles.unit}>{option.unitLabel ?? UNIT_UNKNOWN}</p>
         </div>
       )}
+      {network === null ? <DayChart serviceId={option.serviceId} /> : null}
       {strip === null ? null : (
         <dl className={styles.strip} data-el="ADV-OPT-REPORTING">
           <div className={styles.stripItem}>

@@ -132,6 +132,17 @@ export const advisorHandlers = [
   ...serviceHandlers,
   ...outcomeHandlers,
   http.get('/api/bff/board', () => HttpResponse.json(BOARD_A)),
+  // The day chart's read (DEC-1343): one report, then a stale limit of two hours, so the rest of the day is unknown.
+  http.get('/api/bff/advisor/services/:id/history', () =>
+    HttpResponse.json({
+      unitLabel: 'beds free',
+      established: 10,
+      since: '2026-11-05T14:00:00Z',
+      until: '2026-11-06T14:00:00Z',
+      staleAfterSeconds: 7200,
+      points: [{ at: '2026-11-06T09:00:00Z', available: 4, overBy: null, status: 'accepting' }],
+    }),
+  ),
   http.get('/api/bff/session', () =>
     HttpResponse.json({ role: 'advisor', services: [], sub: 'advisor-1', csrfToken: CSRF_TOKEN }),
   ),

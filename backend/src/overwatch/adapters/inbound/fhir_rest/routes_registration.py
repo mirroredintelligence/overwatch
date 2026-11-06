@@ -444,7 +444,7 @@ async def invite_reporter(
                 sealer=container.sealer,
             ).execute(command)
         except NotFound as error:
-            # The answer is the same 404 whatever the reason; the log names it (a fixed text, no value).
+            # The answer is one 404 whatever the reason. The log names the reason (a fixed text).
             log.warning("invite refused: not found: %s", error)
             raise
         except NotAllowed as error:

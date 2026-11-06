@@ -37,6 +37,7 @@ Nothing here reads a tenant from the body, the query or a header.
 
 import dataclasses
 import json
+import logging
 from collections.abc import Awaitable, Callable
 from typing import Annotated, Any, Final, Protocol, cast
 
@@ -113,9 +114,10 @@ from overwatch.application.use_cases.scope_list import (
     ScopeRow,
 )
 from overwatch.domain.codes import Channel, Role, ScopeFlag, ServiceCategory, code_system_url
-from overwatch.domain.errors import DomainError, NotAllowed, ValidationFailed
+from overwatch.domain.errors import DomainError, NotAllowed, NotFound, ValidationFailed
 from overwatch.domain.model.registration import Answer, CallBackResult
 
+log = logging.getLogger(__name__)
 router = APIRouter(prefix="/fhir")
 
 NOTE_LIMIT: Final = 280
@@ -441,7 +443,12 @@ async def invite_reporter(
                 link_base_url_for=container.link_base_url_for,
                 sealer=container.sealer,
             ).execute(command)
+        except NotFound as error:
+            # The answer is the same 404 whatever the reason; the log names it (a fixed text, no value).
+            log.warning("invite refused: not found: %s", error)
+            raise
         except NotAllowed as error:
+            log.warning("invite refused: not allowed: %s", error)
             refused = refusal_outcome(error)
             if refused is None:
                 raise

@@ -35,6 +35,7 @@ from tests.integration.application.test_send_prompts_grouped import (
     _rig,
     _seed_phone,
 )
+from tests.support.sealing import TEST_SEALER
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -57,8 +58,9 @@ def _handler(
         ids,
         store,
         InMemoryCache(clock),
-        ReportCapacity(factory, clock, ids, store),
-        ConfirmCapacity(factory, clock, ids, store),
+        ReportCapacity(factory, clock, ids, store, sealer=TEST_SEALER),
+        ConfirmCapacity(factory, clock, ids, store, sealer=TEST_SEALER),
+        sealer=TEST_SEALER,
     )
 
 

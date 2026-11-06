@@ -30,7 +30,6 @@ from overwatch.domain.model.tenant_policy import DEFAULT_POLICY
 from overwatch.domain.rules.london_time import local_to_utc
 
 DAY = date(2026, 10, 23)
-WINDOW = ("referrals", "in the next 2 hrs")
 PROFILE = ServiceProfile(
     id="svc-west",
     name="UCR West",
@@ -71,7 +70,7 @@ def _figure(effective_at: datetime) -> CapacityReport:
 def test_the_prompt_due_at_the_closing_time_is_not_skipped_as_out_of_hours() -> None:
     due = _london(20)
 
-    reason = _skip_reason(PROFILE, False, due, due + timedelta(seconds=5), True, WINDOW)
+    reason = _skip_reason(PROFILE, False, due, due + timedelta(seconds=5))
 
     assert reason is None
 
@@ -79,7 +78,7 @@ def test_the_prompt_due_at_the_closing_time_is_not_skipped_as_out_of_hours() -> 
 def test_a_prompt_due_after_the_closing_time_is_still_out_of_hours() -> None:
     due = _london(20) + timedelta(microseconds=1)
 
-    reason = _skip_reason(PROFILE, False, due, due + timedelta(seconds=5), True, WINDOW)
+    reason = _skip_reason(PROFILE, False, due, due + timedelta(seconds=5))
 
     assert reason == SKIP_OUT_OF_HOURS
 
@@ -87,7 +86,7 @@ def test_a_prompt_due_after_the_closing_time_is_still_out_of_hours() -> None:
 def test_a_prompt_due_before_opening_is_still_out_of_hours() -> None:
     due = _london(7, 59)
 
-    assert _skip_reason(PROFILE, False, due, due, True, WINDOW) == SKIP_OUT_OF_HOURS
+    assert _skip_reason(PROFILE, False, due, due) == SKIP_OUT_OF_HOURS
 
 
 # --- Q4: a figure may be as old as the service's own interval -------------------------------------

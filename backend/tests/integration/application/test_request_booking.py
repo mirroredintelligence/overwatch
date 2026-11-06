@@ -134,7 +134,8 @@ def request_booking(
         QueryBoard(uow_factory, clock),
         SEALER,
         sample_wording,
-        link_base_url_for=lambda scope: LINK_HOST,
+        # The directory's link base ends in /l (DirectoryLinkBase); the link adds the token.
+        link_base_url_for=lambda scope: f"{LINK_HOST}/l",
     )
 
 

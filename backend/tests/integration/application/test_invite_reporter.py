@@ -40,6 +40,7 @@ from overwatch.domain.model.people import Practitioner, PractitionerRole
 from overwatch.domain.model.registration import ScopeEntry
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, read_tx, run_nodes
+from tests.support.sealing import TEST_SEALER, text_of
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -77,6 +78,7 @@ class Rig:
             self.clock,
             SequentialIds("inv"),
             link_base_url_for=lambda scope: "https://overwatch.example",
+            sealer=TEST_SEALER,
         )
         self.resend = ResendInvitation(
             uow_factory,
@@ -84,6 +86,7 @@ class Rig:
             self.clock,
             SequentialIds("rsd"),
             link_base_url_for=lambda scope: "https://overwatch.example",
+            sealer=TEST_SEALER,
         )
 
     def command(self, **changes: Any) -> InviteReporterCommand:
@@ -178,7 +181,7 @@ async def test_an_invitation_stores_the_task_the_invited_registration_the_text_a
     sent = [m for m in messages if m.event_type == "SendMessage"]
     assert len(sent) == 1
     assert sent[0].payload["message_id"] == "I1"
-    assert "https://overwatch.mirroredintelligence.com/i/" in sent[0].payload["text"]
+    assert "https://overwatch.example/i/" in text_of(sent[0], ACTOR_TENANT)
     assert [m.event_type for m in messages if m.event_type == "ReporterInvited"] == [
         "ReporterInvited"
     ]
@@ -223,7 +226,7 @@ async def test_a_resend_burns_the_old_link_and_issues_a_new_one_with_a_second_te
     rig: Rig,
 ) -> None:
     first = await rig.invite.execute(rig.command())
-    old_text = (await rig.outbox())[0].payload["text"]
+    old_text = text_of((await rig.outbox())[0], ACTOR_TENANT)
     old_token = old_text.split("/i/")[1].split(" ")[0]
     rig.clock.advance(timedelta(hours=5))
 
@@ -231,7 +234,7 @@ async def test_a_resend_burns_the_old_link_and_issues_a_new_one_with_a_second_te
         ResendInvitationCommand("resend-1", LEAD, first.invitation_id)
     )
 
-    texts = [m.payload["text"] for m in await rig.outbox() if m.event_type == "SendMessage"]
+    texts = [text_of(m, ACTOR_TENANT) for m in await rig.outbox() if m.event_type == "SendMessage"]
     assert len(texts) == 2
     new_token = texts[1].split("/i/")[1].split(" ")[0]
     async with rig.uow_factory() as uow:

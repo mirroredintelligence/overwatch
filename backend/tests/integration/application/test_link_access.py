@@ -21,7 +21,6 @@ from neo4j import AsyncDriver
 from overwatch.adapters.testing.fixed_clock import FixedClock
 from overwatch.adapters.testing.fixed_ids import SequentialIds
 from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
-from overwatch.application.ports.outbound.messaging import Communication
 from overwatch.application.ports.outbound.tokens import LinkTokenService
 from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from overwatch.application.tenancy import ScopeId, TenantNotBound, bind_scope
@@ -41,7 +40,7 @@ from overwatch.application.use_cases.link_access import (
 )
 from overwatch.application.use_cases.link_access import LinkAction as Action
 from overwatch.application.use_cases.report_capacity import ReportCapacityResult
-from overwatch.domain.codes import Channel, ReportFlagReason, ReportSource, ReportType, Status
+from overwatch.domain.codes import ReportFlagReason, ReportSource, ReportType, Status
 from overwatch.domain.errors import (
     ConfirmLimitReached,
     Conflict,
@@ -68,6 +67,7 @@ from tests.support.link_rig import (
     ucr_west,
 )
 from tests.support.neo4j import read_tx
+from tests.support.sealing import TEST_SEALER
 from tests.support.uow import uow_factory_on
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -561,7 +561,9 @@ async def test_a_report_that_lands_while_a_y_is_judged_is_not_confirmed_unjudged
     clock = FixedClock(ANSWER_AT)
     factory = uow_factory_on(neo4j_driver, clock)
     holder: list[LinkRig] = []
-    real = ConfirmCapacity(factory, clock, SequentialIds(), UnitOfWorkIdempotency(factory))
+    real = ConfirmCapacity(
+        factory, clock, SequentialIds(), UnitOfWorkIdempotency(factory), sealer=TEST_SEALER
+    )
     links = build_link_rig(
         factory,
         neo4j_driver,
@@ -926,31 +928,12 @@ async def test_a_renewal_that_sends_nothing_gives_its_slot_back(
 
 @pytest.mark.parametrize(
     "case",
-    ["open", "used", "unknown", "other-purpose", "suspended", "no-window-no-figure", "gone"],
+    ["open", "used", "unknown", "other-purpose", "suspended", "gone"],
 )
 async def test_a_renewal_that_is_not_called_for_queues_nothing_and_says_nothing(
     links: LinkRig, case: str
 ) -> None:
-    if case == "no-window-no-figure":
-        # A prompt that U03 would not send (nothing can be worded for it) but that is the latest.
-        await links.seed(figure=None, profile=ucr_west(unit_label="beds"))
-        async with links.factory() as uow:
-            await uow.communications.add(
-                Communication(
-                    id="prompt-by-hand",
-                    message_id="C1",
-                    channel=Channel.TEXT,
-                    recipient_role_id="role-1",
-                    about_id=links.service_id,
-                    payload_text="A prompt written by the test.",
-                    sent_at=PROMPT_AT,
-                    delivery_status="sent",
-                )
-            )
-            await uow.commit()
-        token = await links.issue(about_id="prompt-by-hand")
-    else:
-        token = await _prompted(links)
+    token = await _prompted(links)
     links.clock.set(REPLY_BY + timedelta(minutes=3))
     if case == "open":
         links.clock.set(ANSWER_AT)

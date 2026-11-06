@@ -879,7 +879,6 @@ class CapacityLinkHandler:
                 current is None
                 or current.id != target.prompt.id  # a later prompt has been sent: use that link
                 or suspended
-                or (latest is None and not window[1])  # nothing can be worded for it
                 or await uow.idempotency.get(key) is not None  # renewed already
             ):
                 return False

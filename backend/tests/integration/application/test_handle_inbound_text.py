@@ -78,6 +78,7 @@ from overwatch.domain.model.people import Practitioner, PractitionerRole
 from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, read_tx, run_nodes
+from tests.support.sealing import TEST_SEALER
 
 Seed = Callable[..., Awaitable[None]]
 
@@ -368,8 +369,9 @@ class Rig:
         self.cache = InMemoryCache(self.clock)
         ids = SequentialIds("in")
         store = DriverIdempotencyStore(driver)
-        self.reports = SpyReports(ReportCapacity(factory, self.clock, ids, store))
-        self.confirms = SpyConfirms(ConfirmCapacity(factory, self.clock, ids, store))
+        sealer = AesGcmContentSealer(FixedSecretStore({"link-token": LINK_SECRET}))
+        self.reports = SpyReports(ReportCapacity(factory, self.clock, ids, store, sealer=sealer))
+        self.confirms = SpyConfirms(ConfirmCapacity(factory, self.clock, ids, store, sealer=sealer))
         self.blind = BlindFirstRead(store)
         self.use_case = HandleInboundText(
             use_case_factory or factory,
@@ -379,6 +381,7 @@ class Rig:
             self.cache,
             self.reports,  # type: ignore[arg-type]
             self.confirms,  # type: ignore[arg-type]
+            sealer=sealer,
         )
         self._count = 0
 
@@ -927,7 +930,11 @@ async def _lead_records(
     an explicit effective time that may be earlier."""
     STORE_CLOCK.set(at)
     result = await ReportCapacity(
-        factory, FixedClock(at), SequentialIds("lead"), DriverIdempotencyStore(driver)
+        factory,
+        FixedClock(at),
+        SequentialIds("lead"),
+        DriverIdempotencyStore(driver),
+        sealer=TEST_SEALER,
     ).execute(
         ReportCapacityCommand(
             idempotency_key=f"lead-{value}-{effective_at.isoformat()}",
@@ -1382,7 +1389,7 @@ async def test_a_y_for_a_service_with_no_figure_asks_for_a_number(
     assert await _reports(uow_factory) == []
 
 
-async def test_a_unit_label_with_no_window_cannot_word_c2_so_the_help_text_is_sent(
+async def test_a_unit_label_with_no_window_asks_how_many_of_it_in_c2(
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
 ) -> None:
     await seed_service(dataclasses.replace(UCR_WEST, unit_label="referrals"))
@@ -1394,7 +1401,7 @@ async def test_a_unit_label_with_no_window_cannot_word_c2_so_the_help_text_is_se
 
     assert result == HandleInboundTextResult(NEED_NUMBER, ("ucr-west",))
     [ask] = await _replies(neo4j_driver, "prompt-seeded")
-    assert ask["messageId"] == "C11"
+    assert ask["messageId"] == "C2"
 
 
 async def test_a_booking_word_is_not_handled_here_and_nothing_is_written(

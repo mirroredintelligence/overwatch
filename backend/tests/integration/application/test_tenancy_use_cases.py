@@ -61,6 +61,7 @@ from tests.support.ladder_rig import (
     virtual_ward,
 )
 from tests.support.neo4j import read_tx
+from tests.support.sealing import TEST_SEALER
 from tests.support.tenancy import as_tenant
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory
 
@@ -175,6 +176,7 @@ async def _report(world: World, service_id: str) -> Any:
         world.clock,
         SequentialIds.scoped(world.a),
         DriverIdempotencyStore(world.driver),
+        sealer=TEST_SEALER,
     )
     with as_tenant(world.a):
         return await use_case.execute(
@@ -194,6 +196,7 @@ async def _confirm(world: World, service_id: str) -> Any:
         world.clock,
         SequentialIds.scoped(world.a),
         DriverIdempotencyStore(world.driver),
+        sealer=TEST_SEALER,
     )
     with as_tenant(world.a):
         return await use_case.execute(

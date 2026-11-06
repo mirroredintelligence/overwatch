@@ -34,6 +34,7 @@ from overwatch.domain.errors import NotFound
 from overwatch.domain.model.people import Practitioner, PractitionerRole
 from overwatch.domain.model.registration import ScopeEntry
 from tests.support.actors import ACTOR_TENANT
+from tests.support.sealing import TEST_SEALER
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -111,6 +112,7 @@ def _use_cases(factory: UnitOfWorkFactory) -> tuple[InviteReporter, ResendInvita
             clock,
             SequentialIds("inv"),
             link_base_url_for=lambda scope: f"https://{scope}.overwatch.example",
+            sealer=TEST_SEALER,
         ),
         ResendInvitation(
             factory,
@@ -118,6 +120,7 @@ def _use_cases(factory: UnitOfWorkFactory) -> tuple[InviteReporter, ResendInvita
             clock,
             SequentialIds("rsd"),
             link_base_url_for=lambda scope: f"https://{scope}.overwatch.example",
+            sealer=TEST_SEALER,
         ),
     )
 

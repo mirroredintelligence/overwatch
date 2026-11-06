@@ -75,11 +75,18 @@ LATEST = CapacityReport(
 
 def test_a_due_time_is_in_hours_in_the_tenants_zone_only() -> None:
     now = DUE - timedelta(minutes=5)
-    assert _skip_reason(PROFILE, False, DUE, now, True, WINDOW, DEFAULT_POLICY, LONDON) is None
-    assert (
-        _skip_reason(PROFILE, False, DUE, now, True, WINDOW, DEFAULT_POLICY, NEW_YORK)
-        == SKIP_OUT_OF_HOURS
+    assert _skip_reason(PROFILE, False, DUE, now, DEFAULT_POLICY, LONDON) is None
+    assert _skip_reason(PROFILE, False, DUE, now, DEFAULT_POLICY, NEW_YORK) == SKIP_OUT_OF_HOURS
+
+
+def test_a_first_prompt_for_a_unit_label_with_no_window_asks_how_many_of_it() -> None:
+    reply = DUE + timedelta(minutes=30)
+    message_id, rendered = _render(
+        PROFILE, None, ("beds free", ""), "overwatch.example/x", reply, LONDON
     )
+    assert message_id == MessageId.C2
+    assert "How many beds free? Send a number (0 = closed)." in rendered.text
+    assert "can you take" not in rendered.text
 
 
 def test_the_words_of_the_prompt_are_the_tenants_local_times() -> None:
@@ -103,8 +110,8 @@ def test_the_first_prompt_words_the_reply_by_in_the_tenants_zone() -> None:
 def test_the_reply_window_is_the_tenants() -> None:
     short = dataclasses.replace(DEFAULT_POLICY, reply_window=timedelta(minutes=15))
     now = DUE + timedelta(minutes=20)
-    assert _skip_reason(PROFILE, False, DUE, now, True, WINDOW, DEFAULT_POLICY, LONDON) is None
-    assert _skip_reason(PROFILE, False, DUE, now, True, WINDOW, short, LONDON) == SKIP_REPLY_WINDOW
+    assert _skip_reason(PROFILE, False, DUE, now, DEFAULT_POLICY, LONDON) is None
+    assert _skip_reason(PROFILE, False, DUE, now, short, LONDON) == SKIP_REPLY_WINDOW
 
 
 def test_a_figure_is_too_old_to_confirm_at_the_tenants_limit() -> None:

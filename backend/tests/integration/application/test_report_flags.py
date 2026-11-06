@@ -44,6 +44,7 @@ from overwatch.domain.model.flags import (
 from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes
+from tests.support.sealing import TEST_SEALER
 
 Seed = Callable[..., Awaitable[None]]
 
@@ -107,8 +108,8 @@ class Rig:
         self.clock = FixedClock(at(13, 0))
         ids = SequentialIds()
         store = DriverIdempotencyStore(driver)
-        self.reports = ReportCapacity(factory, self.clock, ids, store)
-        self.confirms = ConfirmCapacity(factory, self.clock, ids, store)
+        self.reports = ReportCapacity(factory, self.clock, ids, store, sealer=TEST_SEALER)
+        self.confirms = ConfirmCapacity(factory, self.clock, ids, store, sealer=TEST_SEALER)
         self._count = 0
 
     def _key(self) -> str:
@@ -532,6 +533,7 @@ async def test_when_the_flag_cannot_be_written_neither_the_report_nor_the_flag_i
         clock,
         SequentialIds(),
         DriverIdempotencyStore(neo4j_driver),
+        sealer=TEST_SEALER,
     )
     command = ReportCapacityCommand(
         idempotency_key="key-fail",
@@ -551,7 +553,11 @@ async def test_when_the_flag_cannot_be_written_neither_the_report_nor_the_flag_i
     assert await count_nodes(neo4j_driver, "AuditEvent") == 0
     # Nothing was recorded for the key either, so the same command may be tried again.
     working = ReportCapacity(
-        uow_factory, clock, SequentialIds(), DriverIdempotencyStore(neo4j_driver)
+        uow_factory,
+        clock,
+        SequentialIds(),
+        DriverIdempotencyStore(neo4j_driver),
+        sealer=TEST_SEALER,
     )
     retried = await working.execute(command)
     assert len(retried.flag_ids) == 1

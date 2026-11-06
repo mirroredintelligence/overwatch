@@ -52,6 +52,7 @@ from overwatch.domain.model.case import Case
 from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, read_tx
+from tests.support.sealing import TEST_SEALER
 from tests.support.tenancy import as_tenant
 
 Seed = Callable[..., Awaitable[None]]
@@ -111,6 +112,7 @@ def _phoned(factory: UnitOfWorkFactory, driver: AsyncDriver) -> RecordAdvisorPho
         FixedClock(NOW),
         SequentialIds.scoped(ACTOR_TENANT, "a"),
         DriverIdempotencyStore(driver),
+        sealer=TEST_SEALER,
     )
     return RecordAdvisorPhoned(capacity, factory)
 

@@ -57,6 +57,7 @@ from tests.support.ladder_rig import (
     virtual_ward,
 )
 from tests.support.neo4j import count_nodes, read_tx, run_nodes
+from tests.support.sealing import TEST_SEALER
 
 Seed = Callable[..., Awaitable[None]]
 
@@ -416,7 +417,9 @@ async def test_a_confirmed_figure_stops_the_ladder_as_a_number_does(
     [prompt] = await _prompted(rig, seed_service)
     await rig.step(prompt, WorkKind.REMINDER, london(12, 30))
     rig.clock.set(london(12, 40))
-    confirm = ConfirmCapacity(rig.factory, rig.clock, rig.ids, DriverIdempotencyStore(rig.driver))
+    confirm = ConfirmCapacity(
+        rig.factory, rig.clock, rig.ids, DriverIdempotencyStore(rig.driver), sealer=TEST_SEALER
+    )
 
     await confirm.execute(
         ConfirmCapacityCommand(

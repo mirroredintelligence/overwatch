@@ -70,8 +70,9 @@ def handler(
         SequentialIds(f"in{tag}"),
         store,
         InMemoryCache(FixedClock(now)),
-        ReportCapacity(uow_factory, clock, SequentialIds(f"rc{tag}"), store),
-        ConfirmCapacity(uow_factory, clock, SequentialIds(f"cc{tag}"), store),
+        ReportCapacity(uow_factory, clock, SequentialIds(f"rc{tag}"), store, sealer=sealer()),
+        ConfirmCapacity(uow_factory, clock, SequentialIds(f"cc{tag}"), store, sealer=sealer()),
+        sealer=sealer(),
         respond_to_booking=RespondToBooking(
             uow_factory,
             store,

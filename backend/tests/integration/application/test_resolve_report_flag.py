@@ -41,6 +41,7 @@ from overwatch.domain.model.flags import REPORT_FLAG_CHECKED, ReportFlag
 from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import node_props
+from tests.support.sealing import TEST_SEALER
 
 Seed = Callable[..., Awaitable[None]]
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -112,7 +113,9 @@ async def _seed_flag(uow_factory: UnitOfWorkFactory, seed_service: Seed) -> None
 def _resolve(uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver) -> ResolveReportFlag:
     clock = FixedClock(datetime(2026, 10, 23, 13, 30, tzinfo=UTC))
     ids = SequentialIds()
-    report_capacity = ReportCapacity(uow_factory, clock, ids, DriverIdempotencyStore(neo4j_driver))
+    report_capacity = ReportCapacity(
+        uow_factory, clock, ids, DriverIdempotencyStore(neo4j_driver), sealer=TEST_SEALER
+    )
     return ResolveReportFlag(uow_factory, RecordAdvisorPhoned(report_capacity, uow_factory), clock)
 
 

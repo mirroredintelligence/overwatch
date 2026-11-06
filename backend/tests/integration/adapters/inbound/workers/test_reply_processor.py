@@ -57,6 +57,7 @@ from tests.support.inbound_rig import (
     reply_message,
 )
 from tests.support.neo4j import count_nodes, read_tx, run_scope_ids
+from tests.support.sealing import TEST_SEALER
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -257,8 +258,9 @@ def _real_use_case(
         ids,
         store,
         InMemoryCache(clock),
-        ReportCapacity(factory, clock, ids, store),
-        ConfirmCapacity(factory, clock, ids, store),
+        ReportCapacity(factory, clock, ids, store, sealer=TEST_SEALER),
+        ConfirmCapacity(factory, clock, ids, store, sealer=TEST_SEALER),
+        sealer=TEST_SEALER,
     )
 
 

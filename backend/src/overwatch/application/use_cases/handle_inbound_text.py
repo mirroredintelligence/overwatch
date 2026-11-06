@@ -353,11 +353,8 @@ def _help(role_id: str, service_id: str) -> _Reply:
 
 
 def _need_number(target: _Target, now: datetime) -> _Reply:
-    """Ask for a number (C2). A unit label with no readable window cannot be worded as C2, and
-    nothing is invented (DEC-115 item 13), so the help text goes instead."""
+    """Ask for a number (C2). A unit label with no window asks "how many <unit>" (DEC-1342)."""
     unit, window = split_unit_label(target.profile.unit_label)
-    if not window:
-        return _help(target.role_id, target.service_id)
     text = _text(
         MessageId.C2,
         service=target.profile.name,

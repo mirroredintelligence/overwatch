@@ -47,7 +47,9 @@ from tests.integration.application.test_confirm_capacity import (
 from tests.integration.application.test_confirm_capacity import (
     _outbox as outbox_of,
 )
+from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes
+from tests.support.sealing import TEST_SEALER, text_of
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -281,6 +283,7 @@ async def test_the_c3_echo_of_a_report_is_worded_in_the_tenants_zone(
         SequentialIds("z"),
         DriverIdempotencyStore(neo4j_driver),
         zones=_NewYork(),
+        sealer=TEST_SEALER,
     )
 
     await use_case.execute(
@@ -296,7 +299,7 @@ async def test_the_c3_echo_of_a_report_is_worded_in_the_tenants_zone(
 
     sends = [m for m in await outbox_of(uow_factory) if m.event_type == "SendMessage"]
     assert len(sends) == 1
-    text = sends[0].payload["text"]
+    text = text_of(sends[0], ACTOR_TENANT)
     assert "05:05" in text and "10:05" not in text
     # The service is open 08:00 to 20:00 local: in New York the next prompt is 08:00, not London's.
     assert "Next prompt 08:00." in text
@@ -314,6 +317,7 @@ async def test_the_c3_echo_of_a_confirmation_is_worded_in_the_tenants_zone(
         SequentialIds("z"),
         DriverIdempotencyStore(neo4j_driver),
         zones=_NewYork(),
+        sealer=TEST_SEALER,
     )
 
     await use_case.execute(
@@ -328,5 +332,5 @@ async def test_the_c3_echo_of_a_confirmation_is_worded_in_the_tenants_zone(
 
     sends = [m for m in await outbox_of(uow_factory) if m.event_type == "SendMessage"]
     assert len(sends) == 1
-    assert "05:05" in sends[0].payload["text"]
-    assert "10:05" not in sends[0].payload["text"]
+    assert "05:05" in text_of(sends[0], ACTOR_TENANT)
+    assert "10:05" not in text_of(sends[0], ACTOR_TENANT)

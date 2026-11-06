@@ -52,6 +52,7 @@ from overwatch.domain.model.people import Practitioner, PractitionerRole
 from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, read_tx
+from tests.support.sealing import TEST_SEALER
 
 Seed = Callable[..., Awaitable[None]]
 
@@ -232,8 +233,8 @@ class Rig:
         self.clock = FixedClock(AT_1005)
         ids = ids or SequentialIds()
         store = DriverIdempotencyStore(driver)
-        self.confirm = ConfirmCapacity(factory, self.clock, ids, store)
-        self.report = ReportCapacity(factory, self.clock, ids, store)
+        self.confirm = ConfirmCapacity(factory, self.clock, ids, store, sealer=TEST_SEALER)
+        self.report = ReportCapacity(factory, self.clock, ids, store, sealer=TEST_SEALER)
 
     async def number(self, value: int, at: datetime, key: str) -> None:
         self.clock.set(at)
@@ -746,8 +747,8 @@ async def test_a_second_confirmation_waits_for_a_held_confirmation_then_is_refus
     gate = CommitGate()
     store = DriverIdempotencyStore(neo4j_driver)
     clock = FixedClock(AT_1205)
-    held = ConfirmCapacity(gated_factory(uow_factory, gate), clock, ids, store)
-    second = ConfirmCapacity(uow_factory, clock, ids, store)
+    held = ConfirmCapacity(gated_factory(uow_factory, gate), clock, ids, store, sealer=TEST_SEALER)
+    second = ConfirmCapacity(uow_factory, clock, ids, store, sealer=TEST_SEALER)
     command_a = ConfirmCapacityCommand("k2", REPORTER, "ucr-west", ReportSource.TEXT)
     command_b = ConfirmCapacityCommand("k3", REPORTER, "ucr-west", ReportSource.TEXT)
 
@@ -780,8 +781,8 @@ async def test_the_same_key_twice_at_once_writes_once_and_replays_inside_the_uni
     gate = CommitGate()
     store = DriverIdempotencyStore(neo4j_driver)
     clock = FixedClock(AT_1205)
-    held = ConfirmCapacity(gated_factory(uow_factory, gate), clock, ids, store)
-    second = ConfirmCapacity(uow_factory, clock, ids, store)
+    held = ConfirmCapacity(gated_factory(uow_factory, gate), clock, ids, store, sealer=TEST_SEALER)
+    second = ConfirmCapacity(uow_factory, clock, ids, store, sealer=TEST_SEALER)
     command = ConfirmCapacityCommand("k1", REPORTER, "ucr-west", ReportSource.TEXT)
 
     gate.hold_next = True
@@ -835,8 +836,12 @@ async def test_a_number_reported_while_a_confirmation_is_held_is_not_hidden_behi
     clock = FixedClock(AT_1004)
     entry = EntryGate()
     commit = CommitGate()
-    number = ReportCapacity(entry_gated_factory(uow_factory, entry), clock, ids, store)
-    confirm = ConfirmCapacity(gated_factory(uow_factory, commit), clock, ids, store)
+    number = ReportCapacity(
+        entry_gated_factory(uow_factory, entry), clock, ids, store, sealer=TEST_SEALER
+    )
+    confirm = ConfirmCapacity(
+        gated_factory(uow_factory, commit), clock, ids, store, sealer=TEST_SEALER
+    )
     number_command = ReportCapacityCommand(
         idempotency_key="number-5",
         actor=REPORTER,
@@ -884,8 +889,12 @@ async def test_a_confirmation_waiting_behind_a_held_number_is_stored_after_it(
     clock = FixedClock(AT_1004)
     entry = EntryGate()
     commit = CommitGate()
-    confirm = ConfirmCapacity(entry_gated_factory(uow_factory, entry), clock, ids, store)
-    number = ReportCapacity(gated_factory(uow_factory, commit), clock, ids, store)
+    confirm = ConfirmCapacity(
+        entry_gated_factory(uow_factory, entry), clock, ids, store, sealer=TEST_SEALER
+    )
+    number = ReportCapacity(
+        gated_factory(uow_factory, commit), clock, ids, store, sealer=TEST_SEALER
+    )
     number_command = ReportCapacityCommand(
         idempotency_key="number-5",
         actor=REPORTER,
@@ -991,8 +1000,10 @@ async def test_a_number_that_read_the_figure_before_a_confirmation_is_not_writte
     store = DriverIdempotencyStore(neo4j_driver)
     clock = FixedClock(AT_1004)
     gate = AddGate()
-    number = ReportCapacity(add_gated_factory(uow_factory, gate), clock, ids, store)
-    confirm = ConfirmCapacity(uow_factory, clock, ids, store)
+    number = ReportCapacity(
+        add_gated_factory(uow_factory, gate), clock, ids, store, sealer=TEST_SEALER
+    )
+    confirm = ConfirmCapacity(uow_factory, clock, ids, store, sealer=TEST_SEALER)
     number_command = ReportCapacityCommand(
         idempotency_key="number-5",
         actor=REPORTER,
@@ -1251,8 +1262,10 @@ async def test_a_report_that_lands_while_a_confirmation_waits_for_the_lock_is_no
     store = DriverIdempotencyStore(neo4j_driver)
     clock = FixedClock(AT_1004)
     commit = CommitGate()
-    number = ReportCapacity(gated_factory(uow_factory, commit), clock, ids, store)
-    confirm = ConfirmCapacity(uow_factory, clock, ids, store)
+    number = ReportCapacity(
+        gated_factory(uow_factory, commit), clock, ids, store, sealer=TEST_SEALER
+    )
+    confirm = ConfirmCapacity(uow_factory, clock, ids, store, sealer=TEST_SEALER)
     number_command = ReportCapacityCommand(
         idempotency_key="number-5",
         actor=REPORTER,

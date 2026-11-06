@@ -58,6 +58,7 @@ from overwatch.domain.model.capacity import CapacityReport
 from overwatch.domain.model.people import Practitioner, PractitionerRole
 from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.neo4j import read_tx, run_scope_ids
+from tests.support.sealing import TEST_SEALER
 from tests.support.tenancy import as_tenant
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory
 
@@ -115,6 +116,7 @@ class Tenants:
             FixedClock(NOW),
             ids,
             DriverIdempotencyStore(self.driver),
+            sealer=TEST_SEALER,
         )
 
 

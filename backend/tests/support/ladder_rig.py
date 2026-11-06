@@ -54,6 +54,7 @@ from overwatch.domain.model.capacity import CapacityReport
 from overwatch.domain.model.people import Practitioner, PractitionerRole
 from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
+from tests.support.sealing import TEST_SEALER
 from tests.support.tenancy import as_tenant
 
 SECRET = b"link-token-test-secret-0123456789abcdef"
@@ -318,7 +319,9 @@ def build_rig(
             sealer,
             tenant,
         ),
-        reports=ReportCapacity(factory, clock, shared, DriverIdempotencyStore(driver)),
+        reports=ReportCapacity(
+            factory, clock, shared, DriverIdempotencyStore(driver), sealer=TEST_SEALER
+        ),
         ladder=MissedReportLadder(factory, clock, shared, tokens, LINK_BASE, sealer),
         prefix=prefix,
     )

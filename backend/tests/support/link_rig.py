@@ -69,6 +69,7 @@ from tests.support.ladder_rig import (
     virtual_ward,
 )
 from tests.support.neo4j import read_tx
+from tests.support.sealing import TEST_SEALER
 from tests.support.tenancy import as_tenant, run_host
 from tests.support.uow import ensure_audit_heads
 
@@ -253,7 +254,11 @@ class LinkRig:
         """A Y by text for the service, at `at` (ConfirmCapacity as the reply handler calls it)."""
         self.clock.set(at)
         confirms = ConfirmCapacity(
-            self.factory, self.clock, self.ids, UnitOfWorkIdempotency(self.factory)
+            self.factory,
+            self.clock,
+            self.ids,
+            UnitOfWorkIdempotency(self.factory),
+            sealer=TEST_SEALER,
         )
         return await confirms.execute(
             ConfirmCapacityCommand(
@@ -368,8 +373,10 @@ def build_link_rig(
         shared_ids,
         tokens,
         sealer,
-        reports or ReportCapacity(factory, shared_clock, shared_ids, idempotency),
-        confirms or ConfirmCapacity(factory, shared_clock, shared_ids, idempotency),
+        reports
+        or ReportCapacity(factory, shared_clock, shared_ids, idempotency, sealer=TEST_SEALER),
+        confirms
+        or ConfirmCapacity(factory, shared_clock, shared_ids, idempotency, sealer=TEST_SEALER),
         zone=zone,
     )
     purposes: LinkPurposes = {CAPACITY_PURPOSE: handler}

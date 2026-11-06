@@ -54,6 +54,7 @@ from overwatch.domain.model.people import Practitioner, PractitionerRole
 from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, read_tx
+from tests.support.sealing import TEST_SEALER, text_of
 
 Seed = Callable[..., Awaitable[None]]
 
@@ -102,7 +103,9 @@ def _rig(factory: UnitOfWorkFactory, driver: AsyncDriver) -> tuple[ReportCapacit
     """A use case and its clock. Tests move the clock with set() between calls; the ids are
     shared by the use case, so a second call never reuses a report id."""
     clock = FixedClock(NOW)
-    use_case = ReportCapacity(factory, clock, SequentialIds(), DriverIdempotencyStore(driver))
+    use_case = ReportCapacity(
+        factory, clock, SequentialIds(), DriverIdempotencyStore(driver), sealer=TEST_SEALER
+    )
     return use_case, clock
 
 
@@ -226,14 +229,14 @@ async def test_a_performer_gets_the_c3_echo(
     sends = await _events(uow_factory, "SendMessage")
     assert len(sends) == 1
     assert sends[0].payload["recipient_role_id"] == "role-1"
-    assert "UCR West: 4 referrals" in sends[0].payload["text"]
-    assert f"Next prompt {NEXT_DUE_LONDON}." in sends[0].payload["text"]
+    assert "UCR West: 4 referrals" in text_of(sends[0], ACTOR_TENANT)
+    assert f"Next prompt {NEXT_DUE_LONDON}." in text_of(sends[0], ACTOR_TENANT)
     assert set(sends[0].payload) == {
         "communication_id",
         "message_id",
         "channel",
         "recipient_role_id",
-        "text",
+        "sealed_content",
     }
     assert sends[0].payload["message_id"] == "C3"
     assert sends[0].payload["channel"] == "text"
@@ -635,6 +638,7 @@ async def test_a_replay_is_decided_inside_the_unit_of_work(
         FixedClock(NOW),
         SequentialIds(),
         _MissingEarlyRead(DriverIdempotencyStore(neo4j_driver)),
+        sealer=TEST_SEALER,
     )
 
     second = await racing.execute(_command(4, key="race-key"))

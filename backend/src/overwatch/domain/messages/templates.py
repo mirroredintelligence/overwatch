@@ -141,8 +141,7 @@ _C1_TEXT: Final = (
     "Confirm or update: {link} Or reply Y, or a new number. By {reply_by}."
 )
 _C2_TEXT: Final = (
-    "Overwatch: {service}. How many {unit} can you take {window}? "
-    "Send {send_a_number} (0 = closed). By {reply_by}."
+    "Overwatch: {service}. How many {question}? Send {send_a_number} (0 = closed). By {reply_by}."
 )
 _C8_TEXT: Final = (
     "Overwatch reminder: {service} has not updated. Confirm or update: {link} By {reply_by}."
@@ -222,7 +221,7 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
         text=f"{_C2_TEXT}\n\nConfirm or update: {{link}}\n\n{FOOTER}",
         subject=_EMAIL_SUBJECT,
         html=(
-            "<p>Overwatch: {service}. How many {unit} can you take {window}? "
+            "<p>Overwatch: {service}. How many {question}? "
             "Send a number (0 = closed). By {reply_by}.</p>\n"
             f'<p><a href="{{link}}" style="{BUTTON_STYLE}">Confirm or update</a></p>\n'
             f"<p>{FOOTER}</p>"
@@ -230,7 +229,7 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
     ),
     (MessageId.C2, Channel.PUSH): _Template(
         required=frozenset({"service", "unit", "window", "reply_by"}),
-        text="How many {unit} can you take {window}? Reply by {reply_by}.",
+        text="How many {question}? Reply by {reply_by}.",
         subject=_PUSH_SUBJECT,
     ),
     (MessageId.C3, Channel.TEXT): _Template(
@@ -567,6 +566,11 @@ def _lettered(message_id: MessageId, fields: Mapping[str, object]) -> dict[str, 
     values = {key: value for key, value in fields.items() if key != "letter"}
     if message_id is MessageId.C2:
         values["send_a_number"] = "a number" if letter is None else f"{letter} and a number"
+        # With a window the question is "how many beds can you take in the next 2 hrs"; a unit label
+        # with none ("beds free") asks "how many beds free" (DEC-1342).
+        window = str(fields.get("window") or "")
+        unit = str(fields["unit"])
+        values["question"] = f"{unit} can you take {window}" if window else unit
     elif message_id is MessageId.C5:
         values["yes"] = "Y" if letter is None else f"Y {letter}"
         values["send_new_number"] = (

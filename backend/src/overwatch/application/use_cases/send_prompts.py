@@ -88,7 +88,6 @@ SKIP_INACTIVE: Final = "the service is not active"
 SKIP_SUSPENDED: Final = "the service is suspended"
 SKIP_OUT_OF_HOURS: Final = "the service is out of hours at the due time"
 SKIP_REPLY_WINDOW: Final = "the reply window for this prompt has already closed"
-SKIP_NO_WINDOW: Final = "the unit label has no readable window, so the first prompt is not sent"
 SKIP_NO_REPORTER: Final = "no reporter can be texted for this service"
 
 _LADDER: Final = (
@@ -229,8 +228,6 @@ def _skip_reason(
     suspended: bool,
     due: datetime,
     now: datetime,
-    has_report: bool,
-    window: tuple[str, str],
     policy: TenantPolicy = DEFAULT_POLICY,
     zone: ZoneInfo = LONDON,
 ) -> str | None:
@@ -244,8 +241,6 @@ def _skip_reason(
         return SKIP_OUT_OF_HOURS
     if now >= reply_by(due, policy):
         return SKIP_REPLY_WINDOW
-    if not has_report and not window[1]:
-        return SKIP_NO_WINDOW
     return None
 
 
@@ -445,10 +440,7 @@ class SendPrompts:
         run: _Run,
     ) -> SendPromptResult:
         latest = await uow.capacity.latest(profile.id)
-        window = split_unit_label(profile.unit_label)
-        reason = _skip_reason(
-            profile, suspended, due, now, latest is not None, window, run.policy, run.zone
-        )
+        reason = _skip_reason(profile, suspended, due, now, run.policy, run.zone)
         if reason is not None:
             # A skip sends nothing, but the chain goes on (DEC-115 item 12).
             await self._rearm(uow, profile, due, now, run)
@@ -614,11 +606,7 @@ class SendPrompts:
         for due in close:
             if await uow.idempotency.get(prompt_key(service_id, due)) is not None:
                 continue
-            window = split_unit_label(profile.unit_label)
-            if (
-                _skip_reason(profile, suspended, due, now, True, window, run.policy, run.zone)
-                is None
-            ):
+            if _skip_reason(profile, suspended, due, now, run.policy, run.zone) is None:
                 return _Prompted(profile, latest, due), latest.value
         return None
 

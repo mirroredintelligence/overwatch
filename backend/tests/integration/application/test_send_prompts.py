@@ -36,7 +36,6 @@ from overwatch.application.use_cases import send_prompts as send_prompts_module
 from overwatch.application.use_cases.send_prompts import (
     SKIP_INACTIVE,
     SKIP_NO_REPORTER,
-    SKIP_NO_WINDOW,
     SKIP_OUT_OF_HOURS,
     SKIP_REPLY_WINDOW,
     SKIP_SUSPENDED,
@@ -439,32 +438,23 @@ async def test_c1_does_not_need_a_window_in_the_unit_label(
     assert row["messageId"] == "C1"
 
 
-@pytest.mark.parametrize("label", ["referrals", "referrals in"])
-async def test_a_first_prompt_with_no_readable_window_is_not_worded_and_is_recorded(
-    label: str,
+async def test_a_first_prompt_with_no_window_in_the_unit_label_is_sent_and_asks_how_many(
     uow_factory: UnitOfWorkFactory,
     neo4j_driver: AsyncDriver,
     seed_service: Seed,
 ) -> None:
-    # G: C2 cannot be worded without the window, so nothing is invented. The refusal is recorded
-    # in the audit entry, and the chain goes on (B).
-    await seed_service(dataclasses.replace(UCR_WEST, unit_label=label))
+    # DEC-1342: a unit label with no window ("referrals", "beds free") asks "how many <unit>"
+    # instead of skipping the prompt, so a new service gets its first request.
+    await seed_service(dataclasses.replace(UCR_WEST, unit_label="referrals"))
     await _seed_people(uow_factory, (_practitioner(1, PHONE_HASH_1),), (_role(1),))
     use_case, _ = _rig(uow_factory, neo4j_driver)
 
     result = await use_case.execute(_command())
 
-    assert result.sent is False
-    assert result.communication_ids == ()
-    assert result.skipped_reason == SKIP_NO_WINDOW
-    assert await count_nodes(neo4j_driver, "Communication") == 0
-    assert await count_nodes(neo4j_driver, "LinkToken") == 0
-    [prompt_due] = await _works(uow_factory, "ucr-west", WorkKind.PROMPT_DUE)
-    assert prompt_due.due_at == _london(12, 0)
-    async with uow_factory() as uow:
-        [record] = await uow.audit.records()
-    assert record.entry.snapshot is not None
-    assert record.entry.snapshot["skipped_reason"] == SKIP_NO_WINDOW
+    assert result.sent is True
+    assert result.skipped_reason is None
+    assert len(result.communication_ids) == 1
+    assert await count_nodes(neo4j_driver, "Communication") == 1
 
 
 async def test_the_send_message_carries_sealed_content_and_no_phone(

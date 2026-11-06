@@ -89,6 +89,7 @@ from overwatch.application.use_cases.alerts import AlertEvaluator
 from overwatch.application.use_cases.apply_projection import ApplyProjection
 from overwatch.application.use_cases.board_projector import BoardProjector
 from overwatch.application.use_cases.confirm_capacity import ConfirmCapacity
+from overwatch.application.use_cases.duty_roster import CheckIn, SignOff
 from overwatch.application.use_cases.grants import SupersedeDueGrants
 from overwatch.application.use_cases.handle_inbound_text import HandleInboundText
 from overwatch.application.use_cases.network_admin import GovernanceRecorder
@@ -388,6 +389,8 @@ async def serve(
             ),
             set_decline_reason=SetDeclineReason(container.uow_factory, store, container.clock),
             sealer=booking_sealer,
+            check_in=CheckIn(container.uow_factory, container.clock),
+            sign_off=SignOff(container.uow_factory, container.clock),
         )
         senders = TenantSenderResolver(
             container.tenants,

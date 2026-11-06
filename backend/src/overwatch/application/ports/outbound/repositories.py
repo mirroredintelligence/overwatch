@@ -246,6 +246,15 @@ class PersonRepository(Protocol):
         as stored; the caller resolves the holder with role_holder."""
         ...
 
+    async def roster_for_service(self, service_id: str) -> list[PractitionerRole]:
+        """Every roster duty manager of this service, on shift or off, removed ones left out
+        (DEC-1341)."""
+        ...
+
+    async def roster_roles_for_phone_hash(self, phone_hash: str) -> list[PractitionerRole]:
+        """Every roster place of the active person who holds this phone (DEC-1341)."""
+        ...
+
     async def save_practitioner(self, practitioner: Practitioner) -> None:
         """Insert the practitioner, or replace the stored one."""
         ...

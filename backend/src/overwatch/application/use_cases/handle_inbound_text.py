@@ -20,6 +20,7 @@ Decisions: DEC-148.
 
 import hashlib
 import json
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
@@ -45,6 +46,7 @@ from overwatch.application.use_cases.confirm_capacity import (
     ConfirmCapacityCommand,
     ConfirmCapacityResult,
 )
+from overwatch.application.use_cases.duty_roster import CheckIn, SignOff
 from overwatch.application.use_cases.report_capacity import (
     ReportCapacityCommand,
     ReportCapacityResult,
@@ -126,6 +128,14 @@ BOOKING_EXPIRED: Final = "booking-expired"
 BOOKING_REASON_SET: Final = "booking-reason-set"
 STALE_FIGURE: Final = "stale-figure"
 NEED_NUMBER: Final = "need-number"
+ROSTER_ON: Final = "roster-on"
+ROSTER_OFF: Final = "roster-off"
+ROSTER_NOT_ON: Final = "roster-not-on"
+ROSTER_TEXT: Final = re.compile(
+    r"(?P<word>on|off)(?:\s+(?P<hours>\d{1,2}))?(?:\s*(?:h|hr|hrs|hour|hours))?", re.IGNORECASE
+)
+"""A duty manager on the roster goes on shift with `ON` or `ON 8` (hours) and off with `OFF`
+(DEC-1341)."""
 
 # What a message that answers several items reports, most important first (DEC-148 item 12).
 _OUTCOME_ORDER: Final = (
@@ -339,6 +349,14 @@ def _replay(stored: object, fingerprint: str) -> HandleInboundTextResult:
     return replace(stored.result, replayed=True)
 
 
+def _names_in_words(names: list[str]) -> str:
+    """ "A", "A and B", "A, B and C": the services a person is on shift for, in the reply."""
+    unique = list(dict.fromkeys(names))
+    if len(unique) <= 1:
+        return "".join(unique)
+    return ", ".join(unique[:-1]) + " and " + unique[-1]
+
+
 def _text(message_id: MessageId, **fields: object) -> str:
     return render(message_id, Channel.TEXT, **fields).text
 
@@ -477,9 +495,12 @@ class HandleInboundText:
         respond_to_booking: _RespondsToBooking | None = None,
         set_decline_reason: _SetsDeclineReason | None = None,
         sealer: ContentSealer | None = None,
+        check_in: CheckIn | None = None,
+        sign_off: SignOff | None = None,
     ) -> None:
         """`respond_to_booking` and `set_decline_reason` make a booking reply by text (U22). Without
-        them a booking word is answered as before: not handled, no reply."""
+        them a booking word is answered as before: not handled, no reply. `check_in` and `sign_off`
+        make the roster words ON and OFF work (DEC-1341); without them those words are not read."""
         self._uow_factory = uow_factory
         self._clock = clock
         self._ids = ids
@@ -490,6 +511,8 @@ class HandleInboundText:
         self._respond = respond_to_booking
         self._set_reason = set_decline_reason
         self._sealer = sealer
+        self._check_in = check_in
+        self._sign_off = sign_off
 
     async def execute(self, command: HandleInboundTextCommand) -> HandleInboundTextResult:
         received = _instant("received_at", command.received_at)
@@ -501,6 +524,10 @@ class HandleInboundText:
         # The reply is judged at the time it was received, but never at a time after the clock.
         clock_now = self._clock.now().astimezone(UTC)
         now = min(received, clock_now)
+
+        roster = await self._roster_reply(command, now)
+        if roster is not None:
+            return roster
 
         booking = await self._booking_reply(command, now)
         if booking is not None:
@@ -525,6 +552,112 @@ class HandleInboundText:
             return result
         for item in plan.items:
             await self._forget(command, item)
+        return result
+
+    # -- the duty roster: ON and OFF (DEC-1341) ----------------------------------------------
+
+    async def _roster_reply(
+        self, command: HandleInboundTextCommand, now: datetime
+    ) -> HandleInboundTextResult | None:
+        """`ON`, `ON 8` or `OFF` from a phone on a service's roster puts that person on or off shift
+        for every service they are on, and tells them so. None when the text is not one of these,
+        or the phone is on no roster: the capacity path takes it as before."""
+        if self._check_in is None or self._sign_off is None:
+            return None
+        match = ROSTER_TEXT.fullmatch(command.text.strip())
+        if match is None:
+            return None
+        async with self._uow_factory() as uow:
+            practitioner = await uow.people.find_by_phone_hash(command.from_phone_hash)
+            roster = (
+                []
+                if practitioner is None
+                else await uow.people.roster_roles_for_phone_hash(command.from_phone_hash)
+            )
+        if practitioner is None or not roster:
+            return None
+        service_ids = tuple(dict.fromkeys(role.service_id for role in roster if role.service_id))
+        actor = Actor(
+            role=Role.REPORTER,
+            practitioner_id=practitioner.id,
+            device_id=None,
+            channel="text",
+            service_ids=frozenset(service_ids),
+            tenant_id=current_tenant(),
+        )
+        role_id = roster[0].id
+        if match.group("word").lower() == "off":
+            ended = await self._sign_off.execute(command.from_phone_hash, actor)
+            if not ended:
+                return await self._record_roster(
+                    command, actor, role_id, service_ids, ROSTER_NOT_ON, MessageId.S3, {}, now
+                )
+            return await self._record_roster(
+                command,
+                actor,
+                role_id,
+                service_ids,
+                ROSTER_OFF,
+                MessageId.S2,
+                {"services": _names_in_words([change.service_name for change in ended])},
+                now,
+            )
+        hours = match.group("hours")
+        try:
+            started = await self._check_in.execute(
+                command.from_phone_hash, None if hours is None else int(hours), actor
+            )
+        except ValidationFailed:
+            return None
+        if not started:
+            return None
+        return await self._record_roster(
+            command,
+            actor,
+            role_id,
+            service_ids,
+            ROSTER_ON,
+            MessageId.S1,
+            {
+                "services": _names_in_words([change.service_name for change in started]),
+                "until": format_hhmm(started[0].shift_end or now),
+            },
+            now,
+        )
+
+    async def _record_roster(
+        self,
+        command: HandleInboundTextCommand,
+        actor: Actor,
+        role_id: str,
+        service_ids: tuple[str, ...],
+        outcome: str,
+        message_id: MessageId,
+        fields: dict[str, object],
+        now: datetime,
+    ) -> HandleInboundTextResult:
+        """Tell the person, in one unit of work with the audit entry and the record of this text."""
+        fingerprint = _fingerprint(command)
+        result = HandleInboundTextResult(outcome, service_ids)
+        reply = _Reply(message_id, role_id, service_ids[0], _text(message_id, **fields))
+        carrier = self._help_plan(None, actor, service_ids, role_id, now)
+        async with self._uow_factory() as uow:
+            replayed = await self._claim(uow, command, fingerprint)
+            if replayed is not None:
+                return replayed
+            communication_id = await self._send(uow, carrier, reply, now)
+            await uow.audit.append(
+                AuditEntry(
+                    action=AUDIT_ACTION,
+                    use_case=USE_CASE,
+                    actor=actor,
+                    entity_ids=(communication_id, *service_ids),
+                    snapshot={"outcome": outcome, "messages": [message_id.value]},
+                    at=now,
+                )
+            )
+            await uow.idempotency.put(command.idempotency_key, _StoredInbound(fingerprint, result))
+            await uow.commit()
         return result
 
     # -- booking replies (U22) -----------------------------------------------------------

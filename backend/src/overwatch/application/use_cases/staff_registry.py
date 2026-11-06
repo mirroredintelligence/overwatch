@@ -165,7 +165,7 @@ class StaffTenantChoices:
         choices: list[StaffTenantChoice] = []
         for tenant_id, roles in by_tenant.items():
             tenant = await self._tenants.get(tenant_id)
-            if not _is_active(tenant):
+            if tenant is None or not _is_active(tenant):
                 continue
             ordered = tuple(role for role in STAFF_ROLE_PRIORITY if role in roles)
             choices.append(

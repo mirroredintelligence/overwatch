@@ -7207,3 +7207,15 @@ Status: accepted (owner, 2026-11-06).
 3. **Only when the outcome is complete.** Copying closes the case only when an outcome is chosen and, for a booking or a redirect, the service is too. The advisor can change the outcome before copying; the case closes with what is chosen then. With nothing chosen, copying only copies and the case stays open.
 4. **When it goes wrong.** If the clipboard refuses, the text is shown to copy by hand and the case is not closed. If the outcome cannot be saved after a copy, the screen says so and "Save outcome" still works.
 5. **Not changed.** The back end's rules for an outcome (a booking or redirect names its service, every other names none) and the clearing of the postcode on close are as they were.
+
+## DEC-1345 The duty roster and check-in by text: the roster is a role, the shift is the role's period (builds DEC-1341 items 2 to 5)
+
+Status: accepted (built 2026-11-06 under DEC-133). The QR check-in, the end-of-shift texts, the stale board when nobody is on, and the lead's screens are not built yet.
+
+1. **A roster duty manager is a role** of its own code, `roster-duty-manager`, a reporter code. No new graph shape: the role's `active` flag and period are the shift. Inactive with no end is off shift; active with a period that covers now is on shift; inactive with an end is removed. A person off shift is sent no prompt, because prompts go to the reporter roles that are active and in effect. The code system file (`terminology/codesystems/practitioner-role.json`) is re-exported.
+2. **Who and what.** `AddRosterManager`, `RemoveRosterManager` and `ListRoster` are the shift lead's; the number is held as a keyed hash and in the protected contact store, and shown as its last four digits. A person is on one roster once per service and may be on several services' rosters.
+3. **Check-in by text.** From a phone on a roster, `ON` or `ON 8` (hours; any case or spacing; `h`, `hr` or `hours` allowed) puts the person on shift for every service they are on the roster of, for 8 hours by default and at most 14; `OFF` puts them off. Each is answered in a sealed text (S1 on, S2 off, S3 not on shift; the wording is the owner's to approve). A phone on no roster is not read here and is answered as before. A redelivered text answers once.
+4. **Newest replaces last (DEC-1341 item 5).** A check-in ends the shift of whoever was on shift for that service. A shift that reaches its planned end stops receiving prompts by itself (its period has ended).
+5. **Audit.** Each add, removal, check-in and sign-off writes an audit entry by id, never by name or number.
+6. **Also in this change.** The seven type errors from the staff sign-in work are fixed (`mypy` is clean over the whole back end), and the roster adds two statements (`Q-SERVICE-ROSTER-ROLES`, `Q-PHONE-ROSTER-ROLES`) with scenarios, both tenant-scoped.
+7. **Not yet.** The planned end of a shift is not announced by text 15 minutes before and after (DEC-1341 item 4); nothing marks the board stale or escalates when a shift ends with nobody on (item 6); no screen adds or lists the roster; no QR code.

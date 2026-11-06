@@ -174,6 +174,20 @@ _SCENARIOS: Final[dict[str, Scenario]] = {
         lookup=("key",),
         expect=Expect(rows=({"id": "r-1"},)),
     ),
+    "Q-SERVICE-ROSTER-ROLES": Scenario(
+        "list every role of a service, on shift or not (the duty roster, DEC-1341)",
+        seed=_REPORTER_SEED,
+        params={"key": "HealthcareService/svc-1"},
+        lookup=("key",),
+        expect=Expect(rows=({"id": "r-1"},)),
+    ),
+    "Q-PHONE-ROSTER-ROLES": Scenario(
+        "list every role of the active practitioner holding a phone, on shift or not (DEC-1341)",
+        seed=_REPORTER_SEED,
+        params={"hash": _PHONE},
+        lookup=("hash",),
+        expect=Expect(rows=({"id": "r-1"},)),
+    ),
     "Q-PERSON-SET-PROPS": Scenario(
         "set the phone hash and email domain of the tenant's practitioner",
         seed=_PERSON_SEED,
@@ -292,6 +306,26 @@ _SERVICE_ROLES: Final = NamedQuery(
     mode="read",
     scenario=_SCENARIOS["Q-SERVICE-REPORTER-ROLES"],
 )
+_SERVICE_ROSTER: Final = NamedQuery(
+    id="Q-SERVICE-ROSTER-ROLES",
+    cypher=(
+        "MATCH (r:PractitionerRole {tenantId: $tenant})"
+        "-[:HEALTHCARE_SERVICE]->(:HealthcareService {key: $key, tenantId: $tenant}) "
+        "RETURN r.id AS id ORDER BY r.id"
+    ),
+    mode="read",
+    scenario=_SCENARIOS["Q-SERVICE-ROSTER-ROLES"],
+)
+_PHONE_ROSTER: Final = NamedQuery(
+    id="Q-PHONE-ROSTER-ROLES",
+    cypher=(
+        "MATCH (r:PractitionerRole {tenantId: $tenant})"
+        "-[:PRACTITIONER]->(:Practitioner {phoneHash: $hash, active: true, tenantId: $tenant}) "
+        "RETURN r.id AS id ORDER BY r.id"
+    ),
+    mode="read",
+    scenario=_SCENARIOS["Q-PHONE-ROSTER-ROLES"],
+)
 _PERSON_SET_PROPS: Final = NamedQuery(
     id="Q-PERSON-SET-PROPS",
     cypher=(
@@ -331,6 +365,8 @@ for _query in (
     _PHONE_SERVICES_HELD,
     _PHONE_SERVICES_AT,
     _SERVICE_ROLES,
+    _SERVICE_ROSTER,
+    _PHONE_ROSTER,
     _PERSON_SET_PROPS,
     _ROLE_CHANNEL,
     _ROLE_COVER,
@@ -505,6 +541,14 @@ def _practitioner_from_stored(resource: dict[str, Any]) -> Practitioner:
     )
 
 
+def _on_roster(role: PractitionerRole) -> bool:
+    """A roster duty manager who has not been removed: on or off shift (inactive with an end is
+    removed, DEC-1341)."""
+    return role.code is PractitionerRoleCode.ROSTER_DUTY_MANAGER and (
+        role.active or role.period_end is None
+    )
+
+
 def _reporter_in_effect(role: PractitionerRole, now: datetime) -> bool:
     return role.active and role.code in REPORTER_ROLE_CODES and is_in_effect(role, now)
 
@@ -585,6 +629,22 @@ class Neo4jPersonRepository:
         roles = await self._roles(str(row["id"]) for row in rows)
         return [role for role in roles if _reporter_in_effect(role, now)]
 
+    async def roster_for_service(self, service_id: str) -> list[PractitionerRole]:
+        """Every roster duty manager of the service, on shift or not, removed ones left out
+        (DEC-1341)."""
+        rows = await run_query(
+            self._tx, REGISTRY.get("Q-SERVICE-ROSTER-ROLES"), key=f"{_SERVICE}/{service_id}"
+        )
+        roles = await self._roles((str(row["id"]) for row in rows), include_inactive=True)
+        return [role for role in roles if _on_roster(role)]
+
+    async def roster_roles_for_phone_hash(self, phone_hash: str) -> list[PractitionerRole]:
+        """Every roster place of the active person who holds this phone (DEC-1341)."""
+        check_phone_hash(phone_hash)
+        rows = await run_query(self._tx, REGISTRY.get("Q-PHONE-ROSTER-ROLES"), hash=phone_hash)
+        roles = await self._roles((str(row["id"]) for row in rows), include_inactive=True)
+        return [role for role in roles if _on_roster(role)]
+
     async def save_practitioner(self, practitioner: Practitioner) -> None:
         # Insert or replace. The store checks the version after its lock (DEC-053 item 4).
         current = await self._store.get(_PRACTITIONER, practitioner.id)
@@ -642,10 +702,12 @@ class Neo4jPersonRepository:
         resource = await self._store.get(_ROLE, role_id)
         return None if resource is None else role_from_fhir(resource)
 
-    async def _roles(self, role_ids: Iterable[str]) -> list[PractitionerRole]:
+    async def _roles(
+        self, role_ids: Iterable[str], *, include_inactive: bool = False
+    ) -> list[PractitionerRole]:
         roles: list[PractitionerRole] = []
         for role_id in role_ids:
             role = await self._role(role_id)
-            if role is not None and role.active:
+            if role is not None and (role.active or include_inactive):
                 roles.append(role)
         return roles

@@ -245,6 +245,8 @@ class PractitionerRoleCode(StrEnum):
     CLINICAL_LEAD = "clinical-lead"
     SHIFT_LEAD = "shift-lead"
     REVIEWER = "reviewer"
+    ROSTER_DUTY_MANAGER = "roster-duty-manager"
+    """A duty manager pre-registered for a service who reports only while on shift (DEC-1341)."""
 
 
 _NAMES: dict[type[StrEnum], str] = {

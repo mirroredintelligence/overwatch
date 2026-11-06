@@ -5,7 +5,7 @@
   "name": "practitioner-role",
   "status": "active",
   "content": "complete",
-  "count": 6,
+  "count": 7,
   "concept": [
     {
       "code": "clinical-lead",
@@ -26,6 +26,10 @@
     {
       "code": "reviewer",
       "display": "Reviewer"
+    },
+    {
+      "code": "roster-duty-manager",
+      "display": "Roster duty manager"
     },
     {
       "code": "shift-lead",

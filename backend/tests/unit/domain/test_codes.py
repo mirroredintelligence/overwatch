@@ -206,6 +206,7 @@ SPEC: dict[type[StrEnum], tuple[str, tuple[str, ...]]] = {
             "clinical-lead",
             "shift-lead",
             "reviewer",
+            "roster-duty-manager",
         ),
     ),
 }

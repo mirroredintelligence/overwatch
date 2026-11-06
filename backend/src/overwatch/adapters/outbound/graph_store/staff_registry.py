@@ -38,12 +38,16 @@ def record_from_properties(props: Any) -> StaffRoleRecord:
     if type(props) is not dict:
         raise ValidationFailed("record", "must be a registry node")
     try:
-        role = Role(props.get("role"))
+        role = Role(str(props.get("role")))
     except ValueError:
         raise ValidationFailed("role", "must be a staff role") from None
+    tenant_ref = props.get("tenantRef")
+    practitioner_key = props.get("practitionerKey")
+    if type(tenant_ref) is not str or type(practitioner_key) is not str:
+        raise ValidationFailed("record", "must name its tenant and its practitioner")
     return StaffRoleRecord(
-        tenant_id=props.get("tenantRef"),
-        practitioner_key=props.get("practitionerKey"),
+        tenant_id=tenant_ref,
+        practitioner_key=practitioner_key,
         role=role,
         status="active",
     )

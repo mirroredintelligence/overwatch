@@ -22,6 +22,7 @@ from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from overwatch.domain.codes import Role, Status
 from overwatch.domain.errors import NotAllowed, NotFound
 from overwatch.domain.model.tenant_policy import DEFAULT_POLICY
+from overwatch.domain.rules.london_time import LONDON
 from overwatch.domain.rules.status import compute_status
 
 READERS: Final = frozenset({Role.ADVISOR, Role.CLINICAL, Role.LEAD})
@@ -67,7 +68,7 @@ class ReadCapacityHistory:
             reports = await uow.capacity.reports_since(service_id, since)
         points: list[HistoryPoint] = []
         for report in sorted(reports, key=lambda item: item.effective_at):
-            state = compute_status(profile, report, [], report.effective_at)
+            state = compute_status(profile, report, [], report.effective_at, DEFAULT_POLICY, LONDON)
             available = state.effective_available
             if available is None and state.used is not None:
                 available = max(0, profile.established_capacity - state.used)

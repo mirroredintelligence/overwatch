@@ -47,6 +47,8 @@ from overwatch.application.ports.outbound.cache import PlatformSlots
 from overwatch.application.ports.outbound.clock import Clock
 from overwatch.application.ports.outbound.identity_verifier import IdentityVerifier
 from overwatch.application.ports.outbound.platform_audit import PlatformAudit, PlatformAuditEntry
+from overwatch.application.ports.outbound.staff_registry import StaffRegistry
+from overwatch.application.ports.outbound.tenants import TenantDirectory
 from overwatch.application.ports.outbound.tokens import SecretStore
 from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from overwatch.application.rate_limits import PlatformRateLimiter
@@ -124,6 +126,12 @@ class _Container(Protocol):
 
     @property
     def uow_factory(self) -> UnitOfWorkFactory: ...
+
+    @property
+    def staff_registry(self) -> StaffRegistry: ...
+
+    @property
+    def tenants(self) -> TenantDirectory: ...
 
 
 class _Body(BaseModel):

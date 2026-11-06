@@ -62,7 +62,7 @@ RESOURCE_STORE = frozenset(
     }
 )
 
-# The nineteen statements of the person, registration and scope-list repositories (TEN-011,
+# The twenty-one statements of the person, registration and scope-list repositories (TEN-011,
 # DEC-170): each is tenant-scoped on every node it matches, merges or creates, carries a scenario,
 # and is off the ratchet. None may be on the ratchet again.
 PEOPLE_REGISTRATION_SCOPE = frozenset(
@@ -70,11 +70,13 @@ PEOPLE_REGISTRATION_SCOPE = frozenset(
         "Q-PERSON-PHONE-FIND",
         "Q-PERSON-ROLES-OF",
         "Q-PERSON-SET-PROPS",
+        "Q-PHONE-ROSTER-ROLES",
         "Q-PHONE-SERVICES-AT",
         "Q-PHONE-SERVICES-HELD",
         "Q-ROLE-CHANNEL",
         "Q-ROLE-COVER",
         "Q-SERVICE-REPORTER-ROLES",
+        "Q-SERVICE-ROSTER-ROLES",
         "Q-REG-BY-STATUS",
         "Q-REG-DRAFT-ADD",
         "Q-REG-DRAFT-CLEAR",
@@ -230,7 +232,7 @@ def test_a_converted_statement_names_its_tenant_on_every_node_it_matches_or_crea
 def test_the_people_registration_and_scope_statements_are_converted(
     statements: dict[str, NamedQuery],
 ) -> None:
-    assert len(PEOPLE_REGISTRATION_SCOPE) == 19
+    assert len(PEOPLE_REGISTRATION_SCOPE) == 21
     for query_id in sorted(PEOPLE_REGISTRATION_SCOPE):
         query = statements[query_id]
         assert query.scenario is not None, query_id

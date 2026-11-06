@@ -93,10 +93,14 @@ def test_is_in_effect_from_the_start_until_the_end() -> None:
     assert is_in_effect(ended, AT_13) is False
 
 
-def test_reporter_roles_are_duty_manager_and_coordinator_only() -> None:
-    assert frozenset({PractitionerRoleCode.DUTY_MANAGER, PractitionerRoleCode.COORDINATOR}) == (
-        REPORTER_ROLE_CODES
-    )
+def test_reporter_roles_are_duty_manager_coordinator_and_roster_duty_manager_only() -> None:
+    assert frozenset(
+        {
+            PractitionerRoleCode.DUTY_MANAGER,
+            PractitionerRoleCode.COORDINATOR,
+            PractitionerRoleCode.ROSTER_DUTY_MANAGER,
+        }
+    ) == (REPORTER_ROLE_CODES)
 
 
 def test_a_plain_string_is_not_a_role_code() -> None:

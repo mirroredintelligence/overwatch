@@ -113,6 +113,9 @@ _FIELDS: Final[Mapping[MessageId, frozenset[str]]] = {
     MessageId.K3: frozenset({"title", "body"}),
     MessageId.K4: frozenset({"service", "coordination_team_name"}),
     MessageId.T1: frozenset({"service"}),
+    MessageId.S1: frozenset({"services", "until"}),
+    MessageId.S2: frozenset({"services"}),
+    MessageId.S3: frozenset(),
     MessageId.C1: frozenset({"service", "value", "unit", "as_of", "link", "reply_by"}),
     MessageId.C2: frozenset({"service", "unit", "window", "reply_by", "link"}),
     MessageId.C3: frozenset({"service", "value", "unit", "recorded_at", "next_due"}),
@@ -190,6 +193,11 @@ _B5_ACK_TEXT: Final = "Noted: {reference} declined."
 _B6_TEXT: Final = "Booking {reference} was cancelled at {cancelled_at}. No action needed."
 # [ASSUMED] (W7B): the test message. It carries no link and asks for nothing, so it can never be
 # answered with a number.
+_S1_TEXT: Final = (
+    "Overwatch: you are on shift for {services} until {until}. Reply OFF when you finish."
+)
+_S2_TEXT: Final = "Overwatch: you are off shift for {services}. Thank you."
+_S3_TEXT: Final = "Overwatch: you are not on shift."
 _T1_TEXT: Final = "Overwatch test: {service}. This is a test message. There is nothing to reply to."
 _T1_PUSH_TEXT: Final = "This is a test notification. There is nothing to do."
 
@@ -399,6 +407,9 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
         text=_K2_TEXT,
         subject="{service} criteria: review due",
     ),
+    (MessageId.S1, Channel.TEXT): _Template(required=_FIELDS[MessageId.S1], text=_S1_TEXT),
+    (MessageId.S2, Channel.TEXT): _Template(required=_FIELDS[MessageId.S2], text=_S2_TEXT),
+    (MessageId.S3, Channel.TEXT): _Template(required=_FIELDS[MessageId.S3], text=_S3_TEXT),
     (MessageId.T1, Channel.TEXT): _Template(required=_FIELDS[MessageId.T1], text=_T1_TEXT),
     (MessageId.T1, Channel.EMAIL): _Template(
         required=_FIELDS[MessageId.T1],

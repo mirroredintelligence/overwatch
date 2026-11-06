@@ -71,6 +71,9 @@ EXPECTED_CHANNELS: dict[MessageId, frozenset[Channel]] = {
     MessageId.K3: frozenset({PUSH}),
     MessageId.K4: frozenset({TEXT}),
     MessageId.T1: frozenset({TEXT, EMAIL, PUSH}),
+    MessageId.S1: frozenset({TEXT}),
+    MessageId.S2: frozenset({TEXT}),
+    MessageId.S3: frozenset({TEXT}),
 }
 
 _CAPACITY_LINK = "overwatch.example/k3F9a"
@@ -174,6 +177,9 @@ SAMPLE_FIELDS: dict[MessageId, dict[str, object]] = {
     MessageId.K3: {"title": "Capacity alert", "body": "UCR West: not updated"},
     MessageId.K4: {"service": "UCR West", "coordination_team_name": "The SPOA shift lead"},
     MessageId.T1: {"service": "UCR West"},
+    MessageId.S1: {"services": "UCR West and UCR East", "until": "18:00"},
+    MessageId.S2: {"services": "UCR West"},
+    MessageId.S3: {},
 }
 
 # Scalar probe values for the field-level test: a name in title form, as it could reach a field.
@@ -640,7 +646,7 @@ def test_no_raw_template_names_a_deployment_term(key: object, template: object) 
 
 # Proper-noun sweep (test 11): a backstop for names that are not in the list.
 
-ALLOWED_CAPITALISED: Final = frozenset({"Overwatch", "REQUEST", "CONFIRMED", "DECLINE"})
+ALLOWED_CAPITALISED: Final = frozenset({"Overwatch", "REQUEST", "CONFIRMED", "DECLINE", "OFF"})
 
 
 def _sentences(raw: str) -> list[str]:

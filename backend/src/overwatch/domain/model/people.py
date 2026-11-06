@@ -16,13 +16,18 @@ import re
 import unicodedata
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Final
 
 from overwatch.domain.codes import Channel, PractitionerRoleCode
 from overwatch.domain.errors import ValidationFailed
 
 REPORTER_ROLE_CODES: frozenset[PractitionerRoleCode] = frozenset(
-    {PractitionerRoleCode.DUTY_MANAGER, PractitionerRoleCode.COORDINATOR}
+    {
+        PractitionerRoleCode.DUTY_MANAGER,
+        PractitionerRoleCode.COORDINATOR,
+        PractitionerRoleCode.ROSTER_DUTY_MANAGER,
+    }
 )
 
 
@@ -167,6 +172,26 @@ def phone_contact_key(role: PractitionerRole, now: datetime) -> str:
     if cover_in_force(role, now):
         return f"{COVER_CONTACT_PREFIX}{role.id}"
     return role.id
+
+
+class RosterState(StrEnum):
+    """Where a roster duty manager stands (DEC-1341)."""
+
+    ON_SHIFT = "on-shift"
+    OFF_SHIFT = "off-shift"
+    REMOVED = "removed"
+
+
+def roster_state(role: PractitionerRole, now: datetime) -> RosterState:
+    """A roster duty manager is on shift while the role is active and its period covers now; off
+    shift when never on, signed off, or the planned end has passed; removed when ended for good
+    (inactive with an end). The roster is held in the role itself: the active flag and the period
+    are the shift, so a person who is off shift receives no prompt (DEC-1341)."""
+    if role.code is not PractitionerRoleCode.ROSTER_DUTY_MANAGER:
+        raise ValidationFailed("code", "not a roster duty manager")
+    if role.active:
+        return RosterState.ON_SHIFT if is_in_effect(role, now) else RosterState.OFF_SHIFT
+    return RosterState.OFF_SHIFT if role.period_end is None else RosterState.REMOVED
 
 
 def is_in_effect(role: PractitionerRole, now: datetime) -> bool:

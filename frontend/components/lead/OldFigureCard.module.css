@@ -40,3 +40,16 @@
     flex: 1 1 100%;
   }
 }
+
+.feedback {
+  flex: 1 1 100%;
+  margin: 0;
+  padding-left: var(--space-2);
+  border-left: 4px solid var(--c-primary);
+  font-weight: 700;
+  color: var(--c-ink);
+}
+
+.feedback[data-failed='true'] {
+  border-left-color: var(--c-surge);
+}

@@ -198,3 +198,16 @@
   background: #e8f1f7;
 }
 
+
+.feedback {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-2);
+  border-left: 4px solid var(--c-primary);
+  font-size: var(--type-body-size);
+  font-weight: 700;
+  color: var(--c-ink);
+}
+
+.feedback[data-failed='true'] {
+  border-left-color: var(--c-surge);
+}

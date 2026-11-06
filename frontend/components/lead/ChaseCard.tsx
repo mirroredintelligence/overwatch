@@ -14,6 +14,10 @@ export type ChaseCardProps = {
   /** Asks the service for its capacity figure now (DEC-1335). */
   onAsk: () => void;
   onRemind: () => void;
+  /** True while the ask is being sent: the button says so and does nothing if pressed again. */
+  asking?: boolean;
+  /** What happened to the last ask or reminder for this service, said here so the press is never silent. */
+  feedback?: { text: string; failed: boolean } | null;
   /** Set on the open card (the board's state 2): it gets a Close button and the suspend link. */
   onClose?: () => void;
 };
@@ -68,7 +72,7 @@ export function LadderTimeline({ ladder }: { ladder: readonly LadderRow[] }) {
   );
 }
 
-export function ChaseCard({ item, onEnterPhoned, onAsk, onRemind, onClose }: ChaseCardProps) {
+export function ChaseCard({ item, onEnterPhoned, onAsk, onRemind, asking = false, feedback = null, onClose }: ChaseCardProps) {
   const headingId = useId();
   const [menuOpen, setMenuOpen] = useState(false);
   const open = onClose !== undefined;
@@ -101,8 +105,8 @@ export function ChaseCard({ item, onEnterPhoned, onAsk, onRemind, onClose }: Cha
           Enter what they told me by phone
         </Button>
         <div className={styles.split} data-el="LEAD-CHASE-ASK-SPLIT">
-          <Button variant="secondary" dataEl="LEAD-CHASE-ASK-BTN" onClick={onAsk}>
-            Ask for capacity now
+          <Button variant="secondary" dataEl="LEAD-CHASE-ASK-BTN" busy={asking} onClick={onAsk}>
+            {asking ? 'Asking…' : 'Ask for capacity now'}
           </Button>
           <button
             type="button"
@@ -148,6 +152,11 @@ export function ChaseCard({ item, onEnterPhoned, onAsk, onRemind, onClose }: Cha
           </Button>
         ) : null}
       </div>
+      {feedback !== null ? (
+        <p role="status" className={styles.feedback} data-failed={feedback.failed || undefined} data-el="LEAD-CHASE-FEEDBACK">
+          {feedback.text}
+        </p>
+      ) : null}
     </section>
   );
 }

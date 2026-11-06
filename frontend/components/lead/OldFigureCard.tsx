@@ -15,9 +15,11 @@ export type OldFigureCardProps = {
   now: number;
   onAsk: () => void;
   disabled?: boolean;
+  /** What the last ask did for this service, said here so the press is never silent. */
+  feedback?: { text: string; failed: boolean } | null;
 };
 
-export function OldFigureCard({ item, now, onAsk, disabled = false }: OldFigureCardProps) {
+export function OldFigureCard({ item, now, onAsk, disabled = false, feedback = null }: OldFigureCardProps) {
   const headingId = useId();
   return (
     <section className={styles.card} aria-labelledby={headingId} data-el="LEAD-OLD-CARD">
@@ -33,6 +35,11 @@ export function OldFigureCard({ item, now, onAsk, disabled = false }: OldFigureC
       <Button variant="secondary" dataEl="LEAD-OLD-ASK-BTN" disabled={disabled} onClick={onAsk}>
         Ask for an update now
       </Button>
+      {feedback !== null ? (
+        <p role="status" className={styles.feedback} data-failed={feedback.failed || undefined}>
+          {feedback.text}
+        </p>
+      ) : null}
     </section>
   );
 }

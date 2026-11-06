@@ -70,6 +70,37 @@ describe('ChaseCard', () => {
 
   });
 
+  it('says what the ask did, on the card, and marks a failure', () => {
+    const { rerender } = render(
+      <ChaseCard
+        item={item}
+        onEnterPhoned={vi.fn()}
+        onAsk={vi.fn()}
+        onRemind={vi.fn()}
+        feedback={{ text: 'Asked for capacity. The text is on its way.', failed: false }}
+      />,
+    );
+    expect(screen.getByRole('status')).toHaveTextContent('Asked for capacity. The text is on its way.');
+    rerender(
+      <ChaseCard
+        item={item}
+        onEnterPhoned={vi.fn()}
+        onAsk={vi.fn()}
+        onRemind={vi.fn()}
+        feedback={{ text: 'The request could not be sent. Try again.', failed: true }}
+      />,
+    );
+    expect(screen.getByRole('status')).toHaveAttribute('data-failed', 'true');
+  });
+
+  it('says "Asking…" and does nothing if pressed again while the ask is being sent', async () => {
+    const onAsk = vi.fn();
+    render(<ChaseCard item={item} onEnterPhoned={vi.fn()} onAsk={onAsk} onRemind={vi.fn()} asking />);
+    const button = screen.getByRole('button', { name: 'Asking…' });
+    await userEvent.click(button);
+    expect(onAsk).not.toHaveBeenCalled();
+  });
+
   it('shows no Close button and no suspend link on a card in the list', () => {
     render(<ChaseCard item={item} onEnterPhoned={vi.fn()} onAsk={vi.fn()} onRemind={vi.fn()} />);
     expect(screen.queryByRole('button', { name: 'Close' })).toBeNull();

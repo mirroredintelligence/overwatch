@@ -131,8 +131,9 @@ function LoadingLayout() {
 export function LeadOverview({ disclosures = [] }: { disclosures?: readonly LeadDisclosure[] }) {
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
   const [now, setNow] = useState<number>(() => Date.now());
-  const [notice, setNotice] = useState<string>('');
-  const [noticeFailed, setNoticeFailed] = useState(false);
+  // What the last ask or reminder did, said on that service's own card so the press is never silent.
+  const [feedback, setFeedback] = useState<{ serviceId: string; text: string; failed: boolean } | null>(null);
+  const [askingId, setAskingId] = useState<string | null>(null);
   const [nav, setNav] = useState<Nav>({ chase: null, sheet: false, last: null });
   const [toCheck, setToCheck] = useState<number | null>(null);
   const [retrying, setRetrying] = useState(false);
@@ -223,36 +224,44 @@ export function LeadOverview({ disclosures = [] }: { disclosures?: readonly Lead
   }
 
   async function remind(serviceId: string) {
-    setNotice('');
+    setFeedback(null);
     const result = await leadPost(remindPath(serviceId));
     if (result.ok) {
-      setNoticeFailed(false);
-      setNotice('Reminder sent');
+      setFeedback({ serviceId, text: 'Reminder sent', failed: false });
     } else {
       // The back end answers 409 when no reminder is waiting: say so, so the press is not silent (DEC-1335).
-      setNoticeFailed(true);
-      setNotice(
-        result.status === 409
-          ? 'No reminder is waiting to send. Ask for capacity now instead.'
-          : 'The reminder could not be sent. Try again.',
-      );
+      setFeedback({
+        serviceId,
+        failed: true,
+        text:
+          result.status === 409
+            ? 'No reminder is waiting to send. Ask for capacity now instead.'
+            : 'The reminder could not be sent. Try again.',
+      });
     }
   }
 
   async function askNow(serviceId: string) {
-    setNotice('');
+    setFeedback(null);
+    setAskingId(serviceId);
     const result = await leadPost(`/api/bff/lead/services/${encodeURIComponent(serviceId)}/ask`);
+    setAskingId(null);
     if (result.ok) {
-      setNoticeFailed(false);
-      setNotice('Asked for capacity. The text is on its way.');
+      setFeedback({ serviceId, text: 'Asked for capacity. The text is on its way.', failed: false });
     } else {
-      setNoticeFailed(true);
-      setNotice(
-        result.status === 409
-          ? 'A capacity request is already due for this service.'
-          : 'The request could not be sent. Try again.',
-      );
+      setFeedback({
+        serviceId,
+        failed: true,
+        text:
+          result.status === 409
+            ? 'A capacity request is already due for this service.'
+            : 'The request could not be sent. Try again.',
+      });
     }
+  }
+
+  function feedbackFor(serviceId: string): { text: string; failed: boolean } | null {
+    return feedback !== null && feedback.serviceId === serviceId ? feedback : null;
   }
 
   async function retry() {
@@ -365,6 +374,8 @@ export function LeadOverview({ disclosures = [] }: { disclosures?: readonly Lead
                                 onEnterPhoned={() => go(item.serviceId, true)}
                                 onAsk={() => void askNow(item.serviceId)}
                                 onRemind={() => void remind(item.serviceId)}
+                                asking={askingId === item.serviceId}
+                                feedback={feedbackFor(item.serviceId)}
                               />
                             </div>
                           ))}
@@ -386,6 +397,7 @@ export function LeadOverview({ disclosures = [] }: { disclosures?: readonly Lead
                             now={now}
                             disabled={stale}
                             onAsk={() => void remind(item.serviceId)}
+                            feedback={feedbackFor(item.serviceId)}
                           />
                         ))}
                       </div>
@@ -434,6 +446,8 @@ export function LeadOverview({ disclosures = [] }: { disclosures?: readonly Lead
                       onEnterPhoned={() => go(stageItem.serviceId, true)}
                       onAsk={() => void askNow(stageItem.serviceId)}
                       onRemind={() => void remind(stageItem.serviceId)}
+                      asking={askingId === stageItem.serviceId}
+                      feedback={feedbackFor(stageItem.serviceId)}
                       onClose={closeChase}
                     />
                   </div>
@@ -457,10 +471,6 @@ export function LeadOverview({ disclosures = [] }: { disclosures?: readonly Lead
         <a href="/lead/screens">Wall screens</a>
         <a href="/planning/coverage">Where coverage runs out</a>
       </nav>
-
-      <p role="status" className={styles.notice} data-failed={noticeFailed || undefined}>
-        {notice}
-      </p>
 
       {/* New chases only, politely; never a count. A new span each time, so the same words are said again. */}
       <div aria-live="polite" className={styles.srOnly} data-el="LEAD-ANNOUNCE">

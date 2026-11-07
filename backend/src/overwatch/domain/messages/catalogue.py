@@ -50,8 +50,8 @@ class MessageId(StrEnum):
     K4 = "K4"
     # The test message of a registration and of a lead's test prompt (W7B): [ASSUMED] wording.
     T1 = "T1"
-    # The duty roster's replies to a check-in and a sign-off by text (DEC-1341): [ASSUMED] wording,
-    # for the owner to approve.
+    # The duty roster's replies to a check-in and a sign-off by text (DEC-1341): wording approved by
+    # the owner, 2026-11-07.
     S1 = "S1"
     S2 = "S2"
     S3 = "S3"

@@ -98,6 +98,7 @@ export function RosterManager({ serviceId }: { serviceId: string }) {
 
   return (
     <main>
+      <div data-noprint>
       <PageHeader title="Duty managers">
         <p className={styles.lead}>
           Who may report for this service. A duty manager texts ON when they start, or ON 8 for eight hours, and OFF when
@@ -206,11 +207,12 @@ export function RosterManager({ serviceId }: { serviceId: string }) {
         )}
       </section>
 
-      <CheckInCode serviceId={serviceId} />
-
       <p className={styles.back}>
         <a href="/lead">Back to the overview</a>
       </p>
+      </div>
+
+      <CheckInCode serviceId={serviceId} />
     </main>
   );
 }

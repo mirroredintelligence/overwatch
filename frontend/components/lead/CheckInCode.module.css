@@ -69,16 +69,56 @@
   gap: var(--space-2);
 }
 
+/* The sheet that prints (data-print). Everything else is hidden by the global data-noprint rule (app/tokens.css),
+   which applies on a page that holds a [data-print] sheet. Black on white, centred, one page. */
 @media print {
-  .card {
-    box-shadow: none;
-    max-width: none;
-    margin: 0;
+  @page {
+    margin: 15mm;
   }
 
-  .note,
-  .heading,
-  .actions {
-    display: none;
+  .card {
+    display: block;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: #fff;
+    color: #000;
+  }
+
+  .print {
+    box-sizing: border-box;
+    gap: 8mm;
+    min-height: 240mm;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: #fff;
+    color: #000;
+    text-align: center;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .service {
+    font-size: 28pt;
+    color: #000;
+  }
+
+  .qr {
+    width: 12cm;
+    height: 12cm;
+  }
+
+  .help {
+    font-size: 22pt;
+    color: #000;
+  }
+
+  .address {
+    font-size: 12pt;
+    color: #000;
   }
 }

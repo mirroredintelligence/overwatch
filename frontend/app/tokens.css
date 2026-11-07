@@ -140,3 +140,16 @@ body {
 next-route-announcer {
   position: absolute;
 }
+
+/* Print: a page that holds a [data-print] sheet prints that sheet alone. Anything carrying data-noprint (the staff
+   shell's rail and header, and a page's own content) is hidden on such a page, and on no other. The page itself
+   puts [data-print] on what is to be printed. */
+@media print {
+  body:has([data-print]) [data-noprint] {
+    display: none !important;
+  }
+
+  body:has([data-print]) {
+    background: #fff;
+  }
+}

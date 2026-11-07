@@ -57,7 +57,7 @@ describe('InviteServiceForm', () => {
     expect(scopePosts).toEqual([expect.objectContaining({ name: 'UCR South', flag: 'in-pilot' })]);
     expect(seenLeadPosts.at(-1)).toMatchObject({
       path: '/api/bff/lead/invitations',
-      body: { serviceId: 's-new-1', role: 'Service lead', phone: '07700 900444', channel: 'text' },
+      body: { serviceId: 's-new-1', role: 'Service lead', name: 'Dee Lead', phone: '07700 900444', channel: 'text' },
     });
     expect(screen.getByText(/UCR South is on the scope list/)).toBeInTheDocument();
   });

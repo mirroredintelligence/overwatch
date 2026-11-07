@@ -58,7 +58,7 @@ export function InviteServiceForm() {
       setFailure('The service could not be added. Check the details and try again.');
       return;
     }
-    const invited = await leadPost('/api/bff/lead/invitations', { serviceId, role: ROLE_LABEL, phone: mobile, channel: 'text' });
+    const invited = await leadPost('/api/bff/lead/invitations', { serviceId, role: ROLE_LABEL, name: person.trim(), phone: mobile, channel: 'text' });
     setBusy(false);
     if (invited.ok) {
       const ending = (invited.body as { numberEnding?: unknown } | undefined)?.numberEnding;

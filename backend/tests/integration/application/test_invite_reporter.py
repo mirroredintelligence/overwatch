@@ -18,7 +18,11 @@ from overwatch.adapters.testing.fixed_clock import FixedClock
 from overwatch.adapters.testing.fixed_ids import SequentialIds
 from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
 from overwatch.application.actor import Actor
-from overwatch.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
+from overwatch.application.ports.outbound.identity import (
+    PHONE_HASH_SECRET,
+    HmacPhoneHasher,
+    normalise_uk_mobile,
+)
 from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET, LinkTokenService
 from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from overwatch.application.use_cases.invite_reporter import (
@@ -185,6 +189,31 @@ async def test_an_invitation_stores_the_task_the_invited_registration_the_text_a
     assert [m.event_type for m in messages if m.event_type == "ReporterInvited"] == [
         "ReporterInvited"
     ]
+
+
+async def test_the_invitation_of_a_service_lead_is_the_set_up_text_and_keeps_their_name(
+    rig: Rig,
+) -> None:
+    await rig.invite.execute(rig.command(role_label="Service lead", person_name=" Dee  Lead "))
+
+    sent = [m for m in await rig.outbox() if m.event_type == "SendMessage"]
+    assert [m.payload["message_id"] for m in sent] == ["I4"]
+    text = text_of(sent[0], ACTOR_TENANT)
+    assert "set up UCR West" in text
+    assert "https://overwatch.example/i/" in text
+    async with rig.uow_factory() as uow:
+        person = await uow.people.find_by_phone_hash(HASHER.hash(normalise_uk_mobile(MOBILE)))
+    assert person is not None
+    assert person.display_name == "Dee Lead"
+
+
+async def test_an_invitation_with_no_name_keeps_the_role_label_as_before(rig: Rig) -> None:
+    await rig.invite.execute(rig.command())
+
+    async with rig.uow_factory() as uow:
+        person = await uow.people.find_by_phone_hash(HASHER.hash(normalise_uk_mobile(MOBILE)))
+    assert person is not None
+    assert person.display_name == "Duty manager"
 
 
 async def test_the_mobile_number_is_found_only_on_the_protected_contact_node(

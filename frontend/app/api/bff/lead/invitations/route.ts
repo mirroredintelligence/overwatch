@@ -36,6 +36,9 @@ const post = withBff(
     if (typeof role !== 'string' || role.trim() === '' || role.length > ROLE_MAX) throw invalidRequest();
     if (typeof phone !== 'string' || !isUkMobile(phone)) throw invalidRequest();
     if (!(CHANNELS as readonly string[]).includes(channel)) throw invalidRequest();
+    // The invited person's own name, when the lead gives it (the service lead of an invited service, DEC-1347).
+    const person = body?.name;
+    if (person !== undefined && (typeof person !== 'string' || person.trim().length < 2 || person.length > ROLE_MAX)) throw invalidRequest();
 
     let data: unknown;
     try {
@@ -46,6 +49,7 @@ const post = withBff(
           { name: 'role', valueString: role.trim() },
           { name: 'mobile', valueString: phone },
           { name: 'suggestedChannel', valueCode: channel },
+          ...(typeof person === 'string' ? [{ name: 'name', valueString: person.trim() }] : []),
         ]),
         token: session.backendToken,
         idempotencyKey: key,

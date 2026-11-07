@@ -49,6 +49,24 @@ describe('POST /api/bff/lead/invitations', () => {
     expect(sent?.parameter.map((p) => p.name)).toEqual(['service', 'role', 'mobile', 'suggestedChannel']);
   });
 
+  it('passes on the invited person’s own name when it is given, and refuses one that is too short', async () => {
+    let sent: { parameter: { name: string; valueString?: string }[] } | undefined;
+    server.use(
+      http.post(`${BACKEND_BASE}/Task/$invite-reporter`, async ({ request }) => {
+        sent = (await request.json()) as typeof sent;
+        return HttpResponse.json({ resourceType: 'Parameters', parameter: [{ name: 'invitationId', valueString: 'inv-4' }] }, { status: 201 });
+      }),
+    );
+    const ok = await POST(await leadRequest(URL_, 'lead', { method: 'POST', csrf: true, key: KEY, body: { ...BODY, name: ' Dee Lead ' } }));
+    expect(ok.status).toBe(201);
+    expect(sent?.parameter.find((p) => p.name === 'name')?.valueString).toBe('Dee Lead');
+
+    sent = undefined;
+    const short = await POST(await leadRequest(URL_, 'lead', { method: 'POST', csrf: true, key: KEY, body: { ...BODY, name: 'D' } }));
+    expect(short.status).toBe(400);
+    expect(sent).toBeUndefined();
+  });
+
   it('answers 409 with the code not-in-pilot when the back end refuses a service outside the pilot', async () => {
     server.use(
       http.post(`${BACKEND_BASE}/Task/$invite-reporter`, () =>

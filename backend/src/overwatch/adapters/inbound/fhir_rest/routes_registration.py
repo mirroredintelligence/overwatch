@@ -7,7 +7,8 @@ GET    /fhir/List/scope-list                       lead; the scope list (ListSco
 POST   /fhir/List/scope-list/$entry                lead; Idempotency-Key; Parameters service,
                                                    category, flag, reason; 201 (AddScopeEntry)
 POST   /fhir/Task/$invite-reporter                 lead; Idempotency-Key; Parameters service, role,
-                                                   mobile, suggestedChannel; 201 with numberEnding
+                                                   mobile, suggestedChannel, name (the person's
+                                                   own, optional); 201 with numberEnding
                                                    only (InviteReporter, U24); a service not in the
                                                    pilot is 409 business-rule
 PUT    /fhir/Task/{id}/$draft                      reporter; Idempotency-Key; JSON {"step",
@@ -292,6 +293,7 @@ def invite_command(body: object, actor: Actor, key: str) -> tuple[InviteReporter
     channel = enum_value(
         Channel, single(index, "suggestedChannel", required=True), "suggestedChannel"
     )
+    person = optional_text(single(index, "name", required=False), "name")
     command = InviteReporterCommand(
         idempotency_key=key,
         actor=actor,
@@ -299,6 +301,7 @@ def invite_command(body: object, actor: Actor, key: str) -> tuple[InviteReporter
         role_label=role,
         mobile=national,
         suggested_channel=channel,
+        person_name=person or None,
     )
     return command, national
 

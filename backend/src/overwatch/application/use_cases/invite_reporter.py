@@ -79,6 +79,9 @@ class InviteReporterCommand:
     role_label: str
     mobile: str
     suggested_channel: Channel
+    person_name: str | None = None
+    """The invited person's own name, kept as their display name. Left out, the role label stands
+    in for it, as before."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -176,8 +179,14 @@ def _replayed(stored: object, fingerprint: str) -> InviteReporterResult | None:
     return stored.result
 
 
-def _render(service_name: str, link: str) -> RenderedMessage:
-    return render(MessageId.I1, Channel.TEXT, service=service_name, link=link)
+SERVICE_LEAD_LABEL: Final = "service lead"
+"""A post with this label (any case) is the lead of a service being set up (DEC-1347): its
+invitation is the text I4, which asks them to set the service up, not to report."""
+
+
+def _render(service_name: str, link: str, *, service_lead: bool = False) -> RenderedMessage:
+    message = MessageId.I4 if service_lead else MessageId.I1
+    return render(message, Channel.TEXT, service=service_name, link=link)
 
 
 async def _send_text(
@@ -191,11 +200,12 @@ async def _send_text(
     redacted: str,
     role_id: str,
     service_id: str,
+    service_lead: bool = False,
 ) -> None:
     """The text I1 as an outbox message that carries the real link, and its Communication, which
     keeps the text with the link's token left out so the graph never holds a live token."""
-    sent = _render(service_name, link)
-    stored = _render(service_name, redacted)
+    sent = _render(service_name, link, service_lead=service_lead)
+    stored = _render(service_name, redacted, service_lead=service_lead)
     communication = Communication(
         id=ids.new_id(),
         message_id=sent.message_id.value,
@@ -288,6 +298,10 @@ class InviteReporter:
         national = check_invite_mobile(command.mobile)
         if not isinstance(command.suggested_channel, Channel):
             raise ValidationFailed("suggested_channel", "must be text, email or push")
+        person = None
+        if command.person_name is not None:
+            check_role_name("person_name", command.person_name)
+            person = " ".join(command.person_name.split())
         phone_hash = self._hasher.hash(national)
         fingerprint = _fingerprint(
             "invite",
@@ -296,6 +310,7 @@ class InviteReporter:
             phone_hash,
             command.suggested_channel.value,
             lead_id,
+            command.person_name or "",
         )
         now = self._clock.now()
 
@@ -321,7 +336,10 @@ class InviteReporter:
             if invitee is None:
                 await uow.people.save_practitioner(
                     Practitioner(
-                        id=invitee_id, active=True, display_name=label, phone_hash=phone_hash
+                        id=invitee_id,
+                        active=True,
+                        display_name=person or label,
+                        phone_hash=phone_hash,
                     )
                 )
             role_id = self._ids.new_id()
@@ -379,6 +397,7 @@ class InviteReporter:
                 redacted=redacted_invitation_link(base_url),
                 role_id=role_id,
                 service_id=command.service_id,
+                service_lead=label.lower() == SERVICE_LEAD_LABEL,
             )
             await uow.outbox.add(
                 outbox_message_for(

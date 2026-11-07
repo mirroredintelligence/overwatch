@@ -108,6 +108,7 @@ _FIELDS: Final[Mapping[MessageId, frozenset[str]]] = {
     MessageId.I1: frozenset({"service", "link"}),
     MessageId.I2: frozenset({"link", "system_name"}),
     MessageId.I3: frozenset({"service"}),
+    MessageId.I4: frozenset({"service", "link"}),
     MessageId.K1: frozenset({"code"}),
     MessageId.K2: frozenset({"service", "review_by"}),
     MessageId.K3: frozenset({"title", "body"}),
@@ -398,6 +399,14 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
     (MessageId.I3, Channel.TEXT): _Template(
         required=_FIELDS[MessageId.I3],
         text="Overwatch test: {service}. Reply Y to show you receive prompts.",
+    ),
+    # [ASSUMED] wording (DEC-1347): for the owner to approve.
+    (MessageId.I4, Channel.TEXT): _Template(
+        required=_FIELDS[MessageId.I4],
+        text=(
+            "Overwatch: you are invited to set up {service}: its hours, criteria and districts. "
+            "Open this link to start: {link} Valid for 48 hrs."
+        ),
     ),
     # [ASSUMED] wording (DEC-037 item 4).
     (MessageId.K1, Channel.TEXT): _Template(

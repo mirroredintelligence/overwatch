@@ -400,7 +400,7 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
         required=_FIELDS[MessageId.I3],
         text="Overwatch test: {service}. Reply Y to show you receive prompts.",
     ),
-    # [ASSUMED] wording (DEC-1347): for the owner to approve.
+    # Wording approved by the owner, 2026-11-07 (DEC-1347).
     (MessageId.I4, Channel.TEXT): _Template(
         required=_FIELDS[MessageId.I4],
         text=(

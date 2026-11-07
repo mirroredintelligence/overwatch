@@ -40,8 +40,8 @@ class MessageId(StrEnum):
     I1 = "I1"
     I2 = "I2"
     I3 = "I3"
-    # The invitation of a service's lead to set the service up (DEC-1347): [ASSUMED] wording,
-    # for the owner to approve.
+    # The invitation of a service's lead to set the service up (DEC-1347): wording approved by
+    # the owner, 2026-11-07.
     I4 = "I4"
     # Codes and alerts (D16)
     K1 = "K1"

@@ -22,7 +22,10 @@ from overwatch.adapters.outbound.graph_store.tenant_registry import Neo4jPostcod
 from overwatch.application.ports.outbound.postcode_directory import DirectoryPostcode
 
 # The fixtures of the tenant registry's integration test: one private Neo4j for this module's run.
-from tests.integration.graph_store.test_tenant_registry import connection, harness_driver  # noqa: F401
+from tests.integration.graph_store.test_tenant_registry import (  # noqa: F401
+    connection,
+    harness_driver,
+)
 
 pytestmark = [pytest.mark.schema]
 

@@ -15,7 +15,11 @@ from typing import Any
 
 import pytest
 
-from overwatch.adapters.outbound.graph_store import health, tenant_directory, tenant_registry  # noqa: F401
+from overwatch.adapters.outbound.graph_store import (  # noqa: F401
+    health,
+    tenant_directory,
+    tenant_registry,
+)
 from overwatch.adapters.outbound.graph_store import queries as queries_module
 from overwatch.adapters.outbound.graph_store.driver import (
     run_global_query,

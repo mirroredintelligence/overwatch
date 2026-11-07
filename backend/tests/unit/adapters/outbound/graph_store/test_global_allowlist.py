@@ -16,8 +16,14 @@ from typing import Any
 
 import pytest
 
-from overwatch.adapters.outbound.graph_store import health, network_registry, tenant_directory  # noqa: F401
-from overwatch.adapters.outbound.graph_store import postcode_points as _postcode_points  # noqa: F401
+from overwatch.adapters.outbound.graph_store import (  # noqa: F401
+    health,
+    network_registry,
+    tenant_directory,
+)
+from overwatch.adapters.outbound.graph_store import (
+    postcode_points as _postcode_points,  # noqa: F401
+)
 from overwatch.adapters.outbound.graph_store import queries as queries_module
 from overwatch.adapters.outbound.graph_store import staff_registry as _staff_registry  # noqa: F401
 from overwatch.adapters.outbound.graph_store.driver import run_global_query, run_query

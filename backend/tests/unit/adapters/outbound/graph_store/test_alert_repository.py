@@ -8,7 +8,9 @@ from typing import Any
 
 import pytest
 
-from overwatch.adapters.outbound.graph_store import alert_repository  # noqa: F401 (registers Q-ALERT-*)
+from overwatch.adapters.outbound.graph_store import (
+    alert_repository,  # noqa: F401 (registers Q-ALERT-*)
+)
 from overwatch.adapters.outbound.graph_store.alert_repository import (
     alert_from_fhir,
     alert_to_fhir,

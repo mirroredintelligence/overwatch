@@ -183,7 +183,7 @@ describe('GET /api/bff/screens/pairing/[id]: paired', () => {
       ctx('pairing-1'),
     );
     expect(await again.json()).toEqual({ status: 'paired' });
-    expect(unsealSession(lastWrite(SESSION_COOKIE)!.value)).resolves.toMatchObject({ role: 'wall' });
+    await expect(unsealSession(lastWrite(SESSION_COOKIE)!.value)).resolves.toMatchObject({ role: 'wall' });
   });
 
   it('says expired, so the page starts again, when the back end says paired with no token and the display holds none', async () => {

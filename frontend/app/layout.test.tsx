@@ -2,9 +2,18 @@ import { describe, expect, it, vi } from 'vitest';
 
 // next/font/google fetches the font at build time, so the test replaces it with
 // a stub that records the options the layout passes.
-const atkinson = vi.hoisted(() => ({
-  Atkinson_Hyperlegible: vi.fn(() => ({ className: 'atkinson-class', variable: 'atkinson-var' })),
-}));
+// The layout calls the font function once, when it is imported, and vitest clears the record of a mock's calls
+// before each test, so the stub keeps the options it was given in a list of its own.
+const atkinson = vi.hoisted(() => {
+  const calls: unknown[] = [];
+  return {
+    calls,
+    Atkinson_Hyperlegible: (options: unknown) => {
+      calls.push(options);
+      return { className: 'atkinson-class', variable: 'atkinson-var' };
+    },
+  };
+});
 vi.mock('next/font/google', () => atkinson);
 
 import { PRODUCT_NAME } from '@/lib/product';
@@ -28,7 +37,7 @@ describe('root layout', () => {
   it('loads Atkinson Hyperlegible into the --font-atkinson variable', () => {
     const tree = RootLayout({ children: null });
 
-    expect(atkinson.Atkinson_Hyperlegible).toHaveBeenCalledWith(
+    expect(atkinson.calls).toContainEqual(
       expect.objectContaining({ subsets: ['latin'], weight: ['400', '700'], variable: '--font-atkinson' }),
     );
     expect(tree.props.className).toBe('atkinson-var');

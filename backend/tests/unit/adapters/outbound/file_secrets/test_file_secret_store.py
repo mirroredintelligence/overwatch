@@ -7,6 +7,7 @@ name that works here works in the vault), and a value is never in a repr, a log 
 import logging
 import os
 import stat
+import sys
 from pathlib import Path
 
 import pytest
@@ -15,6 +16,17 @@ from overwatch.adapters.outbound.file_secrets import FileSecretStore, SecretsDir
 from overwatch.adapters.outbound.keyvault_secrets import vault_secret_name
 from overwatch.application.ports.outbound.tokens import SecretStore, SecretStoreUnavailable
 from overwatch.domain.errors import NotFound
+
+WINDOWS_SKIP = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason=(
+        "POSIX permission bits and symlinks: os.chmod/st_mode 0o600/0o700 are not "
+        "representable on Windows (st_mode reports 0o666/0o777, which the store refuses "
+        "as group/other readable) and os.symlink needs a privilege; the product runs on "
+        "Linux only"
+    ),
+)
+
 
 CANARY = "FILE-secret-canary-3d9a1c"
 
@@ -37,6 +49,7 @@ def directory(tmp_path: Path) -> Path:
     return _private(tmp_path / "secrets")
 
 
+@WINDOWS_SKIP
 def test_it_is_a_secret_store(directory: Path) -> None:
     _write(directory, "bff-jwt", CANARY)
     store: SecretStore = FileSecretStore(directory)
@@ -44,18 +57,21 @@ def test_it_is_a_secret_store(directory: Path) -> None:
     assert store.get("bff-jwt") == CANARY.encode()
 
 
+@WINDOWS_SKIP
 def test_a_slash_in_a_name_is_two_hyphens_in_the_file_name(directory: Path) -> None:
     _write(directory, "twilio--tenant-a--auth-token", "tok")
 
     assert FileSecretStore(directory).get("twilio/tenant-a/auth-token") == b"tok"
 
 
+@WINDOWS_SKIP
 def test_the_file_name_is_the_vault_name(directory: Path) -> None:
     for name in ("bff-jwt", "twilio/tenant-a/auth-token"):
         _write(directory, vault_secret_name(name) or "x", "v")
         assert FileSecretStore(directory).get(name) == b"v"
 
 
+@WINDOWS_SKIP
 def test_trailing_line_ends_are_not_part_of_the_value(directory: Path) -> None:
     _write(directory, "bff-jwt", "value\n")
     _write(directory, "link-token", "value\r\n")
@@ -66,6 +82,7 @@ def test_trailing_line_ends_are_not_part_of_the_value(directory: Path) -> None:
     assert store.get("link-token") == b"value"
 
 
+@WINDOWS_SKIP
 def test_a_value_is_read_again_each_time_so_a_changed_file_is_taken(directory: Path) -> None:
     file = _write(directory, "bff-jwt", "one")
     store = FileSecretStore(directory)
@@ -76,11 +93,13 @@ def test_a_value_is_read_again_each_time_so_a_changed_file_is_taken(directory: P
     assert store.get("bff-jwt") == b"two"
 
 
+@WINDOWS_SKIP
 def test_a_missing_file_is_not_found(directory: Path) -> None:
     with pytest.raises(NotFound, match="bff-jwt"):
         FileSecretStore(directory).get("bff-jwt")
 
 
+@WINDOWS_SKIP
 def test_an_empty_file_is_not_found(directory: Path) -> None:
     _write(directory, "bff-jwt", "")
 
@@ -88,6 +107,7 @@ def test_an_empty_file_is_not_found(directory: Path) -> None:
         FileSecretStore(directory).get("bff-jwt")
 
 
+@WINDOWS_SKIP
 @pytest.mark.parametrize("name", ["", "a--b", "A", "../x", "a/../b", "a_b", "a/", "x" * 128])
 def test_a_refused_name_is_not_found_and_no_file_is_opened(
     directory: Path, name: str, monkeypatch: pytest.MonkeyPatch
@@ -102,6 +122,7 @@ def test_a_refused_name_is_not_found_and_no_file_is_opened(
     assert opened == []
 
 
+@WINDOWS_SKIP
 def test_a_name_cannot_reach_a_file_outside_the_directory(tmp_path: Path, directory: Path) -> None:
     _write(tmp_path, "outside", CANARY)
 
@@ -109,6 +130,7 @@ def test_a_name_cannot_reach_a_file_outside_the_directory(tmp_path: Path, direct
         FileSecretStore(directory).get("../outside")
 
 
+@WINDOWS_SKIP
 def test_a_symbolic_link_is_not_followed(tmp_path: Path, directory: Path) -> None:
     target = _write(tmp_path, "elsewhere", CANARY)
     (directory / "bff-jwt").symlink_to(target)
@@ -119,6 +141,7 @@ def test_a_symbolic_link_is_not_followed(tmp_path: Path, directory: Path) -> Non
     assert CANARY not in str(raised.value)
 
 
+@WINDOWS_SKIP
 def test_a_secret_file_readable_by_others_is_refused_naming_the_secret(directory: Path) -> None:
     _write(directory, "bff-jwt", CANARY, mode=0o644)
 
@@ -128,6 +151,7 @@ def test_a_secret_file_readable_by_others_is_refused_naming_the_secret(directory
     assert CANARY not in str(raised.value)
 
 
+@WINDOWS_SKIP
 def test_a_file_that_is_a_directory_is_unreadable_not_missing(directory: Path) -> None:
     (directory / "bff-jwt").mkdir(mode=0o700)
 
@@ -135,6 +159,7 @@ def test_a_file_that_is_a_directory_is_unreadable_not_missing(directory: Path) -
         FileSecretStore(directory).get("bff-jwt")
 
 
+@WINDOWS_SKIP
 def test_a_huge_file_is_refused(directory: Path) -> None:
     _write(directory, "bff-jwt", b"x" * 70_000)
 
@@ -155,6 +180,7 @@ def test_a_directory_open_to_group_or_others_is_refused(tmp_path: Path, mode: in
         FileSecretStore(open_directory)
 
 
+@WINDOWS_SKIP
 @pytest.mark.parametrize("mode", [0o700, 0o500])
 def test_a_directory_private_to_its_owner_is_accepted(tmp_path: Path, mode: int) -> None:
     private = tmp_path / "private"
@@ -177,6 +203,7 @@ def test_a_file_in_place_of_the_directory_is_refused(tmp_path: Path) -> None:
         FileSecretStore(file)
 
 
+@WINDOWS_SKIP
 def test_a_symbolic_link_to_a_directory_is_followed_only_when_the_target_is_private(
     tmp_path: Path, directory: Path
 ) -> None:
@@ -186,6 +213,7 @@ def test_a_symbolic_link_to_a_directory_is_followed_only_when_the_target_is_priv
     FileSecretStore(link)  # the mode checked is the target's
 
 
+@WINDOWS_SKIP
 def test_the_directory_mode_is_the_permission_bits_only(directory: Path) -> None:
     assert stat.S_IMODE(directory.stat().st_mode) == 0o700
 
@@ -193,6 +221,7 @@ def test_the_directory_mode_is_the_permission_bits_only(directory: Path) -> None
 # ---- no leak
 
 
+@WINDOWS_SKIP
 def test_nothing_shows_the_value(directory: Path, caplog: pytest.LogCaptureFixture) -> None:
     _write(directory, "bff-jwt", CANARY)
     _write(directory, "link-token", CANARY, mode=0o666)

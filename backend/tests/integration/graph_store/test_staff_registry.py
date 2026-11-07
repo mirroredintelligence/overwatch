@@ -25,9 +25,14 @@ from overwatch.domain.model.staff_registry import StaffRoleRecord
 from overwatch.domain.rules.token_exchange import account_ref
 
 # The fixtures of the tenant registry's integration test: one private Neo4j for this module's run.
-from tests.integration.graph_store.test_tenant_registry import connection, harness_driver  # noqa: F401, F811
+from tests.integration.graph_store import test_tenant_registry
 
 pytestmark = [pytest.mark.schema]
+
+# Bound by assignment, not imported by name: pytest finds a fixture by the name it has in this
+# module, and a name import would be redefined (F811) by every test parameter of the same name.
+harness_driver = test_tenant_registry.harness_driver
+connection = test_tenant_registry.connection
 
 KEY = b"s" * 32
 DIR_A = "11111111-1111-4111-8111-111111111111"

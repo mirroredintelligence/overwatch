@@ -10,6 +10,7 @@ the operating system frees a dead process's hold. Real files, in a temporary dir
 import asyncio
 import fcntl
 import os
+import sys
 import time
 from pathlib import Path
 
@@ -20,6 +21,14 @@ from tests.support.neo4j_locks import (
     acquire_use,
     apply_migrations_once,
     lock_path,
+)
+
+WINDOWS_SKIP = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason=(
+        "POSIX-only: fcntl.flock advisory locks (absent on Windows); the harness lock is "
+        "a Linux CI facility"
+    ),
 )
 
 
@@ -39,6 +48,7 @@ def test_runs_that_share_the_instance_hold_the_use_lock_together(path: str) -> N
     second.release()
 
 
+@WINDOWS_SKIP
 def test_an_exclusive_run_waits_for_every_sharing_run_to_finish(path: str) -> None:
     sharing = acquire_use("k", exclusive=False, path=path, timeout_s=1)
 
@@ -49,6 +59,7 @@ def test_an_exclusive_run_waits_for_every_sharing_run_to_finish(path: str) -> No
     acquire_use("k", exclusive=True, path=path, timeout_s=1).release()
 
 
+@WINDOWS_SKIP
 def test_a_sharing_run_waits_for_an_exclusive_run(path: str) -> None:
     exclusive = acquire_use("k", exclusive=True, path=path, timeout_s=1)
 
@@ -59,6 +70,7 @@ def test_a_sharing_run_waits_for_an_exclusive_run(path: str) -> None:
     acquire_use("k", exclusive=False, path=path, timeout_s=1).release()
 
 
+@WINDOWS_SKIP
 def test_two_exclusive_runs_do_not_overlap(path: str) -> None:
     first = acquire_use("k", exclusive=True, path=path, timeout_s=1)
 
@@ -77,6 +89,7 @@ def test_a_release_twice_is_harmless_and_frees_the_lock_once(path: str) -> None:
     acquire_use("k", exclusive=True, path=path, timeout_s=1).release()
 
 
+@WINDOWS_SKIP
 def test_the_timeout_message_names_what_waited_and_for_how_long(path: str) -> None:
     sharing = acquire_use("k", exclusive=False, path=path, timeout_s=1)
 
@@ -88,6 +101,7 @@ def test_the_timeout_message_names_what_waited_and_for_how_long(path: str) -> No
     assert "0.2" in str(failure.value)
 
 
+@WINDOWS_SKIP
 def test_a_waiting_run_gets_the_lock_when_the_holder_lets_go(path: str) -> None:
     holder = acquire_use("k", exclusive=True, path=path, timeout_s=1)
     started = time.monotonic()
@@ -118,6 +132,7 @@ def test_the_lock_directory_can_be_set_for_a_machine_without_tmp() -> None:
     assert elsewhere.startswith("/var/tmp/x/overwatch-neo4j-use-")
 
 
+@WINDOWS_SKIP
 def test_the_operating_system_frees_the_hold_of_a_process_that_died(path: str) -> None:
     pid = os.fork()
     if pid == 0:  # the child takes the exclusive lock and dies without releasing it
@@ -132,6 +147,7 @@ def test_the_operating_system_frees_the_hold_of_a_process_that_died(path: str) -
 # the migration lock
 
 
+@WINDOWS_SKIP
 async def test_two_sessions_that_need_the_schema_apply_it_one_after_the_other(
     tmp_path: Path,
 ) -> None:
@@ -158,6 +174,7 @@ async def test_two_sessions_that_need_the_schema_apply_it_one_after_the_other(
     assert sorted(results) == [False, True]
 
 
+@WINDOWS_SKIP
 async def test_two_sessions_that_both_apply_do_not_overlap(tmp_path: Path) -> None:
     """When the check cannot tell (the schema looks behind to both), the runs are still serial."""
     events: list[str] = []
@@ -211,6 +228,7 @@ async def test_a_schema_that_is_up_to_date_is_not_locked_and_not_applied(tmp_pat
     assert applied == []
 
 
+@WINDOWS_SKIP
 async def test_a_session_that_waits_too_long_for_the_migration_lock_fails_clearly(
     tmp_path: Path,
 ) -> None:

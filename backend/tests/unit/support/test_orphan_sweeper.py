@@ -12,6 +12,7 @@ rules proved here, with no Docker and no process of its own:
   and every run whose owner is alive stay.
 """
 
+import sys
 from collections.abc import Iterable
 
 import pytest
@@ -26,6 +27,12 @@ from tests.support.sweeper import (
     sweep_orphan_tenants,
 )
 from tests.support.tenancy import RunIdentity, new_run_identity
+
+WINDOWS_SKIP = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="POSIX-only: reads /proc/<pid>/stat (absent on Windows); the harness runs on Linux",
+)
+
 
 STARTED = 1_800_000_000
 DEAD = RunIdentity(pid=4_000_001, started=STARTED, nonce="d0d0")
@@ -115,12 +122,14 @@ def test_a_boot_time_that_cannot_be_read_is_unreadable() -> None:
         )
 
 
+@WINDOWS_SKIP
 def test_this_process_started_before_now_and_is_seen_as_alive_by_its_own_identity() -> None:
     mine = new_run_identity()
 
     assert owner_alive(mine) is True
 
 
+@WINDOWS_SKIP
 def test_a_pid_beyond_the_kernel_limit_is_a_dead_owner() -> None:
     far = RunIdentity(pid=4_194_303, started=STARTED, nonce="0000")
 

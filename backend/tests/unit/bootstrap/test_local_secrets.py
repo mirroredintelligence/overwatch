@@ -32,6 +32,16 @@ from overwatch.bootstrap.workers_main import (
 )
 from overwatch.domain.rules.tenant_keys import PER_TENANT_KEY_NAMES
 
+WINDOWS_SKIP = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason=(
+        "POSIX permission bits and symlinks: os.chmod/st_mode 0o600/0o700 are not "
+        "representable on Windows and the file store refuses the resulting modes; the "
+        "product runs on Linux only"
+    ),
+)
+
+
 BACKEND = Path(__file__).resolve().parents[3]
 VAULT_URL = "https://kv-overwatch-pilot-test.vault.azure.net/"
 SERVICE_BUS = (
@@ -73,6 +83,7 @@ def test_the_directory_setting_is_off_by_default_and_comes_from_the_environment(
     assert Settings().secrets_dir == tmp_path
 
 
+@WINDOWS_SKIP
 def test_a_directory_gives_the_file_store(secrets_dir: Path) -> None:
     store = load_secret_store(Settings(secrets_dir=secrets_dir))
 
@@ -125,6 +136,7 @@ def test_a_directory_that_does_not_exist_is_refused_naming_the_setting(tmp_path:
         load_secret_store(Settings(secrets_dir=tmp_path / "nowhere"))
 
 
+@WINDOWS_SKIP
 def test_the_store_in_use_says_so_at_warning(
     secrets_dir: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -148,6 +160,7 @@ def test_the_script_writes_a_file_for_every_secret_the_api_requires(tmp_path: Pa
     assert {file.name for file in directory.iterdir()} == set(REQUIRED_SECRETS)
 
 
+@WINDOWS_SKIP
 def test_the_modes_are_700_for_the_directory_and_600_for_each_file(tmp_path: Path) -> None:
     directory = tmp_path / "made"
     make_local_secrets(directory)
@@ -167,6 +180,7 @@ def test_each_value_is_48_random_bytes_as_base64_and_no_two_are_alike(tmp_path: 
     assert len(set(values)) == len(values)
 
 
+@WINDOWS_SKIP
 def test_a_second_run_keeps_what_is_there_and_adds_what_is_missing(tmp_path: Path) -> None:
     directory = tmp_path / "made"
     make_local_secrets(directory)
@@ -190,6 +204,7 @@ def test_a_directory_open_to_others_is_not_written_to(tmp_path: Path) -> None:
     assert list(directory.iterdir()) == []
 
 
+@WINDOWS_SKIP
 def test_the_command_line_prints_names_and_no_value(tmp_path: Path) -> None:
     directory = tmp_path / "made"
 
@@ -209,6 +224,7 @@ def test_the_command_line_prints_names_and_no_value(tmp_path: Path) -> None:
     assert "bff-jwt" in done.stdout
 
 
+@WINDOWS_SKIP
 def test_the_command_line_stops_with_a_message_when_no_directory_is_given() -> None:
     done = subprocess.run(
         [sys.executable, "-I", str(BACKEND / "scripts" / "make_local_secrets.py")],
@@ -226,6 +242,7 @@ def test_the_command_line_stops_with_a_message_when_no_directory_is_given() -> N
 # ---- the API starts on it
 
 
+@WINDOWS_SKIP
 def test_what_the_script_writes_passes_the_api_start_up_check(secrets_dir: Path) -> None:
     store = load_secret_store(Settings(secrets_dir=secrets_dir))
     assert store is not None
@@ -233,6 +250,7 @@ def test_what_the_script_writes_passes_the_api_start_up_check(secrets_dir: Path)
     check_secrets(store)
 
 
+@WINDOWS_SKIP
 def test_the_api_prepares_its_parts_over_the_file_store_and_the_plain_settings(
     secrets_dir: Path,
 ) -> None:
@@ -261,6 +279,7 @@ def test_the_api_entry_point_stops_in_production_with_the_directory(
 # ---- the workers start on it
 
 
+@WINDOWS_SKIP
 def test_what_the_script_writes_passes_the_workers_start_up_check(secrets_dir: Path) -> None:
     store = load_secret_store(Settings(secrets_dir=secrets_dir))
     assert store is not None
@@ -268,6 +287,7 @@ def test_what_the_script_writes_passes_the_workers_start_up_check(secrets_dir: P
     check_worker_secrets(store)
 
 
+@WINDOWS_SKIP
 def test_the_workers_prepare_over_the_file_store(secrets_dir: Path) -> None:
     settings = Settings(secrets_dir=secrets_dir, servicebus_connection=SecretStr(SERVICE_BUS))
 
@@ -277,6 +297,7 @@ def test_the_workers_prepare_over_the_file_store(secrets_dir: Path) -> None:
     assert prepared.redis_url == settings.redis_url
 
 
+@WINDOWS_SKIP
 def test_the_workers_stop_when_the_directory_lacks_what_they_read(tmp_path: Path) -> None:
     empty = tmp_path / "empty"
     empty.mkdir(mode=0o700)
@@ -340,6 +361,7 @@ def test_the_workers_lists_are_these_names_and_only_names_the_api_also_knows() -
 # ---- the address lookup key (OS Places) comes from the store
 
 
+@WINDOWS_SKIP
 def test_the_api_reads_the_address_key_from_the_directory_when_the_file_is_there(
     secrets_dir: Path,
 ) -> None:
@@ -354,6 +376,7 @@ def test_the_api_reads_the_address_key_from_the_directory_when_the_file_is_there
     assert "fake-os-key" not in repr(prepared)
 
 
+@WINDOWS_SKIP
 def test_the_api_starts_without_the_address_key_when_the_directory_has_none(
     secrets_dir: Path,
 ) -> None:
@@ -364,6 +387,7 @@ def test_the_api_starts_without_the_address_key_when_the_directory_has_none(
     assert prepared.os_places_api_key is None
 
 
+@WINDOWS_SKIP
 def test_with_the_directory_a_key_in_the_environment_still_works_locally(secrets_dir: Path) -> None:
     settings = Settings(
         secrets_dir=secrets_dir,

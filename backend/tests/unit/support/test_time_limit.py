@@ -27,11 +27,21 @@ from tests.support.watchdog import (
     time_limit,
 )
 
+WINDOWS_SKIP = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason=(
+        "POSIX-only: signal.SIGALRM, signal.alarm and signal.getitimer (absent on "
+        "Windows); the watchdog's alarm stage runs on Linux"
+    ),
+)
+
+
 BACKEND = Path(__file__).resolve().parents[3]
 
 pytest_plugins = ["pytester"]
 
 
+@WINDOWS_SKIP
 def test_a_blocking_call_past_the_limit_raises_naming_what_was_running() -> None:
     began = time.monotonic()
 
@@ -47,6 +57,7 @@ def test_a_call_inside_the_limit_is_left_alone() -> None:
         time.sleep(0.05)
 
 
+@WINDOWS_SKIP
 def test_the_alarm_is_cancelled_and_the_old_handler_restored_after_the_block() -> None:
     # The root conftest already runs this test under its own limit: that outer alarm must come
     # back, still counting down, and must not be replaced by the inner 5 seconds or by none.
@@ -60,6 +71,7 @@ def test_the_alarm_is_cancelled_and_the_old_handler_restored_after_the_block() -
     assert abs(signal.getitimer(signal.ITIMER_REAL)[0] - outer_before) < 1.0
 
 
+@WINDOWS_SKIP
 def test_limits_nest_and_the_outer_one_keeps_running() -> None:
     with pytest.raises(TimeLimitExceeded, match="outer"), time_limit(1.5, "outer"):
         with time_limit(5, "inner"):
@@ -67,6 +79,7 @@ def test_limits_nest_and_the_outer_one_keeps_running() -> None:
         time.sleep(10)
 
 
+@WINDOWS_SKIP
 def test_zero_means_no_limit() -> None:
     outer = signal.getitimer(signal.ITIMER_REAL)[0]
     handler = signal.getsignal(signal.SIGALRM)
@@ -91,6 +104,7 @@ def test_the_default_limit_is_five_minutes_and_the_environment_overrides_it(
     assert configured_timeout_s() == 300.0
 
 
+@WINDOWS_SKIP
 def test_the_conftest_fails_a_hanging_sync_test_and_a_hanging_async_test_and_runs_the_next(
     pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -153,6 +167,7 @@ print("not reached")
 """
 
 
+@WINDOWS_SKIP
 def test_the_hard_stage_ends_a_stuck_test_and_its_report_reaches_the_real_stderr() -> None:
     result, took = _run_script(HUNG, OVERWATCH_TEST_HARD_GRACE="1")
 
@@ -190,6 +205,7 @@ print("clean")
 """
 
 
+@WINDOWS_SKIP
 def test_with_no_outer_alarm_the_block_leaves_no_alarm_and_the_old_handler() -> None:
     # In this test process the root conftest's own alarm masks the same check, so it runs alone.
     result, _ = _run_script(CLEAN)
@@ -211,6 +227,7 @@ def test_the_setup_limit_defaults_to_fifteen_minutes_and_the_environment_overrid
     assert setup_timeout_s() == 900.0
 
 
+@WINDOWS_SKIP
 def test_a_paused_limit_does_not_count_the_paused_time_and_counts_the_rest() -> None:
     began = time.monotonic()
 
@@ -224,6 +241,7 @@ def test_a_paused_limit_does_not_count_the_paused_time_and_counts_the_rest() -> 
     assert 2.9 <= time.monotonic() - began <= 3.7
 
 
+@WINDOWS_SKIP
 def test_a_broad_except_exception_cannot_swallow_the_limit() -> None:
     with pytest.raises(TimeLimitExceeded), time_limit(0.5, "swallowed"):
         with contextlib.suppress(Exception):  # what a library's retry loop might do
@@ -298,6 +316,7 @@ SLOW_SETUP = (
 )
 
 
+@WINDOWS_SKIP
 def test_the_conftest_fails_a_test_whose_set_up_hangs_and_runs_the_next(
     pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -321,6 +340,7 @@ def test_a_set_up_limit_of_zero_turns_it_off(
     result.assert_outcomes(passed=2)
 
 
+@WINDOWS_SKIP
 def test_under_pytests_default_output_capture_the_hard_report_still_reaches_the_terminal(
     pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch
 ) -> None:

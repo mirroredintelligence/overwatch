@@ -31,6 +31,15 @@ from tests.support.harness_lock import (
     release,
 )
 
+WINDOWS_SKIP = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason=(
+        "POSIX-only: fcntl.flock (absent on Windows), os.fork and os.symlink; the harness "
+        "lock is a Linux CI facility"
+    ),
+)
+
+
 BACKEND = Path(__file__).resolve().parents[3]
 
 HOLDER = """
@@ -125,6 +134,7 @@ def test_the_module_documentation_names_the_container_lock() -> None:
     assert "OVERWATCH_NEO4J_LOCK" in harness.__doc__
 
 
+@WINDOWS_SKIP
 def test_acquire_takes_the_lock_and_writes_the_holder_pid(tmp_path: Path) -> None:
     path = tmp_path / "harness.lock"
 
@@ -143,6 +153,7 @@ def test_release_frees_the_lock(tmp_path: Path) -> None:
     assert _is_free(path)
 
 
+@WINDOWS_SKIP
 def test_two_containers_in_one_process_share_one_hold_and_the_last_release_frees_it(
     tmp_path: Path,
 ) -> None:
@@ -158,6 +169,7 @@ def test_two_containers_in_one_process_share_one_hold_and_the_last_release_frees
     assert _is_free(path)
 
 
+@WINDOWS_SKIP
 def test_releasing_a_name_that_never_acquired_does_not_free_anyone_elses_hold(
     tmp_path: Path,
 ) -> None:
@@ -250,6 +262,7 @@ def test_the_default_wait_is_generous_but_bounded() -> None:
     assert 1800 <= harness_lock.DEFAULT_LOCK_TIMEOUT_S <= 7200
 
 
+@WINDOWS_SKIP
 def test_a_second_process_waits_until_the_first_releases_the_lock(tmp_path: Path) -> None:
     path = tmp_path / "harness.lock"
     holder = _spawn(HOLDER, path, 30)
@@ -274,6 +287,7 @@ def test_a_second_process_waits_until_the_first_releases_the_lock(tmp_path: Path
                 process.wait()
 
 
+@WINDOWS_SKIP
 def test_a_holder_that_is_killed_releases_the_lock(tmp_path: Path) -> None:
     # The operating system drops a flock when its process dies, with no clean-up code of ours. A
     # SIGKILLed run (which cannot clean up) must therefore never block the next one.
@@ -298,6 +312,7 @@ def test_a_holder_that_is_killed_releases_the_lock(tmp_path: Path) -> None:
                 process.wait()
 
 
+@WINDOWS_SKIP
 def test_a_timeout_against_a_live_holder_names_its_real_pid(tmp_path: Path) -> None:
     path = tmp_path / "harness.lock"
     holder = _spawn(HOLDER, path, 30)
@@ -316,6 +331,7 @@ def test_a_timeout_against_a_live_holder_names_its_real_pid(tmp_path: Path) -> N
 # ---- verifier follow-up N5: the lock file ------------------------------------------------------
 
 
+@WINDOWS_SKIP
 def test_a_lock_file_that_is_a_symlink_is_refused_and_its_target_is_left_alone(
     tmp_path: Path,
 ) -> None:
@@ -330,6 +346,7 @@ def test_a_lock_file_that_is_a_symlink_is_refused_and_its_target_is_left_alone(
     assert target.read_text(encoding="utf-8") == "keep me\n"
 
 
+@WINDOWS_SKIP
 def test_a_symlinked_lock_file_fails_a_start_in_the_lock_phase(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -364,6 +381,7 @@ def test_the_lock_file_is_world_writable_on_purpose_whatever_the_umask(tmp_path:
     assert path.stat().st_mode & 0o777 == 0o666
 
 
+@WINDOWS_SKIP
 def test_releasing_the_first_holder_first_keeps_the_lock_for_the_second(tmp_path: Path) -> None:
     # The reverse of the order above: if the second holder was never recorded, releasing the first
     # would free a lock that the second container still holds.

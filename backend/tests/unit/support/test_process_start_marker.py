@@ -19,6 +19,11 @@ from tests.support.proc import (
     process_start_marker,
 )
 
+WINDOWS_SKIP = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="POSIX-only: reads /proc/<pid>/stat (absent on Windows); the harness runs on Linux",
+)
+
 
 def _stat_line(comm: str, state: str = "S", starttime: int | str = 987654) -> str:
     # pid (comm) state ppid pgrp session tty tpgid flags minflt cminflt majflt cmajflt utime stime
@@ -73,6 +78,7 @@ def test_a_start_time_field_of_non_ascii_digits_is_unreadable_not_gone(starttime
         parse_start_marker(_stat_line("python", starttime=starttime))
 
 
+@WINDOWS_SKIP
 def test_the_marker_of_this_process_is_stable() -> None:
     first = process_start_marker(os.getpid())
     assert first is not None
@@ -80,6 +86,7 @@ def test_the_marker_of_this_process_is_stable() -> None:
     assert process_start_marker(os.getpid()) == first
 
 
+@WINDOWS_SKIP
 def test_a_process_that_has_exited_has_no_marker() -> None:
     child = subprocess.Popen([sys.executable, "-c", "pass"])
     child.wait()  # reaped, so its /proc entry is gone
@@ -87,6 +94,7 @@ def test_a_process_that_has_exited_has_no_marker() -> None:
     assert process_start_marker(child.pid) is None
 
 
+@WINDOWS_SKIP
 def test_a_running_child_has_a_marker() -> None:
     child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
     try:
@@ -123,6 +131,7 @@ def test_a_proc_stat_that_cannot_be_read_is_unreadable_not_gone(
         process_start_marker(os.getpid())
 
 
+@WINDOWS_SKIP
 def test_a_pid_with_no_proc_entry_is_gone_only_when_no_such_process_exists(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -179,6 +188,7 @@ def test_a_missing_stat_that_kill_refuses_with_eperm_is_unreadable_not_gone(
         process_start_marker(os.getpid())
 
 
+@WINDOWS_SKIP
 def test_a_missing_stat_for_a_really_dead_pid_is_gone() -> None:
     child = subprocess.Popen([sys.executable, "-c", "pass"])
     child.wait()
@@ -186,6 +196,7 @@ def test_a_missing_stat_for_a_really_dead_pid_is_gone() -> None:
     assert process_start_marker(child.pid) is None
 
 
+@WINDOWS_SKIP
 def test_this_process_has_a_pid_namespace_identity() -> None:
     namespace = pid_namespace()
 
@@ -202,6 +213,7 @@ def test_an_unreadable_pid_namespace_is_empty_not_an_error(monkeypatch: pytest.M
     assert pid_namespace() == ""
 
 
+@WINDOWS_SKIP
 def test_this_boot_has_an_identity_that_is_a_uuid() -> None:
     identity = boot_id()
 

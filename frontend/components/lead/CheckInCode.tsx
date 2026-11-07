@@ -36,10 +36,10 @@ export function CheckInCode({ serviceId }: { serviceId: string }) {
 
   return (
     <section className={styles.card} aria-labelledby={titleId} data-el="LEAD-CHECKIN">
-      <h2 id={titleId} className={styles.heading}>
+      <h2 id={titleId} className={styles.heading} data-noprint>
         Check-in code to print
       </h2>
-      <p className={styles.note}>
+      <p className={styles.note} data-noprint>
         Pin this up where the duty manager works. They scan it, get a code by text on their registered number, and go on or off shift. Making a new
         code stops the one already printed.
       </p>
@@ -61,11 +61,11 @@ export function CheckInCode({ serviceId }: { serviceId: string }) {
         </div>
       ) : null}
       {state.kind === 'failed' ? (
-        <p role="alert" className={styles.failed}>
+        <p role="alert" className={styles.failed} data-noprint>
           The code could not be made. Try again.
         </p>
       ) : null}
-      <div className={styles.actions}>
+      <div className={styles.actions} data-noprint>
         <Button variant={state.kind === 'made' ? 'secondary' : 'primary'} busy={busy} onClick={() => void make()} dataEl="LEAD-CHECKIN-MAKE-BTN">
           {state.kind === 'made' ? 'Make a new code' : 'Make a check-in code'}
         </Button>

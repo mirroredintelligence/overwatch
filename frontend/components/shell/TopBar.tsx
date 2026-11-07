@@ -24,7 +24,7 @@ export function TopBar({ title, organisation, breadcrumb, role, roles, roleWords
   const switchable = role !== undefined && roles !== undefined && roles.length > 1 && roles.includes(role);
   const crumbs = breadcrumb ?? [];
   return (
-    <header className={styles.top} data-el="APP-HEADER">
+    <header className={styles.top} data-noprint data-el="APP-HEADER">
       <div className={styles.heading}>
         {organisation || crumbs.length > 0 ? (
           <div className={styles.small}>

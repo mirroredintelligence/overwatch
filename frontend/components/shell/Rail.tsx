@@ -89,7 +89,7 @@ export function Rail({ items, navLabel, homeHref }: { items: readonly FrameItem[
 
   if (!narrow || items.length === 0) {
     return (
-      <div className={styles.rail} data-el="RAIL" data-layout={narrow ? 'bar' : 'rail'}>
+      <div className={styles.rail} data-noprint data-el="RAIL" data-layout={narrow ? 'bar' : 'rail'}>
         {mark}
         {items.length > 0 ? (
           <nav className={styles.nav} aria-label={navLabel}>
@@ -113,7 +113,7 @@ export function Rail({ items, navLabel, homeHref }: { items: readonly FrameItem[
   const direct = entries.length <= 5 ? entries : entries.slice(0, BAR_DIRECT);
   const rest = entries.length <= 5 ? [] : entries.slice(BAR_DIRECT);
   return (
-    <div className={styles.rail} data-el="RAIL" data-layout="bar">
+    <div className={styles.rail} data-noprint data-el="RAIL" data-layout="bar">
       {mark}
       <nav className={styles.nav} aria-label={navLabel}>
         <ul className={styles.list}>

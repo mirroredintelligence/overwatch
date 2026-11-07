@@ -1,6 +1,6 @@
 # The web tier: Next.js on port 3000. The app reads its secrets from Key Vault at run time
 # (OVERWATCH_KEY_VAULT_URL, AZURE_CLIENT_ID), so no secret is baked into the image.
-FROM node:22-slim AS build
+FROM node:25-slim AS build
 RUN corepack enable
 WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
@@ -11,7 +11,7 @@ RUN find . -path ./node_modules -prune -o \( -name "*.test.ts" -o -name "*.test.
     && rm -rf test e2e playwright.config.ts
 RUN pnpm build
 
-FROM node:22-slim
+FROM node:25-slim
 ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0
 RUN corepack enable
 WORKDIR /app

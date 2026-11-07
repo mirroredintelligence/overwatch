@@ -68,10 +68,12 @@ PROBE_TREE: dict[str, str] = {
     "overwatch_probe/adapters/inbound/fhir_rest/app.py": (
         "import overwatch_probe.adapters.inbound.sms_webhook.routes\n"
         "import overwatch_probe.adapters.inbound.link_pages.capacity_links\n"
+        "import overwatch_probe.adapters.inbound.link_pages.checkin_links\n"
     ),
     # L01: the link pages, mounted on the same app by the same named ignore.
     "overwatch_probe/adapters/inbound/link_pages/__init__.py": "",
     "overwatch_probe/adapters/inbound/link_pages/capacity_links.py": "",
+    "overwatch_probe/adapters/inbound/link_pages/checkin_links.py": "",
     "overwatch_probe/adapters/inbound/sms_webhook/__init__.py": "",
     "overwatch_probe/adapters/inbound/sms_webhook/routes.py": (
         "import overwatch_probe.adapters.outbound.sms_twilio.twilio_sms\n"

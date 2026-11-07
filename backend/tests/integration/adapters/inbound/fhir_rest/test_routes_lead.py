@@ -24,6 +24,7 @@ from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
 from overwatch.adapters.testing.memory_cache import InMemoryCache
 from overwatch.adapters.testing.tokens import TEST_BFF_SECRET
 from overwatch.application.ports.outbound.identity import PHONE_HASH_SECRET
+from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET
 from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from overwatch.bootstrap.container import Container, build_for_tests
 from overwatch.domain.codes import Channel, Measure, PractitionerRoleCode, Role, ServiceCategory
@@ -103,7 +104,9 @@ async def test_container(
         yield build_for_tests(
             clock=FixedClock(R01_TEST_NOW),
             neo4j=connection,
-            secrets=FixedSecretStore({PHONE_HASH_SECRET: PHONE_SECRET}),
+            secrets=FixedSecretStore(
+                {PHONE_HASH_SECRET: PHONE_SECRET, LINK_TOKEN_SECRET: b"k" * 40}
+            ),
         )
     finally:
         await connection.close()
@@ -380,3 +383,49 @@ async def test_a_service_of_another_tenant_has_no_roster_for_this_lead(
 ) -> None:
     status = await _add_manager(api_client, tenant_id, SERVICE_B, "Ana Duty", NUMBER, "ros-5")
     assert status == 404
+
+
+CHECKIN_CODE = "/lead/services/{service}/checkin-code"
+
+
+async def test_a_lead_makes_a_check_in_code_and_gets_the_page_address_and_a_qr_matrix(
+    api_client: AsyncClient, lead_world: None, tenant_id: str
+) -> None:
+    response = await api_client.post(
+        CHECKIN_CODE.format(service=SERVICE_A), json={}, headers=token_headers(tenant_id, Role.LEAD)
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["service"]
+    assert "/c/" in body["url"] and body["url"].startswith("https://")
+    assert "/l/c/" not in body["url"]
+    assert body["size"] == len(body["rows"]) >= 21
+    assert all(len(row) == body["size"] and set(row) <= {"0", "1"} for row in body["rows"])
+    assert response.headers["cache-control"] == "no-store"
+
+
+async def test_a_new_check_in_code_has_a_different_address(
+    api_client: AsyncClient, lead_world: None, tenant_id: str
+) -> None:
+    headers = token_headers(tenant_id, Role.LEAD)
+    first = await api_client.post(CHECKIN_CODE.format(service=SERVICE_A), json={}, headers=headers)
+    second = await api_client.post(CHECKIN_CODE.format(service=SERVICE_A), json={}, headers=headers)
+
+    assert first.json()["url"] != second.json()["url"]
+
+
+async def test_only_a_shift_lead_makes_a_check_in_code_and_only_for_its_own_service(
+    api_client: AsyncClient, lead_world: None, tenant_id: str
+) -> None:
+    advisor = await api_client.post(
+        CHECKIN_CODE.format(service=SERVICE_A),
+        json={},
+        headers=token_headers(tenant_id, Role.ADVISOR),
+    )
+    other = await api_client.post(
+        CHECKIN_CODE.format(service=SERVICE_B), json={}, headers=token_headers(tenant_id, Role.LEAD)
+    )
+
+    assert advisor.status_code == 404
+    assert other.status_code == 404

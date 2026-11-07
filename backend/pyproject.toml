@@ -28,6 +28,7 @@ dependencies = [
     "pywebpush>=2.5.0",
     "rdflib>=7.6.0",
     "redis>=8.1.0",
+    "segno>=1.6.6",
     "tzdata>=2026.5",
     "uvicorn>=0.34",
 ]

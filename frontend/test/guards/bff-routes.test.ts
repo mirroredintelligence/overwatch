@@ -24,6 +24,9 @@ import { TENANTS } from '@/test/tenants';
 //   link     the link pages' routes (no session): an id that exists only in tenant A, asked on tenant B's
 //            host, is answered exactly as an id that exists nowhere (never a 403, never data), and a
 //            staff session in the browser changes nothing.
+//   checkin  the check-in page's routes (no session, DEC-1346): checked by their own tests
+//            (app/api/bff/checkin/[token]/checkin.route.test.ts): the host is the tenant, a write needs the
+//            code's CSRF pair, and no answer repeats a number or a code.
 //   sign-in  the staff sign-in: its answers are never stored.
 //   beacon   the telemetry ingest: no session is a 401, never stored.
 //   pairing  the wall screen's pairing routes (no person: a screen's secret).
@@ -43,7 +46,7 @@ vi.mock('next/headers', async () => {
   return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
-type Kind = 'session' | 'operator' | 'operator-sign-in' | 'link' | 'sign-in' | 'beacon' | 'pairing' | 'pre-session';
+type Kind = 'session' | 'operator' | 'operator-sign-in' | 'link' | 'checkin' | 'sign-in' | 'beacon' | 'pairing' | 'pre-session';
 
 /** The routes that are not `withBff` routes, and what each is. */
 const NAMED: Record<string, Kind> = {
@@ -52,6 +55,9 @@ const NAMED: Record<string, Kind> = {
   'app/api/bff/platform/auth/callback/route.ts': 'operator-sign-in',
   'app/api/bff/links/[token]/route.ts': 'link',
   'app/api/bff/links/[token]/renew/route.ts': 'link',
+  'app/api/bff/checkin/[token]/route.ts': 'checkin',
+  'app/api/bff/checkin/[token]/code/route.ts': 'checkin',
+  'app/api/bff/checkin/[token]/confirm/route.ts': 'checkin',
   'app/api/bff/auth/entra/start/route.ts': 'sign-in',
   'app/api/bff/auth/entra/callback/route.ts': 'sign-in',
   'app/api/bff/screens/pairing/route.ts': 'pairing',

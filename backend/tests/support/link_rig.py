@@ -26,6 +26,7 @@ from overwatch.adapters.testing.fixed_ids import SequentialIds
 from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
 from overwatch.adapters.testing.memory_cache import InMemoryCache
 from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.identity import PHONE_HASH_SECRET
 from overwatch.application.ports.outbound.outbox import OutboxMessage
 from overwatch.application.ports.outbound.tokens import (
     LINK_TOKEN_SECRET,
@@ -91,7 +92,13 @@ SEALED_TOKEN = re.compile(rf"{re.escape(LINK_BASE)}/([A-Za-z]+)")
 
 
 def new_secrets() -> FixedSecretStore:
-    return FixedSecretStore({LINK_TOKEN_SECRET: SECRET, LINK_CSRF_SECRET: CSRF_SECRET})
+    return FixedSecretStore(
+        {
+            LINK_TOKEN_SECRET: SECRET,
+            LINK_CSRF_SECRET: CSRF_SECRET,
+            PHONE_HASH_SECRET: b"phone-hash-test-secret-0123456789ab",
+        }
+    )
 
 
 def ucr_west(service_id: str = SERVICE_ID, **changes: Any) -> ServiceProfile:

@@ -243,7 +243,15 @@ class CheckIn:
         self._clock = clock
         self._ids = ids
 
-    async def execute(self, phone_hash: str, hours: int | None, actor: Actor) -> list[ShiftChange]:
+    async def execute(
+        self,
+        phone_hash: str,
+        hours: int | None,
+        actor: Actor,
+        service_id: str | None = None,
+    ) -> list[ShiftChange]:
+        """`service_id` limits the check-in to one service (the QR code of a service); none means
+        every service the person is on the roster of (the text ON)."""
         length = check_hours(hours)
         now = self._clock.now()
         end = now + timedelta(hours=length)
@@ -251,7 +259,9 @@ class CheckIn:
         async with self._uow_factory() as uow:
             mine = await uow.people.roster_roles_for_phone_hash(phone_hash)
             for role in mine:
-                if role.service_id is None:
+                if role.service_id is None or (
+                    service_id is not None and role.service_id != service_id
+                ):
                     continue
                 profile = await uow.services.get(role.service_id)
                 if profile is None or not profile.active:
@@ -286,12 +296,16 @@ class SignOff:
         self._uow_factory = uow_factory
         self._clock = clock
 
-    async def execute(self, phone_hash: str, actor: Actor) -> list[ShiftChange]:
+    async def execute(
+        self, phone_hash: str, actor: Actor, service_id: str | None = None
+    ) -> list[ShiftChange]:
         now = self._clock.now()
         changes: list[ShiftChange] = []
         async with self._uow_factory() as uow:
             for role in await uow.people.roster_roles_for_phone_hash(phone_hash):
                 if role.service_id is None or roster_state(role, now) is not RosterState.ON_SHIFT:
+                    continue
+                if service_id is not None and role.service_id != service_id:
                     continue
                 profile = await uow.services.get(role.service_id)
                 await _off_shift(uow, role, now)

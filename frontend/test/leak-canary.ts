@@ -33,8 +33,8 @@ const BACKEND_ORIGINS: ReadonlySet<string> = new Set(['http://backend.test']);
 const HEADER_NAME = /^(x-)?(tenant|scope|network|source-tenant)/i;
 // Calls that have no token by design: the token exchanges, the public profile, the link pages and a
 // wall screen's pairing (the screen has no session yet; its secret is a header).
-const TOKENLESS_PATH = /^\/(auth|public|links)(\/|$)|^\/screens\/pairing(\/|$)/;
-const LINK_PATH = /^\/links(\/|$)/;
+const TOKENLESS_PATH = /^\/(auth|public|links|checkin)(\/|$)|^\/screens\/pairing(\/|$)/;
+const LINK_PATH = /^\/(links|checkin)(\/|$)/;
 // The identity routes a phone calls before it has a session. The back end reads the tenant from the
 // Host the request was addressed to and takes no token; `push-subscription` and `sign-out-everywhere`
 // are not here because they carry the signed-in person's token like every other route.

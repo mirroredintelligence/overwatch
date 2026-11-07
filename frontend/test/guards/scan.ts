@@ -132,6 +132,7 @@ export const FETCH_ALLOWLIST: Record<string, string> = {
   'lib/board/useBoardFeed.ts': 'the browser refreshes the board from its own BFF route',
   'lib/telemetry/events.ts': 'the browser sends interface events to its own BFF telemetry route',
   'lib/links/browser.ts': 'the link page calls its own BFF link routes',
+  'lib/checkin/browser.ts': 'the check-in page calls its own BFF check-in routes',
   'lib/session/signOut.ts': 'sign-out calls the BFF session route',
   'lib/bff/client.ts': 'the browser helper for the BFF JSON routes (the CSRF token from the BFF session route; its callers pass /api/bff paths)',
   'lib/lead/browser.ts': 'the shift lead pages\' browser helper: its callers pass /api/bff/lead paths',

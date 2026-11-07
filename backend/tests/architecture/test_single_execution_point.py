@@ -64,6 +64,9 @@ BINDING_MODULES: frozenset[str] = frozenset(
         # verified directory and role mappings, as the outbox relay does; it writes nothing else.
         "overwatch.application.use_cases.staff_registry",
         "overwatch.adapters.inbound.link_pages.capacity_links",
+        # DEC-1346: the check-in page of a service's printed QR code binds the tenant its host
+        # belongs to, as the capacity link pages do, and nothing a request sends.
+        "overwatch.adapters.inbound.link_pages.checkin_links",
         "overwatch.adapters.inbound.sms_webhook.routes",
         "overwatch.adapters.inbound.workers.outbox_relay",
         "overwatch.adapters.inbound.workers.tenant_binding",

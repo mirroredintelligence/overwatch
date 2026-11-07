@@ -22,6 +22,14 @@ export function resetLeadPosts() {
 
 const NO_STORE = { 'Cache-Control': 'no-store' };
 
+/** The check-in code the lead's stand-in makes: a service, its page address and a 21 by 21 matrix. */
+export const CHECKIN_CODE = {
+  service: 'UCR West',
+  url: 'https://tenant-a.example.test/c/Qk3xTestCodeNotARealOne',
+  size: 21,
+  rows: Array.from({ length: 21 }, (_, y) => Array.from({ length: 21 }, (_cell, x) => ((x + y) % 2 === 0 ? '1' : '0')).join('')),
+};
+
 /** The back end's origin: the admin and identity routes sit beside the /fhir base (DEC-087). */
 export const BACKEND_ROOT = 'http://backend.test';
 
@@ -148,6 +156,11 @@ export const leadHandlers = [
   http.post('/api/bff/lead/services/:id/roster', async ({ request, params }) => {
     await recorded(request, `/api/bff/lead/services/${String(params.id)}/roster`);
     return HttpResponse.json({ roleId: 'role-new' }, { status: 201, headers: NO_STORE });
+  }),
+  // The printed check-in code of a service (DEC-1346): a 21 by 21 matrix of alternating cells, and its page address.
+  http.post('/api/bff/lead/services/:id/checkin-code', async ({ request, params }) => {
+    await recorded(request, `/api/bff/lead/services/${String(params.id)}/checkin-code`);
+    return HttpResponse.json(CHECKIN_CODE, { headers: NO_STORE });
   }),
   http.post('/api/bff/lead/roster/:id/remove', async ({ request, params }) => {
     await recorded(request, `/api/bff/lead/roster/${String(params.id)}/remove`);

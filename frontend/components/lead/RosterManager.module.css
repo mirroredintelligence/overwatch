@@ -137,3 +137,11 @@
   margin: 0;
   font-size: var(--type-body-size);
 }
+
+@media print {
+  .lead,
+  .card,
+  .back {
+    display: none;
+  }
+}

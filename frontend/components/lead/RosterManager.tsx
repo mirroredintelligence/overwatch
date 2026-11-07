@@ -8,6 +8,7 @@ import { isUkMobile } from '@/lib/forms/ukMobile';
 import { leadPost, leadRead } from '@/lib/lead/browser';
 import { clockTime } from '@/lib/lead/format';
 import { parseRoster, type Roster, shiftWords } from '@/lib/lead/roster';
+import { CheckInCode } from './CheckInCode';
 import styles from './RosterManager.module.css';
 
 // The duty roster of one service (DEC-1341): who is pre-registered to report for it, who is on shift now, and a way to
@@ -204,6 +205,8 @@ export function RosterManager({ serviceId }: { serviceId: string }) {
           </p>
         )}
       </section>
+
+      <CheckInCode serviceId={serviceId} />
 
       <p className={styles.back}>
         <a href="/lead">Back to the overview</a>

@@ -30,6 +30,8 @@ def _record(msg: str, *args: object) -> logging.LogRecord:
         ),
         ("/invitations/", "/invitations/"),
         (f"/links/{TOKEN}", "/links/[token]"),
+        (f"/checkin/{TOKEN}", "/checkin/[token]"),
+        (f"/checkin/{TOKEN}/confirm", "/checkin/[token]/confirm"),
         ("/identity/code", "/identity/code"),
     ],
 )

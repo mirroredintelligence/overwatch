@@ -100,6 +100,7 @@ ignore_imports =
     overwatch.adapters.outbound.graph_store.unit_of_work -> overwatch.adapters.outbound.audit_neo4j.outbox
     overwatch.adapters.inbound.fhir_rest.app -> overwatch.adapters.inbound.sms_webhook.routes
     overwatch.adapters.inbound.fhir_rest.app -> overwatch.adapters.inbound.link_pages.capacity_links
+    overwatch.adapters.inbound.fhir_rest.app -> overwatch.adapters.inbound.link_pages.checkin_links
     overwatch.adapters.inbound.sms_webhook.routes -> overwatch.adapters.outbound.sms_twilio.twilio_sms
     overwatch.adapters.inbound.scheduler.scheduled_work_consumer -> overwatch.adapters.inbound.workers.consumer
     overwatch.adapters.inbound.scheduler.scheduled_work_consumer -> overwatch.adapters.inbound.workers.tenant_binding

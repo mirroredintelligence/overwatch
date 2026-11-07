@@ -234,9 +234,11 @@ def create_app(
 
     # The one-tap capacity link pages (L01). Another inbound adapter, wired in the same way; the
     # named ignore in .importlinter lets this one module do it.
-    from overwatch.adapters.inbound.link_pages import capacity_links
+    from overwatch.adapters.inbound.link_pages import capacity_links, checkin_links
 
     app.include_router(capacity_links.router)
+    # The check-in page of a service's printed QR code (DEC-1346): the same kind of open page.
+    app.include_router(checkin_links.router)
 
     # The synthetic test hook (O09, TEN-G04): refuses everything unless it is configured and the
     # bearer is its token. Mounted always, so an unconfigured server answers the same 404.

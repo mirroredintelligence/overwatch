@@ -20,6 +20,9 @@ GET  /lead/services/{id}/roster         the duty roster: name, last four digits,
 POST /lead/services/{id}/roster        Idempotency-Key; {"name", "mobile"}; add a duty manager;
                                        201 {roleId}
 DELETE /lead/roster/{roleId}           take a duty manager off the roster for good
+POST /lead/services/{id}/checkin-code  make the printed check-in code (the old one stops working);
+                                       200 {url, size, rows}: the page address and the QR matrix
+                                       (DEC-1346)
 POST /lead/invitations/{id}/resend     Idempotency-Key; the invitation text again (U24)
 POST /lead/invitations/{id}/switch-to-text   Idempotency-Key; 200 {channel: "text"}
 
@@ -31,6 +34,7 @@ body or the query for it.
 import json
 from typing import Annotated, Any, Final, Protocol, cast
 
+import segno
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response
 
@@ -48,8 +52,8 @@ from overwatch.application.ports.outbound.sealing import ContentSealer
 from overwatch.application.ports.outbound.tenants import TenantDirectory
 from overwatch.application.ports.outbound.tokens import LinkTokenService, SecretStore
 from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from overwatch.application.tenancy import ScopeId
-from overwatch.application.tenant_settings import DirectoryZones, resolve_link_base
+from overwatch.application.tenancy import ScopeId, current_scope
+from overwatch.application.tenant_settings import LINK_PATH, DirectoryZones, resolve_link_base
 from overwatch.application.uow_idempotency import UnitOfWorkIdempotency
 from overwatch.application.use_cases.advisor_phoned import (
     PHONED_ANSWERS,
@@ -83,6 +87,7 @@ from overwatch.application.use_cases.lead_views import (
 )
 from overwatch.application.use_cases.missed_report_ladder import MissedReportLadder
 from overwatch.application.use_cases.report_capacity import ReportCapacity
+from overwatch.application.use_cases.service_checkin import IssueServiceCheckIn
 from overwatch.domain.codes import Channel, Role, Status
 from overwatch.domain.errors import ValidationFailed
 
@@ -349,6 +354,7 @@ async def ask_for_capacity(
     return await replay_or_run(request, actor, f"lead-ask:{service_id}:{key}", run)
 
 
+CHECKIN_PAGE_PATH: Final = "/c"
 _ROSTER_KEYS: Final = frozenset({"name", "mobile"})
 
 
@@ -413,6 +419,32 @@ async def remove_roster_manager(
     container = _container(request)
     await RemoveRosterManager(container.uow_factory, container.clock).execute(actor, role_id)
     return _answer({"removed": True})
+
+
+@router.post("/services/{service_id}/checkin-code")
+async def make_checkin_code(
+    service_id: str, request: Request, actor: Annotated[Actor, Depends(require_role(*LEAD))]
+) -> Response:
+    """Make the code a service prints and pins up (DEC-1346): the page address on the tenant's own
+    host and the QR matrix for it, one string of 0 and 1 per row. The code stops any earlier one
+    for the service. The token is in the address only, and only in this answer."""
+    container = _container(request)
+    token = await IssueServiceCheckIn(
+        container.uow_factory, container.clock, container.secrets
+    ).execute(actor, service_id)
+    async with container.uow_factory() as uow:
+        profile = await uow.services.get(service_id)
+    base = await resolve_link_base(container.link_base_url_for, current_scope())
+    url = f"{base.removesuffix(LINK_PATH)}{CHECKIN_PAGE_PATH}/{token}"
+    matrix = segno.make(url, error="m", boost_error=False).matrix
+    return _answer(
+        {
+            "service": None if profile is None else profile.name,
+            "url": url,
+            "size": len(matrix),
+            "rows": ["".join("1" if cell else "0" for cell in row) for row in matrix],
+        }
+    )
 
 
 @router.post("/services/{service_id}/remind")

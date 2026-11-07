@@ -562,6 +562,9 @@ BINDS_ITSELF = {
     ("GET", "/links/{token}"): "tenant from the link token record (L01)",
     ("POST", "/links/{token}"): "tenant from the link token record (L01)",
     ("POST", "/links/{token}/renew"): "tenant from the link token record (L01)",
+    ("GET", "/checkin/{token}"): "tenant from the host the code was scanned on (DEC-1346)",
+    ("POST", "/checkin/{token}/code"): "tenant from the host the code was scanned on (DEC-1346)",
+    ("POST", "/checkin/{token}/confirm"): "tenant from the host the code was scanned on (DEC-1346)",
     ("POST", "/test/synthetic/prompt"): "the synthetic hook's own configured tenant (O09)",
     (
         "POST",

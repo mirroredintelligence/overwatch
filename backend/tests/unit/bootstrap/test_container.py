@@ -606,6 +606,8 @@ async def test_build_for_tests_exposes_the_dispatcher_with_the_ladder_and_bookin
             WorkKind.ALERT_ESCALATE,
             WorkKind.NOT_UPDATED_CHECK,
             WorkKind.VISIT_CLOSE,
+            WorkKind.SHIFT_ENDING,
+            WorkKind.SHIFT_ENDED,
         }
     )
 
@@ -627,6 +629,8 @@ async def test_build_exposes_the_same_dispatch_table() -> None:
                 WorkKind.ALERT_ESCALATE,
                 WorkKind.NOT_UPDATED_CHECK,
                 WorkKind.VISIT_CLOSE,
+                WorkKind.SHIFT_ENDING,
+                WorkKind.SHIFT_ENDED,
             }
         )
     finally:

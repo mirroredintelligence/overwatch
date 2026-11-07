@@ -505,6 +505,7 @@ class InvitationView:
     invited_at: datetime
     last_seen: datetime
     first_report_at: datetime | None
+    invitee_name: str | None = None
 
 
 class ListInvitations:
@@ -545,6 +546,10 @@ class ListInvitations:
             "pinSet": pin_set,
             "firstReport": report is not None,
         }
+        practitioner = await uow.people.get_practitioner(person)
+        name = None if practitioner is None else " ".join(practitioner.display_name.split())
+        if not name or name.casefold() == invitation.role_label.strip().casefold():
+            name = None
         return InvitationView(
             invitation_id=invitation.id,
             service_id=invitation.service_id,
@@ -554,4 +559,5 @@ class ListInvitations:
             invited_at=invitation.created_at,
             last_seen=max(seen),
             first_report_at=None if report is None else report.effective_at,
+            invitee_name=name,
         )

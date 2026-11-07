@@ -10,6 +10,7 @@ the 404 of a record that is not there. Each assertion reads through a fresh requ
 Sample values only: no patient data, no real number.
 """
 
+import json
 from collections.abc import AsyncIterator
 from datetime import date, time
 
@@ -284,7 +285,8 @@ async def test_an_invited_reporter_saves_a_part_filled_step_and_a_24_hour_locati
         "/fhir/Task/$invite-reporter",
         json=_parts(
             service={"valueString": service_id},
-            role={"valueString": "Duty manager"},
+            role={"valueString": "Service lead"},
+            name={"valueString": "Dee Lead"},
             mobile={"valueString": MOBILE},
             suggestedChannel={"valueCode": "text"},
         ),
@@ -341,6 +343,9 @@ async def test_an_invited_reporter_saves_a_part_filled_step_and_a_24_hour_locati
     items = (await api_client.get("/lead/invitations", headers=lead)).json()["items"]
     assert [item["id"] for item in items] == [parts["invitationId"]["valueString"]]
     assert items[0]["steps"]["channelChosen"] is False
+    assert items[0]["role"] == "Service lead"
+    assert items[0]["inviteeName"] == "Dee Lead"
+    assert MOBILE.replace(" ", "")[-8:] not in json.dumps(items)
     assert (
         MOBILE.replace(" ", "")[-8:]
         not in (await api_client.get(RECORD_PATH(registration_id), headers=applicant)).text

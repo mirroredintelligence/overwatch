@@ -120,6 +120,27 @@ describe('GET /api/bff/lead/invitations', () => {
     expect(body.items).toHaveLength(1);
     expect(body.items[0]).toMatchObject({ id: 'inv-1', serviceId: 's-ucr-east', serviceName: 'UCR East', role: 'Duty manager' });
     expect(JSON.stringify(body)).not.toMatch(/07700/);
+    expect(body.items[0].inviteeName).toBeNull();
+  });
+
+  it('passes the name of the invited person on, and refuses a name that is not text', async () => {
+    const row = {
+      id: 'inv-1',
+      serviceId: 's-ucr-east',
+      serviceName: 'UCR East',
+      role: 'Service lead',
+      steps: { invited: true, numberChecked: false, channelChosen: false, installed: false, notificationsOn: false, pinSet: false, firstReport: false },
+      invitedAt: '2026-10-30T09:00:00Z',
+      lastSeen: '2026-10-30T09:21:00Z',
+      firstReportAt: null,
+    };
+    const answer = (inviteeName: unknown) =>
+      server.use(http.get(`${BACKEND_BASE.replace(/\/fhir$/, '')}/lead/invitations`, () => HttpResponse.json({ items: [{ ...row, inviteeName }] })));
+    answer('Dee Lead');
+    const named = await GET(await leadRequest(URL_, 'lead'));
+    expect((await named.json()).items[0].inviteeName).toBe('Dee Lead');
+    answer(42);
+    expect((await GET(await leadRequest(URL_, 'lead'))).status).toBe(500);
   });
 
   it('answers 503 when the list cannot be read, and never an empty list', async () => {

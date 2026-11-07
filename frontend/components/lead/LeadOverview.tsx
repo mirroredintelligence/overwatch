@@ -409,10 +409,13 @@ export function LeadOverview({ disclosures = [] }: { disclosures?: readonly Lead
                     <div className={styles.setup}>
                       <div className={styles.setupText}>
                         <p className={styles.setupTitle}>Set up another service</p>
-                        <p className={styles.setupLine}>Add a service that reports for itself.</p>
+                        <p className={styles.setupLine}>Add a service that reports for itself, or invite its lead to set it up.</p>
                       </div>
                       <Button variant="secondary" href="/lead/services/new" dataEl="LEAD-ADD-SERVICE-LINK">
                         Add a service
+                      </Button>
+                      <Button variant="secondary" href="/lead/services/invite" dataEl="LEAD-INVITE-SERVICE-LINK">
+                        Invite a service
                       </Button>
                     </div>
                   ) : null}

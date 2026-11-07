@@ -1,0 +1,97 @@
+/* Invite a service (DEC-1341): one card, one form. Tokens from app/tokens.css. */
+
+.page {
+  font-family: var(--font-atkinson), system-ui, sans-serif;
+}
+
+.lede {
+  margin: 0;
+  max-width: 44em;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  color: var(--c-ink-2);
+}
+
+.card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 44em;
+  margin: var(--space-4) 0;
+  padding: 20px 22px;
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+  color: var(--c-ink);
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--type-title-size);
+  font-weight: var(--type-title-weight);
+}
+
+.body {
+  margin: 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  color: var(--c-ink-2);
+}
+
+.form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.field,
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.label {
+  font-weight: 700;
+}
+
+.input {
+  min-height: 48px;
+  padding: 0 12px;
+  border: 2px solid var(--c-ink);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--c-ink);
+  font: inherit;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 2px solid var(--c-ink);
+  border-radius: 999px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.error {
+  margin: 0;
+  font-weight: 700;
+  color: var(--c-ink);
+}

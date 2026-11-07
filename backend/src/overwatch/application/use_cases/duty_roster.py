@@ -25,11 +25,14 @@ from typing import Final
 from overwatch.application.actor import Actor
 from overwatch.application.ports.outbound.audit import AuditEntry
 from overwatch.application.ports.outbound.clock import Clock
-from overwatch.application.ports.outbound.identity import PhoneHasher, normalise_uk_mobile
+from overwatch.application.ports.outbound.identity import (
+    PhoneHasher,
+    international,
+    normalise_uk_mobile,
+)
 from overwatch.application.ports.outbound.ids import IdGenerator
 from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
 from overwatch.application.use_cases.lead_views import check_lead, ending
-from overwatch.application.use_cases.setup_service_by_lead import international
 from overwatch.application.use_cases.shift_notices import (
     cancel_shift_notices,
     schedule_shift_notices,
@@ -94,6 +97,37 @@ def _lead_id(actor: Actor) -> str:
     return actor.practitioner_id
 
 
+async def put_on_roster(
+    uow: UnitOfWork,
+    ids: IdGenerator,
+    *,
+    service_id: str,
+    practitioner_id: str,
+    national: str,
+    now: datetime,
+) -> PractitionerRole | None:
+    """Put a practitioner on a service's roster, off shift, with the number (eleven national
+    digits) in the protected contact store. None when they are already on that roster: the roster
+    keeps one place per person, and the caller decides whether that is an error (the shift lead
+    adding a person) or fine (a service set up with its reporter, DEC-1347). The caller holds the
+    unit of work and commits."""
+    roster = await uow.people.roster_for_service(service_id)
+    if any(role.practitioner_id == practitioner_id for role in roster):
+        return None
+    role = PractitionerRole(
+        id=ids.new_id(),
+        practitioner_id=practitioner_id,
+        service_id=service_id,
+        code=ROSTER_CODE,
+        active=False,
+        channel=Channel.TEXT,
+        period_start=now,
+    )
+    await uow.people.save_role(role)
+    await uow.contacts.put_phone(role.id, international(national))
+    return role
+
+
 class AddRosterManager:
     def __init__(
         self,
@@ -122,21 +156,16 @@ class AddRosterManager:
                     id=self._ids.new_id(), active=True, display_name=name, phone_hash=phone_hash
                 )
                 await uow.people.save_practitioner(practitioner)
-            else:
-                roster = await uow.people.roster_for_service(command.service_id)
-                if any(role.practitioner_id == practitioner.id for role in roster):
-                    raise Conflict("this person is already on the roster of this service")
-            role = PractitionerRole(
-                id=self._ids.new_id(),
-                practitioner_id=practitioner.id,
+            role = await put_on_roster(
+                uow,
+                self._ids,
                 service_id=command.service_id,
-                code=ROSTER_CODE,
-                active=False,
-                channel=Channel.TEXT,
-                period_start=now,
+                practitioner_id=practitioner.id,
+                national=national,
+                now=now,
             )
-            await uow.people.save_role(role)
-            await uow.contacts.put_phone(role.id, international(national))
+            if role is None:
+                raise Conflict("this person is already on the roster of this service")
             await uow.audit.append(
                 AuditEntry(
                     action=ADD_ACTION,

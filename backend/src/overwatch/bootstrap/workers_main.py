@@ -391,6 +391,7 @@ async def serve(
             sealer=booking_sealer,
             check_in=CheckIn(container.uow_factory, container.clock, container.ids),
             sign_off=SignOff(container.uow_factory, container.clock),
+            zones=DirectoryZones(container.tenants),
         )
         senders = TenantSenderResolver(
             container.tenants,

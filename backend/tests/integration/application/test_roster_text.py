@@ -46,6 +46,7 @@ from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.integration.application.conftest import Seed
 from tests.support.actors import ACTOR_TENANT
 from tests.support.sealing import TEST_SEALER, text_of
+from tests.support.zones import FixedZones
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -86,7 +87,9 @@ def _hash(mobile: str) -> str:
 
 
 class Rig:
-    def __init__(self, factory: UnitOfWorkFactory, driver: AsyncDriver) -> None:
+    def __init__(
+        self, factory: UnitOfWorkFactory, driver: AsyncDriver, zones: FixedZones | None = None
+    ) -> None:
         self.factory = factory
         self.clock = FixedClock(NOW)
         ids = SequentialIds("rt")
@@ -104,6 +107,7 @@ class Rig:
             sealer=TEST_SEALER,
             check_in=CheckIn(factory, self.clock, ids),
             sign_off=SignOff(factory, self.clock),
+            zones=zones,
         )
         self._count = 0
 
@@ -261,3 +265,22 @@ async def test_the_reply_is_sealed_and_the_text_holds_no_number(rig: Rig) -> Non
         "sealed_content",
     }
     assert message.payload["message_id"] == "S1"
+
+
+async def test_the_reply_to_on_names_the_end_in_the_tenants_zone_not_in_london(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, rig: Rig
+) -> None:
+    """18:00 in London in November is 13:00 in New York. The reply to OFF names no time."""
+    zones = FixedZones()
+    local = Rig(uow_factory, neo4j_driver, zones)
+    await local.person("Ana Duty", ANA)
+
+    await local.say(ANA, "ON")
+    await local.say(ANA, "OFF")
+
+    sent = await local.sent()
+    assert sent[0] == (
+        "Overwatch: you are on shift for UCR West until 13:00. Reply OFF when you finish."
+    )
+    assert "18:00" not in sent[0] and len(sent) == 2
+    assert zones.asked and all(scope.value == ACTOR_TENANT for scope in zones.asked)

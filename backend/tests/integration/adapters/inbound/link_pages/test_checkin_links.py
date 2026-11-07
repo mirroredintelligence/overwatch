@@ -5,14 +5,23 @@ what the route adds: the tenant comes from the host, a write needs the CSRF toke
 "text me a code" is the same for every number, and every failure has one fixed body. They run with
 no tenant bound: the route must bind it. Values are synthetic."""
 
+from datetime import UTC, datetime
+
 import pytest
 from httpx import AsyncClient
 
+from overwatch.adapters.inbound.link_pages import checkin_links
 from overwatch.application.actor import Actor
-from overwatch.application.use_cases.service_checkin import IssueServiceCheckIn
+from overwatch.application.use_cases.duty_roster import ShiftChange
+from overwatch.application.use_cases.service_checkin import (
+    CheckInOutcome,
+    ConfirmServiceCheckIn,
+    IssueServiceCheckIn,
+)
 from overwatch.domain.codes import Role
 from overwatch.domain.model.people import Practitioner
 from tests.support.link_rig import LinkRig
+from tests.support.zones import NEW_YORK
 
 pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.no_tenant]
 
@@ -130,3 +139,36 @@ async def test_a_body_with_a_field_the_page_does_not_take_is_invalid(
     )
 
     assert (response.status_code, response.json()) == (400, {"state": "invalid"})
+
+
+async def test_the_until_of_the_page_is_in_the_tenants_zone_not_in_london(
+    link_client: AsyncClient, links: LinkRig, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The route formats the end in the zone of the tenant it bound from the host. The allow-list
+    holds only London, so the zone made from the tenant's name is replaced by New York here, and
+    the confirmation (tested in test_service_checkin.py) is replaced by one that went on shift."""
+    token = await _code(links)
+    seen: list[object] = []
+
+    def zone_of_tenant(name: object):
+        seen.append(name)
+        return NEW_YORK
+
+    async def on_shift(self, *args, **kwargs) -> CheckInOutcome:
+        end = datetime(2026, 11, 6, 18, 0, tzinfo=UTC)
+        return CheckInOutcome("on-shift", (ShiftChange(links.service_id, "UCR West", end),))
+
+    monkeypatch.setattr(checkin_links, "zone_named", zone_of_tenant)
+    monkeypatch.setattr(ConfirmServiceCheckIn, "execute", on_shift)
+
+    response = await link_client.post(
+        f"/checkin/{token}/confirm",
+        json={"mobile": "07700 900111", "code": "123456", "action": "on"},
+        headers={"X-CSRF-Token": links.csrf(token)},
+    )
+
+    assert (response.status_code, response.json()) == (
+        200,
+        {"state": "on-shift", "service": "UCR West", "until": "13:00"},
+    )
+    assert seen == ["Europe/London"]  # the zone name came from the tenant's record

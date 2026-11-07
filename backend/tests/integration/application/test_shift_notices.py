@@ -34,6 +34,7 @@ from overwatch.domain.model.service import AvailableTime, ServiceProfile
 from tests.integration.application.conftest import Seed
 from tests.support.actors import ACTOR_TENANT
 from tests.support.sealing import TEST_SEALER, text_of
+from tests.support.zones import FixedZones
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -73,7 +74,7 @@ def _hash(mobile: str) -> str:
 
 
 class Rig:
-    def __init__(self, factory: UnitOfWorkFactory) -> None:
+    def __init__(self, factory: UnitOfWorkFactory, zones: FixedZones | None = None) -> None:
         self.factory = factory
         self.clock = FixedClock(NOW)
         ids = SequentialIds("sn")
@@ -81,7 +82,7 @@ class Rig:
         self.check_in = CheckIn(factory, self.clock, ids)
         self.sign_off = SignOff(factory, self.clock)
         self.remove = RemoveRosterManager(factory, self.clock)
-        self.notice = SendShiftNotice(factory, self.clock, SequentialIds("nt"), TEST_SEALER)
+        self.notice = SendShiftNotice(factory, self.clock, SequentialIds("nt"), TEST_SEALER, zones)
 
     async def person(self, name: str, mobile: str, service: str = "ucr-west") -> str:
         result = await self.add.execute(AddRosterManagerCommand(LEAD, service, name, mobile))
@@ -270,3 +271,24 @@ async def test_the_same_job_run_twice_tells_the_person_once(rig: Rig) -> None:
     await rig.run(before)
 
     assert len(await rig.sent()) == 1
+
+
+async def test_both_texts_name_the_end_in_the_tenants_zone_not_in_london(
+    uow_factory: UnitOfWorkFactory, rig: Rig
+) -> None:
+    """18:00 in London in November is 13:00 in New York."""
+    zones = FixedZones()
+    local = Rig(uow_factory, zones)
+    role = await local.person("Ana Duty", ANA)
+    await local.check_in.execute(_hash(ANA), 8, LEAD)
+    before, after = await local.works(role)
+
+    await local.run(before)
+    await local.run(after)
+
+    assert await local.sent() == [
+        "Overwatch: your shift for UCR West ends at 13:00. Reply OFF if you have finished, "
+        "or ON to carry on.",
+        "Overwatch: your shift for UCR West ended at 13:00. Reply ON if you are still on shift.",
+    ]
+    assert zones.asked and all(scope.value == ACTOR_TENANT for scope in zones.asked)

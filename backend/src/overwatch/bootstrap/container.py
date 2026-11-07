@@ -477,7 +477,7 @@ def _scheduled_work(
     # The texts 15 minutes before and after a duty manager's shift ends (DEC-1341).
     handlers.update(
         shift_notice_handlers(
-            SendShiftNotice(uow_factory, clock, ids, AesGcmContentSealer(secrets))
+            SendShiftNotice(uow_factory, clock, ids, AesGcmContentSealer(secrets), zones)
         )
     )
     # The daily criteria review run (U31).

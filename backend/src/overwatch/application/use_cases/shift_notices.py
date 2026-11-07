@@ -21,12 +21,13 @@ from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOf
 from overwatch.application.scheduling import cancel_work, schedule_work
 from overwatch.application.sealed_send import queue_message
 from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound
+from overwatch.application.tenant_settings import TenantZones, as_zones
 from overwatch.application.work import SCHEDULED, ScheduledWork, WorkKind
 from overwatch.domain.codes import Channel, PractitionerRoleCode
 from overwatch.domain.messages.catalogue import MessageId
 from overwatch.domain.messages.templates import render
 from overwatch.domain.model.people import PractitionerRole
-from overwatch.domain.rules.london_time import LONDON, format_hhmm
+from overwatch.domain.rules.london_time import format_hhmm
 
 BEFORE_END: Final = timedelta(minutes=15)
 AFTER_END: Final = timedelta(minutes=15)
@@ -76,12 +77,20 @@ def _scope(uow: UnitOfWork) -> ScopeId:
 
 class SendShiftNotice:
     def __init__(
-        self, uow_factory: UnitOfWorkFactory, clock: Clock, ids: IdGenerator, sealer: ContentSealer
+        self,
+        uow_factory: UnitOfWorkFactory,
+        clock: Clock,
+        ids: IdGenerator,
+        sealer: ContentSealer,
+        zones: TenantZones | None = None,
     ) -> None:
+        """`zones` gives the tenant's time zone for the end named in the text; the serving process
+        passes `DirectoryZones`, and none means Europe/London (the rigs)."""
         self._uow_factory = uow_factory
         self._clock = clock
         self._ids = ids
         self._sealer = sealer
+        self._zones = as_zones(zones)
 
     async def execute(self, work: ScheduledWork) -> None:
         now = self._clock.now()
@@ -124,6 +133,7 @@ class SendShiftNotice:
                 return
             names.sort()  # the same order in every text, whichever job runs first
             first = min(mine, key=lambda item: item.id)
+            zone = await self._zones.zone_of(_scope(uow))
             message = MessageId.S4 if work.kind is WorkKind.SHIFT_ENDING else MessageId.S5
             await queue_message(
                 uow,
@@ -134,7 +144,7 @@ class SendShiftNotice:
                     message,
                     Channel.TEXT,
                     services=_in_words(names),
-                    until=format_hhmm(role.period_end, zone=LONDON),
+                    until=format_hhmm(role.period_end, zone=zone),
                 ),
                 recipient_role_id=first.id,
                 about_id=first.service_id,

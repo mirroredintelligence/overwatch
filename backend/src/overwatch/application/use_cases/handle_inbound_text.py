@@ -42,6 +42,7 @@ from overwatch.application.prompt_judgement import (
     number_after_prompt,
 )
 from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_tenant
+from overwatch.application.tenant_settings import TenantZones, as_zones
 from overwatch.application.use_cases.confirm_capacity import (
     ConfirmCapacityCommand,
     ConfirmCapacityResult,
@@ -497,10 +498,13 @@ class HandleInboundText:
         sealer: ContentSealer | None = None,
         check_in: CheckIn | None = None,
         sign_off: SignOff | None = None,
+        zones: TenantZones | None = None,
     ) -> None:
         """`respond_to_booking` and `set_decline_reason` make a booking reply by text (U22). Without
         them a booking word is answered as before: not handled, no reply. `check_in` and `sign_off`
-        make the roster words ON and OFF work (DEC-1341); without them those words are not read."""
+        make the roster words ON and OFF work (DEC-1341); without them those words are not read.
+        `zones` gives the tenant's time zone for the shift end in the reply to ON; the serving
+        process passes `DirectoryZones`, and none means Europe/London (the rigs)."""
         self._uow_factory = uow_factory
         self._clock = clock
         self._ids = ids
@@ -513,6 +517,7 @@ class HandleInboundText:
         self._sealer = sealer
         self._check_in = check_in
         self._sign_off = sign_off
+        self._zones = as_zones(zones)
 
     async def execute(self, command: HandleInboundTextCommand) -> HandleInboundTextResult:
         received = _instant("received_at", command.received_at)
@@ -611,6 +616,11 @@ class HandleInboundText:
             return None
         if not started:
             return None
+        async with self._uow_factory() as uow:
+            scope = uow.unit_scope
+            if scope is None or scope.kind is not ScopeKind.TENANT:
+                raise TenantNotBound
+            zone = await self._zones.zone_of(scope)
         return await self._record_roster(
             command,
             actor,
@@ -620,7 +630,7 @@ class HandleInboundText:
             MessageId.S1,
             {
                 "services": _names_in_words([change.service_name for change in started]),
-                "until": format_hhmm(started[0].shift_end or now),
+                "until": format_hhmm(started[0].shift_end or now, zone=zone),
             },
             now,
         )

@@ -4,6 +4,7 @@ import { type ReactNode, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { CANNOT_DO, leadPost } from '@/lib/lead/browser';
 import { clockTime } from '@/lib/lead/format';
+import { invitedAs } from '@/lib/lead/invitations';
 import { SETUP_STEPS, STEP_LABEL, stuckAt } from '@/lib/lead/setupProgress';
 import { LeadPhonedDialog } from './LeadPhonedDialog';
 import { reporterStatus } from './ReporterList';
@@ -52,7 +53,7 @@ export function ReporterDetail({ item, now, onBack, onNotice, changeNumber }: Re
         </button>
         <div>
           <h2 className={styles.name}>{item.serviceName}</h2>
-          <p className={styles.sub}>{`${item.role} · invited ${clockTime(item.invitedAt)}`}</p>
+          <p className={styles.sub}>{`${invitedAs(item)} · invited ${clockTime(item.invitedAt)}`}</p>
         </div>
 
         {waiting === null ? (

@@ -22,6 +22,7 @@ export type Invitation = {
   serviceId: string;
   serviceName: string;
   role: string;
+  inviteeName?: string | null;
   steps: SetupSteps;
   invitedAt: string;
   lastSeen: string;
@@ -44,6 +45,7 @@ function invitationsFrom(body: unknown): Invitation[] {
       serviceId: textOf(row.serviceId),
       serviceName: textOf(row.serviceName),
       role: textOf(row.role),
+      inviteeName: typeof row.inviteeName === 'string' && row.inviteeName.trim() ? row.inviteeName : null,
       steps: flags,
       invitedAt: textOf(row.invitedAt),
       lastSeen: textOf(row.lastSeen),

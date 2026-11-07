@@ -319,6 +319,7 @@ async def read_invitations(
                     "serviceId": row.service_id,
                     "serviceName": row.service_name,
                     "role": row.role,
+                    "inviteeName": row.invitee_name,
                     "steps": row.steps,
                     "invitedAt": format_instant(row.invited_at),
                     "lastSeen": format_instant(row.last_seen),

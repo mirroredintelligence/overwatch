@@ -67,6 +67,15 @@ describe('SetupTracker', () => {
     expect(rows[1]).toHaveTextContent('Complete');
   });
 
+  it('names the invited person beside the role, and shows just the role when there is no name', async () => {
+    render(<SetupTracker />);
+    const rows = within(await screen.findByRole('list')).getAllByRole('button');
+    expect(rows[0]).toHaveTextContent('Dee Lead - Service lead');
+    expect(rows[1]).toHaveTextContent('Team lead');
+    expect(rows[1]).not.toHaveTextContent(' - ');
+    expect(document.body.textContent).not.toMatch(/\d{4}/);
+  });
+
   it('shows a shimmer that says it is loading, until the list arrives', async () => {
     render(<SetupTracker />);
     expect(screen.getByText('Loading the set-up progress.').closest('[role="status"]')).toHaveAttribute('aria-busy', 'true');

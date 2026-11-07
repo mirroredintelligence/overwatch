@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { StatusTag, type StatusTagVariant } from '@/components/ui/StatusTag';
+import { invitedAs } from '@/lib/lead/invitations';
 import { SETUP_STEPS, stuckAt } from '@/lib/lead/setupProgress';
 import type { Invitation } from './SetupTracker';
 import styles from './ReporterList.module.css';
@@ -104,7 +105,7 @@ export function ReporterList({ items, now, currentId, onOpen }: ReporterListProp
                   </span>
                   <span className={styles.text}>
                     <span className={styles.name}>{item.serviceName}</span>
-                    <span className={styles.role}>{item.role}</span>
+                    <span className={styles.role}>{invitedAs(item)}</span>
                     {status !== 'complete' && waiting !== null ? <span className={styles.waiting}>{`Waiting at: ${waiting}`}</span> : null}
                   </span>
                   <StatusTag variant={SHAPE[status]}>{WORD[status]}</StatusTag>

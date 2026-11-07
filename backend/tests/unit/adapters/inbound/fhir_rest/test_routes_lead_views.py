@@ -30,7 +30,7 @@ from overwatch.domain.codes import (
 )
 from overwatch.domain.model.capacity import CapacityReport
 from overwatch.domain.model.flags import ReportFlag
-from overwatch.domain.model.people import PractitionerRole
+from overwatch.domain.model.people import Practitioner, PractitionerRole
 from overwatch.domain.rules.identity_policy import PinState
 from tests.support.w7b_rig import (
     DEVICE,
@@ -435,6 +435,7 @@ async def test_an_invitation_says_how_far_the_set_up_has_got() -> None:
                 "serviceId": SERVICE,
                 "serviceName": SERVICE_NAME,
                 "role": "Duty manager",
+                "inviteeName": None,
                 "steps": {
                     "invited": True,
                     "numberChecked": True,
@@ -451,6 +452,35 @@ async def test_an_invitation_says_how_far_the_set_up_has_got() -> None:
         ]
     }
     assert _digits(response.text)
+
+
+async def test_an_invitation_names_the_invited_person_and_never_their_number() -> None:
+    rig = _invited()
+    rig.units.people.practitioners[INVITEE] = Practitioner(
+        id=INVITEE, active=True, display_name="  Dee   Lead ", phone_hash=None
+    )
+    async with client(rig) as http:
+        response = await http.get("/lead/invitations", headers=LEAD_AUTH)
+
+    assert response.status_code == 200, response.text
+    assert response.json()["items"][0]["inviteeName"] == "Dee Lead"
+    assert response.json()["items"][0]["role"] == "Duty manager"
+    assert _digits(response.text)
+
+
+@pytest.mark.parametrize("display_name", ["", "   ", "duty MANAGER"])
+async def test_an_invitation_has_no_name_when_the_name_is_blank_or_only_the_role(
+    display_name: str,
+) -> None:
+    rig = _invited()
+    rig.units.people.practitioners[INVITEE] = Practitioner(
+        id=INVITEE, active=True, display_name=display_name, phone_hash=None
+    )
+    async with client(rig) as http:
+        item = (await http.get("/lead/invitations", headers=LEAD_AUTH)).json()["items"][0]
+
+    assert item["inviteeName"] is None
+    assert item["role"] == "Duty manager"
 
 
 async def test_a_pin_a_push_subscription_and_a_first_report_complete_the_steps() -> None:

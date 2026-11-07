@@ -9,11 +9,19 @@ export type InvitationRow = {
   serviceId: string;
   serviceName: string;
   role: string;
+  // The invited person's own name; null when none is stored or it is only the role label.
+  inviteeName: string | null;
   steps: SetupSteps;
   invitedAt: string;
   lastSeen: string;
   firstReportAt: string | null;
 };
+
+// "Dee Lead - Service lead", or just the role label when no name is stored. Never a number.
+export function invitedAs(item: { role: string; inviteeName?: string | null }): string {
+  const name = item.inviteeName?.trim();
+  return name && name.toLowerCase() !== item.role.trim().toLowerCase() ? `${name} - ${item.role}` : item.role;
+}
 
 type Json = Record<string, unknown>;
 
@@ -33,12 +41,14 @@ export function invitationsFrom(value: unknown): InvitationRow[] {
       if (typeof done !== 'boolean') throw bad();
       steps[step] = done;
     }
-    const { id, serviceId, serviceName, role, invitedAt, lastSeen, firstReportAt } = item;
+    const { id, serviceId, serviceName, role, invitedAt, lastSeen, firstReportAt, inviteeName } =
+      item;
     if (
       typeof id !== 'string' ||
       typeof serviceId !== 'string' ||
       typeof serviceName !== 'string' ||
       typeof role !== 'string' ||
+      (inviteeName !== null && inviteeName !== undefined && typeof inviteeName !== 'string') ||
       typeof invitedAt !== 'string' ||
       typeof lastSeen !== 'string' ||
       (firstReportAt !== null && typeof firstReportAt !== 'string' && firstReportAt !== undefined)
@@ -50,6 +60,7 @@ export function invitationsFrom(value: unknown): InvitationRow[] {
       serviceId,
       serviceName,
       role,
+      inviteeName: typeof inviteeName === 'string' && inviteeName.trim() ? inviteeName : null,
       steps,
       invitedAt,
       lastSeen,

@@ -27,6 +27,7 @@ from overwatch.application.tenancy import (
     bind_scope,
     current_scope_or_none,
 )
+from overwatch.domain.messages.privacy_guard import find_patient_data
 
 LEAK_MESSAGE: Final = (
     "the bound tenant changed during the test: something bound another tenant and did not reset it"
@@ -127,14 +128,37 @@ class RunIdentity:
         return (self.tenant_id, self.other_tenant_id, self.network_id)
 
 
+MAX_START_NUDGE: Final = 3600
+
+
+def _reads_as_patient_data(identity: RunIdentity) -> bool:
+    """Whether any id of this run has the shape of a postcode or an NHS number. The guards that
+    refuse such text in a staff name or a projection id (DEC-065, TEN-052) would refuse the run's
+    own ids, and the run's start time in base 36 makes a postcode shape ("to53vj" is TO5 3VJ)
+    about one time in seven."""
+    ids = (*identity.scope_ids, f"{identity.tenant_id}-m1", f"{identity.tenant_id}-svc")
+    return any(find_patient_data(value) for value in ids)
+
+
 def new_run_identity(
     *, pid: int | None = None, now: int | None = None, nonce: str | None = None
 ) -> RunIdentity:
-    return RunIdentity(
-        pid=os.getpid() if pid is None else pid,
-        started=int(time.time()) if now is None else now,
-        nonce=secrets.token_hex(2) if nonce is None else nonce,
+    """A new identity. A start time that was given, or a nonce that was, is used as it is.
+    Otherwise the start time is moved on by whole seconds (and the nonce drawn again) until no id
+    of the run has a patient-data shape. The sweeper only needs the recorded start to be no earlier
+    than the process's own (START_SLACK_S), so a start a few seconds late is safe."""
+    chosen_pid = os.getpid() if pid is None else pid
+    started = int(time.time()) if now is None else now
+    identity = RunIdentity(
+        pid=chosen_pid, started=started, nonce=secrets.token_hex(2) if nonce is None else nonce
     )
+    if now is not None or nonce is not None:
+        return identity
+    for nudge in range(1, MAX_START_NUDGE + 1):
+        if not _reads_as_patient_data(identity):
+            return identity
+        identity = RunIdentity(pid=chosen_pid, started=started + nudge, nonce=secrets.token_hex(2))
+    return identity
 
 
 def parse_run_id(scope_value: str) -> RunIdentity | None:

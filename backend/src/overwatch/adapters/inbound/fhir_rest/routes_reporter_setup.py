@@ -182,7 +182,9 @@ def _confirm(container: _Container, phone_hash: str) -> ConfirmDeviceByTextCode:
     )
 
 
-async def _request_code(container: _Container, phone_hash: str, purpose: str) -> Response:
+async def _request_code(
+    container: _Container, phone_hash: str, number: str, purpose: str
+) -> Response:
     with contextlib.suppress(CodeResendRefused):
         await RequestTextCode(
             container.codes,
@@ -195,7 +197,7 @@ async def _request_code(container: _Container, phone_hash: str, purpose: str) ->
             container.rng,
         ).execute(
             RequestTextCodeCommand(
-                idempotency_key=container.ids.new_id(), phone="", purpose=purpose
+                idempotency_key=container.ids.new_id(), phone=number, purpose=purpose
             )
         )
     return _json(202, dict(ACCEPTED_BODY))
@@ -244,7 +246,9 @@ async def read_invitation(token: str, request: Request) -> Response:
 async def request_invitation_code(token: str, body: EmptyBody, request: Request) -> Response:
     async def work(container: _Container) -> Response:
         reader = InvitationReader(container.uow_factory, container.clock, _tokens(container))
-        return await _request_code(container, await reader.phone_hash(token), "setup")
+        return await _request_code(
+            container, await reader.phone_hash(token), await reader.number(token), "setup"
+        )
 
     return await _host_edge(
         request,
@@ -287,8 +291,13 @@ async def verify_invitation_code(
 @router.post("/identity/device/code", status_code=202)
 async def request_device_code(body: DeviceCodeBody, request: Request) -> Response:
     async def work(container: _Container) -> Response:
-        phone_hash = await DeviceReader(container.uow_factory).phone_hash(body.deviceId)
-        return await _request_code(container, phone_hash, body.purpose)
+        devices = DeviceReader(container.uow_factory)
+        return await _request_code(
+            container,
+            await devices.phone_hash(body.deviceId),
+            await devices.number(body.deviceId),
+            body.purpose,
+        )
 
     return await _host_edge(
         request,

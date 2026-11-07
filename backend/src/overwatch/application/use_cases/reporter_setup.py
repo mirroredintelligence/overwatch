@@ -64,6 +64,12 @@ class KnownPhoneHash:
         return self._hash
 
 
+STAND_IN_NUMBER: Final = "07700 900000"
+"""A number in the Ofcom drama range, sealed in the code message of an unusable invitation or an
+unknown device, so that message is made as the message of a known one is (H-96). It is never
+texted: that message is discarded."""
+
+
 def stand_in_hash(kind: str, subject: str) -> str:
     """A 64-hex hash that no practitioner holds, stable for one subject (a token or a device): the
     code of an unusable invitation or an unknown device is kept and discarded like the code of an
@@ -148,6 +154,20 @@ class InvitationReader:
             return stand_in_hash(STAND_IN_TOKEN, token)
         return found.record.phone_hash
 
+    async def number(self, token: str) -> str:
+        """The number the invitation was sent to, from the protected contact store, for the text
+        code that is sent to it; a stand-in number for any token that is not an open invitation."""
+        async with self._uow_factory() as uow:
+            _tenant_bound(uow)
+            found = await self._open(uow, token)
+            if found is None:
+                return STAND_IN_NUMBER
+            registration = await uow.registrations.get(found.invitation.registration_id)
+            if registration is None or registration.requester_role_id is None:
+                return STAND_IN_NUMBER
+            number = await uow.contacts.get_phone(registration.requester_role_id)
+        return STAND_IN_NUMBER if number is None else number
+
 
 class DeviceReader:
     """The number a device's owner holds, for the codes of the 30-day check and a PIN reset."""
@@ -163,6 +183,20 @@ class DeviceReader:
         if person is None or not person.active or person.phone_hash is None:
             return stand_in_hash(STAND_IN_DEVICE, unknown_person(device_id))
         return person.phone_hash
+
+    async def number(self, device_id: str) -> str:
+        """The number its owner holds, from the protected contact store, for the text code sent to
+        it; a stand-in number for an unknown device or an owner with no number."""
+        async with self._uow_factory() as uow:
+            _tenant_bound(uow)
+            owner = await uow.devices.owner_of(device_id)
+            if owner is None:
+                return STAND_IN_NUMBER
+            for role in await uow.people.roles_for_practitioner(owner):
+                number = await uow.contacts.get_phone(role.id)
+                if number is not None:
+                    return number
+        return STAND_IN_NUMBER
 
 
 @dataclass(frozen=True, slots=True)

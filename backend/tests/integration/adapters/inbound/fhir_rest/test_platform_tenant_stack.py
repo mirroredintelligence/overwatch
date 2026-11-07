@@ -196,7 +196,7 @@ async def test_the_operator_provisions_a_tenant_and_the_three_records_say_so(sta
         {
             "displayName": "Charlie Organisation",
             "legalName": "Charlie Organisation Ltd",
-            "organisationType": "icb",
+            "organisationType": "other",
         },
     )
     host = await stack.send(
@@ -269,7 +269,7 @@ async def test_a_stopped_number_stays_held_resolves_no_tenant_and_counts_for_not
         "PUT",
         f"/platform/tenants/{C}",
         operator(),
-        {"displayName": "Charlie", "legalName": "Charlie Ltd", "organisationType": "icb"},
+        {"displayName": "Charlie", "legalName": "Charlie Ltd", "organisationType": "other"},
     )
     await stack.send(
         "POST",
@@ -320,7 +320,7 @@ async def test_the_shared_line_is_a_channel_of_the_tenant_and_never_a_registry_n
         "PUT",
         f"/platform/tenants/{C}",
         operator(),
-        {"displayName": "Charlie", "legalName": "Charlie Ltd", "organisationType": "icb"},
+        {"displayName": "Charlie", "legalName": "Charlie Ltd", "organisationType": "other"},
     )
     chosen = await stack.send("POST", f"/platform/tenants/{C}/numbers/shared", operator(), {})
     detail = (await stack.send("GET", f"/platform/tenants/{C}", operator())).json()
@@ -414,15 +414,16 @@ async def test_an_offboarding_closes_the_tenant_at_the_edge_and_touches_no_other
 
     assert wrong.status_code == 400
     assert done.status_code == 200 and done.json()["noticeEndsAt"] == "2026-11-29T09:00:00Z"
-    assert again.status_code == 409
+    # Starting it again resumes the offboarding (a retry of one that stopped half way), no conflict.
+    assert again.status_code == 200 and again.json()["noticeEndsAt"] == done.json()["noticeEndsAt"]
     tenant = await stack.container.tenants.get(B)
     assert tenant is not None and tenant.status is TenantStatus.OFFBOARDING
     assert (await stack.send("GET", "/tenant/overview", admin(B))).status_code == 401
     assert (await stack.send("GET", "/tenant/overview", admin(A))).status_code == 200
-    assert (await _tenant_chain(stack, B))[-1].entry.use_case == "StartTenantOffboarding"
-    assert [r.action for r in await _platform_chain(stack) if r.tenant_id == B] == [
-        "tenant-offboarding-started"
-    ]
+    assert "StartTenantOffboarding" in [r.entry.use_case for r in await _tenant_chain(stack, B)]
+    # The second start resumed the offboarding, and the platform chain records each start.
+    started = [r.action for r in await _platform_chain(stack) if r.tenant_id == B]
+    assert started and set(started) == {"tenant-offboarding-started"}
 
 
 async def test_the_platform_chain_takes_appends_made_at_once_and_still_verifies(

@@ -236,10 +236,10 @@ async def test_the_capability_statement_lists_both_resources_and_their_interacti
         "read",
         "search-type",
     ]
-    assert [o["name"] for o in resources["HealthcareService"]["operation"]] == [
-        "board",
-        "confirm-capacity",
-    ]
+    # Other route modules add their own operations to this type (filter-options and more); the two
+    # of this module come first.
+    operations = [o["name"] for o in resources["HealthcareService"]["operation"]]
+    assert operations[:2] == ["board", "confirm-capacity"]
     assert [i["code"] for i in resources["Observation"]["interaction"]] == [
         "read",
         "create",

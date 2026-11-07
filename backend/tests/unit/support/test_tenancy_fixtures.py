@@ -672,3 +672,32 @@ async def test_the_plain_factory_binds_whatever_is_ambient_when_the_unit_opens()
     with pytest.raises(TenantNotBound):
         async with factory():
             pytest.fail("the unit must not open")
+
+
+def test_a_new_run_never_has_an_id_that_reads_as_a_postcode_or_an_nhs_number(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The start time in base 36 begins `to5` at present, so about one second in seven makes a
+    postcode shape ("to53vj" is TO5 3VJ), which the guards on staff text and projection ids
+    refuse: a run that drew such a start made its own tenant ids unusable."""
+    from overwatch.domain.messages.privacy_guard import find_patient_data
+    from tests.support import tenancy
+
+    bad_second = int("to53vj", 36)
+    assert find_patient_data(f"tt-kpc-{tenancy._base36(bad_second)}-7325-m1")
+    monkeypatch.setattr(tenancy.time, "time", lambda: float(bad_second))
+
+    identity = tenancy.new_run_identity(pid=4242)
+
+    assert identity.started > bad_second
+    assert not any(find_patient_data(value) for value in identity.scope_ids)
+    assert not find_patient_data(f"{identity.tenant_id}-m1")
+    assert tenancy.parse_run_id(identity.tenant_id) == identity
+
+
+def test_a_run_given_its_start_and_nonce_keeps_them(monkeypatch: pytest.MonkeyPatch) -> None:
+    from tests.support import tenancy
+
+    identity = tenancy.new_run_identity(pid=7, now=int("to53vj", 36), nonce="ab12")
+
+    assert (identity.pid, identity.started, identity.nonce) == (7, int("to53vj", 36), "ab12")

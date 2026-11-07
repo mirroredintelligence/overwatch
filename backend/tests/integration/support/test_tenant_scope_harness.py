@@ -7,6 +7,7 @@ sample graph for any tenant. Nodes of a tenant that is not this run's (a stand-i
 run on a shared Neo4j) must survive all of it, and are removed here in a `finally`.
 """
 
+import sys
 from collections.abc import AsyncIterator
 
 import pytest
@@ -31,6 +32,14 @@ from tests.support.tenancy import RunIdentity, as_tenant
 from tests.support.uow import ensure_audit_heads
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
+
+WINDOWS_SKIP = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason=(
+        "POSIX-only: the sweeper reads /proc/<pid>/stat and os.sysconf(SC_CLK_TCK), absent on "
+        "Windows, so it cannot tell a dead owner and keeps its tenants; the harness runs on Linux"
+    ),
+)
 
 # Another run's tenant on the same Neo4j, as far as this run is concerned: well-formed, owner dead.
 DEAD_OWNER = RunIdentity(pid=4_194_303, started=1_800_000_000, nonce="0dea")
@@ -261,6 +270,7 @@ async def test_wipe_all_on_a_private_container_removes_every_tenant_and_keeps_th
 # the orphan sweeper
 
 
+@WINDOWS_SKIP
 async def test_the_sweeper_removes_a_dead_runs_tenants_and_keeps_the_live_ones(
     neo4j_driver: AsyncDriver, tenant_id: str, other_tenant_id: str, stranger: str
 ) -> None:
@@ -289,6 +299,7 @@ async def test_the_sweeper_leaves_a_real_tenants_data_alone(neo4j_driver: AsyncD
         await wipe_tenant(neo4j_driver, "example-icb")
 
 
+@WINDOWS_SKIP
 async def test_the_sweeper_removes_a_dead_runs_directory_record_too(
     neo4j_driver: AsyncDriver,
 ) -> None:

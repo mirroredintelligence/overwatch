@@ -355,3 +355,11 @@ class DeviceRegistry(Protocol):
         """The ACTIVE wall screen of the bound tenant whose token hashes to this, or None: a screen
         that is not active, or of another tenant, is never found. More than one is Conflict."""
         ...
+
+
+UK_COUNTRY_CODE: Final = "+44"
+
+
+def international(national: str) -> str:
+    """The stored form of a UK mobile: +44 and the subscriber digits, with no trunk zero."""
+    return UK_COUNTRY_CODE + national[1:]

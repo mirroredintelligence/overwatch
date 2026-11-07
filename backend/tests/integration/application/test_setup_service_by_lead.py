@@ -9,7 +9,7 @@ bound tenant, so another tenant's practitioner is neither used nor reused.
 """
 
 import dataclasses
-from datetime import UTC, date, datetime, time
+from datetime import UTC, date, datetime, time, timedelta
 
 import pytest
 import pytest_asyncio
@@ -22,6 +22,15 @@ from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
 from overwatch.application.actor import Actor
 from overwatch.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
 from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.duty_roster import (
+    AddRosterManager,
+    AddRosterManagerCommand,
+    CheckIn,
+    ListRoster,
+    put_on_roster,
+)
+from overwatch.application.use_cases.query_board import QueryBoard, QueryBoardQuery
+from overwatch.application.use_cases.send_prompts import _reporters
 from overwatch.application.use_cases.setup_service_by_lead import (
     SetupServiceByLead,
     SetupServiceCommand,
@@ -36,11 +45,15 @@ from overwatch.domain.codes import (
     Measure,
     NeedCategory,
     PractitionerRoleCode,
+    ReportSource,
+    ReportType,
     Role,
     ServiceCategory,
+    Status,
 )
-from overwatch.domain.errors import NotAllowed, NotFound, ValidationFailed
-from overwatch.domain.model.people import Practitioner
+from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.model.capacity import CapacityReport
+from overwatch.domain.model.people import Practitioner, RosterState
 from overwatch.domain.model.service import AvailableTime
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, read_tx, run_nodes
@@ -297,3 +310,132 @@ async def test_another_tenants_lead_is_not_found_and_its_phone_is_not_reused(
     assert b_reporter is not None
     assert b_reporter.active is True
     assert await count_nodes(neo4j_driver, "HealthcareService") == 1
+
+
+# --- the reporter is also on the new service's duty roster (DEC-1347) -----------------------
+
+
+async def test_the_reporter_is_on_the_new_services_roster_off_shift_with_the_last_four_digits(
+    neo4j_driver: AsyncDriver, uow_factory: UnitOfWorkFactory
+) -> None:
+    await _seed_lead(uow_factory)
+    result = await _use_case(uow_factory, neo4j_driver).execute(UCR_WEST)
+
+    roster = await ListRoster(uow_factory, FixedClock(NOW)).execute(LEAD, result.service_id)
+    assert [(e.name, e.number_ending, e.state, e.shift_end) for e in roster] == [
+        ("Duty manager", "0123", RosterState.OFF_SHIFT, None)
+    ]
+    assert roster[0].role_id == result.roster_role_id
+    async with uow_factory() as uow:
+        assert await uow.contacts.get_phone(result.roster_role_id or "") == STORED_NUMBER
+        stored = await uow.people.get_practitioner(result.practitioner_id)
+        assert stored is not None
+        assert stored.phone_hash == _hasher().hash("07700900123")
+        # The reporter post is untouched: the same practitioner, the duty manager code, active.
+        post = await uow.people.get_role(result.role_id)
+    assert post is not None
+    assert post.code is PractitionerRoleCode.DUTY_MANAGER
+    assert post.active is True
+    assert await _labels_holding(neo4j_driver, "7700900123") == {("ProtectedContact",)}
+
+
+async def test_a_replay_and_a_second_add_leave_one_roster_place(
+    neo4j_driver: AsyncDriver, uow_factory: UnitOfWorkFactory
+) -> None:
+    await _seed_lead(uow_factory)
+    use_case = _use_case(uow_factory, neo4j_driver)
+    first = await use_case.execute(UCR_WEST)
+    replay = await use_case.execute(UCR_WEST)
+    assert replay == first
+
+    # The shift lead adding the same person on the roster page is the existing refusal.
+    adder = AddRosterManager(uow_factory, FixedClock(NOW), SequentialIds("add"), _hasher())
+    with pytest.raises(Conflict):
+        await adder.execute(AddRosterManagerCommand(LEAD, first.service_id, "Someone", NUMBER))
+    # And putting the person on again does nothing and does not fail.
+    async with uow_factory() as uow:
+        again = await put_on_roster(
+            uow,
+            SequentialIds("again"),
+            service_id=first.service_id,
+            practitioner_id=first.practitioner_id,
+            national="07700900123",
+            now=NOW,
+        )
+    assert again is None
+    roster = await ListRoster(uow_factory, FixedClock(NOW)).execute(LEAD, first.service_id)
+    assert len(roster) == 1
+
+
+async def test_the_same_mobile_on_a_second_service_is_on_each_services_roster_once(
+    neo4j_driver: AsyncDriver, uow_factory: UnitOfWorkFactory
+) -> None:
+    await _seed_lead(uow_factory)
+    use_case = _use_case(uow_factory, neo4j_driver)
+    first = await use_case.execute(UCR_WEST)
+    second = await use_case.execute(
+        dataclasses.replace(UCR_WEST, idempotency_key="setup-ucr-east", name="UCR East")
+    )
+    assert second.practitioner_id == first.practitioner_id
+    for result in (first, second):
+        roster = await ListRoster(uow_factory, FixedClock(NOW)).execute(LEAD, result.service_id)
+        assert [e.role_id for e in roster] == [result.roster_role_id]
+
+
+async def test_the_roster_place_is_in_the_leads_tenant_only(
+    neo4j_driver: AsyncDriver,
+    uow_factory_a: UnitOfWorkFactory,
+    uow_factory_b: UnitOfWorkFactory,
+) -> None:
+    await _seed_lead(uow_factory_a)
+    result = await _use_case(uow_factory_a, neo4j_driver).execute(UCR_WEST)
+    assert result.roster_role_id is not None
+    phone_hash = _hasher().hash("07700900123")
+
+    async with uow_factory_b() as uow:
+        assert await uow.people.roster_roles_for_phone_hash(phone_hash) == []
+        assert await uow.people.get_role(result.roster_role_id) is None
+        assert await uow.contacts.get_phone(result.roster_role_id) is None
+    async with uow_factory_a() as uow:
+        mine = await uow.people.roster_roles_for_phone_hash(phone_hash)
+    assert [role.id for role in mine] == [result.roster_role_id]
+
+
+async def test_a_new_wizard_service_is_not_stale_for_want_of_a_shift_and_texts_one_phone_once(
+    neo4j_driver: AsyncDriver, uow_factory: UnitOfWorkFactory
+) -> None:
+    """The reporter post is always on, so a rostered service nobody has checked in to is staffed
+    and the board does not call it not updated (DEC-1341 item 6). When the person then goes on
+    shift they hold two roles for the service and one prompt goes to their phone."""
+    await _seed_lead(uow_factory)
+    clock = FixedClock(NOW)
+    result = await _use_case(uow_factory, neo4j_driver).execute(UCR_WEST)
+    async with uow_factory() as uow:
+        await uow.capacity.add(
+            CapacityReport(
+                id="obs-new-1",
+                service_id=result.service_id,
+                value=4,
+                measure=Measure.REFERRALS_ACCEPTABLE,
+                effective_at=NOW - timedelta(minutes=10),
+                source=ReportSource.TEXT,
+                report_type=ReportType.NUMBER,
+            )
+        )
+        await uow.commit()
+
+    async def status() -> Status:
+        board = await QueryBoard(uow_factory, clock).execute(QueryBoardQuery(LEAD))
+        return next(e.status for e in board.entries if e.service_id == result.service_id)
+
+    assert await status() is not Status.NOT_UPDATED
+    async with uow_factory() as uow:
+        assert len(await _reporters(uow, result.service_id, NOW)) == 1
+
+    await CheckIn(uow_factory, clock, SequentialIds("ci")).execute(
+        _hasher().hash("07700900123"), None, LEAD, result.service_id
+    )
+    async with uow_factory() as uow:
+        assert len(await uow.people.reporter_roles_for_service(result.service_id, NOW)) == 2
+        assert len(await _reporters(uow, result.service_id, NOW)) == 1
+    assert await status() is not Status.NOT_UPDATED

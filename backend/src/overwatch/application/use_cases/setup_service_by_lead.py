@@ -21,11 +21,16 @@ from overwatch.application.actor import Actor
 from overwatch.application.idempotency import IdempotencyStore
 from overwatch.application.ports.outbound.audit import AuditEntry
 from overwatch.application.ports.outbound.clock import Clock
-from overwatch.application.ports.outbound.identity import PhoneHasher, normalise_uk_mobile
+from overwatch.application.ports.outbound.identity import (
+    PhoneHasher,
+    international,
+    normalise_uk_mobile,
+)
 from overwatch.application.ports.outbound.ids import IdGenerator
 from overwatch.application.ports.outbound.outbox import outbox_message_for
 from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
 from overwatch.application.scheduling import schedule_work
+from overwatch.application.use_cases.duty_roster import put_on_roster
 from overwatch.application.work import WorkKind
 from overwatch.domain.codes import (
     Cadence,
@@ -63,7 +68,6 @@ code for every pilot service (assumption, U15 fragment)."""
 OWNER_ROLE_CODE: Final = PractitionerRoleCode.CRITERIA_OWNER
 CAN_EXCEED_ESTABLISHED: Final = False
 """A service set up by a lead reports within its established capacity (assumption, U15 fragment)."""
-UK_COUNTRY_CODE: Final = "+44"
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,6 +102,7 @@ class SetupServiceResult:
     role_id: str
     criteria_id: str
     first_prompt_at: datetime
+    roster_role_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -157,11 +162,6 @@ def reporter_contact(channel: Channel, phone: str | None, email: str | None) -> 
     if channel is Channel.EMAIL:
         return ReporterContact(channel=channel, phone=None, email=_role_inbox(email))
     raise ValidationFailed("channel", "text or email only; other channels are outside the MVP")
-
-
-def international(national: str) -> str:
-    """The stored form of a UK mobile: +44 and the subscriber digits, with no trunk zero."""
-    return UK_COUNTRY_CODE + national[1:]
 
 
 def _check_member(field: str, value: object, enum_cls: type[Enum]) -> None:
@@ -418,8 +418,20 @@ class SetupServiceByLead:
                     period_start=now,
                 )
             )
+            roster_role_id: str | None = None
             if contact.phone is not None:
                 await uow.contacts.put_phone(reporter_role_id, international(contact.phone))
+                # The reporter is also on the new service's duty roster, off shift until they text
+                # ON or scan the code (DEC-1347). A text service only: the roster is by phone.
+                roster_role = await put_on_roster(
+                    uow,
+                    self._ids,
+                    service_id=service_id,
+                    practitioner_id=practitioner_id,
+                    national=contact.phone,
+                    now=now,
+                )
+                roster_role_id = None if roster_role is None else roster_role.id
             elif contact.email is not None:
                 await uow.contacts.put_email(reporter_role_id, contact.email)
             await uow.criteria.add(criteria)
@@ -449,6 +461,7 @@ class SetupServiceByLead:
                         reporter_role_id,
                         owner_role_id,
                         criteria_id,
+                        *(() if roster_role_id is None else (roster_role_id,)),
                     ),
                     snapshot=setup_snapshot(
                         command,
@@ -468,6 +481,7 @@ class SetupServiceByLead:
                 role_id=reporter_role_id,
                 criteria_id=criteria_id,
                 first_prompt_at=first,
+                roster_role_id=roster_role_id,
             )
             await uow.idempotency.put(command.idempotency_key, _StoredSetup(fingerprint, result))
             await uow.commit()

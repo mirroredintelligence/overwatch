@@ -338,13 +338,22 @@ def _grouped_ids(groups: list[_Group], service_id: str) -> tuple[str, ...]:
 async def _reporters(
     uow: UnitOfWork, service_id: str, now: datetime
 ) -> list[tuple[PractitionerRole, str]]:
-    """Each reporter role of the service that can be texted, with its holder's phone hash."""
+    """Each reporter role of the service that can be texted, with its holder's phone hash. One
+    phone is texted once: a person who holds the reporter post and is also on the roster, on shift,
+    holds two roles for the service (the wizard puts its reporter on both), and the lowest role id
+    stands for them."""
     found: list[tuple[PractitionerRole, str]] = []
-    for role in await uow.people.reporter_roles_for_service(service_id, now):
+    seen: set[str] = set()
+    for role in sorted(await uow.people.reporter_roles_for_service(service_id, now), key=_role_id):
         phone_hash = await _phone_hash(uow, role, now)
-        if phone_hash is not None:
+        if phone_hash is not None and phone_hash not in seen:
+            seen.add(phone_hash)
             found.append((role, phone_hash))
     return found
+
+
+def _role_id(role: PractitionerRole) -> str:
+    return role.id
 
 
 @dataclass(frozen=True, slots=True)

@@ -26,6 +26,12 @@ from tests.support.neo4j import (
 )
 from tests.support.proc import ProcessUnreadable, boot_id, pid_namespace, process_start_marker
 
+WINDOWS_SKIP = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="POSIX-only: reads /proc/<pid>/stat (absent on Windows); the harness runs on Linux",
+)
+
+
 NOW = datetime(2026, 10, 28, 12, 0, 0, tzinfo=UTC)
 # The pid namespace and boot identity of "this process" in these fake tests (B4).
 NS = "pid:[4026531836]"
@@ -366,6 +372,7 @@ def test_a_refused_removal_is_logged_and_the_sweep_goes_on() -> None:
     assert removed == ["overwatch-test-neo4j-fine"]
 
 
+@WINDOWS_SKIP
 def test_the_real_process_table_keeps_this_process_container_and_drops_a_dead_ones() -> None:
     mine = process_start_marker(os.getpid())
     assert mine is not None
@@ -447,6 +454,7 @@ def test_an_owner_that_cannot_be_checked_falls_back_to_the_age_rule(error: BaseE
     assert removed == ["overwatch-test-neo4j-old"]
 
 
+@WINDOWS_SKIP
 def test_a_proc_that_refuses_to_be_read_does_not_cost_the_sweeping_process_its_container(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -615,6 +623,7 @@ def test_an_owner_whose_stat_is_hidden_but_which_is_alive_is_kept_young(
     assert docker.removed() == []
 
 
+@WINDOWS_SKIP
 def test_an_owner_that_is_really_dead_is_removed_at_any_age() -> None:
     # The real process table: the child has been reaped, so kill(pid, 0) says no such process.
     child = subprocess.Popen([sys.executable, "-c", "pass"])

@@ -7,6 +7,7 @@ import os
 import re
 import socket
 import subprocess
+import sys
 import threading
 import time
 from collections.abc import Iterator
@@ -28,6 +29,15 @@ from tests.support.neo4j import (
     wait_until_ready,
 )
 from tests.support.proc import boot_id, pid_namespace, process_start_marker
+
+WINDOWS_SKIP = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason=(
+        "POSIX-only: fcntl.flock advisory locks and /proc/<pid>/stat (absent on Windows); "
+        "the harness runs on Linux"
+    ),
+)
+
 
 ENV_NAMES = (
     "OVERWATCH_NEO4J_MEMORY",
@@ -397,6 +407,7 @@ def test_a_limit_that_is_not_a_size_is_refused_before_docker_is_called(
     assert _lock_is_free(tmp_path)
 
 
+@WINDOWS_SKIP
 def test_the_container_is_labelled_with_its_owner_process_and_start_time() -> None:
     clock = FakeClock()
     docker = FakeDocker(clock)
@@ -414,6 +425,7 @@ def test_the_container_is_labelled_with_its_owner_process_and_start_time() -> No
     assert f"overwatch-test-owner-boot={boot_id()}" in labels
 
 
+@WINDOWS_SKIP
 def test_owner_labels_name_this_process_and_this_host() -> None:
     assert owner_labels() == {
         "overwatch-test-owner-pid": str(os.getpid()),
@@ -495,6 +507,7 @@ def test_a_docker_run_that_times_out_says_so_and_does_not_claim_docker_is_missin
 # ---- the lock ---------------------------------------------------------------------------------
 
 
+@WINDOWS_SKIP
 def test_the_lock_is_held_while_the_container_lives_and_freed_when_it_is_removed(
     tmp_path: Path,
 ) -> None:
@@ -509,6 +522,7 @@ def test_the_lock_is_held_while_the_container_lives_and_freed_when_it_is_removed
     assert _lock_is_free(tmp_path)
 
 
+@WINDOWS_SKIP
 def test_the_lock_is_taken_before_docker_is_asked_for_anything(tmp_path: Path) -> None:
     clock = FakeClock()
     seen: list[bool] = []
@@ -526,6 +540,7 @@ def test_the_lock_is_taken_before_docker_is_asked_for_anything(tmp_path: Path) -
     assert seen and all(seen)
 
 
+@WINDOWS_SKIP
 def test_a_lock_that_stays_taken_fails_in_the_lock_phase_naming_the_holder(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -579,6 +594,7 @@ def test_stop_frees_the_lock_even_when_docker_itself_raises(tmp_path: Path) -> N
     assert _lock_is_free(tmp_path)
 
 
+@WINDOWS_SKIP
 def test_the_port_is_picked_after_the_lock_is_held(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

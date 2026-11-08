@@ -127,26 +127,29 @@ function OperatorOrganisations() {
   );
 }
 
-/** One organisation as a card. It reads its detail only once the card is in view (or at once where nothing can watch for that). */
+/**
+ * One organisation as a card. It reads its detail only once the card is in view (or at once where nothing can watch
+ * for that). The card is the same element tree before and after: only what it is given changes, so what is on the
+ * screen is not torn down and put up again when the detail arrives.
+ */
 function OrganisationCard({ tenant }: { tenant: Row }) {
   const ref = useRef<HTMLLIElement>(null);
   const seen = useSeen(ref);
+  const detail = useOperatorRead<Detail>(seen ? `/api/bff/platform/tenants/${tenant.id}` : null);
+  const consent = useOperatorRead<Consent>(seen && tenant.status === 'provisioning' ? `/api/bff/platform/tenants/${tenant.id}/admin-consent` : null);
+  let ods: string | null = null;
+  let setUp: ReactNode = null;
+  if (detail.state.status === 'failed') {
+    setUp = <p className={ds.progressText}>We could not read this organisation’s progress.</p>;
+  } else if (detail.state.status === 'ok') {
+    ods = detail.state.data.tenant.odsCode;
+    setUp = <SetUpProgress funnel={deriveFunnel(detail.state.data, consent.state)} />;
+  }
   return (
     <li ref={ref} className={ds.card}>
-      {seen ? <LoadedCard tenant={tenant} /> : <CardContent tenant={tenant} ods={null} setUp={null} />}
+      <CardContent tenant={tenant} ods={ods} setUp={setUp} />
     </li>
   );
-}
-
-function LoadedCard({ tenant }: { tenant: Row }) {
-  const detail = useOperatorRead<Detail>(`/api/bff/platform/tenants/${tenant.id}`);
-  const consent = useOperatorRead<Consent>(tenant.status === 'provisioning' ? `/api/bff/platform/tenants/${tenant.id}/admin-consent` : null);
-  if (detail.state.status === 'loading') return <CardContent tenant={tenant} ods={null} setUp={null} />;
-  if (detail.state.status === 'failed') {
-    return <CardContent tenant={tenant} ods={null} setUp={<p className={ds.progressText}>We could not read this organisation’s progress.</p>} />;
-  }
-  const funnel = deriveFunnel(detail.state.data, consent.state);
-  return <CardContent tenant={tenant} ods={detail.state.data.tenant.odsCode} setUp={<SetUpProgress funnel={funnel} />} />;
 }
 
 function CardContent({ tenant, ods, setUp }: { tenant: Row; ods: string | null; setUp: ReactNode }) {

@@ -7292,3 +7292,11 @@ Status: accepted. Replaces the hold on jsdom 30 in DEC-1351 item 2.
 2. **The fix is in the markup, not the tests.** The same names read the same way to a screen reader in a browser, so the markup was wrong for them too. The space now sits outside the hidden span (`Save{' '}<span>support email</span>`) in 14 visually-hidden spans, in the service-line link (`Phone X on`, a space, then the number), the exec filter chips (`All`, a space, `9`) and the listing buttons. No visible text changed. No test was changed or weakened.
 3. **Rule for new markup.** Put the space between an element's text and a visually-hidden span outside the span, and between two inline spans.
 4. **Result.** jsdom 30.1.3, 692 files and 10,856 tests pass, `pnpm audit` is zero.
+
+## DEC-1353 The intermittent TenantList test: a card was torn down and put up again when it came into view (2026-11-08)
+
+Status: accepted.
+
+1. **Cause.** An organisation card showed `CardContent`, then, when it came into view, swapped it for `LoadedCard`, a different component, so React removed the card's contents and built them again. A test (or a person's screen reader) that had taken hold of the "Live since" line a moment before was holding an element that was no longer on the page. Whether that happened depended on which tick the swap fell in, so the test failed about one run in two in a full run and rarely alone.
+2. **Fix, in the component.** `OrganisationCard` is now one element tree: it starts the detail read when the card is seen (the read hook waits while its path is null) and passes what it has to `CardContent`. Nothing on the card is rebuilt when the detail arrives.
+3. **Test.** A `MutationObserver` takes the line the moment it first appears and the test checks it is still on the page once the detail has loaded; it fails on the old component three runs in three and passes on the new. The operator folder passed eight runs in eight.

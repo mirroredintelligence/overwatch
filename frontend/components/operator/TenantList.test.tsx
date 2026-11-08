@@ -83,6 +83,23 @@ describe('TenantList for the platform operator', () => {
     expect(within(a).queryByRole('img', { name: /parts done/ })).not.toBeInTheDocument();
   });
 
+  it('keeps what a card already shows in place when its detail arrives, instead of putting it up again', async () => {
+    serve(ALL_ACTIVE);
+    // The line is taken the moment it first appears: a test that looks for it later can only find the second copy.
+    let first: HTMLElement | null = null;
+    const watch = new MutationObserver(() => {
+      first ??= Array.from(document.querySelectorAll<HTMLElement>('p')).find((p) => /Live since 1 Oct/.test(p.textContent ?? '')) ?? null;
+    });
+    watch.observe(document.body, { childList: true, subtree: true });
+    render(<TenantList role="platform-operator" />);
+    // The card becomes "seen" in the next tick and then reads its detail (the ODS code comes with it).
+    await within(await card('Sample Area A')).findByText(/RYY02/);
+    watch.disconnect();
+    // The line seen first is still on the card, not one put up again in its place.
+    expect(first).not.toBeNull();
+    expect((first as unknown as HTMLElement).isConnected).toBe(true);
+  });
+
   it('links each card’s Open button to the organisation’s page, named by its organisation', async () => {
     serve(ALL_ACTIVE);
     render(<TenantList role="platform-operator" />);

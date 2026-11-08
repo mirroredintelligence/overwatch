@@ -146,7 +146,7 @@ function Listings({ query }: { query: string }) {
                               {listing.status === 'pending' ? (
                                 <>
                                   <Button variant="primary" busy={busy === listing.id} dataEl="NADM-LISTING-ADMIT-BTN" onClick={() => void act(listing, 'admit')}>
-                                    Admit<span className={styles.srOnly}>{what}</span>
+                                    Admit{' '}<span className={styles.srOnly}>{what.trim()}</span>
                                   </Button>
                                   <Button
                                     variant="secondary"
@@ -156,7 +156,7 @@ function Listings({ query }: { query: string }) {
                                       setDeciding({ listing, decision: 'decline' });
                                     }}
                                   >
-                                    Decline<span className={styles.srOnly}>{what}</span>
+                                    Decline{' '}<span className={styles.srOnly}>{what.trim()}</span>
                                   </Button>
                                 </>
                               ) : null}

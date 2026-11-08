@@ -200,7 +200,7 @@ function MappingCard({ mappings, onSaved }: { mappings: Overview['mappings']; on
                   <td>
                     {m.status === 'active' ? (
                       <Button variant="neutral" busy={busy} onClick={() => void send({ groupObjectId: m.groupObjectId, role: m.role, status: 'retired' }, 'Mapping stopped.')}>
-                        Stop using<span className={styles.srOnly}>{` the mapping for group ${m.groupObjectId}`}</span>
+                        Stop using{' '}<span className={styles.srOnly}>{`the mapping for group ${m.groupObjectId}`}</span>
                       </Button>
                     ) : null}
                   </td>

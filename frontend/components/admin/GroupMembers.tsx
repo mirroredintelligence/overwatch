@@ -229,15 +229,15 @@ function RoleRow({ group, open, onToggle, onChanged }: { group: Group; open: boo
                       {confirming === member.userId ? (
                         <span className={styles.confirm}>
                           <Button variant="primary" busy={busy} onClick={() => void remove(member.userId)}>
-                            Yes, remove<span className={styles.srOnly}>{` ${who} from the ${title.toLowerCase()}`}</span>
+                            Yes, remove{' '}<span className={styles.srOnly}>{`${who} from the ${title.toLowerCase()}`}</span>
                           </Button>
                           <Button variant="neutral" onClick={() => setConfirming(null)}>
-                            Cancel<span className={styles.srOnly}>{` removing ${who}`}</span>
+                            Cancel{' '}<span className={styles.srOnly}>{`removing ${who}`}</span>
                           </Button>
                         </span>
                       ) : (
                         <Button variant="neutral" busy={busy} onClick={() => setConfirming(member.userId)}>
-                          Remove<span className={styles.srOnly}>{` ${who} from the ${title.toLowerCase()}`}</span>
+                          Remove{' '}<span className={styles.srOnly}>{`${who} from the ${title.toLowerCase()}`}</span>
                         </Button>
                       )}
                     </li>
@@ -248,7 +248,7 @@ function RoleRow({ group, open, onToggle, onChanged }: { group: Group; open: boo
             <div className={styles.tools}>
               <Button variant="secondary" onClick={() => setAdding((now) => !now)}>
                 {adding ? 'Close search' : 'Add someone'}
-                <span className={styles.srOnly}>{` to the ${title.toLowerCase()}`}</span>
+                {' '}<span className={styles.srOnly}>{`to the ${title.toLowerCase()}`}</span>
               </Button>
               <details className={styles.details}>
                 <summary>Details</summary>

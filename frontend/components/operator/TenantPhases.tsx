@@ -154,7 +154,7 @@ export const PhasePanel = forwardRef<HTMLHeadingElement, Props>(function PhasePa
           </dl>
           {editable ? (
             <button type="button" className={ts.changeLink} onClick={() => props.onOpen(phase.id)}>
-              Change<span className={styles.srOnly}>{` ${phase.title.toLowerCase()}`}</span>
+              Change{' '}<span className={styles.srOnly}>{`${phase.title.toLowerCase()}`}</span>
             </button>
           ) : null}
         </>

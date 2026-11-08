@@ -88,7 +88,7 @@ export function ServiceList({ entries, now }: { entries: BoardEntry[]; now?: str
               onClick={() => setFilter(chip.filter)}
             >
               {chip.glyph ? <span aria-hidden="true">{chip.glyph}</span> : null}
-              <span>{chip.word}</span>
+              <span>{chip.word}</span>{' '}
               <span>{count(chip.filter)}</span>
             </button>
           ))}

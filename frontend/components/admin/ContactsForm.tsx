@@ -224,10 +224,10 @@ function ContactKind({
           ) : null}
           <div className={own.actions}>
             <Button variant="primary" type="submit" busy={busy}>
-              Save<span className={look.srOnly}> {shortName}</span>
+              Save{' '}<span className={look.srOnly}>{shortName}</span>
             </Button>
             <button type="button" className={own.cancel} onClick={cancel}>
-              Cancel<span className={look.srOnly}> {shortName}</span>
+              Cancel{' '}<span className={look.srOnly}>{shortName}</span>
             </button>
           </div>
         </fieldset>

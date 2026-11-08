@@ -130,7 +130,7 @@ function Members({ query }: { query: string }) {
                           {member.leftAt !== null ? <span className={styles.muted}>{`Left ${dateText(member.leftAt)}`}</span> : null}
                           {member.role === 'member' && (member.status === 'active' || member.status === 'invited') ? (
                             <Button variant="secondary" dataEl="NADM-MEMBER-END-BTN" onClick={() => setEnding(member)}>
-                              End<span className={styles.srOnly}>{` membership of ${member.organisation}`}</span>
+                              End{' '}<span className={styles.srOnly}>{`membership of ${member.organisation}`}</span>
                             </Button>
                           ) : null}
                         </td>

@@ -11,7 +11,8 @@ export function telHref(phone: string): string {
 export function PhoneLink({ serviceName, phone, dataEl }: { serviceName: string; phone: string; dataEl?: string }) {
   return (
     <a href={telHref(phone)} data-el={dataEl}>
-      <span className={styles.visuallyHidden}>{`Phone ${serviceName} on `}</span>
+      <span className={styles.visuallyHidden}>{`Phone ${serviceName} on`}</span>
+      {' '}
       {phone}
     </a>
   );

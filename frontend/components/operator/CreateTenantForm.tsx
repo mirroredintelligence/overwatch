@@ -406,7 +406,7 @@ export function CreateTenantForm() {
                       </select>
                     </div>
                     <Button variant="neutral" onClick={() => removeRow(r.key)} dataEl="OP-CREATE-GROUP-REMOVE-BTN">
-                      Remove<span className={admin.srOnly}>{` group ${i + 1}`}</span>
+                      Remove{' '}<span className={admin.srOnly}>{`group ${i + 1}`}</span>
                     </Button>
                   </div>
                 ))}

@@ -138,10 +138,10 @@ function Grants({ query }: { query: string }) {
                           {waitsForOwner(grant) ? (
                             <div className={styles.actions}>
                               <Button variant="primary" busy={busy === grant.id} dataEl="NADM-GRANT-APPROVE-BTN" onClick={() => void approve(grant)}>
-                                Approve<span className={styles.srOnly}>{` ${SCOPE_WORD[grant.scope]} grant of ${grant.organisation}`}</span>
+                                Approve{' '}<span className={styles.srOnly}>{`${SCOPE_WORD[grant.scope]} grant of ${grant.organisation}`}</span>
                               </Button>
                               <Button variant="neutral" dataEl="NADM-GRANT-DECLINE-BTN" onClick={() => setDeclining(grant)}>
-                                Decline<span className={styles.srOnly}>{` ${SCOPE_WORD[grant.scope]} grant of ${grant.organisation}`}</span>
+                                Decline{' '}<span className={styles.srOnly}>{`${SCOPE_WORD[grant.scope]} grant of ${grant.organisation}`}</span>
                               </Button>
                             </div>
                           ) : grant.status === 'approved' && grant.effectiveTo !== null ? (

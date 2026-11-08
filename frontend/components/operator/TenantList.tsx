@@ -171,7 +171,7 @@ function CardContent({ tenant, ods, setUp }: { tenant: Row; ods: string | null; 
       ) : null}
       <StatusTag variant={status.variant}>{status.word}</StatusTag>
       <a className={ds.open} href={`/operator/tenants/${tenant.id}`}>
-        Open<span className={ds.visuallyHidden}>{` ${tenant.displayName}`}</span>
+        Open{' '}<span className={ds.visuallyHidden}>{`${tenant.displayName}`}</span>
       </a>
     </>
   );
@@ -269,7 +269,7 @@ function SupportOrganisations() {
                   <td data-label="Ask to look in">
                     {t.status === 'active' ? (
                       <a className={styles.link} href={`/operator/support/new?for=${t.id}`}>
-                        Ask for access<span className={styles.srOnly}>{` to ${t.displayName}`}</span>
+                        Ask for access{' '}<span className={styles.srOnly}>{`to ${t.displayName}`}</span>
                       </a>
                     ) : (
                       '-'

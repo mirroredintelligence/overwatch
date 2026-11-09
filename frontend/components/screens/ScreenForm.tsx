@@ -38,7 +38,7 @@ const EMPTY: Values = { code: '', name: '', location: '' };
 // the form, a refused code (the words in an alert, the code kept), "Is this the right screen?", then
 // connected. Every value stays in state across the steps. The page offers no choice of board and sends
 // no tenant: a screen shows the organisation's own board.
-export function ScreenForm({ api = SCREEN_API }: { api?: ConnectApi }) {
+export function ScreenForm({ api = SCREEN_API, pairAddress = null }: { api?: ConnectApi; /** The address to open on the display, with the organisation in it (DEC-1354). */ pairAddress?: string | null }) {
   const ids = { code: useId(), name: useId(), location: useId() };
   const [values, setValues] = useState<Values>(EMPTY);
   const [errors, setErrors] = useState<Errors>({});
@@ -222,6 +222,11 @@ export function ScreenForm({ api = SCREEN_API }: { api?: ConnectApi }) {
       <p className={styles.note}>
         {live ? 'Showing the board for your organisation.' : 'This is what is on the wall now. The screen asks for a new code every few minutes.'}
       </p>
+      {pairAddress !== null && !live ? (
+        <p className={styles.note}>
+          Open this address in the screen’s browser: <span data-el="PAIR-ADDRESS">{pairAddress}</span>
+        </p>
+      ) : null}
     </section>
   );
 

@@ -220,6 +220,7 @@ async def test_an_invitation_of_a_is_the_one_refusal_on_bs_host(
     on_a: AsyncClient, on_b: AsyncClient, two_container: Container, tenant_id: str
 ) -> None:
     token = await seed_invitation(two_container, tenant_id)
+    token = token[-23:]  # a link with no tenant in it: only the host can place it
 
     here = await on_a.get(f"/invitations/{token}")
     crossed = await on_b.get(f"/invitations/{token}")
@@ -247,6 +248,7 @@ async def test_a_code_for_a_token_of_a_queues_nothing_to_send_in_b(
     other_tenant_id: str,
 ) -> None:
     token = await seed_invitation(two_container, tenant_id)
+    token = token[-23:]  # a link with no tenant in it: only the host can place it
     await on_a.post(f"/identity/invitations/{token}/code", json={})
     await on_b.post(f"/identity/invitations/{token}/code", json={})
 

@@ -34,6 +34,7 @@ from overwatch.adapters.inbound.fhir_rest.auth import (
 from overwatch.adapters.inbound.fhir_rest.errors import LOGIN_TEXT
 from overwatch.adapters.inbound.fhir_rest.host_tenant import (
     bind_host_tenant,
+    bind_pre_session_tenant,
     bind_sign_in_tenant,
 )
 from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
@@ -686,7 +687,11 @@ async def test_every_public_route_binds_the_tenant_of_its_host_through_the_one_b
 
     assert public
     for key, route in public.items():
-        assert _depends_on(route.dependant, bind_host_tenant), key
+        # The push key is for a phone that may be on the one shared host (DEC-1354): its tenant is
+        # the one the edge named, else the host's.
+        assert _depends_on(route.dependant, bind_host_tenant) or _depends_on(
+            route.dependant, bind_pre_session_tenant
+        ), key
         assert not _depends_on_actor(route.dependant), key
 
 
@@ -697,7 +702,7 @@ async def test_the_staff_and_screen_exchange_routes_bind_the_tenant_of_their_hos
     # The staff sign-in also takes a tenant still being set up (DEC-1321); the device one does not.
     for key, binder in (
         (("POST", "/auth/token"), bind_sign_in_tenant),
-        (("POST", "/auth/device-token"), bind_host_tenant),
+        (("POST", "/auth/device-token"), bind_pre_session_tenant),
     ):
         assert _depends_on(routes[key].dependant, binder), key
         assert not _depends_on_actor(routes[key].dependant), key

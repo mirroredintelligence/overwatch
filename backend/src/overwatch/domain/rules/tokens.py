@@ -145,6 +145,11 @@ def _tenant_from_letters(letters: str) -> str | None:
     return found if _TENANT_ID.fullmatch(found) else None
 
 
+def tenant_id_of_letters(letters: str) -> str | None:
+    """The tenant id written as these letters, or None when they are not a tenant's letters."""
+    return _tenant_from_letters(letters) if isinstance(letters, str) else None
+
+
 def tenant_link_token(tenant_id: str, token: str) -> str:
     """The text of a link as it is sent: the tenant's letters, then the 23-letter token. A page
     that is opened with no login learns its tenant from this text, so the one host of a deployment

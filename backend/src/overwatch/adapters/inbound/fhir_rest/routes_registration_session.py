@@ -34,7 +34,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from overwatch.adapters.inbound.fhir_rest.errors import operation_outcome
-from overwatch.adapters.inbound.fhir_rest.host_tenant import bind_host_tenant
+from overwatch.adapters.inbound.fhir_rest.host_tenant import bind_pre_session_tenant
 from overwatch.adapters.inbound.fhir_rest.routes_identity import (
     ACCEPTED_BODY,
     ADDRESS_CODE_CHECKS,
@@ -153,7 +153,9 @@ def _confirm(container: _Container) -> ConfirmDeviceByTextCode:
 
 @router.post("/invitation")
 async def read_invitation(
-    body: InvitationBody, request: Request, tenant: Annotated[Tenant, Depends(bind_host_tenant)]
+    body: InvitationBody,
+    request: Request,
+    tenant: Annotated[Tenant, Depends(bind_pre_session_tenant)],
 ) -> Response:
     async def work(container: _Container, resolved: Tenant) -> Response:
         facts = await _read_invitation(container).execute(body.invitation)
@@ -176,7 +178,9 @@ async def read_invitation(
 
 @router.post("/registration/code", status_code=202)
 async def request_registration_code(
-    body: InvitationBody, request: Request, tenant: Annotated[Tenant, Depends(bind_host_tenant)]
+    body: InvitationBody,
+    request: Request,
+    tenant: Annotated[Tenant, Depends(bind_pre_session_tenant)],
 ) -> Response:
     async def work(container: _Container, resolved: Tenant) -> Response:
         request_code = RequestTextCode(
@@ -209,7 +213,7 @@ async def request_registration_code(
 
 @router.post("/registration/session")
 async def sign_in_to_registration(
-    body: SessionBody, request: Request, tenant: Annotated[Tenant, Depends(bind_host_tenant)]
+    body: SessionBody, request: Request, tenant: Annotated[Tenant, Depends(bind_pre_session_tenant)]
 ) -> Response:
     async def work(container: _Container, resolved: Tenant) -> Response:
         result = await RegistrationSignIn(
@@ -260,7 +264,9 @@ async def sign_in_to_registration(
 
 @router.post("/session-token")
 async def exchange_session(
-    body: SessionTokenBody, request: Request, tenant: Annotated[Tenant, Depends(bind_host_tenant)]
+    body: SessionTokenBody,
+    request: Request,
+    tenant: Annotated[Tenant, Depends(bind_pre_session_tenant)],
 ) -> Response:
     async def work(container: _Container, resolved: Tenant) -> Response:
         issued = await ExchangeReporterSession(

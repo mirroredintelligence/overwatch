@@ -16,7 +16,7 @@ from typing import Annotated, Any, Protocol, cast
 
 from fastapi import Depends, Request
 
-from overwatch.adapters.inbound.fhir_rest.host_tenant import bind_host_tenant
+from overwatch.adapters.inbound.fhir_rest.host_tenant import bind_pre_session_tenant
 from overwatch.application.ports.outbound.clock import Clock
 from overwatch.application.ports.outbound.tokens import SecretStore
 from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
@@ -57,7 +57,7 @@ def bearer_token(request: Request) -> str:
 
 
 async def resolve_active_device(
-    request: Request, tenant: Annotated[Tenant, Depends(bind_host_tenant)]
+    request: Request, tenant: Annotated[Tenant, Depends(bind_pre_session_tenant)]
 ) -> Device:
     """The active wall screen the bearer token belongs to, inside the host's tenant."""
     return await pre_session_resolver(request).device(bearer_token(request))

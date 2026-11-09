@@ -43,7 +43,7 @@ async def _issue(factory: UnitOfWorkFactory, tenant: str) -> str:
             service = LinkTokenService(uow.link_tokens, secrets, FixedClock(NOW), rng=_same_token)
             token = await service.issue("booking-reply", "svc-1", PHONE_HASH, EXPIRES)
             await uow.commit()
-    return token
+    return token[-23:]  # the bare token: these tests are about its hash under each tenant's key
 
 
 async def _resolve(factory: UnitOfWorkFactory, tenant: str, token: str) -> str | None:

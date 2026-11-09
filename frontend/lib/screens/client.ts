@@ -77,7 +77,14 @@ export type StartedPairing = { pairingId: string; code: string; expiresAt: strin
 
 /** The display asks for a code. The secret that goes with it stays in the BFF's cookie. */
 export async function startPairing(signal?: AbortSignal): Promise<StartedPairing> {
-  const response = await send(`${BASE}/pairing`, { method: 'POST', signal });
+  // The address the display was opened at may carry the organisation's letters (`?org=`, DEC-1354).
+  const org = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('org');
+  const named = org !== null && /^[A-Za-z]{2,31}$/.test(org);
+  const response = await send(`${BASE}/pairing`, {
+    method: 'POST',
+    signal,
+    ...(named ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ org }) } : {}),
+  });
   if (response.status !== 201) throw failureOf(response);
   const { pairingId, code, expiresAt } = await bodyOf(response);
   if (typeof pairingId !== 'string' || !PAIRING_ID.test(pairingId)) throw new ScreenClientError('unavailable');

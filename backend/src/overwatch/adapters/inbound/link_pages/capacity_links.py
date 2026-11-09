@@ -185,7 +185,10 @@ def _collaborators(request: Request) -> tuple[_Container, LinkPagesDeps]:
 async def _tenant_of(request: Request, container: _Container, token: str) -> Tenant | None:
     """The active tenant of this link: the one its text names, else the one that owns the host the
     request was addressed to, or None."""
-    return await resolve_link_tenant(container.tenants, request.url.hostname, token)
+    hint = getattr(request.state, "tenant_hint", None)
+    return await resolve_link_tenant(
+        container.tenants, request.url.hostname, token, hint if isinstance(hint, str) else None
+    )
 
 
 def _tokens(container: _Container) -> Callable[[LinkTokenRepository], LinkTokenService]:

@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from overwatch.application.edge_tenant import resolve_link_tenant
+from overwatch.application.edge_tenant import resolve_hinted_tenant, resolve_link_tenant
 from overwatch.application.ports.outbound.tenants import TenantRecordInvalid
 from overwatch.domain.model.tenant import TenantStatus
 from overwatch.domain.rules.tokens import (
@@ -94,3 +94,30 @@ async def test_an_unknown_tenant_and_a_damaged_record_are_none() -> None:
     assert (
         await resolve_link_tenant(_Directory(tenant=TenantRecordInvalid("x")), None, text) is None
     )  # type: ignore[arg-type]
+
+
+async def test_a_hint_names_the_tenant_and_is_not_replaced_by_the_host() -> None:
+    tenant = make_tenant()
+    directory = _Directory(tenant=tenant, host_tenant=make_tenant())
+    found = await resolve_hinted_tenant(directory, "own.example.test", tenant.id)  # type: ignore[arg-type]
+    assert found is tenant
+    assert directory.hosts == []
+
+
+async def test_a_hint_that_names_no_active_tenant_is_none_and_the_host_is_not_tried() -> None:
+    directory = _Directory(tenant=None, host_tenant=make_tenant())
+    assert await resolve_hinted_tenant(directory, "own.example.test", "nobody") is None  # type: ignore[arg-type]
+    assert directory.hosts == []
+
+
+async def test_no_hint_is_the_host() -> None:
+    tenant = make_tenant()
+    directory = _Directory(host_tenant=tenant)
+    assert await resolve_hinted_tenant(directory, "own.example.test", None) is tenant  # type: ignore[arg-type]
+
+
+async def test_a_link_with_no_tenant_in_it_uses_the_hint_before_the_host() -> None:
+    tenant = make_tenant()
+    directory = _Directory(tenant=tenant)
+    assert await resolve_link_tenant(directory, "x.example.test", TOKEN, tenant.id) is tenant  # type: ignore[arg-type]
+    assert directory.hosts == []

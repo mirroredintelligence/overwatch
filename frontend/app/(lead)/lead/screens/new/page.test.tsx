@@ -39,6 +39,12 @@ describe('the lead page /lead/screens/new', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Type the code the screen shows' })).toBeInTheDocument();
   });
 
+  it('tells the lead which address to open on the display: the shared host with the organisation in it', async () => {
+    vi.mocked(getSession).mockResolvedValue({ ...session('lead'), tenantId: 'trust-a2' });
+    render(await AddWallScreenPage());
+    expect(screen.getByText('https://app.test/screen/pair?org=trustKaC')).toBeInTheDocument();
+  });
+
   it('sends nobody to this page’s form unless they are a lead, even if the proxy let them through', async () => {
     for (const role of ['advisor', 'clinical', 'owner', 'exec', 'wall', 'support', 'audit', 'reporter'] as const) {
       vi.mocked(getSession).mockResolvedValue(session(role));

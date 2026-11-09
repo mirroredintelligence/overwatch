@@ -75,15 +75,16 @@ async def _every_node_text(driver: AsyncDriver) -> str:
     return await read_tx(driver, work)
 
 
-async def test_issue_returns_a_23_letter_token_and_stores_only_its_hash(
+async def test_issue_returns_the_tenant_letters_and_a_23_letter_token_and_stores_only_its_hash(
     neo4j_driver: AsyncDriver,
 ) -> None:
     clock = FixedClock(NOW)
     token = await _issue(neo4j_driver, clock)
-    assert len(token) == 23
+    assert len(token) > 23  # the tenant's letters in front (DEC-1354)
+    assert token.isalpha()
     stored = await _resolve(neo4j_driver, clock, token)
     assert stored is not None
-    assert stored.token_hash == hash_token(token, SECRET)
+    assert stored.token_hash == hash_token(token[-23:], SECRET)
 
 
 async def test_the_token_text_is_in_no_stored_property(neo4j_driver: AsyncDriver) -> None:
@@ -97,7 +98,7 @@ async def test_resolve_returns_the_issued_record(neo4j_driver: AsyncDriver) -> N
     token = await _issue(neo4j_driver, clock)
     stored = await _resolve(neo4j_driver, clock, token)
     assert stored == LinkTokenRecord(
-        token_hash=hash_token(token, SECRET),
+        token_hash=hash_token(token[-23:], SECRET),
         purpose="booking-reply",
         about_id="svc-1",
         phone_hash=PHONE_HASH,

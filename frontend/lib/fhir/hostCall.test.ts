@@ -57,6 +57,27 @@ describe('callBackend', () => {
       expect(seen.host).not.toBe('tenant-a.example.test');
     });
 
+    it('names the organisation a link carries in X-Overwatch-Tenant, and a caller cannot set it', async () => {
+      let seen: Record<string, string | null> = {};
+      server.use(http.get(`${BACKEND_ROOT}/checkin/:token`, ({ request }) => {
+        seen = { tenant: request.headers.get('x-overwatch-tenant') };
+        return HttpResponse.json({ ok: true });
+      }));
+      await callBackend({ method: 'GET', path: '/checkin/fortrusKlimitedEGgUYPNAWmUifbKPQaBGpyS', host: 'a.example.test', headers: { 'X-Overwatch-Tenant': 'forgedKtenant' } });
+      expect(seen.tenant).toBe('fortrusKlimited');
+    });
+
+    it('names the organisation of the call when it says so, and sends nothing when none is known', async () => {
+      const seen: (string | null)[] = [];
+      server.use(http.get(PING, ({ request }) => {
+        seen.push(request.headers.get('x-overwatch-tenant'));
+        return HttpResponse.json({ ok: true });
+      }));
+      await callBackend({ method: 'GET', path: '/public/ping', host: 'a.example.test', tenant: 'trustKaC' });
+      await callBackend({ method: 'GET', path: '/public/ping', host: 'a.example.test' });
+      expect(seen).toEqual(['trustKaC', null]);
+    });
+
     it('passes the visitor address on as CF-Connecting-IP only when it is one address', async () => {
       const seen: (string | null)[] = [];
       server.use(http.get(PING, ({ request }) => {

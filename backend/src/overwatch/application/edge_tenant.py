@@ -42,8 +42,27 @@ async def resolve_active_tenant(directory: TenantDirectory, host: str | None) ->
     return tenant
 
 
+async def resolve_hinted_tenant(
+    directory: TenantDirectory, host: str | None, hint: str | None
+) -> Tenant | None:
+    """The active tenant a page with no login belongs to (DEC-1354): the one the trusted edge named,
+    else the one that owns the host. The hint only says where to look; every route reads inside the
+    tenant by a secret it must hold. A hint that names no active tenant is None, and is not
+    quietly replaced by the host."""
+    if hint is None:
+        return await resolve_active_tenant(directory, host)
+    try:
+        tenant = await directory.get(hint)
+    except TenantRecordInvalid:
+        log.warning("hint refused: reason=tenant-record")
+        return None
+    if type(tenant) is not Tenant or tenant.status is not TenantStatus.ACTIVE:
+        return None
+    return tenant
+
+
 async def resolve_link_tenant(
-    directory: TenantDirectory, host: str | None, token: str
+    directory: TenantDirectory, host: str | None, token: str, hint: str | None = None
 ) -> Tenant | None:
     """The active tenant of a public link (DEC-1354). A link names its own tenant in front of the
     token, so one host can serve every tenant and no custom domain is needed; the tenant is then
@@ -53,7 +72,7 @@ async def resolve_link_tenant(
     answers an unknown code."""
     tenant_id, _ = split_link_token(token)
     if tenant_id is None:
-        return await resolve_active_tenant(directory, host)
+        return await resolve_hinted_tenant(directory, host, hint)
     try:
         tenant = await directory.get(tenant_id)
     except TenantRecordInvalid:

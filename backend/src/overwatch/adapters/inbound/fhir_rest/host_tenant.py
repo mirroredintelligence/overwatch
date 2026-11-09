@@ -19,7 +19,11 @@ from collections.abc import AsyncIterator
 from fastapi import Request
 
 from overwatch.adapters.inbound.fhir_rest.app import get_container
-from overwatch.application.edge_tenant import resolve_active_tenant, resolve_sign_in_tenant
+from overwatch.application.edge_tenant import (
+    resolve_active_tenant,
+    resolve_hinted_tenant,
+    resolve_sign_in_tenant,
+)
 from overwatch.application.ports.outbound.tenants import normalise_host
 from overwatch.application.tenancy import bind_tenant
 from overwatch.domain.errors import NotFound
@@ -50,6 +54,32 @@ async def bind_sign_in_tenant(request: Request) -> AsyncIterator[Tenant]:
     """As `bind_host_tenant`, for the staff sign-in only: a tenant still being set up is let
     through, and the token it gets is limited to the tenant administrator (DEC-1321)."""
     tenant = await resolve_sign_in_tenant(get_container(request).tenants, request_host(request))
+    if tenant is None:
+        raise HostNotResolved
+    with bind_tenant(tenant.id):
+        yield tenant
+
+
+def request_hint(request: Request) -> str | None:
+    """The tenant id the trusted edge named for this request (DEC-1354), or None. The edge
+    middleware sets it only for a request it trusts and removes the header from every request."""
+    found = getattr(request.state, "tenant_hint", None)
+    return found if isinstance(found, str) else None
+
+
+async def resolve_pre_session_tenant(request: Request) -> Tenant | None:
+    """The active tenant of a request with no login: the one the edge named, else the host's."""
+    container = get_container(request)
+    return await resolve_hinted_tenant(
+        container.tenants, request_host(request), request_hint(request)
+    )
+
+
+async def bind_pre_session_tenant(request: Request) -> AsyncIterator[Tenant]:
+    """As `bind_host_tenant`, for the routes a person reaches before a session and with no link
+    token in hand (a reporter's phone after set-up, a wall screen): the tenant the edge named, else
+    the host's (DEC-1354). The routes then look up a secret inside it."""
+    tenant = await resolve_pre_session_tenant(request)
     if tenant is None:
         raise HostNotResolved
     with bind_tenant(tenant.id):

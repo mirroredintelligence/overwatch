@@ -24,11 +24,14 @@ from overwatch.application.actor import Actor
 from overwatch.application.idempotency import IdempotencyStore, format_instant
 from overwatch.application.ports.outbound.audit import AuditEntry
 from overwatch.application.ports.outbound.clock import Clock
-from overwatch.application.ports.outbound.identity import PhoneHasher, normalise_uk_mobile
+from overwatch.application.ports.outbound.identity import (
+    PhoneHasher,
+    international,
+    normalise_uk_mobile,
+)
 from overwatch.application.ports.outbound.ids import IdGenerator
 from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
-from overwatch.application.use_cases.setup_service_by_lead import international
 from overwatch.domain.codes import Role
 from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
 from overwatch.domain.model.people import (

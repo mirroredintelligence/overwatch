@@ -805,7 +805,7 @@ async def test_renewing_an_expired_link_queues_a_fresh_prompt_with_a_new_link(
     fresh = sent[-1]
     assert fresh["message_id"] == "C1"
     assert fresh["text"].startswith("Overwatch")
-    found = re.search(rf"{re.escape(BASE_URL_A)}/([A-Za-z]{{23}})", fresh["text"])
+    found = re.search(rf"{re.escape(BASE_URL_A)}/([A-Za-z]{{23,54}})", fresh["text"])
     assert found is not None
     # The new link works, for a window that starts now, and the old one still does not.
     new_token = found.group(1)
@@ -865,7 +865,7 @@ async def test_the_fresh_prompt_goes_to_the_same_role_and_its_text_is_sealed_for
         recipient_role_id="role-1",
     )
     assert BASE_URL_A in opened
-    new_token = re.search(rf"{re.escape(BASE_URL_A)}/([A-Za-z]{{23}})", opened)
+    new_token = re.search(rf"{re.escape(BASE_URL_A)}/([A-Za-z]{{23,54}})", opened)
     assert new_token is not None
     assert await _nodes_holding(links, new_token.group(1)) == 0  # no record holds the new token
 

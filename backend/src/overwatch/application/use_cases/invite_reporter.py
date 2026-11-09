@@ -21,7 +21,11 @@ from typing import Final
 from overwatch.application.actor import Actor
 from overwatch.application.ports.outbound.audit import AuditEntry
 from overwatch.application.ports.outbound.clock import Clock
-from overwatch.application.ports.outbound.identity import PhoneHasher, normalise_uk_mobile
+from overwatch.application.ports.outbound.identity import (
+    PhoneHasher,
+    international,
+    normalise_uk_mobile,
+)
 from overwatch.application.ports.outbound.ids import IdGenerator
 from overwatch.application.ports.outbound.messaging import Communication
 from overwatch.application.ports.outbound.outbox import OutboxMessage, outbox_message_for
@@ -31,7 +35,7 @@ from overwatch.application.sealed_send import seal_outbound_text, tenant_of
 from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound
 from overwatch.application.tenant_settings import resolve_link_base
 from overwatch.application.use_cases.send_prompts import LinkTokenServiceFactory
-from overwatch.application.use_cases.setup_service_by_lead import check_role_name, international
+from overwatch.application.use_cases.setup_service_by_lead import check_role_name
 from overwatch.application.use_cases.text_code import INVITATION_PURPOSE
 from overwatch.domain.codes import (
     Channel,

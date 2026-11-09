@@ -41,7 +41,10 @@ from overwatch.adapters.inbound.fhir_rest.errors import (
     TemporarilyUnavailable,
     operation_outcome,
 )
-from overwatch.adapters.inbound.fhir_rest.host_tenant import bind_host_tenant, bind_sign_in_tenant
+from overwatch.adapters.inbound.fhir_rest.host_tenant import (
+    bind_pre_session_tenant,
+    bind_sign_in_tenant,
+)
 from overwatch.adapters.inbound.fhir_rest.token_resolvers import resolve_active_device
 from overwatch.application.ports.outbound.cache import PlatformSlots
 from overwatch.application.ports.outbound.clock import Clock
@@ -327,7 +330,7 @@ async def exchange_device(
     request: Request,
     _body: EmptyBody,
     device: Annotated[Device, Depends(resolve_active_device)],
-    tenant: Annotated[Tenant, Depends(bind_host_tenant)],
+    tenant: Annotated[Tenant, Depends(bind_pre_session_tenant)],
 ) -> Response:
     container = _container(request)
     use_case = ExchangeDeviceToken(container.clock, _Resolved(device), _secrets(request))

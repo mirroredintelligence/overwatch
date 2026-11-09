@@ -1,6 +1,7 @@
 import { readToken, sessionEnd } from '@/lib/auth/exchange';
 import { readIssuedToken } from '@/lib/auth/tokenClaims';
 import { callLinkApi, LinkApiError, type LinkReply } from '@/lib/links/server';
+import { rememberLetters } from '@/lib/tenant/hint';
 
 // Server-only. The BFF's calls to the back end's wall screen routes (R15, DEC-224) and to the token
 // exchange for a paired screen (TEN-043, DEC-526). The tenant of every call that has no token of its
@@ -59,9 +60,13 @@ function fields(body: unknown): Record<string, unknown> {
 
 export type StartedPairing = { pairingId: string; code: string; expiresAt: string; screenSecret: string };
 
-/** The display asks for a code. No token: the host names the tenant. */
-export async function startPairing(host: string | null): Promise<StartedPairing> {
-  const reply = await call({ method: 'POST', path: '/screens/pairing', host, body: {} });
+/**
+ * The display asks for a code. No token: the organisation is the one whose letters the display's address carried
+ * (DEC-1354), else the one that owns the host.
+ */
+export async function startPairing(host: string | null, tenant?: string): Promise<StartedPairing> {
+  const reply = await call({ method: 'POST', path: '/screens/pairing', host, body: {}, ...(tenant === undefined ? {} : { tenant }) });
+  if (tenant !== undefined && reply.status === 201) await rememberLetters(tenant);
   if (reply.status !== 201) throw failure(reply);
   const { pairingId, code, expiresAt, screenSecret } = fields(reply.body);
   if (typeof pairingId !== 'string' || !PAIRING_ID.test(pairingId)) throw new ScreenApiError('bad-answer');

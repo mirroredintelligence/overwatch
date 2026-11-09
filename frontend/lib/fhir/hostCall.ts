@@ -4,6 +4,7 @@ import { isIP } from 'node:net';
 import { normaliseHost } from '@/lib/auth/host';
 import { ambientVisitorAddress } from '@/lib/fhir/visitorAddress';
 import { getSecret, SecretConfigurationError, SecretNotFoundError, vaultConfigured } from '@/lib/secrets';
+import { isTenantLetters, lettersOfCall, rememberedLetters, rememberLetters, TENANT_HEADER } from '@/lib/tenant/hint';
 
 // Server-only. The calls to the back end that have no signed token to say whose they are: the token
 // exchange at sign-in and the capacity link API. The tenant for such a call is the HOST the request
@@ -19,13 +20,14 @@ import { getSecret, SecretConfigurationError, SecretNotFoundError, vaultConfigur
 //   there is no vault, as in local runs and tests) the tenant host goes in X-Forwarded-Host with the secret in X-Edge-Auth, which the back end's edge
 //   middleware accepts only with the matching secret, and the visitor's address in CF-Connecting-IP.
 //
-// It never sends an Authorization header, a tenant header, a scope or a network: a call that needs a
+// It never sends an Authorization header, a scope or a network, and its one tenant header is the organisation's
+// letters (DEC-1354, lib/tenant/hint.ts): a call that needs a
 // bearer token goes through `fhirFetch`.
 
 const BASE_URL_VARIABLE = 'OVERWATCH_FHIR_BASE_URL';
 const EDGE_SECRET = 'edge-origin';
 const HEADER_SAFE = /^[\x21-\x7e]+$/;
-const EDGE_HEADERS = ['x-forwarded-host', 'x-edge-auth', 'cf-connecting-ip'];
+const EDGE_HEADERS = ['x-forwarded-host', 'x-edge-auth', 'cf-connecting-ip', TENANT_HEADER.toLowerCase()];
 const FHIR_SUFFIX = '/fhir';
 const TIMEOUT_MS = 10_000;
 const MAX_ANSWER_BYTES = 64 * 1024;
@@ -78,6 +80,11 @@ export type BackendCall = {
   clientIp?: string | null;
   body?: unknown;
   csrf?: string;
+  /**
+   * The organisation's letters for a call that has no token or login of its own (DEC-1354): a wall display's
+   * pairing names it. Left out, it is the letters a link in the call carries, then the ones this phone remembered.
+   */
+  tenant?: string;
   /** Further request headers, such as `Authorization` or `X-Screen-Secret` (the screen and token routes). */
   headers?: Record<string, string>;
 };
@@ -119,10 +126,13 @@ export async function callBackend(call: BackendCall): Promise<BackendReply> {
   const url = new URL(call.path, backendRoot(process.env[BASE_URL_VARIABLE]));
   const payload = call.body === undefined ? undefined : JSON.stringify(call.body);
   const edge = await edgeSecret();
+  const named = isTenantLetters(call.tenant) ? call.tenant : lettersOfCall(call);
+  const hint = named ?? (await rememberedLetters());
   const headers: Record<string, string | number> = { Accept: 'application/json' };
   if (edge !== null) {
     headers['X-Forwarded-Host'] = host;
     headers['X-Edge-Auth'] = edge;
+    if (hint !== null) headers[TENANT_HEADER] = hint;
     const visitor = call.clientIp === undefined ? await ambientVisitorAddress() : call.clientIp;
     if (visitor !== null && visitor !== undefined && isIP(visitor) !== 0) headers['CF-Connecting-IP'] = visitor;
   } else {
@@ -157,6 +167,7 @@ export async function callBackend(call: BackendCall): Promise<BackendReply> {
         });
         response.on('end', () => {
           const retry = response.headers['retry-after'];
+          if (named !== null && (response.statusCode ?? 500) < 300) void rememberLetters(named);
           resolve({
             status: response.statusCode ?? 0,
             body: jsonOrUndefined(Buffer.concat(chunks).toString('utf8')),

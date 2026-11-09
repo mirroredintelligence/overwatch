@@ -53,6 +53,7 @@ from overwatch.adapters.inbound.fhir_rest.auth import require_role
 from overwatch.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
 from overwatch.adapters.inbound.fhir_rest.errors import NOT_FOUND_TEXT, operation_outcome
 from overwatch.application.actor import Actor
+from overwatch.application.edge_tenant import resolve_hinted_tenant
 from overwatch.application.ports.outbound.clock import Clock
 from overwatch.application.ports.outbound.identity import (
     PHONE_HASH_SECRET,
@@ -64,7 +65,7 @@ from overwatch.application.ports.outbound.identity import (
 )
 from overwatch.application.ports.outbound.ids import IdGenerator
 from overwatch.application.ports.outbound.sealing import ContentSealer
-from overwatch.application.ports.outbound.tenants import TenantDirectory, TenantRecordInvalid
+from overwatch.application.ports.outbound.tenants import TenantDirectory
 from overwatch.application.ports.outbound.tokens import SecretStore
 from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from overwatch.application.tenancy import bind_tenant, current_tenant
@@ -108,7 +109,6 @@ from overwatch.application.use_cases.text_code import (
 )
 from overwatch.domain.codes import Role
 from overwatch.domain.errors import NotFound, ValidationFailed
-from overwatch.domain.model.tenant import TenantStatus
 
 log = logging.getLogger(__name__)
 
@@ -243,16 +243,14 @@ def _check_secrets(container: _Container, *names: str) -> None:
 
 
 async def _tenant_of(request: Request, container: _Container) -> str | None:
-    """The id of the active tenant whose host this request was addressed to, or None. A host no
-    tenant owns, a tenant that is not active and a damaged record all answer None."""
-    try:
-        tenant = await container.tenants.by_host(request.url.hostname or "")
-    except TenantRecordInvalid:
-        log.warning("identity refused: reason=tenant-record")
-        return None
-    if tenant is None or tenant.status is not TenantStatus.ACTIVE:
-        return None
-    return tenant.id
+    """The id of the active tenant of this request: the one the trusted edge named, else the one
+    whose host it was addressed to (DEC-1354), or None. An unknown host, a tenant that is not
+    active and a damaged record all answer None."""
+    hint = getattr(request.state, "tenant_hint", None)
+    found = await resolve_hinted_tenant(
+        container.tenants, request.url.hostname, hint if isinstance(hint, str) else None
+    )
+    return None if found is None else found.id
 
 
 async def _count(container: _Container, kind: str, request: Request, limit: int) -> None:

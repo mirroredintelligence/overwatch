@@ -141,7 +141,7 @@ def test_the_page_paths_are_the_ones_the_front_end_and_the_prompt_use() -> None:
 
 
 async def test_a_request_with_no_host_has_no_tenant() -> None:
-    request: Any = SimpleNamespace(url=SimpleNamespace(hostname=None))
+    request: Any = SimpleNamespace(url=SimpleNamespace(hostname=None), state=SimpleNamespace())
     container: Any = SimpleNamespace(tenants=None)  # the directory is never asked
 
-    assert await pages._tenant_of(request, container) is None
+    assert await pages._tenant_of(request, container, "AAAAAAAAAAAAAAAAAAAAAAA") is None

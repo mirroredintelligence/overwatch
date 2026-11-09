@@ -41,6 +41,21 @@ describe('POST /api/bff/screens/pairing', () => {
     expect(response.headers.get('cache-control')).toBe('no-store');
   });
 
+  it('pairs in the organisation whose letters the display sent, and remembers them', async () => {
+    const response = await post({ body: JSON.stringify({ org: 'trustKaC' }), headers: { 'Content-Type': 'application/json' } });
+    expect(response.status).toBe(201);
+    expect(lastWrite('overwatch_tenant')?.value).toBe('trustKaC');
+  });
+
+  it('ignores letters that are not an organisation’s, and a body that is not JSON', async () => {
+    for (const body of [JSON.stringify({ org: 'trust-a2' }), JSON.stringify({ org: 5 }), '{not json', 'x'.repeat(300)]) {
+      resetCookieWrites();
+      const response = await post({ body });
+      expect(response.status).toBe(201);
+      expect(lastWrite('overwatch_tenant')).toBeUndefined();
+    }
+  });
+
   it('keeps the secret in a sealed cookie, and out of the body, the headers and the address', async () => {
     const response = await post();
     const text = JSON.stringify([await response.clone().text(), [...response.headers.entries()]]);

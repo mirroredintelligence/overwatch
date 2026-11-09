@@ -14,9 +14,13 @@ from typing import Any
 
 import pytest
 import pytest_asyncio
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 from neo4j import AsyncDriver
 
+from overwatch.adapters.inbound.edge_proxy.cloudflare import (
+    CloudflareEdge,
+    CloudflareEdgeMiddleware,
+)
 from overwatch.adapters.testing.fixed_clock import FixedClock
 from overwatch.adapters.testing.tokens import TEST_BFF_SECRET
 from overwatch.application.ports.outbound.identity import HmacPhoneHasher
@@ -24,6 +28,7 @@ from overwatch.application.ports.outbound.tokens import LinkTokenService
 from overwatch.application.tenancy import bind_tenant
 from overwatch.bootstrap.container import Container
 from overwatch.domain.codes import Channel
+from overwatch.domain.rules.tokens import tenant_letters
 from tests.integration.adapters.inbound.fhir_rest.reporter_rig import (
     CODE,
     DEVICE,
@@ -445,6 +450,29 @@ async def test_the_push_key_is_not_served_to_a_host_no_tenant_owns(world: Contai
         response = await stranger.get("/public/push-key")
 
     assert response.status_code == 404
+
+
+async def test_the_push_key_is_served_on_a_shared_host_to_a_phone_the_edge_names_the_tenant_of(
+    world: Container, tenant_id: str
+) -> None:
+    """DEC-1354: one host for every tenant. The trusted edge names the tenant of the phone."""
+    secret = b"edge-secret-for-the-test-0123456789"
+    edge = CloudflareEdge(origin_secret=secret)
+    app = CloudflareEdgeMiddleware(await build_app(world), edge=edge)
+    letters = tenant_letters(tenant_id)
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app, raise_app_exceptions=False),
+        base_url="https://shared.example.test",
+    ) as shared:
+        named = await shared.get(
+            "/public/push-key",
+            headers={"X-Edge-Auth": secret.decode(), "X-Overwatch-Tenant": letters},
+        )
+        forged = await shared.get("/public/push-key", headers={"X-Overwatch-Tenant": letters})
+
+    assert named.status_code == 200
+    assert forged.status_code == 404  # the same header from anyone but the edge says nothing
 
 
 # ----------------------------------------------------------------------- nothing leaks

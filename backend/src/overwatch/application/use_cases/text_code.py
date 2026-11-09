@@ -25,6 +25,7 @@ from overwatch.application.ports.outbound.clock import Clock
 from overwatch.application.ports.outbound.identity import (
     CodeStore,
     PhoneHasher,
+    international,
     normalise_uk_mobile,
 )
 from overwatch.application.ports.outbound.ids import IdGenerator
@@ -33,7 +34,6 @@ from overwatch.application.ports.outbound.sealing import ContentSealer
 from overwatch.application.ports.outbound.tokens import SecretStore
 from overwatch.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
 from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound
-from overwatch.application.use_cases.setup_service_by_lead import international
 from overwatch.domain.errors import Conflict, ValidationFailed
 from overwatch.domain.rules.identity_policy import (
     CODE_MAX_TRIES,

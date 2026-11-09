@@ -36,6 +36,7 @@ async def _echo(request: Request) -> JSONResponse:
             "client": None if request.client is None else request.client.host,
             "host": request.headers.get("host"),
             "headers": sorted(request.headers.keys()),
+            "hint": getattr(request.state, "tenant_hint", None),
         }
     )
 
@@ -261,3 +262,20 @@ def test_a_range_that_is_not_a_network_is_refused_at_start_up(bad: str) -> None:
 
 def test_the_edge_shows_no_secret_in_its_repr() -> None:
     assert "origin-secret" not in repr(CloudflareEdge(origin_secret=ORIGIN_SECRET))
+
+
+async def test_the_tenant_the_edge_names_is_read_only_from_a_trusted_request() -> None:
+    letters = {"X-Overwatch-Tenant": "trustKaC", "CF-Connecting-IP": VISITOR}
+    trusted = await _get(_edge(), CLOUDFLARE_PEER, letters)
+    untrusted = await _get(_edge(), OTHER_PEER, letters)
+
+    assert trusted["hint"] == "trust-a2"
+    assert untrusted["hint"] is None
+    assert "x-overwatch-tenant" not in trusted["headers"] + untrusted["headers"]
+
+
+@pytest.mark.parametrize("bad", ["", "a", "trust-a2", "trust a", "x" * 40, "trustKaC9"])
+async def test_letters_that_are_not_a_tenants_are_ignored(bad: str) -> None:
+    body = await _get(_edge(), CLOUDFLARE_PEER, {"X-Overwatch-Tenant": bad})
+
+    assert body["hint"] is None

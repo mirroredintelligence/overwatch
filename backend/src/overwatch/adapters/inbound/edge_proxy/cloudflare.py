@@ -35,6 +35,7 @@ from dataclasses import dataclass, field
 from typing import Any, Final
 
 from overwatch.application.ports.outbound.tenants import normalise_host
+from overwatch.domain.rules.tokens import tenant_id_of_letters
 
 log = logging.getLogger(__name__)
 
@@ -43,6 +44,11 @@ IPAddress = ipaddress.IPv4Address | ipaddress.IPv6Address
 
 CLIENT_HEADER: Final = "cf-connecting-ip"
 HOST_HEADER: Final = "x-forwarded-host"
+TENANT_HINT_HEADER: Final = "x-overwatch-tenant"
+"""The tenant the edge says a page with no login belongs to, as the letters a link carries
+(DEC-1354). Only a trusted request's is read, and it only says where to look: whatever the route
+then reads, it reads inside that tenant, by a secret. It reaches routes as
+`request.state.tenant_hint`."""
 EDGE_AUTH_HEADER: Final = "x-edge-auth"
 """The header the origin secret arrives in (lower case, as Starlette reads it)."""
 
@@ -52,6 +58,7 @@ _REMOVED: Final = frozenset(
     {
         CLIENT_HEADER,
         HOST_HEADER,
+        TENANT_HINT_HEADER,
         EDGE_AUTH_HEADER,
         "true-client-ip",
         "x-forwarded-for",
@@ -150,6 +157,16 @@ def _client_address(value: bytes | None) -> str | None:
         return None
 
 
+def _tenant_hint(value: bytes | None) -> str | None:
+    """The tenant id the header's letters stand for, or None when it is not a tenant's letters."""
+    if value is None:
+        return None
+    try:
+        return tenant_id_of_letters(value.decode("ascii"))
+    except UnicodeDecodeError:
+        return None
+
+
 def _original_host(value: bytes | None) -> bytes | None:
     """The host name of the header (its port dropped), or None when it is not one."""
     if value is None:
@@ -192,6 +209,9 @@ class CloudflareEdgeMiddleware:
                 log.warning("edge request without a usable visitor address")
             else:
                 scope["client"] = (visitor, 0)
+            hint = _tenant_hint(by_name.get(TENANT_HINT_HEADER.encode()))
+            if hint is not None:
+                scope.setdefault("state", {})["tenant_hint"] = hint
             host = _original_host(by_name.get(HOST_HEADER.encode()))
             if host is not None:
                 kept = [(name, value) for name, value in kept if name.lower() != b"host"]

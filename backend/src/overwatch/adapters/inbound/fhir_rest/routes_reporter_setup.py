@@ -38,7 +38,7 @@ from fastapi.responses import JSONResponse, Response
 from pydantic import Field
 
 from overwatch.adapters.inbound.fhir_rest.errors import operation_outcome
-from overwatch.adapters.inbound.fhir_rest.host_tenant import bind_host_tenant
+from overwatch.adapters.inbound.fhir_rest.host_tenant import bind_pre_session_tenant
 from overwatch.adapters.inbound.fhir_rest.routes_identity import (
     ACCEPTED_BODY,
     ADDRESS_CODE_CHECKS,
@@ -148,7 +148,10 @@ def _tokens(container: _Container) -> Callable[[LinkTokenRepository], LinkTokenS
 
 
 async def _link_tenant_id(request: Request, container: _Container, token: str) -> str | None:
-    found = await resolve_link_tenant(container.tenants, request.url.hostname, token)
+    hint = getattr(request.state, "tenant_hint", None)
+    found = await resolve_link_tenant(
+        container.tenants, request.url.hostname, token, hint if isinstance(hint, str) else None
+    )
     return None if found is None else found.id
 
 
@@ -371,7 +374,7 @@ async def set_device_channel(body: ChannelBody, request: Request) -> Response:
 
 @router.get("/public/push-key", dependencies=[Depends(public_rate_limit)])
 async def push_key(
-    request: Request, tenant: Annotated[Tenant, Depends(bind_host_tenant)]
+    request: Request, tenant: Annotated[Tenant, Depends(bind_pre_session_tenant)]
 ) -> Response:
     container = _container(request)
     try:

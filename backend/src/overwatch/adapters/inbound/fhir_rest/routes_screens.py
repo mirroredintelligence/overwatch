@@ -86,7 +86,7 @@ from overwatch.adapters.inbound.fhir_rest.errors import (
 from overwatch.adapters.inbound.fhir_rest.routes_network import network_services
 from overwatch.adapters.inbound.fhir_rest.routes_network_events import open_wall_network_events
 from overwatch.application.actor import Actor
-from overwatch.application.edge_tenant import resolve_active_tenant
+from overwatch.application.edge_tenant import resolve_hinted_tenant
 from overwatch.application.idempotency import format_instant
 from overwatch.application.ports.outbound.cache import Cache
 from overwatch.application.ports.outbound.clock import Clock
@@ -217,7 +217,10 @@ def _check_secrets(container: _Container) -> None:
 async def _tenant_of(request: Request, container: _Container) -> str | None:
     """The id of the active tenant whose host this request was addressed to, or None. A host no
     tenant owns, a tenant that is not active, and a damaged tenant record all answer None."""
-    tenant = await resolve_active_tenant(container.tenants, request.url.hostname)
+    hint = getattr(request.state, "tenant_hint", None)
+    tenant = await resolve_hinted_tenant(
+        container.tenants, request.url.hostname, hint if isinstance(hint, str) else None
+    )
     return None if tenant is None else tenant.id
 
 

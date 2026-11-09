@@ -61,13 +61,14 @@ async def _issue(
     purpose: str = PURPOSE,
     expires_in: timedelta = timedelta(minutes=30),
 ) -> str:
-    """Issue one link in the unit's own tenant and return the token text."""
+    """Issue one link in the unit's own tenant and return the bare token (the 23 letters that are
+    hashed; the text sent also names the tenant, DEC-1354)."""
     async with uow_factory() as uow:
         token = await LinkTokenService(uow.link_tokens, secrets, clock).issue(
             purpose, "c-1", PHONE, clock.now() + expires_in
         )
         await uow.commit()
-    return token
+    return token[-23:]
 
 
 async def test_a_link_is_found_in_its_own_tenant_and_refused_in_the_other(

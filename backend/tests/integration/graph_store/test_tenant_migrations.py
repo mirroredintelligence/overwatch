@@ -24,8 +24,13 @@ from overwatch.adapters.outbound.graph_store.migrations import (
     MIGRATIONS,
     apply_migrations,
 )
+from overwatch.adapters.outbound.graph_store.migrations_admin_consent import (
+    ADMIN_CONSENT_MIGRATIONS,
+)
 from overwatch.adapters.outbound.graph_store.migrations_contract import CONTRACT_MIGRATIONS
+from overwatch.adapters.outbound.graph_store.migrations_insight import INSIGHT_MIGRATIONS
 from overwatch.adapters.outbound.graph_store.migrations_network import NETWORK_MIGRATIONS
+from overwatch.adapters.outbound.graph_store.migrations_platform import PLATFORM_MIGRATIONS
 from overwatch.adapters.outbound.graph_store.migrations_protected import PROTECTED_MIGRATIONS
 from overwatch.adapters.outbound.graph_store.migrations_safety import SAFETY_MIGRATIONS
 from overwatch.adapters.outbound.graph_store.migrations_support import SUPPORT_MIGRATIONS
@@ -44,6 +49,7 @@ from overwatch.adapters.outbound.graph_store.migrations_tenant import (
 from overwatch.adapters.outbound.graph_store.migrations_tenant_config import (
     TENANT_CONFIG_MIGRATIONS,
 )
+from overwatch.adapters.outbound.graph_store.migrations_visits import VISIT_MIGRATIONS
 from overwatch.application.tenancy import DEFAULT_TENANT_ID
 from tests.support.neo4j import read_tx, throwaway_driver, wipe_all, write_tx
 from tests.support.tenant_seed import (
@@ -196,6 +202,17 @@ PINNED_MIGRATION_IDS = [
     "0111_projection_keys",
     # the hourly sample of a network board (block 0185 to 0189, TEN-082)
     "0185_network_samples",
+    # the platform's own records, the insight tallies, the visit offers and the admin consent
+    # invites (blocks 0190 to 0202): new labels and keys that replace nothing
+    "0190_platform_records",
+    "0191_staff_registry",
+    "0192_postcode_points",
+    "0193_postcode_download_requests",
+    "0195_insight_keys",
+    "0196_insight_indexes",
+    "0200_visit_offer_id",
+    "0201_visit_settings_practitioner",
+    "0202_admin_consent_invites",
 ]
 
 
@@ -211,6 +228,10 @@ async def test_a_fresh_database_applies_every_migration_in_order(built: _Built) 
         SAFETY_MIGRATIONS,
         TENANT_CONFIG_MIGRATIONS,
         CONTRACT_MIGRATIONS,
+        PLATFORM_MIGRATIONS,
+        INSIGHT_MIGRATIONS,
+        VISIT_MIGRATIONS,
+        ADMIN_CONSENT_MIGRATIONS,
     )
     assert len(built.applied) == sum(len(area) for area in areas)
     # ...and the ids are pinned, so adding, removing or renaming one is a change to this list made

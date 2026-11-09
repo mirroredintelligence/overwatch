@@ -25,6 +25,7 @@ properties. A node the domain refuses is `NetworkRecordInvalid` with one fixed m
 id (a configuration fault, fail closed). Nothing is cached and nothing is logged here.
 """
 
+import secrets
 from collections.abc import Mapping, Sequence
 from datetime import datetime
 from enum import StrEnum
@@ -123,7 +124,8 @@ _WRITES: Final[dict[str, str]] = {
         "RETURN n.id AS id"
     ),
     "Q-NETWORK-SAVE": (
-        "MATCH (n:Network {id: $id, ownerTenantId: $ownerTenantId, status: $expectedStatus}) "
+        "MATCH (n:Network {id: $id, ownerTenantId: $ownerTenantId}) SET n.lockStamp = $lockStamp "
+        "WITH n WHERE n.status = $expectedStatus "
         "SET n.name = $name, n.status = $status, n.agreementReference = $agreementReference, "
         "n.agreementVersion = $agreementVersion, n.closedAt = $closedAt, "
         "n.systemName = $systemName, n.pathwayName = $pathwayName, n.timeZone = $timeZone "
@@ -143,7 +145,8 @@ _WRITES: Final[dict[str, str]] = {
     ),
     "Q-NETWORK-MEMBER-SAVE": (
         "MATCH (m:NetworkMembership {id: $id, networkId: $networkId, "
-        "memberTenantId: $memberTenantId, status: $expectedStatus}) "
+        "memberTenantId: $memberTenantId}) SET m.lockStamp = $lockStamp "
+        "WITH m WHERE m.status = $expectedStatus "
         "SET m.status = $status, m.joinedAt = $joinedAt, m.leftAt = $leftAt, "
         "m.endReason = $endReason, m.acceptedAgreementReference = $acceptedAgreementReference, "
         "m.acceptedAgreementVersion = $acceptedAgreementVersion "
@@ -165,8 +168,9 @@ _WRITES: Final[dict[str, str]] = {
         "RETURN g.id AS id"
     ),
     "Q-NETWORK-GRANT-SAVE": (
-        "MATCH (g:Grant {id: $id, networkId: $networkId, grantorTenantId: $grantorTenantId, "
-        "status: $expectedStatus}) "
+        "MATCH (g:Grant {id: $id, networkId: $networkId, grantorTenantId: $grantorTenantId}) "
+        "SET g.lockStamp = $lockStamp "
+        "WITH g WHERE g.status = $expectedStatus "
         "SET g.status = $status, g.effectiveTo = $effectiveTo, "
         "g.grantorApprovalAccountRef = $grantorApprovalAccountRef, "
         "g.grantorApprovalTenantId = $grantorApprovalTenantId, "
@@ -190,7 +194,8 @@ _WRITES: Final[dict[str, str]] = {
     ),
     "Q-NETWORK-LISTING-SAVE": (
         "MATCH (l:Listing {id: $id, networkId: $networkId, sourceTenantId: $sourceTenantId, "
-        "serviceId: $serviceId, status: $expectedStatus}) "
+        "serviceId: $serviceId}) SET l.lockStamp = $lockStamp "
+        "WITH l WHERE l.status = $expectedStatus "
         "SET l.status = $status, l.decidedAt = $decidedAt, "
         "l.decidedByAccountRef = $decidedByAccountRef, l.reason = $reason "
         "RETURN l.id AS id"
@@ -620,7 +625,11 @@ class Neo4jNetworkRegistry:
     async def save_network(
         self, network: Network, settings: NetworkSettings, *, expected_status: NetworkStatus
     ) -> None:
-        params = {**network_properties(network, settings), "expectedStatus": expected_status.value}
+        params = {
+            **network_properties(network, settings),
+            "expectedStatus": expected_status.value,
+            "lockStamp": secrets.token_hex(8),
+        }
         await self._write("Q-NETWORK-SAVE", params)
 
     async def create_membership(self, membership: NetworkMembership) -> None:
@@ -629,19 +638,31 @@ class Neo4jNetworkRegistry:
     async def save_membership(
         self, membership: NetworkMembership, *, expected_status: MembershipStatus
     ) -> None:
-        params = {**membership_properties(membership), "expectedStatus": expected_status.value}
+        params = {
+            **membership_properties(membership),
+            "expectedStatus": expected_status.value,
+            "lockStamp": secrets.token_hex(8),
+        }
         await self._write("Q-NETWORK-MEMBER-SAVE", params)
 
     async def create_grant(self, grant: Grant) -> None:
         await self._write("Q-NETWORK-GRANT-CREATE", grant_properties(grant))
 
     async def save_grant(self, grant: Grant, *, expected_status: GrantStatus) -> None:
-        params = {**grant_properties(grant), "expectedStatus": expected_status.value}
+        params = {
+            **grant_properties(grant),
+            "expectedStatus": expected_status.value,
+            "lockStamp": secrets.token_hex(8),
+        }
         await self._write("Q-NETWORK-GRANT-SAVE", params)
 
     async def create_listing(self, listing: Listing) -> None:
         await self._write("Q-NETWORK-LISTING-CREATE", listing_properties(listing))
 
     async def save_listing(self, listing: Listing, *, expected_status: ListingStatus) -> None:
-        params = {**listing_properties(listing), "expectedStatus": expected_status.value}
+        params = {
+            **listing_properties(listing),
+            "expectedStatus": expected_status.value,
+            "lockStamp": secrets.token_hex(8),
+        }
         await self._write("Q-NETWORK-LISTING-SAVE", params)

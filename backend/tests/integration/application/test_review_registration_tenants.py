@@ -143,8 +143,13 @@ async def two_tenants(
 
 def _areas(tenant_a: str) -> Any:
     def for_scope(scope: ScopeId) -> frozenset[str]:
-        # B's area has no DT districts at all.
-        return districts_in_ranges(("DT", 1, 11)) if scope.value == tenant_a else frozenset()
+        # B's area is another part of the country, with no DT districts. (An empty area means no
+        # limit is set, and every address passes.)
+        return (
+            districts_in_ranges(("DT", 1, 11))
+            if scope.value == tenant_a
+            else districts_in_ranges(("EX", 1, 5))
+        )
 
     return for_scope
 

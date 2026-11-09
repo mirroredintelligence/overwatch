@@ -402,24 +402,24 @@ GLOBAL_STATEMENTS: Final[Mapping[str, str]] = MappingProxyType(
             "30e09997dd51efc743e928f49d37dfcdb923d5d5f9d63e552373570f85057e8c"
         ),
         "Q-NETWORK-CREATE": ("8732644ba94620e596d76bd7bc82f1506427eaa5aec83f36289684d403f5866d"),
-        "Q-NETWORK-SAVE": ("e6295bff855065317509834639d601ea030a0cb0de9693b3aab2efc30cb58dfc"),
+        "Q-NETWORK-SAVE": ("62ede02c46f898d264b3f908b13b552947d45c1489dbd13af1b1a0bc7b0cb45f"),
         "Q-NETWORK-MEMBER-CREATE": (
             "1b53050ab54e6ffd5b92f88e0057d923f1a1dc6c157fa89d777b4c022b7a1416"
         ),
         "Q-NETWORK-MEMBER-SAVE": (
-            "6d5dd5a7849237358e0f88eab5891c94f657d8fd44b6abe5c16b39f476ec5e65"
+            "4708f5a9d518e652638508d80de496fb1f5f459c37349af63df98ac422bf4890"
         ),
         "Q-NETWORK-GRANT-CREATE": (
             "7810b92b84614a07ce88d4859534c9401545bdece5cfcdaba63aa474552c7d93"
         ),
         "Q-NETWORK-GRANT-SAVE": (
-            "49ce209d320428c2231e6e763932dced25f8336f1d5cb890ce76ec0b23aaca6c"
+            "edb4a890f81353149068dc90d5db52eb09e621538d20aa4d3e852bc105861191"
         ),
         "Q-NETWORK-LISTING-CREATE": (
             "5facf39c4da9be8e85618bf69dafe60e4766b0997e750801bbafb31e57007509"
         ),
         "Q-NETWORK-LISTING-SAVE": (
-            "9e65052c9ff7532bdf1b3334be13c1da9f5051ba04b8f0d10ffde4f80b35a2bd"
+            "58534be12fe0ce8e4ff9649151fc576201a63b1770dc2c76ea291513d22d8dc2"
         ),
     }
 )

@@ -623,7 +623,11 @@ async def test_the_cases_cover_every_platform_statement_and_only_those() -> None
     # The seven statements of TEN-028 are proved here. The registry's list and detail, the platform
     # audit chain and the support-access tickets (TEN-075) are proved, each with a mutant, in
     # `test_platform_records.py`.
-    mine = {i for i in PLATFORM_QUERY_IDS if i not in TEN_075_STATEMENTS}
+    mine = {
+        i
+        for i in PLATFORM_QUERY_IDS
+        if i not in TEN_075_STATEMENTS and not i.startswith(("Q-STAFF-ROLE-", "Q-POSTCODE-"))
+    }
     assert {c.statement for c in CASES} == mine
     assert set(PLATFORM_QUERY_IDS) == registered
     assert set(PLATFORM_STATEMENTS) == set(PLATFORM_QUERY_IDS)

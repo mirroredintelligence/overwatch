@@ -747,9 +747,19 @@ async def test_the_universe_leaves_out_exactly_the_global_and_platform_statement
     # The seven registry writes and reads of TEN-028, and (TEN-075) the registry's list and detail,
     # the platform audit chain and the support-access tickets: the platform's own records, which
     # carry no tenant, proved in `test_platform_records.py` and `test_tenant_registry.py`.
-    assert len(PLATFORM_QUERY_IDS) == 7 + 2 + 4 + 6
+    # And the staff registry (two writes) and the postcode points and their download requests
+    # (five), proved in `test_staff_registry.py` and the postcode tests.
+    assert len(PLATFORM_QUERY_IDS) == 7 + 2 + 4 + 6 + 2 + 5
     assert all(
-        i.startswith(("Q-TENANT-REG-", "Q-PLATFORM-AUDIT-", "Q-SUPPORT-TICKET"))
+        i.startswith(
+            (
+                "Q-TENANT-REG-",
+                "Q-PLATFORM-AUDIT-",
+                "Q-SUPPORT-TICKET",
+                "Q-STAFF-ROLE-",
+                "Q-POSTCODE-",
+            )
+        )
         for i in PLATFORM_QUERY_IDS
     )
     # Nothing in either universe is of another scope, and no left-out statement is a tenant one.

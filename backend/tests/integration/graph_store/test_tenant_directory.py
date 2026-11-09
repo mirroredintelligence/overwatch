@@ -424,6 +424,14 @@ WRITES_TESTED_IN_THEIR_OWN_WORLD = frozenset(
 )
 
 
+READS_TESTED_IN_THEIR_OWN_FILE = frozenset(
+    {
+        "Q-STAFF-ROLES-OF",  # test_staff_registry.py
+        "Q-POSTCODE-POINTS-OF",  # test_postcode_points.py
+    }
+)
+
+
 def assert_every_global_statement_is_accounted_for(exercised: set[str]) -> None:
     """Each id on the global allowlist is in exactly one of the sets above. A new global statement
     is in none of them until its author exercises it here or names it where it is tested, so this
@@ -433,6 +441,7 @@ def assert_every_global_statement_is_accounted_for(exercised: set[str]) -> None:
         "whole-graph counts": set(WHOLE_GRAPH_COUNTS),
         "ping": set(NO_DATA_AT_ALL),
         "registry writes": set(WRITES_TESTED_IN_THEIR_OWN_WORLD),
+        "reads tested in their own file": set(READS_TESTED_IN_THEIR_OWN_FILE),
     }
     accounted = set().union(*groups.values())
     assert set(GLOBAL_QUERY_IDS) - accounted == set(), "global statements nothing here covers"

@@ -104,13 +104,13 @@ LISTING_PARAMS = {
 }  # fmt: skip
 WRITE_IDS = {
     "Q-NETWORK-CREATE": NETWORK_PARAMS,
-    "Q-NETWORK-SAVE": NETWORK_PARAMS | {"expectedStatus"},
+    "Q-NETWORK-SAVE": NETWORK_PARAMS | {"expectedStatus", "lockStamp"},
     "Q-NETWORK-MEMBER-CREATE": MEMBER_PARAMS,
-    "Q-NETWORK-MEMBER-SAVE": MEMBER_PARAMS | {"expectedStatus"},
+    "Q-NETWORK-MEMBER-SAVE": MEMBER_PARAMS | {"expectedStatus", "lockStamp"},
     "Q-NETWORK-GRANT-CREATE": GRANT_PARAMS,
-    "Q-NETWORK-GRANT-SAVE": GRANT_PARAMS | {"expectedStatus"},
+    "Q-NETWORK-GRANT-SAVE": GRANT_PARAMS | {"expectedStatus", "lockStamp"},
     "Q-NETWORK-LISTING-CREATE": LISTING_PARAMS,
-    "Q-NETWORK-LISTING-SAVE": LISTING_PARAMS | {"expectedStatus"},
+    "Q-NETWORK-LISTING-SAVE": LISTING_PARAMS | {"expectedStatus", "lockStamp"},
 }
 REGISTRY_LABELS = {"Network", "NetworkMembership", "Grant", "Listing"}
 
@@ -194,8 +194,19 @@ def test_a_write_returns_the_id_it_wrote_so_that_no_row_means_nothing_was_writte
     "query_id",
     ["Q-NETWORK-SAVE", "Q-NETWORK-MEMBER-SAVE", "Q-NETWORK-GRANT-SAVE", "Q-NETWORK-LISTING-SAVE"],
 )
-def test_a_save_matches_the_status_it_expects_so_a_lost_race_writes_nothing(query_id: str) -> None:
-    assert re.search(r"status: \$expectedStatus", REGISTRY.get(query_id).cypher) is not None
+def test_a_save_takes_the_nodes_lock_before_it_compares_the_status_it_expects(
+    query_id: str,
+) -> None:
+    """Neo4j reads a MATCH property before the lock a SET takes, so a compare in the MATCH can pass
+    on a status another writer has just changed (a lost update). The save first writes a changing
+    stamp, which takes the lock, and compares the status after it, so a lost race writes nothing."""
+    text = REGISTRY.get(query_id).cypher
+    match = re.search(
+        r"SET (\w)\.lockStamp = \$lockStamp WITH \1 WHERE \1\.status = \$expectedStatus SET ",
+        text,
+    )
+    assert match is not None
+    assert "status: $expectedStatus" not in text
 
 
 @pytest.mark.parametrize("query_id", ["Q-NETWORK-MEMBER-CREATE", "Q-NETWORK-LISTING-CREATE"])

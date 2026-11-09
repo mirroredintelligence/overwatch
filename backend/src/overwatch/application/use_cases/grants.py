@@ -470,15 +470,24 @@ class EndGrant:
         require_role(actor, Role.TENANT_ADMIN)  # the owner removes a member; it never ends a grant
         require_actor_in_bound_tenant(actor)
         account = account_ref_of(actor)
-        grant = await _grant_of(self._registry, command.grant_id)
-        if grant.grantor_tenant_id != actor.tenant_id:
-            raise NotFound(GRANT_NOT_FOUND)
-        # 1. the registry: from this write the projector's gate is closed
-        ended = end_grant(
-            grant, by_tenant_id=actor.tenant_id, account_ref=account, now=self._clock.now()
-        )
-        if ended != grant:
-            await self._registry.save_grant(ended, expected_status=grant.status)
+        # 1. the registry: from this write the projector's gate is closed. An approval that lands
+        # between the read and the write moves the status, so the write is refused (Conflict): read
+        # again and end that, so a grantor's end is never lost to a racing approval.
+        for attempt in range(APPROVAL_ATTEMPTS):
+            grant = await _grant_of(self._registry, command.grant_id)
+            if grant.grantor_tenant_id != actor.tenant_id:
+                raise NotFound(GRANT_NOT_FOUND)
+            ended = end_grant(
+                grant, by_tenant_id=actor.tenant_id, account_ref=account, now=self._clock.now()
+            )
+            if ended == grant:
+                break
+            try:
+                await self._registry.save_grant(ended, expected_status=grant.status)
+                break
+            except Conflict:
+                if attempt == APPROVAL_ATTEMPTS - 1:
+                    raise
         assert ended.ended_at is not None
         # 2. the network scope: the source and its rows end, dated by the end (history stays)
         await self._ends.end_grant(

@@ -434,6 +434,9 @@ async def test_a_board_entry_holds_only_service_fields() -> None:
         "reported_at",
         "next_due_at",
         "was_due_at",
+        "cadence",
+        "overdue",
+        "stale_warning",
     }
 
 

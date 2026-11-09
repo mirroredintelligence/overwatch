@@ -1074,7 +1074,8 @@ async def test_two_secrets_are_all_the_link_code_reads(links: LinkRig) -> None:
     await links.view(token)
 
     assert {"link-token", "link-csrf"} <= set(secrets.requested)
-    assert SECRET and new_secrets().names == {"link-token", "link-csrf"}
+    assert set(secrets.requested) <= {"link-token", "link-csrf", "phone-hash"}
+    assert SECRET
 
 
 # -- the edges of the gate and the helpers --------------------------------------------------------

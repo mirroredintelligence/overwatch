@@ -102,7 +102,9 @@ class World:
             SequentialIds(f"{self.prefix}re"),
             sealer(),
         )
-        return AcceptVisit(self.factory, self.clock, RespondsToBooking(respond))
+        return AcceptVisit(
+            self.factory, self.clock, SequentialIds(f"{self.prefix}ac"), RespondsToBooking(respond)
+        )
 
     def status_use_case(self) -> UpdateVisitStatus:
         report = ReportNotReached(self.factory, DriverIdempotencyStore(self.driver), self.clock)

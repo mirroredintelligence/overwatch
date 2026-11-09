@@ -62,7 +62,6 @@ from tests.support.link_rig import (
     REPLY_BY,
     LinkRig,
     build_link_rig,
-    new_secrets,
     token_hash_of,
     ucr_west,
 )

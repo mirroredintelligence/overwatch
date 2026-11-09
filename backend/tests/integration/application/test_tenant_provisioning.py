@@ -222,6 +222,9 @@ def _admin(tenant: str, ref: str) -> Actor:
     )
 
 
+FIRST_VERSION = 1  # the approved settings version a new tenant starts with (DEC-1322)
+
+
 async def _configure(world: World, tenant: str) -> None:
     """What the tenant's side must do before activation: an approved configuration with its
     wording, two contacts, retention, a directory binding and a role mapping."""
@@ -229,7 +232,7 @@ async def _configure(world: World, tenant: str) -> None:
     roles = frozenset({Role.OWNER})
     with as_tenant(tenant):
         drafted = await DraftTenantConfig(factory, world.clock, roles).execute(
-            DraftConfigCommand(_admin(tenant, "admin-1"), 0, dict(WORDING))
+            DraftConfigCommand(_admin(tenant, "admin-1"), FIRST_VERSION, dict(WORDING))
         )
         # The wording keys are not clinical: one approver completes the version, and a further
         # approval of a version that is already current is refused (InvalidTransition).
@@ -385,7 +388,10 @@ async def test_activation_of_a_fresh_tenant_lists_what_is_missing_and_changes_no
     with as_tenant(NEW), pytest.raises(NotAllowed) as refused:
         await _activate_use_case(world, NEW).execute(ActivateTenantCommand(_operator(NEW)))
 
-    for blocker in ("Configuration version approved", "Host set", "test text delivered"):
+    for blocker in (
+        "Host set",
+        "test text delivered",
+    ):  # the first settings version is approved at creation (DEC-1322)
         assert blocker in str(refused.value)
     assert (await world.directory.get(NEW)).status is TenantStatus.PROVISIONING  # type: ignore[union-attr]
     assert await _audit_rows(world, NEW) == before
@@ -515,7 +521,8 @@ async def _organisation(world: World, tenant: str, code: str) -> dict[str, Any] 
         row = await (
             await tx.run(
                 "MATCH (o:Organization {tenantId: $t, id: $code}) "
-                "RETURN o.name AS name, o.active AS active, o.postalCode AS postcode",
+                "OPTIONAL MATCH (o)-[:HAS_ADDRESS]->(a:Address {tenantId: $t}) "
+                "RETURN o.name AS name, o.active AS active, a.postalCode AS postcode",
                 t=tenant,
                 code=code,
             )

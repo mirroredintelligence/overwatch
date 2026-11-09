@@ -285,7 +285,9 @@ async def test_a_text_of_4_stores_a_capacity_observation_of_4_through_the_real_u
     assert latest is not None
     assert (latest.value, latest.source) == (4, ReportSource.TEXT)
     assert await count_nodes(neo4j_driver, "Observation") == 2  # the seeded 3 and the reply's 4
-    marked = [m["messageId"] for m in await _processed(neo4j_driver) if m["consumer"] == "reply-processor"]
+    marked = [
+        m["messageId"] for m in await _processed(neo4j_driver) if m["consumer"] == "reply-processor"
+    ]
     assert marked == ["SM200"]
 
 

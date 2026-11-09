@@ -26,7 +26,7 @@ _PATTERNS: Final[tuple[re.Pattern[str], ...]] = (
     # A UK postcode, such as DT4 8XX.
     re.compile(r"(?i)\b[a-z]{1,2}\d[a-z\d]?\s?\d[a-z]{2}\b"),
     # A link token: exactly 23 letters, with no digit (DEC-154).
-    re.compile(r"(?<![A-Za-z])[A-Za-z]{23}(?![A-Za-z])"),
+    re.compile(r"(?<![A-Za-z])[A-Za-z]{23,54}(?![A-Za-z])"),
     # A support code, XXXX-XXXX, drawn from the support alphabet (no 0, 1, I, L or O).
     re.compile(
         r"(?<![A-Z0-9])[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{4}-"

@@ -25,6 +25,7 @@ from overwatch.adapters.testing.fixed_clock import FixedClock
 from overwatch.adapters.testing.fixed_ids import SequentialIds
 from overwatch.application.use_cases import link_access
 from overwatch.bootstrap.container import Container, build_for_tests
+from overwatch.domain.rules.tokens import tenant_link_token
 from tests.support.link_rig import (
     ANSWER_AT,
     REPLY_BY,
@@ -77,9 +78,9 @@ async def test_the_host_picks_the_tenant_and_another_tenants_link_is_an_unknown_
     links: LinkRig,
     other_links: LinkRig,
 ) -> None:
-    token_a = await _prompted(links)
+    token_a = (await _prompted(links))[-23:]  # a link with no tenant in it: the host decides
     await other_links.seed(figure=7)
-    token_b = await other_links.prompt()
+    token_b = (await other_links.prompt())[-23:]
     links.clock.set(ANSWER_AT)
 
     on_a = await link_client.get(f"/links/{token_a}")
@@ -104,7 +105,7 @@ async def test_a_link_cannot_be_answered_renewed_or_burned_from_another_tenants_
 ) -> None:
     await links.seed()
     await other_links.seed(figure=7)
-    token_b = await other_links.prompt()
+    token_b = (await other_links.prompt())[-23:]  # a link with no tenant in it: the host decides
     link_clock.set(ANSWER_AT)
     before_a, before_b = await links.counts(), await other_links.counts()
 
@@ -126,9 +127,9 @@ async def test_a_link_cannot_be_answered_renewed_or_burned_from_another_tenants_
 async def test_a_tenant_in_the_query_a_header_or_the_body_changes_nothing(
     link_client: AsyncClient, links: LinkRig, other_links: LinkRig
 ) -> None:
-    token = await _prompted(links)
+    token = (await _prompted(links))[-23:]  # a link with no tenant in it: the host decides
     await other_links.seed()
-    other_token = await other_links.prompt()
+    other_token = (await other_links.prompt())[-23:]
     links.clock.set(ANSWER_AT)
     names = {"tenant": other_links.tenant, "tenantId": other_links.tenant}
     headers = {"X-Tenant-Id": other_links.tenant, "X-Tenant": other_links.tenant}
@@ -163,3 +164,28 @@ async def test_an_address_that_keeps_missing_gets_429_and_another_tenant_is_not_
 
     assert misses == [410, 410, 429]
     assert (await other_client.get(f"/links/{other_token}")).status_code == 200
+
+
+async def test_a_link_names_its_tenant_so_the_host_does_not_matter_and_a_forged_name_finds_nothing(
+    link_client: AsyncClient,
+    other_client: AsyncClient,
+    links: LinkRig,
+    other_links: LinkRig,
+) -> None:
+    """DEC-1354: one shared host serves every tenant. The tenant a link names is only where to
+    look; the token is then looked up inside it, so a token with another tenant's name on it is
+    an unknown one."""
+    token_a = await _prompted(links)
+    await other_links.seed(figure=7)
+    token_b = await other_links.prompt()
+    links.clock.set(ANSWER_AT)
+    forged = tenant_link_token(other_links.tenant, token_a[-23:])  # A's token under B's name
+    unknown = await link_client.get(f"/links/{'Q' * 23}")
+
+    on_b_host = await other_client.get(f"/links/{token_a}")  # A's own link, on B's host
+    on_a_host = await link_client.get(f"/links/{token_b}")
+    wrong_name = await link_client.get(f"/links/{forged}")
+
+    assert on_b_host.status_code == 200 and on_b_host.json()["recordedValue"] == 3
+    assert on_a_host.status_code == 200 and on_a_host.json()["recordedValue"] == 7
+    assert (wrong_name.status_code, wrong_name.content) == (unknown.status_code, unknown.content)

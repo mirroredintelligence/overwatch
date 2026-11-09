@@ -61,6 +61,7 @@ from overwatch.adapters.inbound.fhir_rest.routes_identity import (
     _tenant_of,
 )
 from overwatch.adapters.inbound.fhir_rest.routes_public import _HEADERS, public_rate_limit
+from overwatch.application.edge_tenant import resolve_link_tenant
 from overwatch.application.ports.outbound.identity import (
     PHONE_HASH_SECRET,
     CodeResendRefused,
@@ -146,6 +147,11 @@ def _tokens(container: _Container) -> Callable[[LinkTokenRepository], LinkTokenS
     return tokens
 
 
+async def _link_tenant_id(request: Request, container: _Container, token: str) -> str | None:
+    found = await resolve_link_tenant(container.tenants, request.url.hostname, token)
+    return None if found is None else found.id
+
+
 async def _host_edge(
     request: Request,
     kind: str,
@@ -153,14 +159,21 @@ async def _host_edge(
     work: Callable[[_Container], Awaitable[Response]],
     unknown_host: Callable[[], Response],
     *secrets: str,
+    token: str | None = None,
 ) -> Response:
     """As `routes_identity._edge`, with the answer for a host no tenant owns chosen by the route:
-    the invitation read answers its one 410, not a 404."""
+    the invitation read answers its one 410, not a 404. A route that carries an invitation token
+    passes it: the tenant is then the one the token names, and the host only when it names none
+    (DEC-1354)."""
 
     async def run() -> Response:
         container = _container(request)
         _check_secrets(container, *secrets)
-        tenant = await _tenant_of(request, container)
+        tenant = (
+            await _tenant_of(request, container)
+            if token is None
+            else await _link_tenant_id(request, container, token)
+        )
         if tenant is None:
             return unknown_host()
         with bind_tenant(tenant):
@@ -238,7 +251,7 @@ async def read_invitation(token: str, request: Request) -> Response:
         )
 
     return await _host_edge(
-        request, "invitation", ADDRESS_INVITATION_READS, work, _gone, LINK_TOKEN_SECRET
+        request, "invitation", ADDRESS_INVITATION_READS, work, _gone, LINK_TOKEN_SECRET, token=token
     )
 
 
@@ -259,6 +272,7 @@ async def request_invitation_code(token: str, body: EmptyBody, request: Request)
         LINK_TOKEN_SECRET,
         PHONE_HASH_SECRET,
         CODE_HMAC_SECRET,
+        token=token,
     )
 
 
@@ -282,6 +296,7 @@ async def verify_invitation_code(
         LINK_TOKEN_SECRET,
         PHONE_HASH_SECRET,
         CODE_HMAC_SECRET,
+        token=token,
     )
 
 

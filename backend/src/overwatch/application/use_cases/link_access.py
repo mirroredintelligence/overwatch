@@ -104,7 +104,13 @@ from overwatch.domain.rules.reply_policy import (
     decide_capacity_reply,
 )
 from overwatch.domain.rules.schedule import next_due, reply_by
-from overwatch.domain.rules.tokens import LinkCheck, LinkTokenRecord, check_link, hash_token
+from overwatch.domain.rules.tokens import (
+    LinkCheck,
+    LinkTokenRecord,
+    bare_token,
+    check_link,
+    hash_token,
+)
 
 LINK_CSRF_SECRET: Final = "link-csrf"
 """The name of the secret that keys the CSRF token."""
@@ -390,7 +396,7 @@ def _token_hash(token: str, secrets: SecretStore) -> str | None:
     if not isinstance(token, str) or len(token) > MAX_TOKEN_LENGTH:
         return None
     try:
-        return hash_token(token, secrets.get(LINK_TOKEN_SECRET))
+        return hash_token(bare_token(token), secrets.get(LINK_TOKEN_SECRET))
     except ValidationFailed as error:
         if error.field == "token":
             return None

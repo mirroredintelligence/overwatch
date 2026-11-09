@@ -112,7 +112,7 @@ router = APIRouter(prefix=CHECKIN_PATH_PREFIX)
 async def view_checkin(token: str, request: Request) -> Response:
     async def run() -> Response:
         container, deps = _collaborators(request)
-        tenant = await _tenant_of(request, container)
+        tenant = await _tenant_of(request, container, token)
         if tenant is None:
             return _gone()
         with bind_tenant(tenant.id):
@@ -132,7 +132,7 @@ async def view_checkin(token: str, request: Request) -> Response:
 async def send_code(token: str, request: Request) -> Response:
     async def run() -> Response:
         container, deps = _collaborators(request)
-        tenant = await _tenant_of(request, container)
+        tenant = await _tenant_of(request, container, token)
         if tenant is None:
             raise CsrfRejected  # no code can be found on this host, so no token can be right
         body = await _read_json(request)
@@ -158,7 +158,7 @@ async def send_code(token: str, request: Request) -> Response:
 async def confirm_checkin(token: str, request: Request) -> Response:
     async def run() -> Response:
         container, deps = _collaborators(request)
-        tenant = await _tenant_of(request, container)
+        tenant = await _tenant_of(request, container, token)
         if tenant is None:
             raise CsrfRejected
         body = await _read_json(request)

@@ -8,10 +8,12 @@ no tenant bound: the route must bind it. Values are synthetic."""
 from datetime import UTC, datetime
 
 import pytest
+from fastapi import FastAPI
 from httpx import AsyncClient
 
 from overwatch.adapters.inbound.link_pages import checkin_links
 from overwatch.application.actor import Actor
+from overwatch.application.tenancy import bind_tenant
 from overwatch.application.use_cases.duty_roster import ShiftChange
 from overwatch.application.use_cases.service_checkin import (
     CheckInOutcome,
@@ -20,6 +22,8 @@ from overwatch.application.use_cases.service_checkin import (
 )
 from overwatch.domain.codes import Role
 from overwatch.domain.model.people import Practitioner
+from overwatch.domain.rules.tokens import tenant_link_token
+from tests.integration.adapters.inbound.link_pages.conftest import client_for
 from tests.support.link_rig import LinkRig
 from tests.support.zones import NEW_YORK
 
@@ -172,3 +176,44 @@ async def test_the_until_of_the_page_is_in_the_tenants_zone_not_in_london(
         {"state": "on-shift", "service": "UCR West", "until": "13:00"},
     )
     assert seen == ["Europe/London"]  # the zone name came from the tenant's record
+
+
+async def _named_code(links: LinkRig) -> str:
+    """The printed code as a signed-in lead makes it: tenant bound, so it names its tenant."""
+    with bind_tenant(links.tenant):
+        return await _code(links)
+
+
+async def test_a_code_that_names_its_tenant_opens_on_a_host_that_no_tenant_owns(
+    link_app: FastAPI, links: LinkRig, hosts: None
+) -> None:
+    token = await _named_code(links)
+    assert len(token) > 23
+
+    async with client_for(link_app, "shared.example.test") as client:
+        response = await client.get(f"/checkin/{token}")
+
+    assert response.status_code == 200
+    assert response.json()["service"] == "UCR West"
+    assert response.json()["csrfToken"] == links.csrf(token)
+
+
+async def test_a_code_that_names_its_tenant_opens_on_the_host_of_another_tenant(
+    other_client: AsyncClient, links: LinkRig
+) -> None:
+    token = await _named_code(links)
+
+    response = await other_client.get(f"/checkin/{token}")
+
+    assert response.status_code == 200
+
+
+async def test_a_code_that_names_the_wrong_tenant_is_gone(
+    link_client: AsyncClient, links: LinkRig, other_tenant_id: str
+) -> None:
+    token = await _named_code(links)
+    forged = tenant_link_token(other_tenant_id, token[-23:])
+
+    response = await link_client.get(f"/checkin/{forged}")
+
+    assert (response.status_code, response.json()) == (410, GONE)

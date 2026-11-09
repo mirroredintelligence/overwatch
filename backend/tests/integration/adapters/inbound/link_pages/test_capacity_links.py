@@ -377,7 +377,7 @@ async def test_every_kind_of_unknown_token_gets_the_one_expired_answer(
 async def test_a_host_the_directory_does_not_know_answers_as_an_unknown_link(
     link_app: FastAPI, links: LinkRig, hosts: None
 ) -> None:
-    token = await _prompted(links)
+    token = (await _prompted(links))[-23:]  # a link with no tenant in it: the host decides
     async with client_for(link_app, "charlie.example.org") as client:
         got = await client.get(f"/links/{token}")
         posted = await _post(client, token, {"action": "confirm"}, links)
@@ -421,7 +421,7 @@ async def test_the_host_is_read_without_its_port_and_in_lower_case(
 async def test_a_damaged_tenant_record_fails_closed_as_an_unknown_link(
     link_app: FastAPI, links: LinkRig, neo4j_driver: Any, other_tenant_id: str, hosts: None
 ) -> None:
-    token = await _prompted(links)
+    token = (await _prompted(links))[-23:]  # a link with no tenant in it: the host decides
     host = run_host("damaged")
     await change_tenant_record(neo4j_driver, other_tenant_id, host=host, status="bogus")
 

@@ -106,8 +106,9 @@ def ucr_west(service_id: str = SERVICE_ID, **changes: Any) -> ServiceProfile:
 
 
 def token_hash_of(token: str) -> str:
-    """The stored hash of a token, computed here and not by the code under test."""
-    return hash_token(token, SECRET)
+    """The stored hash of a token, computed here and not by the code under test. A token that names
+    its tenant (DEC-1354) is hashed by its last 23 letters, which are the token itself."""
+    return hash_token(token[-23:], SECRET)
 
 
 def _in_own_tenant[**P, R](method: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]:

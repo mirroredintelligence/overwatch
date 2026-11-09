@@ -21,6 +21,7 @@ from overwatch.application.ports.outbound.tenants import (
     normalise_host,
 )
 from overwatch.domain.model.tenant import Tenant, TenantStatus
+from overwatch.domain.rules.tokens import split_link_token
 
 log = logging.getLogger(__name__)
 
@@ -35,6 +36,28 @@ async def resolve_active_tenant(directory: TenantDirectory, host: str | None) ->
         tenant = await directory.by_host(name)
     except TenantRecordInvalid:
         log.warning("host refused: reason=tenant-record")
+        return None
+    if type(tenant) is not Tenant or tenant.status is not TenantStatus.ACTIVE:
+        return None
+    return tenant
+
+
+async def resolve_link_tenant(
+    directory: TenantDirectory, host: str | None, token: str
+) -> Tenant | None:
+    """The active tenant of a public link (DEC-1354). A link names its own tenant in front of the
+    token, so one host can serve every tenant and no custom domain is needed; the tenant is then
+    only a place to look, and the token is looked up inside it, where another tenant's token finds
+    nothing. A link with no tenant in it (one sent before this) falls back to the host, so a tenant
+    that has its own domain keeps working. Every failure is None, and the caller answers it as it
+    answers an unknown code."""
+    tenant_id, _ = split_link_token(token)
+    if tenant_id is None:
+        return await resolve_active_tenant(directory, host)
+    try:
+        tenant = await directory.get(tenant_id)
+    except TenantRecordInvalid:
+        log.warning("link refused: reason=tenant-record")
         return None
     if type(tenant) is not Tenant or tenant.status is not TenantStatus.ACTIVE:
         return None

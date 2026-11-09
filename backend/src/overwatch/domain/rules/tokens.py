@@ -104,6 +104,71 @@ def new_link_token(rng: Callable[[int], bytes] = secrets.token_bytes) -> str:
     return "".join(reversed(letters))
 
 
+_TENANT_ID: Final = re.compile(r"[a-z0-9][a-z0-9-]{1,30}")
+_TENANT_LETTERS: Final = re.compile(r"[A-Za-z]{2,31}")
+_DIGIT_BASE: Final = ord("A")
+_HYPHEN_LETTER: Final = "K"  # digits are A to J, so K is free for the hyphen
+
+
+def tenant_letters(tenant_id: str) -> str:
+    """The tenant id written with letters only: a to z stay, the digits 0 to 9 become A to J and
+    the hyphen becomes K. One to one, and the same length. The letters-only layout is the reason
+    (DEC-154: the privacy guard reads the link in an SMS, and a digit or hyphen could make a
+    postcode shape)."""
+    if _TENANT_ID.fullmatch(tenant_id) is None:
+        raise ValidationFailed("tenant_id", "is not a valid tenant id")
+    out: list[str] = []
+    for char in tenant_id:
+        if char == "-":
+            out.append(_HYPHEN_LETTER)
+        elif char.isdigit():
+            out.append(chr(_DIGIT_BASE + int(char)))
+        else:
+            out.append(char)
+    return "".join(out)
+
+
+def _tenant_from_letters(letters: str) -> str | None:
+    if _TENANT_LETTERS.fullmatch(letters) is None:
+        return None
+    out: list[str] = []
+    for char in letters:
+        if char == _HYPHEN_LETTER:
+            out.append("-")
+        elif "A" <= char <= "J":
+            out.append(str(ord(char) - _DIGIT_BASE))
+        elif char.islower():
+            out.append(char)
+        else:
+            return None
+    found = "".join(out)
+    return found if _TENANT_ID.fullmatch(found) else None
+
+
+def tenant_link_token(tenant_id: str, token: str) -> str:
+    """The text of a link as it is sent: the tenant's letters, then the 23-letter token. A page
+    that is opened with no login learns its tenant from this text, so the one host of a deployment
+    can serve every tenant (DEC-1354). The token alone is what is hashed and stored."""
+    return tenant_letters(tenant_id) + token
+
+
+def split_link_token(text: str) -> tuple[str | None, str]:
+    """(tenant id or None, the bare token). Text that is not a tenant's letters in front of a
+    23-letter token comes back whole with no tenant, to be refused where it is looked up."""
+    if not isinstance(text, str) or len(text) <= LINK_TOKEN_LENGTH:
+        return None, text
+    head, tail = text[:-LINK_TOKEN_LENGTH], text[-LINK_TOKEN_LENGTH:]
+    tenant = _tenant_from_letters(head)
+    if tenant is None or not all(c in LINK_TOKEN_ALPHABET for c in tail):
+        return None, text
+    return tenant, tail
+
+
+def bare_token(text: str) -> str:
+    """The token without its tenant letters, for hashing and storing."""
+    return split_link_token(text)[1]
+
+
 def hash_token(token: str, secret: bytes) -> str:
     if not isinstance(token, str) or not _URL_SAFE_TOKEN.fullmatch(token):
         raise ValidationFailed("token", "must be URL-safe text")

@@ -120,7 +120,8 @@ class Rig:
         from overwatch.domain.rules.tokens import hash_token
 
         return csrf_token(
-            hash_token(token, SECRETS.get(LINK_TOKEN_SECRET)), SECRETS.get(LINK_CSRF_SECRET)
+            hash_token(token[-23:], SECRETS.get(LINK_TOKEN_SECRET)),
+            SECRETS.get(LINK_CSRF_SECRET),
         )
 
     async def person(self, name: str, mobile: str, service: str = "ucr-west") -> None:

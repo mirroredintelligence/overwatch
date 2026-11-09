@@ -51,7 +51,13 @@ from overwatch.domain.codes import Channel, Role
 from overwatch.domain.errors import DomainError, NotAllowed, NotFound, ValidationFailed
 from overwatch.domain.messages.catalogue import MessageId
 from overwatch.domain.messages.templates import render
-from overwatch.domain.rules.tokens import LinkCheck, check_link, hash_token, new_pairing_code
+from overwatch.domain.rules.tokens import (
+    LinkCheck,
+    bare_token,
+    check_link,
+    hash_token,
+    new_pairing_code,
+)
 
 CHECKIN_PURPOSE: Final = "checkin"
 TOKEN_LIFE: Final = timedelta(days=3650)
@@ -192,7 +198,7 @@ class _Checkin:
         """The CSRF token of this code: a keyed hash of the token's own hash, as for a capacity
         link. A text that cannot be a token has none, and is the same refusal as a wrong one."""
         try:
-            token_hash = hash_token(token, self._secrets.get(LINK_TOKEN_SECRET))
+            token_hash = hash_token(bare_token(token), self._secrets.get(LINK_TOKEN_SECRET))
         except ValidationFailed:
             raise CsrfRejected from None
         return csrf_token(token_hash, self._secrets.get(LINK_CSRF_SECRET))

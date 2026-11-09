@@ -34,7 +34,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response
 
 from overwatch.adapters.inbound.link_pages.booking_links import booking_purposes
-from overwatch.application.edge_tenant import resolve_active_tenant
+from overwatch.application.edge_tenant import resolve_link_tenant
 from overwatch.application.ports.outbound.cache import Cache
 from overwatch.application.ports.outbound.clock import Clock
 from overwatch.application.ports.outbound.ids import IdGenerator
@@ -182,9 +182,10 @@ def _collaborators(request: Request) -> tuple[_Container, LinkPagesDeps]:
     return container, deps
 
 
-async def _tenant_of(request: Request, container: _Container) -> Tenant | None:
-    """The active tenant whose host this request was addressed to, or None."""
-    return await resolve_active_tenant(container.tenants, request.url.hostname)
+async def _tenant_of(request: Request, container: _Container, token: str) -> Tenant | None:
+    """The active tenant of this link: the one its text names, else the one that owns the host the
+    request was addressed to, or None."""
+    return await resolve_link_tenant(container.tenants, request.url.hostname, token)
 
 
 def _tokens(container: _Container) -> Callable[[LinkTokenRepository], LinkTokenService]:
@@ -321,7 +322,7 @@ router = APIRouter(prefix=LINKS_PATH_PREFIX)
 async def view_link(token: str, request: Request) -> Response:
     async def run() -> Response:
         container, deps = _collaborators(request)
-        tenant = await _tenant_of(request, container)
+        tenant = await _tenant_of(request, container, token)
         if tenant is None:
             _refused("host")
             return _gone()
@@ -343,7 +344,7 @@ async def view_link(token: str, request: Request) -> Response:
 async def respond_via_link(token: str, request: Request) -> Response:
     async def run() -> Response:
         container, deps = _collaborators(request)
-        tenant = await _tenant_of(request, container)
+        tenant = await _tenant_of(request, container, token)
         if tenant is None:
             _refused("host")
             raise CsrfRejected  # no link can be found on this host, so no token can be right
@@ -373,7 +374,7 @@ async def respond_via_link(token: str, request: Request) -> Response:
 async def renew_link(token: str, request: Request) -> Response:
     async def run() -> Response:
         container, deps = _collaborators(request)
-        tenant = await _tenant_of(request, container)
+        tenant = await _tenant_of(request, container, token)
         if tenant is not None:
             with bind_tenant(tenant.id):
                 await RenewLink(

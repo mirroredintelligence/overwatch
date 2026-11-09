@@ -49,7 +49,13 @@ from overwatch.application.use_cases.text_code import INVITATION_PURPOSE
 from overwatch.domain.errors import Conflict, NotFound, ValidationFailed
 from overwatch.domain.model.device import Device, DeviceStatus
 from overwatch.domain.model.tenant import Tenant, TenantStatus, check_tenant_id
-from overwatch.domain.rules.tokens import LinkCheck, LinkTokenRecord, check_link, hash_token
+from overwatch.domain.rules.tokens import (
+    LinkCheck,
+    LinkTokenRecord,
+    bare_token,
+    check_link,
+    hash_token,
+)
 
 log = logging.getLogger(__name__)
 
@@ -245,7 +251,7 @@ class PreSessionResolver:
                 "a secret the pre-session resolver needs is not configured"
             ) from None
         try:
-            return hash_token(token, secret)
+            return hash_token(bare_token(token), secret)
         except ValidationFailed as error:
             if error.field == "token":
                 return None

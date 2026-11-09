@@ -11,8 +11,15 @@ from secrets import token_bytes
 from typing import Final, Protocol
 
 from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.tenancy import ScopeKind, current_scope_or_none
 from overwatch.domain.errors import Conflict, NotFound, ValidationFailed
-from overwatch.domain.rules.tokens import LinkTokenRecord, hash_token, new_link_token
+from overwatch.domain.rules.tokens import (
+    LinkTokenRecord,
+    bare_token,
+    hash_token,
+    new_link_token,
+    tenant_link_token,
+)
 
 LINK_TOKEN_SECRET: Final = "link-token"
 
@@ -88,6 +95,11 @@ class LinkTokenService:
             used_at=None,
         )
         await self._repo.add(record)
+        scope = current_scope_or_none()
+        if scope is not None and scope.kind is ScopeKind.TENANT:
+            # The text that is sent names its tenant, so a page opened with no login needs no host
+            # to find it (DEC-1354). Only the bare token is hashed and stored.
+            return tenant_link_token(scope.value, token)
         return token
 
     async def resolve(self, token: str) -> LinkTokenRecord | None:
@@ -116,7 +128,7 @@ class LinkTokenService:
 
     def _hash_or_none(self, token: str) -> str | None:
         try:
-            return hash_token(token, self._secrets.get(LINK_TOKEN_SECRET))
+            return hash_token(bare_token(token), self._secrets.get(LINK_TOKEN_SECRET))
         except ValidationFailed as error:
             if error.field == "token":
                 return None

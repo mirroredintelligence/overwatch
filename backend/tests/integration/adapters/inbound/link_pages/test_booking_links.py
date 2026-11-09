@@ -336,7 +336,9 @@ async def test_an_unknown_link_and_another_tenants_link_say_nothing_but_the_stat
 ) -> None:
     """No number, no time and no kind: nothing tells which links exist, or whose they are."""
     booking_id = await _request(booked, neo4j_driver, link_container, "wb4-other-tenant")
-    token = await _link_for(booked, link_container, booking_id)
+    token = (await _link_for(booked, link_container, booking_id))[
+        -23:
+    ]  # a link with no tenant in it: the host decides
     unknown = await link_client.get("/links/NoSuchLinkTokenAbcdefghijklmnopq")
     foreign = await other_client.get(f"/links/{token}")
     assert (unknown.status_code, unknown.json()) == (410, {"state": "expired"})

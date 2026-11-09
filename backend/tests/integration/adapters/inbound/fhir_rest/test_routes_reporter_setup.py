@@ -150,11 +150,25 @@ async def test_an_invitation_on_a_host_no_tenant_owns_is_the_same_refusal(
     world: Container, tenant_id: str
 ) -> None:
     token = await seed_invitation(world, tenant_id)
+    bare = token[-23:]  # the token with no tenant in it, which only a host can place
 
     async with client_for(await build_app(world), "nobody.example.test") as stranger:
-        response = await stranger.get(f"/invitations/{token}")
+        response = await stranger.get(f"/invitations/{bare}")
 
     assert (response.status_code, response.json()) == (410, GONE)
+
+
+async def test_an_invitation_that_names_its_tenant_opens_on_a_host_no_tenant_owns(
+    world: Container, tenant_id: str
+) -> None:
+    token = await seed_invitation(world, tenant_id)
+    assert len(token) > 23
+
+    async with client_for(await build_app(world), "shared.example.test") as shared:
+        response = await shared.get(f"/invitations/{token}")
+
+    assert response.status_code == 200
+    assert response.json()["state"] == "valid"
 
 
 async def test_the_invitation_lookup_is_throttled_per_address(

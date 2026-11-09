@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import styles from './Skeleton.module.css';
 
 // Loading placeholders (the shimmer itself is app/skeleton.css). `Loading` wraps the placeholders of one thing that
@@ -22,10 +22,12 @@ export function Loading({ label, children }: { label: string; children: ReactNod
 
 type Shape = 'line' | 'title' | 'chip' | 'avatar' | 'block';
 
-/** One placeholder shape. `width` is any CSS length; the height and radius come from the shape. */
+/** One placeholder shape. `width` is a percentage ("46%"); it is rounded to a whole percent and set by a data
+    attribute that Skeleton.module.css reads, because the content security policy refuses a style attribute in the markup. */
 export function Skeleton({ shape = 'line', width }: { shape?: Shape; width?: string }) {
-  const style: CSSProperties | undefined = width === undefined ? undefined : { width };
-  return <span className={`${styles.sk} ${styles[shape]}`} style={style} />;
+  const percent = width === undefined ? NaN : Math.round(Number.parseFloat(width));
+  const wide = Number.isFinite(percent) ? Math.min(100, Math.max(1, percent)) : undefined;
+  return <span className={`${styles.sk} ${styles[shape]}`} data-w={wide} />;
 }
 
 /** A row like the ones the admin pages list: an avatar, two lines and a button-sized block. */

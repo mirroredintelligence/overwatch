@@ -28,7 +28,6 @@ type Circle = { lat: number; lon: number; radiusKm: number };
 
 type Pin = { service: FoundService; at: LatLng; visits: boolean };
 
-const CAPTION = 'Same services as the list. Sorted by travel time. Not ranked.';
 
 function circleOf(service: FoundService): Circle | null {
   const circle = service.coverage.circle;
@@ -156,7 +155,6 @@ export function MapPane({ services, patient, onOpen }: MapPaneProps): ReactEleme
         </div>
       )}
       <div className={styles.foot}>
-        <p className={styles.caption}>{CAPTION}</p>
         {empty || showTiles ? null : <p className={styles.caption}>{BASEMAP_ATTRIBUTION}</p>}
       </div>
     </section>

@@ -134,9 +134,9 @@ describe.each([
     expect(screen.getByRole('button', { name: 'Visiting C (visits), Accepting' })).toBeInTheDocument();
   });
 
-  it('shows the caption under the map', () => {
+  it('does not repeat the list caption (the results canvas says how the list is sorted, once)', () => {
     pane();
-    expect(screen.getByText('Same services as the list. Sorted by travel time. Not ranked.')).toBeInTheDocument();
+    expect(screen.queryByText(/Same services as the list/)).toBeNull();
   });
 
   it('has no axe violations', async () => {

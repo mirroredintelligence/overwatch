@@ -106,11 +106,12 @@ describe('WorkspaceProvider', () => {
     expect(after[0].text).not.toBe(before[0].text);
   });
 
-  it('WS-PRV-T04 chips belong to the last entry only: after advisor.results they are exactly the List by name chip', () => {
+  it('WS-PRV-T04 chips belong to the last entry only: after advisor.results they are exactly the List and map and List by name chips', () => {
     const { result } = mount('advisor');
     act(() => result.current.visit('advisor.intake.age', {}));
     act(() => result.current.visit('advisor.results', { count: 3, order: 'travel' }));
     expect(result.current.chips).toEqual([
+      { label: 'List and map', href: '/advisor/v2?mode=find&view=map' },
       { label: 'List by name', href: '/advisor/v2?mode=find&view=list&order=name' },
     ]);
 
@@ -118,12 +119,14 @@ describe('WorkspaceProvider', () => {
     expect(result.current.chips).toEqual([]);
   });
 
-  it('WS-PRV-T05 a chip whose intent the role cannot open at the live phase is dropped; role null gives no chips', () => {
+  it('WS-PRV-T05 a chip whose intent the role cannot open is dropped; role null gives no chips', () => {
     const advisor = mount('advisor');
     act(() => advisor.result.current.visit('advisor.results', { count: 3, order: 'travel' }));
-    const labels = advisor.result.current.chips.map((chip) => chip.label);
-    expect(labels).not.toContain('List and map');
-    expect(labels).toEqual(['List by name']);
+    expect(advisor.result.current.chips.map((chip) => chip.label)).toEqual(['List and map', 'List by name']);
+
+    const lead = mount('lead');
+    act(() => lead.result.current.visit('advisor.results', { count: 3, order: 'travel' }));
+    expect(lead.result.current.chips).toEqual([]);
 
     const none = mount(null);
     act(() => none.result.current.visit('advisor.results', { count: 3, order: 'travel' }));

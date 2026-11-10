@@ -82,7 +82,9 @@ export function NotSuitableList({ items, suitableCount, summaryLine, serviceHref
 
   const heading = items.length === 1 ? '1 service was not suitable for this patient' : `${items.length} services were not suitable for this patient`;
   const hidden = 'Nothing is hidden: every service is either on the results list or here with its reason.';
-  const back = `Back to the ${suitableCount} suitable ${suitableCount === 1 ? 'service' : 'services'}`;
+  // With no suitable service there is nothing to count: the link says so as the thread's chip does.
+  const back =
+    suitableCount === 0 ? 'Back to the results' : `Back to the ${suitableCount} suitable ${suitableCount === 1 ? 'service' : 'services'}`;
 
   return (
     <section className={styles.root} aria-label="Services that were not suitable">

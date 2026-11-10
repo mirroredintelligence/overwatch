@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "livePhase": 2,
+  "livePhase": 4,
   "phases": {
     "1": "Advisor find workspace on the existing finder data: intake, results (groups then services), service detail.",
     "2": "Overview workspace on /analytics (aggregate data that exists today).",

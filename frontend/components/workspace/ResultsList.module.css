@@ -1,0 +1,251 @@
+/* The flat results list (AdvisorResults and AdvisorMap boards). Tokens only; every target is 44px or more. The row
+   heights (72px, 64px compact) and the gaps (10px, 8px) are the numbers ResultsList.tsx counts rows with. */
+
+.root {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: 0;
+}
+
+.viewport {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.listCompact {
+  gap: var(--space-2);
+}
+
+.row {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  height: 72px;
+  padding: var(--space-3) 18px;
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+  background: Canvas;
+  color: var(--c-ink);
+  text-decoration: none;
+}
+
+.row[data-figure='unavailable'] {
+  border: 1px dashed var(--c-unknown);
+}
+
+.row:hover {
+  background: var(--c-bg);
+}
+
+.row:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.compact {
+  height: 64px;
+  padding: var(--space-2) var(--space-4);
+}
+
+.left {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.name,
+.nameCompact {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--type-title-weight);
+}
+
+.name {
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+}
+
+.nameCompact {
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+}
+
+.caption {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-muted);
+}
+
+.right {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: var(--c-primary);
+  color: #fff;
+  font-size: var(--type-caption-size);
+  font-weight: var(--type-label-weight);
+  white-space: nowrap;
+}
+
+.status[data-status='limited'] {
+  background: var(--c-limited);
+}
+
+.status[data-status='not-accepting'],
+.status[data-status='out-of-hours'] {
+  background: var(--c-closed);
+}
+
+.status[data-status='over-capacity'] {
+  background: var(--c-surge);
+}
+
+.status[data-status='not-updated'],
+.status[data-status='last-known'] {
+  border: 1px dashed var(--c-unknown);
+  background: Canvas;
+  color: var(--c-muted);
+}
+
+.figure {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 72px;
+  text-align: right;
+}
+
+.number,
+.unknownNumber {
+  font-size: 32px;
+  line-height: 1.1;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.unknownNumber {
+  color: var(--c-muted);
+}
+
+.unit {
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-muted);
+}
+
+.open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 2px solid var(--c-primary);
+  border-radius: var(--radius);
+  background: Canvas;
+  color: var(--c-primary);
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+}
+
+.row:hover .open {
+  background: var(--c-tint);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.pager {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  color: var(--c-muted);
+  font-size: var(--type-caption-size);
+}
+
+.pages {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.page {
+  box-sizing: border-box;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--c-unknown);
+  border-radius: var(--radius);
+  background: Canvas;
+  color: var(--c-ink);
+  font: inherit;
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  cursor: pointer;
+}
+
+.page:not(:disabled):hover {
+  background: var(--c-tint);
+}
+
+.page:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.page:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+/* Below 900px the frame scrolls and the list is as tall as its rows: the rows wrap their text instead of cutting it. */
+@media (max-width: 899.98px) {
+  .row {
+    height: auto;
+    min-height: 72px;
+  }
+
+  .compact {
+    min-height: 64px;
+  }
+}

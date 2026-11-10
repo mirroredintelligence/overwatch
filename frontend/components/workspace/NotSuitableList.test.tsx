@@ -130,4 +130,18 @@ describe('NotSuitableList', () => {
     const empty = renderList([]);
     expect(await runAxe(empty.container)).toHaveNoViolations();
   });
+
+  it('WS-NSL-T12 with no suitable service the back link says "Back to the results"', () => {
+    render(
+      <NotSuitableList
+        items={[{ serviceId: 'a', name: 'Alpha Team', category: 'virtual-beds', status: 'accepting', reasons: ['Does not take dementia'], position: null }]}
+        suitableCount={0}
+        summaryLine={null}
+        serviceHref={(id) => `/advisor/v2/services/${id}`}
+        backHref="/advisor/v2?mode=find&view=list"
+      />,
+    );
+    expect(screen.getByRole('link', { name: 'Back to the results' })).toHaveAttribute('href', '/advisor/v2?mode=find&view=list');
+    expect(screen.queryByText(/Back to the 0/)).toBeNull();
+  });
 });

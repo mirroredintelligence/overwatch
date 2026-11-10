@@ -2,9 +2,151 @@
 
 .canvas {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: var(--space-4);
   min-width: 0;
+  min-height: 0;
+}
+
+/* The results (the list and the reasons): the head, then the list that fills the height. The page does not scroll. */
+.results {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  min-height: 0;
+}
+
+.head {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.headText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.h1 {
+  margin: 0;
+  font-size: var(--type-heading-size);
+  line-height: var(--type-heading-lh);
+  font-weight: var(--type-heading-weight);
+  letter-spacing: var(--type-heading-tracking);
+  color: var(--c-ink);
+}
+
+/* The List | List and map switch. */
+.switch {
+  display: inline-flex;
+  flex: none;
+  gap: var(--space-2);
+}
+
+.seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--c-unknown);
+  border-radius: var(--radius);
+  background: Canvas;
+  color: var(--c-ink);
+  font: inherit;
+  font-size: var(--type-caption-size);
+  font-weight: var(--type-label-weight);
+  cursor: pointer;
+}
+
+.seg[aria-pressed='true'] {
+  border-color: var(--c-primary);
+  background: var(--c-tint);
+  color: var(--c-primary-dark);
+}
+
+.tick {
+  display: none;
+}
+
+.seg[aria-pressed='true'] .tick {
+  display: inline;
+}
+
+/* The list beside the map: a narrow column of rows and the map in a card. */
+.mapCanvas {
+  display: flex;
+  flex: 1 1 auto;
+  gap: var(--space-5);
+  min-width: 0;
+  min-height: 0;
+}
+
+.mapList {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 380px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.mapHead {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.mapCard {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+  background: Canvas;
+}
+
+.mapBody {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+@media (max-width: 899.98px) {
+  .mapCanvas {
+    flex-direction: column;
+  }
+
+  .mapList {
+    width: auto;
+  }
+
+  .mapCard {
+    flex: none;
+  }
+
+  .mapBody {
+    flex: none;
+    min-height: 360px;
+  }
 }
 
 .panel {
@@ -42,83 +184,13 @@
   color: var(--c-ink);
 }
 
-.toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
 
-.orderSeg {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
 
-.seg {
-  min-height: 44px;
-  min-width: 44px;
-  padding: 0 var(--space-3);
-  border: 1px solid var(--c-unknown);
-  border-radius: var(--radius-chip);
-  background: var(--c-bg);
-  color: var(--c-ink);
-  font: inherit;
-  cursor: pointer;
-}
 
-.seg[aria-pressed='true'] {
-  border-color: var(--c-primary);
-  background: var(--c-tint);
-  color: var(--c-primary-dark);
-}
 
-.returnButton {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: 0 var(--space-3);
-  border: 0;
-  background: none;
-  color: var(--c-ink);
-  font: inherit;
-  font-size: var(--type-title-size);
-  font-weight: var(--type-title-weight);
-  text-align: left;
-  cursor: pointer;
-}
 
-.groupCard {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  width: 100%;
-  min-height: 52px;
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--c-unknown);
-  border-radius: var(--radius-card);
-  background: var(--c-bg);
-  color: var(--c-ink);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
 
-.groupName {
-  font-weight: var(--type-label-weight);
-}
 
-.pill {
-  flex: none;
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-chip);
-  background: var(--c-tint);
-  color: var(--c-primary-dark);
-  font-size: var(--type-caption-size);
-  white-space: nowrap;
-}
 
 .postcode {
   display: flex;
@@ -142,9 +214,7 @@
   color: var(--c-muted);
 }
 
-.seg:focus-visible,
-.returnButton:focus-visible,
-.groupCard:focus-visible {
+.seg:focus-visible {
   outline: 2px solid var(--c-primary);
   outline-offset: 2px;
 }

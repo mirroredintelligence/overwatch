@@ -30,7 +30,9 @@ type Check = { key: string; kind: 'checking' } | { key: string; kind: 'failed' }
 export function ServiceCheck({ serviceId, onClose }: { serviceId: string; onClose: () => void }): ReactElement {
   const { criteria, setCriteria, resetCriteria, criteriaComplete } = useWorkspace();
   const { age, postcode, needs, urgency } = criteria;
-  const [step, setStep] = useState<'age' | 'need'>('age');
+  // With the patient's criteria already set (the advisor came from the results), the check is made at once and the
+  // questions are not asked again; "Check another patient" starts them from the first step.
+  const [step, setStep] = useState<'age' | 'need'>(() => (criteriaComplete ? 'need' : 'age'));
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [located, setLocated] = useState<'found' | 'not-found' | 'unavailable' | null>(null);
   const [result, setResult] = useState<Check | null>(null);

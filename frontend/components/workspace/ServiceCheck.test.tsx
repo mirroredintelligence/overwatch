@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -7,7 +8,7 @@ import { runAxe } from '@/test/a11y';
 import { server } from '@/test/msw/server';
 import { ServiceActions } from './ServiceActions';
 import { ServiceCheck } from './ServiceCheck';
-import { WorkspaceProvider } from './WorkspaceProvider';
+import { useWorkspace, WorkspaceProvider } from './WorkspaceProvider';
 
 // "Book a slot" on the service page (DEC-1377): the triage card, then the answer for this one service, with no
 // navigation. The back end decides the fit; these tests only show what is done with its answer. Neutral words only.
@@ -131,6 +132,35 @@ describe('ServiceCheck', () => {
     await fillCard(user);
     await screen.findByRole('heading', { name: 'This patient fits this service' });
     expect(await runAxe(container)).toHaveNoViolations();
+  });
+});
+
+describe('ServiceCheck with the criteria already set', () => {
+  it('checks at once without asking the questions again, and offers another patient from the first step', async () => {
+    serveCheck(FITS);
+    function Seeded() {
+      const { setCriteria } = useWorkspace();
+      const [ready, setReady] = useState(false);
+      const done = useRef(false);
+      useEffect(() => {
+        if (done.current) return;
+        done.current = true;
+        setCriteria({ age: '80+', postcode: POSTCODE, needs: ['frailty'], urgency: 'today' });
+        void Promise.resolve().then(() => setReady(true));
+      }, [setCriteria]);
+      return ready ? <ServiceCheck serviceId="svc-a" onClose={() => undefined} /> : null;
+    }
+    const user = userEvent.setup();
+    render(
+      <WorkspaceProvider role="advisor">
+        <Seeded />
+      </WorkspaceProvider>,
+    );
+    expect(await screen.findByRole('heading', { name: 'This patient fits this service' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Step 1 of 2 · Age and postcode' })).toBeNull();
+    expect(posted).toEqual([{ postcode: POSTCODE, ageBand: '80+', needs: ['frailty'], urgency: 'today' }]);
+    await user.click(screen.getByRole('button', { name: 'Check another patient' }));
+    expect(screen.getByRole('heading', { name: 'Step 1 of 2 · Age and postcode' })).toBeInTheDocument();
   });
 });
 

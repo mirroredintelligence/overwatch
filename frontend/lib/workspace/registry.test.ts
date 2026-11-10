@@ -25,31 +25,6 @@ const IDENTITY: Record<string, { persona: string; flags: string[]; workspace: bo
   'anonymous-link': { persona: 'display', flags: [], workspace: false },
 };
 
-const ADVISOR_NOW = [
-  'advisor.intake.age',
-  'advisor.intake.need',
-  'advisor.results',
-  'advisor.service',
-  'advisor.new-search',
-];
-
-const NOW: Record<string, string[]> = {
-  advisor: ADVISOR_NOW,
-  'advisor-v2': ADVISOR_NOW,
-  clinical: [],
-  'analytics-user': ['overview.home', 'overview.attention', 'overview.area'],
-  lead: [],
-  exec: [],
-  owner: [],
-  audit: [],
-  reporter: [],
-  'tenant-admin': [],
-  'network-admin': [],
-  support: [],
-  wall: [],
-  'anonymous-link': [],
-};
-
 const ADVISOR_ALL = [
   'advisor.intake.age',
   'advisor.intake.need',
@@ -87,6 +62,9 @@ const ALL: Record<string, string[]> = {
   wall: [],
   'anonymous-link': [],
 };
+
+// Every intent is offered since livePhase went to 4 (DEC-1379: the map and the reasons are built), so Now equals All.
+const NOW: Record<string, string[]> = ALL;
 
 // Every intent id in registry order (the 22 ids of WS-MATRIX).
 const ALL_IDS = [
@@ -151,10 +129,12 @@ it('WS-REG-T04 canOpen(role, id) is true exactly when id is in intentsFor(role);
   }
   expect(canOpen('nobody', 'advisor.results')).toBe(false);
   expect(canOpen('advisor', 'nope')).toBe(false);
-  expect(canOpen('advisor', 'advisor.map')).toBe(false);
+  expect(canOpen('advisor', 'advisor.map')).toBe(true);
+  expect(canOpen('advisor', 'advisor.map', { phase: 3 })).toBe(false);
   expect(canOpen('advisor', 'advisor.map', { phase: 4 })).toBe(true);
   expect(canOpen('advisor', 'advisor.results', { phase: 0 })).toBe(false);
-  expect(canOpen('lead', 'go.planning')).toBe(false);
+  expect(canOpen('lead', 'go.planning')).toBe(true);
+  expect(canOpen('lead', 'go.planning', { phase: 2 })).toBe(false);
   expect(canOpen('lead', 'go.planning', { phase: 3 })).toBe(true);
 });
 

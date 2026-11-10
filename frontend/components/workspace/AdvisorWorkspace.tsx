@@ -64,7 +64,7 @@ export function AdvisorWorkspace(): ReactElement {
   const url = parseAdvisorUrl(useSearchParams().toString());
   const { criteria, setCriteria, criteriaComplete, remember, visit } = useWorkspace();
   const { age, postcode, needs, urgency } = criteria;
-  const { view: pageView, step, group, order } = url;
+  const { view, step, order } = url;
 
   const [result, setResult] = useState<Search | null>(null);
   const [located, setLocated] = useState<PostcodeLocation | null>(null);
@@ -72,32 +72,37 @@ export function AdvisorWorkspace(): ReactElement {
   // The last criteria a search was started for, so the same criteria are never searched twice.
   const lastKey = useRef<string | null>(null);
 
-  // The results and the need step are the list view; a map or why view is not live, so it is shown as the list.
-  const view: 'find' | 'list' = pageView === 'find' ? 'find' : 'list';
+  // The list, the map and the reasons are the results views; the need step is the intake.
   const full = normalisePostcode(postcode);
   const district = full === null ? null : outwardCode(full);
   const ageLabel = AGE_BANDS.find((band) => band.code === age)?.label ?? null;
   const urgencyLabel = URGENCIES.find((item) => item.code === urgency)?.label ?? null;
   const ageOk = age !== null && full !== null;
-  const onResults = view === 'list' && criteriaComplete;
-  const intakeStep: 'age' | 'need' = (view === 'list' || step === 'need') && ageOk ? 'need' : 'age';
+  const onResults = view !== 'find' && criteriaComplete;
+  const intakeStep: 'age' | 'need' = (view !== 'find' || step === 'need') && ageOk ? 'need' : 'age';
 
-  // A list without complete criteria, or the need step without an age and a full postcode, goes back to the intake.
-  const needsGate = (view === 'list' && !criteriaComplete) || (view === 'find' && step === 'need' && !ageOk);
+  // A results view without complete criteria, or the need step without an age and a full postcode, goes back to the intake.
+  const needsGate = (view !== 'find' && !criteriaComplete) || (view === 'find' && step === 'need' && !ageOk);
   const gateTarget: string | null = needsGate ? (ageOk ? NEED_HREF : AGE_HREF) : null;
 
-  // The search runs on the need step once the criteria are complete. The key is what the search depends on.
-  const searching = view === 'find' && step === 'need' && criteriaComplete;
+  // The key is what the search depends on.
   const needsKey = [...needs].sort().join(',');
   const searchKey = `${full ?? ''}|${age ?? ''}|${needsKey}|${urgency ?? ''}`;
   const current = result !== null && result.key === searchKey ? result : null;
+  // The search runs on the need step once the criteria are complete. It also runs on a results view that has no answer
+  // for the criteria: coming back from a service page mounts this page afresh, and the answer lived only in the page
+  // before. The criteria are still in the provider, so the same search is made again (nothing is stored).
+  const searching = criteriaComplete && ((view === 'find' && step === 'need') || (onResults && current === null));
   const read = current?.kind === 'done' ? current.read : null;
   const outcome: 'none' | 'failed' | 'done' = current === null || current.kind === 'searching' ? 'none' : current.kind;
-  const groups: Group[] = read === null ? [] : groupsOf(read.services);
-  const chosen = onResults ? (groups.find((item) => item.category === group) ?? null) : null;
   const count = read?.services.length ?? 0;
+  const notSuitable = read?.notSuitable.length ?? 0;
   const notFound = read?.notFound === true;
-  const totals = read?.groupTotals ?? {};
+  const listed = useMemo(() => (read === null ? [] : orderServices(read.services, order)), [read, order]);
+  // The patient's place, from the postcode lookup the page already makes. It is held in memory only.
+  const patient = located !== null && located.status === 'found' ? { lat: located.lat, lon: located.lon } : null;
+  // The results are drawn when there is an answer with something to show; otherwise the panel says why not.
+  const resultsShown = onResults && read !== null && (count > 0 || (view === 'why' && notSuitable > 0));
 
   const summaryLine =
     criteriaComplete && ageLabel !== null && district !== null && urgencyLabel !== null
@@ -106,12 +111,7 @@ export function AdvisorWorkspace(): ReactElement {
 
   let status = IDLE_STATUS;
   if (current?.kind === 'searching' || (searching && current === null)) status = SEARCHING;
-  if (onResults && read !== null) {
-    status =
-      chosen === null
-        ? `${groups.length} service groups · ${count} services`
-        : `${chosen.services.length} matching services`;
-  }
+  if (onResults && read !== null) status = `${count} matching services`;
 
   const helpText =
     located === null
@@ -152,7 +152,8 @@ export function AdvisorWorkspace(): ReactElement {
       findServices({ postcode: full, ageBand: age, needs, urgency }).then((found) => {
         // The answer is kept for its criteria even when the person has moved on; the push happens only while live.
         setResult(found === null ? { key: searchKey, kind: 'failed' } : { key: searchKey, kind: 'done', read: found });
-        if (live) router.push(RESULTS_HREF);
+        // Only the need step moves on to the results; a results view that searched again stays where it is.
+        if (live && view === 'find') router.push(RESULTS_HREF);
       });
     }, WAIT_MS);
     return () => {
@@ -163,15 +164,23 @@ export function AdvisorWorkspace(): ReactElement {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searching, searchKey]);
 
-  // The results turn: its count, order and whether the search failed or the postcode could not be placed.
+  // The results turn (or the map or reasons turn): its counts, order and whether the search failed or the postcode could
+  // not be placed. A failed search is the results turn, whichever view the person is on.
+  const turn = outcome === 'failed' ? 'advisor.results' : view === 'map' ? 'advisor.map' : view === 'why' ? 'advisor.reasons' : 'advisor.results';
   useEffect(() => {
     if (!onResults || outcome === 'none') return;
     const context: DialogContext =
       outcome === 'failed'
         ? { failed: true, count: 0, order, summaryLine }
-        : { count, order, summaryLine, ...(notFound ? { postcodeNotPlaced: true } : {}) };
-    visit('advisor.results', context);
-  }, [visit, onResults, outcome, count, notFound, order, summaryLine]);
+        : { count, notSuitable, order, summaryLine, ...(notFound ? { postcodeNotPlaced: true } : {}) };
+    visit(turn, context);
+  }, [visit, onResults, outcome, turn, count, notSuitable, notFound, order, summaryLine]);
+
+  // A service chosen in the list or on the map is remembered for the thread, then its page opens.
+  function openFromMap(service: FoundService) {
+    remember(openedOf(service));
+    router.push(serviceHref(service.serviceId));
+  }
 
   function onPostcodeType(typed: string) {
     setCriteria({ postcode: typed });
@@ -240,30 +249,83 @@ export function AdvisorWorkspace(): ReactElement {
     />
   );
 
-  return (
-    <WorkspacePage title={TITLE} withThread card={card}>
-      <div className={styles.canvas}>
-        <CriteriaSummary
-          age={ageLabel}
-          district={district}
-          needs={needs.map(needLabel)}
-          urgency={urgencyLabel}
+  // What the person is shown: the list, the list beside the map, or the services that were not suitable.
+  const title = resultsShown && view === 'why' ? WHY_TITLE : TITLE;
+  const backHref = onResults ? (view === 'list' ? NEED_HREF : RESULTS_HREF) : undefined;
+  const heading =
+    count === 1 ? "1 service meets this patient's criteria" : `${count} services meet this patient's criteria`;
+  const sortNote = order === 'travel' ? 'Sorted by travel time. Not ranked.' : 'Listed by name. Not ranked.';
+
+  const showAs = (
+    <div className={styles.switch} role="group" aria-label="Show it as">
+      <button type="button" className={styles.seg} aria-pressed={view === 'list'} onClick={() => router.push(workspaceHref('advisor.results', { order }))}>
+        <span className={styles.tick} aria-hidden="true">
+          ✓
+        </span>
+        List
+      </button>
+      <button type="button" className={styles.seg} aria-pressed={view === 'map'} onClick={() => router.push(workspaceHref('advisor.map', { order }))}>
+        <span className={styles.tick} aria-hidden="true">
+          ✓
+        </span>
+        List and map
+      </button>
+    </div>
+  );
+
+  let canvas: ReactElement;
+  if (resultsShown && view === 'why' && read !== null) {
+    canvas = (
+      <div className={styles.results}>
+        <NotSuitableList
+          items={read.notSuitable}
+          suitableCount={count}
+          summaryLine={summaryLine}
+          serviceHref={serviceHref}
+          backHref={RESULTS_HREF}
         />
-        <section className={styles.panel} aria-label="Matching service groups and services">
-          {chosen === null ? (
-            <h2 className={styles.heading}>Services</h2>
-          ) : (
-            <h2 className={styles.heading}>
-              <button
-                type="button"
-                className={styles.returnButton}
-                aria-label="Return to service groups"
-                onClick={() => router.push(workspaceHref('advisor.results', { order }))}
-              >
-                {chosen.label}
-              </button>
-            </h2>
-          )}
+      </div>
+    );
+  } else if (resultsShown && view === 'map') {
+    canvas = (
+      <div className={styles.mapCanvas}>
+        <section className={styles.mapList} aria-label="Service list">
+          <div className={styles.mapHead}>
+            <h1 className={styles.h1}>{count === 1 ? '1 service' : `${count} services`}</h1>
+            {showAs}
+          </div>
+          <ResultsList services={listed} compact onOpen={(service) => remember(openedOf(service))} />
+        </section>
+        <section className={styles.mapCard} aria-label="Map">
+          <p className={styles.note}>Same services as the list. {sortNote}</p>
+          <div className={styles.mapBody}>
+            <MapPane services={listed} patient={patient} onOpen={openFromMap} />
+          </div>
+        </section>
+      </div>
+    );
+  } else if (resultsShown) {
+    canvas = (
+      <div className={styles.results}>
+        <div className={styles.head}>
+          <div className={styles.headText}>
+            <h1 className={styles.h1}>{heading}</h1>
+            <p className={styles.note}>{sortNote}</p>
+            {notFound ? <p className={styles.note}>{NOT_PLACED}</p> : null}
+          </div>
+          {showAs}
+        </div>
+        <ResultsList services={listed} onOpen={(service) => remember(openedOf(service))} />
+      </div>
+    );
+  } else {
+    canvas = (
+      <>
+        {onResults ? null : (
+          <CriteriaSummary age={ageLabel} district={district} needs={needs.map(needLabel)} urgency={urgencyLabel} />
+        )}
+        <section className={styles.panel} aria-label="Matching services">
+          <h2 className={styles.heading}>Services</h2>
           <p className={styles.note} role="status">
             {status}
           </p>
@@ -273,70 +335,15 @@ export function AdvisorWorkspace(): ReactElement {
             </p>
           ) : null}
           {onResults && notFound ? <p className={styles.note}>{NOT_PLACED}</p> : null}
-          {onResults && read !== null && groups.length === 0 ? <p className={styles.note}>{NONE}</p> : null}
-          {onResults && read !== null && groups.length > 0 && chosen === null ? (
-            <PagedGrid
-              items={groups}
-              keyOf={(item) => item.category}
-              label="Service groups"
-              noun="service groups"
-              empty="No service groups."
-              render={(item) => (
-                <button
-                  type="button"
-                  className={styles.groupCard}
-                  data-el="ADV2-GROUP"
-                  onClick={() => router.push(workspaceHref('advisor.results', { group: item.category, order }))}
-                >
-                  <span className={styles.groupName}>{item.label}</span>
-                  <span className={styles.pill}>
-                    {`${item.services.length} of ${Math.max(item.services.length, totals[item.category] ?? 0)} services`}
-                  </span>
-                </button>
-              )}
-            />
-          ) : null}
-          {chosen === null ? null : (
-            <>
-              <div className={styles.toolbar}>
-                <p className={styles.note}>
-                  {order === 'travel' ? 'Listed by travel time. Not ranked by status.' : 'Listed by name. Not ranked by status.'}
-                </p>
-                <div className={styles.orderSeg} role="group" aria-label="List by">
-                  <button
-                    type="button"
-                    className={styles.seg}
-                    aria-pressed={order === 'travel'}
-                    onClick={() => router.push(workspaceHref('advisor.results', { group: chosen.category, order: 'travel' }))}
-                  >
-                    Travel time
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.seg}
-                    aria-pressed={order === 'name'}
-                    onClick={() => router.push(workspaceHref('advisor.results', { group: chosen.category, order: 'name' }))}
-                  >
-                    Name
-                  </button>
-                </div>
-              </div>
-              <PagedGrid
-                items={orderServices(chosen.services, order)}
-                keyOf={(item) => item.serviceId}
-                label="Services in this group"
-                noun="services"
-                empty="No services."
-                render={(item) => (
-                  <div onClickCapture={() => remember(openedOf(item))}>
-                    <ServiceTile option={toOption(item)} />
-                  </div>
-                )}
-              />
-            </>
-          )}
+          {onResults && read !== null && count === 0 ? <p className={styles.note}>{NONE}</p> : null}
         </section>
-      </div>
+      </>
+    );
+  }
+
+  return (
+    <WorkspacePage title={title} backHref={backHref} withThread card={card}>
+      <div className={styles.canvas}>{canvas}</div>
     </WorkspacePage>
   );
 }

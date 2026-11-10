@@ -6,6 +6,7 @@ import type { DialogContext } from '@/lib/workspace/dialog';
 import { workspaceHref } from '@/lib/workspace/url';
 import { ServiceActions } from './ServiceActions';
 import { ServiceCheck } from './ServiceCheck';
+import { ServiceMatch } from './ServiceMatch';
 import { WorkspacePage } from './WorkspacePage';
 import { useWorkspace } from './WorkspaceProvider';
 
@@ -46,7 +47,12 @@ export function ServiceWorkspace({ serviceId }: { serviceId: string }) {
         backLabel="Back to results"
         rootLabel="Find a service"
         tabbed
-        actions={<ServiceActions serviceId={serviceId} onCheck={openCheck} />}
+        actions={
+          <>
+            <ServiceActions serviceId={serviceId} onCheck={openCheck} />
+            <ServiceMatch serviceId={serviceId} />
+          </>
+        }
       />
     </WorkspacePage>
   );

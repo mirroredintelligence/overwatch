@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { attentionShown, parseOverview, statusHref, V2_BROWSE_NOTE } from './overview';
+import { attentionShown, districtCards, districtFromQuery, districtHref, groupFromQuery, groupHref, groupsOfRows, parseOverview, statusHref, statusesFromQuery, V2_BROWSE_NOTE } from './overview';
 
 // Advisor v2: the capacity overview (DEC-1366). The counts link to filtered lists; the Needs attention lists are
 // the shift lead's rules; a stale figure is never spare capacity and is never shown as a number.
@@ -75,5 +75,50 @@ describe('V2_BROWSE_NOTE', () => {
   it('says plainly that nothing is stored', () => {
     expect(V2_BROWSE_NOTE).toMatch(/no case/i);
     expect(V2_BROWSE_NOTE).toMatch(/nothing is stored/i);
+  });
+});
+
+describe('the group and state queries', () => {
+  it('links a group to its list and reads it back only when it is shaped like a category', () => {
+    expect(groupHref('inpatient-beds')).toBe('/advisor/v2/services?group=inpatient-beds');
+    expect(groupFromQuery('inpatient-beds')).toBe('inpatient-beds');
+    expect(groupFromQuery(['urgent-community-response', 'x'])).toBe('urgent-community-response');
+    expect(groupFromQuery('<script>')).toBeNull();
+    expect(groupFromQuery(undefined)).toBeNull();
+  });
+
+  it('counts the services of each group, by the group code', () => {
+    const rows = parseOverview(BODY)!.services;
+    expect(groupsOfRows([...rows, ...rows])).toEqual([{ category: 'inpatient-beds', count: 2 }]);
+  });
+
+  it('reads only the five counted states from the address', () => {
+    expect(statusesFromQuery('limited,bogus,not-updated')).toEqual(['limited', 'not-updated']);
+  });
+});
+
+describe('districts', () => {
+  const rows = (...specs: [string, string, string[]][]) =>
+    parseOverview({
+      ...BODY,
+      services: specs.map(([id, status, districts]) => ({ ...BODY.services[0], serviceId: id, name: id, status, districts })),
+    })!.services;
+
+  it('reads the districts of a row, dropping anything not shaped like a postcode district', () => {
+    expect(rows(['a', 'accepting', ['DT4', 'nope', 'BH21']])[0]?.districts).toEqual(['DT4', 'BH21']);
+  });
+
+  it('makes one card per district with its services counted by state, and counts a service in each of its districts', () => {
+    const cards = districtCards(rows(['a', 'accepting', ['DT4', 'DT1']], ['b', 'limited', ['DT4']], ['c', 'accepting', []]));
+    expect(cards.map((card) => [card.district, card.count])).toEqual([['DT1', 1], ['DT4', 2], [null, 1]]);
+    expect(cards[1]?.tally).toMatchObject({ accepting: 1, limited: 1, 'not-accepting': 0 });
+  });
+
+  it('links a district to its list, and reads it back only when it is shaped like one', () => {
+    expect(districtHref('DT4')).toBe('/advisor/v2/services?district=DT4');
+    expect(districtHref(null)).toBe('/advisor/v2/services?district=none');
+    expect(districtFromQuery('DT4')).toBe('DT4');
+    expect(districtFromQuery('none')).toBe('none');
+    expect(districtFromQuery('x"><')).toBeNull();
   });
 });

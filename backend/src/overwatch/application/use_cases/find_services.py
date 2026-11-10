@@ -23,7 +23,7 @@ Roles: the advisor and Advisor v2 (DEC-1362); every other role is refused as Not
 
 import asyncio
 from collections.abc import Collection, Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta
 from typing import Final
 
@@ -176,6 +176,15 @@ def match_services(
     return tuple(found)
 
 
+def group_totals(entries: tuple[BoardEntry, ...]) -> dict[ServiceCategory, int]:
+    """How many services each group has in all, so a card can say "3 of 5 services". Counts only: no
+    patient value and no ordering."""
+    totals: dict[ServiceCategory, int] = {}
+    for entry in entries:
+        totals[entry.category] = totals.get(entry.category, 0) + 1
+    return totals
+
+
 def order_key(item: FoundService) -> tuple[int, int, str, str]:
     """Travel low end first, no travel last, then name, then id. Status plays no part."""
     if item.travel is None:
@@ -199,6 +208,8 @@ class FindServicesResult:
     generated_at: datetime
     not_found: bool = False
     """The locator does not know the district: no travel is shown and the order is by name."""
+    group_totals: Mapping[ServiceCategory, int] = field(default_factory=dict)
+    """Every service of each group, found or not."""
 
 
 class FindServices:
@@ -271,7 +282,12 @@ class FindServices:
                 )
             )
             await audit_uow.commit()
-        return FindServicesResult(services=ordered, generated_at=now, not_found=patient is None)
+        return FindServicesResult(
+            services=ordered,
+            generated_at=now,
+            not_found=patient is None,
+            group_totals=group_totals(board.entries),
+        )
 
     async def _travel_range(
         self, patient: Located | None, site: LatLon | None
@@ -297,6 +313,8 @@ class CapacityRow:
     reported_at: datetime | None
     figure_unavailable: bool
     last_figure: int | None
+    districts: tuple[str, ...] = ()
+    """The postcode districts the service covers; none when none is recorded."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -309,7 +327,9 @@ class CapacityOverview:
 
 
 def capacity_overview(
-    entries: tuple[BoardEntry, ...], generated_at: datetime | None = None
+    entries: tuple[BoardEntry, ...],
+    generated_at: datetime | None = None,
+    districts: Mapping[str, tuple[str, ...]] | None = None,
 ) -> CapacityOverview:
     """The five counts, the two attention lists (the shift lead's own rules, lead_views) and one
     row per
@@ -332,6 +352,7 @@ def capacity_overview(
                     unit_label=entry.unit_label,
                     reported_at=entry.reported_at,
                     figure_unavailable=figure_unusable(entry),
+                    districts=tuple(sorted((districts or {}).get(entry.service_id, ()))),
                     last_figure=(
                         entry.effective_available
                         if entry.effective_available is not None
@@ -353,11 +374,18 @@ def capacity_overview(
 
 
 class ReadCapacityOverview:
-    def __init__(self, clock: Clock, query_board: QueryBoard) -> None:
+    def __init__(
+        self, uow_factory: UnitOfWorkFactory, clock: Clock, query_board: QueryBoard
+    ) -> None:
+        self._uow_factory = uow_factory
         self._clock = clock
         self._query_board = query_board
 
     async def execute(self, actor: Actor) -> CapacityOverview:
         check_find_role(actor)
         board = await self._query_board.execute(QueryBoardQuery(actor))
-        return capacity_overview(board.entries, self._clock.now())
+        async with self._uow_factory() as uow:
+            districts = await uow.positions.coverage_districts(
+                [entry.service_id for entry in board.entries]
+            )
+        return capacity_overview(board.entries, self._clock.now(), districts)

@@ -1,9 +1,8 @@
 import Link from 'next/link';
 import styles from './V2.module.css';
 
-// The top-level switch of Advisor v2 (DEC-1366): Capacity and Find a Service. Two links, not tabs that hide a page,
-// so each view has its own address and the back button works. The current one is marked with aria-current and the
-// word is the same either way: nothing here depends on colour.
+// The top-level switch of Advisor v2 (DEC-1366): Capacity and Find a Service, the design's two modes. Two links, so each
+// view has its own address and the back button works. The current one is marked with aria-current.
 
 export type V2Mode = 'capacity' | 'find';
 

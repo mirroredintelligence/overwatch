@@ -244,3 +244,28 @@ def test_the_overview_rows_are_by_name_never_by_status() -> None:
     )
 
     assert [row.name for row in capacity_overview(entries).rows] == ["Alpha", "Bravo"]
+
+
+def test_the_overview_rows_carry_the_districts_each_service_covers_and_none_is_invented() -> None:
+    entries = (_entry(service_id="a", name="A"), _entry(service_id="b", name="B"))
+
+    view = capacity_overview(entries, districts={"a": ("DT4", "DT1")})
+
+    rows = {row.service_id: row for row in view.rows}
+    assert rows["a"].districts == ("DT1", "DT4")
+    assert rows["b"].districts == ()
+
+
+def test_group_totals_count_every_service_of_a_group_not_only_the_ones_found() -> None:
+    from overwatch.application.use_cases.find_services import group_totals
+
+    entries = (
+        _entry(service_id="a"),
+        _entry(service_id="b", category=ServiceCategory.INPATIENT_BEDS),
+        _entry(service_id="c"),
+    )
+
+    assert group_totals(entries) == {
+        ServiceCategory.URGENT_COMMUNITY_RESPONSE: 2,
+        ServiceCategory.INPATIENT_BEDS: 1,
+    }

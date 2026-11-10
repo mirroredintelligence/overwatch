@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { CapacityOverview } from '@/components/advisor-v2/CapacityOverview';
 import { FindService } from '@/components/advisor-v2/FindService';
+import styles from '@/components/advisor-v2/V2.module.css';
 import { V2Switch, type V2Mode } from '@/components/advisor-v2/V2Switch';
 
 export const metadata: Metadata = {
@@ -16,8 +17,10 @@ export default async function AdvisorV2Page({ searchParams }: { searchParams: Pr
   const current: V2Mode = mode === 'find' ? 'find' : 'capacity';
   return (
     <main>
-      <h1>Advisor v2</h1>
-      <V2Switch current={current} />
+      <div className={styles.titleRow}>
+        <h1 className={styles.title}>Advisor v2</h1>
+        <V2Switch current={current} />
+      </div>
       {current === 'find' ? <FindService /> : <CapacityOverview />}
     </main>
   );

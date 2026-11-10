@@ -420,6 +420,8 @@ def test_the_roles_a_group_may_map_to_are_the_staff_roles_and_the_two_administra
                 Role.AUDIT,
                 Role.NETWORK_ADMIN,
                 Role.TENANT_ADMIN,
+                Role.ANALYTICS_USER,
+                Role.ADVISOR_V2,
             }
         )
         == ENTRA_MAPPABLE_ROLES

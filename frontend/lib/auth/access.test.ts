@@ -9,6 +9,14 @@ const TABLE: [string, Role[]][] = [
   ['/advisor', ['advisor']],
   ['/advisor/case', ['advisor']],
   ['/advisor/case/4821', ['advisor']],
+  // Advisor v2 (DEC-1362): the finder pages under /advisor/v2 are open to the advisor and to Advisor v2; the rest of /advisor is the advisor's alone.
+  ['/advisor/v2', ['advisor', 'advisor-v2']],
+  ['/advisor/v2/results', ['advisor', 'advisor-v2']],
+  ['/advisor/v20', ['advisor']],
+  ['/advisor/board', ['advisor']],
+  // The Analytics User's aggregate pages (DEC-1362).
+  ['/analytics', ['analytics-user']],
+  ['/analytics/district/x', ['analytics-user']],
   ['/clinical', ['clinical']],
   ['/lead', ['lead']],
   ['/owner', ['owner', 'clinical']],
@@ -95,6 +103,8 @@ describe('roleHome', () => {
     ['support', '/console'],
     ['tenant-admin', '/admin'],
     ['network-admin', '/network-admin'],
+    ['advisor-v2', '/advisor/v2'],
+    ['analytics-user', '/analytics'],
   ] as [Role, string][])('sends %s to %s', (role, home) => {
     expect(roleHome(role)).toBe(home);
   });
@@ -104,9 +114,37 @@ describe('roleHome', () => {
   });
 
   it('can open its own home, whichever role', () => {
-    for (const role of ['advisor', 'clinical', 'lead', 'owner', 'exec', 'support', 'tenant-admin', 'network-admin'] as Role[]) {
+    for (const role of ['advisor', 'clinical', 'lead', 'owner', 'exec', 'support', 'tenant-admin', 'network-admin', 'advisor-v2', 'analytics-user'] as Role[]) {
       expect(canAccess(role, roleHome(role))).toBe(true);
     }
+  });
+});
+
+describe('the Analytics User and Advisor v2 (DEC-1362)', () => {
+  const personal = ['/advisor', '/advisor/case', '/advisor/case/4821', '/advisor/board', '/lead', '/lead/phones', '/lead/replies', '/clinical', '/owner', '/criteria', '/planning', '/network/board', '/console', '/admin', '/network-admin'];
+
+  it('keeps the Analytics User off every page that shows a case, a call, or the lead pages', () => {
+    for (const path of [...personal, '/advisor/v2']) expect(canAccess('analytics-user', path), path).toBe(false);
+  });
+
+  it('gives Advisor v2 nothing but the v2 pages: no v1 call pages, no board, no case', () => {
+    for (const path of personal) expect(canAccess('advisor-v2', path), path).toBe(false);
+    expect(canAccess('advisor-v2', '/advisor/v2')).toBe(true);
+    expect(canAccess('advisor-v2', '/analytics')).toBe(false);
+  });
+
+  it('gives the advisor both the v1 pages and the v2 pages, and not the analytics', () => {
+    expect(canAccess('advisor', '/advisor/case/4821')).toBe(true);
+    expect(canAccess('advisor', '/advisor/v2')).toBe(true);
+    expect(canAccess('advisor', '/analytics')).toBe(false);
+  });
+
+  it.each(['/advisor/V2', '/advisor/%76%32', '/advisor//v2', '/advisor/x/../v2'])('reads %s as the v2 page', (path) => {
+    expect(canAccess('advisor-v2', path)).toBe(true);
+  });
+
+  it.each(['/advisor/v2/../case', '/advisor/v2/%2e%2e/case/1'])('does not let %s reach a call page', (path) => {
+    expect(canAccess('advisor-v2', path)).toBe(false);
   });
 });
 

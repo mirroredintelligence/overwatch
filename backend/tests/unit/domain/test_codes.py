@@ -171,6 +171,8 @@ SPEC: dict[type[StrEnum], tuple[str, tuple[str, ...]]] = {
             "tenant-admin",
             "network-admin",
             "platform-operator",
+            "analytics-user",
+            "advisor-v2",
         ),
     ),
     ScopeFlag: ("scope-flag", ("in-pilot", "later", "out-of-scope")),

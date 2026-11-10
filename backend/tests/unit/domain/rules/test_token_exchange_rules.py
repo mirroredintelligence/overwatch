@@ -381,3 +381,26 @@ def test_an_expiry_is_whole_seconds() -> None:
 def test_a_naive_instant_has_no_expiry() -> None:
     with pytest.raises(ValidationFailed):
         expiry(datetime(2026, 10, 30, 9, 0), timedelta(hours=1))
+
+
+# ---------------------------------------------------------------- Analytics User and Advisor v2
+
+
+def test_the_analytics_user_and_advisor_v2_are_staff_roles_below_the_working_roles() -> None:
+    assert Role.ANALYTICS_USER in STAFF_ROLE_PRIORITY
+    assert Role.ADVISOR_V2 in STAFF_ROLE_PRIORITY
+    # An advisor who also holds the v2 group signs in as the advisor, who sees both sets of pages.
+    assert STAFF_ROLE_PRIORITY.index(Role.ADVISOR) < STAFF_ROLE_PRIORITY.index(Role.ADVISOR_V2)
+
+
+def test_a_group_mapped_to_the_analytics_user_or_advisor_v2_gives_that_role() -> None:
+    mappings = [mapping(G_EXEC, Role.ANALYTICS_USER), mapping(G_ADVISOR, Role.ADVISOR_V2)]
+
+    assert staff_role(mappings, [G_EXEC]) is Role.ANALYTICS_USER
+    assert staff_role(mappings, [G_ADVISOR]) is Role.ADVISOR_V2
+
+
+def test_an_advisor_who_also_holds_the_v2_group_signs_in_as_the_advisor() -> None:
+    mappings = [mapping(G_EXEC, Role.ADVISOR_V2), mapping(G_ADVISOR, Role.ADVISOR)]
+
+    assert staff_role(mappings, [G_EXEC, G_ADVISOR]) is Role.ADVISOR

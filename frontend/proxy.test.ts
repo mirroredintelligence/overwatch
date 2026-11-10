@@ -66,7 +66,7 @@ describe('no session', () => {
     expect(redirectedTo(response)).toBe('/sign-in?next=%2Flead%3Ftab%3Dlate');
   });
 
-  it.each(['/advisor', '/advisor/case/4821', '/clinical', '/owner/criteria', '/planning', '/console'])(
+  it.each(['/advisor', '/advisor/case/4821', '/advisor/v2', '/analytics', '/clinical', '/owner/criteria', '/planning', '/console'])(
     'sends %s to sign-in',
     async (path) => {
       const response = await proxy(await request(path));

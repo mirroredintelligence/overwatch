@@ -30,8 +30,16 @@ describe('staff navigation', () => {
     }
   });
 
+  it('names the Analytics User and Advisor v2 and gives each its home (DEC-1362)', () => {
+    expect(roleLabel('analytics-user')).toBe('Analytics User');
+    expect(roleLabel('advisor-v2')).toBe('Advisor v2');
+    expect(navFor('analytics-user')).toEqual([{ label: 'Home', href: '/analytics' }]);
+    expect(navFor('advisor-v2')).toEqual([{ label: 'Home', href: '/advisor/v2' }]);
+    expect(navFor('advisor')).toContainEqual({ label: 'Advisor v2', href: '/advisor/v2' });
+  });
+
   it('starts every role with its home', () => {
-    for (const role of ['advisor', 'clinical', 'lead', 'exec', 'reporter'] as const) {
+    for (const role of ['advisor', 'clinical', 'lead', 'exec', 'reporter', 'advisor-v2', 'analytics-user'] as const) {
       expect(navFor(role)[0]?.href).toBe(homeFor(role));
     }
   });

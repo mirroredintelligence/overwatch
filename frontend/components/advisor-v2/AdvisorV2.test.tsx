@@ -104,7 +104,7 @@ describe('FindService', () => {
     await user.click(screen.getByRole('checkbox', { name: 'Frailty' }));
     await user.click(screen.getByRole('radio', { name: 'Today' }));
     await user.click(screen.getByRole('button', { name: 'Find services' }));
-    expect(await screen.findByText(/full postcode/i)).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent(/full postcode/i);
     expect(posted).toHaveLength(0);
   });
 
@@ -112,7 +112,7 @@ describe('FindService', () => {
     const user = userEvent.setup();
     render(<FindService />);
     await search(user);
-    const groups = await screen.findAllByRole('button', { name: /services?$/ });
+    const groups = within(await screen.findByRole('list', { name: 'Service groups' })).getAllByRole('button');
     expect(posted[0]).toEqual({ postcode: 'DT4 8XX', ageBand: '80+', needs: ['frailty'], urgency: 'within-2-hrs' });
     expect(groups.map((group) => group.textContent)).toEqual([
       expect.stringContaining('Inpatient beds'),
@@ -152,7 +152,7 @@ describe('FindService', () => {
     await user.click(await screen.findByRole('button', { name: /Urgent community response/ }));
     const card = screen.getByRole('article', { name: 'Old Report Team' });
     expect(within(card).getByText('Current capacity unavailable')).toBeInTheDocument();
-    expect(within(card).getByText(/Last reported: 7 referrals/)).toBeInTheDocument();
+    expect(within(card.closest('li')!).getByText(/Last reported: 7 referrals/)).toBeInTheDocument();
     expect(within(card).queryByText('7')).toBeNull();
   });
 
@@ -160,7 +160,7 @@ describe('FindService', () => {
     const user = userEvent.setup();
     render(<FindService />);
     await search(user);
-    await screen.findAllByRole('button', { name: /services?$/ });
+    await screen.findByRole('list', { name: 'Service groups' });
     expect(window.location.href).not.toMatch(/DT4/i);
     expect(JSON.stringify({ ...window.localStorage })).not.toMatch(/DT4/i);
     expect(JSON.stringify({ ...window.sessionStorage })).not.toMatch(/DT4/i);

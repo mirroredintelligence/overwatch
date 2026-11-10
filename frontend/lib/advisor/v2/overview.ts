@@ -1,5 +1,5 @@
 import type { StatusCode } from '@/components/ui/StatusBadge';
-import { BROWSE_STATUSES } from '@/lib/advisor/servicesBrowse';
+import type { OptionView } from '@/lib/advisor/options';
 
 // Advisor v2: the capacity overview (DEC-1366), as GET /advisor-v2/capacity answers it. The two Needs attention
 // lists are the shift lead's rules (lead_views.py): a stale figure shows no percentage and is never spare capacity.
@@ -116,9 +116,46 @@ export function statusHref(status: StatusCode): string {
   return `/advisor/v2/services?status=${status}`;
 }
 
-/** The five states that are counted and linked, in the board's order. */
-export const COUNTED: readonly StatusCode[] = BROWSE_STATUSES;
-
 export function attentionShown<T>(items: readonly T[], limit: number): { shown: T[]; more: number } {
   return { shown: items.slice(0, limit), more: Math.max(0, items.length - limit) };
 }
+
+/** A service row as the v1 service card's summary row reads it. `now` is the page's clock, in milliseconds. */
+export function capacityToOption(row: CapacityService, now: number): OptionView {
+  const age = row.reportedAt === null ? null : Math.max(0, Math.floor((now - Date.parse(row.reportedAt)) / 1000));
+  return {
+    serviceId: row.serviceId,
+    name: row.name,
+    category: row.category,
+    status: row.status,
+    effectiveAvailable: row.effectiveAvailable,
+    overBy: row.overBy,
+    unitLabel: row.unitLabel === '' ? null : row.unitLabel,
+    travelText: null,
+    dataAgeSeconds: Number.isNaN(age) ? null : age,
+    staleWarning: row.figureUnavailable,
+    reportedAt: row.reportedAt,
+    nextDueAt: null,
+    cadence: null,
+    lastFigure: row.lastFigure,
+    overdue: false,
+    figureUnavailable: row.figureUnavailable,
+    criteriaVersion: null,
+    fits: [],
+    checks: [],
+    phone: null,
+    network: null,
+    position: null,
+    coverage: null,
+    travel: null,
+  };
+}
+
+/** The states chosen in `?status=a,b`, among the five that are counted; anything else is ignored. */
+export function statusesFromQuery(value: string | string[] | undefined): CountedStatus[] {
+  const text = Array.isArray(value) ? (value[0] ?? '') : (value ?? '');
+  const named = new Set(text.split(',').map((part) => part.trim()));
+  return COUNTED_STATUSES.filter((status) => named.has(status));
+}
+
+export const COUNTED_STATUSES: readonly CountedStatus[] = ['accepting', 'limited', 'over-capacity', 'not-accepting', 'not-updated'];

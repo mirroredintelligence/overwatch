@@ -20,6 +20,7 @@ const ANSWER = {
   status: 'limited',
   unitLabel: 'beds',
   established: 10,
+  used: 8,
   effectiveAvailable: 2,
   overBy: null,
   lastFigure: 2,

@@ -1,20 +1,61 @@
-/* The one service detail page (DEC-1367). Colours, spacing and type come from the tokens; nothing is a literal. */
+/* The one service detail page (DEC-1367), laid out as the AQIKO Mark service detail: a breadcrumb, the head with the
+   status, the capacity beside the day chart, the reporting strip, then the contact beside the referral criteria.
+   Colours, spacing and type come from the tokens; nothing is a literal. */
 
 .page {
   display: grid;
   gap: var(--space-4);
-  max-width: 64rem;
+  max-width: 72rem;
+}
+
+.crumbRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+
+.crumbs {
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  list-style: none;
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
+}
+
+.crumbs li + li::before {
+  content: '\203A';
+  margin-right: var(--space-2);
+}
+
+.crumbs a {
+  color: var(--c-ink-2);
 }
 
 .back {
-  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
   color: var(--c-ink);
   font-size: var(--type-body-size);
 }
 
 .head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+
+.headText {
   display: grid;
-  gap: var(--space-2);
+  gap: var(--space-1);
 }
 
 .name {
@@ -26,10 +67,6 @@
 }
 
 .sub {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-4);
   margin: 0;
   font-size: var(--type-body-size);
   color: var(--c-ink-2);
@@ -37,19 +74,36 @@
 
 .panel {
   display: grid;
+  align-content: start;
   gap: var(--space-3);
   padding: var(--space-4);
   background: #fff;
+  border: var(--border-card);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
 }
 
 .panelHeading {
   margin: 0;
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: var(--type-title-weight);
+  color: var(--c-ink);
+}
+
+.subHeading {
+  margin: 0;
   font-size: var(--type-label-size);
   line-height: var(--type-label-lh);
   font-weight: var(--type-label-weight);
   color: var(--c-ink);
+}
+
+.overview {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  align-items: stretch;
 }
 
 .fraction {
@@ -85,6 +139,14 @@
   color: var(--c-muted);
 }
 
+.inUse {
+  margin: 0;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--c-line);
+  font-size: var(--type-caption-size);
+  color: var(--c-ink-2);
+}
+
 .strip {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
@@ -110,8 +172,9 @@
 
 .columns {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-4);
+  align-items: start;
 }
 
 .phoneRow {
@@ -127,19 +190,41 @@
   color: var(--c-ink);
 }
 
-.lines {
+.meta {
   display: grid;
-  gap: var(--space-1);
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.metaRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-4);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--c-line);
   font-size: var(--type-body-size);
-  color: var(--c-ink-2);
+}
+
+.metaLabel {
+  color: var(--c-muted);
+}
+
+.metaValue {
+  display: grid;
+  justify-items: end;
+  gap: var(--space-1);
+  color: var(--c-ink);
+  font-weight: var(--type-label-weight);
+  text-align: right;
 }
 
 .chips {
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-start;
+  align-content: flex-start;
   gap: var(--space-2);
   margin: 0;
   padding: 0;
@@ -149,13 +234,38 @@
 .chip {
   padding: var(--space-1) var(--space-3);
   background: var(--c-tint);
+  border: 1px solid var(--c-line);
   border-radius: var(--radius-chip);
   font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
   color: var(--c-ink);
+}
+
+.divider {
+  width: 100%;
+  margin: var(--space-1) 0;
+  border: 0;
+  border-top: 1px solid var(--c-line);
+}
+
+.caveat {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
 }
 
 .note {
   margin: 0;
   font-size: var(--type-body-size);
   color: var(--c-muted);
+}
+
+@media (max-width: 720px) {
+  .overview {
+    grid-template-columns: 1fr;
+  }
+
+  .columns {
+    grid-template-columns: 1fr;
+  }
 }

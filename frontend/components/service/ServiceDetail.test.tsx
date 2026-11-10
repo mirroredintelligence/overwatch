@@ -59,8 +59,7 @@ describe('ServiceDetail', () => {
     renderPage();
     expect(await screen.findByRole('heading', { level: 1, name: 'Ward A' })).toBeInTheDocument();
     const head = screen.getByRole('region', { name: 'Service' });
-    expect(within(head).getByText('Inpatient beds')).toBeInTheDocument();
-    expect(within(head).getByText('DT4 · DT5')).toBeInTheDocument();
+    expect(within(head).getByText('Inpatient beds · DT4 · DT5')).toBeInTheDocument();
     expect(within(head).getByText('Limited')).toBeInTheDocument();
   });
 

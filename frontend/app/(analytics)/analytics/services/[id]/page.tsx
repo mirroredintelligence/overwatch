@@ -9,5 +9,5 @@ export const metadata: Metadata = {
 // `/analytics/**` to the role `analytics-user`; the read behind it holds no case, patient, postcode or personal data.
 export default async function AnalyticsServicePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  return <ServiceDetail serviceId={id} backHref="/analytics" backLabel="Back to the overview" />;
+  return <ServiceDetail serviceId={id} backHref="/analytics" backLabel="Back to the overview" rootLabel="Capacity Board" />;
 }

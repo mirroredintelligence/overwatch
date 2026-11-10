@@ -108,7 +108,7 @@
     "modify": [],
     "add": ["frontend/components/workspace/WorkspaceProvider.tsx"],
     "tests": ["frontend/components/workspace/WorkspaceProvider.test.tsx"],
-    "cases": ["WS-PRV-T01", "WS-PRV-T02", "WS-PRV-T03", "WS-PRV-T04", "WS-PRV-T05", "WS-PRV-T06", "WS-PRV-T07", "WS-PRV-T08", "WS-PRV-T09", "WS-PRV-T10", "WS-PRV-T11", "WS-PRV-T12", "WS-PRV-T13"],
+    "cases": ["WS-PRV-T01", "WS-PRV-T02", "WS-PRV-T03", "WS-PRV-T04", "WS-PRV-T05", "WS-PRV-T06", "WS-PRV-T07", "WS-PRV-T08", "WS-PRV-T09", "WS-PRV-T10", "WS-PRV-T11", "WS-PRV-T12", "WS-PRV-T13", "WS-PRV-T14"],
     "depends_on": ["WSP-01", "WSP-02", "WSP-03", "WSP-05"], "wave": 2, "size": "L",
     "test_writer": "haiku", "model": "sonnet", "verifier": "sonnet",
     "why_model": "The one stateful core: history that updates in place, a privacy rule (criteria never stored or put in a URL), storage through the guarded helper, and a role-based filter on chips. Haiku writes the tests from the case list; Sonnet implements against the red tests.",
@@ -121,8 +121,8 @@
     "id": "WSP-09", "phase": 1, "surface": "workspace", "title": "WorkspaceShell, WorkspacePage and the advisor-v2 layout",
     "spec": "WS-SHL", "routes": ["/advisor/v2", "/advisor/v2/services", "/advisor/v2/services/[id]"], "boards": ["Shell.dc.html"],
     "modify": ["frontend/app/(advisor-v2)/layout.tsx"],
-    "add": ["frontend/components/workspace/WorkspaceShell.tsx", "frontend/components/workspace/WorkspacePage.tsx", "frontend/app/(advisor-v2)/layout.test.tsx"],
-    "tests": ["frontend/components/workspace/WorkspaceShell.test.tsx", "frontend/components/workspace/WorkspacePage.test.tsx"],
+    "add": ["frontend/app/WorkspaceShell.tsx", "frontend/components/workspace/WorkspacePage.tsx", "frontend/app/(advisor-v2)/layout.test.tsx"],
+    "tests": ["frontend/app/WorkspaceShell.test.tsx", "frontend/components/workspace/WorkspacePage.test.tsx"],
     "cases": ["WS-SHL-T01", "WS-SHL-T02", "WS-SHL-T03", "WS-SHL-T04", "WS-SHL-T05", "WS-SHL-T06"],
     "depends_on": ["WSP-04", "WSP-05", "WSP-08"], "wave": 3, "size": "M",
     "test_writer": "haiku", "model": "sonnet", "verifier": "sonnet",
@@ -189,7 +189,7 @@
     "why_model": "The spec is an outline: the builder must read AnalyticsOverview and its drill code and refine the cases first. Not eligible for Haiku until the cases are exact. The aggregate-only rule is a safety property.",
     "forbidden": ["frontend/components/analytics/AnalyticsOverview.tsx", "frontend/components/analytics/AttentionPanel.tsx", "frontend/components/analytics/Drill.tsx"],
     "gaps": "Spec depth: outline. Refine WS-OVW-T01 to T05 into exact assertions before writing code, and report the refined list.",
-    "notes": "Phase 2. Start after WSP-10 has been verified, so the patterns are settled.",
-    "status": "todo"
+    "notes": "Phase 2. Start after WSP-10 has been verified, so the patterns are settled. BLOCKED: read docs/design/workspaces/WS-OVW-analysis.md first. The dialog fixes in its section 3 (the area chip cannot carry its id, a second area-count key, a missing-organisation variant, an empty-counts variant) must land before this unit, and the file lists here must grow as that file says.",
+    "status": "blocked"
   }
 ]

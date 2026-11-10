@@ -30,6 +30,8 @@ Reading the v2 finder before specifying it changed the plan. These are decisions
 | 3 | Go-to intents for Manager and Admin hubs, and "pre-fill then you confirm" hand-overs. Registry entries exist; no screens specified. | none yet |
 | 4 | Map and reasons. Back end first: positions, coverage and not-suitable reasons in the find answer. | none yet |
 
+What to retire, in what order and behind which gates is in `ROLLOUT.md`.
+
 Not specified here: the reporter flow (the reporter app has its own units, check them before changing it), the platform console, the wall display, and the consolidation of the 14 session roles into 6 (a back-end and mapping change that needs its own design). Until then the registry's `adapter` maps today's session roles to personas and flags in the front end only.
 
 ## How a unit runs

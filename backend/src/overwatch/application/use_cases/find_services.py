@@ -591,10 +591,9 @@ def capacity_overview(
     table: AreaTable | None = None,
     sites: Mapping[str, str] | None = None,
 ) -> CapacityOverview:
-    """The five counts, the two attention lists (the shift lead's own rules, lead_views) and one
-    row per
-    service by name, never by status. A figure that is late or old is marked unavailable here, on
-    the back end."""
+    """The six counts (the five states and Out of hours), the two attention lists (the shift
+    lead's own rules, lead_views) and one row per service by name, never by status. A figure that
+    is late or old is marked unavailable here, on the back end."""
     counts = {status: 0 for status in OVERVIEW_STATUSES}
     for entry in entries:
         if entry.status in counts:

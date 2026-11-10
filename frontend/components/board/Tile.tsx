@@ -4,6 +4,7 @@ import { ageLineText, categoryLabel, dataAgeText, londonTime, reopensText } from
 import type { BoardEntry, BoardStatus } from '@/lib/board/types';
 import styles from './Tile.module.css';
 import { StyledDiv } from '@/components/ui/Styled';
+import { attentionClass, attentionOf } from '@/lib/attention';
 
 // One service on the wall board (ui-screens.md, artboards "Main", "TileStates",
 // "BoardSurge" and "BoardQuiet"). It shows only what the back end sent for this
@@ -108,9 +109,12 @@ export function Tile({
   entry,
   now,
   lastKnown = false,
+  attention = false,
 }: {
   entry: BoardEntry;
   now: string | Date;
+  /** The advisor's board glows stale, over-capacity, limited and not-accepting tiles (DEC-1365). The wall never does. */
+  attention?: boolean;
   /** Shows the tile as last known: never styled or worded as current (W06). */
   lastKnown?: boolean;
 }) {
@@ -130,13 +134,15 @@ export function Tile({
   // behind, so it is Not updated.
   const chipStatus: BoardStatus = paused ? 'not-updated' : entry.status;
   const old = !lastKnown && !paused && isOld(entry, now);
+  const glow = attention ? attentionClass(attentionOf({ status: entry.status, stale: lastKnown || paused || old })) : '';
 
   return (
     <article
-      className={`${styles.tile} ${variant}`}
+      className={`${styles.tile} ${variant}${glow === '' ? '' : ` ${glow}`}`}
       data-el="WALL-TILE"
       data-service-id={entry.serviceId}
       data-status={lastKnown ? 'last-known' : entry.status}
+      data-attention={glow === '' ? undefined : glow.split('attention-')[1]}
     >
       <div className={styles.top}>
         <div className={styles.who}>

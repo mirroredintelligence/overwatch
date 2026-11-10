@@ -286,7 +286,7 @@
   color: var(--c-primary);
   background: #fff;
   border: 2px solid var(--c-primary);
-  border-radius: 14px;
+  border-radius: var(--radius);
 }
 
 .shadow {
@@ -438,7 +438,7 @@
   text-decoration: none;
   background: #fff;
   border: 2px solid var(--c-primary);
-  border-radius: 14px;
+  border-radius: var(--radius);
 }
 
 /* The compact patient card is on a phone only (PWays); a wide screen has it in the stage layout. */

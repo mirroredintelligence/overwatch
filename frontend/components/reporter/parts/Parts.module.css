@@ -22,7 +22,7 @@
   font-size: 19px;
   background: #fff;
   border: 1px solid var(--c-line);
-  border-radius: 18px;
+  border-radius: var(--radius-card);
 }
 
 .steps {

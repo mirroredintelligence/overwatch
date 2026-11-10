@@ -137,13 +137,13 @@
 .footer > button {
   min-height: 56px;
   padding: 0 28px;
-  border-radius: 16px;
+  border-radius: var(--radius-card);
 }
 
 @media (max-width: 900px) {
   .card {
     padding: var(--space-4);
-    border-radius: 22px;
+    border-radius: var(--radius-card);
   }
 
   .pair {

@@ -65,7 +65,7 @@
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   border: 2px solid transparent;
-  border-radius: 20px;
+  border-radius: var(--radius-card);
   background: #fff;
   box-shadow: var(--shadow-card);
   transition: box-shadow var(--dur-state) var(--ease-out), border-color var(--dur-state) var(--ease-out);
@@ -99,7 +99,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  border-radius: 20px;
+  border-radius: var(--radius-card);
 }
 
 .cardLink:focus-visible {
@@ -163,7 +163,7 @@
   gap: var(--space-4);
   min-width: 0;
   padding: var(--space-5) var(--space-5);
-  border-radius: 26px;
+  border-radius: var(--radius-card);
   background: #fff;
   box-shadow: var(--shadow-card);
 }
@@ -202,7 +202,7 @@
 .stage {
   padding: var(--space-3) var(--space-4);
   border: 2px solid transparent;
-  border-radius: 14px;
+  border-radius: var(--radius);
   min-width: 0;
 }
 
@@ -255,7 +255,7 @@
   gap: var(--space-2) var(--space-4);
   margin: 0;
   padding: var(--space-3) var(--space-4);
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   background: var(--c-bg);
   font-size: var(--type-body-size);
 }
@@ -289,7 +289,7 @@
   gap: var(--space-3);
   padding: var(--space-4);
   border: 2px solid var(--c-primary);
-  border-radius: 18px;
+  border-radius: var(--radius-card);
 }
 
 .openBox[data-quiet='true'] {
@@ -362,7 +362,7 @@
   width: min(460px, 100%);
   padding: var(--space-5) var(--space-5);
   overflow-y: auto;
-  border-radius: 26px 0 0 26px;
+  border-radius: var(--radius-card) 0 0 26px;
   background: #fff;
   color: var(--c-ink);
   box-shadow: var(--shadow-lift);
@@ -462,7 +462,7 @@
   display: block;
   padding: var(--space-3) var(--space-4);
   border: 2px solid var(--c-line);
-  border-radius: 14px;
+  border-radius: var(--radius);
   cursor: pointer;
   min-height: 44px;
 }
@@ -571,7 +571,7 @@
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-4);
-  border-radius: 18px;
+  border-radius: var(--radius-card);
   background: var(--c-tint);
 }
 

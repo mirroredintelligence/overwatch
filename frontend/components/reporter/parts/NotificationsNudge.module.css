@@ -4,7 +4,7 @@
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3) 14px;
-  border-radius: 18px;
+  border-radius: var(--radius-card);
   background: var(--c-amber-tint);
   color: #4b2200;
 }

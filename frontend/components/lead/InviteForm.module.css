@@ -8,7 +8,7 @@
   gap: 30px;
   min-width: 0;
   padding: var(--space-5) 30px;
-  border-radius: 26px;
+  border-radius: var(--radius-card);
   background: #fff;
   box-shadow: var(--shadow-card);
   color: var(--c-ink);
@@ -72,7 +72,7 @@
   min-height: 54px;
   padding: 0 16px;
   border: 2px solid var(--c-ink-2);
-  border-radius: 14px;
+  border-radius: var(--radius);
   background: #fff;
   color: var(--c-ink);
   font: inherit;
@@ -113,7 +113,7 @@
   box-sizing: border-box;
   padding: 0 18px;
   border: 2px solid var(--c-line);
-  border-radius: 14px;
+  border-radius: var(--radius);
   font-size: 17px;
   font-weight: 700;
   transition: background var(--dur-press) var(--ease-out), border-color var(--dur-press) var(--ease-out);
@@ -138,7 +138,7 @@
 .errors {
   padding: var(--space-3);
   border: 2px solid var(--c-limited);
-  border-radius: 14px;
+  border-radius: var(--radius);
   background: var(--c-amber-tint);
 }
 

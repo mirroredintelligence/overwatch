@@ -30,7 +30,7 @@
   flex: none;
   width: 44px;
   height: 44px;
-  border-radius: 14px;
+  border-radius: var(--radius);
   color: #fff;
   background: rgb(255 255 255 / 0.12);
 }
@@ -252,7 +252,7 @@
   min-height: 68px;
   padding: var(--space-3) var(--space-4);
   border: 2px solid transparent;
-  border-radius: 20px;
+  border-radius: var(--radius-card);
   background: #fff;
   box-shadow: var(--shadow-card);
   color: var(--c-ink);
@@ -297,7 +297,7 @@
 .failed {
   margin: 0;
   padding: var(--space-4);
-  border-radius: 18px;
+  border-radius: var(--radius-card);
   background: var(--c-amber-tint);
   color: var(--c-ink);
 }
@@ -308,7 +308,7 @@
   gap: var(--space-3);
   margin: 0;
   padding: var(--space-3) var(--space-4);
-  border-radius: 18px;
+  border-radius: var(--radius-card);
   background: var(--c-tint);
   color: var(--c-primary-dark);
   font-weight: 700;

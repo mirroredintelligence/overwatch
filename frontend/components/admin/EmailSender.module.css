@@ -52,7 +52,7 @@
 
 .cardEmail {
   border-color: var(--c-primary);
-  box-shadow: 0 10px 28px rgb(11 92 140 / 0.14);
+  box-shadow: var(--shadow-card);
 }
 
 .cardTitle {

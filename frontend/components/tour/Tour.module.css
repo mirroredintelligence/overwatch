@@ -141,7 +141,7 @@
 
 .list li {
   padding: var(--space-3) var(--space-4);
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   background: var(--c-bg);
 }
 
@@ -197,7 +197,7 @@
   min-height: 52px;
   padding: var(--space-3) var(--space-4);
   border: 2px solid var(--c-line);
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   background: #fff;
   font-size: var(--type-body-size);
   font-weight: 700;

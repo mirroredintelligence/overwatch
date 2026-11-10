@@ -58,7 +58,7 @@
   gap: var(--space-3);
   font-size: 20px;
   border-radius: var(--radius);
-  box-shadow: 0 6px 16px rgb(11 92 140 / 0.28);
+  box-shadow: 0 1px 2px rgb(11 42 61 / 0.2);
 }
 
 .help {

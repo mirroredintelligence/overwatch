@@ -31,7 +31,7 @@
   width: 44px;
   height: 44px;
   flex: none;
-  border-radius: 14px;
+  border-radius: var(--radius);
   background: var(--c-rail);
   display: flex;
   align-items: center;

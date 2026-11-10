@@ -59,7 +59,7 @@
   position: relative;
   width: 56px;
   height: 32px;
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   background: var(--c-line);
   transition: background-color var(--dur-state) var(--ease-hover);
 }

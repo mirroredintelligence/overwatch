@@ -191,11 +191,11 @@
 .primary {
   min-height: 58px;
   border: 0;
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   background: var(--c-primary);
   color: #fff;
   font-size: 19px;
-  box-shadow: 0 6px 16px rgb(11 92 140 / 0.28);
+  box-shadow: 0 1px 2px rgb(11 42 61 / 0.2);
 }
 
 .primary:hover:not(:disabled) {
@@ -226,7 +226,7 @@
 .outline {
   min-height: 54px;
   border: 2px solid var(--c-primary);
-  border-radius: 14px;
+  border-radius: var(--radius);
   background: #fff;
   color: var(--c-primary);
   font-size: 18px;
@@ -235,7 +235,7 @@
 .dashed {
   min-height: 50px;
   border: 2px dashed var(--c-unknown);
-  border-radius: 14px;
+  border-radius: var(--radius);
   background: transparent;
   color: var(--c-ink-2);
   font-size: 17px;
@@ -252,7 +252,7 @@
   align-items: flex-start;
   gap: 14px;
   padding: 16px 18px;
-  border-radius: 20px;
+  border-radius: var(--radius-card);
   background: var(--c-amber-tint);
   color: #4b2200;
 }

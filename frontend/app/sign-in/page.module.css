@@ -85,7 +85,7 @@
   gap: 10px;
   padding: 12px 14px;
   border: 2px solid var(--c-limited);
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   background: var(--c-amber-tint);
 }
 
@@ -105,7 +105,7 @@
   flex-direction: column;
   gap: 12px;
   padding: 22px 20px;
-  border-radius: 24px;
+  border-radius: var(--radius-card);
   background: #fff;
   box-shadow: var(--shadow-card);
 }
@@ -134,9 +134,9 @@
 
 .form > button {
   min-height: 58px;
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   font-size: 18px;
-  box-shadow: 0 6px 16px rgb(11 92 140 / 0.28);
+  box-shadow: 0 1px 2px rgb(11 42 61 / 0.2);
 }
 
 .note {
@@ -193,7 +193,7 @@
   .mark {
     width: 52px;
     height: 52px;
-    border-radius: 16px;
+    border-radius: var(--radius-card);
   }
 
   .mark svg {
@@ -237,7 +237,7 @@
   .alert {
     gap: 12px;
     padding: 14px 16px;
-    border-radius: 16px;
+    border-radius: var(--radius-card);
   }
 
   .alertText {
@@ -248,7 +248,7 @@
   .card {
     gap: 14px;
     padding: 32px;
-    border-radius: 26px;
+    border-radius: var(--radius-card);
   }
 
   .heading {
@@ -267,7 +267,7 @@
 
   .note {
     padding: 12px 14px;
-    border-radius: 14px;
+    border-radius: var(--radius);
   }
 
   .helpRow {

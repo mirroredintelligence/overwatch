@@ -55,7 +55,7 @@
   gap: var(--space-3);
   padding: var(--space-5);
   background: #fff;
-  border-radius: 22px;
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
 }
 

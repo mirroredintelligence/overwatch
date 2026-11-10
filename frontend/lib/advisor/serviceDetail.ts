@@ -17,6 +17,8 @@ export type ServiceDetailView = {
   unitLabel: string;
   /** The normal capacity: the denominator of "Capacity remaining n / normal". */
   established: number;
+  /** The places in use at the last report; null when not held. Shown only beside a current figure. */
+  used: number | null;
   effectiveAvailable: number | null;
   overBy: number | null;
   lastFigure: number | null;
@@ -68,6 +70,13 @@ const clock = (value: unknown): string | null => {
   return typeof value === 'string' && /^\d{2}:\d{2}$/.test(value) ? value : fail();
 };
 
+/** A UK mobile (07..., +44 7...): a person's number, never a service's. The back end drops it too (DEC-1367). */
+export function looksLikeMobile(number: string): boolean {
+  let digits = number.replace(/\D/g, '');
+  if (digits.startsWith('44')) digits = `0${digits.slice(2)}`;
+  return /^07\d{9}$/.test(digits);
+}
+
 function status(value: unknown): StatusCode {
   return typeof value === 'string' && Object.hasOwn(STATUS_LABELS, value) ? (value as StatusCode) : fail();
 }
@@ -88,6 +97,7 @@ export function parseServiceDetail(value: unknown): ServiceDetailView {
     status: status(value.status),
     unitLabel: text(value.unitLabel),
     established: whole(value.established),
+    used: nullableWhole(value.used),
     effectiveAvailable: nullableWhole(value.effectiveAvailable),
     overBy: nullableWhole(value.overBy),
     lastFigure: nullableWhole(value.lastFigure),
@@ -97,8 +107,8 @@ export function parseServiceDetail(value: unknown): ServiceDetailView {
     overdue: flag(value.overdue),
     staleWarning: flag(value.staleWarning),
     dataAgeSeconds: nullableWhole(value.dataAgeSeconds),
-    // A number that would not be offered as a phone link is not offered at all.
-    phone: phone !== null && PHONE_PATTERN.test(phone) ? phone : null,
+    // A number that would not be offered as a phone link, or that is a personal mobile, is not offered at all.
+    phone: phone !== null && PHONE_PATTERN.test(phone) && !looksLikeMobile(phone) ? phone : null,
     openingHours: Array.isArray(value.openingHours) ? value.openingHours.map(window_) : fail(),
     accepts: nullableTextList(value.accepts),
     excludes: nullableTextList(value.excludes),

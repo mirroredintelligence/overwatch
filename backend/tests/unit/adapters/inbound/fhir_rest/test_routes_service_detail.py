@@ -26,6 +26,7 @@ KEYS = {
     "status",
     "unitLabel",
     "established",
+    "used",
     "effectiveAvailable",
     "overBy",
     "lastFigure",
@@ -162,3 +163,31 @@ async def test_the_day_chart_read_is_open_to_both_new_roles(role: Role) -> None:
 
     assert response.status_code == 200, response.text
     assert response.json()["points"][0]["available"] == 2
+
+
+@pytest.mark.parametrize(
+    "number", ["07700 900123", "+44 7700 900123", "07700900123", "(07700) 900 123"]
+)
+async def test_a_personal_looking_mobile_is_never_offered_as_the_service_number(
+    number: str,
+) -> None:
+    async with client(_world(phone=number)) as http:
+        body = (await http.get(URL, headers=bearer(Role.ADVISOR, "advisor-1"))).json()
+
+    assert body["phone"] is None
+
+
+@pytest.mark.parametrize("number", ["01305 000000", "0300 123 4567", "+44 1305 000000"])
+async def test_a_landline_or_switchboard_number_is_offered(number: str) -> None:
+    async with client(_world(phone=number)) as http:
+        body = (await http.get(URL, headers=bearer(Role.ADVISOR, "advisor-1"))).json()
+
+    assert body["phone"] == number
+
+
+async def test_the_places_in_use_are_given_with_the_figure() -> None:
+    async with client(_world()) as http:
+        body = (await http.get(URL, headers=bearer(Role.ADVISOR, "advisor-1"))).json()
+
+    # Ward A reported 2 beds free of 10: 8 are in use.
+    assert body["used"] == 8

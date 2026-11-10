@@ -16,6 +16,7 @@ describe('the advisor v2 service detail page', () => {
           status: 'accepting',
           unitLabel: 'beds',
           established: 10,
+          used: 6,
           effectiveAvailable: 4,
           overBy: null,
           lastFigure: 4,

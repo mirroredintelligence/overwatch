@@ -371,6 +371,7 @@ async def service_detail(
             "status": entry.status.value,
             "unitLabel": entry.unit_label,
             "established": entry.established,
+            "used": entry.used,
             "effectiveAvailable": entry.effective_available,
             "overBy": entry.over_by,
             "lastFigure": (

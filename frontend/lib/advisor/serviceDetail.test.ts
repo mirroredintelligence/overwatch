@@ -18,6 +18,7 @@ const ANSWER = {
   status: 'limited',
   unitLabel: 'beds',
   established: 10,
+  used: 8,
   effectiveAvailable: 2,
   overBy: null,
   lastFigure: 2,
@@ -60,6 +61,22 @@ describe('parseServiceDetail', () => {
     expect(parseServiceDetail({ ...ANSWER, phone: null }).phone).toBeNull();
     const detail = parseServiceDetail({ ...ANSWER, email: 'a@b.test', mobile: '07700 900123' });
     expect(JSON.stringify(detail)).not.toMatch(/@|07700/);
+  });
+
+  it.each(['07700 900123', '+44 7700 900123', '07700900123', '(07700) 900 123'])(
+    'does not offer %s, which looks like a personal mobile, as the service number',
+    (phone) => {
+      expect(parseServiceDetail({ ...ANSWER, phone }).phone).toBeNull();
+    },
+  );
+
+  it.each(['01305 000000', '0300 123 4567', '+44 1305 000000'])('offers the landline or switchboard number %s', (phone) => {
+    expect(parseServiceDetail({ ...ANSWER, phone }).phone).toBe(phone);
+  });
+
+  it('reads the places in use, and null when not held', () => {
+    expect(parseServiceDetail(ANSWER).used).toBe(8);
+    expect(parseServiceDetail({ ...ANSWER, used: null }).used).toBeNull();
   });
 
   it('keeps no criteria as null, not as an empty list that reads as "none"', () => {

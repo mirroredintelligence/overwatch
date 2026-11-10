@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -18,6 +20,7 @@ const ANSWER = {
   status: 'limited',
   unitLabel: 'beds',
   established: 10,
+  used: 8,
   effectiveAvailable: 2,
   overBy: null,
   lastFigure: 2,
@@ -45,7 +48,9 @@ function serve(change: Record<string, unknown> = {}, status = 200) {
 }
 
 function renderPage() {
-  return render(<ServiceDetail serviceId="svc-a" backHref="/analytics" backLabel="Back to the overview" />);
+  return render(
+    <ServiceDetail serviceId="svc-a" backHref="/analytics" backLabel="Back to the overview" rootLabel="Capacity Board" />,
+  );
 }
 
 describe('ServiceDetail', () => {
@@ -54,8 +59,7 @@ describe('ServiceDetail', () => {
     renderPage();
     expect(await screen.findByRole('heading', { level: 1, name: 'Ward A' })).toBeInTheDocument();
     const head = screen.getByRole('region', { name: 'Service' });
-    expect(within(head).getByText('Inpatient beds')).toBeInTheDocument();
-    expect(within(head).getByText('DT4 · DT5')).toBeInTheDocument();
+    expect(within(head).getByText('Inpatient beds · DT4 · DT5')).toBeInTheDocument();
     expect(within(head).getByText('Limited')).toBeInTheDocument();
   });
 
@@ -121,29 +125,71 @@ describe('ServiceDetail', () => {
     expect(within(contact).queryByRole('button', { name: 'Copy number' })).toBeNull();
   });
 
-  it('shows what the service potentially accepts and its exclusions, with the age', async () => {
+  it('shows the criteria as one panel: accepts, a divider, example exclusions, and the caveat at the bottom', async () => {
     serve();
     renderPage();
-    const accepts = await screen.findByRole('region', { name: 'Potentially accepts' });
-    expect(within(accepts).getByText('Frailty')).toBeInTheDocument();
-    expect(within(accepts).getByText('Wound care')).toBeInTheDocument();
-    expect(within(accepts).getByText('Age 18+')).toBeInTheDocument();
-    const exclusions = screen.getByRole('region', { name: 'Exclusions' });
-    expect(within(exclusions).getByText('IV therapy')).toBeInTheDocument();
+    const panel = await screen.findByRole('region', { name: 'Referral criteria' });
+    expect(within(panel).getByRole('heading', { name: 'Potentially accepts' })).toBeInTheDocument();
+    expect(within(panel).getByText('Frailty')).toBeInTheDocument();
+    expect(within(panel).getByText('Wound care')).toBeInTheDocument();
+    expect(within(panel).getByText('Age 18+')).toBeInTheDocument();
+    expect(within(panel).getByRole('separator')).toBeInTheDocument();
+    expect(within(panel).getByRole('heading', { name: 'Example exclusions' })).toBeInTheDocument();
+    expect(within(panel).getByText('IV therapy')).toBeInTheDocument();
+    const caveat = within(panel).getByText(/receiving service confirms/i);
+    expect(panel.lastElementChild).toBe(caveat);
+    expect(screen.queryByRole('region', { name: 'Exclusions' })).toBeNull();
   });
 
   it('says the criteria are not held, and to phone, when there are none', async () => {
     serve({ accepts: null, excludes: null, ageMin: null });
     renderPage();
-    const accepts = await screen.findByRole('region', { name: 'Potentially accepts' });
-    expect(within(accepts).getByText(/Not held/)).toBeInTheDocument();
+    const panel = await screen.findByRole('region', { name: 'Referral criteria' });
+    expect(within(panel).getAllByText(/Not held/).length).toBeGreaterThanOrEqual(1);
   });
 
-  it('shows the districts it covers as the catchment', async () => {
+  it('puts the catchment in the contact panel beside the opening hours, not in a panel of its own', async () => {
     serve();
     renderPage();
-    const catchment = await screen.findByRole('region', { name: 'Catchment' });
-    expect(within(catchment).getByText('DT4, DT5')).toBeInTheDocument();
+    const contact = await screen.findByRole('region', { name: 'Contact' });
+    const meta = within(contact).getByRole('list', { name: 'Service details' });
+    expect(within(meta).getByText('Opening hours')).toBeInTheDocument();
+    expect(within(meta).getByText('Catchment')).toBeInTheDocument();
+    expect(within(meta).getByText('DT4, DT5')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Catchment' })).toBeNull();
+  });
+
+  it('shows how many places are in use under the figure', async () => {
+    serve();
+    renderPage();
+    const capacity = await screen.findByRole('region', { name: 'Capacity remaining' });
+    expect(within(capacity).getByText('8 beds in use')).toBeInTheDocument();
+  });
+
+  it('does not show places in use when the figure is not current', async () => {
+    serve({ overdue: true });
+    renderPage();
+    const capacity = await screen.findByRole('region', { name: 'Capacity remaining' });
+    expect(within(capacity).queryByText(/in use/)).toBeNull();
+  });
+
+  it('has a breadcrumb: the root, the area, then Service capacity, and a back control', async () => {
+    serve();
+    renderPage();
+    const crumbs = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+    expect(within(crumbs).getByRole('link', { name: 'Capacity Board' })).toHaveAttribute('href', '/analytics');
+    expect(within(crumbs).getByText('DT4, DT5')).toBeInTheDocument();
+    expect(within(crumbs).getByText('Service capacity')).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Back to the overview' })).toHaveAttribute('href', '/analytics');
+  });
+
+  it('is a figure and a chart side by side, with chips that keep their own height', () => {
+    const css = readFileSync(join(__dirname, 'ServiceDetail.module.css'), 'utf8');
+    expect(css).toMatch(/\.overview\s*\{[^}]*grid-template-columns:\s*repeat\(2/);
+    expect(css).toMatch(/@media[^{]*max-width[^{]*\{[^}]*\.overview\s*\{[^}]*grid-template-columns:\s*1fr/);
+    expect(css).toMatch(/\.chips\s*\{[^}]*align-items:\s*flex-start/);
+    expect(css).toMatch(/\.chips\s*\{[^}]*align-content:\s*flex-start/);
+    expect(css).not.toMatch(/font-size:\s*1[0-3]px/);
   });
 
   it('shows no email, no mobile, no contact role and no indicative response, and invents none', async () => {
@@ -152,12 +198,6 @@ describe('ServiceDetail', () => {
     await screen.findByRole('heading', { level: 1 });
     expect(document.querySelector('a[href^="mailto:"]')).toBeNull();
     expect(document.body.textContent).not.toMatch(/@|\b07\d{3}|Indicative response|Contact role/i);
-  });
-
-  it('links back', async () => {
-    serve();
-    renderPage();
-    expect(await screen.findByRole('link', { name: 'Back to the overview' })).toHaveAttribute('href', '/analytics');
   });
 
   it.each([404, 503])('says so and shows nothing else when the service cannot be read (%i)', async (status) => {

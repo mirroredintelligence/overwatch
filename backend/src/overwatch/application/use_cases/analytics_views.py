@@ -22,7 +22,7 @@ from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from overwatch.application.use_cases.lead_views import (
     PressureItem,
     UnderutilisedItem,
-    _figure_unusable,
+    figure_unusable,
     under_pressure,
     underutilised,
 )
@@ -71,7 +71,7 @@ class AnalyticsOverview:
 
 
 def _service(entry: BoardEntry, districts: tuple[str, ...]) -> AnalyticsService:
-    current = not _figure_unusable(entry)
+    current = not figure_unusable(entry)
     return AnalyticsService(
         service_id=entry.service_id,
         name=entry.name,

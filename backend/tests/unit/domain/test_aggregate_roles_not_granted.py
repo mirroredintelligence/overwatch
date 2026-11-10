@@ -19,13 +19,14 @@ ALLOWED = {
     # The Analytics User's one read (DEC-1368), with its own tests. Advisor v2 stays out of both.
     "application/use_cases/analytics_views.py",
     "adapters/inbound/fhir_rest/routes_analytics.py",
-}
-ANALYTICS_FILES = ALLOWED - {
-    "domain/codes.py",
-    "domain/model/tenant_records.py",
-    "domain/rules/token_exchange.py",
-    # DEC-1367: the one service detail page and the day chart on it are the only reads they hold.
+    # The service detail read, named by both new roles (DEC-1367).
     "application/use_cases/service_detail.py",
+}
+# The files that belong to the Analytics User alone: they must never name Advisor v2. (The
+# service detail read is named by both roles, DEC-1367, and Advisor v2's reads are its own.)
+ANALYTICS_FILES = {
+    "application/use_cases/analytics_views.py",
+    "adapters/inbound/fhir_rest/routes_analytics.py",
 }
 NAMES = ("Role.ANALYTICS_USER", "Role.ADVISOR_V2")
 

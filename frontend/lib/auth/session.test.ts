@@ -242,6 +242,8 @@ describe('sealSession and unsealSession', () => {
       'audit',
       'tenant-admin',
       'network-admin',
+      'analytics-user',
+      'advisor-v2',
     ]);
     for (const role of ROLES) {
       const back = await unsealSession(await sealSession(sample({ role }), NOW), NOW);

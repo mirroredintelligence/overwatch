@@ -102,7 +102,7 @@ export function directoryBody(raw: unknown): Obj {
 }
 
 /** A directory group maps to a staff role, never to the administrator's own (the back end refuses it too). */
-export const MAPPABLE_ROLES = ['advisor', 'clinical', 'lead', 'owner', 'exec', 'audit'] as const;
+export const MAPPABLE_ROLES = ['advisor', 'clinical', 'lead', 'owner', 'exec', 'audit', 'analytics-user', 'advisor-v2'] as const;
 
 export function mappingBody(raw: unknown): Obj {
   const body = asObject(raw);

@@ -4,7 +4,9 @@ import type { Role } from './session';
 // (proxy.ts) and the sign-in both read this one table, so they cannot disagree.
 
 const PREFIX_ROLES: ReadonlyMap<string, readonly Role[]> = new Map([
-  ['advisor', ['advisor']], // includes /advisor/case; a lead does not work a call (DEC-860)
+  ['advisor', ['advisor']], // includes /advisor/case; a lead does not work a call (DEC-860). /advisor/v2 is opened up below (DEC-1362)
+  // The Analytics User's aggregate pages (DEC-1362): no case, patient, postcode or outcome is shown under them.
+  ['analytics', ['analytics-user']],
   ['clinical', ['clinical']],
   ['lead', ['lead']],
   ['owner', ['owner', 'clinical']],
@@ -24,6 +26,8 @@ const PREFIX_ROLES: ReadonlyMap<string, readonly Role[]> = new Map([
   ['operator', []],
 ]);
 
+const ADVISOR_V2_ROLES: readonly Role[] = ['advisor', 'advisor-v2'];
+
 const HOMES: Readonly<Partial<Record<Role, string>>> = {
   advisor: '/advisor',
   clinical: '/clinical',
@@ -33,6 +37,8 @@ const HOMES: Readonly<Partial<Record<Role, string>>> = {
   support: '/console',
   'tenant-admin': '/admin',
   'network-admin': '/network-admin',
+  'advisor-v2': '/advisor/v2',
+  'analytics-user': '/analytics',
 };
 
 const FALLBACK_HOME = '/';
@@ -63,7 +69,11 @@ function segmentsOf(pathname: string): string[] | null {
 export function rolesFor(pathname: string): readonly Role[] | null {
   const segments = segmentsOf(pathname);
   if (segments === null) return [];
-  return PREFIX_ROLES.get(segments[0]?.toLowerCase() ?? '') ?? null;
+  const first = segments[0]?.toLowerCase() ?? '';
+  // Advisor v2 (DEC-1362): the finder pages under /advisor/v2 are for the advisor and for Advisor v2; every other
+  // /advisor path (the call, the case, the board) stays the advisor's alone. Matched on the second segment exactly.
+  if (first === 'advisor' && segments[1]?.toLowerCase() === 'v2') return ADVISOR_V2_ROLES;
+  return PREFIX_ROLES.get(first) ?? null;
 }
 
 export function canAccess(role: Role, pathname: string): boolean {

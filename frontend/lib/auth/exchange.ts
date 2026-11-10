@@ -15,7 +15,7 @@ import type { Role } from './session';
  * (TEN-080): the back end gives it only to a tenant that owns an active network, from a group of that
  * tenant's own directory, and the pages (`/network-admin`) ask the back end again on every call.
  */
-export const STAFF_ROLES: readonly Role[] = ['advisor', 'clinical', 'lead', 'owner', 'exec', 'audit', 'tenant-admin', 'network-admin'];
+export const STAFF_ROLES: readonly Role[] = ['advisor', 'clinical', 'lead', 'owner', 'exec', 'audit', 'tenant-admin', 'network-admin', 'analytics-user', 'advisor-v2'];
 
 const ID_TOKEN_MAX_LENGTH = 8192; // the back end refuses more (routes_auth.py)
 const TOKEN_MAX_LENGTH = 4096;

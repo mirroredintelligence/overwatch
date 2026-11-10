@@ -256,7 +256,7 @@ export type { Obj };
 
 // ---------------------------------------------------------------- the organisation's groups (DEC-1317)
 
-export const GROUP_ROLES = ['tenant-admin', 'advisor', 'clinical', 'lead', 'owner', 'exec', 'audit'] as const;
+export const GROUP_ROLES = ['tenant-admin', 'advisor', 'clinical', 'lead', 'owner', 'exec', 'audit', 'analytics-user', 'advisor-v2'] as const;
 
 /** The groups Overwatch made in the organisation's directory and who is in each, as the directory shows them now. */
 export function parseGroups(value: unknown) {

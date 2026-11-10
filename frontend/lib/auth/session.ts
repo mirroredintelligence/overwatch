@@ -27,6 +27,8 @@ export const ROLES = [
   'audit',
   'tenant-admin',
   'network-admin',
+  'analytics-user',
+  'advisor-v2',
 ] as const;
 
 export type Role = (typeof ROLES)[number];

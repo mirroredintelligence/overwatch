@@ -10,6 +10,8 @@ export const STAFF_ROLE_WORDS: Readonly<Record<string, string>> = {
   owner: 'Criteria owner',
   exec: 'Planning',
   audit: 'Audit',
+  'analytics-user': 'Analytics User',
+  'advisor-v2': 'Advisor v2',
 };
 
 export function staffRoleWord(role: string): string {

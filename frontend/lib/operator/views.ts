@@ -206,7 +206,7 @@ export function parseAccessOpened(value: unknown) {
 
 export { badAnswer };
 
-export const GROUP_ROLES = ['tenant-admin', 'advisor', 'clinical', 'lead', 'owner', 'exec', 'audit'] as const;
+export const GROUP_ROLES = ['tenant-admin', 'advisor', 'clinical', 'lead', 'owner', 'exec', 'audit', 'analytics-user', 'advisor-v2'] as const;
 
 /** The groups made in the organisation's directory (DEC-1317): the fixed name, its id, and whether this call made it. */
 export function parseGroupsMade(value: unknown) {

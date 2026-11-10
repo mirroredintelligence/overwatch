@@ -17,13 +17,18 @@ const ROLE_LABELS: Readonly<Partial<Record<Role, string>>> = {
   owner: 'Criteria owner',
   exec: 'Planning',
   reporter: 'Service reporter',
+  'analytics-user': 'Analytics User',
+  'advisor-v2': 'Advisor v2',
 };
 
 const NAV: Readonly<Partial<Record<Role, readonly NavItem[]>>> = {
   advisor: [
     { label: 'Home', href: '/advisor' },
     { label: 'Wall board', href: '/advisor/board' },
+    { label: 'Advisor v2', href: '/advisor/v2' },
   ],
+  'advisor-v2': [{ label: 'Home', href: '/advisor/v2' }],
+  'analytics-user': [{ label: 'Home', href: '/analytics' }],
   clinical: [
     { label: 'On duty', href: '/clinical' },
     { label: 'Requests', href: '/clinical/requests' },

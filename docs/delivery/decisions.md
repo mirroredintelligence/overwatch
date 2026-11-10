@@ -7603,3 +7603,16 @@ Decided by the lead developer on the owner's expectation ("I was expecting it to
 3. **The shell.** The role chip posts to the BFF, which replaces the session cookie from the answer and then client-navigates to the new role's home; the frame (top bar, assistant drawer, footer) does not reload. Where the target role's screens are in the workspace, the assistant thread restarts for that role and the canvas changes; where they are older pages, the page is the old one inside the same frame until its phase is built. A true same-canvas morph needs the screens of both roles, which is phases 2 and 3.
 4. **What stays.** A fresh sign-in, a sign-out and every link without a session still force the account picker (the shared-workstation rule). The browser still never holds a role it was not given.
 5. **Gate.** This is a back-end token and role change, so it follows the full standard: tests first, a tenancy and role review, an independent verification, and a hazard-log entry (the switch must not extend a token, widen a role or survive a sign-out).
+
+## DEC-1381 Out of hours is a state of its own in the Advisor v2 overview: it is counted, listed and drawn like the other five (2026-11-10)
+
+Found by the owner on the Services page: an area card said "2 services", the list behind it had five state tabs all at 0, and both services were out of hours, so they were in the total and in no list.
+
+1. **The rule.** The overview counts six states: accepting, limited, not accepting, over capacity, not updated and **out of hours**. `capacity_overview` counts each service in exactly one, so the counts add up to the services listed (`OVERVIEW_STATUSES`; the five-state `COUNTED_STATUSES` is unchanged because other reads use it). `GET /advisor-v2/capacity` returns `counts.outOfHours`.
+2. **The screens.** A sixth headline tile, a sixth tab on the Services page (with its count), a sixth segment in the area ring and legend. A back end that does not send `outOfHours` reads as none, not as a bad answer.
+3. **Tiles.** A tile whose figure is not current has a wider capacity column, and its "Last reported" line is held to two lines. Below 900px the Services rows are the taller ones, so no text is clipped.
+4. **Reverses** the earlier choice (a test said so) that an out-of-hours service is not counted in the overview. Colour is not the meaning: the state has its own word and shape.
+
+## DEC-1382 A region's services are a grid of cards, not a list of full-width rows (2026-11-10)
+
+On the owner's question ("would drill down to the region be better served with a grid of cards?"). The Services page behind a region, a group or a state shows each service as a card: its name and state (a dot and a word) at the top, the group, the figure large with its unit (or "Current capacity unavailable", with the last figure in the foot line), and a foot line with when it was updated. The cards sit in as many columns as the width holds (one on a phone, two from 600px, three from 900px, four from 1280px), 150px tall, paged to the height with Previous and Next, so nothing scrolls. An out-of-hours service says "Reopens 08:00 tomorrow" from the capacity answer's `nextDueAt` (the same line the wall board shows); where the data holds no such time the line is not shown and nothing is invented. The Capacity page's area cards are unchanged.

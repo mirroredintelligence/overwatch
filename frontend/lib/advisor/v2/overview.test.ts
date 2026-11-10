@@ -32,10 +32,23 @@ const BODY = {
 describe('parseOverview', () => {
   it('reads the counts, the two lists and the rows', () => {
     const view = parseOverview(BODY);
-    expect(view?.counts).toEqual({ accepting: 3, limited: 2, 'not-accepting': 1, 'over-capacity': 1, 'not-updated': 2 });
+    expect(view?.counts).toEqual({ accepting: 3, limited: 2, 'not-accepting': 1, 'over-capacity': 1, 'not-updated': 2, 'out-of-hours': 0 });
     expect(view?.underPressure).toHaveLength(2);
     expect(view?.underutilised[0]).toMatchObject({ serviceId: 'c', spare: 8 });
     expect(view?.services).toHaveLength(1);
+  });
+
+  it('reads the Out of hours count (DEC-1381), and none when an older back end does not send it', () => {
+    expect(parseOverview({ ...BODY, counts: { ...BODY.counts, outOfHours: 4 } })?.counts['out-of-hours']).toBe(4);
+    expect(parseOverview(BODY)?.counts['out-of-hours']).toBe(0);
+  });
+
+  it('counts a service that is out of hours on its area card and in its tally, so no service is in a total yet in no list', () => {
+    const view = parseOverview({ ...BODY, services: [{ ...BODY.services[0], status: 'out-of-hours' }] });
+    expect(view?.services[0]?.status).toBe('out-of-hours');
+    const cards = areaCards(view?.services ?? [], view?.areas ?? []);
+    expect(cards.reduce((sum, card) => sum + card.count, 0)).toBe(1);
+    expect(cards.reduce((sum, card) => sum + card.tally['out-of-hours'], 0)).toBe(1);
   });
 
   it('is null when the answer is not shaped like an overview', () => {

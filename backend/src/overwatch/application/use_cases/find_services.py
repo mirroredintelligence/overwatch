@@ -84,6 +84,9 @@ COUNTED_STATUSES: Final = (
     Status.NOT_ACCEPTING,
     Status.NOT_UPDATED,
 )
+OVERVIEW_STATUSES: Final = (*COUNTED_STATUSES, Status.OUT_OF_HOURS)
+"""The statuses the Advisor v2 overview counts: the five, and Out of hours, so a service outside its
+hours is counted and listed under a state of its own, and none is in a total yet in no list."""
 ATTENTION_SHOWN: Final = 3
 """The short Needs attention list shows this many of each list; the rest are counted."""
 
@@ -561,6 +564,8 @@ class CapacityRow:
     reported_at: datetime | None
     figure_unavailable: bool
     last_figure: int | None
+    next_due_at: datetime | None = None
+    """When the next report is due; when a service is out of hours, when it reopens (DEC-1381)."""
     districts: tuple[str, ...] = ()
     """The postcode districts the service covers; none when none is recorded."""
     area: str | None = None
@@ -590,7 +595,7 @@ def capacity_overview(
     row per
     service by name, never by status. A figure that is late or old is marked unavailable here, on
     the back end."""
-    counts = {status: 0 for status in COUNTED_STATUSES}
+    counts = {status: 0 for status in OVERVIEW_STATUSES}
     for entry in entries:
         if entry.status in counts:
             counts[entry.status] += 1
@@ -610,6 +615,7 @@ def capacity_overview(
                     unit_label=entry.unit_label,
                     reported_at=entry.reported_at,
                     figure_unavailable=figure_unusable(entry),
+                    next_due_at=entry.next_due_at,
                     districts=tuple(sorted((districts or {}).get(entry.service_id, ()))),
                     area=placed.get(entry.service_id),
                     last_figure=(

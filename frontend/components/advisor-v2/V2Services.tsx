@@ -7,7 +7,7 @@ import { STATUS_LABELS } from '@/components/ui/StatusBadge';
 import { categoryLabel } from '@/lib/board/format';
 import { readOverview } from '@/lib/advisor/v2/browser';
 import { areaFromQuery, capacityToOption, COUNTED_STATUSES, type CountedStatus, type Overview } from '@/lib/advisor/v2/overview';
-import { Dot, PagedGrid, ServiceTile } from './parts';
+import { Dot, PagedGrid, ServiceCard } from './parts';
 import styles from './V2.module.css';
 
 // The services of one state or more, or of one service group (DEC-1366), opened from a count or a group on Capacity.
@@ -87,8 +87,9 @@ export function V2Services({ initial, group, district, area = null }: { initial:
           keyOf={(item) => item.serviceId}
           label="Services"
           noun="services"
+          card
           empty="No service is in this state."
-          render={(item) => <ServiceTile option={item} />}
+          render={(item) => <ServiceCard option={item} now={state.now} />}
         />
       </div>
     </div>

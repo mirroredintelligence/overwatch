@@ -201,7 +201,7 @@ def test_only_the_advisor_and_advisor_v2_may_find_a_service() -> None:
 # ------------------------------------------------------------------------------ the overview
 
 
-def test_the_overview_counts_the_five_statuses_and_lists_what_needs_attention() -> None:
+def test_the_overview_counts_every_status_and_lists_what_needs_attention() -> None:
     entries = (
         _entry(service_id="a", name="A", status=Status.ACCEPTING),
         _entry(service_id="b", name="B", status=Status.LIMITED, effective_available=1),
@@ -219,6 +219,7 @@ def test_the_overview_counts_the_five_statuses_and_lists_what_needs_attention() 
         Status.OVER_CAPACITY: 1,
         Status.NOT_ACCEPTING: 1,
         Status.NOT_UPDATED: 1,
+        Status.OUT_OF_HOURS: 1,
     }
     assert [item.service_id for item in view.under_pressure] == ["d", "c", "b"]
 

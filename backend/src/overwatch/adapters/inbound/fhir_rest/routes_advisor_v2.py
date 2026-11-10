@@ -62,6 +62,7 @@ _COUNT_KEYS: Final = {
     Status.NOT_ACCEPTING: "notAccepting",
     Status.OVER_CAPACITY: "overCapacity",
     Status.NOT_UPDATED: "notUpdated",
+    Status.OUT_OF_HOURS: "outOfHours",
 }
 
 
@@ -222,6 +223,7 @@ def _overview_body(view: CapacityOverview) -> dict[str, Any]:
                 "overBy": row.over_by,
                 "unitLabel": row.unit_label,
                 "reportedAt": _at(row.reported_at),
+                "nextDueAt": _at(row.next_due_at),
                 "figureUnavailable": row.figure_unavailable,
                 "lastFigure": row.last_figure,
                 "districts": list(row.districts),

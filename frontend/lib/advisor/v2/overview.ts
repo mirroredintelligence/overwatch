@@ -24,13 +24,24 @@ export type CapacityService = {
   reportedAt: string | null;
   figureUnavailable: boolean;
   lastFigure: number | null;
+  /** When the next report is due; when the service is out of hours, when it reopens. */
+  nextDueAt: string | null;
   /** The postcode districts the service covers; none when none is recorded. */
   districts: string[];
   /** The one area the service is counted in: an area id (`network` for one that works across areas), or null when it
    *  is not placed. Always null when there is no area table. */
   area: string | null;
 };
-export type CountedStatus = 'accepting' | 'limited' | 'not-accepting' | 'over-capacity' | 'not-updated';
+// The states the overview counts and lists (DEC-1381): the five, and Out of hours, so every service is in exactly one.
+export type CountedStatus = 'accepting' | 'limited' | 'not-accepting' | 'over-capacity' | 'not-updated' | 'out-of-hours';
+const zeroCounts = (): Record<CountedStatus, number> => ({
+  accepting: 0,
+  limited: 0,
+  'not-accepting': 0,
+  'over-capacity': 0,
+  'not-updated': 0,
+  'out-of-hours': 0,
+});
 export type Overview = {
   counts: Record<CountedStatus, number>;
   attentionShown: number;
@@ -57,6 +68,7 @@ const COUNT_KEYS: Record<string, CountedStatus> = {
   notAccepting: 'not-accepting',
   overCapacity: 'over-capacity',
   notUpdated: 'not-updated',
+  outOfHours: 'out-of-hours',
 };
 
 function pressureOf(value: unknown): PressureRow | null {
@@ -120,6 +132,7 @@ function serviceOf(value: unknown, areas: readonly Area[]): CapacityService | nu
     reportedAt: str(value.reportedAt),
     figureUnavailable: value.figureUnavailable === true || status === 'not-updated',
     lastFigure: whole(value.lastFigure),
+    nextDueAt: str(value.nextDueAt),
     districts: Array.isArray(value.districts)
       ? value.districts.filter((item): item is string => typeof item === 'string' && DISTRICT_PATTERN.test(item))
       : [],
@@ -135,9 +148,10 @@ function list<T>(value: unknown, read: (item: unknown) => T | null): T[] {
 /** The overview, or null when the answer is not shaped like one. */
 export function parseOverview(body: unknown): Overview | null {
   if (!isRecord(body) || !isRecord(body.counts)) return null;
-  const counts: Record<CountedStatus, number> = { accepting: 0, limited: 0, 'not-accepting': 0, 'over-capacity': 0, 'not-updated': 0 };
+  const counts = zeroCounts();
   for (const [key, status] of Object.entries(COUNT_KEYS)) {
-    const count = whole(body.counts[key]);
+    // A back end that does not yet count Out of hours sends no such key: that is none, not a bad answer.
+    const count = whole(body.counts[key]) ?? (status === 'out-of-hours' ? 0 : null);
     if (count === null) return null;
     counts[status] = count;
   }
@@ -176,7 +190,7 @@ export function capacityToOption(row: CapacityService, now: number): OptionView 
     dataAgeSeconds: Number.isNaN(age) ? null : age,
     staleWarning: row.figureUnavailable,
     reportedAt: row.reportedAt,
-    nextDueAt: null,
+    nextDueAt: row.nextDueAt,
     cadence: null,
     lastFigure: row.lastFigure,
     overdue: false,
@@ -199,7 +213,7 @@ export function statusesFromQuery(value: string | string[] | undefined): Counted
   return COUNTED_STATUSES.filter((status) => named.has(status));
 }
 
-export const COUNTED_STATUSES: readonly CountedStatus[] = ['accepting', 'limited', 'not-accepting', 'over-capacity', 'not-updated'];
+export const COUNTED_STATUSES: readonly CountedStatus[] = ['accepting', 'limited', 'not-accepting', 'over-capacity', 'not-updated', 'out-of-hours'];
 
 /** A service group's list under v2 (Capacity's group cards link here). */
 export function groupHref(category: string): string {
@@ -232,7 +246,7 @@ export function districtCards(rows: readonly CapacityService[]): DistrictCard[] 
     const card = cards.get(district) ?? {
       district,
       count: 0,
-      tally: { accepting: 0, limited: 0, 'not-accepting': 0, 'over-capacity': 0, 'not-updated': 0 },
+      tally: zeroCounts(),
     };
     card.count += 1;
     if (row.status in card.tally) card.tally[row.status as CountedStatus] += 1;
@@ -247,7 +261,7 @@ export function districtCards(rows: readonly CapacityService[]): DistrictCard[] 
 
 export type AreaCard = { area: string | null; name: string; places: string; count: number; tally: Record<CountedStatus, number> };
 
-const emptyTally = (): Record<CountedStatus, number> => ({ accepting: 0, limited: 0, 'not-accepting': 0, 'over-capacity': 0, 'not-updated': 0 });
+const emptyTally = zeroCounts;
 
 /**
  * One card per area, in the order given (an empty area included), each service counted ONCE, in its own area; one with

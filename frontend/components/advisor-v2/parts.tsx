@@ -6,7 +6,7 @@ import { ShapeIcon, STATUS_LABELS, STATUS_SHAPES, type StatusCode } from '@/comp
 import { attentionClass, attentionOf } from '@/lib/attention';
 import type { OptionView } from '@/lib/advisor/options';
 import { lastReportedLine } from '@/lib/advisor/reporting';
-import { categoryLabel } from '@/lib/board/format';
+import { categoryLabel, reopensText } from '@/lib/board/format';
 import { overdueText } from '@/lib/lead/format';
 import styles from './V2.module.css';
 
@@ -39,6 +39,7 @@ export function Lozenge({ status }: { status: StatusCode }) {
 
 const ROW = 92;
 const TALL_ROW = 124;
+const CARD_ROW = 150;
 const GAP = 8;
 
 /**
@@ -53,6 +54,7 @@ export function PagedGrid<T>({
   noun,
   cols = 1,
   tall = false,
+  card = false,
   empty,
 }: {
   items: readonly T[];
@@ -63,6 +65,8 @@ export function PagedGrid<T>({
   cols?: 1 | 2 | 3;
   /** Taller rows, for the location cards. */
   tall?: boolean;
+  /** Cards in as many columns as the width holds (one to four), each row 150px (ServiceCard). */
+  card?: boolean;
   empty: string;
 }) {
   const gridRef = useRef<HTMLUListElement>(null);
@@ -76,13 +80,13 @@ export function PagedGrid<T>({
       const height = grid.clientHeight;
       // The columns are what the stylesheet gives at this width (a narrow screen has fewer than `cols`).
       const columns = Math.max(1, getComputedStyle(grid).gridTemplateColumns.split(' ').filter((part) => part !== '').length);
-      setFit(height > 0 ? { rows: Math.max(1, Math.floor((height + GAP) / ((tall ? TALL_ROW : ROW) + GAP))), columns } : null);
+      setFit(height > 0 ? { rows: Math.max(1, Math.floor((height + GAP) / ((card ? CARD_ROW : tall ? TALL_ROW : ROW) + GAP))), columns } : null);
     };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(grid);
     return () => observer.disconnect();
-  }, [tall]);
+  }, [tall, card]);
 
   const perPage = fit === null ? Math.max(1, items.length) : fit.rows * fit.columns;
   const pages = Math.max(1, Math.ceil(items.length / perPage));
@@ -91,7 +95,7 @@ export function PagedGrid<T>({
 
   return (
     <div className={styles.collection}>
-      <ul ref={gridRef} className={`${styles.grid} ${cols === 3 ? styles.cols3 : cols === 2 ? styles.cols2 : styles.cols1} ${tall ? styles.tall : ''}`} aria-label={label}>
+      <ul ref={gridRef} className={`${styles.grid} ${card ? styles.cardGrid : cols === 3 ? styles.cols3 : cols === 2 ? styles.cols2 : styles.cols1} ${tall ? styles.tall : ''}`} aria-label={label}>
         {items.length === 0 ? (
           <li className={styles.empty}>{empty}</li>
         ) : (
@@ -135,7 +139,7 @@ export function ServiceTile({ option }: { option: OptionView }) {
   const readOut = unavailable || value === null ? 'Current capacity unavailable' : `${value} ${unitWords}`;
   return (
     <Link
-      className={`${styles.service} ${attentionClass(attentionOf({ status: option.status, stale: option.figureUnavailable }))}`}
+      className={`${styles.service} ${unavailable || value === null ? `${styles.serviceWide} ` : ''}${attentionClass(attentionOf({ status: option.status, stale: option.figureUnavailable }))}`}
       href={`/advisor/v2/services/${encodeURIComponent(option.serviceId)}`}
       aria-label={`${option.name}, ${STATUS_LABELS[option.status]}, ${readOut}`}
       data-el="ADV2-SERVICE"
@@ -166,7 +170,7 @@ export function ServiceTile({ option }: { option: OptionView }) {
   );
 }
 
-const RING_STATUSES = ['accepting', 'limited', 'not-accepting', 'over-capacity', 'not-updated'] as const;
+const RING_STATUSES = ['accepting', 'limited', 'not-accepting', 'over-capacity', 'not-updated', 'out-of-hours'] as const;
 const RADIUS = 42;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
@@ -216,5 +220,48 @@ export function StatusLegend({ tally }: { tally: Record<(typeof RING_STATUSES)[n
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * One service as a card in a grid (the region's services, DEC-1381): the name and its state at the top, the group, the
+ * figure large with its unit (or "Current capacity unavailable"), and a foot line: when it was updated, or the last
+ * figure when this one is not current, and when an out-of-hours service reopens (only when the data holds that time).
+ * The whole card is the link to the service. Fixed height (CARD_ROW), so the grid pages exactly.
+ */
+export function ServiceCard({ option, now }: { option: OptionView; now: number }) {
+  const unavailable = option.figureUnavailable;
+  const over = option.status === 'over-capacity' && option.overBy !== null;
+  const value = over ? `+${option.overBy}` : option.effectiveAvailable === null ? null : String(option.effectiveAvailable);
+  const unit = option.unitLabel ?? '';
+  const unitWords = over ? 'above normal' : unit === '' ? 'remaining' : unit;
+  const noFigure = unavailable || value === null;
+  const readOut = noFigure ? 'Current capacity unavailable' : `${value} ${unitWords}`;
+  const reopens = option.status === 'out-of-hours' && option.nextDueAt !== null ? reopensText(option.nextDueAt, new Date(now)) : null;
+  const foot = [noFigure ? lastReportedLine(option) : updatedText(option), reopens].filter((part) => part !== null).join(' · ');
+  return (
+    <Link
+      className={`${styles.card} ${attentionClass(attentionOf({ status: option.status, stale: option.figureUnavailable }))}`}
+      href={`/advisor/v2/services/${encodeURIComponent(option.serviceId)}`}
+      aria-label={`${option.name}, ${STATUS_LABELS[option.status]}, ${readOut}`}
+      data-el="ADV2-SERVICE-CARD"
+    >
+      <span className={styles.cardHead}>
+        <span className={styles.cardTitle}>{option.name}</span>
+        <Lozenge status={option.status} />
+      </span>
+      <span className={styles.cardGroup}>{option.category === null ? '' : categoryLabel(option.category)}</span>
+      <span className={styles.cardFigure}>
+        {noFigure ? (
+          <b className={styles.cardUnknown}>Current capacity unavailable</b>
+        ) : (
+          <>
+            <b className={styles.cardNumber}>{value}</b>
+            <span className={styles.cardUnit}>{unitWords}</span>
+          </>
+        )}
+      </span>
+      <span className={`${styles.cardFoot} ${unavailable ? styles.late : ''}`}>{foot}</span>
+    </Link>
   );
 }

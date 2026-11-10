@@ -352,6 +352,35 @@ describe('V2Services by district', () => {
   });
 });
 
+// Out of hours is a state of its own (DEC-1381): a service outside its hours has a tab, a count and a place in the list.
+const OVERVIEW_HOURS = {
+  ...OVERVIEW,
+  counts: { ...OVERVIEW.counts, outOfHours: 1 },
+  services: [
+    ...OVERVIEW.services,
+    { serviceId: 'z', name: 'Hours Z', category: 'inpatient-beds', status: 'out-of-hours', effectiveAvailable: null, overBy: null, unitLabel: 'beds free', reportedAt: '2026-11-10T13:50:00Z', figureUnavailable: false, lastFigure: 3, districts: ['DT4'] },
+  ],
+};
+
+describe('V2Services out of hours', () => {
+  beforeEach(() => {
+    server.use(http.get('/api/bff/advisor-v2/capacity', () => HttpResponse.json(OVERVIEW_HOURS)));
+  });
+
+  it('has an Out of hours tab with its count, and lists the service under it', async () => {
+    render(<V2Services initial={['out-of-hours']} group={null} district={null} />);
+    expect(await screen.findByRole('button', { name: /Out of hours \(1\)/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(await screen.findByRole('link', { name: /^Hours Z/ })).toHaveAttribute('href', '/advisor/v2/services/z');
+    expect(screen.queryByRole('link', { name: /^Pressed/ })).toBeNull();
+  });
+
+  it('shows the out-of-hours service with the others when no state is chosen', async () => {
+    render(<V2Services initial={[]} group={null} district={null} />);
+    expect(await screen.findByRole('link', { name: /^Hours Z/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /^Pressed A/ })).toBeInTheDocument();
+  });
+});
+
 describe('V2Services', () => {
   beforeEach(() => {
     server.use(http.get('/api/bff/advisor-v2/capacity', () => HttpResponse.json(OVERVIEW)));
@@ -365,7 +394,7 @@ describe('V2Services', () => {
     expect(screen.getByText('Listed by name, not ranked.')).toBeInTheDocument();
   });
 
-  it('shows all five states by name when none is chosen', async () => {
+  it('shows every state by name when none is chosen', async () => {
     render(<V2Services initial={[]} group={null} district={null} />);
     await waitFor(() => expect(screen.getAllByRole('link', { name: /^(Pressed|Roomy)/ })).toHaveLength(3));
     const names = screen.getAllByRole('link', { name: /^(Pressed|Roomy)/ }).map((link) => link.getAttribute('aria-label')?.split(',')[0]);

@@ -2,6 +2,8 @@
 the ask, and the refusals that come before any read. The stored answers, the idempotent replay and
 the tenant boundary are in tests/integration/. No Neo4j, no network."""
 
+from datetime import UTC, datetime
+
 import pytest
 
 from overwatch.application.use_cases.ask_capacity_now import ASK_ROLES
@@ -81,3 +83,50 @@ async def test_an_ask_without_an_idempotency_key_is_a_400() -> None:
         )
 
     assert response.status_code == 400
+
+
+def test_the_capacity_answer_counts_out_of_hours_as_a_state_of_its_own() -> None:
+    from overwatch.adapters.inbound.fhir_rest.routes_advisor_v2 import _overview_body
+    from overwatch.application.use_cases.find_services import capacity_overview
+    from overwatch.domain.codes import Status
+    from tests.unit.application.use_cases.test_find_services import _entry
+
+    view = capacity_overview(
+        (
+            _entry(service_id="a", name="A", status=Status.ACCEPTING),
+            _entry(service_id="b", name="B", status=Status.OUT_OF_HOURS),
+        ),
+        generated_at=datetime(2026, 11, 10, 12, 0, tzinfo=UTC),
+    )
+
+    counts = _overview_body(view)["counts"]
+    assert counts["outOfHours"] == 1
+    assert counts["accepting"] == 1
+    # Every service is in exactly one count, so the counts add up to the services listed.
+    assert sum(counts.values()) == len(view.rows)
+
+
+def test_each_capacity_row_carries_its_next_due_time_for_the_reopening_line() -> None:
+    from datetime import timedelta
+
+    from overwatch.adapters.inbound.fhir_rest.routes_advisor_v2 import _overview_body
+    from overwatch.application.use_cases.find_services import capacity_overview
+    from overwatch.domain.codes import Status
+    from tests.unit.application.use_cases.test_find_services import NOW, _entry
+
+    view = capacity_overview(
+        (
+            _entry(
+                service_id="a",
+                name="A",
+                status=Status.OUT_OF_HOURS,
+                next_due_at=NOW + timedelta(hours=10),
+            ),
+            _entry(service_id="b", name="B", next_due_at=None),
+        ),
+        generated_at=NOW,
+    )
+
+    rows = {row["serviceId"]: row for row in _overview_body(view)["services"]}
+    assert rows["a"]["nextDueAt"] == (NOW + timedelta(hours=10)).isoformat().replace("+00:00", "Z")
+    assert rows["b"]["nextDueAt"] is None

@@ -59,3 +59,55 @@ describe('PostcodePicker', () => {
     expect(screen.queryByRole('listbox')).toBeNull();
   });
 });
+
+describe('PostcodePicker compact (the assistant thread)', () => {
+  const MANY = ['DT4 0AB', 'DT4 0AD', 'DT4 0AE', 'DT4 0AF', 'DT4 0AG', 'DT4 0AH', 'DT4 0AJ'];
+
+  function compact(options: string[], onPick = vi.fn()) {
+    render(
+      <PostcodePicker
+        id="pc"
+        listId="pc-list"
+        value="DT4"
+        options={options}
+        invalid={false}
+        dataEl="TEST-PC"
+        onType={vi.fn()}
+        onPick={onPick}
+        onBlur={vi.fn()}
+        compact
+      />,
+    );
+    return screen.getByRole('combobox') as HTMLInputElement;
+  }
+
+  it('shows five rows at most and says how many more, so the list never needs a scrollbar of its own', async () => {
+    const input = compact(MANY);
+    await userEvent.click(input);
+    await userEvent.type(input, ' ');
+    expect(screen.getAllByRole('option')).toHaveLength(5);
+    expect(screen.getByText('2 more. Keep typing to narrow the list.')).toBeInTheDocument();
+  });
+
+  it('shows no note when everything fits, and still picks by mouse and by keyboard', async () => {
+    const onPick = vi.fn();
+    const input = compact(['DT4 0AB', 'DT4 0AD'], onPick);
+    await userEvent.click(input);
+    await userEvent.type(input, ' ');
+    expect(screen.queryByText(/Keep typing/)).toBeNull();
+    await userEvent.keyboard('{ArrowDown}{Enter}');
+    expect(onPick).toHaveBeenCalledWith('DT4 0AB');
+  });
+
+  it('leaves the default list as it was: every option, no note', async () => {
+    render(
+      <PostcodePicker id="pc" listId="pc-list" value="DT4" options={MANY} invalid={false} dataEl="TEST-PC" onType={vi.fn()} onPick={vi.fn()} onBlur={vi.fn()} />,
+    );
+    const input = screen.getByRole('combobox');
+    await userEvent.click(input);
+    await userEvent.type(input, ' ');
+    expect(screen.getAllByRole('option')).toHaveLength(7);
+    expect(screen.queryByText(/Keep typing/)).toBeNull();
+  });
+});
+

@@ -40,6 +40,8 @@ const NOT_PLACED = 'The postcode could not be placed, so no travel time is shown
 const AGE_HREF = workspaceHref('advisor.intake.age');
 const NEED_HREF = workspaceHref('advisor.intake.need');
 const RESULTS_HREF = workspaceHref('advisor.results');
+// The capacity overview, the advisor's home (a nav intent: no patient value in it).
+const OVERVIEW_HREF = '/advisor/v2';
 const WHY_TITLE = 'Not suitable, and why';
 
 type Search = { key: string; kind: 'searching' } | { key: string; kind: 'failed' } | { key: string; kind: 'done'; read: FindRead };
@@ -217,6 +219,7 @@ export function AdvisorWorkspace(): ReactElement {
         Postcode
       </label>
       <PostcodePicker
+        compact
         id={POSTCODE_ID}
         listId={POSTCODE_LIST_ID}
         value={postcode}
@@ -251,7 +254,9 @@ export function AdvisorWorkspace(): ReactElement {
 
   // What the person is shown: the list, the list beside the map, or the services that were not suitable.
   const title = resultsShown && view === 'why' ? WHY_TITLE : TITLE;
-  const backHref = onResults ? (view === 'list' ? NEED_HREF : RESULTS_HREF) : undefined;
+  // Back is always there: from the results to the need step, from the need step to the age step, and from the first
+  // step out to the capacity overview (a person who opened Find a service must be able to leave it).
+  const backHref = onResults ? (view === 'list' ? NEED_HREF : RESULTS_HREF) : intakeStep === 'need' ? AGE_HREF : OVERVIEW_HREF;
   const heading =
     count === 1 ? "1 service meets this patient's criteria" : `${count} services meet this patient's criteria`;
   const sortNote = order === 'travel' ? 'Sorted by travel time. Not ranked.' : 'Listed by name. Not ranked.';

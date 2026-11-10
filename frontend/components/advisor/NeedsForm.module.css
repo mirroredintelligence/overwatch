@@ -190,3 +190,36 @@
   background: var(--c-ink);
   color: Canvas;
 }
+
+/* The compact list for the assistant thread (PostcodePicker compact): in the flow of the card, so it never floats over
+   Next or makes a scrollbar inside the thread's scrollbar; five rows at most, 44px tall, body-size type. */
+.listCompact {
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  list-style: none;
+  background: #fff;
+  color: var(--c-ink);
+  border: 1px solid var(--c-unknown);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.optionCompact {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-3);
+  font-size: var(--type-body-size);
+  cursor: pointer;
+}
+
+.optionCompact + .optionCompact {
+  border-top: 1px solid var(--c-line);
+}
+
+.listNote {
+  margin: var(--space-1) 0 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-muted);
+}

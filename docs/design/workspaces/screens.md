@@ -324,6 +324,8 @@ Behaviour, exactly:
 - `WS-ADV-T10` Clicking "Hide the assistant" removes the drawer and shows "Show the assistant"; clicking that restores the drawer with the same messages; remounting the provider keeps it hidden.
 - `WS-ADV-T11` A fresh mount at `?view=list` with no criteria calls `router.replace` once with `/advisor/v2?mode=find&view=find&step=age`; with the same provider then holding an age and a full postcode but no needs (a client navigation, since a reload would lose them), once with `…step=need`.
 - `WS-ADV-T12` The "Show it as" switch moves between `view=list` and `view=map`; `view=map` shows the list and the map; `view=why` shows the not-suitable list; with complete criteria none of them calls `replace`. (WS-ADV-T14 to T25 and WS-RES-T01 to T11 cover the rows, the map wiring, the why props, the thread chips and the gates.)
+- `WS-ADV-T26` Coming back to a results view after the page was left (a service was opened) searches again from the criteria still in the provider, without storing them and without navigating; the list is shown again.
+- `WS-ADV-T27` Back is always present: on the first intake step it links to the capacity overview (`/advisor/v2`), on the need step to the age step, on results to the need step (list) or the results (map, why).
 - `WS-ADV-T13` The age step, the need step and the results all pass `runAxe`.
 
 ## WS-SVC The service page inside the workspace

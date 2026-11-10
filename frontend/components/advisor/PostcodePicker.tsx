@@ -1,6 +1,6 @@
 'use client';
 
-import { type KeyboardEvent, useState } from 'react';
+import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import styles from './NeedsForm.module.css';
 
 // The postcode field with its own list of suggestions (DEC-1332), drawn on the page rather than by the
@@ -18,13 +18,30 @@ export type PostcodePickerProps = {
   onType: (typed: string) => void;
   onPick: (postcode: string) => void;
   onBlur: () => void;
+  /**
+   * The compact list for a narrow, scrolling panel (the assistant thread): at most `COMPACT_MAX` rows in the flow of the
+   * card, no list of its own to scroll, and a line saying to keep typing when there are more. Off by default: the form
+   * pages keep the floating list.
+   */
+  compact?: boolean;
 };
 
+export const COMPACT_MAX = 5;
+
 export function PostcodePicker(props: PostcodePickerProps) {
-  const { id, listId, value, options, invalid, describedBy, dataEl, onType, onPick, onBlur } = props;
+  const { id, listId, value, options: all, invalid, describedBy, dataEl, onType, onPick, onBlur, compact = false } = props;
+  const options = compact ? all.slice(0, COMPACT_MAX) : all;
+  const more = compact ? all.length - options.length : 0;
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const shown = open && options.length > 0;
+  const listRef = useRef<HTMLUListElement>(null);
+
+  // In a scrolling panel the list opens below the field and may be out of sight: bring it into view (the compact list
+  // only; the floating list of the form pages is already placed by the browser).
+  useEffect(() => {
+    if (compact && shown) listRef.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [compact, shown, options.length]);
   const optionId = (index: number) => `${id}-option-${index}`;
 
   function pick(postcode: string) {
@@ -83,14 +100,21 @@ export function PostcodePicker(props: PostcodePickerProps) {
         data-el={dataEl}
       />
       {shown ? (
-        <ul id={listId} role="listbox" aria-label="Postcodes" className={styles.list} data-el={`${dataEl}-LIST`}>
+        <ul
+          ref={listRef}
+          id={listId}
+          role="listbox"
+          aria-label="Postcodes"
+          className={compact ? styles.listCompact : styles.list}
+          data-el={`${dataEl}-LIST`}
+        >
           {options.map((postcode, index) => (
             <li
               key={postcode}
               id={optionId(index)}
               role="option"
               aria-selected={index === active}
-              className={index === active ? `${styles.option} ${styles.optionActive}` : styles.option}
+              className={`${compact ? styles.optionCompact : styles.option}${index === active ? ` ${styles.optionActive}` : ''}`}
               // The mouse press picks before the input loses focus, so the list stays open long enough to click.
               onMouseDown={(event) => {
                 event.preventDefault();
@@ -102,6 +126,7 @@ export function PostcodePicker(props: PostcodePickerProps) {
           ))}
         </ul>
       ) : null}
+      {shown && more > 0 ? <p className={styles.listNote}>{`${more} more. Keep typing to narrow the list.`}</p> : null}
     </div>
   );
 }

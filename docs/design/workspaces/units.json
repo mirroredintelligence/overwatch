@@ -138,7 +138,7 @@
     "modify": [],
     "add": ["frontend/components/workspace/AdvisorWorkspace.tsx", "frontend/components/workspace/AdvisorWorkspace.module.css"],
     "tests": ["frontend/components/workspace/AdvisorWorkspace.test.tsx"],
-    "cases": ["WS-ADV-T01", "WS-ADV-T02", "WS-ADV-T03", "WS-ADV-T04", "WS-ADV-T05", "WS-ADV-T06", "WS-ADV-T07", "WS-ADV-T08", "WS-ADV-T09", "WS-ADV-T10", "WS-ADV-T11", "WS-ADV-T12", "WS-ADV-T13"],
+    "cases": ["WS-ADV-T01", "WS-ADV-T02", "WS-ADV-T03", "WS-ADV-T04", "WS-ADV-T05", "WS-ADV-T06", "WS-ADV-T07", "WS-ADV-T08", "WS-ADV-T09", "WS-ADV-T10", "WS-ADV-T11", "WS-ADV-T12", "WS-ADV-T13", "WS-ADV-T26", "WS-ADV-T27"],
     "depends_on": ["WSP-02", "WSP-03", "WSP-06", "WSP-07", "WSP-08", "WSP-09"], "wave": 4, "size": "L",
     "test_writer": "haiku", "model": "sonnet", "verifier": "sonnet",
     "why_model": "Composes the router, a debounced search, the existing postcode picker and grouped results, and enforces the privacy rule end to end. Haiku writes the tests with msw and mocked navigation; Sonnet builds.",

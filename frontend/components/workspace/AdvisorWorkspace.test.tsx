@@ -668,4 +668,12 @@ describe('AdvisorWorkspace (WS-ADV)', () => {
     expect(nav.push).not.toHaveBeenCalled();
     expect(nav.replace).not.toHaveBeenCalled();
   });
+
+  it('WS-ADV-T27 Back is always there: the first step leaves to the capacity overview, the need step goes back to the age step', async () => {
+    const user = userEvent.setup();
+    renderWorkspace();
+    expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/advisor/v2');
+    await goToNeedStep(user);
+    expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', AGE_URL);
+  });
 });

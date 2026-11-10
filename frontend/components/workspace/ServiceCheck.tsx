@@ -125,6 +125,7 @@ export function ServiceCheck({ serviceId, onClose }: { serviceId: string; onClos
         Postcode
       </label>
       <PostcodePicker
+        compact
         id={POSTCODE_ID}
         listId={POSTCODE_LIST_ID}
         value={postcode}

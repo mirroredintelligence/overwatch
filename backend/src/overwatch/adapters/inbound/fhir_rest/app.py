@@ -109,6 +109,7 @@ def create_app(
     from overwatch.adapters.inbound.fhir_rest import (
         routes_admin,
         routes_admin_consent,
+        routes_advisor_v2,
         routes_alerts,
         routes_auth,
         routes_board,
@@ -180,6 +181,7 @@ def create_app(
     # The token exchange (TEN-043): the back end issues the tenant-bound token.
     app.include_router(routes_auth.router)
     # Shift lead set-up and number changes (R08): FHIR operations over the U15 and U16 use cases.
+    app.include_router(routes_advisor_v2.router)
     app.include_router(routes_lead.router)
     app.include_router(routes_lead_views.router)
     # Registration, scope list and criteria (R10): FHIR operations over the S6 use cases.

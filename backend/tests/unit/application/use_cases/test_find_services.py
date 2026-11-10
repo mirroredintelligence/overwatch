@@ -1,7 +1,9 @@
 """Advisor v2: find a service and the capacity overview (DEC-1366). Pure: no Neo4j, no network.
 
-Browse only: nothing here opens a case or stores a postcode, age band or need. A service is offered by
-the same hard criteria as the v1 options (check_hard_criteria); its status is shown and never ranks it;
+Browse only: nothing here opens a case or stores a postcode, age band or need. A service is
+offered by
+the same hard criteria as the v1 options (check_hard_criteria); its status is shown and never
+ranks it;
 a late or old figure is never the current capacity and is never offered as spare capacity."""
 
 from dataclasses import replace
@@ -101,9 +103,9 @@ def test_a_service_that_meets_the_criteria_is_found_with_what_the_card_needs() -
 def test_the_criteria_are_the_v1_rule_so_a_service_outside_them_is_not_found() -> None:
     outside_area = _criteria(districts=frozenset({"DT9"}))
     wrong_need = _criteria(accepts=frozenset({NeedCategory.WOUND_CARE}))
-    too_young = _criteria(age_min=90)
+    too_old_for_it = _criteria(age_min=0, age_max=15)
 
-    for criteria in (outside_area, wrong_need, too_young):
+    for criteria in (outside_area, wrong_need, too_old_for_it):
         assert _match((_entry(),), {"svc-a": criteria}) == ()
 
 
@@ -115,7 +117,9 @@ def test_a_service_with_no_current_criteria_or_that_is_suspended_is_never_found(
 
 def test_status_does_not_exclude_a_service_it_is_shown_as_it_is() -> None:
     entries = (
-        _entry(service_id="svc-a", name="Alpha", status=Status.NOT_ACCEPTING, effective_available=0),
+        _entry(
+            service_id="svc-a", name="Alpha", status=Status.NOT_ACCEPTING, effective_available=0
+        ),
         _entry(service_id="svc-b", name="Beta", status=Status.OVER_CAPACITY, over_by=2),
     )
     criteria = {"svc-a": _criteria("svc-a"), "svc-b": _criteria("svc-b")}
@@ -146,7 +150,9 @@ def test_a_late_old_or_unknown_figure_is_unavailable_and_keeps_the_last_figure_s
 
 
 def test_a_service_that_never_reported_has_an_unavailable_figure() -> None:
-    found = _match((_entry(reported_at=None, effective_available=None, used=None),), {"svc-a": _criteria()})
+    found = _match(
+        (_entry(reported_at=None, effective_available=None, used=None),), {"svc-a": _criteria()}
+    )
 
     assert found[0].figure_unavailable is True
     assert found[0].last_figure is None
@@ -172,7 +178,11 @@ def test_order_is_travel_then_name_and_never_status() -> None:
         key=order_key,
     )
 
-    assert [item.service_id for item in ordered] == ["svc-c", "svc-z", "svc-b"]  # travel, name; none last
+    assert [item.service_id for item in ordered] == [
+        "svc-c",
+        "svc-z",
+        "svc-b",
+    ]  # travel, name; none last
     assert "status" in FOUND_ORDER_NOTE
 
 

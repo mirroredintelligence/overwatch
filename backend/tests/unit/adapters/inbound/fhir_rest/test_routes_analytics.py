@@ -1,6 +1,8 @@
-"""GET /analytics/overview (DEC-1368): the Analytics User's one read. Only that role reaches it; every
-other role is the 404 a missing record gets, before a unit of work is opened (DEC-086 item 5), and
-the platform operator's token is a 401 at the edge (DEC-134). The answer holds figures only."""
+"""GET /analytics/overview (DEC-1368): the Analytics User's one read.
+
+Only that role reaches it; every other role is the 404 a missing record gets, before a unit of work
+is opened (DEC-086 item 5), and the platform operator's token is a 401 at the edge (DEC-134). The
+answer holds figures only."""
 
 from typing import Any
 
@@ -74,5 +76,6 @@ async def test_the_overview_is_figures_only_with_districts_and_the_lists() -> No
         "unitLabel",
         "reportedAt",
     }
-    text = response.text.lower()
-    assert not any(word in text for word in FORBIDDEN_WORDS)
+    # "inpatient-beds" is a service category, not a patient.
+    text = response.text.lower().replace("inpatient", "")
+    assert [word for word in FORBIDDEN_WORDS if word in text] == []

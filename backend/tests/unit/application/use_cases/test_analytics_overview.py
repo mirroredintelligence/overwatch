@@ -45,7 +45,7 @@ def _entry(**changes: object) -> BoardEntry:
 
 
 def test_only_the_analytics_user_may_read_it() -> None:
-    assert ANALYTICS_ROLES == frozenset({Role.ANALYTICS_USER})
+    assert frozenset({Role.ANALYTICS_USER}) == ANALYTICS_ROLES
     for role in Role:
         actor = Actor(role, "prac-1", None, "web", frozenset(), ACTOR_TENANT)
         if role is Role.ANALYTICS_USER:
@@ -122,9 +122,7 @@ def test_the_lists_are_by_name_and_a_stale_figure_is_never_spare_capacity() -> N
         _entry(service_id="z", name="Zed", used=2, effective_available=8),
         _entry(service_id="a", name="Alpha", used=5, effective_available=5),
         _entry(service_id="s", name="Stale", used=2, effective_available=8, stale_warning=True),
-        _entry(
-            service_id="p2", name="Pressed B", status=Status.LIMITED, effective_available=1
-        ),
+        _entry(service_id="p2", name="Pressed B", status=Status.LIMITED, effective_available=1),
         _entry(
             service_id="p1",
             name="Pressed A",

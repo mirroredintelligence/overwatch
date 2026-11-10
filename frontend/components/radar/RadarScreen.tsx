@@ -3,6 +3,7 @@
 import { ShapeIcon, STATUS_LABELS, STATUS_SHAPES } from '@/components/ui/StatusBadge';
 import type { OptionView } from '@/lib/advisor/options';
 import { coverSummary, coveringPatient, visitingOf } from '@/lib/radar/radar';
+import { useMapPreload } from '@/components/map/TileMap';
 import { RadarFrame } from './RadarFrame';
 import { areaStyleOf, RadarMap } from './RadarMap';
 import styles from './radar.module.css';
@@ -20,6 +21,7 @@ function statusLine(option: OptionView): string {
 }
 
 export function RadarScreen({ caseId }: { caseId: string }) {
+  useMapPreload();
   return (
     <RadarFrame caseId={caseId} current="radar">
       {({ parts, place, toggle }) => {

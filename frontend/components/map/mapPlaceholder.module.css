@@ -1,0 +1,102 @@
+/* The map's loading picture (MapPlaceholder.tsx). It fills the map's box and sits over it until the map is ready. */
+
+.placeholder {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--c-line) 35%, var(--c-bg));
+}
+
+/* Loading's own wrappers fill the box; the shapes are laid on top of one another. */
+.placeholder > div,
+.placeholder > div > div {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+.svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* The land is pale, not the schematic's white with a dark edge: this is a hint of the map, not the map. */
+.land path {
+  fill: var(--c-bg);
+  fill-opacity: 0.85;
+  stroke: var(--c-line);
+  stroke-opacity: 1;
+  stroke-width: 1.25;
+  animation: map-breathe 3.2s ease-in-out infinite;
+}
+
+.lines line {
+  stroke: var(--c-line);
+  stroke-width: 1;
+  stroke-opacity: 0.7;
+}
+
+.roads path {
+  fill: none;
+  stroke: var(--c-line);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-opacity: 0.9;
+}
+
+.pins circle {
+  fill: var(--c-line);
+  stroke: var(--c-bg);
+  stroke-width: 3;
+}
+
+.bars {
+  position: absolute;
+  left: var(--space-4);
+  bottom: var(--space-4);
+  display: grid;
+  width: 50%;
+  gap: var(--space-2);
+}
+
+.word {
+  position: absolute;
+  top: var(--space-3);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: var(--space-1) var(--space-3);
+  font-size: 14px;
+  color: var(--c-ink-2);
+  background: var(--c-bg);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-chip);
+}
+
+@keyframes map-breathe {
+  0%,
+  100% {
+    fill-opacity: 0.85;
+  }
+  50% {
+    fill-opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .land path {
+    animation: none;
+  }
+}
+
+/* The box the options map and the radar's picture are drawn in, for the loading state before the options arrive. */
+.box {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  overflow: hidden;
+  border-radius: var(--radius-card);
+}

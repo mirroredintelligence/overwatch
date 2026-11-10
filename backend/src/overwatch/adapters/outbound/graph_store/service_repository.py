@@ -254,22 +254,29 @@ class Neo4jServiceRepository:
         """Flip the three activation flags on the stored resources, one new version each. The rest
         of each resource is written back as it was read, so providedBy, location and coverage are
         not lost (U29; known issue U24/U27: save() rewrites the whole service from the profile)."""
+        await self._flip(service_id, True)
+
+    async def set_inactive(self, service_id: str) -> None:
+        """Retire the service: the same three flags, turned off (DEC-1356). Nothing is deleted."""
+        await self._flip(service_id, False)
+
+    async def _flip(self, service_id: str, active: bool) -> None:
         service = await self._store.get(_RESOURCE_TYPE, service_id)
         if service is None:
             raise NotFound("no service with this id")
-        service["active"] = True
+        service["active"] = active
         await self._put_with_current(service)
         for reference in _references(service, "location"):
             location = await self._store.get(*_split(reference))
             if location is None:
                 raise NotFound("a location of the service is missing")
-            location["status"] = "active"
+            location["status"] = "active" if active else "inactive"
             await self._put_with_current(location)
         for reference in _references(service, "providedBy"):
             organisation = await self._store.get(*_split(reference))
             if organisation is None:
                 raise NotFound("the organisation of the service is missing")
-            organisation["active"] = True
+            organisation["active"] = active
             await self._put_with_current(organisation)
 
     async def _put_with_current(self, resource: dict[str, Any]) -> None:

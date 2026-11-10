@@ -3,9 +3,10 @@
 import { useEffect, useId, useState } from 'react';
 import { OwnScopeHeader } from '@/components/scope/OwnScopeHeader';
 import { PageHeader } from '@/components/shell/PageHeader';
+import { ConfirmDialog } from '@/components/blocks/ConfirmDialog';
 import { Button } from '@/components/ui/Button';
 import { Loading, SkeletonRows } from '@/components/ui/Skeleton';
-import { leadRead } from '@/lib/lead/browser';
+import { leadPost, leadRead } from '@/lib/lead/browser';
 import { listOf, textOf } from '@/lib/lead/answers';
 import { agoText } from '@/lib/lead/format';
 import styles from './PhonesList.module.css';
@@ -53,8 +54,27 @@ function isFlagged(phone: PhoneRow): boolean {
   return phone.services.length > FLAG_ABOVE;
 }
 
-function PhoneItem({ phone, now }: { phone: PhoneRow; now: number }) {
+function PhoneItem({ phone, now, onRetired }: { phone: PhoneRow; now: number; onRetired: (serviceId: string) => void }) {
   const [open, setOpen] = useState(false);
+  const [retiring, setRetiring] = useState<{ id: string; name: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<string | undefined>(undefined);
+
+  async function retire() {
+    if (retiring === null || busy) return;
+    setBusy(true);
+    setFailure(undefined);
+    const result = await leadPost(`/api/bff/lead/services/${encodeURIComponent(retiring.id)}/retire`);
+    setBusy(false);
+    if (!result.ok) {
+      setFailure(result.status === 403 ? 'You cannot retire a service.' : 'The service could not be retired. Try again.');
+      return;
+    }
+    const id = retiring.id;
+    setRetiring(null);
+    onRetired(id);
+  }
+
   const panelId = useId();
   const flagged = isFlagged(phone);
   return (
@@ -99,6 +119,17 @@ function PhoneItem({ phone, now }: { phone: PhoneRow; now: number }) {
                     <Button variant="neutral" href={`/lead/coverage/${service}`} dataEl="LEAD-PHONES-COVERAGE-BTN">
                       Edit the coverage area
                     </Button>
+                    <Button
+                      variant="neutral"
+                      ariaLabel={`Retire ${s.name}`}
+                      onClick={() => {
+                        setFailure(undefined);
+                        setRetiring({ id: s.id, name: s.name });
+                      }}
+                      dataEl="LEAD-PHONES-RETIRE-BTN"
+                    >
+                      Retire this service
+                    </Button>
                   </div>
                 </section>
               );
@@ -115,6 +146,21 @@ function PhoneItem({ phone, now }: { phone: PhoneRow; now: number }) {
           </div>
         </div>
       </div>
+      {retiring === null ? null : (
+        <ConfirmDialog
+          title={`Retire ${retiring.name}?`}
+          confirmLabel="Retire service"
+          cancelLabel="Keep service"
+          busy={busy}
+          error={failure}
+          onConfirm={() => void retire()}
+          onCancel={() => setRetiring(null)}
+          dataEl="LEAD-PHONES-RETIRE-CONFIRM"
+        >
+          <p>It leaves the board, the options and this list, and any open requests to it expire. Its past reports and requests stay in the record.</p>
+          <p>This cannot be undone here. To pause it for a while instead, suspend it.</p>
+        </ConfirmDialog>
+      )}
     </li>
   );
 }
@@ -139,6 +185,16 @@ export function PhonesList() {
       cancelled = true;
     };
   }, []);
+
+  function retired(serviceId: string) {
+    setPhones((current) =>
+      current === null
+        ? current
+        : current
+            .map((phone) => ({ ...phone, services: phone.services.filter((s) => s.id !== serviceId) }))
+            .filter((phone) => phone.services.length > 0),
+    );
+  }
 
   const serviceCount = phones?.reduce((total, phone) => total + phone.services.length, 0) ?? 0;
   const flaggedCount = phones?.filter(isFlagged).length ?? 0;
@@ -195,7 +251,7 @@ export function PhonesList() {
             </div>
             <ul className={styles.list} aria-label="Phones and the services they report for">
               {phones.map((phone) => (
-                <PhoneItem key={phone.phoneEnding} phone={phone} now={now} />
+                <PhoneItem key={phone.phoneEnding} phone={phone} now={now} onRetired={retired} />
               ))}
             </ul>
           </>

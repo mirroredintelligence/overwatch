@@ -89,6 +89,7 @@ from overwatch.application.use_cases.resolve_report_flag import (
     ResolveReportFlag,
     ResolveReportFlagCommand,
 )
+from overwatch.application.use_cases.retire_service import RetireService, RetireServiceCommand
 from overwatch.application.use_cases.suspend_service import (
     ResumeService,
     ResumeServiceCommand,
@@ -273,6 +274,31 @@ async def resume_service(
         )
 
     return await replay_or_run(request, actor, f"resume:{service_id}:{key}", run)
+
+
+@router.post("/fhir/HealthcareService/{service_id}/$retire")
+async def retire_service(
+    service_id: str,
+    request: Request,
+    actor: Annotated[Actor, Depends(require_role(*LEAD))],
+) -> Response:
+    """Take a service out of use for good (DEC-1356). Lead only; nothing is deleted."""
+    key = idempotency_key(request)
+    container = _container(request)
+
+    async def run() -> Response:
+        result = await RetireService(container.uow_factory, container.clock).execute(
+            RetireServiceCommand(idempotency_key=key, actor=actor, service_id=service_id)
+        )
+        return FhirJSONResponse(
+            content={
+                "resourceType": PARAMETERS,
+                "parameter": [{"name": "expiredRequests", "valueInteger": result.expired_requests}],
+            },
+            headers=NO_STORE,
+        )
+
+    return await replay_or_run(request, actor, f"retire:{service_id}:{key}", run)
 
 
 @router.post("/fhir/HealthcareService/{service_id}/$move")

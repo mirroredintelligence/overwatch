@@ -104,7 +104,7 @@ export function parseOverview(value: unknown): LeadOverview {
   };
 }
 
-function pressureList(raw: unknown): PressureItem[] {
+export function pressureList(raw: unknown): PressureItem[] {
   return list(raw).map((item) => {
     if (!isObject(item)) throw new LeadParseError();
     const status = STATUSES.find((s) => s === item.status);
@@ -119,7 +119,7 @@ function pressureList(raw: unknown): PressureItem[] {
   });
 }
 
-function underusedList(raw: unknown): UnderutilisedItem[] {
+export function underusedList(raw: unknown): UnderutilisedItem[] {
   return list(raw).map((item) => {
     if (!isObject(item)) throw new LeadParseError();
     return {

@@ -1,4 +1,4 @@
-"""The service detail page's read (DEC-1366): GET /clinical/services/{id}/detail, in-process on the
+"""The service detail page's read (DEC-1367): GET /clinical/services/{id}/detail, in-process on the
 lead world of the test rig. No Neo4j, no network.
 
 The page is for the advisor, Advisor v2 and the Analytics User. It names the service's own number

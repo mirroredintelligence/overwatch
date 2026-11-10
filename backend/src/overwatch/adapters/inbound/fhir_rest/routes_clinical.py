@@ -347,7 +347,7 @@ async def service_detail(
     request: Request,
     actor: Annotated[Actor, Depends(require_role(*DETAIL_READERS))],
 ) -> Response:
-    """What the one service detail page shows (DEC-1366): the service's figures and reporting, its
+    """What the one service detail page shows (DEC-1367): the service's figures and reporting, its
     own contact number, opening hours, criteria and the districts it covers. Never a person's email
     or mobile; what is not held is null or empty."""
     container = _container(request)

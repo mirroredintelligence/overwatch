@@ -1,4 +1,4 @@
-# DEC-1366 The service detail page: evidence
+# DEC-1367 The service detail page: evidence
 
 Branch `claude/angry-einstein-bae342` (not merged, not pushed). It sits on top of the roles branch (`claude/roles-analytics-advisor-v2-a6a327`, DEC-1362) because the page needs those roles and the guard: merge the roles branch first. The red commit is `8d599806` (tests only); the green commits follow it.
 

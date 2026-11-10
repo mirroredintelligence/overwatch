@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { server } from '@/test/msw/server';
 import Page from './page';
 
-// The Analytics User's service detail page (DEC-1366): the shared page, linking back to the overview.
+// The Analytics User's service detail page (DEC-1367): the shared page, linking back to the overview.
 describe('the analytics service detail page', () => {
   it('shows the service and links back to the overview', async () => {
     server.use(

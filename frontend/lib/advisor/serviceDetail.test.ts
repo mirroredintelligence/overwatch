@@ -8,7 +8,7 @@ import {
   parseServiceDetail,
 } from './serviceDetail';
 
-// The read behind the service detail page (DEC-1366): parsed strictly, so a malformed answer is an error and never a
+// The read behind the service detail page (DEC-1367): parsed strictly, so a malformed answer is an error and never a
 // drawn guess; a number or a time that is not held stays null and is never made up.
 
 const ANSWER = {

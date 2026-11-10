@@ -19,7 +19,7 @@ import {
 import { categoryLabel } from '@/lib/board/format';
 import styles from './ServiceDetail.module.css';
 
-// The one service detail page (DEC-1366), mounted at /analytics/services/[id] (Analytics User) and
+// The one service detail page (DEC-1367), mounted at /analytics/services/[id] (Analytics User) and
 // /advisor/v2/services/[id] (Advisor and Advisor v2). Its order: name, group, districts and status; the capacity as
 // "n / normal", or "Current capacity unavailable" with the last figure small when it is late or old (DEC-1343); the
 // day chart, broken where the capacity was unknown; the reporting strip; the contact, what it potentially accepts and

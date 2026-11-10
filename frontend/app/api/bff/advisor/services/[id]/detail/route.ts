@@ -3,7 +3,7 @@ import { fhirFetch } from '@/lib/fhir/client';
 import { parseServiceDetail } from '@/lib/advisor/serviceDetail';
 import { routeId } from '@/lib/lead/bffInput';
 
-// What the one service detail page shows (DEC-1366): the service's figures and reporting, its own contact number, opening
+// What the one service detail page shows (DEC-1367): the service's figures and reporting, its own contact number, opening
 // hours, criteria and the districts it covers. The back end answers at its root; the answer is checked against the
 // shape the page knows before it is passed on, so a malformed answer is an error and never a drawn guess. Advisor,
 // Advisor v2 and Analytics User. The id is a service of the session's own tenant (DEC-130).

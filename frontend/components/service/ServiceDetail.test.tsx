@@ -6,7 +6,7 @@ import { runAxe } from '@/test/a11y';
 import { server } from '@/test/msw/server';
 import { ServiceDetail } from './ServiceDetail';
 
-// The one service detail page (DEC-1366), shared by the Analytics User and the advisor pages: name, group, districts and
+// The one service detail page (DEC-1367), shared by the Analytics User and the advisor pages: name, group, districts and
 // status; the capacity as "n / normal" or "Current capacity unavailable"; the day chart; the reporting strip; the
 // service's contact; the criteria; the catchment. A person's email or mobile is never shown, and a field the system
 // does not hold is left out, not invented.

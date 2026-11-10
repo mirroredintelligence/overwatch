@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { server } from '@/test/msw/server';
 import Page from './page';
 
-// The advisor's service detail page (DEC-1366): the shared page, linking back to the finder.
+// The advisor's service detail page (DEC-1367): the shared page, linking back to the finder.
 describe('the advisor v2 service detail page', () => {
   it('shows the service and links back to the finder', async () => {
     server.use(

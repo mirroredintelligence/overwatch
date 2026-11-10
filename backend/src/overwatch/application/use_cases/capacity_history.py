@@ -9,7 +9,7 @@ report followed by a long silence is drawn only as far as that limit, and nothin
 until the next report.
 
 Read-only, for the advisor, the clinical advisor, the shift lead and the readers of the service
-detail page (Advisor v2, the Analytics User, DEC-1366), in the bound tenant. A service
+detail page (Advisor v2, the Analytics User, DEC-1367), in the bound tenant. A service
 of another tenant, or none, is NotFound.
 """
 
@@ -28,7 +28,7 @@ from overwatch.domain.rules.london_time import LONDON
 from overwatch.domain.rules.status import compute_status
 
 READERS: Final = frozenset({Role.ADVISOR, Role.CLINICAL, Role.LEAD}) | DETAIL_READERS
-"""Also the readers of the service detail page, whose day chart this is (DEC-1366)."""
+"""Also the readers of the service detail page, whose day chart this is (DEC-1367)."""
 DEFAULT_HOURS: Final = 24
 MAX_HOURS: Final = 72
 

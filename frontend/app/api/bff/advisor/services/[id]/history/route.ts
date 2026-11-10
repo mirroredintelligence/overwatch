@@ -5,7 +5,7 @@ import { routeId } from '@/lib/lead/bffInput';
 
 // What a service reported over the last day, for the day chart (DEC-1343). The back end answers at its root; the answer
 // is checked against the shape the chart knows before it is passed on, so a malformed answer is an error and never a
-// drawn guess. Advisor, Advisor v2, Analytics User (DEC-1366), clinical advisor and shift lead. The id is a service of the session's own tenant (DEC-130).
+// drawn guess. Advisor, Advisor v2, Analytics User (DEC-1367), clinical advisor and shift lead. The id is a service of the session's own tenant (DEC-130).
 
 type Context = { params: Promise<Record<string, string>> };
 

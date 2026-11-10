@@ -2,7 +2,7 @@ import { STATUS_LABELS, type StatusCode } from '@/components/ui/StatusBadge';
 import { NEEDS } from './codes';
 import { PHONE_PATTERN, STALE_AFTER_SECONDS, type OptionView } from './options';
 
-// The read behind the one service detail page (DEC-1366), as the browser holds it. Pure. The back end's answer is
+// The read behind the one service detail page (DEC-1367), as the browser holds it. Pure. The back end's answer is
 // checked field by field, so a malformed answer is an error and never a drawn guess. Only the fields named here are
 // kept: a person's email or mobile is not part of the answer and could not be shown if it were sent. What the system
 // does not hold is null (or an empty list for districts) and the page leaves it out; nothing is made up.

@@ -1,4 +1,4 @@
-"""ReadServiceDetail: what the one service detail page shows (DEC-1366).
+"""ReadServiceDetail: what the one service detail page shows (DEC-1367).
 
 The page is the same for the Analytics User and for the advisor pages (Advisor, Advisor v2): the
 service's name and group, how its capacity stands, when it reports, the number to phone it, when it
@@ -27,7 +27,7 @@ from overwatch.domain.codes import Role
 from overwatch.domain.errors import NotAllowed, NotFound
 
 READERS: Final = frozenset({Role.ADVISOR, Role.ADVISOR_V2, Role.ANALYTICS_USER})
-"""Who reads a service's detail, and (DEC-1366) the day chart of the same page. The shift lead and
+"""Who reads a service's detail, and (DEC-1367) the day chart of the same page. The shift lead and
 the clinical advisor have their own pages and are not named here."""
 
 

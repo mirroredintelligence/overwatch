@@ -1,4 +1,4 @@
-"""ReadServiceDetail against real Neo4j (DEC-1366, DEC-130 to DEC-132).
+"""ReadServiceDetail against real Neo4j (DEC-1367, DEC-130 to DEC-132).
 
 The services, criteria and reports are those of test_filter_options.py. The Analytics User, Advisor
 v2 and the advisor read a service of their own tenant; another tenant's service is NotFound, the

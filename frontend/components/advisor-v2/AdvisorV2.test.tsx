@@ -42,6 +42,7 @@ function found(over: Record<string, unknown>) {
 const FIND_ANSWER = {
   generatedAt: '2026-11-10T14:00:00Z',
   notFound: false,
+  groupTotals: { 'urgent-community-response': 5, 'inpatient-beds': 2 },
   services: [
     found({ serviceId: 'svc-z', name: 'Zed Team' }),
     found({ serviceId: 'svc-b', name: 'Beta Team', status: 'not-accepting', effectiveAvailable: 0, lastFigure: 0, travel: { low: 20, high: 25, source: 'x' } }),
@@ -129,7 +130,8 @@ describe('FindService', () => {
       expect.stringContaining('Inpatient beds'),
       expect.stringContaining('Urgent community response'),
     ]);
-    expect(within(groups[1]!).getByText('3')).toBeInTheDocument();
+    expect(within(groups[1]!).getByText('3 of 5 services')).toBeInTheDocument();
+    expect(within(groups[0]!).getByText('1 of 2 services')).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('2 service groups · 4 services');
   });
 

@@ -74,6 +74,12 @@ describe('parseFind', () => {
     expect(parseFind(answer(service()))?.services[0]?.phone).toBe('01305 000000');
   });
 
+  it('reads how many services each group has in all, and drops a count that is not a whole number', () => {
+    const read = parseFind({ ...answer(service()), groupTotals: { 'urgent-community-response': 4, bad: 'x', neg: -1 } });
+    expect(read?.groupTotals).toEqual({ 'urgent-community-response': 4 });
+    expect(parseFind(answer(service()))?.groupTotals).toEqual({});
+  });
+
   it('says when the postcode could not be placed', () => {
     expect(parseFind({ ...answer(service()), notFound: true })?.notFound).toBe(true);
   });

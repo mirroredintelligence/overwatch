@@ -1,0 +1,150 @@
+/* The find-a-service canvas inside the workspace frame (WS-ADV). Tokens only; touch targets 44px or more. */
+
+.canvas {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+  background: var(--c-bg);
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: var(--type-title-weight);
+  letter-spacing: var(--type-title-tracking);
+  color: var(--c-ink);
+}
+
+.note {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-muted);
+}
+
+.failed {
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-chip);
+  background: var(--c-amber-tint);
+  color: var(--c-ink);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.orderSeg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.seg {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-chip);
+  background: var(--c-bg);
+  color: var(--c-ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.seg[aria-pressed='true'] {
+  border-color: var(--c-primary);
+  background: var(--c-tint);
+  color: var(--c-primary-dark);
+}
+
+.returnButton {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: 0;
+  background: none;
+  color: var(--c-ink);
+  font: inherit;
+  font-size: var(--type-title-size);
+  font-weight: var(--type-title-weight);
+  text-align: left;
+  cursor: pointer;
+}
+
+.groupCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 52px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+  background: var(--c-bg);
+  color: var(--c-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.groupName {
+  font-weight: var(--type-label-weight);
+}
+
+.pill {
+  flex: none;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-chip);
+  background: var(--c-tint);
+  color: var(--c-primary-dark);
+  font-size: var(--type-caption-size);
+  white-space: nowrap;
+}
+
+.postcode {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.label {
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-lh);
+  font-weight: var(--type-label-weight);
+  letter-spacing: var(--type-label-tracking);
+  color: var(--c-ink-2);
+}
+
+.help {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-muted);
+}
+
+.seg:focus-visible,
+.returnButton:focus-visible,
+.groupCard:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 2px;
+}

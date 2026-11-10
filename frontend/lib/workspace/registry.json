@@ -1,0 +1,174 @@
+{
+  "version": 1,
+  "livePhase": 2,
+  "phases": {
+    "1": "Advisor find workspace on the existing finder data: intake, results (groups then services), service detail.",
+    "2": "Overview workspace on /analytics (aggregate data that exists today).",
+    "3": "Go-to intents for the hub roles (navigation only).",
+    "4": "Needs data /advisor-v2/find does not return today: service positions and coverage areas (map), and the not-suitable list with reasons. Back end first."
+  },
+  "about": "Single source of truth for who may open which assistant intent. An intent may carry sessionRoles, which narrows it to those session roles (never widens it). Runtime copy: frontend/lib/workspace/registry.json (identical; a test asserts it). An intent is never offered unless the route guard (frontend/lib/auth/access.ts rolesFor) also lets that session role open its route: test WSP-01 checks this for every intent and every session role.",
+  "dataClasses": {
+    "patient": "May show a case, a patient need, a postcode district or an outcome.",
+    "aggregate": "Counts and percentages by service, area and group. Never a case, patient, postcode or outcome.",
+    "none": "No clinical data."
+  },
+  "flags": ["clinicalSignOff", "peopleAndPhones", "planningAndAlerts", "ownCriteria", "auditReplay"],
+  "personas": {
+    "advisor": { "label": "Advisor", "dataClass": "patient" },
+    "overview": { "label": "Overview", "dataClass": "aggregate" },
+    "manager": { "label": "Manager", "dataClass": "aggregate" },
+    "reporter": { "label": "Reporter", "dataClass": "none" },
+    "admin": { "label": "Admin", "dataClass": "none" },
+    "platform": { "label": "Platform", "dataClass": "none" },
+    "display": { "label": "Display", "dataClass": "aggregate" }
+  },
+  "adapter": [
+    { "sessionRole": "advisor", "persona": "advisor", "flags": [], "workspace": true },
+    { "sessionRole": "advisor-v2", "persona": "advisor", "flags": [], "workspace": true },
+    { "sessionRole": "clinical", "persona": "advisor", "flags": ["clinicalSignOff"], "workspace": false },
+    { "sessionRole": "analytics-user", "persona": "overview", "flags": [], "workspace": true },
+    { "sessionRole": "lead", "persona": "manager", "flags": ["peopleAndPhones", "planningAndAlerts", "auditReplay"], "workspace": false },
+    { "sessionRole": "exec", "persona": "manager", "flags": ["planningAndAlerts"], "workspace": false },
+    { "sessionRole": "owner", "persona": "manager", "flags": ["ownCriteria"], "workspace": false },
+    { "sessionRole": "audit", "persona": "manager", "flags": ["auditReplay"], "workspace": false },
+    { "sessionRole": "reporter", "persona": "reporter", "flags": [], "workspace": false },
+    { "sessionRole": "tenant-admin", "persona": "admin", "flags": [], "workspace": false },
+    { "sessionRole": "network-admin", "persona": "admin", "flags": [], "workspace": false },
+    { "sessionRole": "support", "persona": "platform", "flags": [], "workspace": false },
+    { "sessionRole": "wall", "persona": "display", "flags": [], "workspace": false },
+    { "sessionRole": "anonymous-link", "persona": "display", "flags": [], "workspace": false }
+  ],
+  "layouts": {
+    "intake": { "widgets": ["criteria-summary", "services-panel"] },
+    "list": { "widgets": ["results-header", "group-cards", "service-rows"] },
+    "list-map": { "widgets": ["service-rows-narrow", "service-map"] },
+    "detail": { "widgets": ["service-detail"] },
+    "reasons": { "widgets": ["reasons-list"] },
+    "overview-home": { "widgets": ["analytics-overview"] },
+    "attention": { "widgets": ["attention-list"] },
+    "area": { "widgets": ["area-detail"] }
+  },
+  "intents": [
+    {
+      "id": "advisor.intake.age", "label": "Find a service", "kind": "view", "phase": 1,
+      "personas": ["advisor"], "requires": null, "dataClass": "patient",
+      "route": "/advisor/v2", "params": { "mode": "find", "view": "find", "step": "age" },
+      "layout": "intake"
+    },
+    {
+      "id": "advisor.intake.need", "label": "Need and timeframe", "kind": "view", "phase": 1,
+      "personas": ["advisor"], "requires": null, "dataClass": "patient",
+      "route": "/advisor/v2", "params": { "mode": "find", "view": "find", "step": "need" },
+      "layout": "intake"
+    },
+    {
+      "id": "advisor.results", "label": "Results", "kind": "view", "phase": 1,
+      "personas": ["advisor"], "requires": null, "dataClass": "patient",
+      "route": "/advisor/v2", "params": { "mode": "find", "view": "list" },
+      "layout": "list"
+    },
+    {
+      "id": "advisor.map", "label": "List and map", "kind": "view", "phase": 4,
+      "personas": ["advisor"], "requires": null, "dataClass": "patient",
+      "route": "/advisor/v2", "params": { "mode": "find", "view": "map" },
+      "layout": "list-map"
+    },
+    {
+      "id": "advisor.reasons", "label": "Not suitable, and why", "kind": "view", "phase": 4,
+      "personas": ["advisor"], "requires": null, "dataClass": "patient",
+      "route": "/advisor/v2", "params": { "mode": "find", "view": "why" },
+      "layout": "reasons"
+    },
+    {
+      "id": "advisor.service", "label": "Service detail", "kind": "view", "phase": 1,
+      "personas": ["advisor"], "requires": null, "dataClass": "patient",
+      "route": "/advisor/v2/services/[id]", "params": {},
+      "layout": "detail"
+    },
+    {
+      "id": "advisor.new-search", "label": "New search", "kind": "action", "phase": 1,
+      "personas": ["advisor"], "requires": null, "dataClass": "patient",
+      "route": "/advisor/v2", "params": { "mode": "find", "view": "find", "step": "age" },
+      "layout": "intake"
+    },
+    {
+      "id": "overview.home", "label": "Overview", "kind": "view", "phase": 2,
+      "personas": ["overview"], "requires": null, "dataClass": "aggregate",
+      "route": "/analytics", "params": { "view": "home" },
+      "layout": "overview-home"
+    },
+    {
+      "id": "overview.attention", "label": "What needs attention?", "kind": "view", "phase": 2,
+      "personas": ["overview"], "requires": null, "dataClass": "aggregate",
+      "route": "/analytics", "params": { "view": "attention" },
+      "layout": "attention"
+    },
+    {
+      "id": "overview.area", "label": "One area", "kind": "view", "phase": 2,
+      "personas": ["overview"], "requires": null, "dataClass": "aggregate",
+      "route": "/analytics", "params": { "view": "area" },
+      "layout": "area"
+    },
+    {
+      "id": "go.people-and-phones", "label": "People and phones", "kind": "nav", "phase": 3,
+      "personas": ["manager"], "requires": "peopleAndPhones", "dataClass": "none",
+      "route": "/lead/reporters", "params": {}, "layout": null
+    },
+    {
+      "id": "go.planning", "label": "Planning and alerts", "kind": "nav", "phase": 3,
+      "personas": ["manager"], "requires": "planningAndAlerts", "dataClass": "none",
+      "route": "/planning", "params": {}, "layout": null
+    },
+    {
+      "id": "go.criteria", "label": "Criteria", "kind": "nav", "phase": 3,
+      "personas": ["manager"], "requires": "ownCriteria", "dataClass": "none",
+      "route": "/criteria", "params": {}, "layout": null
+    },
+    {
+      "id": "go.audit-replay", "label": "Audit replay", "kind": "nav", "phase": 3,
+      "personas": ["manager"], "requires": "auditReplay", "sessionRoles": ["lead"], "dataClass": "patient",
+      "route": "/lead/audit", "params": {}, "layout": null
+    },
+    {
+      "id": "go.admin.access", "label": "Access: groups to roles", "kind": "nav", "phase": 3,
+      "personas": ["admin"], "requires": null, "sessionRoles": ["tenant-admin"], "dataClass": "none",
+      "route": "/admin/access", "params": {}, "layout": null
+    },
+    {
+      "id": "go.admin.users", "label": "Users", "kind": "nav", "phase": 3,
+      "personas": ["admin"], "requires": null, "sessionRoles": ["tenant-admin"], "dataClass": "none",
+      "route": "/admin/users", "params": {}, "layout": null
+    },
+    {
+      "id": "go.admin.config", "label": "Configuration", "kind": "nav", "phase": 3,
+      "personas": ["admin"], "requires": null, "sessionRoles": ["tenant-admin"], "dataClass": "none",
+      "route": "/admin/config", "params": {}, "layout": null
+    },
+    {
+      "id": "go.admin.contacts", "label": "Contacts", "kind": "nav", "phase": 3,
+      "personas": ["admin"], "requires": null, "sessionRoles": ["tenant-admin"], "dataClass": "none",
+      "route": "/admin/contacts", "params": {}, "layout": null
+    },
+    {
+      "id": "go.admin.email", "label": "Email", "kind": "nav", "phase": 3,
+      "personas": ["admin"], "requires": null, "sessionRoles": ["tenant-admin"], "dataClass": "none",
+      "route": "/admin/email", "params": {}, "layout": null
+    },
+    {
+      "id": "go.admin.retention", "label": "Data retention", "kind": "nav", "phase": 3,
+      "personas": ["admin"], "requires": null, "sessionRoles": ["tenant-admin"], "dataClass": "none",
+      "route": "/admin/retention", "params": {}, "layout": null
+    },
+    {
+      "id": "go.admin.sharing", "label": "Sharing", "kind": "nav", "phase": 3,
+      "personas": ["admin"], "requires": null, "sessionRoles": ["tenant-admin"], "dataClass": "none",
+      "route": "/admin/sharing", "params": {}, "layout": null
+    },
+    {
+      "id": "go.admin.support", "label": "Support access", "kind": "nav", "phase": 3,
+      "personas": ["admin"], "requires": null, "sessionRoles": ["tenant-admin"], "dataClass": "none",
+      "route": "/admin/support", "params": {}, "layout": null
+    }
+  ]
+}

@@ -1,0 +1,198 @@
+{
+  "version": 1,
+  "about": "The assistant's fixed dialog. No model: every line is a template, every chip is an intent id from registry.json. Runtime copy: frontend/lib/workspace/dialog.json (identical; a test asserts it). The 'examples' table is the test table for lib/workspace/dialog.ts.",
+  "grammar": {
+    "template": "Replace {name} with String(context[name]) or, when context has no such key, the derived value of that name. A name with neither throws Error('dialog: missing {name}'). No other syntax.",
+    "when": "An object; every key must hold. A key holds when: its value is a literal and context[key] === literal; or its value is {\"gt\": n} and typeof context[key] === 'number' and context[key] > n; or its value is {\"present\": true} and context[key] is a non-empty string; or {\"present\": false} and it is not. A missing key never holds, except {\"present\": false}. An empty object always holds.",
+    "tab": "For overview.attention the context's 'tab' is the effective tab: the requested tab, except that when the requested tab holds no services and the other tab does, the other tab (so the reply and the screen agree).",
+    "variants": "The first variant whose 'when' holds supplies the reply. The last variant of every turn has an empty 'when'.",
+    "chips": "A chip is shown only when its 'when' holds (no 'when' means always). Chips keep their order. 'params' are merged into the target intent's URL parameters. The renderer returns every chip whose 'when' holds; the thread hook then drops a chip whose target intent is not offered to this session (registry canOpen, which includes the phase), so a chip never points at a screen that does not exist.",
+    "echo": "renderTurn(intentId, context, { withEcho }) computes the echo only when withEcho is true, and returns echo null otherwise. The thread hook passes withEcho true only when the turn is added after another turn in the same page visit, so a reload never needs an echo's placeholders."
+  },
+  "derived": {
+    "services": { "from": "count", "one": "service", "other": "services" },
+    "meets": { "from": "count", "one": "meets", "other": "meet" },
+    "notSuitableWas": { "from": "notSuitable", "one": "was", "other": "were" },
+    "notSuitableServices": { "from": "notSuitable", "one": "service", "other": "services" },
+    "totalServices": { "from": "total", "one": "service", "other": "services" },
+    "areasWord": { "from": "areaCount", "one": "area", "other": "areas" },
+    "attentionServices": { "from": "attentionTotal", "one": "service", "other": "services" },
+    "needVerb": { "from": "attentionTotal", "one": "needs", "other": "need" },
+    "areaServices": { "from": "areaCount", "one": "service", "other": "services" }
+  },
+  "turns": {
+    "advisor.intake.age": {
+      "echo": null, "card": "triage-card:age", "summaryBox": false,
+      "variants": [{ "when": {}, "reply": "Let's find a service for your patient. Two short steps, then I will show who can take them." }],
+      "chips": []
+    },
+    "advisor.intake.need": {
+      "echo": "{age} · {district}", "card": "triage-card:need", "summaryBox": false,
+      "variants": [{ "when": {}, "reply": "What does the patient need, and by when?" }],
+      "chips": []
+    },
+    "advisor.results": {
+      "echo": null, "card": null, "summaryBox": true,
+      "variants": [
+        { "when": { "failed": true }, "reply": "The services could not be searched. Change a choice to try again, or phone the services." },
+        { "when": { "count": 0 }, "reply": "No service takes this patient on its criteria. Phone to confirm, or change the criteria." },
+        { "when": { "postcodeNotPlaced": true }, "reply": "{count} {services} {meets} this patient's criteria. The postcode could not be placed, so there is no travel time and services are listed by name." },
+        { "when": { "order": "name" }, "reply": "{count} {services} {meets} this patient's criteria, listed by name. Not ranked." },
+        { "when": { "notSuitable": { "gt": 0 } }, "reply": "{count} {services} {meets} this patient's criteria, sorted by travel time. Not ranked. {notSuitable} {notSuitableWas} not suitable, and I can say why." },
+        { "when": {}, "reply": "{count} {services} {meets} this patient's criteria, sorted by travel time. Not ranked." }
+      ],
+      "chips": [
+        { "label": "List and map", "intent": "advisor.map", "when": { "count": { "gt": 0 } } },
+        { "label": "Why {notSuitableWas} {notSuitable} not suitable?", "intent": "advisor.reasons", "when": { "notSuitable": { "gt": 0 } } },
+        { "label": "List by name", "intent": "advisor.results", "params": { "order": "name" }, "when": { "order": "travel", "count": { "gt": 0 } } },
+        { "label": "List by travel time", "intent": "advisor.results", "params": { "order": "travel" }, "when": { "order": "name", "count": { "gt": 0 } } }
+      ]
+    },
+    "advisor.map": {
+      "echo": "List and map", "card": null, "summaryBox": false,
+      "variants": [{ "when": {}, "reply": "Here is the map. Visiting services show the area they cover; sites show where they are. Tap a service to open it, or ask:" }],
+      "chips": [
+        { "label": "Why {notSuitableWas} {notSuitable} not suitable?", "intent": "advisor.reasons", "when": { "notSuitable": { "gt": 0 } } },
+        { "label": "Back to the list", "intent": "advisor.results" }
+      ]
+    },
+    "advisor.service": {
+      "echo": "Open {serviceName}", "card": null, "summaryBox": false,
+      "variants": [
+        { "when": { "serviceName": { "present": false } }, "reply": "Here is the service. If the call allows, check that its figure is current." },
+        { "when": { "noReport": true }, "reply": "Here is {serviceName}. It has not reported yet." },
+        { "when": { "stale": true }, "reply": "Here is {serviceName}. Its figure is out of date: last updated {updated}. Check with the service before you rely on it." },
+        { "when": {}, "reply": "Here is {serviceName}. Last updated {updated}. If the call allows, check that it is current." }
+      ],
+      "chips": [
+        { "label": "See it on the map", "intent": "advisor.map" },
+        { "label": "Why {notSuitableWas} {notSuitable} not suitable?", "intent": "advisor.reasons", "when": { "notSuitable": { "gt": 0 } } },
+        { "label": "Back to results", "intent": "advisor.results" }
+      ]
+    },
+    "advisor.reasons": {
+      "echo": "Why {notSuitableWas} {notSuitable} not suitable?", "card": null, "summaryBox": false,
+      "variants": [{ "when": {}, "reply": "{notSuitable} {notSuitableServices} {notSuitableWas} not suitable for this patient. Each has its reason, and nothing is hidden." }],
+      "chips": [
+        { "label": "Back to the {count} suitable {services}", "intent": "advisor.results", "when": { "count": { "gt": 0 } } },
+        { "label": "Back to the results", "intent": "advisor.results", "when": { "count": 0 } }
+      ]
+    },
+    "advisor.new-search": null,
+    "overview.home": {
+      "echo": null, "card": null, "summaryBox": false,
+      "variants": [
+        { "when": { "areaCount": { "gt": 0 } }, "reply": "Showing the {organisation} overview: {total} {totalServices} in {areaCount} {areasWord}. What would you like to look at?" },
+        { "when": {}, "reply": "Showing the {organisation} overview: {total} {totalServices}. What would you like to look at?" }
+      ],
+      "chips": [
+        { "label": "Show {topAttentionArea}", "intent": "overview.area", "when": { "topAttentionArea": { "present": true } } },
+        { "label": "What needs attention?", "intent": "overview.attention", "when": { "attentionTotal": { "gt": 0 } } }
+      ]
+    },
+    "overview.attention": {
+      "echo": "What needs attention?", "card": null, "summaryBox": false,
+      "variants": [
+        { "when": { "attentionTotal": 0 }, "reply": "Nothing needs attention right now." },
+        { "when": { "tab": "under" }, "reply": "{attentionTotal} {attentionServices} {needVerb} attention: {pressure} under pressure and {under} underutilised. Showing the {under} underutilised first." },
+        { "when": {}, "reply": "{attentionTotal} {attentionServices} {needVerb} attention: {pressure} under pressure and {under} underutilised. Showing the {pressure} under pressure first." }
+      ],
+      "chips": [
+        { "label": "Show the underutilised", "intent": "overview.attention", "params": { "tab": "under" }, "when": { "tab": "pressure", "under": { "gt": 0 } } },
+        { "label": "Show those under pressure", "intent": "overview.attention", "params": { "tab": "pressure" }, "when": { "tab": "under", "pressure": { "gt": 0 } } },
+        { "label": "Show {topAttentionArea}", "intent": "overview.area", "when": { "topAttentionArea": { "present": true } } },
+        { "label": "Back to the overview", "intent": "overview.home" }
+      ]
+    },
+    "overview.area": {
+      "echo": "Show {areaName}", "card": null, "summaryBox": false,
+      "variants": [
+        { "when": { "firstAttention": { "present": true } }, "reply": "{areaName} has {areaCount} {areaServices}: {counts}. {firstAttention} needs attention first." },
+        { "when": {}, "reply": "{areaName} has {areaCount} {areaServices}: {counts}." }
+      ],
+      "chips": [
+        { "label": "What needs attention?", "intent": "overview.attention", "when": { "attentionTotal": { "gt": 0 } } },
+        { "label": "Back to the overview", "intent": "overview.home" }
+      ]
+    }
+  },
+  "examples": [
+    { "id": "D01", "intent": "advisor.intake.age", "context": {}, "echo": null,
+      "reply": "Let's find a service for your patient. Two short steps, then I will show who can take them.", "chips": [], "chipIntents": [] },
+    { "id": "D02", "intent": "advisor.intake.need", "context": { "age": "65 to 79", "district": "DT4" }, "echo": "65 to 79 · DT4",
+      "reply": "What does the patient need, and by when?", "chips": [], "chipIntents": [] },
+    { "id": "D03", "intent": "advisor.results", "context": { "count": 7, "notSuitable": 3 }, "echo": null,
+      "reply": "7 services meet this patient's criteria, sorted by travel time. Not ranked. 3 were not suitable, and I can say why.",
+      "chips": ["List and map", "Why were 3 not suitable?"], "chipIntents": ["advisor.map", "advisor.reasons"] },
+    { "id": "D04", "intent": "advisor.results", "context": { "count": 1, "notSuitable": 0 }, "echo": null,
+      "reply": "1 service meets this patient's criteria, sorted by travel time. Not ranked.",
+      "chips": ["List and map"], "chipIntents": ["advisor.map"] },
+    { "id": "D05", "intent": "advisor.results", "context": { "count": 1, "notSuitable": 1 }, "echo": null,
+      "reply": "1 service meets this patient's criteria, sorted by travel time. Not ranked. 1 was not suitable, and I can say why.",
+      "chips": ["List and map", "Why was 1 not suitable?"], "chipIntents": ["advisor.map", "advisor.reasons"] },
+    { "id": "D06", "intent": "advisor.results", "context": { "count": 0, "notSuitable": 2 }, "echo": null,
+      "reply": "No service takes this patient on its criteria. Phone to confirm, or change the criteria.",
+      "chips": ["Why were 2 not suitable?"], "chipIntents": ["advisor.reasons"] },
+    { "id": "D07", "intent": "advisor.results", "context": { "count": 0, "notSuitable": 0 }, "echo": null,
+      "reply": "No service takes this patient on its criteria. Phone to confirm, or change the criteria.", "chips": [], "chipIntents": [] },
+    { "id": "D08", "intent": "advisor.map", "context": { "count": 7, "notSuitable": 3 }, "echo": "List and map",
+      "reply": "Here is the map. Visiting services show the area they cover; sites show where they are. Tap a service to open it, or ask:",
+      "chips": ["Why were 3 not suitable?", "Back to the list"], "chipIntents": ["advisor.reasons", "advisor.results"] },
+    { "id": "D09", "intent": "advisor.service", "context": { "serviceName": "Alpha", "updated": "1 hr 55 min ago", "stale": false, "notSuitable": 3 }, "echo": "Open Alpha",
+      "reply": "Here is Alpha. Last updated 1 hr 55 min ago. If the call allows, check that it is current.",
+      "chips": ["See it on the map", "Why were 3 not suitable?", "Back to results"], "chipIntents": ["advisor.map", "advisor.reasons", "advisor.results"] },
+    { "id": "D10", "intent": "advisor.service", "context": { "serviceName": "Alpha", "updated": "4 hrs ago", "stale": true, "notSuitable": 0 }, "echo": "Open Alpha",
+      "reply": "Here is Alpha. Its figure is out of date: last updated 4 hrs ago. Check with the service before you rely on it.",
+      "chips": ["See it on the map", "Back to results"], "chipIntents": ["advisor.map", "advisor.results"] },
+    { "id": "D11", "intent": "advisor.reasons", "context": { "count": 7, "notSuitable": 3 }, "echo": "Why were 3 not suitable?",
+      "reply": "3 services were not suitable for this patient. Each has its reason, and nothing is hidden.",
+      "chips": ["Back to the 7 suitable services"], "chipIntents": ["advisor.results"] },
+    { "id": "D12", "intent": "advisor.reasons", "context": { "count": 0, "notSuitable": 1 }, "echo": "Why was 1 not suitable?",
+      "reply": "1 service was not suitable for this patient. Each has its reason, and nothing is hidden.",
+      "chips": ["Back to the results"], "chipIntents": ["advisor.results"] },
+    { "id": "D13", "intent": "overview.home", "context": { "organisation": "Test Organisation", "total": 32, "areaCount": 6, "attentionTotal": 17, "topAttentionArea": "Area One" }, "echo": null,
+      "reply": "Showing the Test Organisation overview: 32 services in 6 areas. What would you like to look at?",
+      "chips": ["Show Area One", "What needs attention?"], "chipIntents": ["overview.area", "overview.attention"] },
+    { "id": "D14", "intent": "overview.home", "context": { "organisation": "Test Organisation", "total": 1, "areaCount": 0, "attentionTotal": 0 }, "echo": null,
+      "reply": "Showing the Test Organisation overview: 1 service. What would you like to look at?", "chips": [], "chipIntents": [] },
+    { "id": "D15", "intent": "overview.attention", "context": { "tab": "pressure", "attentionTotal": 17, "pressure": 7, "under": 10, "topAttentionArea": "Area One" }, "echo": "What needs attention?",
+      "reply": "17 services need attention: 7 under pressure and 10 underutilised. Showing the 7 under pressure first.",
+      "chips": ["Show the underutilised", "Show Area One", "Back to the overview"], "chipIntents": ["overview.attention", "overview.area", "overview.home"] },
+    { "id": "D16", "intent": "overview.attention", "context": { "tab": "under", "attentionTotal": 17, "pressure": 7, "under": 10, "topAttentionArea": "Area One" }, "echo": "What needs attention?",
+      "reply": "17 services need attention: 7 under pressure and 10 underutilised. Showing the 10 underutilised first.",
+      "chips": ["Show those under pressure", "Show Area One", "Back to the overview"], "chipIntents": ["overview.attention", "overview.area", "overview.home"] },
+    { "id": "D17", "intent": "overview.attention", "context": { "tab": "pressure", "attentionTotal": 1, "pressure": 1, "under": 0 }, "echo": "What needs attention?",
+      "reply": "1 service needs attention: 1 under pressure and 0 underutilised. Showing the 1 under pressure first.",
+      "chips": ["Back to the overview"], "chipIntents": ["overview.home"] },
+    { "id": "D18", "intent": "overview.attention", "context": { "tab": "pressure", "attentionTotal": 0, "pressure": 0, "under": 0 }, "echo": "What needs attention?",
+      "reply": "Nothing needs attention right now.", "chips": ["Back to the overview"], "chipIntents": ["overview.home"] },
+    { "id": "D19", "intent": "overview.attention", "context": { "tab": "under", "attentionTotal": 10, "pressure": 0, "under": 10 }, "echo": "What needs attention?",
+      "reply": "10 services need attention: 0 under pressure and 10 underutilised. Showing the 10 underutilised first.",
+      "chips": ["Back to the overview"], "chipIntents": ["overview.home"] },
+    { "id": "D20", "intent": "overview.area", "context": { "areaName": "Area One", "areaCount": 4, "counts": "2 accepting, 1 limited and 1 over capacity", "firstAttention": "Service A", "attentionTotal": 17 }, "echo": "Show Area One",
+      "reply": "Area One has 4 services: 2 accepting, 1 limited and 1 over capacity. Service A needs attention first.",
+      "chips": ["What needs attention?", "Back to the overview"], "chipIntents": ["overview.attention", "overview.home"] },
+    { "id": "D21", "intent": "overview.area", "context": { "areaName": "Area One", "areaCount": 1, "counts": "1 accepting", "attentionTotal": 0 }, "echo": "Show Area One",
+      "reply": "Area One has 1 service: 1 accepting.", "chips": ["Back to the overview"], "chipIntents": ["overview.home"] },
+    { "id": "D22", "intent": "advisor.results", "context": { "failed": true }, "echo": null,
+      "reply": "The services could not be searched. Change a choice to try again, or phone the services.", "chips": [], "chipIntents": [] },
+    { "id": "D23", "intent": "advisor.results", "context": { "count": 3, "postcodeNotPlaced": true, "notSuitable": 0 }, "echo": null,
+      "reply": "3 services meet this patient's criteria. The postcode could not be placed, so there is no travel time and services are listed by name.",
+      "chips": ["List and map"], "chipIntents": ["advisor.map"] },
+    { "id": "D24", "intent": "advisor.results", "context": { "count": 3, "order": "name", "notSuitable": 0 }, "echo": null,
+      "reply": "3 services meet this patient's criteria, listed by name. Not ranked.",
+      "chips": ["List and map", "List by travel time"], "chipIntents": ["advisor.map", "advisor.results"] },
+    { "id": "D25", "intent": "advisor.results", "context": { "count": 5, "order": "travel", "notSuitable": 0 }, "echo": null,
+      "reply": "5 services meet this patient's criteria, sorted by travel time. Not ranked.",
+      "chips": ["List and map", "List by name"], "chipIntents": ["advisor.map", "advisor.results"] },
+    { "id": "D26", "intent": "advisor.service", "context": {}, "withEcho": false, "echo": null,
+      "reply": "Here is the service. If the call allows, check that its figure is current.",
+      "chips": ["See it on the map", "Back to results"], "chipIntents": ["advisor.map", "advisor.results"] },
+    { "id": "D27", "intent": "advisor.service", "context": { "serviceName": "Alpha", "noReport": true }, "echo": "Open Alpha",
+      "reply": "Here is Alpha. It has not reported yet.",
+      "chips": ["See it on the map", "Back to results"], "chipIntents": ["advisor.map", "advisor.results"] }
+  ],
+  "errors": [
+    { "id": "E01", "intent": "advisor.service", "context": { "updated": "1 hr ago", "stale": false }, "throws": "dialog: missing {serviceName}" }
+  ]
+}

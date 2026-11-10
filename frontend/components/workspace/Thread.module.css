@@ -1,0 +1,182 @@
+/* The assistant thread drawer and its collapsed button (WS-THD). Tokens only; no fixed pixel sizes except the
+   touch targets, which are 44px or more. */
+
+.drawer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-height: 0;
+  height: 100%;
+  padding: var(--space-4);
+  background: var(--c-bg);
+  color: var(--c-ink);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  box-sizing: border-box;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: var(--type-title-weight);
+  letter-spacing: var(--type-title-tracking);
+  color: var(--c-ink);
+}
+
+.hide {
+  min-height: 44px;
+  min-width: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--c-ink-2);
+  font: inherit;
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  cursor: pointer;
+  transition: background-color var(--dur-press) var(--ease-out);
+}
+
+.hide:hover {
+  background: var(--c-tint);
+}
+
+.hide:focus-visible,
+.chip:focus-visible,
+.assistantButton:focus-visible,
+.summary a:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.log {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.message {
+  margin: 0;
+  max-width: 92%;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-card);
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+}
+
+.messageAssistant {
+  align-self: flex-start;
+  background: var(--c-tint);
+  color: var(--c-ink);
+}
+
+.messagePerson {
+  align-self: flex-end;
+  background: #fff;
+  border: var(--border-card);
+  color: var(--c-ink-2);
+}
+
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-card);
+  border-radius: var(--radius-card);
+  background: #fff;
+}
+
+.summaryLabel {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  letter-spacing: var(--type-caption-tracking);
+  color: var(--c-muted);
+}
+
+.summaryLine {
+  margin: 0;
+  font-weight: var(--type-label-weight);
+}
+
+.summary a {
+  align-self: flex-start;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--c-primary);
+  font-weight: var(--type-label-weight);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--c-primary);
+  border-radius: var(--radius-chip);
+  background: #fff;
+  color: var(--c-primary-dark);
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  text-decoration: none;
+  transition: background-color var(--dur-press) var(--ease-out);
+}
+
+.chip:hover {
+  background: var(--c-tint);
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-muted);
+}
+
+.assistantButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 52px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--c-primary);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--c-primary-dark);
+  font: inherit;
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+  transition: background-color var(--dur-press) var(--ease-out);
+}
+
+.assistantButton:hover {
+  background: var(--c-tint);
+}
+
+.spark {
+  color: var(--c-primary);
+}

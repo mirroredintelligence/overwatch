@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
-import { StaffShell } from '@/app/StaffShell';
+import { WorkspaceShell } from '@/app/WorkspaceShell';
 
-// The staff header and page frame around the analytics pages (components/shell).
+// The advisor v2 route group's layout: its pages sit in the workspace shell (chat and canvas, DEC-1376).
 export default function Layout({ children }: { children: ReactNode }) {
-  return <StaffShell>{children}</StaffShell>;
+  return <WorkspaceShell>{children}</WorkspaceShell>;
 }

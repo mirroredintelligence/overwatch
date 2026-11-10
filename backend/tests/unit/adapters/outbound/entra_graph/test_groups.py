@@ -21,7 +21,7 @@ from overwatch.adapters.outbound.entra_graph.groups import (
 )
 from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
 from overwatch.application.ports.outbound.admin_consent import GraphUnavailable
-from overwatch.application.ports.outbound.entra_groups import GroupMissing
+from overwatch.application.ports.outbound.entra_groups import GroupMissing, InviteNotPermitted
 
 DIRECTORY = "0f5a7c1e-3b2d-4c6a-9e8f-1a2b3c4d5e6f"
 CLIENT = "7fb43bde-6a6d-4aed-9cac-9118de48ab52"
@@ -289,6 +289,53 @@ async def test_a_member_is_added_by_reference_and_already_a_member_is_not_an_err
     first = _graph_calls(seen)[0]
     assert str(first.url) == f"https://graph.microsoft.com/v1.0/groups/{GROUP}/members/$ref"
     assert bodies[0] == {"@odata.id": f"https://graph.microsoft.com/v1.0/directoryObjects/{USER}"}
+
+
+async def test_a_person_from_outside_is_invited_with_the_email_sent_and_the_guest_id_returned() -> (
+    None
+):
+    bodies: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        bodies.append(json.loads(request.content))
+        return httpx.Response(201, json={"invitedUser": {"id": USER.upper()}})
+
+    adapter, seen = _adapter(handler)
+    assert await adapter.invite_user(DIRECTORY, ADDRESS) == USER
+    call = _graph_calls(seen)[0]
+    assert call.method == "POST" and str(call.url) == "https://graph.microsoft.com/v1.0/invitations"
+    assert bodies[0]["invitedUserEmailAddress"] == ADDRESS
+    assert bodies[0]["sendInvitationMessage"] is True
+    assert bodies[0]["inviteRedirectUrl"].startswith("https://")
+
+
+async def test_an_invitation_the_directory_forbids_is_not_permitted_and_logs_no_address(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    adapter, _ = _adapter(
+        lambda r: httpx.Response(
+            403, json={"error": {"code": "Authorization_RequestDenied", "message": ADDRESS}}
+        )
+    )
+    with caplog.at_level(logging.DEBUG), pytest.raises(InviteNotPermitted):
+        await adapter.invite_user(DIRECTORY, ADDRESS)
+    assert ADDRESS not in caplog.text and BEARER not in caplog.text
+
+
+async def test_an_invitation_answered_in_another_shape_or_status_is_unavailable() -> None:
+    adapter, _ = _adapter(lambda r: httpx.Response(201, json={"invitedUser": {}}))
+    with pytest.raises(GraphUnavailable):
+        await adapter.invite_user(DIRECTORY, ADDRESS)
+    adapter, _ = _adapter(lambda r: httpx.Response(500, json={}))
+    with pytest.raises(GraphUnavailable):
+        await adapter.invite_user(DIRECTORY, ADDRESS)
+
+
+async def test_something_that_is_not_an_address_is_never_invited() -> None:
+    adapter, seen = _adapter(lambda r: httpx.Response(201, json={}))
+    with pytest.raises(GraphUnavailable):
+        await adapter.invite_user(DIRECTORY, "a b@c")
+    assert _graph_calls(seen) == []
 
 
 async def test_adding_to_a_group_that_is_gone_is_group_missing() -> None:

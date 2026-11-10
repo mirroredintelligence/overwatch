@@ -8,7 +8,11 @@ Ids are deterministic. Addresses are matched case-insensitively, as the director
 from itertools import count
 
 from overwatch.application.ports.outbound.admin_consent import GraphUnavailable
-from overwatch.application.ports.outbound.entra_groups import DirectoryMember, GroupMissing
+from overwatch.application.ports.outbound.entra_groups import (
+    DirectoryMember,
+    GroupMissing,
+    InviteNotPermitted,
+)
 
 
 class FakeEntraGroups:
@@ -20,6 +24,7 @@ class FakeEntraGroups:
         self.names: dict[str, str] = {}
         self.calls: list[tuple[str, tuple[str, ...]]] = []
         self.unavailable = False
+        self.invites_refused = False
         self._ids = count(1)
 
     def new_id(self, kind: str) -> str:
@@ -77,6 +82,13 @@ class FakeEntraGroups:
     async def find_user(self, directory_id: str, address: str) -> str | None:
         self._call("find_user", directory_id)
         return self.users.get(directory_id, {}).get(address.lower())
+
+    async def invite_user(self, directory_id: str, address: str) -> str:
+        self._call("invite_user", directory_id)
+        if self.invites_refused:
+            raise InviteNotPermitted
+        existing = self.users.get(directory_id, {}).get(address.lower())
+        return existing if existing is not None else self.add_user(directory_id, address)
 
     async def search_users(self, directory_id: str, term: str) -> tuple[DirectoryMember, ...]:
         self._call("search_users", directory_id)

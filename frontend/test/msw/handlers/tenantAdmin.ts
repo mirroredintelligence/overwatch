@@ -88,6 +88,10 @@ export const tenantAdminHandlers = [
     await recorded(request);
     return HttpResponse.json({ groupId: String(params.group ?? GROUP_ADMIN), changed: true }, { headers: NO_STORE });
   }),
+  http.post('/api/bff/tenant/groups/:group/invitations', async ({ request, params }) => {
+    await recorded(request);
+    return HttpResponse.json({ groupId: String(params.group ?? GROUP_ADMIN), changed: true, invited: true }, { headers: NO_STORE });
+  }),
   http.delete('/api/bff/tenant/groups/:group/members/:user', async ({ request, params }) => {
     await recorded(request);
     return HttpResponse.json({ groupId: String(params.group), changed: true }, { headers: NO_STORE });

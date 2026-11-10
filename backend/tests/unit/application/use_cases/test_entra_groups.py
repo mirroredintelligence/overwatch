@@ -21,7 +21,7 @@ import pytest
 from overwatch.adapters.testing.fake_entra_groups import FakeEntraGroups
 from overwatch.adapters.testing.fixed_secrets import FixedSecretStore
 from overwatch.application.ports.outbound.admin_consent import AppInstallation, GraphUnavailable
-from overwatch.application.ports.outbound.entra_groups import GroupMissing
+from overwatch.application.ports.outbound.entra_groups import GroupMissing, InviteNotPermitted
 from overwatch.application.ports.outbound.tokens import LINK_TOKEN_SECRET
 from overwatch.application.use_cases.entra_groups import (
     AddInitialGroupMember,
@@ -585,6 +585,74 @@ async def test_a_person_who_is_not_found_is_refused() -> None:
             ChangeMemberCommand(rig.admin(), ids[Role.TENANT_ADMIN], "ghost@example-trust.test")
         )
     assert rig.world.audited() == ["ProvisionEntraGroups"]
+
+
+async def test_an_outsider_is_invited_and_added_and_the_audit_has_no_address() -> None:
+    rig = _Rig()
+    ids = await _managed(rig, Role.LEAD)
+    outsider = "clyde@softjump.example"
+    with as_tenant(TENANT):
+        result = await rig.changer().invite(
+            ChangeMemberCommand(rig.admin(), ids[Role.LEAD], outsider)
+        )
+
+    assert result.invited and result.changed
+    guest = rig.directory.users[DIRECTORY_ID][outsider]
+    assert rig.directory.members_of[(DIRECTORY_ID, ids[Role.LEAD])] == [guest]
+    entry = rig.world.audit[-1]
+    assert entry.use_case == "InviteEntraGroupMember" and entry.snapshot["invited"] is True
+    blob = json.dumps(entry.snapshot) + repr(entry.entity_ids)
+    for leak in (outsider, "softjump", guest):
+        assert leak not in blob
+
+
+async def test_a_person_already_in_the_directory_is_added_without_a_new_invitation() -> None:
+    rig = _Rig()
+    ids = await _managed(rig, Role.LEAD)
+    rig.directory.add_user(DIRECTORY_ID, SAM)
+    with as_tenant(TENANT):
+        result = await rig.changer().invite(ChangeMemberCommand(rig.admin(), ids[Role.LEAD], SAM))
+    assert result.changed and not result.invited
+    assert "invite_user" not in [call for call, _ in rig.directory.calls]
+
+
+async def test_a_refused_invitation_adds_nobody_and_records_nothing() -> None:
+    rig = _Rig()
+    ids = await _managed(rig, Role.LEAD)
+    rig.directory.invites_refused = True
+    with as_tenant(TENANT), pytest.raises(InviteNotPermitted):
+        await rig.changer().invite(
+            ChangeMemberCommand(rig.admin(), ids[Role.LEAD], "clyde@softjump.example")
+        )
+    assert "add_member" not in [call for call, _ in rig.directory.calls]
+    assert rig.world.audited() == ["ProvisionEntraGroups"]
+
+
+@pytest.mark.parametrize(
+    "role", [r for r in Role if r is not Role.TENANT_ADMIN], ids=lambda r: r.value
+)
+async def test_only_the_tenant_administrator_invites(role: Role) -> None:
+    rig = _Rig()
+    ids = await _managed(rig)
+    who = operator(TENANT, "someone", role)
+    with as_tenant(TENANT), pytest.raises(NotAllowed):
+        await rig.changer().invite(
+            ChangeMemberCommand(who, ids[Role.TENANT_ADMIN], "clyde@softjump.example")
+        )
+    assert "invite_user" not in [call for call, _ in rig.directory.calls]
+
+
+async def test_an_invitation_to_a_group_outside_the_prefix_is_refused_before_any_invitation() -> (
+    None
+):
+    rig = _Rig()
+    await _managed(rig)
+    rig.directory.groups[DIRECTORY_ID][STAFF_GROUP_ID] = "All clinical staff"
+    with as_tenant(TENANT), pytest.raises(NotAllowed):
+        await rig.changer().invite(
+            ChangeMemberCommand(rig.admin(), STAFF_GROUP_ID, "clyde@softjump.example")
+        )
+    assert "invite_user" not in [call for call, _ in rig.directory.calls]
 
 
 async def test_the_administrator_removes_a_person_and_it_is_audited() -> None:

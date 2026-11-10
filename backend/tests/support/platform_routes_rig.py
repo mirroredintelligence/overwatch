@@ -41,6 +41,7 @@ from overwatch.application.ports.outbound.entra_groups import DirectoryMember
 from overwatch.application.ports.outbound.platform_audit import PlatformAuditRecord
 from overwatch.application.use_cases.admin_consent import AdminConsentView
 from overwatch.application.use_cases.entra_groups import (
+    InviteResult,
     ManagedGroup,
     ManagedGroups,
     MemberChange,
@@ -149,13 +150,24 @@ class RecordingSearch:
 
 
 class RecordingChanger(Recording):
-    """The membership use case has two entry points; both record into the same list."""
+    """The membership use case has two entry points; both record into the same list. An
+    invitation is recorded apart."""
+
+    def __init__(self, result: Any = None) -> None:
+        super().__init__(result)
+        self.invitations: list[Any] = []
 
     async def add(self, command: Any) -> Any:
         return await self.execute(command)
 
     async def remove(self, command: Any) -> Any:
         return await self.execute(command)
+
+    async def invite(self, command: Any) -> Any:
+        self.invitations.append(command)
+        if self.error is not None:
+            raise self.error
+        return InviteResult(GROUP_A, True, True)
 
 
 class FakeAuditReader:

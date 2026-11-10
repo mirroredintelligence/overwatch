@@ -17,11 +17,23 @@ from typing import Protocol
 
 from overwatch.application.ports.outbound.admin_consent import GraphUnavailable
 
-__all__ = ["DirectoryMember", "EntraGroupDirectory", "GraphUnavailable", "GroupMissing"]
+__all__ = [
+    "DirectoryMember",
+    "EntraGroupDirectory",
+    "GraphUnavailable",
+    "GroupMissing",
+    "InviteNotPermitted",
+]
 
 
 class GroupMissing(Exception):
     """A group the caller named is not in the directory (deleted there). Carries no name."""
+
+
+class InviteNotPermitted(Exception):
+    """The directory refused to invite a person from outside: the administrator has not yet given
+    the permission to invite (`User.Invite.All`), or the organisation does not allow guests.
+    Carries no address and no text from the directory."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,6 +70,12 @@ class EntraGroupDirectory(Protocol):
     async def find_user(self, directory_id: str, address: str) -> str | None:
         """The object id of the one user whose mail or user principal name is the address, or
         None. More than one is a refusal (`GraphUnavailable`)."""
+        ...
+
+    async def invite_user(self, directory_id: str, address: str) -> str:
+        """Invite a person from another organisation as a guest of this directory (Graph
+        invitations, with the invitation email sent). Returns the guest's object id in this
+        directory. Raises `InviteNotPermitted` when the directory refuses the invitation."""
         ...
 
     async def search_users(self, directory_id: str, term: str) -> tuple[DirectoryMember, ...]:

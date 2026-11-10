@@ -21,7 +21,7 @@ from httpx import AsyncClient
 
 from overwatch.adapters.inbound.fhir_rest.routes_tenant import setting_from_json, setting_to_json
 from overwatch.application.ports.outbound.admin_consent import GraphUnavailable
-from overwatch.application.ports.outbound.entra_groups import GroupMissing
+from overwatch.application.ports.outbound.entra_groups import GroupMissing, InviteNotPermitted
 from overwatch.application.use_cases.cross_tenant_tickets import RequestTicketCommand
 from overwatch.application.use_cases.tenant_admin_views import (
     AccessLogEntry,
@@ -102,6 +102,7 @@ ROUTES: list[tuple[str, str, Any]] = [
     ("GET", "/tenant/groups", None),
     ("GET", "/tenant/people?q=ja", None),
     ("POST", f"/tenant/groups/{GROUP_A}/members", {"email": "sam@example.org"}),
+    ("POST", f"/tenant/groups/{GROUP_A}/invitations", {"email": "sam@example.org"}),
     ("DELETE", f"/tenant/groups/{GROUP_A}/members/{USER_A}", None),
     ("GET", "/tenant/support-tickets", None),
     ("GET", "/tenant/support-tickets/st-1", None),
@@ -700,6 +701,46 @@ async def test_a_member_is_removed_by_the_id_the_list_showed() -> None:
     assert removed.status_code == 200 and removed.json()["changed"] is True
     [command] = r.stubs.groups_change.commands
     assert (command.group_id, command.user_id, command.email) == (GROUP_A, USER_A, None)
+
+
+async def test_a_person_is_invited_by_address_to_the_group_in_the_path() -> None:
+    async with routes() as (r, client):
+        sent = await send(
+            client,
+            "POST",
+            f"/tenant/groups/{GROUP_A}/invitations",
+            {"email": "clyde@softjump.example"},
+            admin(),
+        )
+        refused = await send(
+            client,
+            "POST",
+            f"/tenant/groups/{GROUP_A}/invitations",
+            {"email": "clyde@softjump.example", "groupName": "Domain Admins"},
+            admin(),
+        )
+
+    assert sent.status_code == 200
+    assert sent.json() == {"groupId": GROUP_A, "changed": True, "invited": True}
+    [command] = r.stubs.groups_change.invitations
+    assert (command.group_id, command.email) == (GROUP_A, "clyde@softjump.example")
+    assert refused.status_code == 400
+
+
+async def test_an_invitation_the_directory_forbids_is_a_424_with_fixed_words() -> None:
+    async with routes() as (r, client):
+        r.stubs.groups_change.error = InviteNotPermitted()
+        response = await send(
+            client,
+            "POST",
+            f"/tenant/groups/{GROUP_A}/invitations",
+            {"email": "clyde@softjump.example"},
+            admin(),
+        )
+
+    assert response.status_code == 424
+    assert "permission to invite" in response.text
+    assert "clyde" not in response.text and GROUP_A not in response.text
 
 
 async def test_a_group_the_use_case_refuses_is_the_404_of_a_route_that_is_not_there() -> None:

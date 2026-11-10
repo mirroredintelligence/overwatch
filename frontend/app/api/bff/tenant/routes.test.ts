@@ -177,6 +177,17 @@ const CASES: Case[] = [
     view: { groupId: GROUP_ADMIN, changed: true },
   },
   {
+    name: 'invite a person to a group',
+    module: () => import('./groups/[group]/invitations/route'),
+    verb: 'POST',
+    url: `/api/bff/tenant/groups/${GROUP_ADMIN}/invitations`,
+    params: { group: GROUP_ADMIN },
+    body: { email: 'clyde@softjump.example' },
+    backendBody: { email: 'clyde@softjump.example' },
+    backend: { path: `/tenant/groups/${GROUP_ADMIN}/invitations`, reply: { groupId: GROUP_ADMIN, changed: true, invited: true } },
+    view: { groupId: GROUP_ADMIN, changed: true, invited: true },
+  },
+  {
     name: 'remove a member from a group',
     module: () => import('./groups/[group]/members/[user]/route'),
     verb: 'DELETE',

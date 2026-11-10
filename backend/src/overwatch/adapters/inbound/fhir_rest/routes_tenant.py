@@ -647,6 +647,27 @@ async def add_group_member(
     return await replay_or_run(request, actor, key, run)
 
 
+@router.post("/groups/{group_id}/invitations")
+async def invite_group_member(
+    group_id: GuidPath, body: MemberBody, request: Request, actor: Admin
+) -> Response:
+    """Add a person by address, inviting them as a guest of the organisation's directory when no
+    one there has the address. The directory sends the invitation email."""
+    key = idempotency_key(request)
+
+    async def run() -> Response:
+        services = _group_services(request)
+        assert services.groups_change is not None
+        result = await services.groups_change.invite(
+            ChangeMemberCommand(actor, group_id, body.email)
+        )
+        return _json(
+            200, {"groupId": result.group_id, "changed": result.changed, "invited": result.invited}
+        )
+
+    return await replay_or_run(request, actor, key, run)
+
+
 @router.delete("/groups/{group_id}/members/{user_id}")
 async def remove_group_member(
     group_id: GuidPath, user_id: GuidPath, request: Request, actor: Admin

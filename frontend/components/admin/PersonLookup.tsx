@@ -18,16 +18,22 @@ const PAUSE_MS = 220;
 
 type Status = 'idle' | 'searching' | 'done' | 'failed';
 
+// One plain address, as the back end takes it. Only then is a person from outside offered an invitation.
+const INVITABLE = /^[A-Za-z0-9._%+'-]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?\.[A-Za-z]{2,}$/;
+
 export function PersonLookup({
   label,
   memberIds,
   busy,
   onPick,
+  onInvite,
 }: {
   label: string;
   memberIds: ReadonlySet<string>;
   busy: boolean;
   onPick: (person: Person) => void;
+  /** Given a full email address no one in the directory has: invite them as a guest and add them. */
+  onInvite?: (email: string) => void;
 }) {
   const [query, setQuery] = useState('');
   // What the directory answered, and for which words: an answer for other words is not shown, so what is on
@@ -90,6 +96,9 @@ export function PersonLookup({
     }
   }
 
+  // An address that is whole, that no result in the list has, and the directory has finished looking: offer to invite.
+  const inviteable =
+    onInvite !== undefined && status === 'done' && INVITABLE.test(term) && !people.some((person) => person.mail?.toLowerCase() === term.toLowerCase());
   const showList = term.length >= MIN_LENGTH && status !== 'idle';
   const optionId = (index: number) => `${listId}-${index}`;
   const found = people.length === 1 ? '1 person found.' : `${people.length} people found.`;
@@ -134,7 +143,7 @@ export function PersonLookup({
         ) : null}
         {status === 'done' && people.length === 0 ? (
           <li className={styles.resultNote} role="presentation">
-            No one in your directory matches that. Check the spelling, or try their email address.
+            {inviteable ? 'No one in your directory has that address.' : 'No one in your directory matches that. Check the spelling, or type their whole email address to invite them from another organisation.'}
           </li>
         ) : null}
         {people.map((person, index) => {
@@ -161,6 +170,27 @@ export function PersonLookup({
             </li>
           );
         })}
+        {inviteable ? (
+          <li
+            role="option"
+            aria-selected={false}
+            aria-disabled={busy}
+            className={`${styles.result} ${busy ? styles.resultOff : ''}`}
+            data-el="PEOPLE-INVITE-OPTION"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => {
+              if (busy) return;
+              onInvite(term);
+              setQuery('');
+              input.current?.focus();
+            }}
+          >
+            <span className={styles.resultText}>
+              <span className={styles.resultName}>Invite {term} by email</span>
+              <span className={styles.resultMail}>They get an email from Microsoft, and join this role once they accept.</span>
+            </span>
+          </li>
+        ) : null}
       </ul>
     </div>
   );

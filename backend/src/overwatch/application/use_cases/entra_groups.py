@@ -73,6 +73,7 @@ log = logging.getLogger(__name__)
 USE_CASE_PROVISION: Final = "ProvisionEntraGroups"
 USE_CASE_FIRST_MEMBER: Final = "AddInitialGroupMember"
 USE_CASE_ADD: Final = "AddEntraGroupMember"
+USE_CASE_INVITE: Final = "InviteEntraGroupMember"
 USE_CASE_REMOVE: Final = "RemoveEntraGroupMember"
 AUDIT_CREATE: Final = "C"
 AUDIT_UPDATE: Final = "U"
@@ -458,6 +459,14 @@ class ChangeMemberCommand:
     """For a remove: the member's directory object id, as the list showed it."""
 
 
+@dataclass(frozen=True, slots=True)
+class InviteResult:
+    group_id: str
+    changed: bool
+    invited: bool
+    """True when this call sent an invitation to someone from outside the directory."""
+
+
 class ChangeGroupMember(_Managed):
     def __init__(
         self,
@@ -497,6 +506,39 @@ class ChangeGroupMember(_Managed):
             },
         )
         return MemberChange(group_id, added)
+
+    async def invite(self, command: ChangeMemberCommand) -> InviteResult:
+        """Add a person by address as `add` does, and when no one in the directory has the address
+        invite them from outside as a guest (the invitation email is sent by the directory) and add
+        the guest. A guest already in the directory is found by address and added without a new
+        invitation. `InviteNotPermitted` when the directory refuses the invitation."""
+        check_administrator(command.actor)
+        require_actor_in_bound_tenant(command.actor)
+        email = check_email(command.email)
+        _tenant, prefix, mappings, directory_id = await self._context()
+        if directory_id is None:
+            raise NotAllowed(NOT_SET_UP)
+        group_id, role = await self._require(command.group_id, prefix, mappings, directory_id)
+        user_id = await self._directory.find_user(directory_id, email)
+        invited = user_id is None
+        if user_id is None:
+            user_id = await self._directory.invite_user(directory_id, email)
+        added = await self._directory.add_member(directory_id, group_id, user_id)
+        secret = self._secrets.get(LINK_TOKEN_SECRET)
+        await self._audit(
+            command.actor,
+            USE_CASE_INVITE,
+            AUDIT_UPDATE,
+            group_id,
+            {
+                "role": role.value,
+                "emailHash": hash_email(email, secret),
+                "userRefHash": hash_user_ref(user_id, secret),
+                "invited": invited,
+                "added": added,
+            },
+        )
+        return InviteResult(group_id, added, invited)
 
     async def remove(self, command: ChangeMemberCommand) -> MemberChange:
         check_administrator(command.actor)

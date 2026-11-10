@@ -4,7 +4,9 @@ Every call carries an application token for the organisation's directory (client
 staff app, the secret `entra-staff-client-secret` from the secret store, scope
 `https://graph.microsoft.com/.default`), so it is limited to what the administrator consented to
 (`Group.ReadWrite.All`, `GroupMember.ReadWrite.All`, `User.Read.All`,
-`AppRoleAssignment.ReadWrite.All`, `Application.Read.All`). The token is cached in memory for its
+`AppRoleAssignment.ReadWrite.All`, `Application.Read.All`, and, to invite a person from another
+organisation, `User.Invite.All`, which a consent given earlier may lack: the refusal is then
+`InviteNotPermitted`). The token is cached in memory for its
 life, per directory, and never logged. A name or address that reaches a URL is checked first and
 quoted for OData; an id that reaches a URL path is checked as a GUID.
 
@@ -26,7 +28,11 @@ from typing import Any, Final
 import httpx
 
 from overwatch.application.ports.outbound.admin_consent import GraphUnavailable
-from overwatch.application.ports.outbound.entra_groups import DirectoryMember, GroupMissing
+from overwatch.application.ports.outbound.entra_groups import (
+    DirectoryMember,
+    GroupMissing,
+    InviteNotPermitted,
+)
 from overwatch.application.ports.outbound.tokens import SecretStore
 from overwatch.domain.errors import NotFound
 from overwatch.domain.rules.entra_groups import SEARCH_RESULTS_MAX
@@ -39,6 +45,8 @@ CLIENT_SECRET_NAME: Final = "entra-staff-client-secret"
 TOKEN_URL: Final = "https://login.microsoftonline.com/{directory}/oauth2/v2.0/token"
 GRAPH: Final = "https://graph.microsoft.com/v1.0"
 GRAPH_SCOPE: Final = "https://graph.microsoft.com/.default"
+# Where a guest lands after redeeming the invitation: their own apps page, which lists Overwatch.
+INVITE_REDIRECT: Final = "https://myapplications.microsoft.com"
 _TIMEOUT_S: Final = 20.0
 _MAX_PAGES: Final = 10
 _EARLY_S: Final = 120
@@ -210,6 +218,32 @@ class GraphEntraGroups:
         if len(ids) > 1:
             raise GraphUnavailable("more than one person has that address")
         return next(iter(ids), None)
+
+    async def invite_user(self, directory_id: str, address: str) -> str:
+        if _ADDRESS.fullmatch(address) is None:
+            raise GraphUnavailable("an address is not in the form we accept")
+        response = await self._send(
+            directory_id,
+            "POST",
+            f"{GRAPH}/invitations",
+            json={
+                "invitedUserEmailAddress": address,
+                "inviteRedirectUrl": INVITE_REDIRECT,
+                "sendInvitationMessage": True,
+            },
+        )
+        if response.status_code == 403:
+            # The administrator has not given `User.Invite.All`, or guests are not allowed.
+            _log.warning("graph refused an invitation: status 403 code %s", _error_code(response))
+            raise InviteNotPermitted
+        if response.status_code != 201:
+            self._refused("POST", f"{GRAPH}/invitations", response)
+        body = _json(response)
+        invited = None if body is None else body.get("invitedUser")
+        user_id = invited.get("id") if isinstance(invited, dict) else None
+        if type(user_id) is not str:
+            raise GraphUnavailable("the directory answered with an unexpected body")
+        return _guid(user_id)
 
     async def search_users(self, directory_id: str, term: str) -> tuple[DirectoryMember, ...]:
         if _SEARCH_TERM.fullmatch(term) is None:

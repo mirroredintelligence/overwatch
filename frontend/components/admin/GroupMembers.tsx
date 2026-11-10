@@ -53,6 +53,7 @@ const ADD_FAILED: Record<number, string> = {
   403: 'That group cannot be changed here.',
   404: 'That group cannot be changed here.',
   409: 'That change could not be made. The group may have been removed from your directory, or this is the last administrator, who cannot be removed.',
+  424: 'Your directory did not allow the invitation. Ask your Microsoft administrator to approve the permission to invite people from other organisations, and check that guests are allowed.',
   503: 'The directory could not be reached. Try again in a minute.',
 };
 
@@ -139,6 +140,28 @@ function RoleRow({ group, open, onToggle, onChanged }: { group: Group; open: boo
         gone: now.gone.filter((id) => id !== person.userId),
       }));
       setMessage({ ok: true, text: result.data.changed ? 'Added to the group.' : 'That person is already in the group.' });
+      onChanged();
+      setTimeout(onChanged, CATCH_UP_MS);
+    } else setMessage({ ok: false, text: failure(result.status) });
+  }
+
+  async function invite(email: string) {
+    if (busy) return;
+    setMessage(null);
+    setBusy(true);
+    const result = await adminSend<{ changed: boolean; invited: boolean }>('POST', `/api/bff/tenant/groups/${group.groupId}/invitations`, { email }, submitKey.key());
+    setBusy(false);
+    submitKey.fresh();
+    if (result.ok) {
+      setAdding(false);
+      setMessage({
+        ok: true,
+        text: result.data.invited
+          ? 'Invitation sent. They join this role when they accept it, and need to sign in once with their own account.'
+          : result.data.changed
+            ? 'Added to the group.'
+            : 'That person is already in the group.',
+      });
       onChanged();
       setTimeout(onChanged, CATCH_UP_MS);
     } else setMessage({ ok: false, text: failure(result.status) });
@@ -259,7 +282,7 @@ function RoleRow({ group, open, onToggle, onChanged }: { group: Group; open: boo
             </div>
             {open && adding ? (
               <div className={styles.lookupSlot}>
-                <PersonLookup label="Search your directory" memberIds={memberIds} busy={busy} onPick={(person) => void add(person)} />
+                <PersonLookup label="Search your directory" memberIds={memberIds} busy={busy} onPick={(person) => void add(person)} onInvite={(email) => void invite(email)} />
               </div>
             ) : null}
             {message !== null ? (

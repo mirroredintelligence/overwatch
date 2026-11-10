@@ -290,6 +290,11 @@ export function parsePeople(value: unknown) {
   };
 }
 
+export function parseInviteResult(value: unknown) {
+  const v = obj(value);
+  return { groupId: str(v.groupId, 64), changed: bool(v.changed), invited: bool(v.invited) };
+}
+
 export function parseMemberChange(value: unknown) {
   const v = obj(value);
   return { groupId: str(v.groupId, 64), changed: bool(v.changed) };

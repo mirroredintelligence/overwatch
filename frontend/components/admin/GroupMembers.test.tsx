@@ -228,6 +228,38 @@ describe('finding and adding a person', () => {
   });
 });
 
+describe('inviting a person from another organisation', () => {
+  it('offers an invitation only for a whole address that no one in the directory has, and sends it for that group', async () => {
+    const user = await open();
+    const group = await openLead(user);
+    await search(user, group, 'clyde');
+    expect(within(group).queryByRole('option', { name: /Invite/ })).toBeNull();
+    await user.type(within(group).getByRole('combobox', { name: 'Search your directory' }), '@softjump.example');
+    await user.click(await within(group).findByRole('option', { name: /Invite clyde@softjump.example by email/ }));
+    await waitFor(() => expect(seenAdminWrites).toHaveLength(1));
+    expect(seenAdminWrites[0]).toMatchObject({ method: 'POST', path: `/api/bff/tenant/groups/${GROUP_LEAD}/invitations`, csrf: SAMPLE_CSRF, body: { email: 'clyde@softjump.example' } });
+    expect(Object.keys(seenAdminWrites[0]!.body as object)).toEqual(['email']);
+    expect(await within(group).findByText(/Invitation sent\./)).toBeInTheDocument();
+  });
+
+  it('does not offer an invitation for an address the directory already has', async () => {
+    const user = await open();
+    const group = await openLead(user);
+    await search(user, group, 'jasmine.newcomer@example.test');
+    await within(group).findByRole('option', { name: /Jasmine Newcomer/ });
+    expect(within(group).queryByRole('option', { name: /Invite/ })).toBeNull();
+  });
+
+  it('says what to ask the Microsoft administrator when the directory forbids the invitation', async () => {
+    server.use(http.post('/api/bff/tenant/groups/:group/invitations', () => HttpResponse.json({ code: 'processing' }, { status: 424 })));
+    const user = await open();
+    const group = await openLead(user);
+    await search(user, group, 'clyde@softjump.example');
+    await user.click(await within(group).findByRole('option', { name: /Invite clyde@softjump.example by email/ }));
+    expect(await within(group).findByRole('alert')).toHaveTextContent('permission to invite people from other organisations');
+  });
+});
+
 describe('removing a person', () => {
   it('asks to confirm, then sends the delete for that group and that person only', async () => {
     const user = await open();

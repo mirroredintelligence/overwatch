@@ -63,10 +63,11 @@ class ServiceRepository(Protocol):
         ...
 
     async def set_inactive(self, service_id: str) -> None:
-        """Retire a service: the reverse of `set_active`. HealthcareService.active, its Location.status
-        and its Organization.active become false and inactive, each as a new resource version, so the
-        service leaves every list of active services while its history stays. A service that is
-        already inactive is left as it is. An unknown service raises NotFound."""
+        """Retire a service: the reverse of `set_active`. HealthcareService.active, its
+        Location.status and its Organization.active become false and inactive, each as a new
+        resource version, so the service leaves every list of active services while its history
+        stays. A service that is already inactive is left as it is. An unknown service raises
+        NotFound."""
         ...
 
     async def save(self, profile: ServiceProfile) -> None:

@@ -190,7 +190,7 @@ export function FindService() {
                   <span className={styles.itemText}>
                     <strong>{item.label}</strong>
                   </span>
-                  <span className={styles.pill}>{item.services.length}</span>
+                  <span className={styles.pill}>{`${item.services.length} of ${Math.max(item.services.length, result.read.groupTotals[item.category] ?? 0)} services`}</span>
                 </button>
               )}
             />

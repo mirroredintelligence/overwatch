@@ -1,5 +1,5 @@
 import type { StatusCode } from '@/components/ui/StatusBadge';
-import type { OptionView } from '@/lib/advisor/options';
+import { DISTRICT_PATTERN, type OptionView } from '@/lib/advisor/options';
 
 // Advisor v2: the capacity overview (DEC-1366), as GET /advisor-v2/capacity answers it. The two Needs attention
 // lists are the shift lead's rules (lead_views.py): a stale figure shows no percentage and is never spare capacity.
@@ -21,6 +21,8 @@ export type CapacityService = {
   reportedAt: string | null;
   figureUnavailable: boolean;
   lastFigure: number | null;
+  /** The postcode districts the service covers; none when none is recorded. */
+  districts: string[];
 };
 export type CountedStatus = 'accepting' | 'limited' | 'not-accepting' | 'over-capacity' | 'not-updated';
 export type Overview = {
@@ -86,6 +88,9 @@ function serviceOf(value: unknown): CapacityService | null {
     reportedAt: str(value.reportedAt),
     figureUnavailable: value.figureUnavailable === true || status === 'not-updated',
     lastFigure: whole(value.lastFigure),
+    districts: Array.isArray(value.districts)
+      ? value.districts.filter((item): item is string => typeof item === 'string' && DISTRICT_PATTERN.test(item))
+      : [],
   };
 }
 
@@ -158,7 +163,7 @@ export function statusesFromQuery(value: string | string[] | undefined): Counted
   return COUNTED_STATUSES.filter((status) => named.has(status));
 }
 
-export const COUNTED_STATUSES: readonly CountedStatus[] = ['accepting', 'limited', 'over-capacity', 'not-accepting', 'not-updated'];
+export const COUNTED_STATUSES: readonly CountedStatus[] = ['accepting', 'limited', 'not-accepting', 'over-capacity', 'not-updated'];
 
 /** A service group's list under v2 (Capacity's group cards link here). */
 export function groupHref(category: string): string {
@@ -176,4 +181,41 @@ export function groupsOfRows(rows: readonly CapacityService[]): { category: stri
   const counts = new Map<string, number>();
   for (const row of rows) counts.set(row.category, (counts.get(row.category) ?? 0) + 1);
   return [...counts.entries()].map(([category, count]) => ({ category, count })).sort((a, b) => a.category.localeCompare(b.category));
+}
+
+export type DistrictCard = { district: string | null; count: number; tally: Record<CountedStatus, number> };
+
+/**
+ * One card per postcode district, by district, with its services counted by state. A service that covers several
+ * districts is counted in each; one with none recorded is under "Not placed" (district null), last. By name, never
+ * by how many are accepting.
+ */
+export function districtCards(rows: readonly CapacityService[]): DistrictCard[] {
+  const cards = new Map<string | null, DistrictCard>();
+  const add = (district: string | null, row: CapacityService) => {
+    const card = cards.get(district) ?? {
+      district,
+      count: 0,
+      tally: { accepting: 0, limited: 0, 'not-accepting': 0, 'over-capacity': 0, 'not-updated': 0 },
+    };
+    card.count += 1;
+    if (row.status in card.tally) card.tally[row.status as CountedStatus] += 1;
+    cards.set(district, card);
+  };
+  for (const row of rows) {
+    if (row.districts.length === 0) add(null, row);
+    for (const district of row.districts) add(district, row);
+  }
+  return [...cards.values()].sort((a, b) => (a.district === null ? 1 : b.district === null ? -1 : a.district.localeCompare(b.district)));
+}
+
+/** A district's list under v2; `none` is the services with no district recorded. */
+export function districtHref(district: string | null): string {
+  return `/advisor/v2/services?district=${district === null ? 'none' : encodeURIComponent(district)}`;
+}
+
+/** The district named in `?district=` (`none` for not placed), when it is shaped like one; anything else is ignored. */
+export function districtFromQuery(value: string | string[] | undefined): string | null {
+  const text = Array.isArray(value) ? (value[0] ?? '') : (value ?? '');
+  return text === 'none' || DISTRICT_PATTERN.test(text) ? text : null;
 }

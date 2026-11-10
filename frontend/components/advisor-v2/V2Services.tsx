@@ -16,7 +16,7 @@ import styles from './V2.module.css';
 
 type State = { kind: 'loading' } | { kind: 'ready'; overview: Overview; now: number } | { kind: 'failed' };
 
-export function V2Services({ initial, group }: { initial: CountedStatus[]; group: string | null }) {
+export function V2Services({ initial, group, district }: { initial: CountedStatus[]; group: string | null; district: string | null }) {
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [selected, setSelected] = useState<CountedStatus[]>(initial);
 
@@ -50,7 +50,7 @@ export function V2Services({ initial, group }: { initial: CountedStatus[]; group
   }
 
   const wanted = new Set<string>(selected.length === 0 ? COUNTED_STATUSES : selected);
-  const rows = state.overview.services.filter((row) => wanted.has(row.status) && (group === null || row.category === group));
+  const rows = state.overview.services.filter((row) => wanted.has(row.status) && (group === null || row.category === group) && (district === null || (district === 'none' ? row.districts.length === 0 : row.districts.includes(district))));
   const toggle = (status: CountedStatus) =>
     setSelected((current) => (current.includes(status) ? current.filter((item) => item !== status) : [...current, status]));
 
@@ -59,7 +59,7 @@ export function V2Services({ initial, group }: { initial: CountedStatus[]; group
       <nav className={styles.crumbs} aria-label="Breadcrumb">
         <Link href="/advisor/v2?mode=capacity">Capacity</Link>
         <span aria-hidden="true">›</span>
-        <span aria-current="page">{group === null ? 'Services' : categoryLabel(group)}</span>
+        <span aria-current="page">{group !== null ? categoryLabel(group) : district !== null ? (district === 'none' ? 'Not placed' : district) : 'Services'}</span>
       </nav>
       <div className={`${styles.panel} ${styles.listPanel}`}>
         <div className={styles.filterBar} role="group" aria-label="Show services by state">

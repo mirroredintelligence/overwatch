@@ -32,7 +32,13 @@ export type FoundService = {
   travel: { low: number; high: number; source: string } | null;
 };
 
-export type FindRead = { services: FoundService[]; notFound: boolean; generatedAt: string | null };
+export type FindRead = {
+  services: FoundService[];
+  notFound: boolean;
+  generatedAt: string | null;
+  /** How many services each group has in all (found or not), for "3 of 5 services". */
+  groupTotals: Record<string, number>;
+};
 
 type Raw = Record<string, unknown>;
 
@@ -86,7 +92,13 @@ function serviceOf(value: unknown): FoundService | null {
 export function parseFind(body: unknown): FindRead | null {
   if (!isRecord(body) || !Array.isArray(body.services)) return null;
   const services = body.services.map(serviceOf).filter((item): item is FoundService => item !== null);
-  return { services, notFound: body.notFound === true, generatedAt: str(body.generatedAt) };
+  const groupTotals: Record<string, number> = {};
+  if (isRecord(body.groupTotals)) {
+    for (const [key, count] of Object.entries(body.groupTotals)) {
+      if (typeof count === 'number' && Number.isInteger(count) && count >= 0 && /^[a-z][a-z0-9-]{0,63}$/.test(key)) groupTotals[key] = count;
+    }
+  }
+  return { services, notFound: body.notFound === true, generatedAt: str(body.generatedAt), groupTotals };
 }
 
 function travelText(travel: FoundService['travel']): string | null {

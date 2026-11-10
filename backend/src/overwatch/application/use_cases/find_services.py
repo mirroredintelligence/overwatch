@@ -23,7 +23,7 @@ Roles: the advisor and Advisor v2 (DEC-1362); every other role is refused as Not
 
 import asyncio
 from collections.abc import Collection, Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta
 from typing import Final
 
@@ -176,6 +176,15 @@ def match_services(
     return tuple(found)
 
 
+def group_totals(entries: tuple[BoardEntry, ...]) -> dict[ServiceCategory, int]:
+    """How many services each group has in all, so a card can say "3 of 5 services". Counts only: no
+    patient value and no ordering."""
+    totals: dict[ServiceCategory, int] = {}
+    for entry in entries:
+        totals[entry.category] = totals.get(entry.category, 0) + 1
+    return totals
+
+
 def order_key(item: FoundService) -> tuple[int, int, str, str]:
     """Travel low end first, no travel last, then name, then id. Status plays no part."""
     if item.travel is None:
@@ -199,6 +208,8 @@ class FindServicesResult:
     generated_at: datetime
     not_found: bool = False
     """The locator does not know the district: no travel is shown and the order is by name."""
+    group_totals: Mapping[ServiceCategory, int] = field(default_factory=dict)
+    """Every service of each group, found or not."""
 
 
 class FindServices:
@@ -271,7 +282,12 @@ class FindServices:
                 )
             )
             await audit_uow.commit()
-        return FindServicesResult(services=ordered, generated_at=now, not_found=patient is None)
+        return FindServicesResult(
+            services=ordered,
+            generated_at=now,
+            not_found=patient is None,
+            group_totals=group_totals(board.entries),
+        )
 
     async def _travel_range(
         self, patient: Located | None, site: LatLon | None

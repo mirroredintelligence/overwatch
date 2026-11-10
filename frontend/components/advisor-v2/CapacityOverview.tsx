@@ -6,8 +6,8 @@ import { Loading, Skeleton } from '@/components/ui/Skeleton';
 import { STATUS_LABELS } from '@/components/ui/StatusBadge';
 import { categoryLabel } from '@/lib/board/format';
 import { readOverview } from '@/lib/advisor/v2/browser';
-import { attentionShown, COUNTED_STATUSES, groupHref, groupsOfRows, statusHref, V2_BROWSE_NOTE, type Overview } from '@/lib/advisor/v2/overview';
-import { Dot } from './parts';
+import { attentionShown, COUNTED_STATUSES, districtCards, districtHref, groupHref, groupsOfRows, statusHref, V2_BROWSE_NOTE, type Overview } from '@/lib/advisor/v2/overview';
+import { Dot, PagedGrid, StatusLegend, StatusRing } from './parts';
 import styles from './V2.module.css';
 
 // Capacity (DEC-1366), in the layout of the SPoA design: the five status counts, each a link to its list; a short
@@ -16,10 +16,19 @@ import styles from './V2.module.css';
 // stale figure is never listed as spare capacity. There is no "places available" total (DEC-1343). Nothing here
 // opens a case.
 
+type Section = 'areas' | 'attention' | 'groups';
+
+const SECTIONS: readonly (readonly [Section, string])[] = [
+  ['areas', 'Areas'],
+  ['attention', 'Attention'],
+  ['groups', 'Groups'],
+];
+
 type State = { kind: 'loading' } | { kind: 'ready'; overview: Overview } | { kind: 'failed' };
 
 export function CapacityOverview() {
   const [state, setState] = useState<State>({ kind: 'loading' });
+  const [section, setSection] = useState<Section>('areas');
 
   useEffect(() => {
     let live = true;
@@ -54,13 +63,10 @@ export function CapacityOverview() {
   const pressure = attentionShown(overview.underPressure, overview.attentionShown);
   const room = attentionShown(overview.underutilised, overview.attentionShown);
   const groups = groupsOfRows(overview.services);
+  const places = districtCards(overview.services);
 
   return (
     <div className={styles.app}>
-      <div className={styles.titleRow}>
-        <h2 className={styles.title}>Regional overview</h2>
-        <p className={styles.sub}>{`${overview.services.length} services`}</p>
-      </div>
       <ul className={styles.headlines} aria-label="Services by state">
         {COUNTED_STATUSES.map((status) => (
           <li key={status}>
@@ -75,8 +81,42 @@ export function CapacityOverview() {
         ))}
       </ul>
 
-      <div className={styles.board}>
-        <section aria-labelledby="v2-attention-heading" className={`${styles.panel} ${styles.bottomCard}`}>
+      <div className={styles.sectionTabs} role="tablist" aria-label="Overview sections">
+        {SECTIONS.map(([id, label]) => (
+          <button key={id} type="button" role="tab" className={styles.seg} aria-selected={section === id} onClick={() => setSection(id)}>
+            {label}
+          </button>
+        ))}
+      </div>
+      <div className={styles.board} data-section={section}>
+        <section aria-labelledby="v2-locations-heading" className={styles.locations}>
+          <h2 id="v2-locations-heading" className={styles.visuallyHidden}>
+            Locations
+          </h2>
+          <PagedGrid
+            items={places}
+            keyOf={(card) => card.district ?? 'none'}
+            label="Locations"
+            noun="locations"
+            cols={3}
+            tall
+            empty="No service has a location recorded."
+            render={(card) => (
+              <Link className={styles.location} href={districtHref(card.district)} data-el="ADV2-LOCATION">
+                <span className={styles.locationHead}>
+                  <span className={styles.locationName}>{card.district ?? 'Not placed'}</span>
+                  <span className={styles.locationSub}>{card.district === null ? 'No district recorded' : 'Postcode district'}</span>
+                </span>
+                <StatusRing tally={card.tally} />
+                <span className={styles.locationFoot}>
+                  <span className={styles.pill}>{`${card.count} ${card.count === 1 ? 'service' : 'services'}`}</span>
+                  <StatusLegend tally={card.tally} />
+                </span>
+              </Link>
+            )}
+          />
+        </section>
+        <section aria-labelledby="v2-attention-heading" className={`${styles.panel} ${styles.bottomCard} ${styles.attn}`}>
           <div className={styles.cardHeading}>
             <h2 id="v2-attention-heading">Needs attention</h2>
             <span className={styles.pill}>{overview.underPressure.length}</span>
@@ -91,7 +131,7 @@ export function CapacityOverview() {
                     <Dot status={item.status} />
                     <span className={styles.itemText}>
                       <strong>{item.name}</strong>
-                      <small>{`${STATUS_LABELS[item.status]} · ${item.reason} · ${item.usedPercent === null ? 'Unknown' : `${item.usedPercent}% used`}`}</small>
+                      <small>{`${STATUS_LABELS[item.status]} · ${item.reason}${item.usedPercent === null ? ' · Unknown' : ` · ${item.usedPercent}% used`}`}</small>
                     </span>
                   </Link>
                 </li>
@@ -101,7 +141,7 @@ export function CapacityOverview() {
           {pressure.more > 0 ? <p className={styles.note}>{`and ${pressure.more} more`}</p> : null}
         </section>
 
-        <section aria-labelledby="v2-room-heading" className={`${styles.panel} ${styles.bottomCard}`}>
+        <section aria-labelledby="v2-room-heading" className={`${styles.panel} ${styles.bottomCard} ${styles.attn}`}>
           <div className={styles.cardHeading}>
             <h2 id="v2-room-heading">Underutilised</h2>
             <span className={styles.pill}>{overview.underutilised.length}</span>
@@ -144,7 +184,7 @@ export function CapacityOverview() {
           </ul>
         </section>
       </div>
-      <p className={styles.footer}>{V2_BROWSE_NOTE}</p>
+      <p className={styles.footer}>{`${overview.services.length} services. ${V2_BROWSE_NOTE}`}</p>
     </div>
   );
 }

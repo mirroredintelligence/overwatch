@@ -5,13 +5,14 @@
 
 .app {
   --v2-bg: #f5f7ff;
-  --v2-line: #dce4f4;
-  --v2-text: #0a0d14;
-  --v2-muted: #5a7091;
-  --v2-green: #078d67;
-  --v2-amber: #ffb400;
-  --v2-red: #ff2f7b;
-  --v2-gray: #b9bbd8;
+  --v2-line: var(--c-line);
+  --v2-text: var(--c-ink);
+  --v2-muted: var(--c-muted);
+  --v2-green: var(--c-primary);
+  --v2-amber: var(--c-limited);
+  --v2-red: var(--c-closed);
+  --v2-over: var(--c-surge);
+  --v2-gray: var(--c-unknown);
   --v2-accent: #8a50ff;
   --v2-accent-soft: #e9e2ff;
   --v2-gap: clamp(8px, 1.3vw, 24px);
@@ -73,7 +74,7 @@
 
 .sub {
   margin: 0;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--v2-muted);
 }
 
@@ -132,9 +133,12 @@
   background: var(--v2-amber);
 }
 
-.notAccepting,
-.overCapacity {
+.notAccepting {
   background: var(--v2-red);
+}
+
+.overCapacity {
+  background: var(--v2-over);
 }
 
 .notUpdated,
@@ -146,7 +150,7 @@
 .note,
 .muted {
   margin: 0;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.35;
   color: var(--v2-muted);
 }
@@ -160,7 +164,7 @@
 .footer {
   flex: none;
   margin: 0;
-  font-size: 11px;
+  font-size: 14px;
   line-height: 15px;
   color: var(--v2-muted);
 }
@@ -212,14 +216,22 @@
 .board {
   display: grid;
   flex: 1;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: minmax(0, 1fr) minmax(0, 1.1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr);
+  grid-template-rows: minmax(0, 1.9fr) minmax(0, 1fr);
   gap: var(--v2-vgap) var(--v2-gap);
+  min-height: 0;
+}
+
+.locations {
+  display: flex;
+  flex-direction: column;
+  grid-column: 1 / -1;
   min-height: 0;
 }
 
 .bottomCard {
   display: flex;
+  overflow: hidden;
   flex-direction: column;
   gap: 8px;
   min-height: 0;
@@ -227,7 +239,7 @@
 }
 
 .groupsCard {
-  grid-column: span 2;
+  grid-column: auto;
 }
 
 .cardHeading {
@@ -248,7 +260,7 @@
 .pill {
   display: inline-block;
   padding: 4px 10px;
-  font-size: 12px;
+  font-size: 14px;
   white-space: nowrap;
   background: #ece8ff;
   border-radius: 18px;
@@ -257,7 +269,7 @@
 .items {
   display: grid;
   flex: 1;
-  grid-auto-rows: minmax(54px, 1fr);
+  grid-auto-rows: minmax(74px, auto);
   gap: 6px;
   min-height: 0;
   margin: 0;
@@ -292,7 +304,7 @@
 
 .itemText strong {
   display: block;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 650;
   line-height: 1.3;
 }
@@ -300,7 +312,7 @@
 .itemText small {
   display: block;
   margin-top: 3px;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.3;
   color: var(--v2-muted);
 }
@@ -308,7 +320,7 @@
 .groupGrid {
   display: grid;
   flex: 1;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-auto-rows: minmax(52px, 1fr);
   gap: 8px;
   min-height: 0;
@@ -352,7 +364,7 @@
   flex: 1;
   min-width: 0;
   padding: 7px 10px;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.3;
   background: #ffffffb3;
   border: 1px solid var(--v2-line);
@@ -384,7 +396,7 @@
 .field label,
 .field legend {
   padding: 0;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.4px;
   color: var(--v2-muted);
@@ -411,7 +423,7 @@
 
 .choice {
   padding: 7px 11px;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.3;
   background: #ffffffb3;
   border: 1px solid var(--v2-line);
@@ -427,14 +439,14 @@
 .help {
   min-height: 2.7em;
   margin: 0;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.35;
   color: var(--v2-muted);
 }
 
 .problem {
   margin: 0;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -447,7 +459,7 @@
   gap: 7px;
   min-height: 30px;
   padding: 6px 11px;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.3;
   color: inherit;
   text-decoration: none;
@@ -512,7 +524,7 @@
 .grid {
   display: grid;
   flex: 1;
-  grid-auto-rows: 84px;
+  grid-auto-rows: 92px;
   gap: 8px;
   align-content: start;
   min-height: 0;
@@ -541,7 +553,7 @@
 }
 
 .pagerCount {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--v2-muted);
   text-align: center;
 }
@@ -579,7 +591,7 @@
 .groupCard small {
   display: block;
   margin-top: 5px;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--v2-muted);
 }
 
@@ -613,7 +625,7 @@
   align-items: center;
   gap: 4px 6px;
   margin-top: 3px;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.3;
   color: var(--v2-muted);
 }
@@ -642,14 +654,14 @@
 }
 
 .cap b.unknown {
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.2;
 }
 
 .cap small {
   display: block;
   margin-top: 3px;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.25;
   color: var(--v2-muted);
 }
@@ -658,7 +670,7 @@
   grid-column: 1 / -1;
   align-self: start;
   padding: 18px;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--v2-muted);
   border: 1px dashed #bac7e2;
   border-radius: 12px;
@@ -670,7 +682,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--v2-muted);
 }
 
@@ -740,5 +752,198 @@
 
   .cols2 {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* A location card: its name, its service count and a ring of its states, with each state also written out. */
+.cols3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.tall {
+  grid-auto-rows: 124px;
+}
+
+.location {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 76px;
+  grid-template-rows: auto 1fr;
+  gap: 2px 12px;
+  height: 100%;
+  min-width: 0;
+  padding: 8px 14px;
+  color: inherit;
+  text-decoration: none;
+  background: linear-gradient(145deg, #ffffff, #fdfdff), #ffffff;
+  border: 1px solid var(--v2-line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.location:hover {
+  background-color: #f4f0ff;
+  border-color: #c6b6fa;
+}
+
+.locationName {
+  display: inline;
+  font-size: 18px;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.locationSub {
+  display: inline;
+  margin-left: 8px;
+  font-size: 14px;
+  color: var(--v2-muted);
+}
+
+.locationHead {
+  grid-column: 1;
+}
+
+.locationFoot {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 4px;
+  grid-column: 1;
+  min-width: 0;
+}
+
+.ring {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  width: 76px;
+  height: 76px;
+  align-self: center;
+}
+
+.ringSeg {
+  fill: none;
+}
+
+.ringSeg[data-status='accepting'] {
+  stroke: var(--v2-green);
+}
+
+.ringSeg[data-status='limited'] {
+  stroke: var(--v2-amber);
+}
+
+.ringSeg[data-status='not-accepting'] {
+  stroke: var(--v2-red);
+}
+
+.ringSeg[data-status='over-capacity'] {
+  stroke: var(--v2-over);
+}
+
+.ringSeg[data-status='not-updated'],
+.ringSeg[data-status='none'] {
+  stroke: var(--v2-gray);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 10px;
+  margin: 0;
+  padding: 0;
+  font-size: 14px;
+  list-style: none;
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.shape {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+}
+
+.shape svg {
+  width: 100%;
+  height: 100%;
+}
+
+@media (max-width: 900px) {
+  .board {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+  }
+
+  .locations {
+    grid-column: auto;
+  }
+
+  .cols3 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  clip-path: inset(50%);
+  border: 0;
+}
+
+.sectionTabs {
+  display: none;
+  flex: none;
+  gap: 6px;
+}
+
+@media (max-width: 900px) {
+  .app {
+    height: max(520px, calc(100dvh - 170px));
+    overflow: hidden;
+  }
+
+  .sectionTabs {
+    display: flex;
+  }
+
+  .headlines {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .headlines > li {
+    grid-column: span 2;
+  }
+
+  .headlines > li:nth-child(n + 4) {
+    grid-column: span 3;
+  }
+
+  .board {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+  }
+
+  .board > * {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .board[data-section='areas'] > :not(.locations),
+  .board[data-section='attention'] > :not(.attn),
+  .board[data-section='groups'] > :not(.groupsCard) {
+    display: none;
   }
 }

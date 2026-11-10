@@ -134,6 +134,7 @@ async def find(
         content={
             "generatedAt": format_instant(result.generated_at),
             "notFound": result.not_found,
+            "groupTotals": {key.value: count for key, count in result.group_totals.items()},
             "services": [_found(item) for item in result.services],
         },
         headers=NO_STORE,

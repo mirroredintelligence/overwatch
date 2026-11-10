@@ -303,7 +303,7 @@ async def test_every_role_but_a_reporter_and_an_executive_is_the_one_404(
             assert response.status_code == 404, (role, response.status_code)
             refused[role] = response.content
     assert len(set(refused.values())) == 1
-    assert len(refused) == len(Role) - len(admitted) - len(EDGE_REFUSED) == 10
+    assert len(refused) == len(Role) - len(admitted) - len(EDGE_REFUSED) == 12
     assert await _count(harness_driver, PERSONS, id=STAFF, tenant=tenant_id) == 0
     for role in admitted:
         response = await api.request(

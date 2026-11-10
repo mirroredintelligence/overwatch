@@ -79,5 +79,5 @@ async def test_each_route_takes_its_roles_and_refuses_every_other_one_the_same_w
     assert set(refusals) == set(Role) - admitted - EDGE_REFUSED
 
 
-async def test_there_are_thirteen_roles_and_the_matrix_covers_every_one() -> None:
-    assert len(list(Role)) == 13
+async def test_there_are_fifteen_roles_and_the_matrix_covers_every_one() -> None:
+    assert len(list(Role)) == 15

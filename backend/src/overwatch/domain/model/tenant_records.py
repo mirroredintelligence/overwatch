@@ -95,6 +95,8 @@ ENTRA_MAPPABLE_ROLES: Final = frozenset(
         Role.AUDIT,
         Role.NETWORK_ADMIN,
         Role.TENANT_ADMIN,
+        Role.ANALYTICS_USER,
+        Role.ADVISOR_V2,
     }
 )
 HAND_MAPPABLE_ROLES: Final = ENTRA_MAPPABLE_ROLES - {Role.TENANT_ADMIN}

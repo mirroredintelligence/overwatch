@@ -3,7 +3,7 @@
 
 Three kinds of test, none of which needs a store for the first two:
 
-1. **The role matrix.** Every route against all thirteen roles. The roles a route names get its
+1. **The role matrix.** Every route against all fifteen roles. The roles a route names get its
    success status, the platform operator is refused at the edge (401: it has no data access), and
    every other role gets the one 404 and never reaches a use case.
 2. **Two tenants.** The real use cases over the registry fake, behind the real edge: an organisation
@@ -305,10 +305,10 @@ def _ids() -> list[tuple[str, str, dict[str, Any] | None, frozenset[Role], int]]
 
 
 @pytest.mark.parametrize(("method", "path", "body", "allowed", "status"), ROUTES)
-async def test_every_route_against_all_thirteen_roles(
+async def test_every_route_against_all_fifteen_roles(
     method: str, path: str, body: dict[str, Any] | None, allowed: frozenset[Role], status: int
 ) -> None:
-    assert len(ALL_ROLES) == 13
+    assert len(ALL_ROLES) == 15
     calls: list[str] = []
     app = _app(("org-a",), _stub_services(calls))
     async with _client(app) as client:

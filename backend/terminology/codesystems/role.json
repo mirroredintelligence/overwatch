@@ -5,11 +5,19 @@
   "name": "role",
   "status": "active",
   "content": "complete",
-  "count": 13,
+  "count": 15,
   "concept": [
     {
       "code": "advisor",
       "display": "Advisor"
+    },
+    {
+      "code": "advisor-v2",
+      "display": "Advisor v2"
+    },
+    {
+      "code": "analytics-user",
+      "display": "Analytics user"
     },
     {
       "code": "anonymous-link",

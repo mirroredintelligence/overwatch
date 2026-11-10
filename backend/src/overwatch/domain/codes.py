@@ -190,6 +190,12 @@ class Role(StrEnum):
     TENANT_ADMIN = "tenant-admin"
     NETWORK_ADMIN = "network-admin"
     PLATFORM_OPERATOR = "platform-operator"
+    # Two roles added by DEC-1362. The Analytics User sees aggregate figures only (never a case, a
+    # patient, a postcode, an outcome or any personal data); Advisor v2 sees only the new advisor
+    # pages (`/advisor/v2`). Neither is named by any route or use case yet, so each is refused
+    # everywhere until a later task grants one a read.
+    ANALYTICS_USER = "analytics-user"
+    ADVISOR_V2 = "advisor-v2"
 
 
 class ScopeFlag(StrEnum):

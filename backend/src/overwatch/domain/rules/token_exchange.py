@@ -56,8 +56,10 @@ STAFF_ROLE_PRIORITY: Final = (
     Role.LEAD,
     Role.CLINICAL,
     Role.ADVISOR,
+    Role.ADVISOR_V2,
     Role.OWNER,
     Role.EXEC,
+    Role.ANALYTICS_USER,
     Role.AUDIT,
 )
 # The app roles of the operator's directory and the platform role each gives. A person who holds

@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { ShapeIcon, STATUS_SHAPES } from '@/components/ui/StatusBadge';
 import type { OptionView } from '@/lib/advisor/options';
 import { layoutOf, PICTURE, percentOf, radiusPx } from '@/lib/map/layout';
@@ -7,6 +7,8 @@ import { overlappingPairs } from '@/lib/radar/radar';
 import mapStyles from '../advisor/map.module.css';
 import styles from './radar.module.css';
 import { StyledSpan } from '@/components/ui/Styled';
+import { TileMap, useWebgl, type TileArea, type TileMarker } from '@/components/map/TileMap';
+import { lensRing } from '@/lib/map/geo';
 import { Basemap, BASEMAP_ATTRIBUTION } from '../advisor/Basemap';
 import { UnplacedNote } from '../advisor/UnplacedNote';
 
@@ -18,6 +20,7 @@ import { UnplacedNote } from '../advisor/UnplacedNote';
 
 const PATIENT_RADIUS = 13;
 const CAPTION = 'Schematic, not to scale. Patient shown at postcode centre. Each outlined area is where a visiting service can attend.';
+const TILE_CAPTION = 'Patient shown at postcode centre. Each outlined area is where a visiting service can attend. Zoom and drag the map to look closer.';
 const OFF_NOTE = 'Drive-time rings and traffic are off because there is no data behind them yet. They are not drawn from nothing.';
 
 /** How the nth visiting service's area is drawn, here and in the key beside the picture. */
@@ -79,95 +82,161 @@ export function RadarMap({ options, patientArea, postcode }: RadarMapProps) {
   };
   const pairs = overlappingPairs(options);
 
+  const webgl = useWebgl();
+  const [tilesFailed, setTilesFailed] = useState(false);
+  const tiled = webgl && !tilesFailed;
+  const showTiles = tiled && points.length > 0;
+  const areas = useMemo<TileArea[]>(
+    () =>
+      visiting.map((option, index) => {
+        const look = areaStyleOf(index);
+        return {
+          id: option.serviceId,
+          centre: option.coverage as LatLon,
+          radiusKm: (option.coverage as NonNullable<OptionView['coverage']>).radiusKm,
+          color: look.color,
+          dash: look.dash !== undefined,
+          fillOpacity: look.fillOpacity,
+        };
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [options],
+  );
+  const overlapRings = useMemo(
+    () =>
+      pairs
+        .map(([first, second]) => lensRing({ ...(first.coverage as LatLon), radiusKm: first.coverage?.radiusKm ?? 0 }, { ...(second.coverage as LatLon), radiusKm: second.coverage?.radiusKm ?? 0 }))
+        .filter((ring): ring is LatLon[] => ring !== null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [options],
+  );
+  const label = (option: OptionView) => (
+    <StyledSpan key={option.serviceId} className={styles.label} css={tiled ? {} : percentOf(centreOf(option))}>
+      <ShapeIcon shape={STATUS_SHAPES[option.status]} />
+      {option.name}
+    </StyledSpan>
+  );
+  const markers: TileMarker[] = [
+    ...(patientArea === null
+      ? []
+      : [
+          {
+            id: 'patient',
+            at: patientArea,
+            anchor: 'center' as const,
+            node: (
+              <span className={styles.patientMarker}>
+                <span className={styles.patientDot} aria-hidden="true" />
+                <span className={styles.patientTag}>{`Patient · ${postcode}`}</span>
+              </span>
+            ),
+          },
+        ]),
+    ...fixed.map((option) => ({ id: option.serviceId, at: option.position as LatLon, anchor: 'center' as const, node: label(option) })),
+    ...visiting.map((option) => ({ id: `${option.serviceId}-area`, at: option.coverage as LatLon, anchor: 'center' as const, node: label(option) })),
+  ];
+  const fit = [...points];
+
   return (
     <div className={styles.map}>
       <div className={mapStyles.picture} data-el="RADAR-PICTURE">
-        <svg className={mapStyles.svg} viewBox={`0 0 ${PICTURE.width} ${PICTURE.height}`} aria-hidden="true" focusable="false">
-          <defs>
-            <pattern id={hatch} width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-              <line x1="0" y1="0" x2="0" y2="8" stroke="var(--c-ink)" strokeWidth="3" />
-            </pattern>
-            {pairs.map(([first]) => {
-              const centre = centreOf(first);
-              if (centre === undefined || first.coverage === null) return null;
+        {showTiles ? (
+          <TileMap fit={fit} areas={areas} route={null} overlaps={overlapRings} markers={markers} onFailed={() => setTilesFailed(true)} />
+        ) : (
+          <>
+          <svg className={mapStyles.svg} viewBox={`0 0 ${PICTURE.width} ${PICTURE.height}`} aria-hidden="true" focusable="false">
+            <defs>
+              <pattern id={hatch} width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <line x1="0" y1="0" x2="0" y2="8" stroke="var(--c-ink)" strokeWidth="3" />
+              </pattern>
+              {pairs.map(([first]) => {
+                const centre = centreOf(first);
+                if (centre === undefined || first.coverage === null) return null;
+                return (
+                  <clipPath key={first.serviceId} id={`${hatch}-${first.serviceId}`}>
+                    <circle cx={centre.x} cy={centre.y} r={radiusPx(first.coverage.radiusKm, layout.pxPerDegree)} />
+                  </clipPath>
+                );
+              })}
+            </defs>
+            <Basemap place={layout.place} />
+            {visiting.map((option, index) => {
+              const centre = centreOf(option);
+              if (centre === undefined || option.coverage === null) return null;
+              const look = areaStyleOf(index);
               return (
-                <clipPath key={first.serviceId} id={`${hatch}-${first.serviceId}`}>
-                  <circle cx={centre.x} cy={centre.y} r={radiusPx(first.coverage.radiusKm, layout.pxPerDegree)} />
-                </clipPath>
+                <circle
+                  key={option.serviceId}
+                  cx={centre.x}
+                  cy={centre.y}
+                  r={radiusPx(option.coverage.radiusKm, layout.pxPerDegree)}
+                  fill={look.color}
+                  fillOpacity={look.fillOpacity}
+                  stroke={look.color}
+                  strokeWidth={3}
+                  strokeDasharray={look.dash}
+                  data-el={`RADAR-AREA-${option.serviceId.toUpperCase()}`}
+                />
               );
             })}
-          </defs>
-          <Basemap place={layout.place} />
-          {visiting.map((option, index) => {
-            const centre = centreOf(option);
-            if (centre === undefined || option.coverage === null) return null;
-            const look = areaStyleOf(index);
-            return (
-              <circle
-                key={option.serviceId}
-                cx={centre.x}
-                cy={centre.y}
-                r={radiusPx(option.coverage.radiusKm, layout.pxPerDegree)}
-                fill={look.color}
-                fillOpacity={look.fillOpacity}
-                stroke={look.color}
-                strokeWidth={3}
-                strokeDasharray={look.dash}
-                data-el={`RADAR-AREA-${option.serviceId.toUpperCase()}`}
-              />
-            );
-          })}
-          {pairs.map(([first, second]) => {
-            const centre = centreOf(second);
-            if (centre === undefined || second.coverage === null) return null;
-            return (
-              <circle
-                key={`${first.serviceId}-${second.serviceId}`}
-                cx={centre.x}
-                cy={centre.y}
-                r={radiusPx(second.coverage.radiusKm, layout.pxPerDegree)}
-                fill={`url(#${hatch})`}
-                fillOpacity={0.55}
-                clipPath={`url(#${hatch}-${first.serviceId})`}
-                data-el="RADAR-OVERLAP"
-              />
-            );
-          })}
-          {patientArea === null ? null : (
-            <circle cx={layout.points[0].x} cy={layout.points[0].y} r={PATIENT_RADIUS} fill="var(--c-ink)" stroke="#fff" strokeWidth={4} />
-          )}
-        </svg>
+            {pairs.map(([first, second]) => {
+              const centre = centreOf(second);
+              if (centre === undefined || second.coverage === null) return null;
+              return (
+                <circle
+                  key={`${first.serviceId}-${second.serviceId}`}
+                  cx={centre.x}
+                  cy={centre.y}
+                  r={radiusPx(second.coverage.radiusKm, layout.pxPerDegree)}
+                  fill={`url(#${hatch})`}
+                  fillOpacity={0.55}
+                  clipPath={`url(#${hatch}-${first.serviceId})`}
+                  data-el="RADAR-OVERLAP"
+                />
+              );
+            })}
+            {patientArea === null ? null : (
+              <circle cx={layout.points[0].x} cy={layout.points[0].y} r={PATIENT_RADIUS} fill="var(--c-ink)" stroke="#fff" strokeWidth={4} />
+            )}
+          </svg>
 
-        {patientArea === null ? null : (
-          <StyledSpan className={styles.patientLabel} css={percentOf(layout.points[0])}>
-            {`Patient · ${postcode}`}
-          </StyledSpan>
+          {patientArea === null ? null : (
+            <StyledSpan className={styles.patientLabel} css={percentOf(layout.points[0])}>
+              {`Patient · ${postcode}`}
+            </StyledSpan>
+          )}
+          {fixed.map((option) => {
+            const centre = centreOf(option);
+            return centre === undefined ? null : (
+              <StyledSpan key={option.serviceId} className={styles.label} css={percentOf(centre)}>
+                <ShapeIcon shape={STATUS_SHAPES[option.status]} />
+                {option.name}
+              </StyledSpan>
+            );
+          })}
+          {visiting.map((option) => {
+            const centre = centreOf(option);
+            return centre === undefined ? null : (
+              <StyledSpan key={option.serviceId} className={styles.label} css={percentOf(centre)}>
+                <ShapeIcon shape={STATUS_SHAPES[option.status]} />
+                {option.name}
+              </StyledSpan>
+            );
+          })}
+            <p className={styles.offNote} data-el="RADAR-OFF-NOTE">
+              {OFF_NOTE}
+            </p>
+          </>
         )}
-        {fixed.map((option) => {
-          const centre = centreOf(option);
-          return centre === undefined ? null : (
-            <StyledSpan key={option.serviceId} className={styles.label} css={percentOf(centre)}>
-              <ShapeIcon shape={STATUS_SHAPES[option.status]} />
-              {option.name}
-            </StyledSpan>
-          );
-        })}
-        {visiting.map((option) => {
-          const centre = centreOf(option);
-          return centre === undefined ? null : (
-            <StyledSpan key={option.serviceId} className={styles.label} css={percentOf(centre)}>
-              <ShapeIcon shape={STATUS_SHAPES[option.status]} />
-              {option.name}
-            </StyledSpan>
-          );
-        })}
-        <p className={styles.offNote} data-el="RADAR-OFF-NOTE">
+      </div>
+      {showTiles ? (
+        <p className={mapStyles.caption} data-el="RADAR-OFF-NOTE">
           {OFF_NOTE}
         </p>
-      </div>
-      <p className={mapStyles.caption}>{CAPTION}</p>
+      ) : null}
+      <p className={mapStyles.caption}>{showTiles ? TILE_CAPTION : CAPTION}</p>
       <UnplacedNote options={options} className={mapStyles.caption} />
-      <p className={mapStyles.caption}>{BASEMAP_ATTRIBUTION}</p>
+      {showTiles ? null : <p className={mapStyles.caption}>{BASEMAP_ATTRIBUTION}</p>}
       <ul className={styles.srOnly} aria-label={`Services near ${postcode}`}>
         {options.map((option) => (
           <li key={option.serviceId}>

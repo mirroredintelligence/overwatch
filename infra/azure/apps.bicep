@@ -16,6 +16,9 @@ param neo4jUri string = 'neo4j+s://8cb817d8.databases.neo4j.io'
 param neo4jUser string = '8cb817d8'
 param baseUrl string = 'https://overwatch.mirroredintelligence.com'
 param operatorBaseUrl string = 'https://overwatch-admin.mirroredintelligence.com'
+// The map's tile file (DEC-1362): OS Open Zoomstack as one PMTiles blob in a private container, read by web with its own
+// identity (Storage Blob Data Reader on the container, see SETUP.md section 8). Empty switches the map off (the schematic stays).
+param mapTilesUrl string = 'https://stdiucspilot7k2q.blob.core.windows.net/map-data/OS_Open_Zoomstack.pmtiles'
 param fhirBaseUrl string = 'https://api.internal.victorioustree-0cb125c2.uksouth.azurecontainerapps.io/fhir'
 param placeholderImage string = 'mcr.microsoft.com/k8se/quickstart:latest'
 // The real images, pushed to the pilot registry. Pass the tag at deploy time (the commit short sha).
@@ -322,6 +325,7 @@ resource web 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'OVERWATCH_KEY_VAULT_URL', value: keyVaultUrl }
             { name: 'AZURE_CLIENT_ID', value: webIdentity.properties.clientId }
             { name: 'OVERWATCH_FHIR_BASE_URL', value: fhirBaseUrl }
+            { name: 'OVERWATCH_MAP_TILES_URL', value: mapTilesUrl }
             // OVERWATCH_VISITOR_ADDRESS_SOURCE (not set: the default is right for this ingress, DEC-1311) says where web reads
             // the visitor address it passes to api for the rate limits: 'x-forwarded-for' (default, the right-most entry the
             // ingress added) or 'cf-connecting-ip' (set it only when Cloudflare proxies web).

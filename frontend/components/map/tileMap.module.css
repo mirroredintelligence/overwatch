@@ -1,0 +1,13 @@
+.frame {
+  position: absolute;
+  inset: 0;
+}
+
+/* A pin sits in a wrapper that the map moves; the pin itself must not position itself as well. */
+div.marker > * {
+  position: relative;
+  left: auto;
+  top: auto;
+  margin: 0;
+  transform: none;
+}

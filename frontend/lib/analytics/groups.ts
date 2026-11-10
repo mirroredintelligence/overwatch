@@ -1,7 +1,7 @@
 import { categoryLabel } from '@/lib/board/format';
 import { type BrowseRow } from '@/lib/advisor/servicesBrowse';
 import { agoText } from '@/lib/lead/format';
-import type { AnalyticsService } from './types';
+import type { AnalyticsArea, AnalyticsService } from './types';
 
 // The groupings of the Analytics overview (DEC-1368). A service that covers several districts is counted in each; a
 // service that covers none goes in "Not placed", never dropped. Everything is ordered by name, never by status.
@@ -31,6 +31,8 @@ export type StatusTally = {
 export type Group = {
   key: string;
   label: string;
+  /** A second line under the name (an area's places); absent for the other groupings. */
+  sub?: string;
   services: AnalyticsService[];
   counts: StatusTally;
 };
@@ -63,6 +65,26 @@ export function districtGroups(services: readonly AnalyticsService[]): Group[] {
   return groups;
 }
 
+/**
+ * One group per area, in the order given (an area with no service included), each service counted once, in its own
+ * area (DEC-1375). A service with no area, or one the list does not hold, is under "Not placed", last and only when
+ * there is one. So the groups add up to every service.
+ */
+export function areaGroups(services: readonly AnalyticsService[], areas: readonly AnalyticsArea[]): Group[] {
+  const known = new Set(areas.map((area) => area.id));
+  const groups = areas.map((area) => ({
+    ...group(
+      area.id,
+      area.name,
+      services.filter((service) => service.area === area.id),
+    ),
+    ...(area.places === '' ? {} : { sub: area.places }),
+  }));
+  const unplaced = services.filter((service) => service.area === null || !known.has(service.area));
+  if (unplaced.length > 0) groups.push(group(NOT_PLACED, 'Not placed', unplaced));
+  return groups;
+}
+
 /** All eight categories, in the board's order, an empty one included. A code the page does not know is added last. */
 export function categoryGroups(services: readonly AnalyticsService[]): Group[] {
   const unknown = [...new Set(services.map((service) => service.category))].filter((code) => !CATEGORIES.includes(code)).sort();
@@ -75,13 +97,14 @@ export function categoryGroups(services: readonly AnalyticsService[]): Group[] {
   );
 }
 
-export type DrillTarget = { kind: 'district' | 'group' | 'status'; key: string };
+export type DrillTarget = { kind: 'district' | 'area' | 'group' | 'status'; key: string };
 
 export type DrillRow = BrowseRow & { href: string };
 
 export function inTarget(service: AnalyticsService, target: DrillTarget): boolean {
   if (target.kind === 'status') return service.status === target.key;
   if (target.kind === 'group') return service.category === target.key;
+  if (target.kind === 'area') return target.key === NOT_PLACED ? service.area === null : service.area === target.key;
   return target.key === NOT_PLACED ? service.districts.length === 0 : service.districts.includes(target.key);
 }
 

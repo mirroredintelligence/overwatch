@@ -52,3 +52,17 @@ describe('GET /api/bff/advisor-v2/capacity', () => {
     expect((await get('advisor')).status).toBe(502);
   });
 });
+
+describe('the areas in the answer (DEC-1375)', () => {
+  it('passes the areas and each service\'s area on unchanged', async () => {
+    const withAreas = {
+      ...ANSWER,
+      areas: [{ id: 'area-one', name: 'Area One', places: 'Alpha · Beta' }],
+      services: [{ serviceId: 's', name: 'S', category: 'inpatient-beds', status: 'accepting', area: 'area-one', districts: [] }],
+    };
+    server.use(http.get(`${ROOT}/advisor-v2/capacity`, () => HttpResponse.json(withAreas)));
+    const response = await get('advisor-v2');
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(withAreas);
+  });
+});

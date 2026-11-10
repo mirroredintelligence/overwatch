@@ -6,7 +6,7 @@ import { Loading, Skeleton } from '@/components/ui/Skeleton';
 import { STATUS_LABELS } from '@/components/ui/StatusBadge';
 import { categoryLabel } from '@/lib/board/format';
 import { readOverview } from '@/lib/advisor/v2/browser';
-import { attentionShown, COUNTED_STATUSES, districtCards, districtHref, groupHref, groupsOfRows, statusHref, V2_BROWSE_NOTE, type Overview } from '@/lib/advisor/v2/overview';
+import { attentionShown, COUNTED_STATUSES, groupHref, groupsOfRows, locationCards, statusHref, V2_BROWSE_NOTE, type Overview } from '@/lib/advisor/v2/overview';
 import { Dot, PagedGrid, StatusLegend, StatusRing } from './parts';
 import styles from './V2.module.css';
 
@@ -63,7 +63,7 @@ export function CapacityOverview() {
   const pressure = attentionShown(overview.underPressure, overview.attentionShown);
   const room = attentionShown(overview.underutilised, overview.attentionShown);
   const groups = groupsOfRows(overview.services);
-  const places = districtCards(overview.services);
+  const places = locationCards(overview);
 
   return (
     <div className={styles.app}>
@@ -95,17 +95,17 @@ export function CapacityOverview() {
           </h2>
           <PagedGrid
             items={places}
-            keyOf={(card) => card.district ?? 'none'}
+            keyOf={(card) => card.key}
             label="Locations"
             noun="locations"
             cols={3}
             tall
             empty="No service has a location recorded."
             render={(card) => (
-              <Link className={styles.location} href={districtHref(card.district)} data-el="ADV2-LOCATION">
+              <Link className={styles.location} href={card.href} data-el="ADV2-LOCATION">
                 <span className={styles.locationHead}>
-                  <span className={styles.locationName}>{card.district ?? 'Not placed'}</span>
-                  <span className={styles.locationSub}>{card.district === null ? 'No district recorded' : 'Postcode district'}</span>
+                  <span className={styles.locationName}>{card.name}</span>
+                  <span className={styles.locationSub}>{card.sub}</span>
                 </span>
                 <StatusRing tally={card.tally} />
                 <span className={styles.locationFoot}>

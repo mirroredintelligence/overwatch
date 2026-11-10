@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Loading, Skeleton } from '@/components/ui/Skeleton';
 import { ShapeIcon, STATUS_LABELS, STATUS_SHAPES, type StatusCode } from '@/components/ui/StatusBadge';
 import { BROWSE_STATUSES } from '@/lib/advisor/servicesBrowse';
-import { categoryGroups, districtGroups, type DrillTarget } from '@/lib/analytics/groups';
+import { areaGroups, categoryGroups, districtGroups, type DrillTarget } from '@/lib/analytics/groups';
 import { parseAnalyticsOverview } from '@/lib/analytics/parse';
 import type { AnalyticsOverview as Overview } from '@/lib/analytics/types';
 import { useNarrow } from '@/lib/analytics/useNarrow';
@@ -73,7 +73,8 @@ export function AnalyticsOverview() {
   }
 
   const { overview, now } = state;
-  const locations = districtGroups(overview.services);
+  const byArea = overview.areas.length > 0;
+  const locations = byArea ? areaGroups(overview.services, overview.areas) : districtGroups(overview.services);
   if (target !== null) {
     const title = drillTitle(target, (key) => locations.find((group) => group.key === key)?.label ?? key);
     return <Drill key={`${target.kind}:${target.key}`} overview={overview} target={target} now={now} title={title} onBack={() => setTarget(null)} />;
@@ -86,7 +87,7 @@ export function AnalyticsOverview() {
     <>
       {showAttention ? <AttentionPanel underPressure={overview.underPressure} underutilised={overview.underutilised} /> : null}
       <div className={styles.groupRow}>
-        {showLocations ? <LocationGroups groups={locations} serviceTotal={overview.services.length} narrow={narrow} onOpen={setTarget} /> : null}
+        {showLocations ? <LocationGroups groups={locations} serviceTotal={overview.services.length} narrow={narrow} kind={byArea ? 'area' : 'district'} onOpen={setTarget} /> : null}
         {showGroups ? <ServiceGroups groups={categoryGroups(overview.services)} narrow={narrow} onOpen={setTarget} /> : null}
       </div>
     </>

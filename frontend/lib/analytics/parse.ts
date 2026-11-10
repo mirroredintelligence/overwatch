@@ -1,6 +1,6 @@
 import type { StatusCode } from '@/components/ui/StatusBadge';
 import { LeadParseError, pressureList, underusedList } from '@/lib/lead/parse';
-import type { AnalyticsCounts, AnalyticsOverview, AnalyticsService } from './types';
+import type { AnalyticsArea, AnalyticsCounts, AnalyticsOverview, AnalyticsService } from './types';
 
 // Reads the BFF's overview answer. A shape that is not the one the page knows is an error, never a partly filled
 // page: an empty list would read as "nothing is under pressure" (H-330). Only the known fields are kept, so a field
@@ -40,7 +40,32 @@ function list(value: unknown): unknown[] {
   return value;
 }
 
-function service(value: unknown): AnalyticsService {
+// Area ids are short lower-case words with digits and hyphens; the name and the places line are plain text. Anything
+// that is not shaped like that is dropped, never shown (DEC-1375).
+const AREA_ID = /^[a-z0-9][a-z0-9-]{0,39}$/;
+const AREA_TEXT_MAX = 200;
+
+function areaText(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() !== '' && value.length <= AREA_TEXT_MAX ? value : null;
+}
+
+/** The areas, in the order given, each id once. A missing list (a back end with no area table) is no areas. */
+export function parseAreas(value: unknown): AnalyticsArea[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const areas: AnalyticsArea[] = [];
+  for (const item of value) {
+    if (!isObject(item)) continue;
+    const { id, name } = item;
+    const places = item.places === undefined ? '' : areaText(item.places);
+    if (typeof id !== 'string' || !AREA_ID.test(id) || seen.has(id) || areaText(name) === null || places === null) continue;
+    seen.add(id);
+    areas.push({ id, name: name as string, places });
+  }
+  return areas;
+}
+
+function service(value: unknown, areas: readonly AnalyticsArea[]): AnalyticsService {
   if (!isObject(value) || typeof value.figureCurrent !== 'boolean') throw new AnalyticsParseError();
   const status = STATUSES.find((item) => item === value.status);
   if (status === undefined) throw new AnalyticsParseError();
@@ -50,6 +75,8 @@ function service(value: unknown): AnalyticsService {
     category: text(value.category),
     status,
     districts: list(value.districts).map(text),
+    // An area the list does not hold reads as not placed: a service is never counted under a card that is not there.
+    area: typeof value.area === 'string' && areas.some((area) => area.id === value.area) ? value.area : null,
     figureCurrent: value.figureCurrent,
     available: nullableCount(value.available),
     overBy: nullableCount(value.overBy),
@@ -72,11 +99,13 @@ function counts(value: unknown): AnalyticsCounts {
 export function parseAnalyticsOverview(value: unknown): AnalyticsOverview {
   if (!isObject(value)) throw new AnalyticsParseError();
   try {
+    const areas = parseAreas(value.areas);
     return {
       generatedAt: text(value.generatedAt),
       counts: counts(value.counts),
       outOfHours: count(value.outOfHours),
-      services: list(value.services).map(service),
+      services: list(value.services).map((item) => service(item, areas)),
+      areas,
       underPressure: pressureList(value.underPressure),
       underutilised: underusedList(value.underutilised),
     };

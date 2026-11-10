@@ -379,3 +379,78 @@ describe('V2Services', () => {
     expect(within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getByRole('link', { name: 'Capacity' })).toHaveAttribute('href', '/advisor/v2?mode=capacity');
   });
 });
+
+// Named areas (DEC-1375): the cards are the organisation's areas, each service counted once.
+const OVERVIEW_AREAS = {
+  ...OVERVIEW,
+  areas: [
+    { id: 'area-one', name: 'Area One', places: 'Alpha · Beta' },
+    { id: 'area-two', name: 'Area Two', places: 'Gamma' },
+    { id: 'network', name: 'Network-wide', places: 'Services working across areas' },
+  ],
+  services: OVERVIEW.services.map((service, index) => ({ ...service, area: ['area-one', 'network', null][index] })),
+};
+
+describe('Capacity by area', () => {
+  beforeEach(() => {
+    server.use(http.get('/api/bff/advisor-v2/capacity', () => HttpResponse.json(OVERVIEW_AREAS)));
+  });
+
+  it('has one card per area in the order given, with its places, its count and a link to its list, and Not placed last', async () => {
+    render(<CapacityOverview />);
+    const places = await screen.findByRole('region', { name: 'Locations' });
+    const cards = within(places).getAllByRole('link');
+    expect(cards.map((card) => card.getAttribute('href'))).toEqual([
+      '/advisor/v2/services?area=area-one',
+      '/advisor/v2/services?area=area-two',
+      '/advisor/v2/services?area=network',
+      '/advisor/v2/services?area=none',
+    ]);
+    expect(cards[0]).toHaveTextContent('Area One');
+    expect(cards[0]).toHaveTextContent('Alpha · Beta');
+    expect(cards[0]).toHaveTextContent('1 service');
+    expect(cards[3]).toHaveTextContent('Not placed');
+    expect(cards[3]).toHaveTextContent('1 service');
+  });
+
+  it('counts each service once, so the cards add up to the services, and shows no postcode district', async () => {
+    render(<CapacityOverview />);
+    const places = await screen.findByRole('region', { name: 'Locations' });
+    const counts = within(places).getAllByRole('link').map((card) => Number(/(\d+) services?/.exec(card.textContent ?? '')?.[1]));
+    expect(counts.reduce((a, b) => a + b, 0)).toBe(OVERVIEW_AREAS.services.length);
+    expect(within(places).queryByText('DT4')).toBeNull();
+  });
+
+  it('has no axe violations', async () => {
+    const { container } = render(<CapacityOverview />);
+    await screen.findByRole('region', { name: 'Locations' });
+    expect(await runAxe(container)).toHaveNoViolations();
+  });
+});
+
+describe('V2Services by area', () => {
+  beforeEach(() => {
+    server.use(http.get('/api/bff/advisor-v2/capacity', () => HttpResponse.json(OVERVIEW_AREAS)));
+  });
+
+  it('lists the services of one area, with its name in the breadcrumb', async () => {
+    render(<V2Services initial={[]} group={null} district={null} area="area-one" />);
+    await waitFor(() => expect(screen.getAllByRole('link', { name: /^Pressed A/ })).toHaveLength(1));
+    expect(screen.queryByRole('link', { name: /^Pressed B/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: /^Roomy/ })).toBeNull();
+    expect(within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getByText('Area One')).toBeInTheDocument();
+  });
+
+  it('lists the services with no area under Not placed', async () => {
+    render(<V2Services initial={[]} group={null} district={null} area="none" />);
+    await waitFor(() => expect(screen.getAllByRole('link', { name: /^Roomy/ })).toHaveLength(1));
+    expect(screen.queryByRole('link', { name: /^Pressed/ })).toBeNull();
+    expect(within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getByText('Not placed')).toBeInTheDocument();
+  });
+
+  it('ignores an area the organisation does not have, and lists every service', async () => {
+    render(<V2Services initial={[]} group={null} district={null} area="not-an-area" />);
+    await waitFor(() => expect(screen.getAllByRole('link', { name: /^(Pressed|Roomy)/ })).toHaveLength(3));
+    expect(within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getByText('Services')).toBeInTheDocument();
+  });
+});

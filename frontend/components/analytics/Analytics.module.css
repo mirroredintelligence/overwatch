@@ -317,6 +317,13 @@
   overflow-wrap: anywhere;
 }
 
+.groupSub {
+  display: block;
+  font-size: var(--type-caption-size);
+  font-weight: 400;
+  color: var(--c-ink-2);
+}
+
 .groupCount {
   flex: none;
   font-size: var(--type-caption-size);

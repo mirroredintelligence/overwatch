@@ -4,7 +4,7 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 import { runAxe } from '@/test/a11y';
 import { byEl } from '@/test/el';
-import { ANALYTICS_OVERVIEW } from '@/test/fixtures/analytics';
+import { ANALYTICS_OVERVIEW, ANALYTICS_OVERVIEW_AREAS } from '@/test/fixtures/analytics';
 import { server } from '@/test/msw/server';
 import type { AnalyticsOverview as Overview, AnalyticsService } from '@/lib/analytics/types';
 import { AnalyticsOverview } from './AnalyticsOverview';
@@ -49,6 +49,7 @@ function manyDistricts(n: number): Overview {
     category: 'urgent-treatment',
     status: 'accepting',
     districts: [`BH${String(i).padStart(2, '0')}`],
+    area: null,
     figureCurrent: true,
     available: 3,
     overBy: null,
@@ -265,5 +266,44 @@ describe('failure and access', () => {
     narrow(true);
     const phone = await loaded();
     expect(await runAxe(phone.container)).toHaveNoViolations();
+  });
+});
+
+describe('Location groups by area (DEC-1375)', () => {
+  it('shows one row per area in the order given, with its places, each service counted once, and Not placed last', async () => {
+    await loaded(ANALYTICS_OVERVIEW_AREAS);
+    const block = byEl('AN-LOCATIONS');
+    const rows = within(block).getAllByRole('button');
+    expect(rows.map((row) => row.getAttribute('data-group'))).toEqual(['area-one', 'area-two', 'network', '__not-placed']);
+    expect(rows[0]).toHaveTextContent('Area One');
+    expect(rows[0]).toHaveTextContent('Alpha · Beta');
+    expect(rows.map((row) => /(\d+) service/.exec(row.textContent ?? '')?.[1])).toEqual(['2', '1', '1', '1']);
+    expect(block).toHaveTextContent('Each service is counted once');
+    expect(block).not.toHaveTextContent('counted in each');
+    expect(within(block).queryByText('BH15')).toBeNull();
+  });
+
+  it('opens the area\'s own list, titled with its name, and goes back to the overview', async () => {
+    const user = userEvent.setup();
+    await loaded(ANALYTICS_OVERVIEW_AREAS);
+    await user.click(within(byEl('AN-LOCATIONS')).getByRole('button', { name: /Area One/ }));
+    expect(screen.getByRole('heading', { name: 'Area One' })).toBeInTheDocument();
+    expect(byEl('AN-DRILL-COUNT')).toHaveTextContent('2 services');
+    expect(within(byEl('AN-DRILL-LIST')).getAllByRole('link').map((link) => link.textContent)).toEqual(['Poole UTC', 'Ward Z']);
+    expect(screen.getByText('Area: Area One')).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent('covers several districts');
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    expect(byEl('AN-LOCATIONS')).toBeInTheDocument();
+  });
+
+  it('keeps the postcode districts when the organisation has no areas', async () => {
+    await loaded(ANALYTICS_OVERVIEW);
+    const rows = within(byEl('AN-LOCATIONS')).getAllByRole('button');
+    expect(rows.map((row) => row.getAttribute('data-group'))).toEqual(['BH15', 'BH21', 'BH7', '__not-placed']);
+  });
+
+  it('has no axe violations with areas showing', async () => {
+    const { container } = await loaded(ANALYTICS_OVERVIEW_AREAS);
+    expect(await runAxe(container)).toHaveNoViolations();
   });
 });

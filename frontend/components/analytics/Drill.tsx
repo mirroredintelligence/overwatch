@@ -15,7 +15,7 @@ import styles from './Analytics.module.css';
 // then the services by name in a two-column grid, six to a page. An old or late figure reads "Current capacity
 // unavailable", never a number. Each name links to the service page.
 
-const KIND_WORDS: Record<DrillTarget['kind'], string> = { district: 'Location', group: 'Service group', status: 'Status' };
+const KIND_WORDS: Record<DrillTarget['kind'], string> = { district: 'Location', area: 'Area', group: 'Service group', status: 'Status' };
 
 export function drillTitle(target: DrillTarget, labelOfDistrict: (key: string) => string): string {
   if (target.kind === 'status') return STATUS_LABELS[target.key as keyof typeof STATUS_LABELS] ?? target.key;

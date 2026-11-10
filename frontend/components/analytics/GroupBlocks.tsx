@@ -17,7 +17,10 @@ function GroupButton({ group, kind, onOpen }: { group: Group; kind: DrillTarget[
   return (
     <button type="button" className={styles.groupButton} data-group={group.key} onClick={() => onOpen({ kind, key: group.key })} disabled={n === 0}>
       <span className={styles.groupTop}>
-        <span className={styles.groupName}>{group.label}</span>
+        <span className={styles.groupName}>
+          {group.label}
+          {group.sub === undefined ? null : <span className={styles.groupSub}>{group.sub}</span>}
+        </span>
         <span className={styles.groupCount}>{`${n} ${plural(n, 'service', 'services')}`}</span>
       </span>
       <StatusBar counts={group.counts} />
@@ -25,7 +28,20 @@ function GroupButton({ group, kind, onOpen }: { group: Group; kind: DrillTarget[
   );
 }
 
-export function LocationGroups({ groups, serviceTotal, narrow, onOpen }: { groups: Group[]; serviceTotal: number; narrow: boolean; onOpen: (target: DrillTarget) => void }) {
+export function LocationGroups({
+  groups,
+  serviceTotal,
+  narrow,
+  kind = 'district',
+  onOpen,
+}: {
+  groups: Group[];
+  serviceTotal: number;
+  narrow: boolean;
+  /** `area` when the groups are the organisation's named areas (each service counted once), else postcode districts. */
+  kind?: 'district' | 'area';
+  onOpen: (target: DrillTarget) => void;
+}) {
   const [page, setPage] = useState(0);
   const shown = narrow ? pageOf(groups, page, PHONE_PAGE) : groups;
   return (
@@ -39,11 +55,15 @@ export function LocationGroups({ groups, serviceTotal, narrow, onOpen }: { group
       <ul className={styles.locationList}>
         {shown.map((group) => (
           <li key={group.key}>
-            <GroupButton group={group} kind="district" onOpen={onOpen} />
+            <GroupButton group={group} kind={kind} onOpen={onOpen} />
           </li>
         ))}
       </ul>
-      <p className={styles.smallNote}>A service that covers several districts is counted in each. A service with no district recorded is under Not placed.</p>
+      <p className={styles.smallNote}>
+        {kind === 'area'
+          ? 'Each service is counted once, in the area it works in. A service with no place recorded is under Not placed.'
+          : 'A service that covers several districts is counted in each. A service with no district recorded is under Not placed.'}
+      </p>
       {narrow ? <Pager total={groups.length} page={page} size={PHONE_PAGE} noun="locations" onPage={setPage} /> : null}
     </section>
   );

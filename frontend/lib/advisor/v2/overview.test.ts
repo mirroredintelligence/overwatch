@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { attentionShown, districtCards, districtFromQuery, districtHref, groupFromQuery, groupHref, groupsOfRows, parseOverview, statusHref, statusesFromQuery, V2_BROWSE_NOTE } from './overview';
+import { areaCards, areaFromQuery, areaHref, attentionShown, districtCards, districtFromQuery, districtHref, groupFromQuery, groupHref, groupsOfRows, locationCards, parseAreas, parseOverview, statusHref, statusesFromQuery, V2_BROWSE_NOTE } from './overview';
 
 // Advisor v2: the capacity overview (DEC-1366). The counts link to filtered lists; the Needs attention lists are
 // the shift lead's rules; a stale figure is never spare capacity and is never shown as a number.
@@ -120,5 +120,120 @@ describe('districts', () => {
     expect(districtFromQuery('DT4')).toBe('DT4');
     expect(districtFromQuery('none')).toBe('none');
     expect(districtFromQuery('x"><')).toBeNull();
+  });
+});
+
+// Named areas (DEC-1375): the names arrive from the back end; these are invented.
+const AREAS = [
+  { id: 'area-one', name: 'Area One', places: 'Alpha · Beta' },
+  { id: 'area-two', name: 'Area Two', places: 'Gamma' },
+  { id: 'network', name: 'Network-wide', places: 'Services working across areas' },
+];
+const row = (serviceId: string, status: string, area: string | null, districts: string[] = []) => ({
+  serviceId,
+  name: serviceId.toUpperCase(),
+  category: 'inpatient-beds',
+  status,
+  effectiveAvailable: 1,
+  overBy: null,
+  unitLabel: 'beds free',
+  reportedAt: '2026-11-10T13:50:00Z',
+  figureUnavailable: false,
+  lastFigure: 1,
+  districts,
+  area,
+});
+const WITH_AREAS = {
+  ...BODY,
+  areas: AREAS,
+  services: [row('a', 'accepting', 'area-one', ['DT4']), row('b', 'limited', 'area-one', ['DT4', 'DT1']), row('c', 'accepting', 'network', ['DT1', 'BH1']), row('d', 'not-updated', null), row('e', 'over-capacity', 'area-two', ['BH7'])],
+};
+
+describe('parseAreas', () => {
+  it('reads the areas in the order given', () => {
+    expect(parseAreas(AREAS)).toEqual(AREAS);
+    expect(parseOverview(WITH_AREAS)?.areas).toEqual(AREAS);
+  });
+
+  it('reads no list, or a list that is not one, as no areas', () => {
+    for (const value of [undefined, null, 'x', {}, 4]) expect(parseAreas(value)).toEqual([]);
+    expect(parseOverview({ ...BODY })?.areas).toEqual([]);
+  });
+
+  it('drops an entry that is not shaped like an area, and a repeated id', () => {
+    const parsed = parseAreas([
+      { id: 'Bad Id', name: 'x', places: '' },
+      { id: 'a-1', name: '', places: '' },
+      { id: 'a-2', name: 'Two', places: 'y'.repeat(201) },
+      { id: 'a-3', name: 'Three' },
+      { id: 'a-3', name: 'Again', places: '' },
+      7,
+      { id: 'a-4', name: 'Four', places: 'A · B' },
+    ]);
+    expect(parsed).toEqual([
+      { id: 'a-3', name: 'Three', places: '' },
+      { id: 'a-4', name: 'Four', places: 'A · B' },
+    ]);
+  });
+
+  it('reads a service whose area is not in the list as not placed', () => {
+    const view = parseOverview({ ...WITH_AREAS, services: [row('a', 'accepting', 'elsewhere'), row('b', 'accepting', 'area-one')] });
+    expect(view?.services.map((service) => service.area)).toEqual([null, 'area-one']);
+  });
+});
+
+describe('areaCards', () => {
+  const view = parseOverview(WITH_AREAS)!;
+
+  it('makes one card per area in the order given and Not placed last, naming each area from the list', () => {
+    const cards = areaCards(view.services, view.areas);
+    expect(cards.map((card) => card.name)).toEqual(['Area One', 'Area Two', 'Network-wide', 'Not placed']);
+    expect(cards.map((card) => card.places)).toEqual(['Alpha · Beta', 'Gamma', 'Services working across areas', 'No area recorded']);
+    expect(cards[0]?.tally).toMatchObject({ accepting: 1, limited: 1 });
+  });
+
+  it('counts each service once, so the cards add up to every service', () => {
+    const cards = areaCards(view.services, view.areas);
+    expect(cards.reduce((sum, card) => sum + card.count, 0)).toBe(view.services.length);
+    expect(cards.map((card) => card.count)).toEqual([2, 1, 1, 1]);
+  });
+
+  it('keeps an area with no service and has no Not placed card when every service has an area', () => {
+    const cards = areaCards(view.services.filter((service) => service.area === 'area-one'), view.areas);
+    expect(cards.map((card) => [card.name, card.count])).toEqual([['Area One', 2], ['Area Two', 0], ['Network-wide', 0]]);
+  });
+});
+
+describe('areaHref and areaFromQuery', () => {
+  it('links an area to its list, and `none` for not placed', () => {
+    expect(areaHref('area-one')).toBe('/advisor/v2/services?area=area-one');
+    expect(areaHref(null)).toBe('/advisor/v2/services?area=none');
+  });
+
+  it('reads back only an id shaped like one or `none`', () => {
+    expect(areaFromQuery('area-one')).toBe('area-one');
+    expect(areaFromQuery(['none', 'x'])).toBe('none');
+    for (const bad of [undefined, '', 'Area One', 'a/b', '../x', 'x'.repeat(41), '<script>']) expect(areaFromQuery(bad)).toBeNull();
+  });
+
+  it('reads back only an area the organisation has, when it is given the areas', () => {
+    expect(areaFromQuery('area-two', AREAS)).toBe('area-two');
+    expect(areaFromQuery('none', AREAS)).toBe('none');
+    expect(areaFromQuery('another', AREAS)).toBeNull();
+  });
+});
+
+describe('locationCards', () => {
+  it('is the areas when there are areas, each linking to its area list', () => {
+    const cards = locationCards(parseOverview(WITH_AREAS)!);
+    expect(cards.map((card) => card.name)).toEqual(['Area One', 'Area Two', 'Network-wide', 'Not placed']);
+    expect(cards.map((card) => card.href)).toEqual(['/advisor/v2/services?area=area-one', '/advisor/v2/services?area=area-two', '/advisor/v2/services?area=network', '/advisor/v2/services?area=none']);
+  });
+
+  it('is the postcode districts, as before, when there are no areas', () => {
+    const cards = locationCards(parseOverview({ ...WITH_AREAS, areas: [] })!);
+    expect(cards.map((card) => card.name)).toEqual(['BH1', 'BH7', 'DT1', 'DT4', 'Not placed']);
+    expect(cards[3]?.href).toBe('/advisor/v2/services?district=DT4');
+    expect(cards[3]?.sub).toBe('Postcode district');
   });
 });

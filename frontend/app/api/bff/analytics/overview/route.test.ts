@@ -2,7 +2,7 @@
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TEST_SESSION_SECRET } from '@/test/cookies';
-import { ANALYTICS_BACKEND_ANSWER, ANALYTICS_OVERVIEW } from '@/test/fixtures/analytics';
+import { ANALYTICS_BACKEND_ANSWER, ANALYTICS_OVERVIEW, ANALYTICS_OVERVIEW_AREAS } from '@/test/fixtures/analytics';
 import { leadRequest } from '@/test/lead-session';
 import { BACKEND_BASE } from '@/test/msw/handlers/board';
 import { server } from '@/test/msw/server';
@@ -58,5 +58,17 @@ describe('GET /api/bff/analytics/overview', () => {
     expect(await bad.json()).not.toHaveProperty('services');
     server.use(http.get(`${ROOT}/analytics/overview`, () => HttpResponse.json({ resourceType: 'OperationOutcome', issue: [] }, { status: 503 })));
     expect((await GET(await leadRequest(URL_, 'analytics-user'))).status).toBe(503);
+  });
+});
+
+describe('the areas in the answer (DEC-1375)', () => {
+  it('passes the areas and each service\'s one area on, and keeps only the known fields of an area', async () => {
+    const answer = { ...ANALYTICS_OVERVIEW_AREAS, areas: ANALYTICS_OVERVIEW_AREAS.areas.map((area) => ({ ...area, boundary: 'x', tenantId: 't' })) };
+    server.use(http.get(`${ROOT}/analytics/overview`, () => HttpResponse.json(answer)));
+    const response = await GET(await leadRequest(URL_, 'analytics-user'));
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as typeof ANALYTICS_OVERVIEW_AREAS;
+    expect(body).toEqual(ANALYTICS_OVERVIEW_AREAS);
+    expect(JSON.stringify(body)).not.toContain('boundary');
   });
 });

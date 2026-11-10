@@ -47,4 +47,14 @@ describe('the Advisor v2 services page', () => {
     expect(await screen.findByRole('button', { name: /Limited/ })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: /Accepting/ })).toHaveAttribute('aria-pressed', 'false');
   });
+
+  it('names the area in the address in the breadcrumb, and ignores one that is not shaped like an area or that the organisation does not have (DEC-1375)', async () => {
+    const areas = [{ id: 'area-one', name: 'Area One', places: 'Alpha' }];
+    server.use(http.get('/api/bff/advisor-v2/capacity', () => HttpResponse.json({ ...OVERVIEW, areas })));
+    const named = render(await ServicesPage({ searchParams: Promise.resolve({ area: 'area-one' }) }));
+    expect(await screen.findByText('Area One')).toBeInTheDocument();
+    named.unmount();
+    render(await ServicesPage({ searchParams: Promise.resolve({ area: '<bad>' }) }));
+    expect(await screen.findByText('Services', { selector: '[aria-current="page"]' })).toBeInTheDocument();
+  });
 });

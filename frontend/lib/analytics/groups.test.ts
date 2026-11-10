@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ANALYTICS_OVERVIEW } from '@/test/fixtures/analytics';
-import { categoryGroups, districtGroups, drillRows, NOT_PLACED, statusCounts } from './groups';
+import { ANALYTICS_AREAS, ANALYTICS_OVERVIEW, ANALYTICS_OVERVIEW_AREAS } from '@/test/fixtures/analytics';
+import { areaGroups, categoryGroups, districtGroups, drillRows, inTarget, NOT_PLACED, statusCounts } from './groups';
 
 const services = ANALYTICS_OVERVIEW.services;
 
@@ -84,5 +84,36 @@ describe('drillRows', () => {
 
   it('links each row to the service page', () => {
     expect(drillRows(services, { kind: 'status', key: 'accepting' })[0]?.href).toBe('/analytics/services/svc-poole');
+  });
+});
+
+describe('areaGroups (DEC-1375)', () => {
+  const rows = ANALYTICS_OVERVIEW_AREAS.services;
+
+  it('makes one group per area in the order given, with the places as its second line, and "Not placed" last', () => {
+    const groups = areaGroups(rows, ANALYTICS_AREAS);
+    expect(groups.map((group) => group.label)).toEqual(['Area One', 'Area Two', 'Network-wide', 'Not placed']);
+    expect(groups.map((group) => group.sub)).toEqual(['Alpha · Beta', 'Gamma', 'Services working across areas', undefined]);
+    expect(groups[0]?.services.map((service) => service.name)).toEqual(['Poole UTC', 'Ward Z']);
+  });
+
+  it('counts each service once, so the groups add up to every service', () => {
+    const groups = areaGroups(rows, ANALYTICS_AREAS);
+    expect(groups.reduce((sum, group) => sum + group.services.length, 0)).toBe(rows.length);
+    expect(new Set(groups.flatMap((group) => group.services.map((service) => service.serviceId))).size).toBe(rows.length);
+  });
+
+  it('keeps an area with no service, and has no "Not placed" group when every service has an area', () => {
+    const placed = rows.filter((service) => service.area !== null).filter((service) => service.area !== 'area-two');
+    const groups = areaGroups(placed, ANALYTICS_AREAS);
+    expect(groups.find((group) => group.key === 'area-two')?.services).toEqual([]);
+    expect(groups.some((group) => group.key === NOT_PLACED)).toBe(false);
+  });
+
+  it('drills by the area id, and by "Not placed" for a service with no area', () => {
+    const inOne = drillRows(rows, { kind: 'area', key: 'area-one' }).map((row) => row.name);
+    expect(inOne).toEqual(['Poole UTC', 'Ward Z']);
+    expect(rows.filter((service) => inTarget(service, { kind: 'area', key: NOT_PLACED })).map((service) => service.name)).toEqual(['Hospital at home']);
+    expect(rows.filter((service) => inTarget(service, { kind: 'area', key: 'network' })).map((service) => service.name)).toEqual(['Bournemouth SDEC']);
   });
 });

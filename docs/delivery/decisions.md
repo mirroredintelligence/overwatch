@@ -7342,3 +7342,11 @@ Status: accepted (the owner's request, 2026-11-10, applied under DEC-133) · Aff
 **Not changed.** The directory search still leaves guests out (DEC-1325); a guest is added by typing the whole address.
 
 **Not verified.** No call has been made against a real directory (the Graph request follows the published shape). Not checked: that a guest can sign in to the staff app, and that group membership is read for a guest at sign-in. Check with the first real invitation.
+
+## DEC-1358 An inbound text that meets a failing service is tried again, then reported, never silently lost
+
+**Cause.** On 2026-11-10 at 10:01:08 GMT a "Y" reply reached Twilio and the SMS webhook; 0.3 s after the secret store answered, a call failed with `ConnectionError`, the API answered 500, Twilio does not call a text webhook again, and the log held only the error's type. The reply was lost and the capacity request stayed open. Which service failed (the sender lookup, the replay marker or the queue) is not known: the log did not say.
+
+**Decision.** (1) Each call in `_accept_reply` that reaches another service (find the sender, set the replay marker, enqueue) is tried up to three times with 0.25 s and 0.75 s waits (`_attempt`); a Conflict, ValidationFailed or NotFound is an answer and is not retried. (2) Every failed attempt is logged with its traceback, the step's name and the message sid. (3) When every attempt fails, the replay marker is released, the log carries `sms reply lost: step=… message_sid=…` at ERROR, and the webhook answers 200 with a TwiML message asking the sender to send the reply again, so the sender learns it was lost and their second try is not taken for a replay. (4) The API's catch-all 500 handler now logs the method, the path and the last six frames (file, line, function), never the error's text.
+
+**Not done.** Failed replies are not kept in a list for staff: the record is the log and Twilio's own message log. Whether to add a list of "replies we could not process" is open. The status-callback route (`/webhooks/sms/twilio/status`) has the same shape and is not retried here.

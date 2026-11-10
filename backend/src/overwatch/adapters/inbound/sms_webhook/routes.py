@@ -36,12 +36,13 @@ message id. The collaborators are set on `app.state.sms_webhook` by the process 
 (as for the live stream, DEC-096); a missing one is a 500, never a pass.
 """
 
+import asyncio
 import base64
 import hashlib
 import hmac
 import logging
 import re
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, timedelta
 from typing import Final, Protocol
@@ -85,6 +86,18 @@ _SID: Final = re.compile(r"[A-Za-z0-9]{2,64}")
 _E164: Final = re.compile(r"\+[1-9][0-9]{6,14}")
 
 _TWIML: Final = b'<?xml version="1.0" encoding="UTF-8"?><Response/>'
+# What the sender is told when the reply could not be taken in. Twilio does not call a text webhook
+# again after an error, so the answer to the sender is the only way they learn it was lost.
+_TRY_AGAIN: Final = (
+    b'<?xml version="1.0" encoding="UTF-8"?><Response><Message>'
+    b"We could not record your reply just now. Please send it again in a minute."
+    b"</Message></Response>"
+)
+# A call to the database, the cache or the queue that fails (a connection the network closed while
+# it was idle, a restart) is tried again on a fresh connection a few times before the reply is
+# given up: the whole wait stays under the few seconds Twilio allows a webhook.
+ATTEMPTS: Final = 3
+RETRY_WAITS_S: Final = (0.25, 0.75)
 _REFUSED_BODY: Final = b"Forbidden"
 
 
@@ -134,6 +147,35 @@ def _refused(reason: str) -> Response:
     # One status, one header set and one body for every refusal. The reason goes to the log only.
     log.warning("sms webhook refused: reason=%s", reason)
     return Response(content=_REFUSED_BODY, status_code=403, headers={"content-type": "text/plain"})
+
+
+def _try_again() -> Response:
+    return Response(content=_TRY_AGAIN, status_code=200, headers={"content-type": "text/xml"})
+
+
+async def _attempt[T](step: str, sid: str, call: Callable[[], Awaitable[T]]) -> T:
+    """Run one call that reaches another service, trying again when it fails. Domain refusals
+    (Conflict, ValidationFailed, NotFound) are answers, not faults, and pass straight through. Each
+    failure is logged with its traceback and the step's name, so a lost reply names the service
+    that failed; the last failure is raised."""
+    for number in range(1, ATTEMPTS + 1):
+        try:
+            return await call()
+        except Conflict, ValidationFailed, NotFound:
+            raise
+        except Exception:
+            log.warning(
+                "sms reply step failed: step=%s attempt=%s/%s message_sid=%s",
+                step,
+                number,
+                ATTEMPTS,
+                sid,
+                exc_info=True,
+            )
+            if number == ATTEMPTS:
+                raise
+            await asyncio.sleep(RETRY_WAITS_S[number - 1])
+    raise AssertionError("unreachable")
 
 
 def _dropped(reason: str, message_sid: str) -> Response:
@@ -249,15 +291,27 @@ async def _accept_reply(
         phone_hash = deps.hasher.hash(form.get("From", ""))
     except ValidationFailed:
         return _dropped("sender-not-a-mobile", sid)
-    try:
+
+    async def find_person() -> object | None:
         async with container.uow_factory() as uow:
-            person = await uow.people.find_by_phone_hash(phone_hash)
+            return await uow.people.find_by_phone_hash(phone_hash)
+
+    try:
+        person = await _attempt("find-sender", sid, find_person)
     except Conflict:
         return _dropped("sender-ambiguous", sid)
+    except Exception:
+        return _lost("find-sender", sid)
     if person is None:
         return _dropped("sender-unknown", sid)
     key = replay_key(sid)
-    if not await deps.cache.set_if_absent(key, "1", REPLAY_TTL):
+    try:
+        fresh = await _attempt(
+            "replay-marker", sid, lambda: deps.cache.set_if_absent(key, "1", REPLAY_TTL)
+        )
+    except Exception:
+        return _lost("replay-marker", sid)
+    if not fresh:
         return _dropped("replay", sid)
     message = BusMessage(
         id=sid,
@@ -272,13 +326,23 @@ async def _accept_reply(
         tenant_id=current_tenant(),
     )
     try:
-        await deps.event_bus.enqueue(REPLIES_QUEUE, message)
+        await _attempt("enqueue", sid, lambda: deps.event_bus.enqueue(REPLIES_QUEUE, message))
+    except Exception:
+        # Not queued, so the sender's second try must not look like a replay.
+        await _release(deps.cache, key)
+        return _lost("enqueue", sid)
     except BaseException:
-        # Not queued, so Twilio's retry must not look like a replay.
         await _release(deps.cache, key)
         raise
     log.info("sms reply queued: message_sid=%s", sid)
     return _twiml()
+
+
+def _lost(step: str, sid: str) -> Response:
+    """The reply could not be taken in after every attempt. Said loudly in the log, and the sender
+    is told to send it again, because Twilio will not call again."""
+    log.error("sms reply lost: step=%s message_sid=%s", step, sid)
+    return _try_again()
 
 
 async def _release(cache: Cache, key: str) -> None:

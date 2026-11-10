@@ -6,7 +6,9 @@ error body can carry a postcode or a name (DEC-086 items 2 to 5).
 """
 
 import logging
+import traceback
 from collections.abc import Mapping, MutableMapping
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Request
@@ -223,6 +225,14 @@ def _directory_unavailable(request: Request, exc: Any) -> Response:
     )
 
 
+def _where(error: BaseException) -> str:
+    """The last frames of the error's traceback as file, line and function, innermost last: enough
+    to name the service that failed. Never the error's text or any value (they can hold a name, an
+    id or an address), which is why this is not `exc_info`."""
+    frames = traceback.extract_tb(error.__traceback__)[-6:]
+    return " > ".join(f"{Path(f.filename).name}:{f.lineno} {f.name}" for f in frames) or "-"
+
+
 def install_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(GraphUnavailable, _directory_unavailable)
     app.add_exception_handler(GroupMissing, _fixed(409, "conflict", GROUP_MISSING_TEXT))
@@ -298,7 +308,13 @@ class UnhandledErrorMiddleware:
         try:
             await self.app(scope, receive, tracking_send)
         except Exception as error:
-            log.error("Unhandled error in the FHIR API: %s", type(error).__name__)
+            log.error(
+                "Unhandled error in the FHIR API: %s on %s %s at %s",
+                type(error).__name__,
+                scope.get("method", "-"),
+                scope.get("path", "-"),
+                _where(error),
+            )
             if started:
                 return
             response = operation_outcome(500, "exception", INTERNAL_TEXT)

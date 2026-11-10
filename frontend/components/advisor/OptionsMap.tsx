@@ -7,6 +7,7 @@ import type { LatLon } from '@/lib/map/project';
 import { layoutOf, PICTURE, percentOf, radiusPx } from '@/lib/map/layout';
 import { type OptionView } from '@/lib/advisor/options';
 import { durationText } from '@/lib/board/format';
+import { Basemap, BASEMAP_ATTRIBUTION } from './Basemap';
 import { NetworkServiceLine } from './NetworkServiceLine';
 import { OptionBooking } from './OptionBooking';
 import { numberText } from './ServiceCard';
@@ -85,6 +86,7 @@ export function OptionsMap({
       <div className={styles.mapCard}>
         <div className={styles.picture}>
           <svg className={styles.svg} viewBox={`0 0 ${PICTURE.width} ${PICTURE.height}`} aria-hidden="true" focusable="false">
+            <Basemap place={layout.place} />
             {visiting.map((option, index) => {
               const centre = at(offset + fixed.length + index);
               if (centre === undefined || option.coverage === null) return null;
@@ -165,6 +167,7 @@ export function OptionsMap({
         <div className={styles.legend}>
           <p>{CAPTION}</p>
           <UnplacedNote options={options} />
+          <p>{BASEMAP_ATTRIBUTION}</p>
           <p>
             Drive-time rings and traffic are <strong>off</strong>: there is no data behind them yet.
           </p>

@@ -7,6 +7,7 @@ import { overlappingPairs } from '@/lib/radar/radar';
 import mapStyles from '../advisor/map.module.css';
 import styles from './radar.module.css';
 import { StyledSpan } from '@/components/ui/Styled';
+import { Basemap, BASEMAP_ATTRIBUTION } from '../advisor/Basemap';
 import { UnplacedNote } from '../advisor/UnplacedNote';
 
 // The radar's picture (RadarWeb 1, 3 to 5): the patient's area at the postcode centre, each visiting service
@@ -96,6 +97,7 @@ export function RadarMap({ options, patientArea, postcode }: RadarMapProps) {
               );
             })}
           </defs>
+          <Basemap place={layout.place} />
           {visiting.map((option, index) => {
             const centre = centreOf(option);
             if (centre === undefined || option.coverage === null) return null;
@@ -165,6 +167,7 @@ export function RadarMap({ options, patientArea, postcode }: RadarMapProps) {
       </div>
       <p className={mapStyles.caption}>{CAPTION}</p>
       <UnplacedNote options={options} className={mapStyles.caption} />
+      <p className={mapStyles.caption}>{BASEMAP_ATTRIBUTION}</p>
       <ul className={styles.srOnly} aria-label={`Services near ${postcode}`}>
         {options.map((option) => (
           <li key={option.serviceId}>

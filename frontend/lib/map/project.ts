@@ -9,7 +9,7 @@ export const KM_PER_DEGREE = 111;
 
 const RADIANS = Math.PI / 180;
 
-export type Projection = { points: Point[]; pxPerDegree: number };
+export type Projection = { points: Point[]; pxPerDegree: number; place: (point: LatLon) => Point };
 
 /**
  * Projects the points into a width by height picture with the given padding. The bounding box is
@@ -17,7 +17,7 @@ export type Projection = { points: Point[]; pxPerDegree: number };
  * which the coverage areas use to draw their radius.
  */
 export function projectFit(points: LatLon[], width: number, height: number, padding = 0): Projection {
-  if (points.length === 0) return { points: [], pxPerDegree: 0 };
+  if (points.length === 0) return { points: [], pxPerDegree: 0, place: () => ({ x: 0, y: 0 }) };
   const lats = points.map((point) => point.lat);
   const lons = points.map((point) => point.lon);
   const minLat = Math.min(...lats);
@@ -36,13 +36,11 @@ export function projectFit(points: LatLon[], width: number, height: number, padd
 
   const offsetX = padding + (usableWidth - spanX * scale) / 2;
   const offsetY = padding + (usableHeight - spanY * scale) / 2;
-  return {
-    points: points.map((point) => ({
-      x: offsetX + (point.lon - minLon) * kx * scale,
-      y: offsetY + (maxLat - point.lat) * scale,
-    })),
-    pxPerDegree: scale,
-  };
+  const place = (point: LatLon): Point => ({
+    x: offsetX + (point.lon - minLon) * kx * scale,
+    y: offsetY + (maxLat - point.lat) * scale,
+  });
+  return { points: points.map(place), pxPerDegree: scale, place };
 }
 
 /** The points only, for callers that need no scale. */

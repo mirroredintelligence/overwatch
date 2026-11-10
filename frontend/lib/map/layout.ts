@@ -15,8 +15,27 @@ export function percentOf(point: Point): { left: string; top: string } {
 }
 
 /** Projects the points of the picture and reports the picture's scale in units per degree of latitude. */
-export function layoutOf(points: LatLon[]): { points: Point[]; pxPerDegree: number } {
-  return projectFit(points, PICTURE.width, PICTURE.height, PICTURE.padding);
+export function layoutOf(points: LatLon[]): { points: Point[]; pxPerDegree: number; place: (point: LatLon) => Point } {
+  const fit = projectFit([...points, ...minimumWindow(points)], PICTURE.width, PICTURE.height, PICTURE.padding);
+  return { points: fit.points.slice(0, points.length), pxPerDegree: fit.pxPerDegree, place: fit.place };
+}
+
+/** The smallest area the picture shows, in degrees of latitude: about 22 km, so a lone patient dot still has a coast around it. */
+export const MIN_SPAN_DEGREES = 0.2;
+
+/** Four corners that widen a box smaller than the smallest area to it, centred; none when the box is big enough. */
+function minimumWindow(points: LatLon[]): LatLon[] {
+  if (points.length === 0) return [];
+  const lats = points.map((point) => point.lat);
+  const lons = points.map((point) => point.lon);
+  const lat = (Math.min(...lats) + Math.max(...lats)) / 2;
+  const lon = (Math.min(...lons) + Math.max(...lons)) / 2;
+  const halfLat = MIN_SPAN_DEGREES / 2;
+  const halfLon = (MIN_SPAN_DEGREES * 1.5) / 2 / Math.max(0.1, Math.cos((lat * Math.PI) / 180));
+  return [
+    { lat: lat + halfLat, lon: lon + halfLon },
+    { lat: lat - halfLat, lon: lon - halfLon },
+  ];
 }
 
 /** A coverage radius in picture units, from kilometres and the picture's scale. */

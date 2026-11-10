@@ -182,6 +182,7 @@ from overwatch.bootstrap.settings import Settings
 from overwatch.domain.errors import NotFound
 from overwatch.domain.model.telemetry_aggregates import DayAggregates
 from overwatch.domain.model.tenant import TenantWording
+from overwatch.domain.rules.areas import AreaTable, load_area_table
 from overwatch.domain.rules.tenant_keys import check_key_version
 
 TEST_NOW = datetime(2026, 10, 23, 13, 0, tzinfo=UTC)
@@ -277,6 +278,8 @@ class Container:
     platform_audit: PlatformAuditLog
     support_tickets: CrossTenantTicketStore
     cross_tenant_guard: CrossTenantGuard
+    # The named areas the overview pages group services into (DEC-1375); None when no table is set.
+    areas: AreaTable | None = None
     # Each later task adds one field here, and wires it in build() and build_for_tests().
 
     async def startup(self) -> None:
@@ -523,6 +526,9 @@ class NoPostcodes:
     def district_centroid(self, district: str) -> LatLon | None:
         return None
 
+    def district_at(self, lat: float, lon: float) -> str | None:
+        return None
+
     def locate(self, postcode: str) -> Located | None:
         return None
 
@@ -690,6 +696,9 @@ def build(
         cross_tenant_guard=CrossTenantGuard(
             uow_factory, redis_cache, clock, ids, store, directory, platform_audit
         ),
+        areas=None
+        if settings.area_table_path is None
+        else load_area_table(settings.area_table_path),
     )
 
 

@@ -28,6 +28,7 @@ from datetime import date, datetime, timedelta
 from typing import Final
 
 from overwatch.application.actor import Actor
+from overwatch.application.area_placement import place_services, site_districts
 from overwatch.application.ports.outbound.audit import AuditEntry
 from overwatch.application.ports.outbound.clock import Clock
 from overwatch.application.ports.outbound.geo import (
@@ -65,6 +66,7 @@ from overwatch.domain.codes import (
 from overwatch.domain.errors import NotAllowed
 from overwatch.domain.model.criteria import ServiceCriteria
 from overwatch.domain.model.flags import SERVICE_FLAG_SUSPENDED
+from overwatch.domain.rules.areas import Area, AreaTable
 from overwatch.domain.rules.criteria_filter import check_hard_criteria
 from overwatch.domain.rules.freshness import STALE_WARNING_AFTER
 from overwatch.domain.rules.london_time import to_london
@@ -315,6 +317,9 @@ class CapacityRow:
     last_figure: int | None
     districts: tuple[str, ...] = ()
     """The postcode districts the service covers; none when none is recorded."""
+    area: str | None = None
+    """The id of the area the service is placed in, `network` for one that works across areas, None
+    when it is not placed or there is no area table (DEC-1375)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -324,12 +329,16 @@ class CapacityOverview:
     underutilised: tuple[UnderutilisedItem, ...]
     rows: tuple[CapacityRow, ...]
     generated_at: datetime
+    areas: tuple[Area, ...] = ()
+    """The named areas in display order, the network-wide one last; none when there is no table."""
 
 
 def capacity_overview(
     entries: tuple[BoardEntry, ...],
     generated_at: datetime | None = None,
     districts: Mapping[str, tuple[str, ...]] | None = None,
+    table: AreaTable | None = None,
+    sites: Mapping[str, str] | None = None,
 ) -> CapacityOverview:
     """The five counts, the two attention lists (the shift lead's own rules, lead_views) and one
     row per
@@ -339,6 +348,9 @@ def capacity_overview(
     for entry in entries:
         if entry.status in counts:
             counts[entry.status] += 1
+    placed = place_services(
+        table, [entry.service_id for entry in entries], districts or {}, sites or {}
+    )
     rows = tuple(
         sorted(
             (
@@ -353,6 +365,7 @@ def capacity_overview(
                     reported_at=entry.reported_at,
                     figure_unavailable=figure_unusable(entry),
                     districts=tuple(sorted((districts or {}).get(entry.service_id, ()))),
+                    area=placed.get(entry.service_id),
                     last_figure=(
                         entry.effective_available
                         if entry.effective_available is not None
@@ -370,22 +383,30 @@ def capacity_overview(
         underutilised=underutilised(entries),
         rows=rows,
         generated_at=generated_at or datetime.min,
+        areas=() if table is None else table.ordered(),
     )
 
 
 class ReadCapacityOverview:
     def __init__(
-        self, uow_factory: UnitOfWorkFactory, clock: Clock, query_board: QueryBoard
+        self,
+        uow_factory: UnitOfWorkFactory,
+        clock: Clock,
+        query_board: QueryBoard,
+        areas: AreaTable | None = None,
+        postcodes: PostcodeLocator | None = None,
     ) -> None:
         self._uow_factory = uow_factory
         self._clock = clock
         self._query_board = query_board
+        self._areas = areas
+        self._postcodes = postcodes
 
     async def execute(self, actor: Actor) -> CapacityOverview:
         check_find_role(actor)
         board = await self._query_board.execute(QueryBoardQuery(actor))
+        ids = [entry.service_id for entry in board.entries]
         async with self._uow_factory() as uow:
-            districts = await uow.positions.coverage_districts(
-                [entry.service_id for entry in board.entries]
-            )
-        return capacity_overview(board.entries, self._clock.now(), districts)
+            districts = await uow.positions.coverage_districts(ids)
+            sites = await site_districts(uow, ids, districts, self._areas, self._postcodes)
+        return capacity_overview(board.entries, self._clock.now(), districts, self._areas, sites)

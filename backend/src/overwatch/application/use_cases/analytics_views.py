@@ -17,7 +17,9 @@ from datetime import datetime
 from typing import Final
 
 from overwatch.application.actor import Actor
+from overwatch.application.area_placement import place_services, site_districts
 from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.geo import PostcodeLocator
 from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from overwatch.application.use_cases.lead_views import (
     PressureItem,
@@ -29,6 +31,7 @@ from overwatch.application.use_cases.lead_views import (
 from overwatch.application.use_cases.query_board import BoardEntry, QueryBoard, QueryBoardQuery
 from overwatch.domain.codes import Role, ServiceCategory, Status
 from overwatch.domain.errors import NotAllowed
+from overwatch.domain.rules.areas import Area, AreaTable
 
 ANALYTICS_ROLES: Final = frozenset({Role.ANALYTICS_USER})
 ANALYTICS_ONLY: Final = "only the Analytics User may read this"
@@ -58,6 +61,9 @@ class AnalyticsService:
     over_by: int | None
     unit_label: str
     reported_at: datetime | None
+    area: str | None = None
+    """The id of the area the service is placed in, `network` for one that works across areas, None
+    when it is not placed or there is no area table (DEC-1375)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,9 +74,13 @@ class AnalyticsOverview:
     services: tuple[AnalyticsService, ...]
     under_pressure: tuple[PressureItem, ...]
     underutilised: tuple[UnderutilisedItem, ...]
+    areas: tuple[Area, ...] = ()
+    """The named areas in display order, the network-wide one last; none when there is no table."""
 
 
-def _service(entry: BoardEntry, districts: tuple[str, ...]) -> AnalyticsService:
+def _service(
+    entry: BoardEntry, districts: tuple[str, ...], area: str | None = None
+) -> AnalyticsService:
     current = not figure_unusable(entry)
     return AnalyticsService(
         service_id=entry.service_id,
@@ -83,6 +93,7 @@ def _service(entry: BoardEntry, districts: tuple[str, ...]) -> AnalyticsService:
         over_by=entry.over_by if current else None,
         unit_label=entry.unit_label,
         reported_at=entry.reported_at,
+        area=area,
     )
 
 
@@ -90,6 +101,8 @@ def build_overview(
     entries: tuple[BoardEntry, ...],
     districts: Mapping[str, tuple[str, ...]],
     generated_at: datetime,
+    table: AreaTable | None = None,
+    sites: Mapping[str, str] | None = None,
 ) -> AnalyticsOverview:
     """The overview of a board and the districts each service covers. Lists are by name, never
     ranked by status."""
@@ -97,8 +110,12 @@ def build_overview(
     for entry in entries:
         if entry.status in counts:
             counts[entry.status] += 1
+    placed = place_services(table, [entry.service_id for entry in entries], districts, sites or {})
     rows = sorted(
-        (_service(entry, districts.get(entry.service_id, ())) for entry in entries),
+        (
+            _service(entry, districts.get(entry.service_id, ()), placed.get(entry.service_id))
+            for entry in entries
+        ),
         key=lambda row: (row.name, row.service_id),
     )
     return AnalyticsOverview(
@@ -112,19 +129,28 @@ def build_overview(
         underutilised=tuple(
             sorted(underutilised(entries), key=lambda item: (item.name, item.service_id))
         ),
+        areas=() if table is None else table.ordered(),
     )
 
 
 class GetAnalyticsOverview:
-    def __init__(self, uow_factory: UnitOfWorkFactory, clock: Clock) -> None:
+    def __init__(
+        self,
+        uow_factory: UnitOfWorkFactory,
+        clock: Clock,
+        areas: AreaTable | None = None,
+        postcodes: PostcodeLocator | None = None,
+    ) -> None:
         self._uow_factory = uow_factory
         self._clock = clock
+        self._areas = areas
+        self._postcodes = postcodes
 
     async def execute(self, actor: Actor) -> AnalyticsOverview:
         check_analytics(actor)
         board = await QueryBoard(self._uow_factory, self._clock).execute(QueryBoardQuery(actor))
+        ids = [entry.service_id for entry in board.entries]
         async with self._uow_factory() as uow:
-            districts = await uow.positions.coverage_districts(
-                [entry.service_id for entry in board.entries]
-            )
-        return build_overview(board.entries, districts, board.generated_at)
+            districts = await uow.positions.coverage_districts(ids)
+            sites = await site_districts(uow, ids, districts, self._areas, self._postcodes)
+        return build_overview(board.entries, districts, board.generated_at, self._areas, sites)

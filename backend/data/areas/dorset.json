@@ -1,0 +1,73 @@
+{
+ "name": "Dorset",
+ "source": "Each postcode district is in the area that holds most of its postcodes. Postcodes were placed with the ONS Local Authority Districts (December 2018, ultra generalised; Open Government Licence v3.0) and the pre-2019 district councils were grouped into the areas below. Districts that mostly lie outside these areas (BH24, BH25) are left out. A district with under 90% in one area: BH15, BH16, BH23, DT2, DT7, DT9.",
+ "areas": [
+  {
+   "id": "bcp",
+   "name": "Bournemouth, Christchurch & Poole",
+   "places": "BCP area"
+  },
+  {
+   "id": "east-dorset",
+   "name": "East Dorset",
+   "places": "Wimborne · Ferndown · Verwood"
+  },
+  {
+   "id": "north-dorset",
+   "name": "North Dorset",
+   "places": "Blandford · Shaftesbury · Gillingham"
+  },
+  {
+   "id": "purbeck",
+   "name": "Purbeck",
+   "places": "Swanage · Wareham"
+  },
+  {
+   "id": "south-west-dorset",
+   "name": "South & West Dorset",
+   "places": "Dorchester · Weymouth · Bridport"
+  }
+ ],
+ "network": {
+  "id": "network",
+  "name": "Dorset-wide Services",
+  "places": "Services operating across localities"
+ },
+ "districts": {
+  "BH1": "bcp",
+  "BH2": "bcp",
+  "BH3": "bcp",
+  "BH4": "bcp",
+  "BH5": "bcp",
+  "BH6": "bcp",
+  "BH7": "bcp",
+  "BH8": "bcp",
+  "BH9": "bcp",
+  "BH10": "bcp",
+  "BH11": "bcp",
+  "BH12": "bcp",
+  "BH13": "bcp",
+  "BH14": "bcp",
+  "BH15": "bcp",
+  "BH16": "purbeck",
+  "BH17": "bcp",
+  "BH18": "bcp",
+  "BH19": "purbeck",
+  "BH20": "purbeck",
+  "BH21": "east-dorset",
+  "BH22": "east-dorset",
+  "BH23": "bcp",
+  "BH31": "east-dorset",
+  "DT1": "south-west-dorset",
+  "DT2": "south-west-dorset",
+  "DT3": "south-west-dorset",
+  "DT4": "south-west-dorset",
+  "DT5": "south-west-dorset",
+  "DT6": "south-west-dorset",
+  "DT7": "south-west-dorset",
+  "DT8": "south-west-dorset",
+  "DT9": "south-west-dorset",
+  "DT10": "north-dorset",
+  "DT11": "north-dorset"
+ }
+}

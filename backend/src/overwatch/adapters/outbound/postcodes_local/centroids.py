@@ -36,6 +36,11 @@ LATITUDE_RANGE: Final = (49.5, 61.0)
 LONGITUDE_RANGE: Final = (-8.7, 2.0)
 
 
+# The size of a cell of the index that finds the nearest postcode (about two kilometres), and how
+# far the search goes: a point with no postcode in the file within this many cells has no district.
+GRID_DEGREES: Final = 0.02
+SEARCH_CELLS: Final = 5
+
 # How many postcodes an advisor's typed prefix is offered at most (DEC-1332).
 SUGGESTIONS: Final = 10
 
@@ -47,6 +52,7 @@ class CsvPostcodeLocator:
         self._postcodes: dict[str, LatLon] = {}
         self._districts: dict[str, LatLon] = {}
         self._sorted: list[str] = []
+        self._grid: dict[tuple[int, int], list[tuple[float, float, str]]] = {}
         self._load(Path(path))
 
     def _load(self, path: Path) -> None:
@@ -64,6 +70,11 @@ class CsvPostcodeLocator:
                 lat_sum, lon_sum, count = sums.get(district, (0.0, 0.0, 0))
                 sums[district] = (lat_sum + position.lat, lon_sum + position.lon, count + 1)
         self._sorted = sorted(self._postcodes)
+        for key, position in self._postcodes.items():
+            cell = (int(position.lat / GRID_DEGREES), int(position.lon / GRID_DEGREES))
+            self._grid.setdefault(cell, []).append(
+                (position.lat, position.lon, postcode_district(key))
+            )
         for district, (lat_sum, lon_sum, count) in sums.items():
             self._districts[district] = LatLon(lat_sum / count, lon_sum / count)
 
@@ -96,6 +107,26 @@ class CsvPostcodeLocator:
         """The mean of the file's postcodes in this district, or None."""
         key = normalise_district(district)
         return None if key is None else self._districts.get(key)
+
+    def district_at(self, lat: float, lon: float) -> str | None:
+        """The district of the file's postcode nearest to this point, or None when there is none
+        within a few kilometres. Used to place a service by its site (DEC-1375)."""
+        cx, cy = int(lat / GRID_DEGREES), int(lon / GRID_DEGREES)
+        scale = math.cos(math.radians(lat))
+        best: tuple[float, str] | None = None
+        for ring in range(SEARCH_CELLS + 1):
+            for dx in range(-ring, ring + 1):
+                for dy in range(-ring, ring + 1):
+                    if max(abs(dx), abs(dy)) != ring:
+                        continue
+                    for plat, plon, district in self._grid.get((cx + dx, cy + dy), ()):
+                        distance = (plat - lat) ** 2 + ((plon - lon) * scale) ** 2
+                        if best is None or distance < best[0]:
+                            best = (distance, district)
+            # A hit is final once the next ring cannot hold a nearer one.
+            if best is not None and best[0] <= (ring * GRID_DEGREES) ** 2:
+                break
+        return None if best is None else best[1]
 
     def suggest(self, prefix: str) -> list[str]:
         """The full postcodes in the file that start with the typed prefix (DEC-1332). A prefix that

@@ -179,9 +179,11 @@ def _overview_body(view: CapacityOverview) -> dict[str, Any]:
                 "figureUnavailable": row.figure_unavailable,
                 "lastFigure": row.last_figure,
                 "districts": list(row.districts),
+                "area": row.area,
             }
             for row in view.rows
         ],
+        "areas": [{"id": a.id, "name": a.name, "places": a.places} for a in view.areas],
     }
 
 
@@ -191,6 +193,10 @@ async def capacity(
 ) -> Response:
     container = get_container(request)
     view = await ReadCapacityOverview(
-        container.uow_factory, container.clock, QueryBoard(container.uow_factory, container.clock)
+        container.uow_factory,
+        container.clock,
+        QueryBoard(container.uow_factory, container.clock),
+        getattr(container, "areas", None),
+        getattr(container, "postcodes", None),
     ).execute(actor)
     return FhirJSONResponse(content=_overview_body(view), headers=NO_STORE)

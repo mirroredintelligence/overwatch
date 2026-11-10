@@ -52,6 +52,7 @@ def overview_json(view: AnalyticsOverview) -> dict[str, Any]:
         "generatedAt": format_instant(view.generated_at),
         "counts": {key: view.counts[status] for status, key in _COUNT_KEYS.items()},
         "outOfHours": view.out_of_hours,
+        "areas": [{"id": a.id, "name": a.name, "places": a.places} for a in view.areas],
         "services": [
             {
                 "serviceId": row.service_id,
@@ -59,6 +60,7 @@ def overview_json(view: AnalyticsOverview) -> dict[str, Any]:
                 "category": row.category.value,
                 "status": row.status.value,
                 "districts": list(row.districts),
+                "area": row.area,
                 "figureCurrent": row.figure_current,
                 "available": row.available,
                 "overBy": row.over_by,
@@ -96,7 +98,12 @@ async def read_overview(
     actor: Annotated[Actor, Depends(require_role(*ANALYTICS_ROLES))],
 ) -> Response:
     container = cast(_Container, get_container(request))
-    view = await GetAnalyticsOverview(container.uow_factory, container.clock).execute(actor)
+    view = await GetAnalyticsOverview(
+        container.uow_factory,
+        container.clock,
+        getattr(container, "areas", None),
+        getattr(container, "postcodes", None),
+    ).execute(actor)
     return JSONResponse(overview_json(view), headers=NO_STORE)
 
 

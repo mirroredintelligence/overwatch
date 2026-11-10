@@ -20,3 +20,18 @@ def test_the_shipped_file_loads_and_places_a_dorchester_and_a_bournemouth_postco
 
 def test_a_postcode_outside_the_shipped_areas_is_not_placed() -> None:
     assert CsvPostcodeLocator(SHIPPED).locate("SW1A 1AA") is None
+
+
+def test_the_nearest_postcode_gives_the_district_of_a_site() -> None:
+    locator = CsvPostcodeLocator(SHIPPED)
+
+    assert locator.district_at(50.6144, -2.4570) == "DT4"  # Weymouth
+    assert locator.district_at(50.6087, -1.9577) == "BH19"  # Swanage
+    assert locator.district_at(50.727909, -1.863623) == "BH1"  # the point of BH1 1AA
+
+
+def test_a_site_far_from_every_postcode_in_the_file_has_no_district() -> None:
+    locator = CsvPostcodeLocator(SHIPPED)
+
+    assert locator.district_at(51.5074, -0.1278) is None  # London
+    assert locator.district_at(0.0, 0.0) is None

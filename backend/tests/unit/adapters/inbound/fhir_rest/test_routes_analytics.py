@@ -8,7 +8,10 @@ from typing import Any
 
 import pytest
 
+from overwatch.adapters.testing.fixed_geo import FixedPostcodeLocator
+from overwatch.application.ports.outbound.geo import LatLon
 from overwatch.domain.codes import Role
+from overwatch.domain.rules.areas import parse_area_table
 from tests.support.w7b_rig import Rig, bearer, client
 from tests.support.w7b_roles import EDGE_REFUSED, headers_for, roles_client
 
@@ -33,6 +36,9 @@ class _Positions:
     async def coverage_districts(self, ids: Any) -> dict[str, tuple[str, ...]]:
         return {"svc-a": ("BH2", "BH1")}
 
+    async def get_many(self, ids: Any) -> dict[str, LatLon]:
+        return {"svc-b": LatLon(50.73, -1.86)}  # a site next to the point of BH1
+
 
 async def test_the_overview_is_figures_only_with_districts_and_the_lists() -> None:
     rig = Rig()
@@ -50,6 +56,7 @@ async def test_the_overview_is_figures_only_with_districts_and_the_lists() -> No
         "generatedAt",
         "counts",
         "outOfHours",
+        "areas",
         "services",
         "underPressure",
         "underutilised",
@@ -70,6 +77,7 @@ async def test_the_overview_is_figures_only_with_districts_and_the_lists() -> No
         "category",
         "status",
         "districts",
+        "area",
         "figureCurrent",
         "available",
         "overBy",
@@ -79,3 +87,31 @@ async def test_the_overview_is_figures_only_with_districts_and_the_lists() -> No
     # "inpatient-beds" is a service category, not a patient.
     text = response.text.lower().replace("inpatient", "")
     assert [word for word in FORBIDDEN_WORDS if word in text] == []
+
+
+async def test_with_an_area_table_each_service_is_placed_and_the_areas_are_listed() -> None:
+    rig = Rig()
+    rig.lead_world()
+    rig.units.positions = _Positions()  # type: ignore[attr-defined]
+    rig.areas = parse_area_table(  # type: ignore[attr-defined]
+        {
+            "name": "Test",
+            "areas": [{"id": "coast", "name": "Coast", "places": "A · B"}],
+            "network": {"id": "network", "name": "Everywhere", "places": "Across areas"},
+            "districts": {"BH1": "coast", "BH2": "coast"},
+        }
+    )
+    rig.postcodes = FixedPostcodeLocator({}, {"BH1": LatLon(50.7279, -1.8636)})  # type: ignore[attr-defined]
+    async with client(rig) as http:
+        response = await http.get(
+            "/analytics/overview", headers=bearer(Role.ANALYTICS_USER, "prac-an")
+        )
+
+    body = response.json()
+    assert body["areas"] == [
+        {"id": "coast", "name": "Coast", "places": "A · B"},
+        {"id": "network", "name": "Everywhere", "places": "Across areas"},
+    ]
+    by_id = {row["serviceId"]: row for row in body["services"]}
+    assert by_id["svc-a"]["area"] == "coast"  # it covers BH1 and BH2, both in the area
+    assert by_id["svc-b"]["area"] == "coast"  # it covers none: placed by its site

@@ -18,6 +18,7 @@ from overwatch.application.use_cases.analytics_views import (
 from overwatch.application.use_cases.query_board import BoardEntry
 from overwatch.domain.codes import Cadence, Role, ServiceCategory, Status
 from overwatch.domain.errors import NotAllowed
+from overwatch.domain.rules.areas import AreaTable, parse_area_table
 from tests.support.actors import ACTOR_TENANT
 
 NOW = datetime(2026, 11, 10, 14, 0, tzinfo=UTC)
@@ -148,3 +149,47 @@ def test_the_lists_are_by_name_and_a_stale_figure_is_never_spare_capacity() -> N
     ]
     stale = next(item for item in view.under_pressure if item.service_id == "p3")
     assert stale.used_percent is None
+
+
+def _areas() -> AreaTable:
+    return parse_area_table(
+        {
+            "name": "Test",
+            "areas": [
+                {"id": "north", "name": "North", "places": "A"},
+                {"id": "south", "name": "South", "places": "B"},
+            ],
+            "network": {"id": "network", "name": "All", "places": "Across"},
+            "districts": {"DT1": "north", "DT3": "south"},
+        }
+    )
+
+
+def test_every_service_is_placed_in_one_area_and_the_counts_add_up() -> None:
+    entries = (
+        _entry(service_id="a", name="A"),
+        _entry(service_id="b", name="B"),
+        _entry(service_id="c", name="C"),
+        _entry(service_id="d", name="D"),
+    )
+    covered = {"a": ("DT1",), "b": ("DT3",), "c": ("DT1", "DT3")}  # d covers nothing
+
+    view = build_overview(entries, covered, NOW, _areas(), {"d": "DT3"})
+
+    assert {row.service_id: row.area for row in view.services} == {
+        "a": "north",
+        "b": "south",
+        "c": "network",
+        "d": "south",  # placed by its site
+    }
+    assert [area.id for area in view.areas] == ["north", "south", "network"]
+
+
+def test_a_service_with_no_district_and_no_site_is_not_placed() -> None:
+    view = build_overview((_entry(),), {}, NOW, _areas(), {})
+    assert view.services[0].area is None
+
+
+def test_with_no_table_there_are_no_areas_and_nothing_is_placed() -> None:
+    view = build_overview((_entry(),), {"svc": ("DT1",)}, NOW)
+    assert view.areas == () and view.services[0].area is None

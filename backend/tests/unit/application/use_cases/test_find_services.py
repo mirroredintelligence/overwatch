@@ -32,6 +32,7 @@ from overwatch.domain.codes import (
 )
 from overwatch.domain.errors import NotAllowed
 from overwatch.domain.model.criteria import ServiceCriteria
+from overwatch.domain.rules.areas import parse_area_table
 
 NOW = datetime(2026, 11, 10, 14, 0, tzinfo=UTC)
 TODAY = date(2026, 11, 10)
@@ -269,3 +270,39 @@ def test_group_totals_count_every_service_of_a_group_not_only_the_ones_found() -
         ServiceCategory.URGENT_COMMUNITY_RESPONSE: 2,
         ServiceCategory.INPATIENT_BEDS: 1,
     }
+
+
+def test_the_capacity_overview_places_each_service_in_one_area_and_lists_the_areas() -> None:
+    table = parse_area_table(
+        {
+            "name": "Test",
+            "areas": [
+                {"id": "north", "name": "North", "places": "A"},
+                {"id": "south", "name": "South", "places": "B"},
+            ],
+            "network": {"id": "network", "name": "All", "places": "Across"},
+            "districts": {"DT1": "north", "DT3": "south"},
+        }
+    )
+    entries = (
+        _entry(service_id="a", name="Alpha"),
+        _entry(service_id="b", name="Bravo"),
+        _entry(service_id="c", name="Charlie"),
+        _entry(service_id="d", name="Delta"),
+    )
+
+    view = capacity_overview(
+        entries,
+        districts={"a": ("DT1",), "b": ("DT1", "DT3"), "c": ()},
+        table=table,
+        sites={"c": "DT3"},
+    )
+
+    assert {row.service_id: row.area for row in view.rows} == {
+        "a": "north",
+        "b": "network",
+        "c": "south",  # covers none: placed by its site
+        "d": None,  # nothing known
+    }
+    assert [area.id for area in view.areas] == ["north", "south", "network"]
+    assert capacity_overview(entries).areas == ()

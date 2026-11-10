@@ -72,6 +72,15 @@ class FixedPostcodeLocator:
         typed = " ".join(prefix.split()).upper()
         return sorted(key for key in self._postcodes if key.startswith(typed))[:10] if typed else []
 
+    def district_at(self, lat: float, lon: float) -> str | None:
+        """The district whose table position is nearest, within about ten kilometres."""
+        best: tuple[float, str] | None = None
+        for district, position in self._districts.items():
+            distance = (position.lat - lat) ** 2 + (position.lon - lon) ** 2
+            if distance <= 0.01 and (best is None or distance < best[0]):
+                best = (distance, district)
+        return None if best is None else best[1]
+
     def locate(self, postcode: str) -> Located | None:
         """Exact when the full postcode is in the table; otherwise its district's position, marked
         approximate, for a full postcode or a partial one ('DT4 8X') whose district is in the table.

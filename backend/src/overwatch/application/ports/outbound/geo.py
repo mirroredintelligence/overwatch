@@ -63,6 +63,10 @@ class PostcodeLocator(Protocol):
 
     def district_centroid(self, district: str) -> LatLon | None: ...
 
+    def district_at(self, lat: float, lon: float) -> str | None:
+        """The district of the nearest postcode in the file, None when none is near (DEC-1375)."""
+        ...
+
     def suggest(self, prefix: str) -> list[str]:
         """The full postcodes in the file that start with the typed prefix, in order, at most a few.
         Only the file is searched: a patient's postcode never goes to another service (DEC-047)."""

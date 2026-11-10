@@ -121,6 +121,36 @@ describe('FindService', () => {
     expect(within(groups[1]!).getByText('3 services')).toBeInTheDocument();
   });
 
+  it('suggests postcodes as it is typed, as the needs form does, and fills the one picked', async () => {
+    const asked: string[] = [];
+    server.use(
+      http.get('/api/bff/advisor/postcodes', ({ request }) => {
+        asked.push(new URL(request.url).searchParams.get('prefix') ?? '');
+        return HttpResponse.json({ postcodes: ['DT4 4GB', 'DT4 4GR'] });
+      }),
+      http.get('/api/bff/advisor/postcodes/locate', () => HttpResponse.json({ status: 'found', lat: 50.60921, lon: -2.4561 })),
+    );
+    const user = userEvent.setup();
+    render(<FindService />);
+    await user.type(screen.getByRole('combobox'), 'DT4');
+    await user.click(await screen.findByRole('option', { name: 'DT4 4GR' }));
+    expect(asked).toContain('DT4');
+    expect(screen.getByRole('combobox')).toHaveValue('DT4 4GR');
+    expect(await screen.findByText(/Found: 50\.60921, -2\.45610 \(OS Places\)\./)).toBeInTheDocument();
+  });
+
+  it('still searches when the postcode lookup cannot answer', async () => {
+    server.use(
+      http.get('/api/bff/advisor/postcodes', () => HttpResponse.json({}, { status: 503 })),
+      http.get('/api/bff/advisor/postcodes/locate', () => HttpResponse.json({ status: 'unavailable' })),
+    );
+    const user = userEvent.setup();
+    render(<FindService />);
+    await search(user);
+    expect(await screen.findByRole('list', { name: 'Service groups' })).toBeInTheDocument();
+    expect(posted[0]).toMatchObject({ postcode: 'DT4 8XX' });
+  });
+
   it('lists the services of the chosen group in travel order, with a link to each, never ranked by status', async () => {
     const user = userEvent.setup();
     render(<FindService />);

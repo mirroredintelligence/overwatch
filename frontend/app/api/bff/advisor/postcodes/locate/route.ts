@@ -21,7 +21,7 @@ const get = withBff(
       return Response.json(UNAVAILABLE, { headers: NO_STORE });
     }
   },
-  { roles: ['advisor', 'clinical', 'lead'] },
+  { roles: ['advisor', 'clinical', 'lead', 'advisor-v2'] },
 );
 
 export const GET = (request: Request) => get(request, undefined);

@@ -100,3 +100,20 @@ async def test_text_that_is_not_a_full_postcode_is_refused_and_not_echoed() -> N
 
     assert response.status_code == 400
     assert "hello-there" not in response.text
+
+
+async def test_advisor_v2_may_look_a_postcode_up_but_the_analytics_user_may_not() -> None:
+    v2 = {"Authorization": f"Bearer {issue_test_token(Role.ADVISOR_V2, [], 'advisor-v2-1')}"}
+    analytics = {
+        "Authorization": f"Bearer {issue_test_token(Role.ANALYTICS_USER, [], 'analyst-1')}"
+    }
+    async with _client(FixedGeocoder({"DT4 4GB": [DT4_4GB]})) as http:
+        found = await http.get(f"{LOCATE}?postcode=dt44gb", headers=v2)
+        suggested = await http.get("/clinical/postcodes?prefix=DT4", headers=v2)
+        refused_locate = await http.get(f"{LOCATE}?postcode=dt44gb", headers=analytics)
+        refused_suggest = await http.get("/clinical/postcodes?prefix=DT4", headers=analytics)
+
+    assert found.status_code == 200 and found.json()["status"] == "found"
+    assert suggested.status_code in (200, 500)  # the test container holds no postcode file
+    assert refused_locate.status_code in (403, 404)
+    assert refused_suggest.status_code in (403, 404)

@@ -4,9 +4,11 @@ import { type FormEvent, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { AGE_BANDS, NEEDS, URGENCIES, type AgeCode, type NeedCode, type UrgencyCode } from '@/lib/advisor/codes';
 import { normalisePostcode } from '@/lib/advisor/postcode';
+import { locatePostcode, type PostcodeLocation, suggestPostcodes } from '@/lib/advisor/postcodeSuggest';
 import { findServices } from '@/lib/advisor/v2/browser';
 import { groupsOf, orderServices, toOption, type FindRead, type ServiceOrder } from '@/lib/advisor/v2/find';
 import { V2_BROWSE_NOTE } from '@/lib/advisor/v2/overview';
+import { PostcodePicker } from '../advisor/PostcodePicker';
 import { ServiceRows } from './ServiceRows';
 import styles from './V2.module.css';
 
@@ -18,9 +20,13 @@ import styles from './V2.module.css';
 type Result = { kind: 'idle' } | { kind: 'searching' } | { kind: 'failed' } | { kind: 'done'; read: FindRead };
 
 const POSTCODE_HELP = 'Enter a full postcode, for example DT4 8XX.';
+const POSTCODE_ID = 'v2-postcode';
+const POSTCODE_LIST_ID = 'v2-postcode-suggestions';
 
 export function FindService() {
   const [postcode, setPostcode] = useState('');
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [located, setLocated] = useState<PostcodeLocation | null>(null);
   const [age, setAge] = useState<AgeCode | null>(null);
   const [needs, setNeeds] = useState<NeedCode[]>([]);
   const [urgency, setUrgency] = useState<UrgencyCode | null>(null);
@@ -31,6 +37,15 @@ export function FindService() {
 
   const toggleNeed = (code: NeedCode) =>
     setNeeds((current) => (current.includes(code) ? current.filter((item) => item !== code) : [...current, code]));
+
+  // The same postcode lookup as the advisor's needs form (DEC-1332, DEC-1340): suggestions as the postcode is typed,
+  // and the position of a full one. A lookup that cannot answer never blocks the search.
+  function onPostcodeBlur() {
+    const normal = normalisePostcode(postcode);
+    if (normal === null) return setLocated(null);
+    setPostcode(normal);
+    void locatePostcode(normal).then(setLocated);
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -57,18 +72,39 @@ export function FindService() {
           <label className={styles.legend} htmlFor="v2-postcode">
             Postcode
           </label>
-          <input
-            id="v2-postcode"
-            className={styles.input}
+          <PostcodePicker
+            id={POSTCODE_ID}
+            listId={POSTCODE_LIST_ID}
             value={postcode}
-            autoComplete="off"
-            spellCheck={false}
-            aria-describedby="v2-postcode-help"
-            onChange={(event) => setPostcode(event.target.value)}
+            options={suggestions}
+            invalid={problem === POSTCODE_HELP}
+            describedBy="v2-postcode-help"
+            dataEl="ADV-V2-POSTCODE"
+            onType={(typed) => {
+              setPostcode(typed);
+              setLocated(null);
+              void suggestPostcodes(typed).then(setSuggestions);
+            }}
+            onPick={(picked) => {
+              setPostcode(picked);
+              setSuggestions([]);
+              setLocated(null);
+              void locatePostcode(picked).then(setLocated);
+            }}
+            onBlur={onPostcodeBlur}
           />
           <p id="v2-postcode-help" className={styles.small}>
             {POSTCODE_HELP}
           </p>
+          {located !== null ? (
+            <p className={styles.small} role="status" data-el="ADV-V2-POSTCODE-LOOKUP">
+              {located.status === 'found'
+                ? `Found: ${located.lat.toFixed(5)}, ${located.lon.toFixed(5)} (OS Places).`
+                : located.status === 'not-found'
+                  ? 'Not found. Check the postcode.'
+                  : 'The postcode lookup is unavailable. The search still uses the postcode as typed.'}
+            </p>
+          ) : null}
         </div>
         <fieldset className={styles.group}>
           <legend className={styles.legend}>Age band</legend>

@@ -21,6 +21,8 @@ ALLOWED = {
     "adapters/inbound/fhir_rest/routes_analytics.py",
     # The service detail read, named by both new roles (DEC-1367).
     "application/use_cases/service_detail.py",
+    # The two postcode lookups Advisor v2's Find a Service uses (DEC-1371).
+    "adapters/inbound/fhir_rest/routes_clinical.py",
 }
 # The files that belong to the Analytics User alone: they must never name Advisor v2. (The
 # service detail read is named by both roles, DEC-1367, and Advisor v2's reads are its own.)

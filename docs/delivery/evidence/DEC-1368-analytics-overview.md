@@ -22,3 +22,6 @@ Branch `claude/friendly-gates-0e0f54` (not merged, not pushed), built on `claude
 - Integration tests against Neo4j (not run here); the real graph's coverage read is the existing `Q-SVC-COVERAGE`, unchanged.
 - A real sign-in as an Analytics User, and the page in a browser (the proxy guard is DEC-1362's and tested there). No independent verifier has re-checked this yet.
 - `/analytics/services/<id>` is another session's page; the links 404 until it lands.
+
+## Addendum: guard run
+`pnpm vitest run test/guards lib/auth lib/shell proxy.test.ts`: 2310 passed, 2 failed. One was this change (`no-literals`, rule `fetch-call`: the page's fetch address must be written out in the call); fixed in the next commit. The other, `no-literals` for `lib/map/landRings.ts` line 2 (place-name, DEC-1361), is not from this change. The second failing file was not re-read after the fix; the earlier session noted `bff-routes.test.ts` times out under full-suite load. The whole-suite `vitest run` never returned output and was abandoned.

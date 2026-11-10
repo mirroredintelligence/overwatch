@@ -177,6 +177,7 @@ def _overview_body(view: CapacityOverview) -> dict[str, Any]:
                 "reportedAt": _at(row.reported_at),
                 "figureUnavailable": row.figure_unavailable,
                 "lastFigure": row.last_figure,
+                "districts": list(row.districts),
             }
             for row in view.rows
         ],
@@ -189,6 +190,6 @@ async def capacity(
 ) -> Response:
     container = get_container(request)
     view = await ReadCapacityOverview(
-        container.clock, QueryBoard(container.uow_factory, container.clock)
+        container.uow_factory, container.clock, QueryBoard(container.uow_factory, container.clock)
     ).execute(actor)
     return FhirJSONResponse(content=_overview_body(view), headers=NO_STORE)

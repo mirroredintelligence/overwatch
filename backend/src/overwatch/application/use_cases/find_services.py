@@ -297,6 +297,8 @@ class CapacityRow:
     reported_at: datetime | None
     figure_unavailable: bool
     last_figure: int | None
+    districts: tuple[str, ...] = ()
+    """The postcode districts the service covers; none when none is recorded."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -309,7 +311,9 @@ class CapacityOverview:
 
 
 def capacity_overview(
-    entries: tuple[BoardEntry, ...], generated_at: datetime | None = None
+    entries: tuple[BoardEntry, ...],
+    generated_at: datetime | None = None,
+    districts: Mapping[str, tuple[str, ...]] | None = None,
 ) -> CapacityOverview:
     """The five counts, the two attention lists (the shift lead's own rules, lead_views) and one
     row per
@@ -332,6 +336,7 @@ def capacity_overview(
                     unit_label=entry.unit_label,
                     reported_at=entry.reported_at,
                     figure_unavailable=figure_unusable(entry),
+                    districts=tuple(sorted((districts or {}).get(entry.service_id, ()))),
                     last_figure=(
                         entry.effective_available
                         if entry.effective_available is not None
@@ -353,11 +358,18 @@ def capacity_overview(
 
 
 class ReadCapacityOverview:
-    def __init__(self, clock: Clock, query_board: QueryBoard) -> None:
+    def __init__(
+        self, uow_factory: UnitOfWorkFactory, clock: Clock, query_board: QueryBoard
+    ) -> None:
+        self._uow_factory = uow_factory
         self._clock = clock
         self._query_board = query_board
 
     async def execute(self, actor: Actor) -> CapacityOverview:
         check_find_role(actor)
         board = await self._query_board.execute(QueryBoardQuery(actor))
-        return capacity_overview(board.entries, self._clock.now())
+        async with self._uow_factory() as uow:
+            districts = await uow.positions.coverage_districts(
+                [entry.service_id for entry in board.entries]
+            )
+        return capacity_overview(board.entries, self._clock.now(), districts)

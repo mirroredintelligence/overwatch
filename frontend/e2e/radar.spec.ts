@@ -26,26 +26,26 @@ async function axe(page: Page) {
   expect(results.violations).toEqual([]);
 }
 
-test.describe('the advisor’s radar (RadarWeb 1, 2, 6)', () => {
+test.describe('the advisor’s radar address, compare and ways (RadarWeb 2, 6, DEC-1372)', () => {
   test.beforeEach(async ({ page }) => {
     await signIn(page.context(), SITE_URL, 'advisor', TOKEN_ORG_A);
   });
 
-  test('who covers this area: the summary, the layers and the way on', async ({ page }) => {
+  test('the old radar address lands on the Map with the Who covers layer on (DEC-1372)', async ({ page }) => {
     await page.goto('/advisor/case/radar-1/radar');
-    await expect(page.getByRole('heading', { name: 'Who covers DT4' })).toBeVisible(FIRST);
+    await expect(page).toHaveURL(/\/advisor\/case\/radar-1\/map\?layer=coverage$/, FIRST);
+    const toggle = page.getByRole('button', { name: 'Who covers this area' });
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByText('This patient is covered by 3 services. Their areas overlap here, so compare them.')).toBeVisible();
-    const areas = page.locator('[data-el="RADAR-PICTURE"] circle[stroke-dasharray]');
-    await expect(areas).toHaveCount(3);
-    await expect(page.locator('[data-el="RADAR-OVERLAP"]')).toHaveCount(3);
+    await expect(page.getByRole('navigation', { name: 'Options view' }).getByRole('link', { name: 'Radar' })).toHaveCount(0);
+    // The tile map needs the tile file the stand-in does not have, so the schematic is drawn.
+    await expect(page.locator('[data-el^="ADV-MAP-COVER-AREA-"]')).toHaveCount(3);
+    await expect(page.locator('[data-el="ADV-MAP-COVER-OVERLAP"]')).toHaveCount(3);
 
-    await page.locator('[data-el="RADAR-LAYER-VISITING"]').click();
-    await expect(areas).toHaveCount(1);
-    await expect(page.getByRole('button', { name: 'Traffic: not available yet' })).toBeDisabled();
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.locator('[data-el="ADV-MAP-COVER-OVERLAP"]')).toHaveCount(0);
     await axe(page);
-
-    await page.locator('[data-el="RADAR-COMPARE-BTN"]').click();
-    await expect(page).toHaveURL(/\/advisor\/case\/radar-1\/compare$/);
   });
 
   test('compare: three services side by side, in shadow mode, not ranked', async ({ page }) => {
@@ -78,7 +78,7 @@ test.describe('the advisor’s radar (RadarWeb 1, 2, 6)', () => {
   test('on a phone none of the three views scrolls sideways, and each passes axe', async ({ page }) => {
     await page.setViewportSize(PHONE);
     for (const [path, heading] of [
-      ['radar', 'Who covers DT4'],
+      ['map?layer=coverage', 'Options near DT4'],
       ['compare', 'Compare for this patient'],
       ['ways', 'Meeting this need'],
     ] as const) {
@@ -121,8 +121,8 @@ test.describe('the map, closed against MapWeb and MapPhone', () => {
     await expect(page.locator('[data-el="ADV-MAP-ROUTE"]')).toHaveCount(0);
     await axe(page);
 
-    await page.locator('[data-el="ADV-MAP-RADAR-BTN"]').click();
-    await expect(page).toHaveURL(/\/advisor\/case\/radar-1\/radar$/);
+    await page.getByRole('button', { name: 'Who covers this area' }).click();
+    await expect(page.locator('[data-el="RADAR-SUMMARY"]')).toBeVisible();
   });
 
   test('on a phone the map does not scroll sideways', async ({ page }) => {
@@ -192,8 +192,8 @@ test.describe('the way in to the radar and the coverage pages', () => {
     await expect(page.getByRole('link', { name: 'Compare options side by side' })).toHaveAttribute('href', '/advisor/case/radar-1/compare');
     await expect(page.getByRole('link', { name: 'Three ways to meet the need' })).toHaveAttribute('href', '/advisor/case/radar-1/ways');
     await page.getByRole('link', { name: 'Who covers this patient' }).click();
-    await expect(page).toHaveURL(/\/advisor\/case\/radar-1\/radar$/);
-    await expect(page.getByRole('heading', { name: 'Who covers DT4' })).toBeVisible(FIRST);
+    await expect(page).toHaveURL(/\/advisor\/case\/radar-1\/map\?layer=coverage$/);
+    await expect(page.getByRole('button', { name: 'Who covers this area' })).toHaveAttribute('aria-pressed', 'true', FIRST);
   });
 
   test('the planning home and its header both lead to where coverage runs out', async ({ page }) => {

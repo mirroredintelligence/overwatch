@@ -25,4 +25,4 @@ Branch `map-loading-placeholder` (from `rename-overwatch`; not merged, not pushe
 See DEC-1372 item 7: not established. The locator works for DT and BH districts with the shipped file and the production API has the setting; the likely cause is the district stored on that case. It needs that case's stored district to confirm.
 
 ## Not verified
-The signed-in app; the layer on a phone width; the redirect in a running server (tested as the thrown redirect); the Playwright radar spec, which is out of date and listed in DEC-1372.
+The signed-in app; the layer on a phone width; the redirect in a running server (tested as the thrown redirect); the rewritten Playwright radar spec (checked by `tsc` and ESLint only, not run).

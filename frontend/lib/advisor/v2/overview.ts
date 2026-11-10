@@ -159,3 +159,21 @@ export function statusesFromQuery(value: string | string[] | undefined): Counted
 }
 
 export const COUNTED_STATUSES: readonly CountedStatus[] = ['accepting', 'limited', 'over-capacity', 'not-accepting', 'not-updated'];
+
+/** A service group's list under v2 (Capacity's group cards link here). */
+export function groupHref(category: string): string {
+  return `/advisor/v2/services?group=${encodeURIComponent(category)}`;
+}
+
+/** The group named in `?group=`, when it is shaped like a category code; anything else is ignored. */
+export function groupFromQuery(value: string | string[] | undefined): string | null {
+  const text = Array.isArray(value) ? (value[0] ?? '') : (value ?? '');
+  return /^[a-z][a-z0-9-]{0,63}$/.test(text) ? text : null;
+}
+
+/** One entry per service group with its service count, by the group's name. */
+export function groupsOfRows(rows: readonly CapacityService[]): { category: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const row of rows) counts.set(row.category, (counts.get(row.category) ?? 0) + 1);
+  return [...counts.entries()].map(([category, count]) => ({ category, count })).sort((a, b) => a.category.localeCompare(b.category));
+}

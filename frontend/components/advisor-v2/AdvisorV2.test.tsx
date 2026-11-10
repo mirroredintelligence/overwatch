@@ -244,7 +244,7 @@ describe('CapacityOverview', () => {
 
   it('shows the five counts, each a link to its filtered list, with the status word beside its dot', async () => {
     render(<CapacityOverview />);
-    const limited = await screen.findByRole('link', { name: /Limited/ });
+    const limited = await screen.findByRole('link', { name: /^Limited/ });
     expect(limited).toHaveAttribute('href', '/advisor/v2/services?status=limited');
     expect(limited).toHaveTextContent('2');
     expect(screen.getAllByRole('link', { name: /^(Accepting|Limited|Over capacity|Not accepting|Not updated)/ })).toHaveLength(5);

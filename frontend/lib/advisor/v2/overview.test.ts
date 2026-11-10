@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { attentionShown, parseOverview, statusHref, V2_BROWSE_NOTE } from './overview';
+import { attentionShown, groupFromQuery, groupHref, groupsOfRows, parseOverview, statusHref, statusesFromQuery, V2_BROWSE_NOTE } from './overview';
 
 // Advisor v2: the capacity overview (DEC-1366). The counts link to filtered lists; the Needs attention lists are
 // the shift lead's rules; a stale figure is never spare capacity and is never shown as a number.
@@ -75,5 +75,24 @@ describe('V2_BROWSE_NOTE', () => {
   it('says plainly that nothing is stored', () => {
     expect(V2_BROWSE_NOTE).toMatch(/no case/i);
     expect(V2_BROWSE_NOTE).toMatch(/nothing is stored/i);
+  });
+});
+
+describe('the group and state queries', () => {
+  it('links a group to its list and reads it back only when it is shaped like a category', () => {
+    expect(groupHref('inpatient-beds')).toBe('/advisor/v2/services?group=inpatient-beds');
+    expect(groupFromQuery('inpatient-beds')).toBe('inpatient-beds');
+    expect(groupFromQuery(['urgent-community-response', 'x'])).toBe('urgent-community-response');
+    expect(groupFromQuery('<script>')).toBeNull();
+    expect(groupFromQuery(undefined)).toBeNull();
+  });
+
+  it('counts the services of each group, by the group code', () => {
+    const rows = parseOverview(BODY)!.services;
+    expect(groupsOfRows([...rows, ...rows])).toEqual([{ category: 'inpatient-beds', count: 2 }]);
+  });
+
+  it('reads only the five counted states from the address', () => {
+    expect(statusesFromQuery('limited,bogus,not-updated')).toEqual(['limited', 'not-updated']);
   });
 });

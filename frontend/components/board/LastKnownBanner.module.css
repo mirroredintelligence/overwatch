@@ -9,7 +9,7 @@
   gap: var(--space-4);
   padding: var(--space-3) var(--space-5);
   border: 2px solid var(--c-limited);
-  border-radius: 18px;
+  border-radius: var(--radius-panel);
   background: var(--c-amber-tint);
   color: var(--banner-offline-ink);
 }

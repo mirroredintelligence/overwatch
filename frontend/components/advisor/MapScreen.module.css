@@ -402,7 +402,7 @@
   text-decoration: none;
   background: #fff;
   border: 2px solid var(--c-primary);
-  border-radius: 14px;
+  border-radius: var(--radius);
 }
 
 .open:focus-visible {
@@ -464,7 +464,7 @@
   color: var(--c-ink);
   background: #fff;
   border: 2px solid var(--c-limited);
-  border-radius: 14px;
+  border-radius: var(--radius);
 }
 
 .field:focus-visible {
@@ -525,7 +525,7 @@
   color: var(--c-ink);
   background: #fff;
   border: 2px solid var(--c-line);
-  border-radius: 14px;
+  border-radius: var(--radius);
   cursor: pointer;
   transition:
     background-color var(--dur-state) var(--ease-out),
@@ -566,7 +566,7 @@
   color: #fff;
   background: var(--c-primary);
   border: 0;
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow-lift);
   cursor: pointer;
 }

@@ -13,7 +13,7 @@
   align-items: flex-start;
   min-width: 0;
   padding: var(--space-4);
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   background: var(--c-bg);
 }
 

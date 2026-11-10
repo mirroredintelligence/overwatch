@@ -194,7 +194,7 @@
   gap: 14px;
   padding: 14px 18px;
   border: 2px solid Canvas;
-  border-radius: 18px;
+  border-radius: var(--radius-card);
   background: Canvas;
   box-shadow: var(--shadow-card);
 }
@@ -250,7 +250,7 @@
   gap: 6px;
   padding: 14px 16px;
   border: 2px dashed var(--c-line);
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   color: var(--c-ink-2);
 }
 
@@ -291,7 +291,7 @@
   .row {
     flex-wrap: wrap;
     padding: var(--space-3) var(--space-4);
-    border-radius: 20px;
+    border-radius: var(--radius-card);
   }
 
   .rowName {

@@ -51,7 +51,7 @@
   box-sizing: border-box;
   padding: 18px 20px;
   border: 2px solid var(--c-line);
-  border-radius: 22px;
+  border-radius: var(--radius-card);
   background: #fff;
   color: var(--c-ink);
   text-decoration: none;
@@ -77,7 +77,7 @@
   border-color: var(--c-primary);
   background: var(--c-primary);
   color: #fff;
-  box-shadow: 0 8px 20px rgb(11 92 140 / 0.28);
+  box-shadow: 0 1px 2px rgb(11 42 61 / 0.2);
 }
 
 .wayPrimary:hover {
@@ -142,7 +142,7 @@
   min-width: 0;
   padding: var(--space-5) 28px;
   border: 2px solid var(--c-primary);
-  border-radius: 26px;
+  border-radius: var(--radius-card);
   background: #fff;
   box-shadow: var(--shadow-card);
 }
@@ -190,7 +190,7 @@
   gap: var(--space-2);
   margin: 0;
   padding: 16px 20px;
-  border-radius: 22px;
+  border-radius: var(--radius-card);
   font-size: 16px;
   line-height: 1.4;
 }

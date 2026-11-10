@@ -309,6 +309,30 @@ async def test_a_person_from_outside_is_invited_with_the_email_sent_and_the_gues
     assert bodies[0]["inviteRedirectUrl"].startswith("https://")
 
 
+async def test_an_invited_guest_lands_on_the_organisations_own_sign_in_link() -> None:
+    bodies: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        bodies.append(json.loads(request.content))
+        return httpx.Response(201, json={"invitedUser": {"id": USER}})
+
+    seen: list[httpx.Request] = []
+
+    def recording(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if "oauth2/v2.0/token" in str(request.url):
+            return httpx.Response(200, json={"access_token": BEARER, "expires_in": 3600})
+        return handler(request)
+
+    store = FixedSecretStore({CLIENT_SECRET_NAME: CLIENT_SECRET})
+    http = httpx.AsyncClient(transport=httpx.MockTransport(recording))
+    adapter = GraphEntraGroups(http, store, CLIENT, site_url="https://overwatch.example.test/")
+    await adapter.invite_user(DIRECTORY, ADDRESS)
+    assert bodies[0]["inviteRedirectUrl"] == (
+        f"https://overwatch.example.test/api/bff/auth/entra/start?org={DIRECTORY}"
+    )
+
+
 async def test_an_invitation_the_directory_forbids_is_not_permitted_and_logs_no_address(
     caplog: pytest.LogCaptureFixture,
 ) -> None:

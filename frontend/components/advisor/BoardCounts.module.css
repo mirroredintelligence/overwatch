@@ -47,7 +47,7 @@
   padding: 16px 20px;
   background: #fff;
   border: 2px solid var(--tone);
-  border-radius: 22px;
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
 }
 

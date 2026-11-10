@@ -8,7 +8,7 @@
   gap: var(--space-4);
   padding: 16px 18px;
   border: 2px solid var(--c-primary);
-  border-radius: 18px;
+  border-radius: var(--radius-card);
 }
 
 .sectionTitle {

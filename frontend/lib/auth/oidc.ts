@@ -24,8 +24,13 @@ export type EntraConfig = {
 };
 
 /** `role` is the role the person asked to sign in as, or '' for the highest their groups give (DEC-1324). */
-/** `tenant` is the tenant the picker chose (DEC-1327); empty when none was chosen up front. */
-export type Transaction = { state: string; nonce: string; verifier: string; next: string; role: string; tenant: string };
+/**
+ * `tenant` is the tenant the picker chose (DEC-1327); empty when none was chosen up front. `directory` is the
+ * Entra directory the person asked to sign in to (DEC-1366, an organisation's own sign-in link, which a guest from
+ * another organisation needs); empty for the shared endpoint. It only says where Microsoft asks for the password:
+ * the tenant is still decided by the back end from the token's own directory and the person's groups.
+ */
+export type Transaction = { state: string; nonce: string; verifier: string; next: string; role: string; tenant: string; directory?: string };
 
 export const REFUSALS = [
   'transaction',
@@ -151,8 +156,8 @@ export function entraAuthorityOrigin(env: Env = process.env): string | null {
 
 // A single-tenant app registration asks its own directory; a multi-tenant one asks the shared
 // `organizations` endpoint, and the token's own directory is then whatever the person signed in to.
-function authority(config: EntraConfig): string {
-  return config.directoryId ?? SHARED_AUTHORITY;
+function authority(config: EntraConfig, directory: string = ''): string {
+  return config.directoryId ?? (directory !== '' ? directory : SHARED_AUTHORITY);
 }
 
 function redirectUri(config: EntraConfig): string {
@@ -163,12 +168,12 @@ function random(): string {
   return randomBytes(32).toString('base64url');
 }
 
-export function newTransaction(next: string, role: string = '', tenant: string = ''): Transaction {
-  return { state: random(), nonce: random(), verifier: random(), next, role, tenant };
+export function newTransaction(next: string, role: string = '', tenant: string = '', directory: string = ''): Transaction {
+  return { state: random(), nonce: random(), verifier: random(), next, role, tenant, ...(directory !== '' ? { directory } : {}) };
 }
 
 export function authorizeUrl(config: EntraConfig, transaction: Transaction): URL {
-  const url = new URL(`${config.authorityHost}/${authority(config)}/oauth2/v2.0/authorize`);
+  const url = new URL(`${config.authorityHost}/${authority(config, transaction.directory)}/oauth2/v2.0/authorize`);
   const query = url.searchParams;
   query.set('client_id', config.clientId);
   query.set('response_type', 'code');
@@ -193,7 +198,7 @@ export async function exchangeCode(config: EntraConfig, code: string, transactio
   const refused = new SignInRefused('token-exchange');
   let body: unknown;
   try {
-    const response = await fetch(`${config.authorityHost}/${authority(config)}/oauth2/v2.0/token`, {
+    const response = await fetch(`${config.authorityHost}/${authority(config, transaction.directory)}/oauth2/v2.0/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
       body: new URLSearchParams({

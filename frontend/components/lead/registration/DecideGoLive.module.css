@@ -44,7 +44,7 @@
   margin: 0;
   padding: 6px 18px;
   list-style: none;
-  border-radius: 18px;
+  border-radius: var(--radius-card);
   background: var(--c-bg);
 }
 
@@ -161,7 +161,7 @@
   min-height: 76px;
   padding: 12px 16px;
   border: 2px solid var(--c-ink-2);
-  border-radius: 14px;
+  border-radius: var(--radius);
   background: #fff;
   color: var(--c-ink);
   font: inherit;
@@ -205,7 +205,7 @@
 .quiet {
   box-sizing: border-box;
   min-height: 54px;
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   font: inherit;
   font-weight: 700;
   text-decoration: none;
@@ -225,7 +225,7 @@
   background: var(--c-primary);
   color: #fff;
   font-size: 18px;
-  box-shadow: 0 6px 16px rgb(11 92 140 / 0.28);
+  box-shadow: 0 1px 2px rgb(11 42 61 / 0.2);
 }
 
 .primary:hover:not(:disabled) {
@@ -278,7 +278,7 @@
 .preview {
   padding: 14px var(--space-4);
   border: 2px solid var(--c-line);
-  border-radius: 18px;
+  border-radius: var(--radius-card);
 }
 
 .previewHeading {

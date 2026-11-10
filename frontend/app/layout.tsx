@@ -8,6 +8,7 @@ import { InlineStyles } from '@/components/ui/InlineStyles';
 import { PRODUCT_NAME } from '@/lib/product';
 import { Telemetry } from './Telemetry';
 import './tokens.css';
+import './attention.css';
 import './skeleton.css';
 
 // Every page is rendered per request, so Next.js can put this request's nonce on its scripts (S01).

@@ -82,7 +82,9 @@ export async function unsealTransaction(value: string, now: Date, purpose: strin
     if (typeof role !== 'string' || (role !== '' && !isStaffRoleWord(role))) return null;
     const tenant = payload.tenant ?? '';
     if (typeof tenant !== 'string' || (tenant !== '' && !TENANT_ID.test(tenant))) return null;
-    return { state, nonce, verifier, next, role, tenant };
+    const directory = payload.directory ?? '';
+    if (typeof directory !== 'string' || (directory !== '' && !DIRECTORY_ID.test(directory))) return null;
+    return { state, nonce, verifier, next, role, tenant, ...(directory !== '' ? { directory } : {}) };
   } catch {
     return null;
   }
@@ -153,11 +155,12 @@ function note(reason: string): void {
  * The start form's `next`, `role` (DEC-1324) and `tenant` (DEC-1327, the picker's choice). A role that is not
  * a staff role is ignored, as no role is; a tenant that is not a tenant id is ignored, as none was chosen.
  */
-export type StartFields = { next: string; role: string; tenant: string };
+export type StartFields = { next: string; role: string; tenant: string; directory: string };
 
 /** The start's fields, checked. Anything that is not valid is ignored, as if none had been asked. */
-export function startFields(next: unknown, role: unknown, tenant: unknown): StartFields {
+export function startFields(next: unknown, role: unknown, tenant: unknown, directory: unknown = ''): StartFields {
   return {
+    directory: typeof directory === 'string' && DIRECTORY_ID.test(directory) ? directory.toLowerCase() : '',
     next: typeof next === 'string' && isSamePathOnly(next) ? next : '',
     role: typeof role === 'string' && isStaffRoleWord(role) ? role : '',
     tenant: typeof tenant === 'string' && TENANT_ID.test(tenant) ? tenant : '',
@@ -179,10 +182,12 @@ export async function startForm(request: Request): Promise<StartFields> {
  */
 export function linkFields(request: Request): StartFields {
   const query = new URL(request.url).searchParams;
-  return startFields(query.get('next'), query.get('role'), query.get('tenant'));
+  return startFields(query.get('next'), query.get('role'), query.get('tenant'), query.get('org'));
 }
 
 const TENANT_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
+// An Entra directory id, as a GUID: the only thing an organisation's sign-in link may name (DEC-1366).
+const DIRECTORY_ID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
 export async function nextFrom(request: Request): Promise<string> {
   return (await startForm(request)).next;
@@ -202,10 +207,10 @@ export async function startSignInFromLink(request: Request): Promise<Response> {
   return beginSignIn(linkFields(request));
 }
 
-async function beginSignIn({ next, role, tenant }: StartFields): Promise<Response> {
+async function beginSignIn({ next, role, tenant, directory }: StartFields): Promise<Response> {
   try {
     const config = await loadEntraConfig();
-    const transaction = newTransaction(next, role, tenant);
+    const transaction = newTransaction(next, role, tenant, directory);
     const sealed = await sealTransaction(transaction, new Date());
     const store = await cookies();
     store.set(TRANSACTION_COOKIE, sealed, transactionCookie(TRANSACTION_SECONDS));

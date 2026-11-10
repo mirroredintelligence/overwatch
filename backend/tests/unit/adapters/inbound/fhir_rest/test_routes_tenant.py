@@ -721,7 +721,12 @@ async def test_a_person_is_invited_by_address_to_the_group_in_the_path() -> None
         )
 
     assert sent.status_code == 200
-    assert sent.json() == {"groupId": GROUP_A, "changed": True, "invited": True}
+    assert sent.json() == {
+        "groupId": GROUP_A,
+        "changed": True,
+        "invited": True,
+        "directoryId": "0f5a7c1e-3b2d-4c6a-9e8f-1a2b3c4d5e6f",
+    }
     [command] = r.stubs.groups_change.invitations
     assert (command.group_id, command.email) == (GROUP_A, "clyde@softjump.example")
     assert refused.status_code == 400

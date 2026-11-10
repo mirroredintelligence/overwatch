@@ -127,6 +127,7 @@ export const FETCH_ALLOWLIST: Record<string, string> = {
   'lib/webhooks/forward.ts': 'the Twilio webhook forward: two fixed paths of the back end, the form and the signature unchanged, no redirect, 10 s (DEC-1302)',
   'lib/fhir/client.ts': 'the one server-side client of the back end FHIR API (token required, no cache, no tenant)',
   'lib/auth/oidc.ts': 'the staff sign-in redeems its code at the identity provider, not at the back end',
+  'lib/map/tiles/source.ts': 'the map tile route reads one byte range of the private tile blob with its own managed identity, not the back end (DEC-1369)',
   'app/api/bff/telemetry/route.ts': 'forwards a batch of interface events to the telemetry collector, not to the back end',
   'lib/board/client.ts': 'the browser reads the board from its own BFF route',
   'lib/board/useBoardFeed.ts': 'the browser refreshes the board from its own BFF route',

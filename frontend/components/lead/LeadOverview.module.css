@@ -38,7 +38,7 @@
   gap: var(--space-3);
   padding: 16px 18px;
   border: 2px solid var(--c-limited);
-  border-radius: 18px;
+  border-radius: var(--radius-card);
   background: var(--c-amber-tint);
   color: #4a2300;
 }

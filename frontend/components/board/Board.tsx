@@ -188,7 +188,7 @@ export function Board({
         <ul className={styles.grid} aria-label="Services">
           {board.entries.map((entry) => (
             <li key={entry.serviceId} className={styles.cell}>
-              <Tile entry={entry} now={now} lastKnown={lastKnown !== undefined} />
+              <Tile entry={entry} now={now} lastKnown={lastKnown !== undefined} attention={advisor} />
             </li>
           ))}
         </ul>

@@ -1,6 +1,6 @@
 # Community Overwatch design system
 
-Version 1.0 · Owner: product and design (delegated to the delivery team) · Status: adopted by DEC-014
+Version 1.1 · Owner: product and design (delegated to the delivery team) · Status: adopted by DEC-014; tightened and given an attention treatment by DEC-1365
 
 Community Overwatch shows, in one place, how many people or places a service can take right now. Staff who coordinate care use it under pressure, often on a phone, sometimes after a busy night. Patients never see it. The design must be easy enough that nobody needs training, friendly enough that it does not feel like an NHS form, and calm enough that a changing number never causes panic or a wrong decision.
 
@@ -33,14 +33,16 @@ Values are fixed in `frontend/app/tokens.css` (task F09) and were contrast-check
 | `--c-ink` | `#14232B` | Primary text | 17+ |
 | `--c-ink-2` | `#26343B` | Secondary text | 12.83 |
 | `--c-muted` | `#44555D` | Helper text, captions (never below 14 px) | 8+ |
-| `--c-line` | `#DDE3E6` | Dividers, card edges | decorative |
+| `--c-line` | `#D5DCE0` | Dividers, card edges (the `--border-card` hairline) | decorative |
 | `--c-bg` | `#F4F6F5` | Page background | n/a |
-| `--c-tint` | `#E3F1F8` | Selected option and friendly highlight backgrounds | n/a |
-| `--c-amber-tint` | `#FFF1DC` | Attention panels (never critical alerts) | n/a |
+| `--c-tint` | `#E9F0F4` | Selected option and friendly highlight backgrounds | n/a |
+| `--c-amber-tint` | `#F8EFE0` | Attention panels (never critical alerts) | n/a |
 
 Rules:
 - Status colours always appear with the word and the shape (section 6). Removing the colour must not remove the meaning.
 - No gradients, no glass or blur surfaces on the wall board, no decorative colour blocks.
+- Two further tokens, `--glow-stale` (`#2F80ED`) and `--glow-over` (`#D92D20`), colour the attention glow of section 6.1. They are used for nothing else, and the glow is never the only sign of a status.
+- Surfaces are quiet since DEC-1365: the page ground `--c-ground` is `#F0F3F4`, tints are lighter and less blue, and a card is a white surface with a 1 px `--c-line` edge and a barely visible shadow. The wall board keeps the earlier values (a `[data-surface='wall']` block in `tokens.css` restores them).
 - Dark mode is a later milestone. Tokens are the only place colour is defined, so it can be added without touching components.
 
 ## 3. Typography
@@ -49,24 +51,26 @@ Typeface: **Atkinson Hyperlegible** (designed for legibility; loaded with `next/
 
 | Role | Size | Line height | Weight | Tracking | Use |
 |---|---|---|---|---|---|
-| Display | `clamp(2rem, 5vw, 3.5rem)` | 1.05 | 700 | -0.02em | Board numbers, welcome heading |
-| Heading | 28 px | 1.2 | 700 | -0.01em | Screen titles |
-| Title | 22 px | 1.3 | 700 | 0 | Card and section titles |
-| Body | 18 px | 1.5 | 400 | 0 | Default text (not below 16 px anywhere) |
-| Label | 17 px | 1.4 | 700 | 0.01em | Field labels, button text |
+| Display | `clamp(2rem, 4.5vw, 3rem)` | 1.05 | 700 | -0.02em | Board numbers, welcome heading |
+| Heading | 24 px | 1.25 | 700 | -0.01em | Screen titles |
+| Title | 18 px | 1.3 | 700 | 0 | Card and section titles |
+| Body | 16 px | 1.5 | 400 | 0 | Default text |
+| Label | 16 px | 1.4 | 700 | 0.01em | Field labels, button text |
 | Caption | 14 px | 1.4 | 400 | 0.01em | Helper text, timestamps |
 
+One scale since DEC-1365: 14, 16, 18, 24 and the display size. A role is told from its neighbour by weight and colour as well as size. The wall board keeps its own larger sizes (DEC-1365, the wall is unchanged).
+
 Rules:
-- Body text is 18 px. Anything smaller than 16 px is forbidden, and inputs are at least 16 px so mobile browsers do not zoom on focus.
+- Body text is 16 px. Nothing a person reads is smaller than 14 px (captions and timestamps only), and inputs are at least 16 px so mobile browsers do not zoom on focus.
 - Numbers that line up in columns or tick over use `font-variant-numeric: tabular-nums`.
 - Line length stays near 65 characters on wide screens.
 - Headings use `text-wrap: balance`.
 
 ## 4. Spacing, shape and depth
 
-- **Spacing scale (px):** 4, 8, 12, 16, 24, 32, 48, 64. Use only these values. Group related items with 8–12 px, separate groups with 24–32 px.
-- **Radius:** 14 px for buttons and fields, 24 px for cards and sheets, full round for chips and avatars.
-- **Depth:** a 1 px `--c-line` edge and a very soft shadow (`0 1px 2px rgb(20 35 43 / 0.06)`) are enough. No heavy drop shadows.
+- **Spacing scale (px):** 4, 8, 12, 16, 20, 28, 40, 56. Use only these values. Group related items with 8–12 px, separate groups with 20–28 px.
+- **Radius:** 8 px for buttons and fields, 12 px for cards, panels and sheets, 6 px for chips and tags. Only dots and avatars are round.
+- **Depth:** a 1 px `--c-line` edge (`--border-card`) and a very soft shadow (`--shadow-card`, `0 1px 2px rgb(20 35 43 / 0.06), 0 2px 8px rgb(20 35 43 / 0.04)`) are enough. Layers that float use `--shadow-lift`, with no blur above 24 px. No coloured shadows under buttons.
 - **Touch targets:** at least 44 px square. Primary buttons 52 px high, chips 48 px high.
 - **Gutters:** 16 px minimum on phones, respecting safe-area insets.
 
@@ -167,6 +171,26 @@ Seven statuses. Each has a word, a shape, and a colour. The badge reads the same
 
 Not updated and last known always show the time of the last figure, in words ("Last reported 13:58").
 
+### 6.1 Attention on the advisor's board and service cards (DEC-1365)
+
+On the advisor-side board (`/advisor/board`) and on the service cards and rows of the options list, a card that needs a person's attention also glows. The glow is added to the status word and shape, never instead of them, and it is drawn around the card (outside its edge), so it covers no text.
+
+| What the card is | Glow | Moves? |
+|---|---|---|
+| Stale: Not updated, last known, a paused listing, an unavailable figure, or a figure older than the stale limit, whatever status it last had | Blue ring and halo, `--glow-stale` | Pulses slowly |
+| Over capacity (figure current) | Red ring and halo, `--glow-over` | Pulses slowly |
+| Limited, Not accepting | A calm 3 px ring in the status colour at 30% strength | No |
+| Accepting, Out of hours | None | No |
+
+Rules:
+- **Slow, never flashing.** One smooth cycle between 50% and 100% strength, every `--glow-period` (3.2 s; never below 2 s). The glow is never off in the cycle. No step timing, no scale or position change.
+- **Reduced motion.** Under `prefers-reduced-motion: reduce` the pulse stops and the ring stays at full strength, so nothing is conveyed only by motion.
+- **A stale figure is never spare capacity.** A stale card shows "?" and "Current capacity unavailable" or "Phone to confirm" (DEC-1343), at the same size as the others. The glow never hides, shrinks or restyles it.
+- **No ranking.** The glow does not change the order of the cards. The back end orders; nothing here scores a status.
+- **Contrast.** Text sits on the card's own surface and is not touched by the glow, so the existing AA pairs stand. Each glow colour is at least 3:1 against white and the page ground.
+- **Where it is not used.** The wall board (`/screen`), the network board and the network directory. They show status by shape and word as before.
+- The rules live in `frontend/app/attention.css` (global classes `attention`, `attention-stale`, `attention-over`, `attention-limited`, `attention-closed`) and `frontend/lib/attention.ts`.
+
 ## 7. Components
 
 Interactive primitives (dialogs, menus, selects, tabs, switches, toasts) come from **React Aria Components**, which handle focus, keyboard and screen-reader behaviour. We style them with our tokens. Everything visual on top of them (badges, tiles, cards, the wall board) is ours. Decision DEC-014 records this.
@@ -252,8 +276,8 @@ A motion is rejected if any of these hold:
 
 ## 13. What we will not do
 
-- No decorative animation on the wall board, status tiles or any number.
-- No gradients, glassmorphism or neon.
+- No decorative animation on the wall board or on any number. (Superseded for the advisor-side board and service cards by DEC-1365 and section 6.1: a stale or over-capacity card has a slow glow there, for information, not decoration.)
+- No gradients, glassmorphism or neon. The one exception is the attention glow of section 6.1, a ring and soft halo in two token colours on the card's edge, never behind text and never alone.
 - No dark patterns: no hidden opt-outs, no fake urgency, no nudging staff toward a service.
 - No ranking of services or staff. The board shows numbers, shapes and data age, and nothing is scored.
 - No patient data in any visual element, screenshot or animation.

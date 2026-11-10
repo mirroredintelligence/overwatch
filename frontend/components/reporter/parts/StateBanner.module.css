@@ -4,7 +4,7 @@
   align-items: flex-start;
   gap: var(--space-3);
   padding: 14px var(--space-4);
-  border-radius: 18px;
+  border-radius: var(--radius-card);
 }
 
 .picture {

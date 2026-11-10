@@ -286,7 +286,7 @@
   color: var(--c-primary);
   background: #fff;
   border: 2px solid var(--c-primary);
-  border-radius: 14px;
+  border-radius: var(--radius);
 }
 
 .shadow {
@@ -438,7 +438,7 @@
   text-decoration: none;
   background: #fff;
   border: 2px solid var(--c-primary);
-  border-radius: 14px;
+  border-radius: var(--radius);
 }
 
 /* The compact patient card is on a phone only (PWays); a wide screen has it in the stage layout. */
@@ -512,4 +512,33 @@
     content: attr(data-label) ': ';
     font-weight: var(--type-label-weight);
   }
+}
+
+/* The patient on the zoomable map: the dot, with the tag beside it. */
+.patientMarker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.patientDot {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  box-sizing: border-box;
+  background: var(--c-ink);
+  border: 4px solid #fff;
+  border-radius: 50%;
+}
+
+.patientTag {
+  padding: 4px 10px;
+  font-size: var(--type-caption-size);
+  font-weight: var(--type-label-weight);
+  color: var(--c-ink);
+  white-space: nowrap;
+  background: #fff;
+  border: 2px solid var(--c-ink);
+  border-radius: 10px;
 }

@@ -12,11 +12,13 @@ const TABLE: [string, Role[]][] = [
   // Advisor v2 (DEC-1362): the finder pages under /advisor/v2 are open to the advisor and to Advisor v2; the rest of /advisor is the advisor's alone.
   ['/advisor/v2', ['advisor', 'advisor-v2']],
   ['/advisor/v2/results', ['advisor', 'advisor-v2']],
+  ['/advisor/v2/services/svc-a', ['advisor', 'advisor-v2']], // the service detail page (DEC-1367)
   ['/advisor/v20', ['advisor']],
   ['/advisor/board', ['advisor']],
   // The Analytics User's aggregate pages (DEC-1362).
   ['/analytics', ['analytics-user']],
   ['/analytics/district/x', ['analytics-user']],
+  ['/analytics/services/svc-a', ['analytics-user']], // the service detail page (DEC-1367)
   ['/clinical', ['clinical']],
   ['/lead', ['lead']],
   ['/owner', ['owner', 'clinical']],

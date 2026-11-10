@@ -28,7 +28,7 @@
   height: 76px;
   padding: 0;
   border: 2px solid var(--c-primary);
-  border-radius: 20px;
+  border-radius: var(--radius-card);
   background: #fff;
   color: var(--c-primary);
   font: inherit;
@@ -55,7 +55,7 @@
   height: 76px;
   padding: 0;
   border: 3px solid var(--c-primary);
-  border-radius: 20px;
+  border-radius: var(--radius-card);
   background: #fff;
   box-shadow: 0 0 0 4px rgb(11 92 140 / 0.2);
   color: var(--c-primary-dark);

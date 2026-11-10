@@ -39,6 +39,11 @@ describe('GET /api/bff/advisor/services/[id]/history', () => {
     expect((await GET(await leadRequest(URL_, 'reporter'), ctx)).status).toBe(403);
   });
 
+  it.each(['advisor-v2', 'analytics-user'] as const)('is open to the %s role too (DEC-1367)', async (role) => {
+    server.use(http.get(`${ROOT}/clinical/services/s-virtual-ward/history`, () => HttpResponse.json(ANSWER)));
+    expect((await GET(await leadRequest(URL_, role), ctx)).status).toBe(200);
+  });
+
   it('reads the history from the back end root for an advisor and passes it on, checked', async () => {
     let auth: string | null = null;
     server.use(

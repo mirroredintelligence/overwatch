@@ -138,7 +138,7 @@
 
 .fact {
   padding: var(--space-3) 14px;
-  border-radius: 14px;
+  border-radius: var(--radius);
   background: var(--c-bg);
 }
 

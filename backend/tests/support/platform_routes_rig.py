@@ -167,7 +167,7 @@ class RecordingChanger(Recording):
         self.invitations.append(command)
         if self.error is not None:
             raise self.error
-        return InviteResult(GROUP_A, True, True)
+        return InviteResult(GROUP_A, True, True, "0f5a7c1e-3b2d-4c6a-9e8f-1a2b3c4d5e6f")
 
 
 class FakeAuditReader:

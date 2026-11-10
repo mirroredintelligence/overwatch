@@ -210,6 +210,23 @@ az storage container create --account-name "$SA" --name neo4j-backups --auth-mod
 az storage container immutability-policy create --account-name "$SA" --container-name tenant-exports --period 30 2>/dev/null || echo "set the immutability policy in the portal or tell me the error"
 ```
 
+### 8a. The map's tile file (DEC-1362)
+
+OS Open Zoomstack (Open Government Licence) as one PMTiles file in the private `map-data` container of the storage account above. The web app reads it with its own identity and passes byte ranges to the browser, so the browser never talks to storage. Build and upload once (Python `pmtiles` package; the mbtiles file is the OS download `OS_Open_Zoomstack.mbtiles`):
+
+```bash
+python -c "from pmtiles.convert import mbtiles_to_pmtiles as c; c('OS_Open_Zoomstack.mbtiles', 'OS_Open_Zoomstack.pmtiles', 14)"
+az storage blob upload --account-name "$SA" --container-name map-data --name OS_Open_Zoomstack.pmtiles --file OS_Open_Zoomstack.pmtiles --auth-mode login --overwrite
+```
+
+Give the web identity read access to that container only (needed before the map works in production):
+
+```bash
+az role assignment create --assignee-object-id "$(az identity show -g "$RG" -n id-diucs-web-pilot --query principalId -o tsv)" --assignee-principal-type ServicePrincipal --role "Storage Blob Data Reader" --scope "$(az storage account show -g "$RG" -n "$SA" --query id -o tsv)/blobServices/default/containers/map-data"
+```
+
+`apps.bicep` sets `OVERWATCH_MAP_TILES_URL` on `web` (parameter `mapTilesUrl`). Until the role exists the tile route answers 502, and the pages keep the schematic.
+
 ## 9. Private endpoints (Key Vault, Service Bus if Premium, Redis, storage, registry)
 
 ```bash

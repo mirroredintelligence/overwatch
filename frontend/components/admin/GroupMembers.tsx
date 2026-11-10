@@ -110,7 +110,7 @@ export function GroupMembers() {
 }
 
 function RoleRow({ group, open, onToggle, onChanged }: { group: Group; open: boolean; onToggle: () => void; onChanged: () => void }) {
-  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [message, setMessage] = useState<{ ok: boolean; text: string; link?: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [justAdded, setJustAdded] = useState<string | null>(null);
@@ -149,7 +149,7 @@ function RoleRow({ group, open, onToggle, onChanged }: { group: Group; open: boo
     if (busy) return;
     setMessage(null);
     setBusy(true);
-    const result = await adminSend<{ changed: boolean; invited: boolean }>('POST', `/api/bff/tenant/groups/${group.groupId}/invitations`, { email }, submitKey.key());
+    const result = await adminSend<{ changed: boolean; invited: boolean; directoryId: string }>('POST', `/api/bff/tenant/groups/${group.groupId}/invitations`, { email }, submitKey.key());
     setBusy(false);
     submitKey.fresh();
     if (result.ok) {
@@ -157,10 +157,11 @@ function RoleRow({ group, open, onToggle, onChanged }: { group: Group; open: boo
       setMessage({
         ok: true,
         text: result.data.invited
-          ? 'Invitation sent. They join this role when they accept it, and need to sign in once with their own account.'
+          ? 'Invitation sent. They join this role when they accept it. Send them the sign-in link below: it signs them in to your organisation, which the usual sign-in page cannot do for a guest.'
           : result.data.changed
-            ? 'Added to the group.'
-            : 'That person is already in the group.',
+            ? 'Added to the group. Send them the sign-in link below.'
+            : 'That person is already in the group. Send them the sign-in link below.',
+        link: `${window.location.origin}/api/bff/auth/entra/start?org=${result.data.directoryId}`,
       });
       onChanged();
       setTimeout(onChanged, CATCH_UP_MS);
@@ -288,6 +289,11 @@ function RoleRow({ group, open, onToggle, onChanged }: { group: Group; open: boo
             {message !== null ? (
               <p role={message.ok ? 'status' : 'alert'} className={message.ok ? styles.ok : styles.problem}>
                 {message.text}
+              </p>
+            ) : null}
+            {message?.link !== undefined ? (
+              <p className={styles.note}>
+                Sign-in link for people from other organisations: <code data-el="PEOPLE-ORG-SIGNIN-LINK">{message.link}</code>
               </p>
             ) : null}
           </div>

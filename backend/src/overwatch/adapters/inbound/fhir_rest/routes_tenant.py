@@ -662,7 +662,13 @@ async def invite_group_member(
             ChangeMemberCommand(actor, group_id, body.email)
         )
         return _json(
-            200, {"groupId": result.group_id, "changed": result.changed, "invited": result.invited}
+            200,
+            {
+                "groupId": result.group_id,
+                "changed": result.changed,
+                "invited": result.invited,
+                "directoryId": result.directory_id,
+            },
         )
 
     return await replay_or_run(request, actor, key, run)

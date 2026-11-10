@@ -7,7 +7,7 @@
   gap: var(--space-3);
   padding: var(--space-3);
   border: 2px solid transparent;
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   background: var(--c-bg);
   transition: border-color var(--dur-state) var(--ease-out);
 }

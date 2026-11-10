@@ -1,12 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { Button } from '@/components/ui/Button';
 import { ShapeIcon, STATUS_SHAPES, StatusBadge } from '@/components/ui/StatusBadge';
 import type { LatLon } from '@/lib/map/project';
 import { layoutOf, PICTURE, percentOf, radiusPx } from '@/lib/map/layout';
 import { type OptionView } from '@/lib/advisor/options';
 import { durationText } from '@/lib/board/format';
+import { TileMap, useWebgl, type TileArea, type TileMarker } from '@/components/map/TileMap';
+import { areaEdges } from '@/lib/map/geo';
 import { Basemap, BASEMAP_ATTRIBUTION } from './Basemap';
 import { NetworkServiceLine } from './NetworkServiceLine';
 import { OptionBooking } from './OptionBooking';
@@ -23,6 +25,9 @@ import { StyledButton, StyledSpan } from '@/components/ui/Styled';
 
 const CAPTION =
   'Patient shown at postcode centre. Dashed areas are where a visiting service can attend. The dotted line is the route to the selected site.';
+
+const TILE_CAPTION =
+  'Patient shown at postcode centre. Dashed areas are where a visiting service can attend. The dotted line is the route to the selected site. Zoom and drag the map to look closer.';
 
 export type OptionsMapProps = {
   caseId: string;
@@ -76,98 +81,117 @@ export function OptionsMap({
   const at = (index: number) => layout.points[index];
   const offset = patientArea === null ? 0 : 1;
   const selected = options.find((option) => option.serviceId === selectedId) ?? null;
+  // The zoomable map where the browser can draw it and the tiles answer; the schematic below otherwise (DEC-1362).
+  const webgl = useWebgl();
+  const [tilesFailed, setTilesFailed] = useState(false);
+  const tiled = webgl && !tilesFailed;
+  const showTiles = tiled && points.length > 0;
   // The route to the selected fixed site: a dotted line from the patient (W50, MapWeb). A visiting service
   // comes to the patient, so it has no route to draw.
   const selectedIndex = selected === null ? -1 : fixed.findIndex((option) => option.serviceId === selected.serviceId);
   const routeEnd = selectedIndex < 0 || patientArea === null ? null : at(offset + selectedIndex);
 
+  const pinCss = (index: number) => (tiled ? {} : percentOf(at(index)));
+  const patientEl = (css: CSSProperties) => (
+    <StyledSpan className={styles.patient} css={css}>
+      <span className={styles.patientDot} aria-hidden="true" />
+      <span className={styles.patientLabel}>Patient area</span>
+    </StyledSpan>
+  );
+  const pinEl = (option: OptionView, css: CSSProperties, visits: boolean) => (
+    <StyledButton
+      key={option.serviceId}
+      type="button"
+      className={styles.pin}
+      css={css}
+      aria-label={visits ? `${option.name} (visits)` : option.name}
+      aria-pressed={option.serviceId === selectedId}
+      data-status={option.status}
+      data-el={`${visits ? 'ADV-MAP-AREA-' : 'ADV-MAP-PIN-'}${option.serviceId.toUpperCase()}`}
+      onClick={() => onSelect(option.serviceId)}
+    >
+      <span className={styles.marker} aria-hidden="true">
+        <ShapeIcon shape={STATUS_SHAPES[option.status]} />
+      </span>
+      <span className={styles.label}>{pinText(visits ? `${option.name} (visits)` : option.name, option)}</span>
+    </StyledButton>
+  );
+
+  const areas = useMemo<TileArea[]>(
+    () =>
+      visiting.map((option) => ({
+        id: option.serviceId,
+        centre: option.coverage as LatLon,
+        radiusKm: (option.coverage as NonNullable<OptionView['coverage']>).radiusKm,
+        color: 'var(--c-primary)',
+        dash: true,
+        fillOpacity: 0.1,
+      })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [options],
+  );
+  const fit = [...points, ...visiting.flatMap((option) => areaEdges(option.coverage as LatLon, (option.coverage as NonNullable<OptionView['coverage']>).radiusKm))];
+  const tileRoute: [LatLon, LatLon] | null =
+    selectedIndex < 0 || patientArea === null ? null : [patientArea, fixed[selectedIndex].position as LatLon];
+  const markers: TileMarker[] = [
+    ...(patientArea === null ? [] : [{ id: 'patient', at: patientArea, anchor: 'bottom' as const, node: patientEl({}) }]),
+    ...fixed.map((option) => ({ id: option.serviceId, at: option.position as LatLon, anchor: 'bottom' as const, node: pinEl(option, {}, false) })),
+    ...visiting.map((option) => ({ id: `${option.serviceId}-area`, at: option.coverage as LatLon, anchor: 'bottom' as const, node: pinEl(option, {}, true) })),
+  ];
+
   return (
     <section className={styles.mapWrap} aria-label={`Map of options near ${postcode}`}>
       <div className={styles.mapCard}>
         <div className={styles.picture}>
-          <svg className={styles.svg} viewBox={`0 0 ${PICTURE.width} ${PICTURE.height}`} aria-hidden="true" focusable="false">
-            <Basemap place={layout.place} />
-            {visiting.map((option, index) => {
-              const centre = at(offset + fixed.length + index);
-              if (centre === undefined || option.coverage === null) return null;
-              return (
-                <circle
-                  key={option.serviceId}
-                  cx={centre.x}
-                  cy={centre.y}
-                  r={radiusPx(option.coverage.radiusKm, layout.pxPerDegree)}
-                  fill="currentColor"
-                  fillOpacity={0.09}
-                  stroke="currentColor"
-                  strokeOpacity={0.5}
-                  strokeWidth={2}
-                  strokeDasharray="6 6"
-                />
-              );
-            })}
-            {routeEnd === undefined || routeEnd === null ? null : (
-              <line
-                className={styles.route}
-                x1={at(0).x}
-                y1={at(0).y}
-                x2={routeEnd.x}
-                y2={routeEnd.y}
-                stroke="currentColor"
-                strokeWidth={3}
-                strokeDasharray="2 8"
-                strokeLinecap="round"
-                data-el="ADV-MAP-ROUTE"
-              />
-            )}
-          </svg>
-
-          {patientArea === null ? null : (
-            <StyledSpan className={styles.patient} css={percentOf(at(0))}>
-              <span className={styles.patientDot} aria-hidden="true" />
-              <span className={styles.patientLabel}>Patient area</span>
-            </StyledSpan>
+          {showTiles ? (
+            <TileMap fit={fit} areas={areas} route={tileRoute} markers={markers} onFailed={() => setTilesFailed(true)} />
+          ) : (
+            <>
+              <svg className={styles.svg} viewBox={`0 0 ${PICTURE.width} ${PICTURE.height}`} aria-hidden="true" focusable="false">
+                <Basemap place={layout.place} />
+                {visiting.map((option, index) => {
+                  const centre = at(offset + fixed.length + index);
+                  if (centre === undefined || option.coverage === null) return null;
+                  return (
+                    <circle
+                      key={option.serviceId}
+                      cx={centre.x}
+                      cy={centre.y}
+                      r={radiusPx(option.coverage.radiusKm, layout.pxPerDegree)}
+                      fill="currentColor"
+                      fillOpacity={0.09}
+                      stroke="currentColor"
+                      strokeOpacity={0.5}
+                      strokeWidth={2}
+                      strokeDasharray="6 6"
+                    />
+                  );
+                })}
+                {routeEnd === undefined || routeEnd === null ? null : (
+                  <line
+                    className={styles.route}
+                    x1={at(0).x}
+                    y1={at(0).y}
+                    x2={routeEnd.x}
+                    y2={routeEnd.y}
+                    stroke="currentColor"
+                    strokeWidth={3}
+                    strokeDasharray="2 8"
+                    strokeLinecap="round"
+                    data-el="ADV-MAP-ROUTE"
+                  />
+                )}
+              </svg>
+              {patientArea === null ? null : patientEl(pinCss(0))}
+              {fixed.map((option, index) => pinEl(option, pinCss(offset + index), false))}
+              {visiting.map((option, index) => pinEl(option, pinCss(offset + fixed.length + index), true))}
+            </>
           )}
-          {fixed.map((option, index) => (
-            <StyledButton
-              key={option.serviceId}
-              type="button"
-              className={styles.pin}
-              css={percentOf(at(offset + index))}
-              aria-label={option.name}
-              aria-pressed={option.serviceId === selectedId}
-              data-status={option.status}
-              data-el={`ADV-MAP-PIN-${option.serviceId.toUpperCase()}`}
-              onClick={() => onSelect(option.serviceId)}
-            >
-              <span className={styles.marker} aria-hidden="true">
-                <ShapeIcon shape={STATUS_SHAPES[option.status]} />
-              </span>
-              <span className={styles.label}>{pinText(option.name, option)}</span>
-            </StyledButton>
-          ))}
-          {visiting.map((option, index) => (
-            <StyledButton
-              key={option.serviceId}
-              type="button"
-              className={styles.pin}
-              css={percentOf(at(offset + fixed.length + index))}
-              aria-label={`${option.name} (visits)`}
-              aria-pressed={option.serviceId === selectedId}
-              data-status={option.status}
-              data-el={`ADV-MAP-AREA-${option.serviceId.toUpperCase()}`}
-              onClick={() => onSelect(option.serviceId)}
-            >
-              <span className={styles.marker} aria-hidden="true">
-                <ShapeIcon shape={STATUS_SHAPES[option.status]} />
-              </span>
-              <span className={styles.label}>{pinText(`${option.name} (visits)`, option)}</span>
-            </StyledButton>
-          ))}
         </div>
         <div className={styles.legend}>
-          <p>{CAPTION}</p>
+          <p>{showTiles ? TILE_CAPTION : CAPTION}</p>
           <UnplacedNote options={options} />
-          <p>{BASEMAP_ATTRIBUTION}</p>
+          {showTiles ? null : <p>{BASEMAP_ATTRIBUTION}</p>}
           <p>
             Drive-time rings and traffic are <strong>off</strong>: there is no data behind them yet.
           </p>

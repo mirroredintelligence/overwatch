@@ -190,11 +190,11 @@
 .primary {
   min-height: 58px;
   border: 0;
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   background: var(--c-primary);
   color: #fff;
   font-size: 19px;
-  box-shadow: 0 6px 16px rgb(11 92 140 / 0.28);
+  box-shadow: 0 1px 2px rgb(11 42 61 / 0.2);
 }
 
 .primary:hover:not(:disabled) {
@@ -205,7 +205,7 @@
 .outlineDark,
 .dark {
   min-height: 54px;
-  border-radius: 14px;
+  border-radius: var(--radius);
   font-size: 18px;
 }
 

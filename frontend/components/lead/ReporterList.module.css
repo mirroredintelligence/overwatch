@@ -86,7 +86,7 @@
   min-height: 64px;
   padding: 14px 16px;
   border: 2px solid transparent;
-  border-radius: 18px;
+  border-radius: var(--radius-card);
   background: #fff;
   color: inherit;
   font: inherit;
@@ -108,7 +108,7 @@
 
 .row[data-status='stuck'] {
   border-color: var(--c-limited);
-  box-shadow: 0 10px 28px rgba(163, 71, 0, 0.14);
+  box-shadow: var(--shadow-card);
 }
 
 .row[aria-current='true'] {

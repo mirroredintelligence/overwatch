@@ -13,7 +13,7 @@ Branch `claude/roles-analytics-advisor-v2-a6a327` (not merged, not pushed). The 
 
 ## Results (run on Windows, local)
 - Back end `tests/unit`: 16566 passed; 44 failed, all in `tests/unit/support` (Docker and `/proc` helpers that need Linux), none touching roles. `fcntl` is missing on Windows, so a stub module was put on `PYTHONPATH` for the run. The Neo4j integration suites were NOT run (their role matrices were updated by reading, and the unit matrices cover the same roles). `ruff check`: one error in `tests/integration/application/test_retire_service.py`, a file this change does not touch. `ruff format --check` clean, `mypy src` clean.
-- Front end: `tsc --noEmit` clean, `eslint` clean. Full `vitest`: 3 failures in the first full run: `test/guards/no-literals.test.ts` (`lib/map/landRings.ts` line 2, from DEC-1361, not this change), `test/guards/bff-routes.test.ts` (20 s timeout under full-suite load; passes alone, 1142 tests), and one more, see the final report; `session.test.ts` was the fourth and is fixed.
+- Front end: `tsc --noEmit` clean, `eslint` clean. Full `vitest`: 3 failures in the first full run: `test/guards/no-literals.test.ts` (`lib/map/landRings.ts` line 2, from DEC-1361, not this change), `test/guards/bff-routes.test.ts` (20 s timeout under full-suite load; passes alone, 1142 tests), and two tests that pinned the role list (`UsersAndRoles`, `CreateTenantForm`), now updated and passing; `session.test.ts` was also updated.
 
 ## Not verified
 Integration tests against Neo4j; a real sign-in with a mapped group; an independent verifier has not yet re-checked this.

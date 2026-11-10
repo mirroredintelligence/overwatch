@@ -13,6 +13,8 @@ SRC = Path(__file__).resolve().parents[3] / "src" / "overwatch"
 ALLOWED = {
     # Advisor v2's own reads (DEC-1366): find a service and the capacity overview.
     "application/use_cases/find_services.py",
+    # The capacity request the advisor pages offer (DEC-1377), also open to the lead and clinical.
+    "application/use_cases/ask_capacity_now.py",
     "domain/codes.py",
     "domain/model/tenant_records.py",
     "domain/rules/token_exchange.py",

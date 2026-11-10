@@ -1,4 +1,5 @@
-"""AskCapacityNow: the shift lead asks a service for its capacity figure now (DEC-1335).
+"""AskCapacityNow: the shift lead, an advisor or a clinical advisor (DEC-1377) asks a service for
+its capacity figure now (DEC-1335).
 
 The service's queued prompts are cancelled and one is queued to be due now. The prompt sender then
 sends the capacity request, records it as the open question so the reply matches it, and schedules
@@ -8,6 +9,7 @@ starts no second chain: a prompt already due is left alone, so a second press se
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Final
 
 from overwatch.application.actor import Actor
 from overwatch.application.ports.outbound.audit import AuditEntry
@@ -21,7 +23,10 @@ from overwatch.domain.errors import Conflict, NotAllowed, NotFound
 
 AUDIT_ACTION = "ask-capacity"
 USE_CASE = "AskCapacityNow"
-ONLY_LEAD = "only the shift lead may ask a service for its capacity"
+ASK_ROLES: Final = (Role.LEAD, Role.ADVISOR, Role.ADVISOR_V2, Role.CLINICAL)
+NOT_ASKER = (
+    "only the shift lead, an advisor or a clinical advisor may ask a service for its capacity"
+)
 NO_SERVICE = "no service with this id"
 NOT_ACTIVE = "this service is not active"
 ALREADY_DUE = "a capacity request is already due for this service"
@@ -40,8 +45,10 @@ class AskCapacityNow:
         self._clock = clock
 
     async def execute(self, actor: Actor, service_id: str) -> AskCapacityResult:
-        if actor.role is not Role.LEAD or actor.practitioner_id is None:
-            raise NotAllowed(ONLY_LEAD)
+        if actor.role not in ASK_ROLES:
+            raise NotAllowed(NOT_ASKER)
+        if actor.role is Role.LEAD and actor.practitioner_id is None:
+            raise NotAllowed(NOT_ASKER)
         now = self._clock.now()
         async with self._uow_factory() as uow:
             profile = await uow.services.get(service_id)

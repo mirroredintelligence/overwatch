@@ -2,11 +2,16 @@
 
 POST /advisor-v2/find       {postcode, ageBand, needs[], urgency}: the services whose criteria
 take this
-                            patient, with travel from the district's centre. Nothing is stored: no
+                            patient, with travel from the district's centre, each one's site
+                            position and the area it covers, and `notSuitable[]`: every other
+                            service on the board with its reasons (DEC-1379). Nothing is stored: no
                             case is
                             opened, and the postcode, age band and needs are used for this answer
                             and dropped.
                             The postcode is read from the body, never from a URL, and never logged.
+POST /advisor-v2/services/{id}/check  the same body: does this one service take this patient
+                            (DEC-1377); nothing is stored.
+POST /advisor-v2/services/{id}/ask    queue a capacity request to the service (DEC-1377).
 GET  /advisor-v2/capacity   the five counts, the Needs attention lists (the shift lead's rules),
 and one row
                             per service by name.
@@ -27,15 +32,20 @@ from fastapi.responses import Response
 from overwatch.adapters.inbound.fhir_rest.app import get_container
 from overwatch.adapters.inbound.fhir_rest.auth import require_role
 from overwatch.adapters.inbound.fhir_rest.capability import FhirJSONResponse
+from overwatch.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
 from overwatch.application.actor import Actor
 from overwatch.application.idempotency import format_instant
+from overwatch.application.use_cases.ask_capacity_now import ASK_ROLES, AskCapacityNow
 from overwatch.application.use_cases.find_services import (
     ATTENTION_SHOWN,
     FIND_ROLES,
     CapacityOverview,
+    CheckServiceFit,
+    CheckServiceFitCommand,
     FindServices,
     FindServicesCommand,
     FoundService,
+    NotSuitableService,
     ReadCapacityOverview,
 )
 from overwatch.application.use_cases.query_board import QueryBoard
@@ -76,6 +86,31 @@ async def _body(request: Request) -> dict[str, Any]:
     return body
 
 
+def _position(position: Any) -> dict[str, float] | None:
+    return None if position is None else {"lat": position.lat, "lon": position.lon}
+
+
+def _coverage(item: FoundService) -> dict[str, Any]:
+    circle = item.coverage.circle
+    return {
+        "districts": list(item.coverage.districts),
+        "circle": None
+        if circle is None
+        else {"lat": circle.lat, "lon": circle.lon, "radiusMeters": circle.radius_km * 1000},
+    }
+
+
+def _not_suitable(item: NotSuitableService) -> dict[str, Any]:
+    return {
+        "serviceId": item.service_id,
+        "name": item.name,
+        "category": item.category.value,
+        "status": item.status.value,
+        "reasons": list(item.reasons),
+        "position": _position(item.position),
+    }
+
+
 def _found(item: FoundService) -> dict[str, Any]:
     return {
         "serviceId": item.service_id,
@@ -97,6 +132,8 @@ def _found(item: FoundService) -> dict[str, Any]:
         "fits": list(item.fits),
         "warnings": list(item.warnings),
         "phone": item.phone,
+        "position": _position(item.position),
+        "coverage": _coverage(item),
         "travel": None
         if item.travel is None
         else {
@@ -107,20 +144,28 @@ def _found(item: FoundService) -> dict[str, Any]:
     }
 
 
-@router.post("/find")
-async def find(
-    request: Request, actor: Annotated[Actor, Depends(require_role(*FIND_ROLES))]
-) -> Response:
+async def _patient(request: Request) -> tuple[str, AgeBand, tuple[NeedCategory, ...], Urgency]:
+    """The body of find and check: the postcode, age band, needs and urgency, validated. Read from
+    the body only and never logged."""
     body = await _body(request)
     needs = body.get("needs")
     if not isinstance(needs, list) or not 1 <= len(needs) <= MAX_NEEDS:
         raise ValidationFailed("needs", "must be a list of one or more needs")
+    return (
+        body.get("postcode"),  # type: ignore[return-value]
+        _enum(AgeBand, body.get("ageBand"), "ageBand"),
+        tuple(_enum(NeedCategory, need, "needs") for need in needs),
+        _enum(Urgency, body.get("urgency"), "urgency"),
+    )
+
+
+@router.post("/find")
+async def find(
+    request: Request, actor: Annotated[Actor, Depends(require_role(*FIND_ROLES))]
+) -> Response:
+    postcode, age_band, needs, urgency = await _patient(request)
     command = FindServicesCommand(
-        actor=actor,
-        postcode=body.get("postcode"),  # type: ignore[arg-type]
-        age_band=_enum(AgeBand, body.get("ageBand"), "ageBand"),
-        needs=tuple(_enum(NeedCategory, need, "needs") for need in needs),
-        urgency=_enum(Urgency, body.get("urgency"), "urgency"),
+        actor=actor, postcode=postcode, age_band=age_band, needs=needs, urgency=urgency
     )
     container = get_container(request)
     result = await FindServices(
@@ -136,6 +181,7 @@ async def find(
             "notFound": result.not_found,
             "groupTotals": {key.value: count for key, count in result.group_totals.items()},
             "services": [_found(item) for item in result.services],
+            "notSuitable": [_not_suitable(item) for item in result.not_suitable],
         },
         headers=NO_STORE,
     )
@@ -200,3 +246,61 @@ async def capacity(
         getattr(container, "postcodes", None),
     ).execute(actor)
     return FhirJSONResponse(content=_overview_body(view), headers=NO_STORE)
+
+
+@router.post("/services/{service_id}/check")
+async def check_service(
+    service_id: str,
+    request: Request,
+    actor: Annotated[Actor, Depends(require_role(*FIND_ROLES))],
+) -> Response:
+    """Does this one service take this patient (DEC-1377)? The find rule for one service. Nothing
+    is stored; the audit entry holds the service id and the result only."""
+    postcode, age_band, needs, urgency = await _patient(request)
+    container = get_container(request)
+    result = await CheckServiceFit(
+        container.uow_factory, container.clock, QueryBoard(container.uow_factory, container.clock)
+    ).execute(
+        CheckServiceFitCommand(
+            actor=actor,
+            service_id=service_id,
+            postcode=postcode,
+            age_band=age_band,
+            needs=needs,
+            urgency=urgency,
+        )
+    )
+    return FhirJSONResponse(
+        content={
+            "serviceId": result.service_id,
+            "fits": result.fits,
+            "reasons": list(result.reasons),
+            "fitsNeeds": list(result.fits_needs),
+            "warnings": list(result.warnings),
+            "phone": result.phone,
+            "status": result.status.value,
+            "figureUnavailable": result.figure_unavailable,
+        },
+        headers=NO_STORE,
+    )
+
+
+@router.post("/services/{service_id}/ask")
+async def ask_service(
+    service_id: str,
+    request: Request,
+    actor: Annotated[Actor, Depends(require_role(*ASK_ROLES))],
+) -> Response:
+    """Ask the service for its capacity figure now (DEC-1377, DEC-1335): queued, not sent here."""
+    key = idempotency_key(request)
+    container = get_container(request)
+
+    async def run() -> Response:
+        result = await AskCapacityNow(
+            container.uow_factory, container.ids, container.clock
+        ).execute(actor, service_id)
+        return FhirJSONResponse(
+            content={"queued": True, "dueAt": _at(result.due_at)}, headers=NO_STORE
+        )
+
+    return await replay_or_run(request, actor, f"advisor-v2-ask:{service_id}:{key}", run)

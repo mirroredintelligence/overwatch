@@ -22,7 +22,7 @@ Roles: the advisor and Advisor v2 (DEC-1362); every other role is refused as Not
 """
 
 import asyncio
-from collections.abc import Collection, Mapping
+from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta
 from typing import Final
@@ -40,6 +40,8 @@ from overwatch.application.ports.outbound.geo import (
 )
 from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from overwatch.application.use_cases.filter_options import (
+    Coverage,
+    coverage_of,
     criteria_warnings,
     data_age_warnings,
     fits_for,
@@ -63,11 +65,11 @@ from overwatch.domain.codes import (
     Status,
     Urgency,
 )
-from overwatch.domain.errors import NotAllowed
+from overwatch.domain.errors import NotAllowed, NotFound
 from overwatch.domain.model.criteria import ServiceCriteria
 from overwatch.domain.model.flags import SERVICE_FLAG_SUSPENDED
 from overwatch.domain.rules.areas import Area, AreaTable
-from overwatch.domain.rules.criteria_filter import check_hard_criteria
+from overwatch.domain.rules.criteria_filter import FilterResult, check_hard_criteria
 from overwatch.domain.rules.freshness import STALE_WARNING_AFTER
 from overwatch.domain.rules.london_time import to_london
 
@@ -92,6 +94,14 @@ def check_find_role(actor: Actor) -> None:
 
 
 @dataclass(frozen=True, slots=True)
+class ServiceCoverage:
+    districts: tuple[str, ...] = ()
+    """The postcode districts a visiting service covers, in name order; none for a fixed site."""
+    circle: Coverage | None = None
+    """The v1 circle of the districts the locator can place (coverage_of); None when none."""
+
+
+@dataclass(frozen=True, slots=True)
 class FoundService:
     service_id: str
     name: str
@@ -113,12 +123,127 @@ class FoundService:
     warnings: tuple[str, ...]
     phone: str | None = None
     travel: TravelRange | None = None
+    position: LatLon | None = None
+    """The site position of the service; None when it has none (DEC-1379)."""
+    coverage: ServiceCoverage = field(default_factory=ServiceCoverage)
+    """The area the service covers, for the map (DEC-1379)."""
+
+
+@dataclass(frozen=True, slots=True)
+class NotSuitableService:
+    """A board service that was not found, and why (DEC-1379). The reasons are the hard-criteria
+    text, or one of the two fail-closed reasons."""
+
+    service_id: str
+    name: str
+    category: ServiceCategory
+    status: Status
+    reasons: tuple[str, ...]
+    position: LatLon | None = None
 
 
 def _figure_unavailable(entry: BoardEntry, data_age: timedelta | None) -> bool:
     if figure_unusable(entry):
         return True
     return data_age is None or data_age > STALE_WARNING_AFTER
+
+
+def _found_service(
+    entry: BoardEntry,
+    current: ServiceCriteria,
+    result: FilterResult,
+    *,
+    needs: tuple[NeedCategory, ...],
+    now: datetime,
+    today: date,
+    phone: str | None,
+) -> FoundService:
+    """One service as the find list and the single check show it: the same figure rules, fit lines
+    and warnings, so the two answers cannot disagree. Pure."""
+    data_age = None if entry.reported_at is None else now - entry.reported_at
+    return FoundService(
+        service_id=entry.service_id,
+        name=entry.name,
+        category=entry.category,
+        status=entry.status,
+        effective_available=entry.effective_available,
+        over_by=entry.over_by,
+        unit_label=entry.unit_label,
+        data_age=data_age,
+        reported_at=entry.reported_at,
+        next_due_at=entry.next_due_at,
+        cadence=entry.cadence,
+        overdue=entry.overdue,
+        stale_warning=entry.stale_warning,
+        figure_unavailable=_figure_unavailable(entry, data_age),
+        last_figure=(
+            entry.effective_available if entry.effective_available is not None else entry.used
+        ),
+        criteria_version=current.version,
+        fits=fits_for(current, needs) if result.passes else (),
+        warnings=(
+            result.warnings
+            + status_warnings(entry.status)
+            + data_age_warnings(data_age)
+            + criteria_warnings(current, today)
+        ),
+        phone=phone,
+    )
+
+
+def split_services(
+    entries: tuple[BoardEntry, ...],
+    criteria: Mapping[str, ServiceCriteria],
+    *,
+    suspended: Collection[str],
+    age_band: AgeBand,
+    district: str,
+    needs: tuple[NeedCategory, ...],
+    now: datetime,
+    today: date,
+    phones: Mapping[str, str] | None = None,
+) -> tuple[tuple[FoundService, ...], tuple[NotSuitableService, ...]]:
+    """Every board service is either found or not suitable, by the one rule: suspended, or no
+    current criteria, or failing the hard criteria is not suitable (fails closed). Found keeps the
+    board order; not suitable is by name then id. Pure."""
+    found: list[FoundService] = []
+    refused: list[NotSuitableService] = []
+    for entry in entries:
+        current = criteria.get(entry.service_id)
+        reasons: tuple[str, ...] = ()
+        result: FilterResult | None = None
+        if entry.service_id in suspended:
+            reasons = (REASON_SUSPENDED,)
+        elif current is None:
+            reasons = (REASON_NO_CRITERIA,)
+        else:
+            result = check_hard_criteria(current, age_band, district, needs)
+            if not result.passes:
+                reasons = result.reasons
+        if current is not None and result is not None and result.passes:
+            found.append(
+                _found_service(
+                    entry,
+                    current,
+                    result,
+                    needs=needs,
+                    now=now,
+                    today=today,
+                    phone=None if phones is None else phones.get(entry.service_id),
+                )
+            )
+            continue
+        refused.append(
+            NotSuitableService(
+                service_id=entry.service_id,
+                name=entry.name,
+                category=entry.category,
+                status=entry.status,
+                reasons=reasons,
+            )
+        )
+    refused.sort(key=lambda item: (item.name, item.service_id))
+    return tuple(found), tuple(refused)
 
 
 def match_services(
@@ -134,48 +259,17 @@ def match_services(
     phones: Mapping[str, str] | None = None,
 ) -> tuple[FoundService, ...]:
     """The services whose current criteria take this age band, district and needs. Pure."""
-    found: list[FoundService] = []
-    for entry in entries:
-        current = criteria.get(entry.service_id)
-        if entry.service_id in suspended or current is None:
-            continue
-        result = check_hard_criteria(current, age_band, district, needs)
-        if not result.passes:
-            continue
-        data_age = None if entry.reported_at is None else now - entry.reported_at
-        found.append(
-            FoundService(
-                service_id=entry.service_id,
-                name=entry.name,
-                category=entry.category,
-                status=entry.status,
-                effective_available=entry.effective_available,
-                over_by=entry.over_by,
-                unit_label=entry.unit_label,
-                data_age=data_age,
-                reported_at=entry.reported_at,
-                next_due_at=entry.next_due_at,
-                cadence=entry.cadence,
-                overdue=entry.overdue,
-                stale_warning=entry.stale_warning,
-                figure_unavailable=_figure_unavailable(entry, data_age),
-                last_figure=(
-                    entry.effective_available
-                    if entry.effective_available is not None
-                    else entry.used
-                ),
-                criteria_version=current.version,
-                fits=fits_for(current, needs),
-                warnings=(
-                    result.warnings
-                    + status_warnings(entry.status)
-                    + data_age_warnings(data_age)
-                    + criteria_warnings(current, today)
-                ),
-                phone=None if phones is None else phones.get(entry.service_id),
-            )
-        )
-    return tuple(found)
+    return split_services(
+        entries,
+        criteria,
+        suspended=suspended,
+        age_band=age_band,
+        district=district,
+        needs=needs,
+        now=now,
+        today=today,
+        phones=phones,
+    )[0]
 
 
 def group_totals(entries: tuple[BoardEntry, ...]) -> dict[ServiceCategory, int]:
@@ -212,6 +306,8 @@ class FindServicesResult:
     """The locator does not know the district: no travel is shown and the order is by name."""
     group_totals: Mapping[ServiceCategory, int] = field(default_factory=dict)
     """Every service of each group, found or not."""
+    not_suitable: tuple[NotSuitableService, ...] = ()
+    """Every other service on the board, with the reasons, by name then id (DEC-1379)."""
 
 
 class FindServices:
@@ -239,9 +335,10 @@ class FindServices:
             criteria = await uow.criteria.current_for_services(service_ids)
             suspended = await uow.flags.services_with_flag(SERVICE_FLAG_SUSPENDED)
             positions = await uow.positions.get_many(service_ids)
+            covered = await uow.positions.coverage_districts(service_ids)
             phones = await uow.services.work_phones(service_ids)
         patient = self._postcodes.locate(district)
-        matched = match_services(
+        matched, refused = split_services(
             board.entries,
             criteria,
             suspended=suspended,
@@ -257,7 +354,12 @@ class FindServices:
         )
         ordered = tuple(
             sorted(
-                (_with_travel(item, travel) for item, travel in zip(matched, ranges, strict=True)),
+                (
+                    _with_travel(
+                        item, travel, positions, covered, self._postcodes.district_centroid
+                    )
+                    for item, travel in zip(matched, ranges, strict=True)
+                ),
                 key=order_key,
             )
         )
@@ -289,6 +391,9 @@ class FindServices:
             generated_at=now,
             not_found=patient is None,
             group_totals=group_totals(board.entries),
+            not_suitable=tuple(
+                replace(item, position=positions.get(item.service_id)) for item in refused
+            ),
         )
 
     async def _travel_range(
@@ -299,8 +404,149 @@ class FindServices:
         return await self._travel_time.estimate(patient.lat_lon, site)
 
 
-def _with_travel(item: FoundService, travel: TravelRange | None) -> FoundService:
-    return replace(item, travel=travel)
+def _with_travel(
+    item: FoundService,
+    travel: TravelRange | None,
+    positions: Mapping[str, LatLon],
+    covered: Mapping[str, tuple[str, ...]],
+    centre_of: Callable[[str], LatLon | None],
+) -> FoundService:
+    districts = tuple(sorted(set(covered.get(item.service_id, ()))))
+    return replace(
+        item,
+        travel=travel,
+        position=positions.get(item.service_id),
+        coverage=ServiceCoverage(
+            districts=districts,
+            circle=None if item.service_id in positions else coverage_of(districts, centre_of),
+        ),
+    )
+
+
+CHECK_SERVICE_FIT: Final = "CheckServiceFit"
+NO_SUCH_SERVICE: Final = "no service with this id"
+REASON_SUSPENDED: Final = "Not currently taking referrals"
+REASON_NO_CRITERIA: Final = "No current criteria"
+
+
+@dataclass(frozen=True, slots=True)
+class CheckServiceFitCommand:
+    actor: Actor
+    service_id: str
+    postcode: str
+    age_band: AgeBand
+    needs: tuple[NeedCategory, ...]
+    urgency: Urgency
+    """Accepted and dropped: it is not a criterion."""
+
+
+@dataclass(frozen=True, slots=True)
+class ServiceFitResult:
+    service_id: str
+    fits: bool
+    reasons: tuple[str, ...]
+    fits_needs: tuple[str, ...]
+    warnings: tuple[str, ...]
+    phone: str | None
+    status: Status
+    figure_unavailable: bool
+
+
+class CheckServiceFit:
+    """Does this one service take this patient? The find rule for one service (DEC-1377): the same
+    hard criteria, fit lines and warnings as FindServices. Fails closed: a suspended service, and
+    one with no current criteria, never fits. Nothing about the patient is stored or audited."""
+
+    def __init__(
+        self, uow_factory: UnitOfWorkFactory, clock: Clock, query_board: QueryBoard
+    ) -> None:
+        self._uow_factory = uow_factory
+        self._clock = clock
+        self._query_board = query_board
+
+    async def execute(self, command: CheckServiceFitCommand) -> ServiceFitResult:
+        check_find_role(command.actor)
+        district = district_for(command.postcode)
+        board = await self._query_board.execute(QueryBoardQuery(command.actor))
+        entry = next((e for e in board.entries if e.service_id == command.service_id), None)
+        if entry is None:
+            raise NotFound(NO_SUCH_SERVICE)
+        now = self._clock.now()
+        async with self._uow_factory() as uow:
+            criteria = await uow.criteria.current_for_services([command.service_id])
+            suspended = await uow.flags.services_with_flag(SERVICE_FLAG_SUSPENDED)
+            phones = await uow.services.work_phones([command.service_id])
+        current = criteria.get(command.service_id)
+        result = _fit_of(
+            entry,
+            current,
+            command.service_id in suspended,
+            command=command,
+            district=district,
+            now=now,
+            phone=phones.get(command.service_id),
+        )
+        async with self._uow_factory() as audit_uow:
+            await audit_uow.audit.append(
+                AuditEntry(
+                    action=READ_ACTION,
+                    use_case=CHECK_SERVICE_FIT,
+                    actor=command.actor,
+                    entity_ids=(command.service_id,),
+                    snapshot={
+                        "service_id": command.service_id,
+                        "fits": result.fits,
+                        "criteria_version": None if current is None else current.version,
+                    },
+                    at=now,
+                )
+            )
+            await audit_uow.commit()
+        return result
+
+
+def _fit_of(
+    entry: BoardEntry,
+    current: ServiceCriteria | None,
+    is_suspended: bool,
+    *,
+    command: CheckServiceFitCommand,
+    district: str,
+    now: datetime,
+    phone: str | None,
+) -> ServiceFitResult:
+    data_age = None if entry.reported_at is None else now - entry.reported_at
+    if current is None or is_suspended:
+        return ServiceFitResult(
+            service_id=entry.service_id,
+            fits=False,
+            reasons=(REASON_SUSPENDED if is_suspended else REASON_NO_CRITERIA,),
+            fits_needs=(),
+            warnings=status_warnings(entry.status) + data_age_warnings(data_age),
+            phone=phone,
+            status=entry.status,
+            figure_unavailable=_figure_unavailable(entry, data_age),
+        )
+    result = check_hard_criteria(current, command.age_band, district, command.needs)
+    shown = _found_service(
+        entry,
+        current,
+        result,
+        needs=command.needs,
+        now=now,
+        today=to_london(now).date(),
+        phone=phone,
+    )
+    return ServiceFitResult(
+        service_id=shown.service_id,
+        fits=result.passes,
+        reasons=result.reasons,
+        fits_needs=shown.fits,
+        warnings=shown.warnings,
+        phone=shown.phone,
+        status=shown.status,
+        figure_unavailable=shown.figure_unavailable,
+    )
 
 
 @dataclass(frozen=True, slots=True)

@@ -8,7 +8,12 @@ from typing import Any
 import pytest
 
 from overwatch.application.actor import Actor
-from overwatch.application.use_cases.ask_capacity_now import AskCapacityNow
+from overwatch.application.use_cases.ask_capacity_now import (
+    ASK_ROLES,
+    NOT_ASKER,
+    AskCapacityNow,
+    AskCapacityResult,
+)
 from overwatch.application.work import SCHEDULED, ScheduledWork, WorkKind
 from overwatch.domain.codes import Role
 from overwatch.domain.errors import Conflict, NotAllowed, NotFound
@@ -174,3 +179,53 @@ async def test_an_unknown_or_inactive_service_is_refused() -> None:
         await AskCapacityNow(
             _World(profile=_Profile(active=False)).factory, _Ids(), _Clock()
         ).execute(_lead(), SERVICE)  # type: ignore[arg-type]
+
+
+def _actor(role: Role, practitioner: str | None) -> Actor:
+    return Actor(
+        role=role,
+        practitioner_id=practitioner,
+        device_id=None,
+        channel="app",
+        service_ids=frozenset(),
+        tenant_id="tenant-a",
+    )
+
+
+async def _ask(world: _World, actor: Actor) -> AskCapacityResult:
+    return await AskCapacityNow(world.factory, _Ids(), _Clock()).execute(actor, SERVICE)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("role", list(ASK_ROLES))
+async def test_the_four_roles_may_ask_and_the_actor_is_audited(role: Role) -> None:
+    world = _World()
+    actor = _actor(role, "prac-1")
+    await _ask(world, actor)
+    (entry,) = world.units[0].audit.entries
+    assert entry.actor == actor
+    assert entry.entity_ids == (SERVICE,)
+
+
+@pytest.mark.parametrize("role", [Role.ADVISOR, Role.ADVISOR_V2, Role.CLINICAL])
+async def test_an_advisor_or_clinical_actor_needs_no_practitioner(role: Role) -> None:
+    world = _World()
+    result = await _ask(world, _actor(role, None))
+    assert result.due_at == NOW
+    assert world.units[0].audit.entries[0].actor.practitioner_id is None
+
+
+async def test_the_shift_lead_still_needs_a_practitioner() -> None:
+    with pytest.raises(NotAllowed):
+        await _ask(_World(), _actor(Role.LEAD, None))
+
+
+@pytest.mark.parametrize(
+    "role", [Role.REPORTER, Role.WALL, Role.OWNER, Role.EXEC, Role.ANALYTICS_USER]
+)
+async def test_the_other_roles_are_refused_with_the_roles_named(role: Role) -> None:
+    world = _World()
+    with pytest.raises(NotAllowed) as refused:
+        await _ask(world, _actor(role, "prac-1"))
+    assert str(refused.value) == NOT_ASKER
+    assert "shift lead, an advisor or a clinical advisor" in NOT_ASKER
+    assert not world.units

@@ -64,7 +64,7 @@ function openedOf(service: FoundService): Opened {
 export function AdvisorWorkspace(): ReactElement {
   const router = useRouter();
   const url = parseAdvisorUrl(useSearchParams().toString());
-  const { criteria, setCriteria, criteriaComplete, remember, visit } = useWorkspace();
+  const { criteria, setCriteria, criteriaComplete, remember, forget, visit } = useWorkspace();
   const { age, postcode, needs, urgency } = criteria;
   const { view, step, order } = url;
 
@@ -257,6 +257,8 @@ export function AdvisorWorkspace(): ReactElement {
   // Back is always there: from the results to the need step, from the need step to the age step, and from the first
   // step out to the capacity overview (a person who opened Find a service must be able to leave it).
   const backHref = onResults ? (view === 'list' ? NEED_HREF : RESULTS_HREF) : intakeStep === 'need' ? AGE_HREF : OVERVIEW_HREF;
+  // The board's top-bar action on the results views: start again at the first question, with nothing kept.
+  const newSearch = onResults ? { label: 'New search', href: AGE_HREF, onClick: () => visit('advisor.new-search', {}) } : undefined;
   const heading =
     count === 1 ? "1 service meets this patient's criteria" : `${count} services meet this patient's criteria`;
   const sortNote = order === 'travel' ? 'Sorted by travel time. Not ranked.' : 'Listed by name. Not ranked.';
@@ -281,7 +283,14 @@ export function AdvisorWorkspace(): ReactElement {
   let canvas: ReactElement;
   if (resultsShown && view === 'why' && read !== null) {
     canvas = (
-      <div className={styles.results}>
+      // A service reached from here is not remembered by name (this list holds no update time for it): any earlier name
+      // is dropped, so the thread says "Here is the service" and never names the wrong one.
+      <div
+        className={styles.results}
+        onClickCapture={(event) => {
+          if (event.target instanceof Element && event.target.closest('a') !== null) forget();
+        }}
+      >
         <NotSuitableList
           items={read.notSuitable}
           suitableCount={count}
@@ -347,7 +356,7 @@ export function AdvisorWorkspace(): ReactElement {
   }
 
   return (
-    <WorkspacePage title={title} backHref={backHref} withThread card={card}>
+    <WorkspacePage title={title} backHref={backHref} action={newSearch} withThread card={card}>
       <div className={styles.canvas}>{canvas}</div>
     </WorkspacePage>
   );

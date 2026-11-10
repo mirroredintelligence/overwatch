@@ -249,3 +249,35 @@
     min-height: 64px;
   }
 }
+
+/* Phone: the name and its caption take the first line in full, the status, figure and Open sit on the line under it.
+   (Side by side, the controls leave the name no width at all.) The row paging reads the real row height, so it fits. */
+@media (max-width: 599.98px) {
+  .row {
+    flex-wrap: wrap;
+    row-gap: var(--space-2);
+    height: auto;
+    min-height: 0;
+  }
+
+  .left {
+    flex: 1 1 100%;
+  }
+
+  .name,
+  .nameCompact,
+  .caption {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .right {
+    flex: 1 1 100%;
+    justify-content: space-between;
+  }
+
+  .compact {
+    height: auto;
+    min-height: 0;
+  }
+}

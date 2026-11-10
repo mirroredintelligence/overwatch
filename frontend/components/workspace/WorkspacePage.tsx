@@ -15,7 +15,7 @@ export type WorkspacePageProps = {
   title: string;
   backHref?: string;
   backLabel?: string;
-  action?: { label: string; href: string };
+  action?: { label: string; href: string; onClick?: () => void };
   withThread: boolean;
   card?: ReactNode;
   children: ReactNode;

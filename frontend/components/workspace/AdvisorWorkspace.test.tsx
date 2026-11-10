@@ -676,4 +676,32 @@ describe('AdvisorWorkspace (WS-ADV)', () => {
     await goToNeedStep(user);
     expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', AGE_URL);
   });
+
+  it('WS-ADV-T28 following a service from the reasons list drops any remembered service name, so the thread never names the wrong one', async () => {
+    const user = userEvent.setup();
+    renderWorkspace(<OpenedProbe />);
+    await reachResults(user);
+    go(MAP_URL);
+    await user.click(await screen.findByRole('button', { name: 'Pin Beta Team' }));
+    expect(openedName()).toBe('Beta Team');
+    go(WHY_URL);
+    const link = await within(await screen.findByTestId('why-list')).findAllByRole('link');
+    link[0].addEventListener('click', (event) => event.preventDefault());
+    await user.click(link[0]);
+    expect(openedName()).toBe('none');
+  });
+
+  it('WS-ADV-T29 the results views have a top-bar "New search" that clears the criteria and the thread and goes to the first step; the intake has none', async () => {
+    const user = userEvent.setup();
+    renderWorkspace();
+    expect(screen.queryByRole('link', { name: 'New search' })).toBeNull();
+    await reachResults(user);
+    const action = screen.getByRole('link', { name: 'New search' });
+    expect(action).toHaveAttribute('href', AGE_URL);
+    action.addEventListener('click', (event) => event.preventDefault());
+    await user.click(action);
+    go(AGE_URL);
+    expect(await screen.findByRole('heading', { name: 'Step 1 of 2 · Age and postcode' })).toBeInTheDocument();
+    expect(within(criteria()).getAllByText(/Not set/)).toHaveLength(4);
+  });
 });

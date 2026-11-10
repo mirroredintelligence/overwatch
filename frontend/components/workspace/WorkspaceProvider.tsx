@@ -24,6 +24,8 @@ export type WorkspaceValue = {
   criteriaComplete: boolean;
   opened: Opened | null;
   remember(opened: Opened): void;
+  /** Drops the remembered service, for a page opened by a link that carries no service details (the reasons list). */
+  forget(): void;
   messages: ThreadMessage[];
   chips: ThreadChip[];
   summary: ThreadSummary | null;
@@ -59,6 +61,7 @@ type Action =
   | { type: 'setCriteria'; patch: Partial<Criteria> }
   | { type: 'resetCriteria' }
   | { type: 'remember'; opened: Opened }
+  | { type: 'forget' }
   | { type: 'visit'; intentId: string; context: DialogContext };
 
 const NEW_SEARCH = 'advisor.new-search';
@@ -166,6 +169,8 @@ function reduce(state: State, action: Action): State {
       return { ...state, criteria: EMPTY_CRITERIA };
     case 'remember':
       return { ...state, opened: action.opened };
+    case 'forget':
+      return { ...state, opened: null };
     case 'visit':
       if (action.intentId === NEW_SEARCH) {
         // A new search clears the criteria, the opened service and the thread, then starts again at age.
@@ -207,6 +212,7 @@ export function WorkspaceProvider({ role, roles = NO_ROLES, organisation = null,
   const setCriteria = useCallback((patch: Partial<Criteria>) => dispatch({ type: 'setCriteria', patch }), []);
   const resetCriteria = useCallback(() => dispatch({ type: 'resetCriteria' }), []);
   const remember = useCallback((opened: Opened) => dispatch({ type: 'remember', opened }), []);
+  const forget = useCallback(() => dispatch({ type: 'forget' }), []);
   const visit = useCallback(
     (intentId: string, context: DialogContext) => dispatch({ type: 'visit', intentId, context }),
     [],
@@ -254,6 +260,7 @@ export function WorkspaceProvider({ role, roles = NO_ROLES, organisation = null,
     criteriaComplete,
     opened,
     remember,
+    forget,
     messages: flatten(history),
     chips,
     summary,

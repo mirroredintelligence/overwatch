@@ -15,7 +15,7 @@ export type WorkspaceFrameProps = {
   organisation?: string | null;
   backHref?: string;
   backLabel?: string;
-  action?: { label: string; href: string };
+  action?: { label: string; href: string; onClick?: () => void };
   role?: string;
   roles?: readonly string[];
   roleWords?: Readonly<Record<string, string>>;
@@ -58,25 +58,33 @@ export function WorkspaceFrame({
             {backLabel}
           </Link>
         ) : null}
-        <Logo height={28} />
+        <span className={styles.logo}>
+          <Logo height={28} />
+        </span>
         <div className={styles.heading}>
           {organisation ? <p className={styles.small}>{organisation}</p> : null}
           <p className={styles.title}>{title}</p>
         </div>
         <div className={styles.spacer} />
         {action !== undefined ? (
-          <Link className={styles.action} href={action.href} data-el="WS-FRAME-ACTION">
+          <Link className={styles.action} href={action.href} onClick={action.onClick} data-el="WS-FRAME-ACTION">
             {action.label}
           </Link>
         ) : null}
-        {role !== undefined && roles !== undefined && roles.length > 1 && roles.includes(role) ? (
-          <RoleSwitcher current={role} roles={roles} words={roleWords} />
-        ) : role !== undefined ? (
-          <span className={styles.roleLabel} data-el="FRAME-ROLE">
-            {roleWords?.[role] ?? staffRoleWord(role)}
+        <span className={styles.role}>
+          {role !== undefined && roles !== undefined && roles.length > 1 && roles.includes(role) ? (
+            <RoleSwitcher current={role} roles={roles} words={roleWords} />
+          ) : role !== undefined ? (
+            <span className={styles.roleLabel} data-el="FRAME-ROLE">
+              {roleWords?.[role] ?? staffRoleWord(role)}
+            </span>
+          ) : null}
+        </span>
+        {showSignOut ? (
+          <span className={styles.out}>
+            <SignOutButton signOut={signOut} />
           </span>
         ) : null}
-        {showSignOut ? <SignOutButton signOut={signOut} /> : null}
       </header>
       <div className={styles.body}>
         {drawer ? (

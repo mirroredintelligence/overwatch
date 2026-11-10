@@ -110,6 +110,13 @@
   font-weight: 700;
 }
 
+/* Wrappers that change nothing on a wide screen; on a phone they let the bar sit in two rows. */
+.logo,
+.role,
+.out {
+  display: contents;
+}
+
 /* ---- Body: the drawer and the canvas ------------------------------------------------------------------------- */
 
 .body {
@@ -187,5 +194,49 @@
   .canvas {
     overflow-y: visible;
     padding: var(--space-5) var(--space-4);
+  }
+}
+
+/* ---- Phone: the top bar in two rows (Back, mark and role; then the title and Sign out) instead of three ------------- */
+
+@media (max-width: 599.98px) {
+  .top {
+    gap: var(--space-1) var(--space-3);
+    padding-top: var(--space-1);
+    padding-bottom: var(--space-1);
+    min-height: 0;
+  }
+
+  .back {
+    order: 1;
+  }
+
+  .logo {
+    order: 2;
+    display: inline-flex;
+  }
+
+  .spacer {
+    order: 3;
+    flex: 1 1 0;
+  }
+
+  .role {
+    order: 4;
+    display: inline-flex;
+  }
+
+  .heading {
+    order: 5;
+    flex: 1 1 40%;
+  }
+
+  .action {
+    order: 6;
+  }
+
+  .out {
+    order: 7;
+    display: inline-flex;
   }
 }

@@ -13,6 +13,14 @@ ALLOWED = {
     "domain/codes.py",
     "domain/model/tenant_records.py",
     "domain/rules/token_exchange.py",
+    # The Analytics User's one read (DEC-1368), with its own tests. Advisor v2 stays out of both.
+    "application/use_cases/analytics_views.py",
+    "adapters/inbound/fhir_rest/routes_analytics.py",
+}
+ANALYTICS_FILES = ALLOWED - {
+    "domain/codes.py",
+    "domain/model/tenant_records.py",
+    "domain/rules/token_exchange.py",
 }
 NAMES = ("Role.ANALYTICS_USER", "Role.ADVISOR_V2")
 
@@ -35,3 +43,10 @@ def test_no_role_set_that_is_everyone_but_a_few_lets_the_new_roles_in() -> None:
     # Reporting a problem is open to every signed-in person; it reads nothing.
     assert Role.ANALYTICS_USER in PROBLEM_ROLES
     assert Role.ADVISOR_V2 in PROBLEM_ROLES
+
+
+def test_the_analytics_read_names_the_analytics_user_only() -> None:
+    for name in ANALYTICS_FILES:
+        path = SRC / name
+        assert path.exists(), name
+        assert "Role.ADVISOR_V2" not in path.read_text(encoding="utf-8"), name

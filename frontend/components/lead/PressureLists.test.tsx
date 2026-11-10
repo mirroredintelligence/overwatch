@@ -64,3 +64,14 @@ describe('UnderutilisedList', () => {
     expect(await runAxe(container)).toHaveNoViolations();
   });
 });
+
+describe('a link to each service', () => {
+  it('links each name when a page is given for it, and writes plain text when not', () => {
+    const { rerender } = render(<UnderPressureList items={PRESSURE} />);
+    expect(screen.queryAllByRole('link')).toHaveLength(0);
+    rerender(<UnderPressureList items={PRESSURE} href={(id) => `/analytics/services/${id}`} />);
+    expect(screen.getAllByRole('link')[0]).toHaveAttribute('href', expect.stringContaining('/analytics/services/'));
+    rerender(<UnderutilisedList items={UNDERUSED} href={(id) => `/analytics/services/${id}`} />);
+    expect(screen.getAllByRole('link').length).toBe(UNDERUSED.length > 5 ? 5 : UNDERUSED.length);
+  });
+});

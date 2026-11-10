@@ -231,9 +231,9 @@ const OVERVIEW = {
   ],
   underutilised: [{ serviceId: 'e', name: 'Roomy E', usedPercent: 20, spare: 8, unitLabel: 'beds free' }],
   services: [
-    { serviceId: 'a', name: 'Pressed A', category: 'inpatient-beds', status: 'over-capacity', effectiveAvailable: null, overBy: 2, unitLabel: 'beds free', reportedAt: '2026-11-10T13:50:00Z', figureUnavailable: false, lastFigure: 12 },
-    { serviceId: 'b', name: 'Pressed B', category: 'inpatient-beds', status: 'limited', effectiveAvailable: 1, overBy: null, unitLabel: 'beds free', reportedAt: '2026-11-10T09:00:00Z', figureUnavailable: true, lastFigure: 1 },
-    { serviceId: 'e', name: 'Roomy E', category: 'urgent-community-response', status: 'accepting', effectiveAvailable: 8, overBy: null, unitLabel: 'beds free', reportedAt: '2026-11-10T13:50:00Z', figureUnavailable: false, lastFigure: 8 },
+    { serviceId: 'a', name: 'Pressed A', category: 'inpatient-beds', status: 'over-capacity', effectiveAvailable: null, overBy: 2, unitLabel: 'beds free', reportedAt: '2026-11-10T13:50:00Z', figureUnavailable: false, lastFigure: 12, districts: ['DT4'] },
+    { serviceId: 'b', name: 'Pressed B', category: 'inpatient-beds', status: 'limited', effectiveAvailable: 1, overBy: null, unitLabel: 'beds free', reportedAt: '2026-11-10T09:00:00Z', figureUnavailable: true, lastFigure: 1, districts: ['DT4', 'DT1'] },
+    { serviceId: 'e', name: 'Roomy E', category: 'urgent-community-response', status: 'accepting', effectiveAvailable: 8, overBy: null, unitLabel: 'beds free', reportedAt: '2026-11-10T13:50:00Z', figureUnavailable: false, lastFigure: 8, districts: [] },
   ],
 };
 
@@ -272,6 +272,17 @@ describe('CapacityOverview', () => {
     expect(within(room).getByText(/not a recommendation/i)).toBeInTheDocument();
   });
 
+  it('has one card per district with its service count, its states in words and shapes, and a link to its list', async () => {
+    render(<CapacityOverview />);
+    const places = await screen.findByRole('region', { name: 'Locations' });
+    const dt4 = within(places).getByRole('link', { name: /DT4/ });
+    expect(dt4).toHaveAttribute('href', '/advisor/v2/services?district=DT4');
+    expect(dt4).toHaveTextContent('2 services');
+    expect(dt4).toHaveTextContent('1 Over capacity');
+    expect(dt4).toHaveTextContent('1 Limited');
+    expect(within(places).getByRole('link', { name: /Not placed/ })).toHaveTextContent('1 service');
+  });
+
   it('has one card per service group, with its count, linking to that group list', async () => {
     render(<CapacityOverview />);
     const groups = await screen.findByRole('region', { name: 'Service groups' });
@@ -299,13 +310,22 @@ describe('CapacityOverview', () => {
   });
 });
 
+describe('V2Services by district', () => {
+  it('lists the services that cover the district, by name', async () => {
+    server.use(http.get('/api/bff/advisor-v2/capacity', () => HttpResponse.json(OVERVIEW)));
+    render(<V2Services initial={[]} group={null} district="DT1" />);
+    await waitFor(() => expect(screen.getAllByRole('link', { name: /^Pressed/ })).toHaveLength(1));
+    expect(screen.getByRole('link', { name: /^Pressed B/ })).toBeInTheDocument();
+  });
+});
+
 describe('V2Services', () => {
   beforeEach(() => {
     server.use(http.get('/api/bff/advisor-v2/capacity', () => HttpResponse.json(OVERVIEW)));
   });
 
   it('lists the chosen state by name, a link to each service, and reads an old figure as unavailable', async () => {
-    render(<V2Services initial={['limited']} group={null} />);
+    render(<V2Services initial={['limited']} group={null} district={null} />);
     const link = await screen.findByRole('link', { name: /^Pressed B/ });
     expect(link).toHaveAttribute('href', '/advisor/v2/services/b');
     expect(within(link).getByText('Current capacity unavailable')).toBeInTheDocument();
@@ -313,14 +333,14 @@ describe('V2Services', () => {
   });
 
   it('shows all five states by name when none is chosen', async () => {
-    render(<V2Services initial={[]} group={null} />);
+    render(<V2Services initial={[]} group={null} district={null} />);
     await waitFor(() => expect(screen.getAllByRole('link', { name: /^(Pressed|Roomy)/ })).toHaveLength(3));
     const names = screen.getAllByRole('link', { name: /^(Pressed|Roomy)/ }).map((link) => link.getAttribute('aria-label')?.split(',')[0]);
     expect(names).toEqual(['Pressed A', 'Pressed B', 'Roomy E']);
   });
 
   it('shows one group when a group is named, with a breadcrumb back to Capacity', async () => {
-    render(<V2Services initial={[]} group="inpatient-beds" />);
+    render(<V2Services initial={[]} group="inpatient-beds" district={null} />);
     await waitFor(() => expect(screen.getAllByRole('link', { name: /^Pressed/ })).toHaveLength(2));
     expect(screen.queryByRole('link', { name: /^Roomy/ })).toBeNull();
     expect(within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getByRole('link', { name: 'Capacity' })).toHaveAttribute('href', '/advisor/v2?mode=capacity');

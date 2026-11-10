@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Platform: operator console</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./shell.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+</helmet>
+<div class="frame">
+  <div class="top">
+    <span class="mark" style="background: #6B2C91">P</span>
+    <div class="ttl"><small>Platform · separate sign-in</small><b>Operator console</b></div>
+    <span class="sp"></span>
+    <a class="btn" href="PlatformHome.dc.html" style="min-height: 44px">Add an organisation</a>
+    <span class="role">Platform ▾</span>
+  </div>
+  <div class="body" style="padding-bottom: 84px">
+    <div class="col fill">
+      <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 16px">
+        <div><h1 class="h1">9 organisations</h1><div class="cap">Registry only. No patient or capacity data is shown here. Names are placeholders.</div></div>
+        <div class="seg"><span class="on">✓ All</span><span>Needs setup</span></div>
+      </div>
+      <div class="col fill" style="gap: 10px">
+        <div class="row"><div class="rl"><b class="h2">Organisation 1</b><span class="cap">Network lead · 41 people</span></div><div class="rr"><span class="st acc">✓ Live</span><span class="btn2">Open</span></div></div>
+        <div class="row"><div class="rl"><b class="h2">Organisation 2</b><span class="cap">Network member · 18 people</span></div><div class="rr"><span class="st acc">✓ Live</span><span class="btn2">Open</span></div></div>
+        <div class="row"><div class="rl"><b class="h2">Organisation 3</b><span class="cap">Network member · 9 people</span></div><div class="rr"><span class="st acc">✓ Live</span><span class="btn2">Open</span></div></div>
+        <div class="row"><div class="rl"><b class="h2">Organisation 4</b><span class="cap">Independent · 6 people</span></div><div class="rr"><span class="st lim">◐ Setting up</span><span class="btn2">Open</span></div></div>
+        <div class="row dash"><div class="rl"><b class="h2">Organisation 5</b><span class="cap">Independent · not yet signed in</span></div><div class="rr"><span class="st unk">○ Invited</span><span class="btn2">Open</span></div></div>
+      </div>
+      <div class="pager"><span>1–5 of 9</span><div class="pgs"><span class="pg off">Previous</span><span class="pg">Next</span></div></div>
+    </div>
+    <div class="col" style="flex: none; width: 380px">
+      <div class="card" style="display: flex; flex-direction: column; gap: 12px">
+        <div class="h2">Support access</div>
+        <div class="cap">Support can open one organisation only with a code that organisation's administrator issued.</div>
+        <div style="display: flex; flex-direction: column; gap: 6px"><div class="lbl">Code</div><div class="field dis">Enter the code</div></div>
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <div class="txt">✓ One organisation</div>
+          <div class="txt">✓ One hour</div>
+          <div class="txt">✓ Every step is written to both audit records</div>
+        </div>
+        <span class="btn off block">Start support session</span>
+      </div>
+      <div class="cap">No role holds standing access to an organisation's data (DEC-528). There is no assistant on this console.</div>
+    </div>
+  </div>
+  <div class="foot"><b>Demonstration data</b>&nbsp;· Not live NHS information</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

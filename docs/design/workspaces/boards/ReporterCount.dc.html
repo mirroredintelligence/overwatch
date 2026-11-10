@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Reporter: places free</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./shell.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+</helmet>
+<div class="frame phone">
+  <div class="top">
+    <a class="back" href="ReporterStatus.dc.html">‹ Back</a>
+    <div class="ttl"><small>Step 2 of 3</small><b>Places free</b></div>
+    <span class="sp"></span>
+    <span class="dots" aria-label="Step 2 of 3"><i class="on"></i><i class="on"></i><i></i></span>
+  </div>
+  <div class="body">
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <div class="cap">Purbeck Hospital at Home</div>
+      <span class="st lim" style="align-self: flex-start">◐ Limited</span>
+      <h1 class="h1">How many admissions can you take now?</h1>
+    </div>
+    <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px">
+      <div class="stepper"><span aria-label="One fewer">−</span><div class="num" style="font-size: 96px; min-width: 120px; text-align: center">2</div><span aria-label="One more">+</span></div>
+      <div class="txt">admissions free</div>
+      <div class="cap">Zero means none. You can change this any time.</div>
+    </div>
+    <a class="btn block" href="ReporterConfirm.dc.html">Next</a>
+  </div>
+  <div class="foot"><b>Demonstration data</b>&nbsp;· Not live NHS information</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

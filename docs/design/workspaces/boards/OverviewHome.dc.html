@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Overview: regional overview</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./shell.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+</helmet>
+<div class="frame">
+  <div class="top">
+    <span class="mark">O</span>
+    <div class="ttl"><small>Dorset · illustrative snapshot, 14:00</small><b>Regional overview</b></div>
+    <span class="sp"></span>
+    <div class="seg"><span class="on">✓ My organisation</span><span>Network</span></div>
+    <span class="role">Overview ▾</span>
+  </div>
+  <div class="body">
+    <div class="drawer" style="width: 340px">
+      <div class="dh"><b style="font-size: 18px">Assistant</b><span class="cap" style="font-weight: 700">‹ Hide</span></div>
+      <div class="dm">
+        <div class="bub">Showing the Dorset overview: 32 services in 6 areas. What would you like to look at?</div>
+        <div class="chips" style="flex-direction: column; align-items: flex-start">
+          <a class="chip" href="OverviewArea.dc.html">Show Purbeck</a>
+          <a class="chip" href="OverviewAttention.dc.html">What needs attention?</a>
+          <span class="chip">Service groups</span>
+          <span class="chip">Compare two areas</span>
+        </div>
+      </div>
+      <div class="df"><div class="field dis">Pick an option above</div><div class="cap">No patient-level question here: this role's intent list has no triage card.</div></div>
+    </div>
+    <div class="col fill">
+    <div class="grid" style="grid-template-columns: repeat(5, 1fr); gap: 12px">
+      <div class="tile" style="gap: 2px; padding: 14px 16px"><span class="lbl" style="color: #0B5C8C">✓ Accepting</span><span class="num">18</span></div>
+      <div class="tile" style="gap: 2px; padding: 14px 16px"><span class="lbl" style="color: #A34700">◐ Limited</span><span class="num">7</span></div>
+      <div class="tile" style="gap: 2px; padding: 14px 16px"><span class="lbl" style="color: #3A4750">■ Not accepting</span><span class="num">4</span></div>
+      <div class="tile" style="gap: 2px; padding: 14px 16px"><span class="lbl" style="color: #6B2C91">▲ Over capacity</span><span class="num">2</span></div>
+      <div class="tile dash" style="gap: 2px; padding: 14px 16px"><span class="lbl" style="color: #44555D">○ Not updated</span><span class="num">1</span></div>
+    </div>
+    <div class="grid fill" style="grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: 16px">
+      <a class="tile" href="OverviewArea.dc.html" style="flex-direction: row; align-items: center">
+        <div class="rl"><b class="h2">Bournemouth, Christchurch and Poole</b><span class="cap">BCP area · 6 services</span><span class="cap" style="color: #26343B">3 accepting · 2 limited · 1 not accepting</span></div>
+        <div class="ring" style="background: conic-gradient(#0B5C8C 0 50%, #A34700 50% 83.33%, #3A4750 83.33% 100%)" role="img" aria-label="3 accepting, 2 limited, 1 not accepting"><b>6</b></div>
+      </a>
+      <a class="tile" href="OverviewArea.dc.html" style="flex-direction: row; align-items: center">
+        <div class="rl"><b class="h2">East Dorset</b><span class="cap">Wimborne · Ferndown · Verwood · 5 services</span><span class="cap" style="color: #26343B">3 accepting · 1 limited · 1 not accepting</span></div>
+        <div class="ring" style="background: conic-gradient(#0B5C8C 0 60%, #A34700 60% 80%, #3A4750 80% 100%)" role="img" aria-label="3 accepting, 1 limited, 1 not accepting"><b>5</b></div>
+      </a>
+      <a class="tile" href="OverviewArea.dc.html" style="flex-direction: row; align-items: center">
+        <div class="rl"><b class="h2">North Dorset</b><span class="cap">Blandford · Shaftesbury · Gillingham · 4 services</span><span class="cap" style="color: #26343B">1 accepting · 1 limited · 1 not accepting · 1 over capacity</span></div>
+        <div class="ring" style="background: conic-gradient(#0B5C8C 0 25%, #A34700 25% 50%, #3A4750 50% 75%, #6B2C91 75% 100%)" role="img" aria-label="1 accepting, 1 limited, 1 not accepting, 1 over capacity"><b>4</b></div>
+      </a>
+      <a class="tile" href="OverviewArea.dc.html" style="flex-direction: row; align-items: center; border: 2px solid #0B5C8C">
+        <div class="rl"><b class="h2">Purbeck</b><span class="cap">Swanage · Wareham · 4 services</span><span class="cap" style="color: #26343B">2 accepting · 1 limited · 1 over capacity</span></div>
+        <div class="ring" style="background: conic-gradient(#0B5C8C 0 50%, #A34700 50% 75%, #6B2C91 75% 100%)" role="img" aria-label="2 accepting, 1 limited, 1 over capacity"><b>4</b></div>
+      </a>
+      <a class="tile" href="OverviewArea.dc.html" style="flex-direction: row; align-items: center">
+        <div class="rl"><b class="h2">South and West Dorset</b><span class="cap">Dorchester · Weymouth · Bridport · 7 services</span><span class="cap" style="color: #26343B">5 accepting · 1 limited · 1 not accepting</span></div>
+        <div class="ring" style="background: conic-gradient(#0B5C8C 0 71.43%, #A34700 71.43% 85.71%, #3A4750 85.71% 100%)" role="img" aria-label="5 accepting, 1 limited, 1 not accepting"><b>7</b></div>
+      </a>
+      <a class="tile" href="OverviewArea.dc.html" style="flex-direction: row; align-items: center">
+        <div class="rl"><b class="h2">Dorset-wide services</b><span class="cap">Operating across localities · 6 services</span><span class="cap" style="color: #26343B">4 accepting · 1 limited · 1 not updated</span></div>
+        <div class="ring" style="background: conic-gradient(#0B5C8C 0 66.67%, #A34700 66.67% 83.33%, #C9D2D6 83.33% 100%)" role="img" aria-label="4 accepting, 1 limited, 1 not updated"><b>6</b></div>
+      </a>
+    </div>
+    <a class="row" href="OverviewAttention.dc.html" style="min-height: 64px; padding: 8px 18px">
+      <div style="display: flex; align-items: center; gap: 14px; min-width: 0"><b class="h2">Needs attention</b><span class="badge">17 services</span><span class="cap">Purbeck Hospital at Home · 122% used · +2 admissions</span></div>
+      <span class="btn2">View all</span>
+    </a>
+    </div>
+  </div>
+  <div class="foot"><b>Demonstration data</b>&nbsp;· Not live NHS information · No patient, case or postcode is shown in this view</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

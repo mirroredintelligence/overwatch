@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Advisor: service detail</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./shell.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+</helmet>
+<div class="frame">
+  <div class="top">
+    <a class="back" href="AdvisorResults.dc.html">‹ Back</a>
+    <div class="ttl"><small>Dorset · demonstration data</small><b>Service detail</b></div>
+    <span class="sp"></span>
+    <a class="btn2" href="AdvisorIntake1.dc.html">New search</a>
+    <span class="role">Advisor ▾</span>
+  </div>
+  <div class="body">
+    <div class="drawer" style="width: 360px">
+      <div class="dh"><b style="font-size: 18px">Assistant</b><span class="cap" style="font-weight: 700">‹ Hide</span></div>
+      <div class="dm">
+        <div class="bub me">Open Rob's H@H</div>
+        <div class="bub">Rob's H@H matches on age, need, area and timeframe. It was updated 1 hr 55 min ago, so check it is current if the call allows.</div>
+        <div class="chips">
+          <a class="chip" href="AdvisorMap.dc.html">See it on the map</a>
+          <a class="chip" href="AdvisorWhy.dc.html">Why were 3 not suitable?</a>
+          <a class="chip" href="AdvisorResults.dc.html">Back to results</a>
+        </div>
+      </div>
+      <div class="df"><div class="field dis">Pick an option above</div></div>
+    </div>
+    <div class="col" style="flex: 3; min-width: 0">
+      <div class="card" style="display: flex; justify-content: space-between; align-items: center; gap: 24px">
+        <div class="rl" style="gap: 10px">
+          <h1 class="h1" style="font-size: 32px">Rob's H@H</h1>
+          <div class="txt" style="color: #26343B">Virtual beds · Visits the patient</div>
+          <span class="st acc" style="align-self: flex-start">✓ Accepting</span>
+        </div>
+        <div style="text-align: right"><div class="num" style="font-size: 64px">4</div><div class="txt">Beds free</div><div class="cap">Updated 1 hr 55 min ago</div></div>
+      </div>
+      <div style="display: flex; gap: 16px; flex: 1; min-height: 0">
+        <div class="card" style="flex: 1; display: flex; flex-direction: column; gap: 12px">
+          <div class="h2">Why it matches this patient</div>
+          <div class="row" style="min-height: 56px; padding: 8px 14px"><span class="txt">Age 65–79</span><b class="txt" style="color: #0B3F61">✓ Accepted</b></div>
+          <div class="row" style="min-height: 56px; padding: 8px 14px"><span class="txt">Need: frailty</span><b class="txt" style="color: #0B3F61">✓ Accepted</b></div>
+          <div class="row" style="min-height: 56px; padding: 8px 14px"><span class="txt">DT4 is inside the coverage area</span><b class="txt" style="color: #0B3F61">✓ Covered</b></div>
+          <div class="row" style="min-height: 56px; padding: 8px 14px"><span class="txt">Timeframe: today</span><b class="txt" style="color: #0B3F61">✓ Can see today</b></div>
+        </div>
+        <div class="card" style="flex: 1; display: flex; flex-direction: column; gap: 12px">
+          <div class="h2">Contact</div>
+          <div class="field">[Service phone number from the directory]</div>
+          <div class="cap">The number comes from the service directory. It is never typed in here.</div>
+          <div class="dash" style="margin-top: auto; padding: 12px 14px; border-radius: 8px; background: #F8EFE0"><div class="lbl">Last updated 1 hr 55 min ago</div><div class="cap">Capacity can change. If the call allows, check before you choose.</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="col" style="flex: none; width: 280px">
+      <div class="card" style="display: flex; flex-direction: column; gap: 14px">
+        <div class="h2">Use this service?</div>
+        <div class="cap">Choosing it opens the case record to finish the call.</div>
+        <a class="btn block" href="AdvisorService.dc.html">Choose this service</a>
+        <a class="btn2 block" href="AdvisorResults.dc.html">Back to results</a>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><b>Demonstration data</b>&nbsp;· Not live NHS information</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

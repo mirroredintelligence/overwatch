@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Roles: 14 become 6</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B}
+</style>
+</helmet>
+<div style="width: 100%; max-width: 1440px; min-height: 1100px; box-sizing: border-box; padding: 48px; background: #F4F6F5; display: flex; flex-direction: column; gap: 28px; font-family: 'Atkinson Hyperlegible', system-ui, sans-serif; color: #14232B">
+  <div style="display: flex; flex-direction: column; gap: 8px">
+    <div style="font-size: 14px; font-weight: 700; letter-spacing: 0.01em; color: #0B5C8C">Proposal for review · nothing here changes a back-end endpoint yet</div>
+    <h1 style="margin: 0; font-size: 40px; line-height: 1.1; letter-spacing: -0.02em; text-wrap: balance">14 session roles become 6 roles and 2 device sessions</h1>
+    <p style="margin: 0; max-width: 860px; font-size: 18px; line-height: 1.4; color: #26343B">A role now says one thing: who you are, and so which data class you may see. What a person may do is a capability on top of the role, granted through the organisation's own group mapping (DEC-523). Merging the persona does not merge the rights.</p>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 12px; background: #FFFFFF; border: 1px solid #D5DCE0; border-radius: 12px; padding: 20px">
+    <div style="font-size: 18px; font-weight: 700">Today: 14 roles in the session, one route group each</div>
+    <div style="display: flex; flex-wrap: wrap; gap: 8px">
+      <sc-for list="{{today}}" as="r" hint-placeholder-count="14">
+        <span style="font-size: 14px; padding: 6px 12px; border-radius: 6px; background: #E9F0F4; border: 1px solid #D5DCE0; color: #26343B">{{r}}</span>
+      </sc-for>
+    </div>
+    <div style="font-size: 14px; line-height: 1.4; color: #44555D">Two of these were added only to get something else done: <b>advisor-v2</b> is a rollout flag, and <b>analytics-user</b> is a data-class limit. Both ended up as roles because the route table could express nothing else.</div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 20px">
+    <sc-for list="{{personas}}" as="p" hint-placeholder-count="6">
+      <div style="display: flex; flex-direction: column; gap: 14px; background: #FFFFFF; border: 1px solid #D5DCE0; border-radius: 12px; padding: 24px; box-shadow: 0 1px 2px rgb(20 35 43 / 0.06), 0 2px 8px rgb(20 35 43 / 0.04)">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px">
+          <div style="font-size: 24px; font-weight: 700; letter-spacing: -0.01em">{{p.name}}</div>
+          <span style="font-size: 14px; font-weight: 700; padding: 4px 10px; border-radius: 6px; background: #E9F0F4; color: #0B3F61; white-space: nowrap">{{p.data}}</span>
+        </div>
+        <div style="font-size: 16px; line-height: 1.4; color: #26343B">{{p.job}}</div>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <div style="font-size: 14px; font-weight: 700; color: #44555D">Replaces</div>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px">
+            <sc-for list="{{p.replaces}}" as="r" hint-placeholder-count="2">
+              <span style="font-size: 14px; padding: 4px 10px; border-radius: 6px; border: 1px dashed #6B7B83; color: #26343B">{{r}}</span>
+            </sc-for>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px; border-top: 1px solid #D5DCE0; padding-top: 12px">
+          <div style="font-size: 14px; font-weight: 700; color: #44555D">Works in</div>
+          <div style="font-size: 16px; line-height: 1.4">{{p.workspace}}</div>
+        </div>
+        <div style="font-size: 14px; font-weight: 700; color: #0B5C8C">{{p.chat}}</div>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 14px; background: #F8EFE0; border: 1px solid #D5DCE0; border-radius: 12px; padding: 24px">
+    <div style="font-size: 18px; font-weight: 700">Decisions this proposal needs from you</div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px">
+      <sc-for list="{{decisions}}" as="d" hint-placeholder-count="3">
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <div style="font-size: 16px; font-weight: 700">{{d.q}}</div>
+          <div style="font-size: 14px; line-height: 1.5; color: #26343B">{{d.why}}</div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1100}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      today: ['reporter','advisor','advisor-v2','clinical','lead','owner','exec','audit','analytics-user','tenant-admin','network-admin','support','wall','anonymous-link'],
+      personas: [
+        { name: 'Advisor', data: '● Patient-level', job: 'Takes the call and finds the service. Clinical sign-off (criteria approval, Pathways Dx lookup, requests) becomes a flag on this role.', replaces: ['advisor','advisor-v2','clinical (as a flag)'], workspace: 'Triage workspace: chat on the left, canvas on the right', chat: 'Chat: yes, tier 1' },
+        { name: 'Overview', data: '◐ Aggregate only', job: 'Reads capacity across areas, groups and services. No case, patient, postcode or outcome is ever shown.', replaces: ['analytics-user'], workspace: 'Overview workspace: same chat engine, aggregate intents only', chat: 'Chat: yes, tier 2' },
+        { name: 'Manager', data: '◐ Aggregate, audit on request', job: 'Runs the service: people and phones, planning and alerts, criteria for the services they own. Each right is a capability flag, granted per person.', replaces: ['lead','exec','owner','audit'], workspace: 'Overview workspace, plus a Manage hub of ordinary forms', chat: 'Chat: overview only, tier 2' },
+        { name: 'Reporter', data: '○ Own services only', job: 'Reports capacity for a service, by phone, SMS or the phone app. Unchanged.', replaces: ['reporter'], workspace: 'The phone app', chat: 'Chat: no' },
+        { name: 'Admin', data: '○ No patient data', job: 'Access, sharing, retention and configuration for the organisation or the network. Later also the no-code layout and intent builder.', replaces: ['tenant-admin','network-admin'], workspace: 'Administration pages', chat: 'Chat: no (builder later)' },
+        { name: 'Platform', data: '○ Consented support only', job: 'Support and the operator console. Its own door and session; no tenant role opens it (DEC-528). Unchanged.', replaces: ['support','platform-operator'], workspace: 'Operator console', chat: 'Chat: no' }
+      ],
+      decisions: [
+        { q: 'Is clinical a flag on Advisor, not a role?', why: 'DEC-394 says a clinical advisor holds an active clinical-lead role, and the case routes admit advisor and clinical separately (DEC-632). I have not checked what breaks if the two become one role with a flag.' },
+        { q: 'Does Manager bundle lead, exec and owner?', why: 'A lead can invite reporters, move phones and remove people; an exec cannot. As capability flags the rights stay apart, but the tenant admin gets a longer mapping screen.' },
+        { q: 'Where do the two device sessions sit?', why: 'The wall screen and the anonymous link are not people, so they are not roles. They stay as device and link sessions with a fixed layout and no chat.' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

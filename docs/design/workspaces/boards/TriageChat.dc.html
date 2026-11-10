@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Advisor: triage intake in chat</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B}
+</style>
+</helmet>
+<div style="width: 100%; max-width: 1440px; min-height: 980px; box-sizing: border-box; display: flex; flex-direction: column; background: #F4F6F5; font-family: 'Atkinson Hyperlegible', system-ui, sans-serif; color: #14232B">
+  <div style="background: #0B2A3D; color: #FFFFFF; padding: 12px 24px; font-size: 14px; line-height: 1.4"><b>Board 4 · Advisor · Triage intake.</b> The chat asks fixed questions. The triage card is a component inside the thread. Each answer fills the Criteria widget on the canvas as it is given.</div>
+  <div style="display: flex; flex: 1; min-height: 0">
+    <div style="width: 84px; flex-shrink: 0; background: #0B2A3D; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px 0">
+      <div style="width: 44px; height: 44px; border-radius: 12px; background: #FFFFFF; color: #0B2A3D; font-weight: 700; font-size: 20px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px">O</div>
+      <div style="width: 68px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0; border-radius: 12px; background: #E9F0F4; color: #0B2A3D; font-size: 13px; font-weight: 700" aria-current="page">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>Find
+      </div>
+      <div style="width: 68px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0; color: #FFFFFF; font-size: 13px">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"></rect><path d="M4 10h16M10 10v10"></path></svg>Board
+      </div>
+      <div style="flex: 1"></div>
+      <div style="width: 68px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0; color: #FFFFFF; font-size: 13px">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M9.5 9.5a2.5 2.5 0 015 .5c0 1.5-2.5 2-2.5 3.5M12 17h.01"></path></svg>Help
+      </div>
+    </div>
+
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+      <div style="height: 72px; flex-shrink: 0; box-sizing: border-box; background: #FFFFFF; border-bottom: 1px solid #D5DCE0; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px">
+        <div style="display: flex; flex-direction: column">
+          <div style="font-size: 14px; color: #44555D">Dorset · demonstration data</div>
+          <div style="font-size: 20px; font-weight: 700">Find a service</div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 16px">
+          <span style="font-size: 14px; font-weight: 700; padding: 6px 12px; border-radius: 6px; background: #E9F0F4; color: #0B3F61">Advisor</span>
+          <span style="font-size: 16px; color: #0B5C8C; font-weight: 700">Sign out</span>
+        </div>
+      </div>
+
+      <div style="flex: 1; display: flex; flex-wrap: wrap; gap: 20px; padding: 20px; align-items: stretch">
+        <div style="flex: 1 1 400px; max-width: 440px; display: flex; flex-direction: column; background: #FFFFFF; border: 1px solid #D5DCE0; border-radius: 12px; box-shadow: 0 1px 2px rgb(20 35 43 / 0.06), 0 2px 8px rgb(20 35 43 / 0.04); overflow: hidden">
+          <div style="padding: 14px 20px; border-bottom: 1px solid #D5DCE0; display: flex; justify-content: space-between; align-items: center; gap: 8px">
+            <div style="font-size: 18px; font-weight: 700">Assistant</div>
+            <span style="font-size: 14px; color: #44555D">Guided questions</span>
+          </div>
+          <div style="flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+            <div style="align-self: flex-start; max-width: 86%; background: #F4F6F5; border-radius: 12px; padding: 12px 14px; font-size: 16px; line-height: 1.4">Let's find a service for your patient. Four quick questions, then I will show who can take them.</div>
+            <div style="align-self: flex-end; background: #0B5C8C; color: #FFFFFF; border-radius: 12px; padding: 10px 14px; font-size: 16px; font-weight: 700">65–79</div>
+            <div style="align-self: flex-start; max-width: 86%; background: #F4F6F5; border-radius: 12px; padding: 12px 14px; font-size: 16px; line-height: 1.4">Where is the patient? A postcode is enough.</div>
+            <div style="align-self: flex-end; background: #0B5C8C; color: #FFFFFF; border-radius: 12px; padding: 10px 14px; font-size: 16px; font-weight: 700">DT4</div>
+            <div style="align-self: flex-start; max-width: 86%; background: #F4F6F5; border-radius: 12px; padding: 12px 14px; font-size: 16px; line-height: 1.4">What does the patient need, and by when?</div>
+
+            <div style="display: flex; flex-direction: column; gap: 14px; background: #FFFFFF; border: 1px solid #D5DCE0; border-radius: 12px; padding: 16px; box-shadow: 0 1px 2px rgb(20 35 43 / 0.06)">
+              <div style="font-size: 18px; font-weight: 700">Patient criteria</div>
+              <div style="display: flex; flex-direction: column; gap: 8px">
+                <div style="font-size: 14px; font-weight: 700; color: #26343B">Patient age</div>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px">
+                  <span style="min-height: 44px; box-sizing: border-box; padding: 0 16px; display: inline-flex; align-items: center; border: 1px solid #6B7B83; border-radius: 22px; font-size: 16px">0–15</span>
+                  <span style="min-height: 44px; box-sizing: border-box; padding: 0 16px; display: inline-flex; align-items: center; border: 1px solid #6B7B83; border-radius: 22px; font-size: 16px">16–64</span>
+                  <span style="min-height: 44px; box-sizing: border-box; padding: 0 16px; display: inline-flex; align-items: center; gap: 6px; border: 2px solid #0B5C8C; background: #E9F0F4; border-radius: 22px; font-size: 16px; font-weight: 700; color: #0B3F61">✓ 65–79</span>
+                  <span style="min-height: 44px; box-sizing: border-box; padding: 0 16px; display: inline-flex; align-items: center; border: 1px solid #6B7B83; border-radius: 22px; font-size: 16px">80+</span>
+                </div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 8px">
+                <div style="font-size: 14px; font-weight: 700; color: #26343B">Postcode</div>
+                <div style="min-height: 44px; box-sizing: border-box; padding: 0 14px; display: flex; align-items: center; border: 1px solid #6B7B83; border-radius: 8px; font-size: 16px">DT4</div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 8px">
+                <div style="font-size: 14px; font-weight: 700; color: #26343B">Patient need</div>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px">
+                  <span style="min-height: 44px; box-sizing: border-box; padding: 0 14px; display: inline-flex; align-items: center; border: 1px solid #6B7B83; border-radius: 22px; font-size: 16px">Fall, no injury</span>
+                  <span style="min-height: 44px; box-sizing: border-box; padding: 0 14px; display: inline-flex; align-items: center; border: 1px solid #6B7B83; border-radius: 22px; font-size: 16px">Frailty</span>
+                  <span style="min-height: 44px; box-sizing: border-box; padding: 0 14px; display: inline-flex; align-items: center; border: 1px solid #6B7B83; border-radius: 22px; font-size: 16px">Wound care</span>
+                  <span style="min-height: 44px; box-sizing: border-box; padding: 0 14px; display: inline-flex; align-items: center; border: 1px solid #6B7B83; border-radius: 22px; font-size: 16px">IV therapy</span>
+                  <span style="min-height: 44px; box-sizing: border-box; padding: 0 14px; display: inline-flex; align-items: center; border: 1px solid #6B7B83; border-radius: 22px; font-size: 16px">Palliative</span>
+                  <span style="min-height: 44px; box-sizing: border-box; padding: 0 14px; display: inline-flex; align-items: center; border: 1px solid #6B7B83; border-radius: 22px; font-size: 16px">Dementia</span>
+                </div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 8px">
+                <div style="font-size: 14px; font-weight: 700; color: #26343B">Required timeframe</div>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px">
+                  <span style="min-height: 44px; box-sizing: border-box; padding: 0 14px; display: inline-flex; align-items: center; border: 1px solid #6B7B83; border-radius: 22px; font-size: 16px">Within 2 hrs</span>
+                  <span style="min-height: 44px; box-sizing: border-box; padding: 0 14px; display: inline-flex; align-items: center; border: 1px solid #6B7B83; border-radius: 22px; font-size: 16px">Today</span>
+                  <span style="min-height: 44px; box-sizing: border-box; padding: 0 14px; display: inline-flex; align-items: center; border: 1px solid #6B7B83; border-radius: 22px; font-size: 16px">Planned</span>
+                </div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
+                <span style="min-height: 52px; box-sizing: border-box; padding: 0 24px; display: inline-flex; align-items: center; border-radius: 8px; background: #D5DCE0; color: #44555D; font-size: 16px; font-weight: 700">Find services</span>
+                <span style="font-size: 14px; color: #44555D">Choose a need and a timeframe</span>
+              </div>
+            </div>
+          </div>
+          <div style="border-top: 1px solid #D5DCE0; padding: 14px 20px; display: flex; flex-direction: column; gap: 6px">
+            <div style="display: flex; gap: 8px; align-items: center">
+              <div style="flex: 1; min-height: 48px; box-sizing: border-box; padding: 0 14px; display: flex; align-items: center; border: 1px dashed #6B7B83; border-radius: 8px; font-size: 16px; color: #44555D">Pick an answer above</div>
+              <span style="width: 48px; height: 48px; border-radius: 8px; background: #D5DCE0; display: inline-flex; align-items: center; justify-content: center" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#44555D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span>
+            </div>
+            <div style="font-size: 14px; color: #44555D">Free text is switched off for now. A language model can be added behind the same intents later.</div>
+          </div>
+        </div>
+
+        <div style="flex: 3 1 480px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+          <div style="background: #FFFFFF; border: 1px solid #D5DCE0; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 1px 2px rgb(20 35 43 / 0.06), 0 2px 8px rgb(20 35 43 / 0.04)">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px">
+              <div style="font-size: 18px; font-weight: 700">Criteria</div>
+              <span style="font-size: 14px; color: #44555D">Widget · fills as you answer</span>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px">
+              <div style="display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border: 1px solid #D5DCE0; border-radius: 8px; background: #E9F0F4">
+                <span style="font-size: 14px; color: #44555D">Age</span>
+                <span style="font-size: 18px; font-weight: 700">● 65–79</span>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border: 1px solid #D5DCE0; border-radius: 8px; background: #E9F0F4">
+                <span style="font-size: 14px; color: #44555D">Postcode</span>
+                <span style="font-size: 18px; font-weight: 700">● DT4</span>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border: 1px dashed #6B7B83; border-radius: 8px">
+                <span style="font-size: 14px; color: #44555D">Need</span>
+                <span style="font-size: 18px; color: #44555D">○ Not set</span>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border: 1px dashed #6B7B83; border-radius: 8px">
+                <span style="font-size: 14px; color: #44555D">Timeframe</span>
+                <span style="font-size: 18px; color: #44555D">○ Not set</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="flex: 1; display: flex; flex-wrap: wrap; gap: 20px">
+            <div style="flex: 1 1 320px; background: #FFFFFF; border: 1px solid #D5DCE0; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 12px">
+              <div style="display: flex; justify-content: space-between; align-items: center">
+                <div style="font-size: 18px; font-weight: 700">Services</div>
+                <span style="font-size: 14px; color: #44555D">Widget · waiting for criteria</span>
+              </div>
+              <div style="height: 64px; border-radius: 8px; background: #F4F6F5; border: 1px solid #D5DCE0"></div>
+              <div style="height: 64px; border-radius: 8px; background: #F4F6F5; border: 1px solid #D5DCE0"></div>
+              <div style="height: 64px; border-radius: 8px; background: #F4F6F5; border: 1px solid #D5DCE0"></div>
+              <div style="font-size: 14px; color: #44555D">Skeleton rows hold the shape so the canvas does not jump when results arrive.</div>
+            </div>
+            <div style="flex: 1 1 320px; background: #FFFFFF; border: 1px solid #D5DCE0; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 12px">
+              <div style="display: flex; justify-content: space-between; align-items: center">
+                <div style="font-size: 18px; font-weight: 700">Map</div>
+                <span style="font-size: 14px; color: #44555D">Widget · not yet shown</span>
+              </div>
+              <div style="flex: 1; min-height: 220px; border-radius: 8px; border: 1px dashed #6B7B83; background: #F4F6F5; display: flex; align-items: center; justify-content: center; text-align: center; padding: 16px; font-size: 14px; line-height: 1.4; color: #44555D">The map appears when the criteria are complete, or when the advisor asks for it.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="padding: 12px 24px; font-size: 14px; color: #44555D; border-top: 1px solid #D5DCE0"><b>Demonstration data</b> · Not live NHS information</div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":980}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

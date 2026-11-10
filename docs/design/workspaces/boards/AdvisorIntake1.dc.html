@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Advisor: age and postcode</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./shell.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+</helmet>
+<div class="frame">
+  <div class="top">
+    <span class="mark">O</span>
+    <div class="ttl"><small>Dorset · demonstration data</small><b>Find a service</b></div>
+    <span class="sp"></span>
+    <a class="btn2" href="AdvisorIntake1.dc.html">New search</a>
+    <span class="role">Advisor ▾</span>
+  </div>
+  <div class="body">
+    <div class="drawer">
+      <div class="dh"><b style="font-size: 18px">Assistant</b><span class="dots" aria-label="Step 1 of 2"><i class="on"></i><i></i></span></div>
+      <div class="dm">
+        <div class="bub">Let's find a service for your patient. Two short steps, then I will show who can take them.</div>
+        <div class="card" style="display: flex; flex-direction: column; gap: 16px; padding: 16px">
+          <div class="h2">Step 1 of 2 · Age and postcode</div>
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <div class="lbl">Patient age</div>
+            <div class="chips">
+              <span class="chip">0–15</span>
+              <span class="chip">16–64</span>
+              <span class="chip on">✓ 65–79</span>
+              <span class="chip">80+</span>
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <div class="lbl">Postcode</div>
+            <div class="field">DT4</div>
+            <div class="cap">A district is enough, for example DT4.</div>
+          </div>
+          <a class="btn block" href="AdvisorIntake2.dc.html">Next</a>
+        </div>
+      </div>
+      <div class="df">
+        <div class="field dis">Pick an answer above</div>
+        <div class="cap">Free text is off for now. A language model can be added behind the same intents later.</div>
+      </div>
+    </div>
+
+    <div class="col fill">
+      <div class="card" style="display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; justify-content: space-between; align-items: center"><div class="h2">Criteria</div><span class="cap">Fills as you answer</span></div>
+        <div class="grid" style="grid-template-columns: repeat(4, 1fr); gap: 12px">
+          <div style="padding: 12px 14px; border: 1px solid #D5DCE0; border-radius: 8px; background: #E9F0F4"><div class="cap">Age</div><div class="h2">● 65–79</div></div>
+          <div style="padding: 12px 14px; border: 1px solid #D5DCE0; border-radius: 8px; background: #E9F0F4"><div class="cap">Postcode</div><div class="h2">● DT4</div></div>
+          <div class="dash" style="padding: 12px 14px; border-radius: 8px"><div class="cap">Need</div><div class="h2" style="color: #44555D; font-weight: 400">○ Not set</div></div>
+          <div class="dash" style="padding: 12px 14px; border-radius: 8px"><div class="cap">Timeframe</div><div class="h2" style="color: #44555D; font-weight: 400">○ Not set</div></div>
+        </div>
+      </div>
+      <div style="flex: 1; min-height: 0; display: flex; gap: 16px">
+        <div class="card" style="flex: 1; display: flex; flex-direction: column; gap: 12px">
+          <div style="display: flex; justify-content: space-between; align-items: center"><div class="h2">Services</div><span class="cap">Waiting for criteria</span></div>
+          <div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div>
+          <div class="cap">Placeholder rows hold the shape, so the canvas does not jump when results arrive.</div>
+        </div>
+        <div class="card" style="flex: 1; display: flex; flex-direction: column; gap: 12px">
+          <div style="display: flex; justify-content: space-between; align-items: center"><div class="h2">Map</div><span class="cap">Not yet shown</span></div>
+          <div class="dash" style="flex: 1; border-radius: 8px; background: #F4F6F5; display: flex; align-items: center; justify-content: center; text-align: center; padding: 16px"><span class="cap">Appears when the criteria are complete, or when you ask for it.</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><b>Demonstration data</b>&nbsp;· Not live NHS information</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

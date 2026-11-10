@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Manager: confirm remove</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./shell.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+</helmet>
+<div class="frame">
+  <div class="top">
+    <a class="back" href="ManagerPeople.dc.html">‹ Back</a>
+    <div class="ttl"><small>Manage</small><b>People and phones</b></div>
+    <span class="sp"></span>
+    <span class="btn off" style="min-height: 44px">Invite a reporter</span>
+    <span class="role">Manager ▾</span>
+  </div>
+  <div class="body" style="flex-direction: column">
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 16px">
+      <div><h1 class="h1">12 reporters</h1></div>
+    </div>
+    <div class="col fill" style="gap: 10px">
+      <div class="row"><div class="rl"><b class="h2">Reporter 1</b><span class="cap">Purbeck Hospital at Home</span></div></div>
+      <div class="row"><div class="rl"><b class="h2">Reporter 2</b><span class="cap">North Dorset Community Beds</span></div></div>
+      <div class="row dash"><div class="rl"><b class="h2">Reporter 3</b><span class="cap">Frailty Virtual Ward</span></div></div>
+      <div class="row"><div class="rl"><b class="h2">Reporter 4</b><span class="cap">Poole Hospital UTC</span></div></div>
+      <div class="row"><div class="rl"><b class="h2">Reporter 5</b><span class="cap">East Dorset Urgent Community Response</span></div></div>
+    </div>
+  </div>
+  <div class="scrim"></div>
+  <div class="modal" role="dialog" aria-label="Remove Reporter 3">
+    <h2 class="h1">Remove Reporter 3?</h2>
+    <div class="txt" style="color: #26343B">Reporter 3 will stop being asked for capacity for <b>Frailty Virtual Ward</b>. That service has no other reporter, so it will show as <b>○ Not updated</b> until someone is added.</div>
+    <div class="dash" style="padding: 12px 14px; border-radius: 8px; background: #F8EFE0"><div class="lbl">What stays</div><div class="cap">Their past reports stay in the record. This cannot be undone, but they can be invited again.</div></div>
+    <div style="display: flex; gap: 12px">
+      <a class="btn block" href="ManagerPeople.dc.html" style="flex: 1">Keep Reporter 3</a>
+      <a class="btn2" href="ManagerPeople.dc.html" style="flex: 1; min-height: 52px">Remove</a>
+    </div>
+    <div class="cap">The safe choice is the primary button. Removing takes a second, deliberate click.</div>
+  </div>
+  <div class="foot" style="position: relative"><b>Demonstration data</b>&nbsp;· Not live NHS information</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Reporter: confirm</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./shell.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+</helmet>
+<div class="frame phone">
+  <div class="top">
+    <a class="back" href="ReporterCount.dc.html">‹ Back</a>
+    <div class="ttl"><small>Step 3 of 3</small><b>Confirm</b></div>
+    <span class="sp"></span>
+    <span class="dots" aria-label="Step 3 of 3"><i class="on"></i><i class="on"></i><i class="on"></i></span>
+  </div>
+  <div class="body">
+    <h1 class="h1">Check, then publish</h1>
+    <div class="card" style="display: flex; flex-direction: column; gap: 14px">
+      <div class="cap">Service</div>
+      <b class="h2">Purbeck Hospital at Home</b>
+      <div style="border-top: 1px solid #D5DCE0; padding-top: 14px; display: flex; flex-direction: column; gap: 8px">
+        <div class="cap">Status</div>
+        <span class="st lim" style="align-self: flex-start">◐ Limited</span>
+      </div>
+      <div style="border-top: 1px solid #D5DCE0; padding-top: 14px; display: flex; flex-direction: column; gap: 4px">
+        <div class="cap">Admissions free</div>
+        <div class="num">2</div>
+      </div>
+    </div>
+    <div class="dash" style="padding: 12px 14px; border-radius: 8px; background: #F8EFE0"><div class="lbl">Advisors see this straight away</div><div class="cap">It replaces your last report from 14:02.</div></div>
+    <div style="flex: 1"></div>
+    <a class="btn block" href="ReporterDone.dc.html">Publish</a>
+    <a class="btn2 block" href="ReporterStatus.dc.html" style="min-height: 52px">Change something</a>
+  </div>
+  <div class="foot"><b>Demonstration data</b>&nbsp;· Not live NHS information</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

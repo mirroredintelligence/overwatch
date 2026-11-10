@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Advisor: not suitable, and why</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./shell.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+</helmet>
+<div class="frame">
+  <div class="top">
+    <a class="back" href="AdvisorResults.dc.html">‹ Back</a>
+    <div class="ttl"><small>Dorset · demonstration data</small><b>Not suitable, and why</b></div>
+    <span class="sp"></span>
+    <a class="btn2" href="AdvisorIntake1.dc.html">New search</a>
+    <span class="role">Advisor ▾</span>
+  </div>
+  <div class="body">
+    <div class="drawer" style="width: 360px">
+      <div class="dh"><b style="font-size: 18px">Assistant</b><span class="cap" style="font-weight: 700">‹ Hide</span></div>
+      <div class="dm">
+        <div class="bub me">Why were 3 not suitable?</div>
+        <div class="bub">3 services were not suitable for this patient. Each has its reason, and nothing is hidden.</div>
+        <div class="chips">
+          <a class="chip" href="AdvisorResults.dc.html">Back to the 7 suitable services</a>
+          <a class="chip" href="AdvisorService.dc.html">See Rob's H@H</a>
+        </div>
+      </div>
+      <div class="df"><div class="field dis">Pick an option above</div></div>
+    </div>
+    <div class="col fill" style="max-width: 1000px">
+    <div>
+      <h1 class="h1">3 services were not suitable for this patient</h1>
+      <div class="cap">65–79 · DT4 · Frailty · Today. Nothing is hidden: every service is either on the results list or here with its reason. Rows are illustrative.</div>
+    </div>
+    <div class="col" style="gap: 10px">
+      <div class="row">
+        <div class="rl"><b class="h2">Victoria Hospital (Wimborne) MIU</b><span class="cap">Goes to a place</span></div>
+        <div class="rr"><span class="txt" style="max-width: 360px; text-align: right">Outside the patient's travel distance from DT4</span><span class="st cls">■ Not suitable</span></div>
+      </div>
+      <div class="row">
+        <div class="rl"><b class="h2">North Dorset Community Beds</b><span class="cap">Inpatient beds</span></div>
+        <div class="rr"><span class="txt" style="max-width: 360px; text-align: right">Over capacity: 2 beds above normal</span><span class="st sur">▲ Over capacity</span></div>
+      </div>
+      <div class="row">
+        <div class="rl"><b class="h2">Purbeck Hospital at Home</b><span class="cap">Home-based acute care</span></div>
+        <div class="rr"><span class="txt" style="max-width: 360px; text-align: right">Not accepting new patients today</span><span class="st cls">■ Not accepting</span></div>
+      </div>
+    </div>
+    <div class="pager">
+      <span>1–3 of 3</span>
+      <div class="pgs"><a class="btn2" href="AdvisorResults.dc.html">Back to the 7 suitable services</a></div>
+    </div>
+    </div>
+  </div>
+  <div class="foot"><b>Demonstration data</b>&nbsp;· Not live NHS information</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

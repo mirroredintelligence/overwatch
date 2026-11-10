@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Overview: one area</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./shell.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+</helmet>
+<div class="frame">
+  <div class="top">
+    <a class="back" href="OverviewHome.dc.html">‹ Back</a>
+    <div class="ttl"><small>Dorset · illustrative snapshot, 14:00</small><b>Purbeck</b></div>
+    <span class="sp"></span>
+    <div class="seg"><span class="on">✓ My organisation</span><span>Network</span></div>
+    <span class="role">Overview ▾</span>
+  </div>
+  <div class="body">
+    <div class="drawer" style="width: 340px">
+      <div class="dh"><b style="font-size: 18px">Assistant</b><span class="cap" style="font-weight: 700">‹ Hide</span></div>
+      <div class="dm">
+        <div class="bub me">Show Purbeck</div>
+        <div class="bub">Purbeck has 4 services: 2 accepting, 1 limited and 1 over capacity. Purbeck Hospital at Home needs attention first.</div>
+        <div class="chips" style="flex-direction: column; align-items: flex-start">
+          <a class="chip" href="OverviewAttention.dc.html">What needs attention?</a>
+          <a class="chip" href="OverviewHome.dc.html">Back to the overview</a>
+        </div>
+      </div>
+      <div class="df"><div class="field dis">Pick an option above</div></div>
+    </div>
+    <div class="col" style="flex: none; width: 420px">
+      <div class="card" style="display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 28px 24px">
+        <div class="ring" style="width: 200px; height: 200px; background: conic-gradient(#0B5C8C 0 50%, #A34700 50% 75%, #6B2C91 75% 100%)" role="img" aria-label="2 accepting, 1 limited, 1 over capacity"><b style="width: 120px; height: 120px; font-size: 32px">4</b></div>
+        <div class="h2">services in Purbeck</div>
+        <div style="display: flex; flex-direction: column; gap: 6px; align-self: stretch">
+          <div style="display: flex; justify-content: space-between"><span class="txt" style="color: #0B5C8C; font-weight: 700">✓ Accepting</span><b class="txt">2</b></div>
+          <div style="display: flex; justify-content: space-between"><span class="txt" style="color: #A34700; font-weight: 700">◐ Limited</span><b class="txt">1</b></div>
+          <div style="display: flex; justify-content: space-between"><span class="txt" style="color: #6B2C91; font-weight: 700">▲ Over capacity</span><b class="txt">1</b></div>
+        </div>
+      </div>
+      <div class="cap">Swanage · Wareham. Service names after the first two are illustrative.</div>
+    </div>
+    <div class="col fill">
+      <div style="display: flex; justify-content: space-between; align-items: flex-end"><h1 class="h1">Services in this area</h1><span class="cap">Aggregate only. No patient, case or postcode.</span></div>
+      <div class="col" style="flex: 1; min-height: 0; gap: 10px">
+        <div class="row" style="min-height: 88px">
+          <div class="rl"><b class="h2">Purbeck Hospital at Home</b><span class="cap">Home-based acute care · 2 admissions above normal capacity</span></div>
+          <div class="rr"><span class="st sur">▲ Over capacity</span><b class="h2">122% used</b></div>
+        </div>
+        <div class="row" style="min-height: 88px">
+          <div class="rl"><b class="h2">Swanage Hospital MIU</b><span class="cap">Appointments · 5 appointment slots free</span></div>
+          <div class="rr"><span class="st acc">✓ Accepting</span><b class="h2">38% used</b></div>
+        </div>
+        <div class="row" style="min-height: 88px">
+          <div class="rl"><b class="h2">Wareham Community Nursing Response</b><span class="cap">Visiting team</span></div>
+          <div class="rr"><span class="st lim">◐ Limited</span><b class="h2">81% used</b></div>
+        </div>
+        <div class="row" style="min-height: 88px">
+          <div class="rl"><b class="h2">Purbeck Reablement</b><span class="cap">Home-based reablement</span></div>
+          <div class="rr"><span class="st acc">✓ Accepting</span><b class="h2">44% used</b></div>
+        </div>
+      </div>
+      <div class="pager"><span>1–4 of 4</span><div class="pgs"><a class="btn2" href="OverviewHome.dc.html">Back to the overview</a></div></div>
+    </div>
+  </div>
+  <div class="foot"><b>Demonstration data</b>&nbsp;· Not live NHS information</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

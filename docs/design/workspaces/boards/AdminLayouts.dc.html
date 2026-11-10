@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Admin: layouts and intents (later)</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./shell.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+</helmet>
+<div class="frame">
+  <div class="top">
+    <a class="back" href="AdminHome.dc.html">‹ Back</a>
+    <div class="ttl"><small>Administration · later</small><b>Layouts and intents</b></div>
+    <span class="sp"></span>
+    <span class="st unk">○ Draft · not published</span>
+    <a class="btn" href="AdminLayouts.dc.html" style="min-height: 44px">Save draft</a>
+    <span class="role">Admin ▾</span>
+  </div>
+  <div class="body" style="padding-bottom: 84px">
+    <div class="card" style="flex: none; width: 260px; display: flex; flex-direction: column; gap: 10px">
+      <div class="h2">1 · Role</div>
+      <div class="row" style="min-height: 52px; padding: 8px 14px; border: 2px solid #0B5C8C; background: #E9F0F4"><b class="txt">✓ Advisor</b><span class="cap">Patient-level</span></div>
+      <div class="row" style="min-height: 52px; padding: 8px 14px"><span class="txt">Overview</span><span class="cap">Aggregate</span></div>
+      <div class="row" style="min-height: 52px; padding: 8px 14px"><span class="txt">Manager</span><span class="cap">Aggregate</span></div>
+      <div class="cap">Reporter, Admin and Platform have no workspace to build.</div>
+    </div>
+    <div class="card fill" style="display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; justify-content: space-between; align-items: center"><div class="h2">2 · What the assistant may open for an Advisor</div><span class="cap">Intents</span></div>
+      <div class="row" style="min-height: 60px"><div class="rl"><b class="txt">Triage card</b><span class="cap">Layout: chat, criteria widget</span></div><b class="txt" style="color: #0B3F61">✓ On</b></div>
+      <div class="row" style="min-height: 60px"><div class="rl"><b class="txt">Find a service</b><span class="cap">Layout: list · list and map · by way of care</span></div><b class="txt" style="color: #0B3F61">✓ On</b></div>
+      <div class="row" style="min-height: 60px"><div class="rl"><b class="txt">Service detail</b><span class="cap">Layout: detail page</span></div><b class="txt" style="color: #0B3F61">✓ On</b></div>
+      <div class="row" style="min-height: 60px"><div class="rl"><b class="txt">Not suitable, and why</b><span class="cap">Layout: reasons list</span></div><b class="txt" style="color: #0B3F61">✓ On</b></div>
+      <div class="row dash" style="min-height: 60px"><div class="rl"><b class="txt">Compare two services</b><span class="cap">Layout: side by side</span></div><b class="txt" style="color: #44555D">○ Off</b></div>
+      <div class="dash" style="margin-top: auto; padding: 14px; border-radius: 8px; background: #F8EFE0; display: flex; flex-direction: column; gap: 4px">
+        <div class="lbl">Example of a blocked change</div>
+        <div class="cap">Adding "Triage card" to the Overview role is refused: it needs patient-level data and Overview holds aggregate only. The block comes from the server, not from this screen.</div>
+      </div>
+    </div>
+    <div class="card" style="flex: none; width: 320px; display: flex; flex-direction: column; gap: 10px">
+      <div class="h2">3 · Preview</div>
+      <div style="border: 2px solid #0B2A3D; border-radius: 10px; overflow: hidden; background: #F4F6F5; display: flex; flex-direction: column; height: 220px">
+        <div style="height: 28px; background: #fff; border-bottom: 1px solid #D5DCE0; display: flex; align-items: center; padding: 0 8px; font-size: 12px; font-weight: 700">Find a service</div>
+        <div style="flex: 1; display: flex; gap: 6px; padding: 6px">
+          <div style="width: 38%; background: #fff; border: 1px solid #D5DCE0; border-radius: 6px"></div>
+          <div style="flex: 1; display: flex; flex-direction: column; gap: 6px"><div style="height: 30px; background: #fff; border: 1px solid #D5DCE0; border-radius: 6px"></div><div style="flex: 1; background: #fff; border: 1px solid #D5DCE0; border-radius: 6px"></div></div>
+        </div>
+      </div>
+      <div class="cap">Chat and canvas, list view.</div>
+      <div class="row dash" style="min-height: 52px; padding: 8px 14px"><span class="txt">Publish</span><span class="cap">Separate confirm step</span></div>
+      <div class="cap">Layouts can only arrange widgets. Every widget still fetches its data with the viewer's own role and organisation.</div>
+    </div>
+  </div>
+  <span class="fab">✦ Assistant<span class="cap" style="color: #C9D2D6; font-weight: 400">· go to…</span></span>
+  <div class="foot"><b>Demonstration data</b>&nbsp;· A later phase. Not part of the first build.</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

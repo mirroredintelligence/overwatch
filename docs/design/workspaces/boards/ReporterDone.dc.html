@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Reporter: done</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./shell.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+</helmet>
+<div class="frame phone">
+  <div class="top">
+    <span class="mark">O</span>
+    <div class="ttl"><small>Reporter</small><b>Report capacity</b></div>
+    <span class="sp"></span>
+    <span class="role">Menu ▾</span>
+  </div>
+  <div class="body" style="justify-content: center; align-items: stretch">
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center">
+      <div style="width: 72px; height: 72px; border-radius: 50%; background: #0B5C8C; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 36px; font-weight: 700" aria-hidden="true">✓</div>
+      <h1 class="h1">Published</h1>
+      <div class="txt" style="color: #26343B">Purbeck Hospital at Home is now <b>◐ Limited</b>, 2 admissions free. Advisors can see it.</div>
+    </div>
+    <div style="height: 24px"></div>
+    <a class="btn block" href="ReporterServices.dc.html">Report another service</a>
+    <a class="btn2 block" href="Shell.dc.html" style="min-height: 52px">Done</a>
+    <div class="cap" style="text-align: center">If the number changes, report again. There is no need to wait.</div>
+  </div>
+  <div class="foot"><b>Demonstration data</b>&nbsp;· Not live NHS information</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

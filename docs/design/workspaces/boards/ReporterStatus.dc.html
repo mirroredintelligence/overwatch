@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Reporter: status</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./shell.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+</helmet>
+<div class="frame phone">
+  <div class="top">
+    <a class="back" href="ReporterServices.dc.html">‹ Back</a>
+    <div class="ttl"><small>Step 1 of 3</small><b>Status</b></div>
+    <span class="sp"></span>
+    <span class="dots" aria-label="Step 1 of 3"><i class="on"></i><i></i><i></i></span>
+  </div>
+  <div class="body">
+    <div>
+      <div class="cap">Purbeck Hospital at Home</div>
+      <h1 class="h1">What is your status now?</h1>
+    </div>
+    <div class="col" style="flex: 1; min-height: 0; gap: 12px">
+      <a class="btn" href="ReporterCount.dc.html" style="flex: 1; background: #0B5C8C; font-size: 20px; justify-content: flex-start; padding: 0 20px">✓ Accepting</a>
+      <a class="btn" href="ReporterCount.dc.html" style="flex: 1; background: #A34700; font-size: 20px; justify-content: flex-start; padding: 0 20px">◐ Limited</a>
+      <a class="btn" href="ReporterCount.dc.html" style="flex: 1; background: #3A4750; font-size: 20px; justify-content: flex-start; padding: 0 20px">■ Not accepting</a>
+      <a class="btn" href="ReporterCount.dc.html" style="flex: 1; background: #6B2C91; font-size: 20px; justify-content: flex-start; padding: 0 20px">▲ Over capacity</a>
+    </div>
+    <div class="cap">Each status has a shape and a word, never colour alone. One tap moves on.</div>
+  </div>
+  <div class="foot"><b>Demonstration data</b>&nbsp;· Not live NHS information</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

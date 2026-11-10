@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Overview: needs attention, page 1 of 4</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./shell.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+</helmet>
+<div class="frame">
+  <div class="top">
+    <a class="back" href="OverviewHome.dc.html">‹ Back</a>
+    <div class="ttl"><small>Dorset · illustrative snapshot, 14:00</small><b>Needs attention</b></div>
+    <span class="sp"></span>
+    <div class="seg"><span class="on">✓ My organisation</span><span>Network</span></div>
+    <span class="role">Overview ▾</span>
+  </div>
+  <div class="body">
+    <div class="drawer" style="width: 340px">
+      <div class="dh"><b style="font-size: 18px">Assistant</b><span class="cap" style="font-weight: 700">‹ Hide</span></div>
+      <div class="dm">
+        <div class="bub me">What needs attention?</div>
+        <div class="bub">17 services need attention: 7 under pressure and 10 underutilised. Showing the 7 under pressure first.</div>
+        <div class="chips" style="flex-direction: column; align-items: flex-start">
+          <span class="chip">Show the underutilised</span>
+          <a class="chip" href="OverviewArea.dc.html">Show Purbeck</a>
+          <a class="chip" href="OverviewHome.dc.html">Back to the overview</a>
+        </div>
+      </div>
+      <div class="df"><div class="field dis">Pick an option above</div></div>
+    </div>
+    <div class="col fill">
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 16px">
+      <div><h1 class="h1">17 services need attention</h1><div class="cap">Aggregate figures only. A figure that is stale or unknown is shown as stale or unknown.</div></div>
+      <div class="seg"><span class="on">✓ Under pressure · 7</span><span>Underutilised · 10</span></div>
+    </div>
+    <div class="col fill" style="gap: 10px">
+      <div class="row">
+        <div class="rl"><b class="h2">Purbeck Hospital at Home</b><span class="cap">2 admissions above normal capacity</span></div>
+        <div class="rr"><span class="st sur">▲ 122% used</span></div>
+      </div>
+      <div class="row">
+        <div class="rl"><b class="h2">North Dorset Community Beds</b><span class="cap">2 beds above normal capacity</span></div>
+        <div class="rr"><span class="st sur">▲ 117% used</span></div>
+      </div>
+      <div class="row dash">
+        <div class="rl"><b class="h2">Frailty Virtual Ward</b><span class="cap">Capacity report overdue</span></div>
+        <div class="rr"><span class="st unk">○ Unknown</span></div>
+      </div>
+      <div class="row">
+        <div class="rl"><b class="h2">Poole Rapid Assessment Clinic</b><span class="cap">Assessment queue</span></div>
+        <div class="rr"><span class="st lim">◐ 86% used</span></div>
+      </div>
+      <div class="row">
+        <div class="rl"><b class="h2">East Dorset Urgent Community Response</b><span class="cap">Reduced visiting team</span></div>
+        <div class="rr"><span class="st lim">◐ 63% used</span></div>
+      </div>
+    </div>
+    <div class="pager">
+      <span>1–5 of 7 under pressure</span>
+      <div class="pgs"><span class="pg off">Previous</span><span class="pg">Next</span></div>
+    </div>
+    </div>
+  </div>
+  <div class="foot"><b>Demonstration data</b>&nbsp;· Not live NHS information</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

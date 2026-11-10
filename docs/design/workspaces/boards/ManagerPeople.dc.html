@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Manager: people and phones</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./shell.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+</helmet>
+<div class="frame">
+  <div class="top">
+    <a class="back" href="ManagerHome.dc.html">‹ Back</a>
+    <div class="ttl"><small>Manage</small><b>People and phones</b></div>
+    <span class="sp"></span>
+    <a class="btn" href="ManagerPeople.dc.html" style="min-height: 44px">Invite a reporter</a>
+    <span class="role">Manager ▾</span>
+  </div>
+  <div class="body" style="flex-direction: column; padding-bottom: 84px">
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 16px">
+      <div><h1 class="h1">12 reporters</h1><div class="cap">A reporter sends capacity for one or more services. Names and numbers are placeholders.</div></div>
+      <div class="seg"><span class="on">✓ All</span><span>Needs a phone</span><span>Not reported today</span></div>
+    </div>
+    <div class="col fill" style="gap: 10px">
+      <div class="row">
+        <div class="rl"><b class="h2">Reporter 1</b><span class="cap">Purbeck Hospital at Home · phone ending ••421</span></div>
+        <div class="rr"><span class="cap">Last report 14:02</span><a class="btn2" href="ManagerRemove.dc.html">Remove</a></div>
+      </div>
+      <div class="row">
+        <div class="rl"><b class="h2">Reporter 2</b><span class="cap">North Dorset Community Beds · phone ending ••187</span></div>
+        <div class="rr"><span class="cap">Last report 13:40</span><a class="btn2" href="ManagerRemove.dc.html">Remove</a></div>
+      </div>
+      <div class="row dash">
+        <div class="rl"><b class="h2">Reporter 3</b><span class="cap">Frailty Virtual Ward · no phone linked</span></div>
+        <div class="rr"><span class="st unk">○ Not reported today</span><a class="btn2" href="ManagerRemove.dc.html">Remove</a></div>
+      </div>
+      <div class="row">
+        <div class="rl"><b class="h2">Reporter 4</b><span class="cap">Poole Hospital UTC · phone ending ••902</span></div>
+        <div class="rr"><span class="cap">Last report 13:55</span><a class="btn2" href="ManagerRemove.dc.html">Remove</a></div>
+      </div>
+      <div class="row">
+        <div class="rl"><b class="h2">Reporter 5</b><span class="cap">East Dorset Urgent Community Response · phone ending ••366</span></div>
+        <div class="rr"><span class="cap">Last report 14:01</span><a class="btn2" href="ManagerRemove.dc.html">Remove</a></div>
+      </div>
+    </div>
+    <div class="pager">
+      <span>1–5 of 12</span>
+      <div class="pgs"><span class="pg off">Previous</span><span class="pg">Next</span></div>
+    </div>
+  </div>
+  <span class="fab">✦ Assistant<span class="cap" style="color: #C9D2D6; font-weight: 400">· go to…</span></span>
+  <div class="foot"><b>Demonstration data</b>&nbsp;· Not live NHS information</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

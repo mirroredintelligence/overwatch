@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pages: today and proposed</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Atkinson Hyperlegible',system-ui,sans-serif;color:#14232B}
+</style>
+</helmet>
+<div style="width: 100%; max-width: 1440px; min-height: 1300px; box-sizing: border-box; padding: 48px; background: #F4F6F5; display: flex; flex-direction: column; gap: 28px; font-family: 'Atkinson Hyperlegible', system-ui, sans-serif; color: #14232B">
+  <div style="display: flex; flex-direction: column; gap: 8px">
+    <div style="font-size: 14px; font-weight: 700; color: #0B5C8C">Proposal for review</div>
+    <h1 style="margin: 0; font-size: 40px; line-height: 1.1; letter-spacing: -0.02em; text-wrap: balance">Pages: today and proposed</h1>
+    <p style="margin: 0; max-width: 900px; font-size: 18px; line-height: 1.4; color: #26343B">Today the pages follow the roles. In the proposal, the two chat workspaces absorb the pages that only re-slice the same data, and everything that is really a form stays a page. Route names are from the current app; what each becomes is my proposal.</p>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 20px">
+    <sc-for list="{{roles}}" as="r" hint-placeholder-count="6">
+      <div style="display: flex; flex-direction: column; gap: 16px; background: #FFFFFF; border: 1px solid #D5DCE0; border-radius: 12px; padding: 24px; box-shadow: 0 1px 2px rgb(20 35 43 / 0.06), 0 2px 8px rgb(20 35 43 / 0.04)">
+        <div style="font-size: 24px; font-weight: 700; letter-spacing: -0.01em">{{r.name}}</div>
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <div style="font-size: 14px; font-weight: 700; color: #44555D">Today</div>
+          <div style="display: flex; flex-direction: column; gap: 4px">
+            <sc-for list="{{r.today}}" as="t" hint-placeholder-count="4">
+              <div style="font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 14px; line-height: 1.4; color: #44555D; padding: 6px 10px; border: 1px dashed #6B7B83; border-radius: 6px">{{t}}</div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="font-size: 20px; line-height: 1; color: #0B5C8C" aria-hidden="true">↓</div>
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <div style="font-size: 14px; font-weight: 700; color: #0B5C8C">Proposed</div>
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <sc-for list="{{r.next}}" as="n" hint-placeholder-count="3">
+              <div style="display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; background: #E9F0F4; border: 1px solid #D5DCE0; border-radius: 8px">
+                <div style="font-size: 16px; font-weight: 700">{{n.title}}</div>
+                <div style="font-size: 14px; line-height: 1.4; color: #26343B">{{n.note}}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1300}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      roles: [
+        { name: 'Advisor',
+          today: ['/advisor and /advisor/board', '/advisor/services', '/advisor/case/[ref]', '  compare, map, network-map, options, network-options, radar, ways, finish', '/advisor/v2, /advisor/v2/services, /advisor/v2/services/[id]'],
+          next: [
+            { title: 'Workspace: chat and canvas', note: 'One page. Find, options, map, ways, compare and radar become widgets the chat arranges.' },
+            { title: 'Case: finish', note: 'Stays a page. It records an outcome, so it is a form with one primary action.' },
+            { title: 'Board and service detail', note: 'Stay as drill-ins from the workspace, reachable by URL.' }
+          ] },
+        { name: 'Overview', today: ['/analytics', '/analytics/services/[id]', '/network/home, board, history, phones, services, system-now, week'],
+          next: [
+            { title: 'Workspace: chat and canvas', note: 'Capacity overview, areas, service groups and needs attention as widgets.' },
+            { title: 'Service detail', note: 'A drill-in, aggregate only.' },
+            { title: 'Scope switch: My organisation or Network', note: 'The network pages become a scope in the same workspace. The back end still decides per call.' }
+          ] },
+        { name: 'Manager', today: ['/lead: audit, flags, coverage, people, phones, registrations, replies, reporters', '/planning: alerts, phone, services, settings, setup, week, coverage, flows', '/criteria: list, approve, history'],
+          next: [
+            { title: 'Overview workspace', note: 'Same as the Overview role, plus alerts and the planning week as intents.' },
+            { title: 'Manage hub', note: 'Four sections, shown by capability flag: people and phones, planning and alerts, criteria, audit replay. Ordinary pages and forms, not chat.' }
+          ] },
+        { name: 'Reporter', today: ['/app: respond, services, booking, practitioner, pin, locked, lost-phone'],
+          next: [{ title: 'Unchanged', note: 'Phone-first. No chat, no workspace.' }] },
+        { name: 'Admin', today: ['/admin: access, config, contacts, email, retention, sharing, support, users', '/network-admin'],
+          next: [
+            { title: 'Administration pages', note: 'Unchanged, one portal for the organisation and one for the network.' },
+            { title: 'Layouts and intents (later)', note: 'The no-code builder lives here, and only here.' }
+          ] },
+        { name: 'Platform and Display', today: ['/console', '/operator', '/screen (wall)', '/i, /l, /c (links)'],
+          next: [{ title: 'Unchanged', note: 'The operator door stays separate. The wall stays a fixed layout preset with no chat.' }] }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

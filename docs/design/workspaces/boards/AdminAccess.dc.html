@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Admin: groups to roles</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./shell.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+</helmet>
+<div class="frame">
+  <div class="top">
+    <a class="back" href="AdminHome.dc.html">‹ Back</a>
+    <div class="ttl"><small>Administration</small><b>Access: groups to roles</b></div>
+    <span class="sp"></span>
+    <a class="btn" href="AdminAccess.dc.html" style="min-height: 44px">Add a mapping</a>
+    <span class="role">Admin ▾</span>
+  </div>
+  <div class="body" style="padding-bottom: 84px">
+    <div class="col fill">
+      <div><h1 class="h1">Which group holds which role</h1><div class="cap">A role says who someone is. A flag adds one right. The role is this organisation's own mapping and nothing a sign-in token says.</div></div>
+      <div class="col fill" style="gap: 10px">
+        <div class="row">
+          <div class="rl"><b class="h2">SPoA advisors</b><span class="cap">Directory group</span></div>
+          <div class="rr"><span class="badge" style="font-weight: 700">Advisor</span><span class="cap" style="min-width: 260px">No flags</span><span class="btn2">Edit</span></div>
+        </div>
+        <div class="row">
+          <div class="rl"><b class="h2">SPoA clinical</b><span class="cap">Directory group</span></div>
+          <div class="rr"><span class="badge" style="font-weight: 700">Advisor</span><span class="cap" style="min-width: 260px">+ Clinical sign-off</span><span class="btn2">Edit</span></div>
+        </div>
+        <div class="row">
+          <div class="rl"><b class="h2">Capacity analysts</b><span class="cap">Directory group</span></div>
+          <div class="rr"><span class="badge" style="font-weight: 700">Overview</span><span class="cap" style="min-width: 260px">Aggregate only</span><span class="btn2">Edit</span></div>
+        </div>
+        <div class="row">
+          <div class="rl"><b class="h2">Service leads</b><span class="cap">Directory group</span></div>
+          <div class="rr"><span class="badge" style="font-weight: 700">Manager</span><span class="cap" style="min-width: 260px">+ People and phones · + Own-service criteria</span><span class="btn2">Edit</span></div>
+        </div>
+        <div class="row">
+          <div class="rl"><b class="h2">Executive team</b><span class="cap">Directory group</span></div>
+          <div class="rr"><span class="badge" style="font-weight: 700">Manager</span><span class="cap" style="min-width: 260px">+ Planning and alerts</span><span class="btn2">Edit</span></div>
+        </div>
+      </div>
+      <div class="pager">
+        <span>1–5 of 6</span>
+        <div class="pgs"><span class="pg off">Previous</span><span class="pg">Next</span></div>
+      </div>
+    </div>
+    <div class="col" style="flex: none; width: 320px">
+      <div class="card" style="display: flex; flex-direction: column; gap: 10px">
+        <div class="h2">Why flags</div>
+        <div class="cap">Lead, exec and owner are now one role, Manager. The three rights stay apart as flags, so an executive still cannot remove a person, and a service lead still cannot change phone settings.</div>
+      </div>
+      <div class="card dash" style="display: flex; flex-direction: column; gap: 10px; background: #F8EFE0">
+        <div class="lbl">Careful</div>
+        <div class="cap">Saving a mapping changes what people see at their next sign-in. Each change asks for a confirm step and is written to the audit record.</div>
+      </div>
+    </div>
+  </div>
+  <span class="fab">✦ Assistant<span class="cap" style="color: #C9D2D6; font-weight: 400">· go to…</span></span>
+  <div class="foot"><b>Demonstration data</b>&nbsp;· Not live NHS information · Group names are placeholders</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

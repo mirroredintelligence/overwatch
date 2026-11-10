@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Manager: manage hub</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./shell.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+</helmet>
+<div class="frame">
+  <div class="top">
+    <span class="mark">O</span>
+    <div class="ttl"><small>Dorset · demonstration data</small><b>Manage</b></div>
+    <span class="sp"></span>
+    <a class="btn2" href="OverviewHome.dc.html">Open the overview</a>
+    <span class="role">Manager ▾</span>
+  </div>
+  <div class="body" style="padding-bottom: 84px">
+    <div class="col fill">
+      <div><h1 class="h1">What would you like to manage?</h1><div class="cap">Sections show only what your role holds. Each one opens a list or a form, one click in.</div></div>
+      <div class="grid fill" style="grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr)">
+        <a class="tile" href="ManagerPeople.dc.html" style="padding: 24px">
+          <div class="rl" style="gap: 8px"><b class="h1">People and phones</b><span class="txt" style="color: #26343B">Reporters, their phone numbers and who covers which service. Invite, move or remove.</span></div>
+          <div style="display: flex; justify-content: space-between; align-items: center"><span class="badge">12 reporters</span><span class="btn2">Open</span></div>
+        </a>
+        <a class="tile" href="ManagerHome.dc.html" style="padding: 24px">
+          <div class="rl" style="gap: 8px"><b class="h1">Planning and alerts</b><span class="txt" style="color: #26343B">Open alerts, the planning week and phone settings.</span></div>
+          <div style="display: flex; justify-content: space-between; align-items: center"><span class="badge">3 open alerts</span><span class="btn2">Open</span></div>
+        </a>
+        <a class="tile" href="ManagerHome.dc.html" style="padding: 24px">
+          <div class="rl" style="gap: 8px"><b class="h1">Criteria</b><span class="txt" style="color: #26343B">Who each service accepts. You approve or change criteria for the services you own.</span></div>
+          <div style="display: flex; justify-content: space-between; align-items: center"><span class="badge">2 waiting for approval</span><span class="btn2">Open</span></div>
+        </a>
+        <div class="tile dash" style="padding: 24px; background: #F4F6F5">
+          <div class="rl" style="gap: 8px"><b class="h1" style="color: #44555D">Audit replay</b><span class="txt" style="color: #44555D">Replay what an advisor saw on a call. Patient-level, so it needs its own grant.</span></div>
+          <div style="display: flex; justify-content: space-between; align-items: center"><span class="st unk">○ Not granted to you</span><span class="cap">Ask your administrator</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="col" style="flex: none; width: 320px">
+      <div class="card" style="display: flex; flex-direction: column; gap: 10px">
+        <div class="h2">Your rights</div>
+        <div class="cap">A role holds these flags. The administrator grants each one to a person.</div>
+        <div class="row" style="min-height: 48px; padding: 6px 12px"><span class="txt">People and phones</span><b class="txt" style="color: #0B3F61">✓ Held</b></div>
+        <div class="row" style="min-height: 48px; padding: 6px 12px"><span class="txt">Planning and alerts</span><b class="txt" style="color: #0B3F61">✓ Held</b></div>
+        <div class="row" style="min-height: 48px; padding: 6px 12px"><span class="txt">Own-service criteria</span><b class="txt" style="color: #0B3F61">✓ Held</b></div>
+        <div class="row dash" style="min-height: 48px; padding: 6px 12px"><span class="txt">Audit replay</span><b class="txt" style="color: #44555D">○ Not held</b></div>
+      </div>
+      <div class="cap">Counts are illustrative.</div>
+    </div>
+  </div>
+  <span class="fab">✦ Assistant<span class="cap" style="color: #C9D2D6; font-weight: 400">· go to…</span></span>
+  <div class="foot"><b>Demonstration data</b>&nbsp;· Not live NHS information</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

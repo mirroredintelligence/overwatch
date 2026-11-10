@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Advisor: results, page 1 of 2</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./shell.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+</helmet>
+<div class="frame">
+  <div class="top">
+    <a class="back" href="AdvisorIntake2.dc.html">‹ Back</a>
+    <div class="ttl"><small>Dorset · demonstration data</small><b>Find a service</b></div>
+    <span class="sp"></span>
+    <a class="btn2" href="AdvisorIntake1.dc.html">New search</a>
+    <span class="role">Advisor ▾</span>
+  </div>
+  <div class="body">
+    <div class="drawer">
+      <div class="dh"><b style="font-size: 18px">Assistant</b><span class="cap">Guided questions</span></div>
+      <div class="dm">
+        <div style="display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border: 1px solid #D5DCE0; border-radius: 12px; background: #E9F0F4">
+          <div class="lbl">Criteria set</div>
+          <div class="txt">65–79 · DT4 · Frailty · Today</div>
+          <a class="lbl" href="AdvisorIntake2.dc.html" style="color: #0B5C8C">Change criteria</a>
+        </div>
+        <div class="bub">7 services meet this patient's criteria, sorted by travel time. Not ranked. 3 were not suitable, and I can say why.</div>
+        <div class="lbl">Show it as</div>
+        <div class="chips">
+          <span class="chip on">✓ List</span>
+          <a class="chip" href="AdvisorMap.dc.html">List and map</a>
+        </div>
+        <div class="chips">
+          <a class="chip" href="AdvisorWhy.dc.html">Why were 3 not suitable?</a>
+        </div>
+      </div>
+      <div class="df">
+        <div class="field dis">Pick an option above</div>
+      </div>
+    </div>
+
+    <div class="col fill">
+      <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 16px">
+        <div>
+          <h1 class="h1">7 services meet this patient's criteria</h1>
+          <div class="cap">Sorted by travel time. Not ranked. Rows after the first are illustrative.</div>
+        </div>
+        <div class="seg"><span class="on">✓ List</span><a href="AdvisorMap.dc.html">List and map</a></div>
+      </div>
+      <div class="col" style="flex: 1; min-height: 0; gap: 10px">
+        <a class="row" href="AdvisorService.dc.html">
+          <div class="rl"><b class="h2">Rob's H@H</b><span class="cap">Virtual beds · Visits the patient · updated 1 hr 55 min ago</span></div>
+          <div class="rr"><span class="st acc">✓ Accepting</span><div style="text-align: right"><div class="num" style="font-size: 32px">4</div><div class="cap">Beds free</div></div><span class="btn2">Open</span></div>
+        </a>
+        <a class="row" href="AdvisorService.dc.html">
+          <div class="rl"><b class="h2">Swanage Hospital MIU</b><span class="cap">Appointments · Goes to a place · updated 4 min ago</span></div>
+          <div class="rr"><span class="st acc">✓ Accepting</span><div style="text-align: right"><div class="num" style="font-size: 32px">5</div><div class="cap">Appt slots free</div></div><span class="btn2">Open</span></div>
+        </a>
+        <a class="row" href="AdvisorService.dc.html">
+          <div class="rl"><b class="h2">Poole Rapid Assessment Clinic</b><span class="cap">Appointments · Goes to a place · updated 21 min ago</span></div>
+          <div class="rr"><span class="st lim">◐ Limited</span><div style="text-align: right"><div class="num" style="font-size: 32px">2</div><div class="cap">Slots free</div></div><span class="btn2">Open</span></div>
+        </a>
+        <a class="row" href="AdvisorService.dc.html">
+          <div class="rl"><b class="h2">East Dorset Urgent Community Response</b><span class="cap">Visiting team · Visits the patient · updated 9 min ago</span></div>
+          <div class="rr"><span class="st lim">◐ Limited</span><div style="text-align: right"><div class="num" style="font-size: 32px">3</div><div class="cap">Visits free</div></div><span class="btn2">Open</span></div>
+        </a>
+        <a class="row dash" href="AdvisorService.dc.html">
+          <div class="rl"><b class="h2">Frailty Virtual Ward</b><span class="cap">Virtual beds · Remote · capacity report overdue</span></div>
+          <div class="rr"><span class="st unk">○ Not updated</span><div style="text-align: right"><div class="num" style="font-size: 32px; color: #44555D">?</div><div class="cap">Unknown</div></div><span class="btn2">Open</span></div>
+        </a>
+      </div>
+      <div class="pager">
+        <span>1–5 of 7</span>
+        <div class="pgs"><span class="pg off">Previous</span><span class="pg">Next</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><b>Demonstration data</b>&nbsp;· Not live NHS information</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

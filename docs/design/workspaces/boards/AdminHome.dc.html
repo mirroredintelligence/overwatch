@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Admin: administration</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./shell.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+</helmet>
+<div class="frame">
+  <div class="top">
+    <span class="mark">O</span>
+    <div class="ttl"><small>Dorset · demonstration data</small><b>Administration</b></div>
+    <span class="sp"></span>
+    <div class="seg"><span class="on">✓ This organisation</span><span>Network</span></div>
+    <span class="role">Admin ▾</span>
+  </div>
+  <div class="body" style="flex-direction: column; padding-bottom: 84px">
+    <div><h1 class="h1">Administration</h1><div class="cap">Settings with consequences are forms with a confirm step. There is no patient data in this portal.</div></div>
+    <div class="grid fill" style="grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); gap: 14px">
+      <a class="tile" href="AdminAccess.dc.html" style="border: 2px solid #0B5C8C"><div class="rl"><b class="h2">Access: groups to roles</b><span class="cap">Which directory group holds which role and flags.</span></div><span class="badge" style="align-self: flex-start">6 groups</span></a>
+      <a class="tile" href="AdminHome.dc.html"><div class="rl"><b class="h2">Users</b><span class="cap">Who has signed in, and who is waiting.</span></div><span class="badge" style="align-self: flex-start">41 people</span></a>
+      <a class="tile" href="AdminHome.dc.html"><div class="rl"><b class="h2">Configuration</b><span class="cap">Wording, thresholds and the service directory.</span></div></a>
+      <a class="tile" href="AdminHome.dc.html"><div class="rl"><b class="h2">Contacts</b><span class="cap">Who the platform contacts about this organisation.</span></div></a>
+      <a class="tile" href="AdminHome.dc.html"><div class="rl"><b class="h2">Email</b><span class="cap">Sender and templates.</span></div></a>
+      <a class="tile" href="AdminHome.dc.html"><div class="rl"><b class="h2">Data retention</b><span class="cap">How long records are kept.</span></div></a>
+      <a class="tile" href="AdminHome.dc.html"><div class="rl"><b class="h2">Sharing</b><span class="cap">What this organisation shares into the network. Capacity, directory and criteria only.</span></div></a>
+      <a class="tile" href="AdminHome.dc.html"><div class="rl"><b class="h2">Support access</b><span class="cap">Issue a one-hour code for platform support.</span></div></a>
+      <a class="tile dash" href="AdminLayouts.dc.html" style="background: #F4F6F5"><div class="rl"><b class="h2">Layouts and intents</b><span class="cap">Later. Build workspaces without a new release.</span></div><span class="st unk" style="align-self: flex-start">○ Not built yet</span></a>
+    </div>
+  </div>
+  <span class="fab">✦ Assistant<span class="cap" style="color: #C9D2D6; font-weight: 400">· go to…</span></span>
+  <div class="foot"><b>Demonstration data</b>&nbsp;· Not live NHS information · Counts are illustrative</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

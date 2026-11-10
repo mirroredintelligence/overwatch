@@ -7,6 +7,7 @@ import { overlappingPairs } from '@/lib/radar/radar';
 import mapStyles from '../advisor/map.module.css';
 import styles from './radar.module.css';
 import { StyledSpan } from '@/components/ui/Styled';
+import { UnplacedNote } from '../advisor/UnplacedNote';
 
 // The radar's picture (RadarWeb 1, 3 to 5): the patient's area at the postcode centre, each visiting service
 // as an area, the overlap of two areas hatched, and each place to go as a labelled icon. Like the map
@@ -163,6 +164,7 @@ export function RadarMap({ options, patientArea, postcode }: RadarMapProps) {
         </p>
       </div>
       <p className={mapStyles.caption}>{CAPTION}</p>
+      <UnplacedNote options={options} className={mapStyles.caption} />
       <ul className={styles.srOnly} aria-label={`Services near ${postcode}`}>
         {options.map((option) => (
           <li key={option.serviceId}>

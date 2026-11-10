@@ -12,6 +12,7 @@ import { OptionBooking } from './OptionBooking';
 import { numberText } from './ServiceCard';
 import { ServicePhone } from './ServicePhone';
 import { TravelDetails } from './TravelDetails';
+import { UnplacedNote } from './UnplacedNote';
 import styles from './MapScreen.module.css';
 import { StyledButton, StyledSpan } from '@/components/ui/Styled';
 
@@ -163,6 +164,7 @@ export function OptionsMap({
         </div>
         <div className={styles.legend}>
           <p>{CAPTION}</p>
+          <UnplacedNote options={options} />
           <p>
             Drive-time rings and traffic are <strong>off</strong>: there is no data behind them yet.
           </p>

@@ -111,6 +111,37 @@ describe('FindService', () => {
     expect(screen.getByRole('status')).toHaveTextContent(/Choose the postcode, age, need and time/);
   });
 
+  it('suggests postcodes as it is typed, as the needs form does, fills the one picked and says what the lookup found', async () => {
+    const asked: string[] = [];
+    server.use(
+      http.get('/api/bff/advisor/postcodes', ({ request }) => {
+        asked.push(new URL(request.url).searchParams.get('prefix') ?? '');
+        return HttpResponse.json({ postcodes: ['DT4 4GB', 'DT4 4GR'] });
+      }),
+      http.get('/api/bff/advisor/postcodes/locate', () => HttpResponse.json({ status: 'found', lat: 50.60921, lon: -2.4561 })),
+    );
+    const user = userEvent.setup();
+    render(<FindService />);
+    await user.type(screen.getByRole('combobox'), 'DT4');
+    await user.click(await screen.findByRole('option', { name: 'DT4 4GR' }));
+    expect(asked).toContain('DT4');
+    expect(screen.getByRole('combobox')).toHaveValue('DT4 4GR');
+    expect(await screen.findByText(/Found: 50\.60921, -2\.45610 \(OS Places\)\./)).toBeInTheDocument();
+  });
+
+  it('says so when the postcode is not found, and still searches when the lookup cannot answer', async () => {
+    server.use(
+      http.get('/api/bff/advisor/postcodes', () => HttpResponse.json({}, { status: 503 })),
+      http.get('/api/bff/advisor/postcodes/locate', () => HttpResponse.json({ status: 'unavailable' })),
+    );
+    const user = userEvent.setup();
+    render(<FindService />);
+    await criteria(user);
+    expect(await screen.findByText(/lookup is unavailable/i)).toBeInTheDocument();
+    expect(await screen.findByRole('list', { name: 'Service groups' })).toBeInTheDocument();
+    expect(posted[0]).toMatchObject({ postcode: 'DT4 8XX' });
+  });
+
   it('sends nothing for a partial postcode, and says a full one is needed', async () => {
     const user = userEvent.setup();
     render(<FindService />);

@@ -126,6 +126,9 @@ SAFETY_CODE: Final = "safety-concern"
 REQUESTED: Final = "requested"
 NOTE_LIMIT: Final = 280
 ADVISORS: Final = (Role.ADVISOR, Role.CLINICAL, Role.LEAD)
+# The two postcode lookups below read only the local postcode file and the position of the postcode
+# typed; they hold no patient data, so Advisor v2's Find a Service uses them too (DEC-1371).
+POSTCODE_READERS: Final = (*ADVISORS, Role.ADVISOR_V2)
 NO_STORE: Final = {"Cache-Control": "no-store"}
 TASK_CODE_SYSTEM: Final = code_system_url("task-code")
 TASK_INPUT: Final = "task-input"
@@ -306,7 +309,7 @@ async def read_presence(
 @router.get("/clinical/postcodes")
 async def suggest_postcodes(
     request: Request,
-    actor: Annotated[Actor, Depends(require_role(*ADVISORS))],
+    actor: Annotated[Actor, Depends(require_role(*POSTCODE_READERS))],
 ) -> Response:
     """The postcodes an advisor may pick from as they type (DEC-1332). Answered from the local file
     only: the typed prefix never leaves the Trust. A prefix that is not a district, or a typed
@@ -321,7 +324,7 @@ async def suggest_postcodes(
 @router.get("/clinical/postcodes/locate")
 async def locate_postcode(
     request: Request,
-    actor: Annotated[Actor, Depends(require_role(*ADVISORS))],
+    actor: Annotated[Actor, Depends(require_role(*POSTCODE_READERS))],
 ) -> Response:
     """The position of the postcode the advisor typed (DEC-1340): OS Places answers for the postcode
     itself, and only the typed postcode is sent. Nothing is stored. A lookup that cannot answer says
@@ -368,6 +371,7 @@ async def service_detail(
             "status": entry.status.value,
             "unitLabel": entry.unit_label,
             "established": entry.established,
+            "used": entry.used,
             "effectiveAvailable": entry.effective_available,
             "overBy": entry.over_by,
             "lastFigure": (

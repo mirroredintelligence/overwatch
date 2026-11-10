@@ -25,3 +25,33 @@ Branch `claude/friendly-gates-0e0f54` (not merged, not pushed), built on `claude
 
 ## Addendum: guard run
 `pnpm vitest run test/guards lib/auth lib/shell proxy.test.ts`: 2310 passed, 2 failed. One was this change (`no-literals`, rule `fetch-call`: the page's fetch address must be written out in the call); fixed in the next commit. The other, `no-literals` for `lib/map/landRings.ts` line 2 (place-name, DEC-1361), is not from this change. The second failing file was not re-read after the fix; the earlier session noted `bff-routes.test.ts` times out under full-suite load. The whole-suite `vitest run` never returned output and was abandoned.
+
+## Round 2: the independent verifier's blocking design defects (branch merged with `rename-overwatch` first)
+Report: `verify-analytics-detail.md` in the verifier's worktree. Fixed in `frontend/components/analytics/*` (new `AttentionPanel`, `GroupBlocks`, `Drill`, `Pager`; `lib/analytics/useNarrow.ts`; `Analytics.module.css` rewritten). `components/lead/PressureLists.tsx` is untouched in this round (the overview no longer uses it); `components/service/*` untouched.
+
+| Verifier item | Fix |
+|---|---|
+| O5 Needs attention last | Directly under the counts (DOM and screen order: counts, attention, groups); a test checks the order |
+| O6 two cards, blue links, big badges | One panel, Under pressure beside Underutilised, each with an "N services" pill and compact rows (shape, name link, "% used" or "Unknown" pill, reason); no status badge; "Show all N" beyond five |
+| O8 groups stacked | Location groups (2fr) beside Service groups (3fr) at wide widths; the status legend (count, word, shape) and "Not placed" kept |
+| O9 header pills | "32 services" on Location groups, "8 groups" on Service groups, "N services" on both attention columns |
+| O3 count cards | Five cards: shape and word, number and "services"; order as the advisor board uses (Accepting, Limited, Over capacity, Not accepting, Not updated) |
+| O12 mobile column | At 640 px and under: tabs Locations, Attention, Groups; a list of locations or groups pages five at a time with "1–5 of 7 locations" and Previous/Next. Full page 390 px: about 1,650 px tall (the verifier measured 3,785) |
+| O14 default links | Palette ink, no underline until hover, 3 px focus ring, in Needs attention and the drill rows |
+| D1 to D4 drill-down | Heading is the area, group or status name with an "N services" pill; breadcrumb with Back; a strip of the five counts of the set; two-column card grid (one column on a phone); "1–6 of 8 services" with Previous/Next, six to a page |
+| N2 | `groups.test.ts`: a figure with `figureCurrent:false` and a number reads null (`available` and `overBy`) |
+| h1 | "Capacity overview" (the page test follows) |
+DEC-1343 kept: no places total (test), shapes plus words, no text under 14 px (measured in the browser: none, at 1280 and 390), stale never spare capacity (back end unchanged).
+
+Tests: `AnalyticsOverview.test.tsx` rewritten for the new behaviour (counts and order, block order, header pills, attention, groups, phone tabs and paging, drill heading, strip, grid links, paging, empty set, failure, axe on the wide, phone and drill views), `groups.test.ts`, `page.test.tsx`. The tests were written before the components in this round but committed with them (one commit, `b69372c1`), so there is no separate red commit for round 2; the earlier failures I saw were two faulty test assertions, fixed before the commit.
+
+Screenshots (Playwright, sample data, the BFF read answered by the test; the throwaway spec is deleted): `docs/delivery/evidence/DEC-1368-shots/`. Pairs against the design shots in `side-session-notes/local_9d2a7d81-.../design-shots/`:
+- `built-desktop-1-overview-full.png` vs `mark-desktop-1-overview.png`
+- `built-desktop-2-drill.png` vs `mark-desktop-2-area-list.png`
+- `built-mobile-1-overview-locations.png` vs `mark-mobile-1-overview.png`
+- `built-mobile-1-tab-attention.png` vs `mark-mobile-1-tab-attention.png`
+- `built-mobile-1-tab-groups.png` vs `mark-mobile-1-tab-groups.png`
+- `built-mobile-2-drill.png` (no design counterpart)
+Known differences left: the app's own shell (sidebar, role chip) instead of the design's "Command Centre" header and Capacity / Find a Service switch; no "patient places available" pills (DEC-1343); our eight category names; the design's single-screen fit is not a goal (DEC-1343). In the full-page captures the fixed bottom bar and the sticky header show mid-page: that is the capture, not the layout.
+
+Results this round: `vitest` on `components/analytics lib/analytics "app/(analytics)" app/api/bff/analytics test/guards`: 1307 passed; `tsc --noEmit` and `eslint` on the changed paths clean (after `pnpm install` for the merged map dependencies).

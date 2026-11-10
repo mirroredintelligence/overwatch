@@ -79,7 +79,7 @@ export type DrillTarget = { kind: 'district' | 'group' | 'status'; key: string }
 
 export type DrillRow = BrowseRow & { href: string };
 
-function inTarget(service: AnalyticsService, target: DrillTarget): boolean {
+export function inTarget(service: AnalyticsService, target: DrillTarget): boolean {
   if (target.kind === 'status') return service.status === target.key;
   if (target.kind === 'group') return service.category === target.key;
   return target.key === NOT_PLACED ? service.districts.length === 0 : service.districts.includes(target.key);

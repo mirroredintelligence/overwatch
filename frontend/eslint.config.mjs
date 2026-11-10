@@ -72,6 +72,8 @@ export default defineConfig([
     'playwright-report/**',
     'test-results/**',
     'next-env.d.ts',
+    // The map's own worker and fonts, copied from the packages as they are (DEC-1369): not our source.
+    'public/map/**',
   ]),
   {
     // Application source.

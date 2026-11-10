@@ -20,11 +20,12 @@ import { categoryLabel } from '@/lib/board/format';
 import styles from './ServiceDetail.module.css';
 
 // The one service detail page (DEC-1367), mounted at /analytics/services/[id] (Analytics User) and
-// /advisor/v2/services/[id] (Advisor and Advisor v2). Its order: name, group, districts and status; the capacity as
-// "n / normal", or "Current capacity unavailable" with the last figure small when it is late or old (DEC-1343); the
-// day chart, broken where the capacity was unknown; the reporting strip; the contact, what it potentially accepts and
-// excludes, and its catchment. Never a person's email or mobile, and nothing the system does not hold is invented: a
-// missing number, hours or criteria are said to be missing.
+// /advisor/v2/services/[id] (Advisor and Advisor v2). Laid out as the AQIKO Mark service detail: a breadcrumb and a back
+// control; the name, group, districts and status; the capacity ("n / normal" with the places in use, or "Current
+// capacity unavailable" with the last figure small when it is late or old, DEC-1343) beside the day chart, broken where
+// the capacity was unknown; the reporting strip; the contact (the service's own number, opening hours, catchment) beside
+// the referral criteria. Never a person's email or mobile, and nothing the system does not hold is invented: a missing
+// number, hours or criteria are said to be missing.
 
 const NO_PHONE = 'No phone number is held for this service. Find it in your service directory.';
 const NO_CRITERIA = 'Not held. Phone the service to check.';
@@ -35,10 +36,14 @@ export function ServiceDetail({
   serviceId,
   backHref,
   backLabel,
+  rootLabel,
 }: {
   serviceId: string;
   backHref: string;
+  /** The back control's name, for example "Back to the overview". */
   backLabel: string;
+  /** The first crumb, which links to `backHref`, for example "Capacity Board". */
+  rootLabel: string;
 }) {
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
 
@@ -61,11 +66,25 @@ export function ServiceDetail({
     };
   }, [serviceId]);
 
+  const area = load.kind === 'ready' ? catchmentText(load.detail.districts) : null;
+
   return (
     <div className={styles.page}>
-      <Link href={backHref} className={styles.back}>
-        {backLabel}
-      </Link>
+      <div className={styles.crumbRow}>
+        <nav aria-label="Breadcrumb">
+          <ol className={styles.crumbs}>
+            <li>
+              <Link href={backHref}>{rootLabel}</Link>
+            </li>
+            {area === null ? null : <li>{area}</li>}
+            <li aria-current="page">Service capacity</li>
+          </ol>
+        </nav>
+        <Link href={backHref} className={styles.back}>
+          <span aria-hidden="true">&larr;</span>
+          {backLabel}
+        </Link>
+      </div>
       {load.kind === 'loading' ? <p className={styles.note}>Loading the service.</p> : null}
       {load.kind === 'failed' ? <p className={styles.note}>The service could not be read.</p> : null}
       {load.kind === 'ready' ? <Ready detail={load.detail} /> : null}
@@ -96,42 +115,52 @@ function Ready({ detail }: { detail: ServiceDetailView }) {
   const over = detail.status === 'over-capacity' && detail.overBy !== null;
   const number = over ? `+${detail.overBy}` : String(detail.effectiveAvailable ?? '?');
   const acceptsLabels = [...(accepts ?? []), ...(age === null ? [] : [age])];
+  const current = !option.figureUnavailable && detail.effectiveAvailable !== null;
+  const sub = [
+    detail.category === null ? null : categoryLabel(detail.category),
+    catchment === null ? null : detail.districts.join(' · '),
+  ]
+    .filter((part) => part !== null)
+    .join(' · ');
 
   return (
     <>
       <section className={styles.head} aria-label="Service">
-        <h1 className={styles.name}>{detail.name}</h1>
-        <p className={styles.sub}>
-          {detail.category === null ? null : <span>{categoryLabel(detail.category)}</span>}
-          {catchment === null ? null : <span>{detail.districts.join(' · ')}</span>}
-          <StatusBadge status={detail.status} size="lg" />
-        </p>
+        <div className={styles.headText}>
+          <h1 className={styles.name}>{detail.name}</h1>
+          <p className={styles.sub}>{sub}</p>
+        </div>
+        <StatusBadge status={detail.status} />
       </section>
 
-      <section className={styles.panel} aria-labelledby="sd-capacity">
-        <h2 id="sd-capacity" className={styles.panelHeading}>
-          Capacity remaining
-        </h2>
-        {option.figureUnavailable || detail.effectiveAvailable === null ? (
-          <>
-            <p className={styles.unavailable}>Current capacity unavailable</p>
-            <p className={styles.small}>{lastReportedLine(option)}</p>
-            <p className={styles.small}>{`Normal capacity: ${detail.established} ${detail.unitLabel}`}</p>
-          </>
-        ) : (
-          <>
-            <p className={styles.fraction} aria-label={`${number} of ${detail.established} ${detail.unitLabel}`}>
-              <strong>{number}</strong>
-              <span>{`/ ${detail.established}`}</span>
-            </p>
-            <p className={styles.small}>
-              {over ? `${detail.unitLabel}, above normal capacity` : `${detail.unitLabel} remaining of normal capacity`}
-            </p>
-          </>
-        )}
-      </section>
-
-      <DayChart serviceId={detail.serviceId} />
+      <div className={styles.overview}>
+        <section className={styles.panel} aria-labelledby="sd-capacity">
+          <h2 id="sd-capacity" className={styles.panelHeading}>
+            Capacity remaining
+          </h2>
+          {current ? (
+            <>
+              <p className={styles.fraction} aria-label={`${number} of ${detail.established} ${detail.unitLabel}`}>
+                <strong>{number}</strong>
+                <span>{`/ ${detail.established}`}</span>
+              </p>
+              <p className={styles.small}>
+                {over ? `${detail.unitLabel}, above normal capacity` : `${detail.unitLabel} remaining of normal capacity`}
+              </p>
+              {detail.used === null ? null : <p className={styles.inUse}>{`${detail.used} ${detail.unitLabel} in use`}</p>}
+            </>
+          ) : (
+            <>
+              <p className={styles.unavailable}>Current capacity unavailable</p>
+              <p className={styles.small}>{lastReportedLine(option)}</p>
+              <p className={styles.small}>{`Normal capacity: ${detail.established} ${detail.unitLabel}`}</p>
+            </>
+          )}
+        </section>
+        <div className={styles.panel}>
+          <DayChart serviceId={detail.serviceId} />
+        </div>
+      </div>
 
       {strip === null ? null : (
         <section className={styles.panel} aria-label="Capacity reporting">
@@ -157,13 +186,13 @@ function Ready({ detail }: { detail: ServiceDetailView }) {
       )}
 
       <div className={styles.columns}>
-        <ContactPanel phone={detail.phone} hours={hours} />
-        <section className={styles.panel} aria-label="Potentially accepts">
-          <h2 className={styles.panelHeading}>Potentially accepts</h2>
+        <ContactPanel phone={detail.phone} hours={hours} catchment={catchment} />
+        <section className={styles.panel} aria-label="Referral criteria">
+          <h2 className={styles.panelHeading}>Referral criteria</h2>
+          <h3 className={styles.subHeading}>Potentially accepts</h3>
           {acceptsLabels.length === 0 ? <p className={styles.note}>{NO_CRITERIA}</p> : <Chips labels={acceptsLabels} />}
-        </section>
-        <section className={styles.panel} aria-label="Exclusions">
-          <h2 className={styles.panelHeading}>Exclusions</h2>
+          <hr className={styles.divider} />
+          <h3 className={styles.subHeading}>Example exclusions</h3>
           {excludes === null ? (
             <p className={styles.note}>{NO_CRITERIA}</p>
           ) : excludes.length === 0 ? (
@@ -171,18 +200,16 @@ function Ready({ detail }: { detail: ServiceDetailView }) {
           ) : (
             <Chips labels={excludes} />
           )}
-        </section>
-        <section className={styles.panel} aria-label="Catchment">
-          <h2 className={styles.panelHeading}>Catchment</h2>
-          <p className={styles.note}>{catchment ?? 'Not held.'}</p>
+          <p className={styles.caveat}>
+            The criteria are a guide. The receiving service confirms whether it can take the person.
+          </p>
         </section>
       </div>
-      <p className={styles.small}>The criteria are a guide. The receiving service confirms whether it can take the person.</p>
     </>
   );
 }
 
-function ContactPanel({ phone, hours }: { phone: string | null; hours: string[] }) {
+function ContactPanel({ phone, hours, catchment }: { phone: string | null; hours: string[]; catchment: string | null }) {
   const [copied, setCopied] = useState(false);
 
   async function copy(number: string) {
@@ -196,7 +223,7 @@ function ContactPanel({ phone, hours }: { phone: string | null; hours: string[] 
 
   return (
     <section className={styles.panel} aria-label="Contact">
-      <h2 className={styles.panelHeading}>Contact</h2>
+      <h2 className={styles.panelHeading}>Service and contact</h2>
       {phone === null ? (
         <p className={styles.note}>{NO_PHONE}</p>
       ) : (
@@ -212,16 +239,18 @@ function ContactPanel({ phone, hours }: { phone: string | null; hours: string[] 
           ) : null}
         </div>
       )}
-      <h3 className={styles.panelHeading}>Opening hours</h3>
-      {hours.length === 0 ? (
-        <p className={styles.note}>Not held.</p>
-      ) : (
-        <ul className={styles.lines}>
-          {hours.map((line) => (
-            <li key={line}>{line}</li>
-          ))}
-        </ul>
-      )}
+      <ul className={styles.meta} aria-label="Service details">
+        <li className={styles.metaRow}>
+          <span className={styles.metaLabel}>Opening hours</span>
+          <span className={styles.metaValue}>
+            {hours.length === 0 ? 'Not held.' : hours.map((line) => <span key={line}>{line}</span>)}
+          </span>
+        </li>
+        <li className={styles.metaRow}>
+          <span className={styles.metaLabel}>Catchment</span>
+          <span className={styles.metaValue}>{catchment ?? 'Not held.'}</span>
+        </li>
+      </ul>
     </section>
   );
 }

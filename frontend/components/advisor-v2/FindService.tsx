@@ -3,9 +3,11 @@
 import { useEffect, useState } from 'react';
 import { AGE_BANDS, NEEDS, URGENCIES, type AgeCode, type NeedCode, type UrgencyCode } from '@/lib/advisor/codes';
 import { normalisePostcode } from '@/lib/advisor/postcode';
+import { locatePostcode, type PostcodeLocation, suggestPostcodes } from '@/lib/advisor/postcodeSuggest';
 import { findServices } from '@/lib/advisor/v2/browser';
 import { groupsOf, orderServices, toOption, type FindRead, type ServiceOrder } from '@/lib/advisor/v2/find';
 import { V2_BROWSE_NOTE } from '@/lib/advisor/v2/overview';
+import { PostcodePicker } from '../advisor/PostcodePicker';
 import { PagedGrid, ServiceTile } from './parts';
 import styles from './V2.module.css';
 
@@ -26,9 +28,13 @@ const STEPS: readonly (readonly [Step, string])[] = [
 ];
 const POSTCODE_HELP = 'Enter a full postcode, for example DT4 8XX.';
 const WAIT_MS = 250;
+const POSTCODE_ID = 'v2-postcode';
+const POSTCODE_LIST_ID = 'v2-postcode-suggestions';
 
 export function FindService() {
   const [postcode, setPostcode] = useState('');
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [located, setLocated] = useState<PostcodeLocation | null>(null);
   const [age, setAge] = useState<AgeCode | null>(null);
   const [needs, setNeeds] = useState<NeedCode[]>([]);
   const [urgency, setUrgency] = useState<UrgencyCode | null>(null);
@@ -64,8 +70,19 @@ export function FindService() {
   const toggleNeed = (code: NeedCode) =>
     setNeeds((current) => (current.includes(code) ? current.filter((item) => item !== code) : [...current, code]));
 
+  // The same postcode lookup as the advisor's needs form (DEC-1332, DEC-1340): suggestions as the postcode is typed and
+  // the position of a full one. A lookup that cannot answer never blocks the search, which uses the postcode as typed.
+  function onPostcodeBlur() {
+    const normal = normalisePostcode(postcode);
+    if (normal === null) return setLocated(null);
+    setPostcode(normal);
+    void locatePostcode(normal).then(setLocated);
+  }
+
   function reset() {
     setPostcode('');
+    setSuggestions([]);
+    setLocated(null);
     setAge(null);
     setNeeds([]);
     setUrgency(null);
@@ -110,19 +127,35 @@ export function FindService() {
             </fieldset>
             <div className={`${styles.field} ${styles.fieldPostcode}`}>
               <label htmlFor="v2-postcode">Postcode</label>
-              <input
-                id="v2-postcode"
-                type="text"
-                placeholder="Enter postcode"
-                maxLength={10}
+              <PostcodePicker
+                id={POSTCODE_ID}
+                listId={POSTCODE_LIST_ID}
                 value={postcode}
-                autoComplete="off"
-                spellCheck={false}
-                aria-describedby="v2-postcode-help"
-                onChange={(event) => setPostcode(event.target.value)}
+                options={suggestions}
+                invalid={false}
+                describedBy="v2-postcode-help"
+                dataEl="ADV-V2-POSTCODE"
+                onType={(typed) => {
+                  setPostcode(typed);
+                  setLocated(null);
+                  void suggestPostcodes(typed).then(setSuggestions);
+                }}
+                onPick={(picked) => {
+                  setPostcode(picked);
+                  setSuggestions([]);
+                  setLocated(null);
+                  void locatePostcode(picked).then(setLocated);
+                }}
+                onBlur={onPostcodeBlur}
               />
-              <p id="v2-postcode-help" className={styles.help}>
-                {postcodeHelp}
+              <p id="v2-postcode-help" className={styles.help} aria-live="polite" data-el="ADV-V2-POSTCODE-LOOKUP">
+                {located === null
+                  ? postcodeHelp
+                  : located.status === 'found'
+                    ? `Found: ${located.lat.toFixed(5)}, ${located.lon.toFixed(5)} (OS Places).`
+                    : located.status === 'not-found'
+                      ? 'Not found. Check the postcode.'
+                      : 'The postcode lookup is unavailable. The search still uses the postcode as typed.'}
               </p>
             </div>
             <fieldset className={`${styles.field} ${styles.fieldNeed}`}>

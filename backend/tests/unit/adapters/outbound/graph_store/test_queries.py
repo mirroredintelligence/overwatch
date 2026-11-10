@@ -434,7 +434,9 @@ def test_every_statement_in_the_source_is_in_the_registry(loaded: QueryRegistry)
     assert found, "the scan found no statement ids: it is not looking at the source"
     assert found - known == set(), sorted(found - known)
     assert len(loaded.ids()) >= 100
-    assert len(loaded.template_ids()) == 16  # 17 less the dead idempotency pair, plus LINK-SHARED
+    assert (
+        len(loaded.template_ids()) == 17
+    )  # 17 less the dead idempotency pair, plus LINK-SHARED and LOAD-MANY
 
 
 def test_every_registered_statement_is_tenant_scoped_with_a_scenario_or_global(

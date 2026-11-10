@@ -15,6 +15,7 @@ Read-only, in the bound tenant. A service of another tenant, an inactive one, an
 NotFound. A role that is not a reader is NotAllowed (the route answers it as a 404).
 """
 
+import re
 from dataclasses import dataclass
 from datetime import time
 from typing import Final
@@ -29,6 +30,19 @@ from overwatch.domain.errors import NotAllowed, NotFound
 READERS: Final = frozenset({Role.ADVISOR, Role.ADVISOR_V2, Role.ANALYTICS_USER})
 """Who reads a service's detail, and (DEC-1367) the day chart of the same page. The shift lead and
 the clinical advisor have their own pages and are not named here."""
+
+
+_UK_MOBILE: Final = re.compile(r"^07\d{9}$")
+
+
+def is_personal_looking_mobile(number: str) -> bool:
+    """A UK mobile number (07..., or +44 7... / 44 7...). The service contact is a role or
+    switchboard number, never a person's mobile (DEC-1100 Q5), so a number of this shape is not
+    shown as one (DEC-1367). Spaces, brackets and dashes do not hide it."""
+    digits = re.sub(r"\D", "", number)
+    if digits.startswith("44"):
+        digits = "0" + digits[2:]
+    return _UK_MOBILE.fullmatch(digits) is not None
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,8 +86,9 @@ class ReadServiceDetail:
             profile = await uow.services.get(service_id)
             if profile is None:
                 raise NotFound("no service with this id")
-            phone = await uow.services.work_phone(service_id)
+            held_phone = await uow.services.work_phone(service_id)
             criteria = await uow.criteria.current_for_service(service_id)
+        phone = None if held_phone is None or is_personal_looking_mobile(held_phone) else held_phone
         windows = tuple(
             OpeningWindow(tuple(sorted(window.days)), window.all_day, window.start, window.end)
             for window in profile.available_times

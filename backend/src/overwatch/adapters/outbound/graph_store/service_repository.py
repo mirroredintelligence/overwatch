@@ -52,6 +52,16 @@ _LIST_ACTIVE: Final = NamedQuery(
 )
 
 
+def _work_phone_of(resource: dict[str, Any]) -> str | None:
+    telecom = resource.get("telecom")
+    for point in telecom if isinstance(telecom, list) else []:
+        if isinstance(point, dict) and point.get("system") == "phone":
+            value = point.get("value")
+            if isinstance(value, str) and value.strip():
+                return value
+    return None
+
+
 def _register(query: NamedQuery) -> None:
     if query.id not in REGISTRY.ids():
         REGISTRY.register(query)
@@ -223,32 +233,25 @@ class Neo4jServiceRepository:
 
     async def work_phone(self, service_id: str) -> str | None:
         resource = await self._store.get(_RESOURCE_TYPE, service_id)
-        if resource is None:
-            return None
-        telecom = resource.get("telecom")
-        for point in telecom if isinstance(telecom, list) else []:
-            if isinstance(point, dict) and point.get("system") == "phone":
-                value = point.get("value")
-                if isinstance(value, str) and value.strip():
-                    return value
-        return None
+        return None if resource is None else _work_phone_of(resource)
 
     async def work_phones(self, service_ids: Sequence[str]) -> dict[str, str]:
+        stored = await self._store.get_many(_RESOURCE_TYPE, list(service_ids))
         found: dict[str, str] = {}
         for service_id in service_ids:
-            phone = await self.work_phone(service_id)
+            resource = stored.get(service_id)
+            phone = None if resource is None else _work_phone_of(resource)
             if phone is not None:
                 found[service_id] = phone
         return found
 
     async def list_active(self) -> list[ServiceProfile]:
         rows = await run_query(self._tx, REGISTRY.get("Q-SVC-LIST-ACTIVE"))
-        profiles: list[ServiceProfile] = []
-        for row in rows:
-            profile = await self.get(str(row["id"]))
-            if profile is not None:
-                profiles.append(profile)
-        return profiles
+        # One statement for every service, not three for each (a list of fourteen was forty-two).
+        stored = await self._store.get_many(_RESOURCE_TYPE, [str(row["id"]) for row in rows])
+        return [
+            profile_from_fhir(stored[str(row["id"])]) for row in rows if str(row["id"]) in stored
+        ]
 
     async def set_active(self, service_id: str) -> None:
         """Flip the three activation flags on the stored resources, one new version each. The rest

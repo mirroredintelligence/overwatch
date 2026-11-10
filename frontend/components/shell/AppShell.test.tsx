@@ -32,6 +32,7 @@ describe('AppShell', () => {
       'Phones and services',
       'Set-up progress',
       'Registrations',
+      'Missed replies',
       'Audit replay',
     ]);
     expect(screen.getByRole('link', { name: 'Help' })).toHaveAttribute('href', '/help');

@@ -16,6 +16,11 @@ POST   /admin/report-flags/{id}/$resolve              lead; Idempotency-Key; Par
                                                       (checked, accepted or phoned), phoned
                                                       (ResolveReportFlag, U39). A suspension is made
                                                       with $suspend, not here
+GET    /admin/failed-replies                          lead; texts the webhook could not take in
+                                                      (ListFailedReplies, DEC-1359)
+POST   /admin/failed-replies/{sid}/$handled           lead; Idempotency-Key (MarkFailedReplyHandled)
+POST   /admin/failed-replies/{sid}/$reprocess         lead; Idempotency-Key; queue it now
+                                                      (ReprocessFailedReply)
 POST   /identity/sign-out-everywhere                  reporter (self) or lead; Idempotency-Key
                                                       (SignOutEverywhere, U37)
 POST   /fhir/Practitioner/{id}/$confirm-new-phone     lead; Idempotency-Key (ConfirmNewPhone, U37)
@@ -70,6 +75,12 @@ from overwatch.application.use_cases.audit_replay import (
     ExportAuditReplay,
     GetAuditReplay,
     GetAuditReplayCommand,
+)
+from overwatch.application.use_cases.failed_replies import (
+    FailedReplyCommand,
+    ListFailedReplies,
+    MarkFailedReplyHandled,
+    ReprocessFailedReply,
 )
 from overwatch.application.use_cases.invite_reporter import MOBILE_MESSAGE
 from overwatch.application.use_cases.move_service import StartServiceMove, StartServiceMoveCommand
@@ -421,6 +432,71 @@ async def confirm_new_phone(
         return FhirJSONResponse(content={"confirmed": result.confirmed}, headers=NO_STORE)
 
     return await replay_or_run(request, actor, f"confirm-phone:{practitioner_id}:{key}", run)
+
+
+# --------------------------------------------------------------------- failed replies (DEC-1359)
+
+
+@router.get("/admin/failed-replies")
+async def read_failed_replies(
+    request: Request,
+    actor: Annotated[Actor, Depends(require_role(*LEAD))],
+) -> Response:
+    views = await ListFailedReplies(_container(request).uow_factory).execute(actor)
+    return FhirJSONResponse(
+        content={
+            "replies": [
+                {
+                    "sid": view.sid,
+                    "receivedAt": format_instant(view.received_at),
+                    "step": view.step.value,
+                    "text": view.text,
+                    "senderName": view.sender_name,
+                }
+                for view in views
+            ]
+        },
+        headers=NO_STORE,
+    )
+
+
+@router.post("/admin/failed-replies/{sid}/$handled")
+async def mark_failed_reply_handled(
+    sid: str,
+    request: Request,
+    actor: Annotated[Actor, Depends(require_role(*LEAD))],
+) -> Response:
+    key = idempotency_key(request)
+    container = _container(request)
+
+    async def run() -> Response:
+        resolution = await MarkFailedReplyHandled(container.uow_factory, container.clock).execute(
+            FailedReplyCommand(idempotency_key=key, actor=actor, sid=sid)
+        )
+        return FhirJSONResponse(content={"resolution": resolution.value}, headers=NO_STORE)
+
+    return await replay_or_run(request, actor, f"failed-reply-handled:{sid}:{key}", run)
+
+
+@router.post("/admin/failed-replies/{sid}/$reprocess")
+async def reprocess_failed_reply(
+    sid: str,
+    request: Request,
+    actor: Annotated[Actor, Depends(require_role(*LEAD))],
+) -> Response:
+    key = idempotency_key(request)
+    container = _container(request)
+    deps = getattr(request.app.state, "sms_webhook", None)
+    if deps is None:
+        raise RuntimeError("the SMS webhook is not configured")
+
+    async def run() -> Response:
+        resolution = await ReprocessFailedReply(
+            container.uow_factory, container.clock, deps.event_bus
+        ).execute(FailedReplyCommand(idempotency_key=key, actor=actor, sid=sid))
+        return FhirJSONResponse(content={"resolution": resolution.value}, headers=NO_STORE)
+
+    return await replay_or_run(request, actor, f"failed-reply-reprocess:{sid}:{key}", run)
 
 
 # --------------------------------------------------------------------- the report flags (U39)

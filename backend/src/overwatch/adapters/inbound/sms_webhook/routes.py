@@ -60,6 +60,7 @@ from overwatch.application.ports.outbound.tokens import SecretStore
 from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from overwatch.application.tenancy import ScopeId, ScopeInvalid, bind_tenant, current_tenant
 from overwatch.domain.errors import Conflict, NotFound, ValidationFailed
+from overwatch.domain.model.inbound_reply import FailedStep, InboundReplyFailure, capped_text
 
 log = logging.getLogger(__name__)
 
@@ -300,8 +301,8 @@ async def _accept_reply(
         person = await _attempt("find-sender", sid, find_person)
     except Conflict:
         return _dropped("sender-ambiguous", sid)
-    except Exception:
-        return _lost("find-sender", sid)
+    except Exception as error:
+        return await _lost(container, "find-sender", sid, error, text, phone_hash)
     if person is None:
         return _dropped("sender-unknown", sid)
     key = replay_key(sid)
@@ -309,8 +310,8 @@ async def _accept_reply(
         fresh = await _attempt(
             "replay-marker", sid, lambda: deps.cache.set_if_absent(key, "1", REPLAY_TTL)
         )
-    except Exception:
-        return _lost("replay-marker", sid)
+    except Exception as error:
+        return await _lost(container, "replay-marker", sid, error, text, phone_hash)
     if not fresh:
         return _dropped("replay", sid)
     message = BusMessage(
@@ -327,10 +328,10 @@ async def _accept_reply(
     )
     try:
         await _attempt("enqueue", sid, lambda: deps.event_bus.enqueue(REPLIES_QUEUE, message))
-    except Exception:
+    except Exception as error:
         # Not queued, so the sender's second try must not look like a replay.
         await _release(deps.cache, key)
-        return _lost("enqueue", sid)
+        return await _lost(container, "enqueue", sid, error, text, phone_hash)
     except BaseException:
         await _release(deps.cache, key)
         raise
@@ -338,10 +339,40 @@ async def _accept_reply(
     return _twiml()
 
 
-def _lost(step: str, sid: str) -> Response:
+async def _record_lost(
+    container: _Container, step: str, sid: str, error: Exception, text: str, phone_hash: str
+) -> None:
+    """Keep the lost reply for the shift lead (DEC-1359): the message id, the step, the class of
+    the error, what the sender wrote (cut) and the phone hash, never the number. Best effort in a
+    unit of work of its own, tried again like the other calls; it never raises, because the sender
+    must still be answered."""
+    try:
+        failure = InboundReplyFailure(
+            sid=sid,
+            received_at=container.clock.now().astimezone(UTC),
+            step=FailedStep(step),
+            error_type=type(error).__name__[:80],
+            text=capped_text(text),
+            phone_hash=phone_hash,
+        )
+
+        async def write() -> None:
+            async with container.uow_factory() as uow:
+                await uow.inbound_replies.add(failure)
+                await uow.commit()
+
+        await _attempt("record-lost", sid, write)
+    except Exception:
+        log.error("sms reply lost and not recorded: step=%s message_sid=%s", step, sid)
+
+
+async def _lost(
+    container: _Container, step: str, sid: str, error: Exception, text: str, phone_hash: str
+) -> Response:
     """The reply could not be taken in after every attempt. Said loudly in the log, and the sender
     is told to send it again, because Twilio will not call again."""
     log.error("sms reply lost: step=%s message_sid=%s", step, sid)
+    await _record_lost(container, step, sid, error, text, phone_hash)
     return _try_again()
 
 

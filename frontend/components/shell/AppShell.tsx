@@ -30,6 +30,7 @@ const ICONS: Readonly<Record<string, IconName>> = {
   '/lead/phones': 'phone',
   '/lead/reporters': 'checklist',
   '/lead/registrations': 'userPlus',
+  '/lead/replies': 'inbox',
   '/lead/audit': 'history',
   '/planning': 'home',
   '/planning/services': 'list',

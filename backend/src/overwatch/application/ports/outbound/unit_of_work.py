@@ -28,6 +28,7 @@ from overwatch.application.ports.outbound.event_bus import ScheduledWorkReposito
 from overwatch.application.ports.outbound.geo import ServicePositions
 from overwatch.application.ports.outbound.idempotency import ProcessedMessages
 from overwatch.application.ports.outbound.identity import ContactStore, DeviceRegistry, PinStore
+from overwatch.application.ports.outbound.inbound_replies import InboundReplyFailures
 from overwatch.application.ports.outbound.insight import InsightRepository
 from overwatch.application.ports.outbound.messaging import (
     CommunicationRepository,
@@ -97,6 +98,7 @@ class UnitOfWork(Protocol):
     tenant_config: TenantConfigRepository
     admin_consents: AdminConsentRepository
     visits: VisitRepository
+    inbound_replies: InboundReplyFailures
 
     @property
     def read_only(self) -> bool:

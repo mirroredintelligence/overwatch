@@ -33,6 +33,7 @@ const NAV: Readonly<Partial<Record<Role, readonly NavItem[]>>> = {
     { label: 'Phones and services', href: '/lead/phones' },
     { label: 'Set-up progress', href: '/lead/reporters' },
     { label: 'Registrations', href: '/lead/registrations' },
+    { label: 'Missed replies', href: '/lead/replies' },
     { label: 'Audit replay', href: '/lead/audit' },
   ],
   exec: [

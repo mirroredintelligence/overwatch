@@ -26,6 +26,7 @@ from overwatch.application.ports.outbound.identity import PHONE_HASH_SECRET
 from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from overwatch.bootstrap.container import Container, build_for_tests
 from overwatch.domain.codes import Role
+from overwatch.domain.model.inbound_reply import FailedStep, InboundReplyFailure
 from tests.support.api import R01_TEST_NOW, token_headers
 from tests.support.ladder_rig import virtual_ward
 from tests.support.neo4j import ThrowawayNeo4j
@@ -155,6 +156,57 @@ async def test_the_open_flag_list_is_a_bundle_and_empty_for_a_new_tenant(
     assert response.status_code == 200, response.text
     assert response.json()["resourceType"] == "Bundle"
     assert response.json()["total"] == 0
+
+
+async def test_the_lead_lists_a_reply_the_webhook_lost_and_marks_it_handled(
+    api_client: AsyncClient,
+    admin_world: None,
+    uow_factory_a: UnitOfWorkFactory,
+    tenant_id: str,
+) -> None:
+    sid = "SM" + "7" * 32
+    async with uow_factory_a() as uow:
+        await uow.inbound_replies.add(
+            InboundReplyFailure(
+                sid=sid,
+                received_at=R01_TEST_NOW,
+                step=FailedStep.ENQUEUE,
+                error_type="ConnectionError",
+                text="Y",
+                phone_hash="a" * 64,
+            )
+        )
+        await uow.commit()
+    lead = token_headers(tenant_id, Role.LEAD, sub=LEAD)
+
+    listed = await api_client.get("/admin/failed-replies", headers=lead)
+    assert listed.status_code == 200, listed.text
+    [reply] = listed.json()["replies"]
+    assert (reply["sid"], reply["step"], reply["text"], reply["senderName"]) == (
+        sid,
+        "enqueue",
+        "Y",
+        None,
+    )
+    assert "a" * 64 not in listed.text  # the hash never leaves the back end
+
+    done = await api_client.post(
+        f"/admin/failed-replies/{sid}/$handled",
+        content=b"",
+        headers={"Idempotency-Key": "handled-0001", "Content-Type": "application/json", **lead},
+    )
+    assert done.status_code == 200, done.text
+    assert done.json() == {"resolution": "handled"}
+    assert (await api_client.get("/admin/failed-replies", headers=lead)).json() == {"replies": []}
+
+
+async def test_an_advisor_cannot_read_the_lost_replies(
+    api_client: AsyncClient, admin_world: None, tenant_id: str
+) -> None:
+    response = await api_client.get(
+        "/admin/failed-replies", headers=token_headers(tenant_id, Role.ADVISOR)
+    )
+    assert response.status_code == 404
 
 
 async def test_an_audit_replay_of_an_unknown_case_is_not_found_for_the_auditor(

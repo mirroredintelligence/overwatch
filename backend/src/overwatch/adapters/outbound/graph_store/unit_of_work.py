@@ -58,6 +58,9 @@ from overwatch.adapters.outbound.graph_store.idempotency_store import (
     Neo4jIdempotencyStore,
     Neo4jProcessedMessages,
 )
+from overwatch.adapters.outbound.graph_store.inbound_reply_repository import (
+    Neo4jInboundReplyFailures,
+)
 from overwatch.adapters.outbound.graph_store.insight_repository import Neo4jInsightRepository
 from overwatch.adapters.outbound.graph_store.link_token_repository import Neo4jLinkTokenRepository
 from overwatch.adapters.outbound.graph_store.network_sample_repository import (
@@ -106,6 +109,7 @@ from overwatch.application.ports.outbound.event_bus import ScheduledWorkReposito
 from overwatch.application.ports.outbound.geo import ServicePositions
 from overwatch.application.ports.outbound.idempotency import ProcessedMessages
 from overwatch.application.ports.outbound.identity import ContactStore, DeviceRegistry, PinStore
+from overwatch.application.ports.outbound.inbound_replies import InboundReplyFailures
 from overwatch.application.ports.outbound.insight import InsightRepository
 from overwatch.application.ports.outbound.messaging import (
     CommunicationRepository,
@@ -183,6 +187,7 @@ DEFAULT_FACTORIES: dict[str, RepositoryFactory] = {
     "tenant_config": lambda tx, store: Neo4jTenantConfigRepository(tx),
     "admin_consents": lambda tx, store: Neo4jAdminConsentRepository(tx),
     "visits": lambda tx, store: Neo4jVisitRepository(tx),
+    "inbound_replies": lambda tx, store: Neo4jInboundReplyFailures(tx),
     # The network scope's writer and reader (TEN-053). They sit in the same mapping because a unit
     # of work is the same class in either kind of scope; their statements are network-only, so a
     # tenant unit that reaches for one is refused by `run_query` (`ScopeKindMismatch`).
@@ -260,6 +265,7 @@ class Neo4jUnitOfWork:
     tenant_config: TenantConfigRepository
     admin_consents: AdminConsentRepository
     visits: VisitRepository
+    inbound_replies: InboundReplyFailures
     projections: ProjectionWriter
     network_view: NetworkView
     network_samples: NetworkSamples

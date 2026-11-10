@@ -41,6 +41,9 @@ REMOVE = "/fhir/PractitionerRole/role-1/$remove"
 MOVE = "/fhir/HealthcareService/svc-1/$move"
 FLAGS = "/admin/report-flags"
 RESOLVE = "/admin/report-flags/flag-1/$resolve"
+FAILED_REPLIES = "/admin/failed-replies"
+HANDLED = "/admin/failed-replies/SM1/$handled"
+REPROCESS = "/admin/failed-replies/SM1/$reprocess"
 SIGN_OUT = "/identity/sign-out-everywhere"
 CONFIRM_PHONE = "/fhir/Practitioner/prac-1/$confirm-new-phone"
 AUDIT = "/admin/audit/SC-0192"
@@ -119,6 +122,8 @@ _KEYED: list[tuple[str, str, Any, frozenset[Role]]] = [
         LEAD_ONLY,
     ),
     ("POST", RESOLVE, _parameters(("outcome", {"valueCode": "checked"})), LEAD_ONLY),
+    ("POST", HANDLED, None, LEAD_ONLY),
+    ("POST", REPROCESS, None, LEAD_ONLY),
     ("POST", SIGN_OUT, None, frozenset({Role.REPORTER, Role.LEAD})),
     ("POST", CONFIRM_PHONE, None, LEAD_ONLY),
 ]
@@ -145,6 +150,18 @@ async def test_the_report_flag_list_is_for_the_lead_only() -> None:
     async with _client() as client:
         for role in Role:
             response = await client.get(f"{FLAGS}?status=open", headers=_bearer(role))
+            if role is Role.LEAD:
+                assert response.status_code != 404, role
+            elif role in EDGE_REFUSED:
+                assert response.status_code == 401, role
+            else:
+                assert response.status_code == 404, role
+
+
+async def test_the_failed_reply_list_is_for_the_lead_only() -> None:
+    async with _client() as client:
+        for role in Role:
+            response = await client.get(FAILED_REPLIES, headers=_bearer(role))
             if role is Role.LEAD:
                 assert response.status_code != 404, role
             elif role in EDGE_REFUSED:

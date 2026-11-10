@@ -57,11 +57,13 @@ class _Flaky:
 
 
 class _Rig:
-    def __init__(self, *, lookup: int = 0, cache: int = 0, bus: int = 0) -> None:
+    def __init__(self, *, lookup: int = 0, cache: int = 0, bus: int = 0, record: int = 0) -> None:
         clock = FixedClock(datetime(2026, 11, 10, 10, 1, tzinfo=UTC))
         self.lookup = _Flaky(lookup)
         self.cache_faults = _Flaky(cache)
         self.bus_faults = _Flaky(bus)
+        self.record_faults = _Flaky(record)
+        self.recorded: list[Any] = []
         secrets = FixedSecretStore(
             {PHONE_HASH_SECRET: b"unit-test-phone-hash-key", twilio_token_ref(SAMPLE_ID): OWN_TOKEN}
         )
@@ -83,6 +85,16 @@ class _Rig:
 
         self.bus.enqueue = enqueue  # type: ignore[method-assign]
         lookup_faults = self.lookup
+        record_faults = self.record_faults
+        recorded = self.recorded
+
+        async def add(failure: Any) -> bool:
+            record_faults.maybe_fail()
+            recorded.append(failure)
+            return True
+
+        async def commit_it() -> None:
+            return None
 
         async def find(phone_hash: str) -> object:
             lookup_faults.maybe_fail()
@@ -90,6 +102,8 @@ class _Rig:
 
         class Unit:
             people = SimpleNamespace(find_by_phone_hash=find)
+            inbound_replies = SimpleNamespace(add=add)
+            commit = staticmethod(commit_it)
 
             async def __aenter__(self) -> Unit:
                 return self
@@ -157,7 +171,11 @@ async def test_a_service_that_fails_every_time_tells_the_sender_to_try_again_and
     assert rig.bus.enqueued_to("inbound.replies") == []
     lost = [r for r in caplog.records if "sms reply lost" in r.getMessage()]
     assert len(lost) == 1 and SID in lost[0].getMessage()
-    failed = [r for r in caplog.records if "sms reply step failed" in r.getMessage()]
+    failed = [
+        r
+        for r in caplog.records
+        if "sms reply step failed" in r.getMessage() and "record-lost" not in r.getMessage()
+    ]
     assert len(failed) == routes.ATTEMPTS
     assert all(r.exc_info is not None for r in failed)  # the traceback names the service
 
@@ -188,3 +206,46 @@ async def test_an_unhandled_error_is_logged_with_its_place_and_never_its_text(
 
     assert "deep" in place and "test_reply_retries.py" in place
     assert "secret-host-name" not in place and "patient" not in place
+
+
+@pytest.mark.parametrize(
+    ("which", "step"), [("lookup", "find-sender"), ("cache", "replay-marker"), ("bus", "enqueue")]
+)
+async def test_a_lost_reply_is_kept_for_the_lead_without_the_number(which: str, step: str) -> None:
+    rig = _Rig(**{which: 99})
+
+    await rig.reply()
+
+    [failure] = rig.recorded
+    assert (failure.sid, failure.step.value, failure.text) == (SID, step, "Y")
+    assert failure.error_type == "ConnectionError"
+    assert "+4477" not in repr(failure) and len(failure.phone_hash) == 64
+
+
+async def test_a_reply_that_is_taken_in_is_not_recorded() -> None:
+    rig = _Rig(bus=1)
+
+    await rig.reply()
+
+    assert rig.recorded == []
+
+
+async def test_a_recorder_that_fails_once_still_keeps_the_reply() -> None:
+    rig = _Rig(bus=99, record=1)
+
+    response = await rig.reply()
+
+    assert b"send it again" in response.content and len(rig.recorded) == 1
+
+
+async def test_a_recorder_that_always_fails_still_answers_and_says_it_was_not_recorded(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    rig = _Rig(bus=99, record=99)
+
+    with caplog.at_level(logging.INFO):
+        response = await rig.reply()
+
+    assert response.status_code == 200 and b"send it again" in response.content
+    assert rig.recorded == []
+    assert any("sms reply lost and not recorded" in r.getMessage() for r in caplog.records)

@@ -203,7 +203,7 @@ PINNED_MIGRATION_IDS = [
     # the hourly sample of a network board (block 0185 to 0189, TEN-082)
     "0185_network_samples",
     # the platform's own records, the insight tallies, the visit offers and the admin consent
-    # invites (blocks 0190 to 0202): new labels and keys that replace nothing
+    # invites and failed replies (blocks 0190 to 0203): new labels and keys that replace nothing
     "0190_platform_records",
     "0191_staff_registry",
     "0192_postcode_points",
@@ -213,6 +213,7 @@ PINNED_MIGRATION_IDS = [
     "0200_visit_offer_id",
     "0201_visit_settings_practitioner",
     "0202_admin_consent_invites",
+    "0203_inbound_reply_failures",
 ]
 
 

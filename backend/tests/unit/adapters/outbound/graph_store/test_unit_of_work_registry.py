@@ -68,6 +68,7 @@ REQUIRED_NAMES = {
     "tenant_config",
     "admin_consents",  # DEC-1316: the admin consent invites
     "visits",  # DEC-1309: the visit offers and the practitioner's visit settings
+    "inbound_replies",  # DEC-1359: the replies the webhook could not take in
     # The network scope's two repositories (TEN-053): on the unit, not on the tenant port.
     "projections",
     "network_view",

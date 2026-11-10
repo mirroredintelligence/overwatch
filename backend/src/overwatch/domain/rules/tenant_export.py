@@ -117,6 +117,7 @@ EXCLUDED_LABELS: Final = frozenset(
         "OutboxMessage",
         "ScheduledWork",
         "ProviderReceipt",  # a delivery receipt parked until its send is recorded: bookkeeping
+        "InboundReplyFailure",  # a text reply the webhook could not take in: bookkeeping
     }
 )
 

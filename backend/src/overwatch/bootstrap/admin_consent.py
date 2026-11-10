@@ -9,6 +9,7 @@ admin-consent route fails closed with a 500.
 import dataclasses
 import logging
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -85,7 +86,13 @@ def install_admin_consent(
     )
     check = installation or GraphAppInstallationCheck(http, container.secrets, links.client_id)
     clock = container.clock
-    directory = groups or GraphEntraGroups(http, container.secrets, links.client_id)
+    site = urlsplit(links.redirect_uri)
+    directory = groups or GraphEntraGroups(
+        http,
+        container.secrets,
+        links.client_id,
+        site_url=f"{site.scheme}://{site.netloc}" if site.scheme and site.netloc else None,
+    )
     app.state.platform_services = dataclasses.replace(
         app.state.platform_services,
         consent_invite=InviteAdminConsent(

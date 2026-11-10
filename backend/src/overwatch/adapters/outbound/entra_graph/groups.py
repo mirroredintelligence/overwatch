@@ -103,7 +103,11 @@ class GraphEntraGroups:
         *,
         clock: Any = time.monotonic,
         sleep: Any = asyncio.sleep,
+        site_url: str | None = None,
     ) -> None:
+        # The site's own address (scheme and host). With it, an invited guest who accepts lands on
+        # the organisation's own sign-in link and is signed in; without it, on their apps page.
+        self._site_url = None if site_url is None else site_url.rstrip("/")
         self._http = http
         self._sleep = sleep
         self._secrets = secrets
@@ -228,7 +232,7 @@ class GraphEntraGroups:
             f"{GRAPH}/invitations",
             json={
                 "invitedUserEmailAddress": address,
-                "inviteRedirectUrl": INVITE_REDIRECT,
+                "inviteRedirectUrl": self._invite_redirect(directory_id),
                 "sendInvitationMessage": True,
             },
         )
@@ -244,6 +248,11 @@ class GraphEntraGroups:
         if type(user_id) is not str:
             raise GraphUnavailable("the directory answered with an unexpected body")
         return _guid(user_id)
+
+    def _invite_redirect(self, directory_id: str) -> str:
+        if self._site_url is None:
+            return INVITE_REDIRECT
+        return f"{self._site_url}/api/bff/auth/entra/start?org={_guid(directory_id)}"
 
     async def search_users(self, directory_id: str, term: str) -> tuple[DirectoryMember, ...]:
         if _SEARCH_TERM.fullmatch(term) is None:

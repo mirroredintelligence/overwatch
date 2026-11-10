@@ -1,26 +1,32 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { UnderPressureList, UnderutilisedList } from '@/components/lead/PressureLists';
 import { Loading, Skeleton } from '@/components/ui/Skeleton';
-import { ShapeIcon, STATUS_LABELS, STATUS_SHAPES, StatusBadge, type StatusCode } from '@/components/ui/StatusBadge';
+import { ShapeIcon, STATUS_LABELS, STATUS_SHAPES, type StatusCode } from '@/components/ui/StatusBadge';
 import { BROWSE_STATUSES } from '@/lib/advisor/servicesBrowse';
-import { categoryGroups, districtGroups, drillRows, type DrillTarget, type Group } from '@/lib/analytics/groups';
+import { categoryGroups, districtGroups, type DrillTarget } from '@/lib/analytics/groups';
 import { parseAnalyticsOverview } from '@/lib/analytics/parse';
 import type { AnalyticsOverview as Overview } from '@/lib/analytics/types';
-import { categoryLabel } from '@/lib/board/format';
-import { StatusBar } from './StatusBar';
+import { useNarrow } from '@/lib/analytics/useNarrow';
+import { AttentionPanel } from './AttentionPanel';
+import { Drill, drillTitle } from './Drill';
+import { LocationGroups, ServiceGroups } from './GroupBlocks';
+import { plural } from './Pager';
 import styles from './Analytics.module.css';
 
-// The Analytics User's overview (DEC-1368), after the owner's Mark design (DEC-1343): the five status counts, a card
-// per district, a card per service group, what needs attention, and a drill-down to a list of services. It is figures
-// only: no total of places available, no patient, no case. A service that covers several districts is counted in each
-// of them; one that covers none is under "Not placed". Lists are by name, never ranked by status.
+// The Analytics User's overview (DEC-1368), after the owner's Mark design (DEC-1343): the five status counts, Needs
+// attention directly under them, Location groups beside Service groups, and a drill-down to a list of services. On a
+// phone the last three are tabs (Locations, Attention, Groups) with a short paged list. It is figures only: no total of
+// places available, no patient, no case. Status is a shape and a word, never colour alone. Lists are by name.
 
 type State = { kind: 'loading' } | { kind: 'ready'; overview: Overview; now: number } | { kind: 'failed' };
+type Tab = 'locations' | 'attention' | 'groups';
 
-const serviceHref = (serviceId: string) => `/analytics/services/${encodeURIComponent(serviceId)}`;
+const TABS: { key: Tab; label: string }[] = [
+  { key: 'locations', label: 'Locations' },
+  { key: 'attention', label: 'Attention' },
+  { key: 'groups', label: 'Groups' },
+];
 
 function countOf(overview: Overview, status: StatusCode): number {
   const { counts } = overview;
@@ -34,83 +40,11 @@ function countOf(overview: Overview, status: StatusCode): number {
   return by[status] ?? 0;
 }
 
-function targetWords(target: DrillTarget, overview: Overview): string {
-  if (target.kind === 'status') return STATUS_LABELS[target.key as StatusCode];
-  if (target.kind === 'group') return categoryLabel(target.key);
-  const found = districtGroups(overview.services).find((group) => group.key === target.key);
-  return found?.label ?? target.key;
-}
-
-function GroupCards({ groups, kind, heading, onOpen, id }: { groups: Group[]; kind: DrillTarget['kind']; heading: string; onOpen: (target: DrillTarget) => void; id: string }) {
-  return (
-    <section aria-labelledby={`${id}-heading`} data-el={id === 'an-locations' ? 'AN-LOCATIONS' : 'AN-GROUPS'} className={styles.section}>
-      <h2 id={`${id}-heading`} className={styles.sectionHeading}>
-        {heading}
-      </h2>
-      <ul className={styles.cards}>
-        {groups.map((group) => (
-          <li key={group.key}>
-            <button type="button" className={styles.card} onClick={() => onOpen({ kind, key: group.key })} disabled={group.services.length === 0}>
-              <h3 className={styles.cardName}>{group.label}</h3>
-              <p className={styles.cardTotal}>{`${group.services.length} ${group.services.length === 1 ? 'service' : 'services'}`}</p>
-              <StatusBar counts={group.counts} />
-            </button>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-function Drill({ overview, target, now, onBack }: { overview: Overview; target: DrillTarget; now: number; onBack: () => void }) {
-  const rows = drillRows(overview.services, target, now);
-  const kindWord = target.kind === 'district' ? 'Location' : target.kind === 'group' ? 'Service group' : 'Status';
-  return (
-    <div className={styles.page}>
-      <nav aria-label="Breadcrumb" className={styles.crumbs}>
-        <button type="button" className={styles.back} onClick={onBack}>
-          Back
-        </button>
-        <ol className={styles.trail}>
-          <li>Overview</li>
-          <li aria-current="page">{`${kindWord}: ${targetWords(target, overview)}`}</li>
-        </ol>
-      </nav>
-      <p className={styles.note} role="status">{`${rows.length} ${rows.length === 1 ? 'service' : 'services'}. Listed by name, not ranked.${target.kind === 'district' ? ' A service that covers several districts is listed in each.' : ''}`}</p>
-      {rows.length === 0 ? (
-        <p className={styles.note}>No service here.</p>
-      ) : (
-        <ul className={styles.rows} data-el="AN-DRILL-LIST">
-          {rows.map((row) => (
-            <li key={row.serviceId} className={styles.row}>
-              <div className={styles.rowText}>
-                <h3 className={styles.rowName}>
-                  <Link href={row.href}>{row.name}</Link>
-                </h3>
-                <p className={styles.caption}>{`${categoryLabel(row.category)} · ${row.updated}`}</p>
-                <StatusBadge status={row.status} />
-              </div>
-              <div className={styles.figure}>
-                {row.figure === null ? (
-                  <p className={styles.unavailable}>Current capacity unavailable</p>
-                ) : (
-                  <>
-                    <p className={styles.number}>{row.figure}</p>
-                    <p className={styles.unit}>{row.unitLabel}</p>
-                  </>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
 export function AnalyticsOverview() {
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [target, setTarget] = useState<DrillTarget | null>(null);
+  const [tab, setTab] = useState<Tab>('locations');
+  const narrow = useNarrow();
 
   useEffect(() => {
     const controller = new AbortController();
@@ -139,41 +73,70 @@ export function AnalyticsOverview() {
   }
 
   const { overview, now } = state;
-  if (target !== null) return <Drill overview={overview} target={target} now={now} onBack={() => setTarget(null)} />;
+  const locations = districtGroups(overview.services);
+  if (target !== null) {
+    const title = drillTitle(target, (key) => locations.find((group) => group.key === key)?.label ?? key);
+    return <Drill key={`${target.kind}:${target.key}`} overview={overview} target={target} now={now} title={title} onBack={() => setTarget(null)} />;
+  }
+
+  const showLocations = !narrow || tab === 'locations';
+  const showAttention = !narrow || tab === 'attention';
+  const showGroups = !narrow || tab === 'groups';
+  const blocks = (
+    <>
+      {showAttention ? <AttentionPanel underPressure={overview.underPressure} underutilised={overview.underutilised} /> : null}
+      <div className={styles.groupRow}>
+        {showLocations ? <LocationGroups groups={locations} serviceTotal={overview.services.length} narrow={narrow} onOpen={setTarget} /> : null}
+        {showGroups ? <ServiceGroups groups={categoryGroups(overview.services)} narrow={narrow} onOpen={setTarget} /> : null}
+      </div>
+    </>
+  );
 
   return (
     <div className={styles.page}>
-      <section aria-labelledby="an-counts-heading" data-el="AN-COUNTS" className={styles.section}>
-        <h2 id="an-counts-heading" className={styles.sectionHeading}>
+      <section aria-labelledby="an-counts-heading" data-el="AN-COUNTS">
+        <h2 id="an-counts-heading" className={styles.srOnly}>
           Services by status
         </h2>
         <ul className={styles.counts}>
-          {BROWSE_STATUSES.map((status) => (
-            <li key={status}>
-              <button type="button" className={styles.count} onClick={() => setTarget({ kind: 'status', key: status })}>
-                <span className={styles.shape}>
-                  <ShapeIcon shape={STATUS_SHAPES[status]} />
-                </span>
-                <span className={styles.countWord}>{STATUS_LABELS[status]}</span>
-                <span className={styles.countFigure}>{countOf(overview, status)}</span>
-              </button>
-            </li>
-          ))}
+          {BROWSE_STATUSES.map((status) => {
+            const n = countOf(overview, status);
+            return (
+              <li key={status}>
+                <button type="button" className={styles.count} data-status={status} onClick={() => setTarget({ kind: 'status', key: status })}>
+                  <span className={styles.countWord}>
+                    <span className={styles.shape}>
+                      <ShapeIcon shape={STATUS_SHAPES[status]} />
+                    </span>
+                    {STATUS_LABELS[status]}
+                  </span>
+                  <span className={styles.countLine}>
+                    <span className={styles.countFigure}>{n}</span>
+                    <span className={styles.countUnit}>{plural(n, 'service', 'services')}</span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
         </ul>
-        {overview.outOfHours > 0 ? <p className={styles.note}>{`${overview.outOfHours} out of hours, not counted above.`}</p> : null}
+        {overview.outOfHours > 0 ? <p className={styles.smallNote}>{`${overview.outOfHours} out of hours, not counted above.`}</p> : null}
       </section>
-      <GroupCards id="an-locations" kind="district" heading="Location groups" groups={districtGroups(overview.services)} onOpen={setTarget} />
-      <p className={styles.note}>A service that covers several districts is counted in each. A service with no district recorded is under Not placed.</p>
-      <GroupCards id="an-groups" kind="group" heading="Service groups" groups={categoryGroups(overview.services)} onOpen={setTarget} />
-      <section aria-labelledby="an-attention-heading" className={styles.section}>
-        <h2 id="an-attention-heading" className={styles.sectionHeading}>
-          Needs attention
-        </h2>
-        <div className={styles.attention}>
-          <UnderPressureList items={overview.underPressure} href={serviceHref} />
-          <UnderutilisedList items={overview.underutilised} href={serviceHref} />
+      {narrow ? (
+        <div role="tablist" aria-label="Overview sections" className={styles.tabs}>
+          {TABS.map((item) => (
+            <button key={item.key} type="button" role="tab" id={`an-tab-${item.key}`} aria-selected={tab === item.key} aria-controls="an-tabpanel" className={styles.tab} onClick={() => setTab(item.key)}>
+              {item.label}
+            </button>
+          ))}
         </div>
-      </section>
+      ) : null}
+      {narrow ? (
+        <div role="tabpanel" id="an-tabpanel" aria-labelledby={`an-tab-${tab}`} className={styles.page}>
+          {blocks}
+        </div>
+      ) : (
+        blocks
+      )}
     </div>
   );
 }

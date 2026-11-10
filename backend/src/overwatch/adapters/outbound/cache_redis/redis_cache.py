@@ -10,6 +10,7 @@ responses (from_url does), so replies are str.
 """
 
 import asyncio
+import socket
 import time
 from collections.abc import AsyncIterator, Callable
 from datetime import timedelta
@@ -120,6 +121,22 @@ def _escape_pattern(text: str) -> str:
 
 HEALTH_CHECK_SECONDS: Final = 30
 RETRIES: Final = 3
+# The cache is the `redis` container app, reached through the environment's internal TCP ingress,
+# which closes a connection that has been quiet for a few minutes. The operating system's own
+# keep-alive starts after two hours, so it never helps; these start it after a minute. Only the
+# options this platform knows (Linux has them all; others have fewer) are set.
+KEEPALIVE_IDLE_S: Final = 60
+KEEPALIVE_INTERVAL_S: Final = 15
+KEEPALIVE_PROBES: Final = 4
+
+
+def keepalive_options() -> dict[int, int]:
+    names = (
+        ("TCP_KEEPIDLE", KEEPALIVE_IDLE_S),
+        ("TCP_KEEPINTVL", KEEPALIVE_INTERVAL_S),
+        ("TCP_KEEPCNT", KEEPALIVE_PROBES),
+    )
+    return {getattr(socket, name): value for name, value in names if hasattr(socket, name)}
 
 
 class RedisCache:
@@ -141,6 +158,7 @@ class RedisCache:
                 decode_responses=True,
                 health_check_interval=HEALTH_CHECK_SECONDS,
                 socket_keepalive=True,
+                socket_keepalive_options=keepalive_options(),
                 retry=Retry(ExponentialBackoff(), RETRIES),
                 retry_on_error=[redis_errors.ConnectionError, redis_errors.TimeoutError],
             )

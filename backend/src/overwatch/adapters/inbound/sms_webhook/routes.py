@@ -391,10 +391,18 @@ async def sms_status(request: Request) -> Response:
         return verified
     line, form = verified
     with bind_tenant(line.tenant_id):
-        if line.demo_number is not None and not await _demo_message_known(container, form):
+        if line.demo_number is not None:
             # TEMPORARY DEMO (DEC-1320): the platform account carries every tenant's shared-line
             # texts, so a receipt is applied only to a message of the demo tenant.
-            return _dropped("demo-receipt-no-message", form.get("MessageSid", ""))
+            sid = form.get("MessageSid", "")
+            try:
+                known = await _attempt(
+                    "receipt-demo-check", sid, lambda: _demo_message_known(container, form)
+                )
+            except Exception:
+                return _receipt_lost("receipt-demo-check", sid)
+            if not known:
+                return _dropped("demo-receipt-no-message", sid)
         return await _accept_receipt(deps, form)
 
 
@@ -425,6 +433,19 @@ async def _accept_receipt(deps: SmsWebhookDeps, form: Mapping[str, str]) -> Resp
         },
         tenant_id=current_tenant(),
     )
-    await deps.event_bus.enqueue(RECEIPTS_QUEUE, message)
+    try:
+        await _attempt(
+            "receipt-enqueue", sid, lambda: deps.event_bus.enqueue(RECEIPTS_QUEUE, message)
+        )
+    except Exception:
+        return _receipt_lost("receipt-enqueue", sid)
     log.info("sms receipt queued: message_sid=%s status=%s", sid, update.status)
     return _twiml()
+
+
+def _receipt_lost(step: str, sid: str) -> Response:
+    """A delivery receipt that could not be queued after every attempt. A receipt is applied by
+    its status and is safe to apply again, so the answer is a 503: Twilio shows it in its
+    debugger and may deliver the receipt again."""
+    log.error("sms receipt lost: step=%s message_sid=%s", step, sid)
+    return Response(content=b"Unavailable", status_code=503, headers={"content-type": "text/plain"})

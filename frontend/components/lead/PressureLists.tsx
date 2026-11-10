@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import type { PressureItem, UnderutilisedItem } from '@/lib/lead/types';
 import styles from './PressureLists.module.css';
@@ -10,11 +11,18 @@ import styles from './PressureLists.module.css';
 
 const SHOWN = 5;
 
+// A page for each service, when the viewer has one (the Analytics overview links to its service page).
+type Href = (serviceId: string) => string;
+
+function NameOf({ id, name, href }: { id: string; name: string; href?: Href }) {
+  return <span className={styles.name}>{href === undefined ? name : <Link href={href(id)}>{name}</Link>}</span>;
+}
+
 function percentText(percent: number | null): string {
   return percent === null ? 'Unknown' : `${percent}% used`;
 }
 
-export function UnderPressureList({ items }: { items: PressureItem[] }) {
+export function UnderPressureList({ items, href }: { items: PressureItem[]; href?: Href }) {
   const shown = items.slice(0, SHOWN);
   return (
     <section className={styles.card} aria-labelledby="lead-pressure-heading" data-el="LEAD-PRESSURE">
@@ -28,7 +36,7 @@ export function UnderPressureList({ items }: { items: PressureItem[] }) {
           <ul className={styles.rows}>
             {shown.map((item) => (
               <li key={item.serviceId} className={styles.row}>
-                <span className={styles.name}>{item.name}</span>
+                <NameOf id={item.serviceId} name={item.name} href={href} />
                 <StatusBadge status={item.status} />
                 <span className={styles.detail}>{`${item.reason} · ${percentText(item.usedPercent)}`}</span>
               </li>
@@ -41,7 +49,7 @@ export function UnderPressureList({ items }: { items: PressureItem[] }) {
   );
 }
 
-export function UnderutilisedList({ items }: { items: UnderutilisedItem[] }) {
+export function UnderutilisedList({ items, href }: { items: UnderutilisedItem[]; href?: Href }) {
   const shown = items.slice(0, SHOWN);
   return (
     <section className={styles.card} aria-labelledby="lead-underused-heading" data-el="LEAD-UNDERUSED">
@@ -56,7 +64,7 @@ export function UnderutilisedList({ items }: { items: UnderutilisedItem[] }) {
           <ul className={styles.rows}>
             {shown.map((item) => (
               <li key={item.serviceId} className={styles.row}>
-                <span className={styles.name}>{item.name}</span>
+                <NameOf id={item.serviceId} name={item.name} href={href} />
                 <span className={styles.detail}>{`${item.usedPercent}% used · ${item.spare} ${item.unitLabel}`}</span>
               </li>
             ))}

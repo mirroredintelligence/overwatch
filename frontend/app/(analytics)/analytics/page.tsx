@@ -1,17 +1,18 @@
 import type { Metadata } from 'next';
+import { AnalyticsOverview } from '@/components/analytics/AnalyticsOverview';
 
 export const metadata: Metadata = {
   title: 'Analytics · Overwatch',
 };
 
-// The Analytics User's landing page (DEC-1362): a placeholder until the district overview is built. The proxy guard
-// (lib/auth/access.ts) limits `/analytics` to the role `analytics-user`. The page reads nothing: the role is an
-// aggregate, read-only view and never reaches a case, a patient, a postcode, an outcome or any personal data.
+// The Analytics User's overview (DEC-1368). The proxy guard (lib/auth/access.ts) limits `/analytics` to the role
+// `analytics-user`. The page reads figures through the BFF only: never a case, a patient, a postcode, an outcome or
+// any personal data, and no total of places available.
 export default function AnalyticsPage() {
   return (
     <main>
       <h1>Analytics</h1>
-      <p>The overview of districts and services for commissioners and system leads is coming. It will show figures only.</p>
+      <AnalyticsOverview />
     </main>
   );
 }

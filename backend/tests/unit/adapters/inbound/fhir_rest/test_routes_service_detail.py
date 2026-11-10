@@ -6,6 +6,7 @@ The page is for the advisor, Advisor v2 and the Analytics User. It names the ser
 null, never made up.
 """
 
+from dataclasses import replace
 from datetime import date
 
 import pytest
@@ -146,8 +147,8 @@ async def test_a_service_that_is_not_there_is_a_404() -> None:
 
 async def test_a_suspended_or_inactive_service_is_not_there() -> None:
     rig = _world()
-    rig.units.services.profiles["svc-a"] = rig.units.services.profiles["svc-a"].__class__(
-        **{**rig.units.services.profiles["svc-a"].__dict__, "active": False}
+    rig.units.services.profiles["svc-a"] = replace(
+        rig.units.services.profiles["svc-a"], active=False
     )
     async with client(rig) as http:
         response = await http.get(URL, headers=bearer(Role.ADVISOR, "advisor-1"))

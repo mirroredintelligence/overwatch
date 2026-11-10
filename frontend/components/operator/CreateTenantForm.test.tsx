@@ -184,7 +184,7 @@ describe('CreateTenantForm', () => {
     await user.click(screen.getByRole('button', { name: 'Add a group' }));
     expect(screen.getByText(/cannot be given the administrator’s role/)).toBeInTheDocument();
     const options = within(screen.getByRole('combobox', { name: 'Role' })).getAllByRole('option').map((o) => o.textContent);
-    expect(options).toEqual(['Advisor', 'Clinical lead', 'Shift lead', 'Criteria owner', 'Planning', 'Audit']);
+    expect(options).toEqual(['Advisor', 'Clinical lead', 'Shift lead', 'Criteria owner', 'Planning', 'Audit', 'Analytics User', 'Advisor v2']);
     await user.click(screen.getByRole('button', { name: 'Remove group 1' }));
     expect(screen.queryByLabelText('Group object id')).not.toBeInTheDocument();
     expect(screen.getByText('Skip')).toBeInTheDocument();

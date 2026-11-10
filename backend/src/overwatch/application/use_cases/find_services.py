@@ -1,0 +1,363 @@
+"""Advisor v2: find a service, and the capacity overview (DEC-1366).
+
+Browse only. Nothing here opens, reads or writes a case: the postcode is turned into its district,
+used for
+this one read and dropped, and the age band, needs and urgency are never stored. The one record is
+the audit
+entry of what was shown (service ids, status, figure, data age: no postcode, district, age band or
+need),
+as the v1 options write.
+
+A service is found by the same hard criteria as the v1 options (check_hard_criteria, DEC-035): no
+eligibility
+rule of its own. Unlike v1 its status does not exclude it: a service that is not accepting or not
+updated is
+shown as it is, and the list is never ranked by status. A late or old figure is never the current
+capacity
+(`figure_unavailable`) and the last figure is kept to show small as "Last reported" (DEC-1343). A
+suspended
+service, and one with no current criteria, is never found (fails closed).
+
+Roles: the advisor and Advisor v2 (DEC-1362); every other role is refused as NotAllowed.
+"""
+
+import asyncio
+from collections.abc import Collection, Mapping
+from dataclasses import dataclass, replace
+from datetime import date, datetime, timedelta
+from typing import Final
+
+from overwatch.application.actor import Actor
+from overwatch.application.ports.outbound.audit import AuditEntry
+from overwatch.application.ports.outbound.clock import Clock
+from overwatch.application.ports.outbound.geo import (
+    LatLon,
+    Located,
+    PostcodeLocator,
+    TravelRange,
+    TravelTime,
+)
+from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from overwatch.application.use_cases.filter_options import (
+    criteria_warnings,
+    data_age_warnings,
+    fits_for,
+    status_warnings,
+)
+from overwatch.application.use_cases.lead_views import (
+    PressureItem,
+    UnderutilisedItem,
+    figure_unusable,
+    under_pressure,
+    underutilised,
+)
+from overwatch.application.use_cases.open_case import district_for
+from overwatch.application.use_cases.query_board import BoardEntry, QueryBoard, QueryBoardQuery
+from overwatch.domain.codes import (
+    AgeBand,
+    Cadence,
+    NeedCategory,
+    Role,
+    ServiceCategory,
+    Status,
+    Urgency,
+)
+from overwatch.domain.errors import NotAllowed
+from overwatch.domain.model.criteria import ServiceCriteria
+from overwatch.domain.model.flags import SERVICE_FLAG_SUSPENDED
+from overwatch.domain.rules.criteria_filter import check_hard_criteria
+from overwatch.domain.rules.freshness import STALE_WARNING_AFTER
+from overwatch.domain.rules.london_time import to_london
+
+FIND_SERVICES: Final = "FindServices"
+READ_ACTION: Final = "R"
+FIND_ROLES: Final = (Role.ADVISOR, Role.ADVISOR_V2)
+FOUND_ORDER_NOTE: Final = "Travel time, then name. Never ordered by status."
+COUNTED_STATUSES: Final = (
+    Status.ACCEPTING,
+    Status.LIMITED,
+    Status.OVER_CAPACITY,
+    Status.NOT_ACCEPTING,
+    Status.NOT_UPDATED,
+)
+ATTENTION_SHOWN: Final = 3
+"""The short Needs attention list shows this many of each list; the rest are counted."""
+
+
+def check_find_role(actor: Actor) -> None:
+    if actor.role not in FIND_ROLES:
+        raise NotAllowed("only an advisor may find a service")
+
+
+@dataclass(frozen=True, slots=True)
+class FoundService:
+    service_id: str
+    name: str
+    category: ServiceCategory
+    status: Status
+    effective_available: int | None
+    over_by: int | None
+    unit_label: str
+    data_age: timedelta | None
+    reported_at: datetime | None
+    next_due_at: datetime | None
+    cadence: Cadence | None
+    overdue: bool
+    stale_warning: bool
+    figure_unavailable: bool
+    last_figure: int | None
+    criteria_version: int
+    fits: tuple[str, ...]
+    warnings: tuple[str, ...]
+    phone: str | None = None
+    travel: TravelRange | None = None
+
+
+def _figure_unavailable(entry: BoardEntry, data_age: timedelta | None) -> bool:
+    if figure_unusable(entry):
+        return True
+    return data_age is None or data_age > STALE_WARNING_AFTER
+
+
+def match_services(
+    entries: tuple[BoardEntry, ...],
+    criteria: Mapping[str, ServiceCriteria],
+    *,
+    suspended: Collection[str],
+    age_band: AgeBand,
+    district: str,
+    needs: tuple[NeedCategory, ...],
+    now: datetime,
+    today: date,
+    phones: Mapping[str, str] | None = None,
+) -> tuple[FoundService, ...]:
+    """The services whose current criteria take this age band, district and needs. Pure."""
+    found: list[FoundService] = []
+    for entry in entries:
+        current = criteria.get(entry.service_id)
+        if entry.service_id in suspended or current is None:
+            continue
+        result = check_hard_criteria(current, age_band, district, needs)
+        if not result.passes:
+            continue
+        data_age = None if entry.reported_at is None else now - entry.reported_at
+        found.append(
+            FoundService(
+                service_id=entry.service_id,
+                name=entry.name,
+                category=entry.category,
+                status=entry.status,
+                effective_available=entry.effective_available,
+                over_by=entry.over_by,
+                unit_label=entry.unit_label,
+                data_age=data_age,
+                reported_at=entry.reported_at,
+                next_due_at=entry.next_due_at,
+                cadence=entry.cadence,
+                overdue=entry.overdue,
+                stale_warning=entry.stale_warning,
+                figure_unavailable=_figure_unavailable(entry, data_age),
+                last_figure=(
+                    entry.effective_available
+                    if entry.effective_available is not None
+                    else entry.used
+                ),
+                criteria_version=current.version,
+                fits=fits_for(current, needs),
+                warnings=(
+                    result.warnings
+                    + status_warnings(entry.status)
+                    + data_age_warnings(data_age)
+                    + criteria_warnings(current, today)
+                ),
+                phone=None if phones is None else phones.get(entry.service_id),
+            )
+        )
+    return tuple(found)
+
+
+def order_key(item: FoundService) -> tuple[int, int, str, str]:
+    """Travel low end first, no travel last, then name, then id. Status plays no part."""
+    if item.travel is None:
+        return (1, 0, item.name, item.service_id)
+    return (0, item.travel.low_minutes, item.name, item.service_id)
+
+
+@dataclass(frozen=True, slots=True)
+class FindServicesCommand:
+    actor: Actor
+    postcode: str
+    age_band: AgeBand
+    needs: tuple[NeedCategory, ...]
+    urgency: Urgency
+    """Accepted and shown back; it is not a criterion (as in v1, where it is kept on the case)."""
+
+
+@dataclass(frozen=True, slots=True)
+class FindServicesResult:
+    services: tuple[FoundService, ...]
+    generated_at: datetime
+    not_found: bool = False
+    """The locator does not know the district: no travel is shown and the order is by name."""
+
+
+class FindServices:
+    def __init__(
+        self,
+        uow_factory: UnitOfWorkFactory,
+        clock: Clock,
+        query_board: QueryBoard,
+        postcodes: PostcodeLocator,
+        travel_time: TravelTime,
+    ) -> None:
+        self._uow_factory = uow_factory
+        self._clock = clock
+        self._query_board = query_board
+        self._postcodes = postcodes
+        self._travel_time = travel_time
+
+    async def execute(self, command: FindServicesCommand) -> FindServicesResult:
+        check_find_role(command.actor)
+        district = district_for(command.postcode)
+        board = await self._query_board.execute(QueryBoardQuery(command.actor))
+        now = self._clock.now()
+        service_ids = [entry.service_id for entry in board.entries]
+        async with self._uow_factory() as uow:
+            criteria = await uow.criteria.current_for_services(service_ids)
+            suspended = await uow.flags.services_with_flag(SERVICE_FLAG_SUSPENDED)
+            positions = await uow.positions.get_many(service_ids)
+            phones = await uow.services.work_phones(service_ids)
+        patient = self._postcodes.locate(district)
+        matched = match_services(
+            board.entries,
+            criteria,
+            suspended=suspended,
+            age_band=command.age_band,
+            district=district,
+            needs=command.needs,
+            now=now,
+            today=to_london(now).date(),
+            phones=phones,
+        )
+        ranges = await asyncio.gather(
+            *(self._travel_range(patient, positions.get(item.service_id)) for item in matched)
+        )
+        ordered = tuple(
+            sorted(
+                (_with_travel(item, travel) for item, travel in zip(matched, ranges, strict=True)),
+                key=order_key,
+            )
+        )
+        async with self._uow_factory() as audit_uow:
+            await audit_uow.audit.append(
+                AuditEntry(
+                    action=READ_ACTION,
+                    use_case=FIND_SERVICES,
+                    actor=command.actor,
+                    entity_ids=tuple(item.service_id for item in ordered),
+                    snapshot={
+                        "services": [
+                            {
+                                "id": item.service_id,
+                                "status": item.status.value,
+                                "figure_unavailable": item.figure_unavailable,
+                                "criteria_version": item.criteria_version,
+                                "order": position,
+                            }
+                            for position, item in enumerate(ordered, 1)
+                        ]
+                    },
+                    at=now,
+                )
+            )
+            await audit_uow.commit()
+        return FindServicesResult(services=ordered, generated_at=now, not_found=patient is None)
+
+    async def _travel_range(
+        self, patient: Located | None, site: LatLon | None
+    ) -> TravelRange | None:
+        if patient is None or site is None:
+            return None
+        return await self._travel_time.estimate(patient.lat_lon, site)
+
+
+def _with_travel(item: FoundService, travel: TravelRange | None) -> FoundService:
+    return replace(item, travel=travel)
+
+
+@dataclass(frozen=True, slots=True)
+class CapacityRow:
+    service_id: str
+    name: str
+    category: ServiceCategory
+    status: Status
+    effective_available: int | None
+    over_by: int | None
+    unit_label: str
+    reported_at: datetime | None
+    figure_unavailable: bool
+    last_figure: int | None
+
+
+@dataclass(frozen=True, slots=True)
+class CapacityOverview:
+    counts: dict[Status, int]
+    under_pressure: tuple[PressureItem, ...]
+    underutilised: tuple[UnderutilisedItem, ...]
+    rows: tuple[CapacityRow, ...]
+    generated_at: datetime
+
+
+def capacity_overview(
+    entries: tuple[BoardEntry, ...], generated_at: datetime | None = None
+) -> CapacityOverview:
+    """The five counts, the two attention lists (the shift lead's own rules, lead_views) and one
+    row per
+    service by name, never by status. A figure that is late or old is marked unavailable here, on
+    the back end."""
+    counts = {status: 0 for status in COUNTED_STATUSES}
+    for entry in entries:
+        if entry.status in counts:
+            counts[entry.status] += 1
+    rows = tuple(
+        sorted(
+            (
+                CapacityRow(
+                    service_id=entry.service_id,
+                    name=entry.name,
+                    category=entry.category,
+                    status=entry.status,
+                    effective_available=entry.effective_available,
+                    over_by=entry.over_by,
+                    unit_label=entry.unit_label,
+                    reported_at=entry.reported_at,
+                    figure_unavailable=figure_unusable(entry),
+                    last_figure=(
+                        entry.effective_available
+                        if entry.effective_available is not None
+                        else entry.used
+                    ),
+                )
+                for entry in entries
+            ),
+            key=lambda row: (row.name, row.service_id),
+        )
+    )
+    return CapacityOverview(
+        counts=counts,
+        under_pressure=under_pressure(entries),
+        underutilised=underutilised(entries),
+        rows=rows,
+        generated_at=generated_at or datetime.min,
+    )
+
+
+class ReadCapacityOverview:
+    def __init__(self, clock: Clock, query_board: QueryBoard) -> None:
+        self._clock = clock
+        self._query_board = query_board
+
+    async def execute(self, actor: Actor) -> CapacityOverview:
+        check_find_role(actor)
+        board = await self._query_board.execute(QueryBoardQuery(actor))
+        return capacity_overview(board.entries, self._clock.now())

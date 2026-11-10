@@ -149,7 +149,7 @@ _PRESSURE_RANK: Final = {Status.OVER_CAPACITY: 0, Status.NOT_ACCEPTING: 1, Statu
 STALE_PRESSURE_REASON: Final = "Figure is old. Confirm before redirecting demand."
 
 
-def _figure_unusable(entry: BoardEntry) -> bool:
+def figure_unusable(entry: BoardEntry) -> bool:
     """The figure is late or old, so it is not the current capacity (DEC-1343)."""
     return entry.status is Status.NOT_UPDATED or entry.overdue or entry.stale_warning
 
@@ -182,7 +182,7 @@ def under_pressure(entries: tuple[BoardEntry, ...]) -> tuple[PressureItem, ...]:
     for entry in entries:
         if entry.status not in _PRESSURE_STATUSES:
             continue
-        if _figure_unusable(entry):
+        if figure_unusable(entry):
             item = PressureItem(
                 entry.service_id, entry.name, entry.status, STALE_PRESSURE_REASON, None
             )
@@ -202,7 +202,7 @@ def underutilised(entries: tuple[BoardEntry, ...]) -> tuple[UnderutilisedItem, .
     unknown figure is never listed (DEC-1343)."""
     found: list[UnderutilisedItem] = []
     for entry in entries:
-        if entry.status is not Status.ACCEPTING or _figure_unusable(entry):
+        if entry.status is not Status.ACCEPTING or figure_unusable(entry):
             continue
         if entry.used is None or entry.effective_available is None or entry.established <= 0:
             continue

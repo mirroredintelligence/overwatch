@@ -74,7 +74,11 @@ from overwatch.application.ports.outbound.lookups import LookupRejected, Transie
 from overwatch.application.ports.outbound.sealing import ContentSealer
 from overwatch.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from overwatch.application.uow_idempotency import UnitOfWorkIdempotency
-from overwatch.application.use_cases.capacity_history import DEFAULT_HOURS, ReadCapacityHistory
+from overwatch.application.use_cases.capacity_history import (
+    DEFAULT_HOURS,
+    ReadCapacityHistory,
+)
+from overwatch.application.use_cases.capacity_history import READERS as HISTORY_READERS
 from overwatch.application.use_cases.clinical_advice import (
     ADVICE_CHOICES,
     ADVICE_REASONS,
@@ -102,6 +106,8 @@ from overwatch.application.use_cases.safety_concern import (
     ReportSafetyConcern,
     ReportSafetyConcernCommand,
 )
+from overwatch.application.use_cases.service_detail import READERS as DETAIL_READERS
+from overwatch.application.use_cases.service_detail import ReadServiceDetail
 from overwatch.domain.codes import Role, code_system_url
 from overwatch.domain.errors import NotAllowed, ValidationFailed
 from overwatch.domain.rules.clinical_queue import Presence
@@ -335,11 +341,69 @@ async def locate_postcode(
     )
 
 
+@router.get("/clinical/services/{service_id}/detail")
+async def service_detail(
+    service_id: str,
+    request: Request,
+    actor: Annotated[Actor, Depends(require_role(*DETAIL_READERS))],
+) -> Response:
+    """What the one service detail page shows (DEC-1367): the service's figures and reporting, its
+    own contact number, opening hours, criteria and the districts it covers. Never a person's email
+    or mobile; what is not held is null or empty."""
+    container = _container(request)
+    result = await ReadServiceDetail(container.uow_factory, container.clock).execute(
+        actor, service_id
+    )
+    entry = result.entry
+    data_age = (
+        None
+        if entry.reported_at is None
+        else int((container.clock.now() - entry.reported_at).total_seconds())
+    )
+    return FhirJSONResponse(
+        content={
+            "serviceId": entry.service_id,
+            "name": entry.name,
+            "category": entry.category.value,
+            "status": entry.status.value,
+            "unitLabel": entry.unit_label,
+            "established": entry.established,
+            "effectiveAvailable": entry.effective_available,
+            "overBy": entry.over_by,
+            "lastFigure": (
+                entry.effective_available if entry.effective_available is not None else entry.used
+            ),
+            "reportedAt": None if entry.reported_at is None else format_instant(entry.reported_at),
+            "nextDueAt": None if entry.next_due_at is None else format_instant(entry.next_due_at),
+            "cadence": None if entry.cadence is None else entry.cadence.value,
+            "overdue": entry.overdue,
+            "staleWarning": entry.stale_warning,
+            "dataAgeSeconds": data_age,
+            "phone": result.phone,
+            "openingHours": [
+                {
+                    "days": list(window.days),
+                    "allDay": window.all_day,
+                    "start": None if window.start is None else window.start.strftime("%H:%M"),
+                    "end": None if window.end is None else window.end.strftime("%H:%M"),
+                }
+                for window in result.opening_hours
+            ],
+            "accepts": None if result.accepts is None else list(result.accepts),
+            "excludes": None if result.excludes is None else list(result.excludes),
+            "ageMin": result.age_min,
+            "ageMax": result.age_max,
+            "districts": list(result.districts),
+        },
+        headers=NO_STORE,
+    )
+
+
 @router.get("/clinical/services/{service_id}/history")
 async def capacity_history(
     service_id: str,
     request: Request,
-    actor: Annotated[Actor, Depends(require_role(*ADVISORS))],
+    actor: Annotated[Actor, Depends(require_role(*HISTORY_READERS))],
 ) -> Response:
     """What a service reported over the last day, for the day chart (DEC-1343): each point is what
     it could take at the time, or how far over it was, and `staleAfterSeconds` says how long a

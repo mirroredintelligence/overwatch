@@ -3,7 +3,8 @@
 A new role is refused everywhere until a route or a use case names it. This test keeps the
 places that name roles from naming these two by accident: they may appear only in the files that
 define them, map them and issue their token. A later task that gives Advisor v2 or the Analytics
-User a read adds its file here, in the same change, with its own tests.
+User a read adds its file here, in the same change, with its own tests (the service detail read
+is the first, DEC-1367).
 """
 
 from pathlib import Path
@@ -23,6 +24,8 @@ ANALYTICS_FILES = ALLOWED - {
     "domain/codes.py",
     "domain/model/tenant_records.py",
     "domain/rules/token_exchange.py",
+    # DEC-1367: the one service detail page and the day chart on it are the only reads they hold.
+    "application/use_cases/service_detail.py",
 }
 NAMES = ("Role.ANALYTICS_USER", "Role.ADVISOR_V2")
 

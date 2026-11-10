@@ -184,8 +184,8 @@ const CASES: Case[] = [
     params: { group: GROUP_ADMIN },
     body: { email: 'clyde@softjump.example' },
     backendBody: { email: 'clyde@softjump.example' },
-    backend: { path: `/tenant/groups/${GROUP_ADMIN}/invitations`, reply: { groupId: GROUP_ADMIN, changed: true, invited: true } },
-    view: { groupId: GROUP_ADMIN, changed: true, invited: true },
+    backend: { path: `/tenant/groups/${GROUP_ADMIN}/invitations`, reply: { groupId: GROUP_ADMIN, changed: true, invited: true, directoryId: '0f5a7c1e-3b2d-4c6a-9e8f-1a2b3c4d5e6f' } },
+    view: { groupId: GROUP_ADMIN, changed: true, invited: true, directoryId: '0f5a7c1e-3b2d-4c6a-9e8f-1a2b3c4d5e6f' },
   },
   {
     name: 'remove a member from a group',

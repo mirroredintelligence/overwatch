@@ -90,7 +90,7 @@ export const tenantAdminHandlers = [
   }),
   http.post('/api/bff/tenant/groups/:group/invitations', async ({ request, params }) => {
     await recorded(request);
-    return HttpResponse.json({ groupId: String(params.group ?? GROUP_ADMIN), changed: true, invited: true }, { headers: NO_STORE });
+    return HttpResponse.json({ groupId: String(params.group ?? GROUP_ADMIN), changed: true, invited: true, directoryId: '0f5a7c1e-3b2d-4c6a-9e8f-1a2b3c4d5e6f' }, { headers: NO_STORE });
   }),
   http.delete('/api/bff/tenant/groups/:group/members/:user', async ({ request, params }) => {
     await recorded(request);

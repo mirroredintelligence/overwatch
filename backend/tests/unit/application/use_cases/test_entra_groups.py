@@ -596,7 +596,7 @@ async def test_an_outsider_is_invited_and_added_and_the_audit_has_no_address() -
             ChangeMemberCommand(rig.admin(), ids[Role.LEAD], outsider)
         )
 
-    assert result.invited and result.changed
+    assert result.invited and result.changed and result.directory_id == DIRECTORY_ID
     guest = rig.directory.users[DIRECTORY_ID][outsider]
     assert rig.directory.members_of[(DIRECTORY_ID, ids[Role.LEAD])] == [guest]
     entry = rig.world.audit[-1]

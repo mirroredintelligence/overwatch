@@ -240,6 +240,7 @@ describe('inviting a person from another organisation', () => {
     expect(seenAdminWrites[0]).toMatchObject({ method: 'POST', path: `/api/bff/tenant/groups/${GROUP_LEAD}/invitations`, csrf: SAMPLE_CSRF, body: { email: 'clyde@softjump.example' } });
     expect(Object.keys(seenAdminWrites[0]!.body as object)).toEqual(['email']);
     expect(await within(group).findByText(/Invitation sent\./)).toBeInTheDocument();
+    expect(within(group).getByText(/\/api\/bff\/auth\/entra\/start\?org=0f5a7c1e-3b2d-4c6a-9e8f-1a2b3c4d5e6f$/)).toBeInTheDocument();
   });
 
   it('does not offer an invitation for an address the directory already has', async () => {

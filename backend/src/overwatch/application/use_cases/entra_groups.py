@@ -465,6 +465,9 @@ class InviteResult:
     changed: bool
     invited: bool
     """True when this call sent an invitation to someone from outside the directory."""
+    directory_id: str
+    """The organisation's Entra directory: a guest signs in at that directory's own address
+    (DEC-1366). A directory id is not personal data and is in every Microsoft sign-in address."""
 
 
 class ChangeGroupMember(_Managed):
@@ -538,7 +541,7 @@ class ChangeGroupMember(_Managed):
                 "added": added,
             },
         )
-        return InviteResult(group_id, added, invited)
+        return InviteResult(group_id, added, invited, directory_id)
 
     async def remove(self, command: ChangeMemberCommand) -> MemberChange:
         check_administrator(command.actor)

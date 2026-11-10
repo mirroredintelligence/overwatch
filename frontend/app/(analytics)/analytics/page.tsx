@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function AnalyticsPage() {
   return (
     <main>
-      <h1>Analytics</h1>
+      <h1>Capacity overview</h1>
       <AnalyticsOverview />
     </main>
   );

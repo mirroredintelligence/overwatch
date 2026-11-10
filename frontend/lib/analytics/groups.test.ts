@@ -73,6 +73,15 @@ describe('drillRows', () => {
     expect(fresh?.figure).toBe('8');
   });
 
+  it('never gives a number for a figure that is not current, even if the payload carries one', () => {
+    const hostile = [
+      { ...services[0]!, status: 'accepting' as const, figureCurrent: false, available: 5, overBy: null },
+      { ...services[2]!, status: 'over-capacity' as const, figureCurrent: false, available: null, overBy: 3 },
+    ];
+    expect(drillRows(hostile, { kind: 'status', key: 'accepting' })[0]?.figure).toBeNull();
+    expect(drillRows(hostile, { kind: 'status', key: 'over-capacity' })[0]?.figure).toBeNull();
+  });
+
   it('links each row to the service page', () => {
     expect(drillRows(services, { kind: 'status', key: 'accepting' })[0]?.href).toBe('/analytics/services/svc-poole');
   });

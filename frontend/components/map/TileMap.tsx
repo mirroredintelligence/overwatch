@@ -6,7 +6,8 @@ import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } fro
 import { createPortal } from 'react-dom';
 import { circleRing } from '@/lib/map/geo';
 import type { LatLon } from '@/lib/map/project';
-import { ATTRIBUTION, mapStyle } from '@/lib/map/style';
+import { ATTRIBUTION, mapStyle, TILES_PATH } from '@/lib/map/style';
+import { MapPlaceholder } from './MapPlaceholder';
 import styles from './tileMap.module.css';
 
 // The zoomable map (DEC-1362): OS Open Zoomstack tiles read through this app's own tile route, with the service
@@ -55,10 +56,53 @@ function resolveColor(color: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(match[1]).trim() || '#0B5A8A';
 }
 
-let protocolAdded = false;
-
 /** MapLibre's worker, copied from the package into public/map (a test keeps its version the package's). */
 export const WORKER_URL = '/map/maplibre-gl-worker.mjs';
+
+// The map's code, the tile protocol and the first bytes of the tile file are asked for as early as the page can,
+// so they arrive while the options are still being read and not after (DEC-1371). Everything here runs once.
+let libraries: Promise<[typeof import('maplibre-gl'), typeof import('pmtiles')]> | null = null;
+
+function loadLibraries() {
+  libraries ??= Promise.all([import('maplibre-gl'), import('pmtiles')]).then(([maplibre, pmtiles]) => {
+    const protocol = new pmtiles.Protocol();
+    maplibre.addProtocol('pmtiles', protocol.tile);
+    // The worker is a file we serve (public/map), not one the bundler guesses at, and it is on our own origin.
+    maplibre.setWorkerUrl(WORKER_URL);
+    // The header and the root directory (one 16 KB read) are what the first tile waits for; ask for them now. A
+    // failed read is forgotten, so the map's own first read tries again and reports the failure.
+    const url = `${window.location.origin}${TILES_PATH}`;
+    const archive = new pmtiles.PMTiles(url);
+    protocol.add(archive);
+    archive.getHeader().catch(() => protocol.tiles.delete(url));
+    return [maplibre, pmtiles] as [typeof import('maplibre-gl'), typeof import('pmtiles')];
+  });
+  // A failed load is not kept: the next ask tries again.
+  libraries.catch(() => {
+    libraries = null;
+  });
+  return libraries;
+}
+
+/** Starts loading the map's code, its worker and the start of the tile file. Safe to call again and from anywhere in the browser. */
+export function preloadMap(): void {
+  if (!webglAvailable()) return;
+  void loadLibraries().catch(() => undefined);
+  // The worker is asked for as a prefetch link (the app's one HTTP client stays the BFF's), once.
+  if (document.querySelector(`link[rel="prefetch"][href="${WORKER_URL}"]`) === null) {
+    const link = document.createElement('link');
+    link.rel = 'prefetch';
+    link.href = WORKER_URL;
+    document.head.appendChild(link);
+  }
+}
+
+/** A screen that will show a map calls this while it reads what the map draws. */
+export function useMapPreload(): void {
+  useEffect(() => {
+    preloadMap();
+  }, []);
+}
 
 function areasData(areas: TileArea[]) {
   return {
@@ -133,14 +177,8 @@ export function TileMap({ fit, areas, route, overlaps = NO_OVERLAPS, markers, on
     const markersLive = live.current;
     void (async () => {
       try {
-        const [maplibre, { Protocol }] = await Promise.all([import('maplibre-gl'), import('pmtiles')]);
+        const [maplibre] = await loadLibraries();
         if (cancelled || container.current === null) return;
-        if (!protocolAdded) {
-          maplibre.addProtocol('pmtiles', new Protocol().tile);
-          // The worker is a file we serve (public/map), not one the bundler guesses at, and it is on our own origin.
-          maplibre.setWorkerUrl(WORKER_URL);
-          protocolAdded = true;
-        }
         const points = latest.current.fit;
         const bounds = points.reduce(
           (box, point) => box.extend([point.lon, point.lat]),
@@ -246,6 +284,7 @@ export function TileMap({ fit, areas, route, overlaps = NO_OVERLAPS, markers, on
   return (
     <div className={styles.frame} data-el="ADV-MAP-TILES">
       <div ref={container} className={styles.frame} role="application" aria-label={`Zoomable map. ${ATTRIBUTION}`} />
+      {ready ? null : <MapPlaceholder fit={fit} />}
       {markers.map((marker) => {
         const host = hosts.get(marker.id);
         return host === undefined ? null : createPortal(marker.node, host, marker.id);

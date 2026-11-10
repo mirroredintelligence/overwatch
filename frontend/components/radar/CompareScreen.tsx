@@ -21,7 +21,7 @@ const NOTE =
   'This lines up what each option costs. It does not pick one: there is no score, no rank and no best mark. The advisor and the clinical need decide. A request is only a request, and is not booked until the service confirms. Rows that need a service’s round say Not available, which is not zero.';
 const WHY: readonly string[] = [
   'Free and status are as the service last reported them. The data age row says how old that is.',
-  'Time to reach the patient is a range for the area, not the door: the patient is placed at the postcode centre.',
+  'Time to reach the patient is a range for the area, not the door: travel is measured from the centre of the postcode.',
   'What a visit adds to a round, and which patients are already near, need each service’s round. Overwatch does not hold that yet, so those rows say Not available. It is not zero.',
 ];
 

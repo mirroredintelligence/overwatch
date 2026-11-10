@@ -9,6 +9,8 @@ import type { ScopeLinks } from '@/components/scope/ScopeSwitch';
 import { Button } from '@/components/ui/Button';
 import { useNetworkOptions } from '@/lib/network/useNetworkOptions';
 import { NetworkCriteriaDialog } from './NetworkCriteriaDialog';
+import { MapLoadingBox } from '@/components/map/MapLoadingBox';
+import { useMapPreload } from '@/components/map/TileMap';
 import { OptionsMap } from './OptionsMap';
 import { ViewToggle } from './ViewToggle';
 import styles from './map.module.css';
@@ -22,11 +24,12 @@ import styles from './map.module.css';
 type Open = { rowRef: string; serviceName: string; organisation: string };
 
 function Body({ caseId, networkId, networkName, switchTo }: { caseId: string; networkId: string; networkName: string; switchTo: ScopeLinks }) {
+  useMapPreload();
   const { state, retry } = useNetworkOptions(networkId, caseId);
   const [selected, setSelected] = useState<string | null>(null);
   const [open, setOpen] = useState<Open | null>(null);
 
-  if (state.kind === 'loading') return <p>Loading the map.</p>;
+  if (state.kind === 'loading') return <MapLoadingBox />;
   if (state.kind === 'refused') return <NetworkUnavailable reason="not-available" ownHref={switchTo.ownHref} />;
   if (state.kind === 'failed') {
     return (

@@ -203,7 +203,7 @@ export function OptionsList({ caseId, serviceId = null, onCriteria, onPhoned, on
             <Button variant="secondary" dataEl="ADV-OPT-CLINICAL-BTN" onClick={() => askClinical()}>
               Ask clinical advisor
             </Button>
-            <Button variant="neutral" href={`/advisor/case/${encodeURIComponent(caseId)}/radar`} dataEl="ADV-OPT-RADAR-BTN">
+            <Button variant="neutral" href={`/advisor/case/${encodeURIComponent(caseId)}/map?layer=coverage`} dataEl="ADV-OPT-RADAR-BTN">
               Who covers this patient
             </Button>
             <Button variant="neutral" href={`/advisor/case/${encodeURIComponent(caseId)}/compare`} dataEl="ADV-OPT-COMPARE-BTN">

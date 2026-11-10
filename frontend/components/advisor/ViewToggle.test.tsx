@@ -15,13 +15,12 @@ const TABS = [
   ['List', '/advisor/case/4821/options'],
   ['Compare', '/advisor/case/4821/compare'],
   ['Map', '/advisor/case/4821/map'],
-  ['Radar', '/advisor/case/4821/radar'],
   ['Ways', '/advisor/case/4821/ways'],
   ['Other organisations', '/advisor/case/4821/network-options'],
 ] as const;
 
 describe('ViewToggle: the one segmented control over the options (W50)', () => {
-  it('has List, Compare, Map, Radar, Ways and Other organisations, in that order, as links to the existing routes', () => {
+  it('has List, Compare, Map, Ways and Other organisations, in that order, as links to the existing routes', () => {
     render(<ViewToggle caseId="4821" current="list" />);
 
     const nav = screen.getByRole('navigation', { name: 'Options view' });
@@ -34,7 +33,6 @@ describe('ViewToggle: the one segmented control over the options (W50)', () => {
       ['list', 'List'],
       ['compare', 'Compare'],
       ['map', 'Map'],
-      ['radar', 'Radar'],
       ['ways', 'Ways'],
     ] as const) {
       const { unmount } = render(<ViewToggle caseId="4821" current={current} />);

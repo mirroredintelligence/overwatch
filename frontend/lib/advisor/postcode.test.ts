@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalisePostcode } from './postcode';
+import { normalisePostcode, outwardCode } from './postcode';
 
 describe('normalisePostcode (W11)', () => {
   it.each([
@@ -14,5 +14,17 @@ describe('normalisePostcode (W11)', () => {
 
   it.each(['DT4 8X', 'DT4 8XXX', '', '   ', '12345', 'DT4 8X1'])('%j is not a full postcode', (input) => {
     expect(normalisePostcode(input)).toBeNull();
+  });
+});
+
+describe('outwardCode (DEC-1372)', () => {
+  it('gives the outward code of a postcode or a district, and null for anything else', () => {
+    expect(outwardCode('DT4 8XX')).toBe('DT4');
+    expect(outwardCode('dt48xx')).toBe('DT4');
+    expect(outwardCode(' BH7 ')).toBe('BH7');
+    expect(outwardCode('SW1A 1AA')).toBe('SW1A');
+    expect(outwardCode('Weymouth')).toBeNull();
+    expect(outwardCode('')).toBeNull();
+    expect(outwardCode(null)).toBeNull();
   });
 });

@@ -17,3 +17,14 @@ export function normalisePostcode(input: string): string | null {
   const spaced = `${outward} ${inward}`;
   return FULL_POSTCODE.test(spaced) ? spaced : null;
 }
+
+const OUTWARD = /^([A-Z]{1,2}\d[A-Z\d]?)(?:\s*\d[A-Z]{2})?$/;
+
+/**
+ * The outward code of a postcode or district, for a label that must not say more than the area: "DT4 8XX",
+ * "dt48xx" and "DT4" all give "DT4". Null when the text is not one (a district name, nothing).
+ */
+export function outwardCode(input: string | null | undefined): string | null {
+  const match = OUTWARD.exec((input ?? '').trim().toUpperCase());
+  return match === null ? null : match[1];
+}

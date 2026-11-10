@@ -9,7 +9,8 @@ import { canChangePostcode, changePostcode, type PostcodeChange } from '@/lib/ad
 import type { OptionsParts, OptionView } from '@/lib/advisor/options';
 import { durationText } from '@/lib/board/format';
 import { Button } from '@/components/ui/Button';
-import { Loading, Skeleton } from '@/components/ui/Skeleton';
+import { MapLoadingBox } from '@/components/map/MapLoadingBox';
+import { useMapPreload } from '@/components/map/TileMap';
 import { ShapeIcon, STATUS_LABELS, STATUS_SHAPES } from '@/components/ui/StatusBadge';
 import { AskClinicalPanel } from './AskClinicalPanel';
 import { OptionsMap } from './OptionsMap';
@@ -240,7 +241,8 @@ function PostcodeLost({ caseId, postcode, districts, onAskClinical, onChooseDist
   );
 }
 
-export function MapScreen({ caseId }: { caseId: string }) {
+export function MapScreen({ caseId, initialCoverage = false }: { caseId: string; initialCoverage?: boolean }) {
+  useMapPreload();
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
   const [selected, setSelected] = useState<string | null>(null);
   const [asking, setAsking] = useState(false);
@@ -281,11 +283,7 @@ export function MapScreen({ caseId }: { caseId: string }) {
   };
 
   if (load.kind === 'loading') {
-    return (
-      <Loading label="Loading the map.">
-        <Skeleton shape="block" />
-      </Loading>
-    );
+    return <MapLoadingBox />;
   }
   if (load.kind === 'failed') return <p role="alert">The map could not be read. Try again.</p>;
 
@@ -337,6 +335,7 @@ export function MapScreen({ caseId }: { caseId: string }) {
           options={parts.options}
           selectedId={selected}
           onSelect={(serviceId) => setSelected(serviceId)}
+          initialCoverage={initialCoverage}
         />
         <section className={styles.side} aria-label="The same services as a list">
           <p className={styles.sideNote}>Same services as the list. Sorted by travel time. Not ranked.</p>
@@ -344,11 +343,6 @@ export function MapScreen({ caseId }: { caseId: string }) {
           {parts.options.map((option) => (
             <SideCard key={option.serviceId} option={option} caseId={caseId} selected={option.serviceId === selected} />
           ))}
-          <div>
-            <Button variant="secondary" href={`/advisor/case/${id}/radar`} dataEl="ADV-MAP-RADAR-BTN">
-              Who covers this area
-            </Button>
-          </div>
         </section>
       </div>
     </section>

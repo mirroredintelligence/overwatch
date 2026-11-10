@@ -40,7 +40,7 @@ describe('OptionsMap (W50)', () => {
         onCriteria={vi.fn()}
       />,
     );
-    expect(screen.getByText('Patient area')).toBeInTheDocument();
+    expect(screen.getByText('Patient area · DT4')).toBeInTheDocument();
     const pins = container.querySelectorAll('[data-el^="ADV-MAP-PIN-"]');
     expect(pins).toHaveLength(MAP_OPTIONS.filter((option) => option.position !== null).length);
     for (const pin of Array.from(pins)) {
@@ -66,14 +66,13 @@ describe('OptionsMap (W50)', () => {
       MAP_OPTIONS.filter((option) => option.coverage !== null).length,
     );
     expect(
-      screen.getByText('Patient shown at postcode centre. Dashed areas are where a visiting service can attend. The dotted line is the route to the selected site.'),
+      screen.getByText("Schematic, not to scale. The patient's area is marked at the postcode centre. Dashed areas are where a visiting service can attend."),
     ).toBeInTheDocument();
   });
 
-  it('says that drive-time rings and traffic are off, because there is no data behind them (Map board)', () => {
-    renderMap();
-    const note = screen.getByText(/Drive-time rings and traffic are/);
-    expect(note).toHaveTextContent('Drive-time rings and traffic are off: there is no data behind them yet.');
+  it('says nothing about drive-time rings or traffic: there is no data behind them (DEC-1372)', () => {
+    const { container } = render(<OptionsMap caseId="4821" postcode="DT4 8XX" patientArea={MAP_VIEW.patientArea} options={MAP_OPTIONS} selectedId={null} onSelect={vi.fn()} />);
+    expect(container.textContent).not.toMatch(/drive-time|traffic/i);
   });
 
   it('each pin names the service and its free figure, with a status shape, so the status is not colour alone', () => {

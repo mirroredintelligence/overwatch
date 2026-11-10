@@ -1,19 +1,8 @@
-import type { Metadata } from 'next';
-import { CallSteps } from '@/components/advisor/CallSteps';
-import { RadarScreen } from '@/components/radar/RadarScreen';
+import { redirect } from 'next/navigation';
 
-export const metadata: Metadata = {
-  title: 'Who covers this area · Overwatch',
-};
-
-// Radar: who covers this area (URL /advisor/case/[ref]/radar). The page holds no case data; the screen
-// reads the case's options through the BFF, the same read as the map and the list.
+// The Radar is no longer a view of its own: it is the "Who covers this area" layer of the Map (DEC-1372). The
+// old address keeps working for bookmarks and case steps, and lands on the Map with the layer on.
 export default async function CaseRadarPage({ params }: { params: Promise<{ ref: string }> }) {
   const { ref } = await params;
-  return (
-    <main>
-      <CallSteps current="options" />
-      <RadarScreen caseId={ref} />
-    </main>
-  );
+  redirect(`/advisor/case/${encodeURIComponent(ref)}/map?layer=coverage`);
 }

@@ -241,7 +241,7 @@ function PostcodeLost({ caseId, postcode, districts, onAskClinical, onChooseDist
   );
 }
 
-export function MapScreen({ caseId }: { caseId: string }) {
+export function MapScreen({ caseId, initialCoverage = false }: { caseId: string; initialCoverage?: boolean }) {
   useMapPreload();
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
   const [selected, setSelected] = useState<string | null>(null);
@@ -335,6 +335,7 @@ export function MapScreen({ caseId }: { caseId: string }) {
           options={parts.options}
           selectedId={selected}
           onSelect={(serviceId) => setSelected(serviceId)}
+          initialCoverage={initialCoverage}
         />
         <section className={styles.side} aria-label="The same services as a list">
           <p className={styles.sideNote}>Same services as the list. Sorted by travel time. Not ranked.</p>
@@ -342,11 +343,6 @@ export function MapScreen({ caseId }: { caseId: string }) {
           {parts.options.map((option) => (
             <SideCard key={option.serviceId} option={option} caseId={caseId} selected={option.serviceId === selected} />
           ))}
-          <div>
-            <Button variant="secondary" href={`/advisor/case/${id}/radar`} dataEl="ADV-MAP-RADAR-BTN">
-              Who covers this area
-            </Button>
-          </div>
         </section>
       </div>
     </section>

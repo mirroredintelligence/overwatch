@@ -31,11 +31,11 @@ describe('TravelDetails (W50)', () => {
     expect(screen.getByText('Included in their response time')).toBeInTheDocument();
   });
 
-  it('says a range is not a promise, and names the postcode centre', () => {
+  it('says a range is not a promise, and says travel is measured from the postcode centre, not from a patient marker', () => {
     render(<TravelDetails option={UCR} caseId="4821" />);
     expect(
       screen.getByText(
-        'A range, not a promise. Roads, weather and the time of day change it. The patient is placed at the postcode centre, so the range is for the area, not the door.',
+        'A range, not a promise. Roads, weather and the time of day change it. Travel is measured from the centre of the postcode, so the range is for the area, not the door.',
       ),
     ).toBeInTheDocument();
   });

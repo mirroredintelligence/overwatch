@@ -5,17 +5,16 @@ import { useRouter } from 'next/navigation';
 import styles from './ViewToggle.module.css';
 
 // The one segmented control over the options of a case (W50; advisor-clinical-wall.md, "Segmented control"):
-// List, Compare, Map, Radar, Ways and Other organisations, each a link to its existing route, the one on
+// List, Compare, Map, Ways and Other organisations, each a link to its existing route, the one on
 // screen marked aria-current="page". The network's options (WB11) are one tab, Other organisations; inside
 // it the list and the map of the same case are two buttons on their own two routes, with the same ids.
 
-export type OptionsView = 'list' | 'compare' | 'map' | 'radar' | 'ways';
+export type OptionsView = 'list' | 'compare' | 'map' | 'ways';
 
 const TABS: readonly { view: OptionsView | 'network'; label: string; path: string; el?: string }[] = [
   { view: 'list', label: 'List', path: 'options', el: 'ADV-MAP-TOGGLE-LIST' },
   { view: 'compare', label: 'Compare', path: 'compare' },
   { view: 'map', label: 'Map', path: 'map', el: 'ADV-MAP-TOGGLE-MAP' },
-  { view: 'radar', label: 'Radar', path: 'radar' },
   { view: 'ways', label: 'Ways', path: 'ways' },
   { view: 'network', label: 'Other organisations', path: 'network-options' },
 ];

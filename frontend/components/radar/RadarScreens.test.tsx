@@ -1,15 +1,14 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetCsrfCache } from '@/lib/advisor/browser';
 import { runAxe } from '@/test/a11y';
 import { byEl } from '@/test/el';
-import { RADAR_EMPTY, RADAR_NOT_FOUND, RADAR_OUT_OF_AREA, RADAR_VIEW } from '@/test/fixtures/radar';
+import { RADAR_VIEW } from '@/test/fixtures/radar';
 import { BLANK_CASE, CASE_ETAG } from '@/test/msw/handlers/advisor';
 import { server } from '@/test/msw/server';
 import { CompareScreen } from './CompareScreen';
-import { RadarScreen } from './RadarScreen';
 import { WaysScreen } from './WaysScreen';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
@@ -34,97 +33,6 @@ beforeEach(() => {
 });
 
 const views = () => screen.getByRole('navigation', { name: 'Options view' });
-
-describe('Radar: who covers this area (RadarWeb 1)', () => {
-  it('reads the viewer’s own options only, and heads the page with the district', async () => {
-    render(<RadarScreen caseId="4821" />);
-    expect(await screen.findByRole('heading', { name: 'Who covers DT4 8XX' })).toBeInTheDocument();
-    expect(optionsUrls).toEqual(['?only=own']);
-    expect(screen.getByText('Who covers DT4 8XX · the patient is shown at the postcode centre')).toBeInTheDocument();
-  });
-
-  it('shows the shared view toggle with Radar current, and no tabs of its own', async () => {
-    render(<RadarScreen caseId="4821" />);
-    await screen.findByRole('heading', { name: 'Who covers DT4 8XX' });
-    expect(within(views()).getByRole('link', { name: 'Radar' })).toHaveAttribute('aria-current', 'page');
-    expect(within(views()).getByRole('link', { name: 'Compare' })).toHaveAttribute('href', '/advisor/case/4821/compare');
-    expect(within(views()).getByRole('link', { name: 'Ways' })).toHaveAttribute('href', '/advisor/case/4821/ways');
-    expect(within(views()).getByRole('link', { name: 'Map' })).toHaveAttribute('href', '/advisor/case/4821/map');
-    expect(screen.queryByRole('navigation', { name: 'Radar views' })).toBeNull();
-  });
-
-  it('has a key that names each visiting service, the hatching, the places and the two layers that are off', async () => {
-    render(<RadarScreen caseId="4821" />);
-    await screen.findByRole('heading', { name: 'Who covers DT4 8XX' });
-    const key = within(screen.getByRole('region', { name: 'Key and services' }));
-    expect(key.getByText('UCR West visits this area')).toBeInTheDocument();
-    expect(key.getByText('UCR East visits this area')).toBeInTheDocument();
-    expect(key.getByText('Hospital at home visits this area')).toBeInTheDocument();
-    expect(key.getByText('Both visit: hatched')).toBeInTheDocument();
-    expect(key.getByText('A place to go to')).toBeInTheDocument();
-    expect(key.getByText('Drive-time rings: off, no data yet')).toBeInTheDocument();
-    expect(byEl('RADAR-OFF-NOTE')).toHaveTextContent('Drive-time rings and traffic are off');
-  });
-
-  it('lists who covers the district with each status and figure, and says how many cover the patient', async () => {
-    render(<RadarScreen caseId="4821" />);
-    await screen.findByRole('heading', { name: 'Who covers DT4 8XX' });
-    const covering = within(byEl('RADAR-COVERING'));
-    expect(covering.getByRole('heading', { name: 'Covering DT4 8XX' })).toBeInTheDocument();
-    expect(covering.getByText('Accepting · 4')).toBeInTheDocument();
-    expect(covering.getByText('Limited · 1')).toBeInTheDocument();
-    expect(covering.getByText('Over capacity · +2')).toBeInTheDocument();
-    expect(byEl('RADAR-SUMMARY')).toHaveTextContent('This patient is covered by 3 services. Their areas overlap here, so compare them.');
-  });
-
-  it('draws every area, since there are no layers to turn off', async () => {
-    const { container } = render(<RadarScreen caseId="4821" />);
-    await screen.findByRole('heading', { name: 'Who covers DT4 8XX' });
-    expect(container.querySelectorAll('[data-el^="RADAR-AREA-"]')).toHaveLength(3);
-    expect(screen.queryByRole('group', { name: 'Layers' })).toBeNull();
-    expect(screen.queryByRole('button', { name: /not available yet/ })).toBeNull();
-  });
-
-  it('a failed read says so and offers to try again', async () => {
-    const user = userEvent.setup();
-    server.use(http.get('/api/bff/cases/:ref/options', () => HttpResponse.json({ code: 'exception' }, { status: 502 })));
-    render(<RadarScreen caseId="4821" />);
-    expect(await screen.findByRole('alert')).toHaveTextContent('The radar could not be read. Try again.');
-
-    answerWith(RADAR_VIEW);
-    await user.click(byEl('RADAR-RETRY-BTN'));
-    expect(await screen.findByRole('heading', { name: 'Who covers DT4 8XX' })).toBeInTheDocument();
-  });
-
-  it('shows the postcode-not-found state with the districts to choose, not a radar', async () => {
-    answerWith(RADAR_NOT_FOUND);
-    render(<RadarScreen caseId="4821" />);
-    expect(await screen.findByRole('heading', { name: 'We could not find that postcode' })).toBeInTheDocument();
-    expect(byEl('ADV-DISTRICT-DT3')).toBeInTheDocument();
-    expect(within(views()).getByRole('link', { name: 'Radar' })).toHaveAttribute('aria-current', 'page');
-    expect(screen.queryByRole('heading', { name: /Who covers/ })).toBeNull();
-  });
-
-  it('shows the outside-the-area state, which names next steps', async () => {
-    answerWith(RADAR_OUT_OF_AREA);
-    render(<RadarScreen caseId="4821" />);
-    expect(await screen.findByRole('heading', { name: 'No service covers this area' })).toBeInTheDocument();
-    expect(byEl('ADV-NOFIT-CLINICAL-BTN')).toBeInTheDocument();
-  });
-
-  it('shows the no-service-fits state, never an empty radar, when nothing meets the criteria', async () => {
-    answerWith(RADAR_EMPTY);
-    render(<RadarScreen caseId="4821" />);
-    await waitFor(() => expect(byEl('ADV-NOFIT-CLINICAL-BTN')).toBeInTheDocument());
-    expect(screen.queryByRole('heading', { name: /Who covers/ })).toBeNull();
-  });
-
-  it('has no axe violations', async () => {
-    const { container } = render(<main><RadarScreen caseId="4821" /></main>);
-    await screen.findByRole('heading', { name: 'Who covers DT4 8XX' });
-    expect((await runAxe(container)).violations).toEqual([]);
-  });
-});
 
 describe('Compare the covering services (RadarWeb 2)', () => {
   it('has the patient card, the shared view toggle with Compare current, and how many services are lined up', async () => {

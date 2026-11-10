@@ -93,7 +93,8 @@ export function overlappingPairs(options: readonly OptionView[]): [OptionView, O
 }
 
 /** The one-line summary under the map (RadarWeb 1). */
-export function coverSummary(covering: readonly OptionView[]): string {
+export function coverSummary(covering: readonly OptionView[], located = true): string {
+  if (!located) return "The patient's location is not known, so who covers it cannot be worked out. The services' areas are shown.";
   const count = covering.length;
   if (count === 0) return 'No visiting service covers this patient area. Places to go are still listed.';
   const head = `This patient is covered by ${count} ${count === 1 ? 'service' : 'services'}.`;

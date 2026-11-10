@@ -7,7 +7,7 @@ Sources read for this brief: `docs/design/design-system.md`, `docs/spec/ui-scree
 
 ## 1. What changes, in one paragraph
 
-The advisor call stops being three stacked cards on one scrolling page. It becomes one stage with four layout states (Overview, Needs, Options, Request) in a fixed shell. A step changes only because the advisor chose it; the needs fold into a pinned summary; one option takes the stage and the rest fold into a rail. The board, the wall screen and the clinical queue use the same tile, status and shell language. Every sub-view of the options (list, compare, map, radar, ways, other organisations) is a tab of one segmented control, not a separate-feeling page.
+The advisor call stops being three stacked cards on one scrolling page. It becomes one stage with four layout states (Overview, Needs, Options, Request) in a fixed shell. A step changes only because the advisor chose it; the needs fold into a pinned summary; one option takes the stage and the rest fold into a rail. The board, the wall screen and the clinical queue use the same tile, status and shell language. Every sub-view of the options (list, compare, map, ways, other organisations; the radar is a layer of the map, DEC-1372) is a tab of one segmented control, not a separate-feeling page.
 
 ## 2. Shared contract (build first, used by every route below)
 
@@ -17,7 +17,7 @@ The advisor call stops being three stacked cards on one scrolling page. It becom
 | Tokens | Add: `--c-rail #0B2A3D`, three surface levels (page `#EEF2F3`, card white with `0 1px 2px / 0 10px 28px` shadow, raised), `--ease-spring` (the `linear()` spring with a `cubic-bezier(.34,1.56,.64,1)` fallback). Reuse `--dur-*`, `--ease-*`. | `app/tokens.css` | Additive only. Reduced motion already zeroes `--dur-*`. |
 | Status language | Six states, each a shape plus a word, never colour alone: Accepting (filled circle), Limited (half circle), Not accepting (square), Over capacity (triangle), Not updated (dashed ring, hatched tile), Out of hours (crescent, quiet tile). "Last known" is an overlay on any state (dashed pill, hatched tile), never a seventh state. | `BoardStatus` in `lib/board/types.ts` already has all six; `NetworkTile.tsx` words them | New shared `StatusChip` (shape + word) and `Tile` used by Board, Wall, Options, Compare. Out of hours must render as in the Quiet board, not as Not accepting. |
 | Stale figures | A figure older than 2 hrs shows "old" in words and weight on the card and the list; the wall uses `lib/board/liveness.ts` (stale after 180 s, reasons offline / unreadable / old). | `lib/board/liveness.ts`, `Board.tsx` | Design only: the 'Last known' overlay (see Wall, section 6). |
-| Segmented control | List, Compare, Map, Radar, Ways, Other organisations over one options read. Current tab `aria-current="page"`. | Separate pages today | One component, links to the existing routes (keep the URLs). |
+| Segmented control | List, Compare, Map, Ways, Other organisations over one options read (Radar is no longer a tab: DEC-1372). Current tab `aria-current="page"`. | Separate pages today | One component, links to the existing routes (keep the URLs). |
 | Skeleton | Shared shimmer (`app/skeleton.css`, `components/ui/Skeleton.tsx`, commit ec7d49dd) with a spoken label. | Built, admin pages only | Use for every loading state below. |
 
 ## 3. The advisor call: states and URLs
@@ -29,7 +29,7 @@ URL is the state. A state change is a navigation (client-side, `history.pushStat
 | Overview | `/advisor` | Call (step 1), BoardNormal | Open Calls |
 | Needs | `/advisor/case/[ref]` | Call (step 2) | Start a new call (creates the case) |
 | Options | `/advisor/case/[ref]/options` | Call (step 3) | See matching services |
-| Options views | `.../compare`, `.../map`, `.../radar`, `.../ways`, `.../network-options`, `.../network-map` | Compare, Map, Radar, Ways, NetworkOptions | The segmented control |
+| Options views | `.../compare`, `.../map` (`?layer=coverage` is the old Radar; `.../radar` redirects there), `.../ways`, `.../network-options`, `.../network-map` | Compare, Map (with the Who covers layer), Ways, NetworkOptions | The segmented control |
 | Request | **proposed** `.../options?service=[id]` (query, not a new route) | Call (step 4) | Open on an option |
 | Outcome | `/advisor/case/[ref]/finish` | Finish | Record outcome |
 | Closed | `.../finish?closed=1` (replace, not push) | Closed | Save outcome |
@@ -70,7 +70,7 @@ Existing components: names from `frontend/components/advisor/`, `board/`, `radar
 | `.../options?service=` | Call step 4, P3, P4 | Request | Reshape `BookingPanel`, `OptionBooking`, `BookingCard`; new `OptionRail` | POST `/api/bff/bookings`, events stream `/api/bff/events`, `/api/bff/bookings/[id]` |
 | `.../compare` | Compare | Options layout, table in the stage | Reshape `radar/CompareScreen` (keeps the no-score, no-rank rule and the Not available rows) | Same options read |
 | `.../map` | Map, MapLost | Options layout, map and list side by side; phone: map above list | Reshape `MapScreen`, `map.module.css`; district chooser as its own card (MapLost) | Options read; PUT `/api/bff/cases/[ref]/district` |
-| `.../radar` | Radar | Options layout, key panel at the right | Reshape `radar/RadarScreen` | Options read. Drive-time rings and traffic stay shown as off |
+| `.../radar` | (redirect) | Redirects to `.../map?layer=coverage`. The radar's key and who-covers list are `advisor/CoveragePanel`, shown when the Map's Who covers this area layer is on. **Supersedes the canvas for this view (DEC-1372).** | `radar/RadarScreen` and `RadarMap` removed | Options read. Drive-time rings and traffic are not drawn or mentioned (no data) |
 | `.../ways` | Ways, PWays | Three lanes; lane order follows the optional can-travel answer, never hides a lane | Reshape `radar/WaysScreen` | Options read |
 | `.../network-options`, `.../network-map` | NetworkOptions | Read-only list, one phone action per row | Reshape `NetworkOptions`, `NetworkMap`, `NetworkTile` | `/api/bff/network/options`; only the network id and case ref are sent |
 | (empty state) | NoFit, PNoFit | Options layout, four next steps as large rows | New `NoFit` (today: a banner in `OptionsList`) | Options read (empty result); the four actions reuse existing calls |
@@ -116,7 +116,7 @@ Same four states, rewritten as steps and sheets: columns become a progress bar (
 1. Tokens, rail shell, `StatusChip`, `Tile` (with the six states and Last known). Unit and axe tests per state.
 2. Board and wall board on the new `Tile`: Normal, Surge, Quiet (Out of hours), Offline/Last known, Loading, plus the phone list.
 3. `CallStage` (the grid and the four layout states) with the pinned summary and step bar; migrate Needs and Options into it. URL state and focus management here.
-4. Options sub-views behind the segmented control: Compare, Map and district chooser, Radar, Ways, Network.
+4. Options sub-views behind the segmented control: Compare, Map and district chooser (with the Who covers this area layer), Ways, Network.
 5. Request, the dialogs, the exceptions, Finish and Closed.
 6. Clinical: duty, queue, case and advice; phone alert.
 7. Wall pairing and reconnect.
@@ -129,7 +129,7 @@ Each step ships behind the existing routes; the old screens stay until its repla
 1. **Live count while filling the needs.** The Needs state shows "3 services meet the criteria so far". Today the options read needs a saved case. A count needs either a debounced PUT of the partial case then an options read, or a new count-only read. The first works with no back-end change but writes a draft on each pause; decide.
 2. **Request deep link.** `?service=[id]` is a front-end addition only; it must resolve to a service in the case's options and be ignored otherwise.
 3. **Compare rows.** "Adds to today's round" and "Patients already near" need service rounds the system does not hold; they stay Not available (not zero).
-4. **Radar.** Drive-time rings and traffic have no data; they stay shown as off with the reason.
+4. **Radar.** Now a layer of the Map (DEC-1372). Drive-time rings and traffic have no data; they are neither drawn nor listed in the key.
 5. **Out of hours.** The board already has the status and the reopen time; confirm the reopen time is on `BoardEntry` for every out-of-hours service.
 6. **Hold timer.** The clinical case shows "You hold this request, 8:42 left" (10-minute hold). Confirm the request read carries the hold expiry; if not, the timer is cosmetic and must be removed.
 7. **Duty states.** The canvas has Available, Busy and Away; confirm `clinical/presence` stores three states.

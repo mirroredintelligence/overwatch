@@ -88,7 +88,13 @@ function loadLibraries() {
 export function preloadMap(): void {
   if (!webglAvailable()) return;
   void loadLibraries().catch(() => undefined);
-  void fetch(WORKER_URL, { priority: 'low' } as RequestInit).catch(() => undefined);
+  // The worker is asked for as a prefetch link (the app's one HTTP client stays the BFF's), once.
+  if (document.querySelector(`link[rel="prefetch"][href="${WORKER_URL}"]`) === null) {
+    const link = document.createElement('link');
+    link.rel = 'prefetch';
+    link.href = WORKER_URL;
+    document.head.appendChild(link);
+  }
 }
 
 /** A screen that will show a map calls this while it reads what the map draws. */

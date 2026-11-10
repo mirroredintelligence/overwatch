@@ -612,3 +612,33 @@
   font-weight: 700;
   color: var(--c-limited);
 }
+
+/* The "Who covers this area" layer's switch, over the map. */
+.layerRow {
+  display: flex;
+  margin-bottom: var(--space-2);
+}
+
+.layerToggle {
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  font: inherit;
+  font-weight: var(--type-label-weight);
+  color: var(--c-ink);
+  background: #fff;
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius-chip);
+  cursor: pointer;
+}
+
+.layerToggle:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.layerToggle[aria-pressed='true'] {
+  background: var(--c-tint);
+  border-color: var(--c-primary);
+  color: var(--c-primary-dark);
+}

@@ -1,7 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { RADAR_PARTS } from '@/test/fixtures/radar';
-import { RadarMap } from '../radar/RadarMap';
 import { OptionsMap } from './OptionsMap';
 import { unplacedOf, UnplacedNote } from './UnplacedNote';
 
@@ -20,12 +19,10 @@ describe('UnplacedNote', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('shows on the radar and on the map', () => {
-    render(<RadarMap options={[bare]} patientArea={RADAR_PARTS.patientArea} postcode="DT4 8XX" />);
-    expect(screen.getByText(/Not drawn: Rob's H@H/)).toBeInTheDocument();
+  it('shows under the map', () => {
     render(
       <OptionsMap caseId="c1" postcode="DT4 8XX" patientArea={RADAR_PARTS.patientArea} options={[bare]} selectedId={null} onSelect={() => undefined} />,
     );
-    expect(screen.getAllByText(/Not drawn: Rob's H@H/)).toHaveLength(2);
+    expect(screen.getByText(/Not drawn: Rob's H@H/)).toBeInTheDocument();
   });
 });

@@ -2,11 +2,11 @@ import { Button } from '@/components/ui/Button';
 import type { OptionView } from '@/lib/advisor/options';
 import styles from './MapScreen.module.css';
 
-// The travel estimate, leg by leg (W50). It is a range for the area, not a promise: the patient is
-// placed at the postcode centre. A visiting service is included in its own response time.
+// The travel estimate, leg by leg (W50). It is a range for the area, not a promise: travel is measured from
+// the postcode's centre. A visiting service is included in its own response time.
 
 const CAVEAT =
-  'A range, not a promise. Roads, weather and the time of day change it. The patient is placed at the postcode centre, so the range is for the area, not the door.';
+  'A range, not a promise. Roads, weather and the time of day change it. Travel is measured from the centre of the postcode, so the range is for the area, not the door.';
 const VISITING = 'Included in their response time';
 const NO_LEGS = 'No travel legs were recorded for this service.';
 

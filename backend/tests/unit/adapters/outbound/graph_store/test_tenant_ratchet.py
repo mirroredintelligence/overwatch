@@ -48,6 +48,7 @@ RESOURCE_STORE = frozenset(
         "Q-RES-HISTORY",
         "Q-RES-IDEM-GET",
         "Q-RES-IDEM-RECORD",
+        "Q-RES-LOAD-MANY",
         "Q-RES-LOAD-NODES",
         "Q-RES-LOAD-RELS",
         "Q-RES-LOCK",

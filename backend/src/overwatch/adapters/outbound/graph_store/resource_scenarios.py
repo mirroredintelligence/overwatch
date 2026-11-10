@@ -245,6 +245,31 @@ SCENARIOS: Final[dict[str, Scenario]] = {
         expect=Expect(rows=_TREE_ROWS),
         insert=":Resource",
     ),
+    "Q-RES-LOAD-MANY": Scenario(
+        "load the tenant's resource roots, their children and their relationships, in one pass",
+        seed=_TREE_SEED,
+        params={"roots": [_ROOT_OF_ORG]},
+        # The roots are a list, which a single lookup value cannot name: the two tenants share the
+        # seed's plain values (the same keys), which is what the generated test relies on.
+        lookup=(),
+        new=(),
+        expect=Expect(
+            rows=(
+                {
+                    "rootKey": _ORG_KEY,
+                    "props": {"name": Marked("Org"), "key": _ORG_KEY},
+                    "relType": "HAS_ADDRESS",
+                    "end": _CHILD_KEY,
+                },
+                {
+                    "rootKey": _ORG_KEY,
+                    "props": {"city": Marked("Town"), "key": _CHILD_KEY},
+                    "relType": None,
+                },
+            )
+        ),
+        insert=":Resource",
+    ),
     "Q-RES-LOAD-RELS": Scenario(
         "load the relationships of the tenant's resource and its children",
         seed=TenantSeed(

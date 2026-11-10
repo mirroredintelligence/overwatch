@@ -210,6 +210,27 @@ _TEMPLATES: dict[str, tuple[str, Literal["read", "write"]]] = {
         "CASE WHEN t:Resource OR t:ResourceVersion THEN null ELSE properties(t) END AS endProps",
         "read",
     ),
+    # Many stored resources in ONE statement: for each root in `$roots` (`resourceKey`, `key`; the
+    # children are the nodes whose key starts with the root's key and `#`) the root, its owned
+    # children and every relationship they start, one row per relationship (a node with none has
+    # one row with a null `relType`). A resource used to cost three statements (the root, the
+    # nodes, the relationships), so a list of fourteen services cost forty-two round trips. A root
+    # with no node in this tenant has no row.
+    "Q-RES-LOAD-MANY": (
+        "UNWIND $roots AS root "
+        "MATCH (res:Resource {key: root.resourceKey, tenantId: $tenant}) "
+        "MATCH (res)-[:HAS_VERSION*0..1]->(r{insert} {key: root.key, tenantId: $tenant}) "
+        "OPTIONAL MATCH (r) "
+        "(()-[]->(c {tenantId: $tenant} WHERE c.key STARTS WITH root.key + '#'))+ () "
+        "WITH root, r, reduce(acc = [], p IN collect(c) | acc + p) AS kids "
+        "UNWIND [r] + kids AS x WITH DISTINCT root, x AS o "
+        "OPTIONAL MATCH (o)-[rel]->(t {tenantId: $tenant}) WHERE type(rel) <> 'HAS_VERSION' "
+        "RETURN root.key AS rootKey, labels(o) AS labels, properties(o) AS props, "
+        "type(rel) AS relType, properties(rel) AS relProps, t.key AS end, "
+        "labels(t) AS endLabels, "
+        "CASE WHEN t:Resource OR t:ResourceVersion THEN null ELSE properties(t) END AS endProps",
+        "read",
+    ),
     "Q-RES-HISTORY": (
         "MATCH (r:Resource {key: $key, tenantId: $tenant})-[h:HAS_VERSION]->"
         "(v:ResourceVersion {tenantId: $tenant}) "
@@ -419,10 +440,31 @@ class ResourceStore:
 
     async def get(self, type: str, id: str) -> dict[str, Any] | None:
         _check_type(type)
-        key = f"{type}/{id}"
-        if await self._root_props(type, key) is None:
-            return None
-        return from_graph(await self._load(key, type))
+        return (await self.get_many(type, [id])).get(id)
+
+    async def get_many(self, type: str, ids: Sequence[str]) -> dict[str, dict[str, Any]]:
+        """The stored resources of one type with these ids, in one statement. An id with no
+        resource in this tenant, or only a placeholder, is left out of the answer."""
+        _check_type(type)
+        wanted = list(dict.fromkeys(ids))
+        if not wanted:
+            return {}
+        roots = []
+        for id_ in wanted:
+            _check_identity(type, id_)
+            key = f"{type}/{id_}"
+            roots.append({"resourceKey": key, "key": key})
+        rows = await self._run("Q-RES-LOAD-MANY", ":Resource", roots=roots)
+        by_root: dict[str, list[dict[str, Any]]] = {}
+        for row in rows:
+            by_root.setdefault(str(row["rootKey"]), []).append(row)
+        found: dict[str, dict[str, Any]] = {}
+        for id_ in wanted:
+            key = f"{type}/{id_}"
+            fragment = _fragment_from_rows(key, type, by_root.get(key, []))
+            if fragment is not None:
+                found[id_] = from_graph(fragment)
+        return found
 
     async def history(self, type: str, id: str) -> list[dict[str, Any]]:
         _check_type(type)
@@ -697,6 +739,46 @@ class ResourceStore:
         if key not in nodes:
             raise NotFound(key)
         return GraphFragment(root_key=key, nodes=tuple(nodes.values()), rels=tuple(rels))
+
+
+def _fragment_from_rows(
+    key: str, root_type: str, rows: list[dict[str, Any]]
+) -> GraphFragment | None:
+    """The fragment of one resource from its rows of `Q-RES-LOAD-MANY`, or None when it has no node
+    or its root is only a placeholder for a reference."""
+    nodes: dict[str, NodeSpec] = {}
+    for row in rows:
+        stored_key = str(row["props"]["key"])
+        if stored_key == key and _not_placeholder(row["props"]) is None:
+            return None
+        if stored_key not in nodes:
+            nodes[stored_key] = _node_from_row(
+                stored_key, row["labels"], row["props"], key, root_type
+            )
+    if key not in nodes:
+        return None
+    rels: list[RelSpec] = []
+    for row in rows:
+        if row["relType"] is None:
+            continue
+        # A named local relationship (P03) has no fhirPath and is not an element, so it is not in
+        # the resource. Any other relationship without a fhirPath is kept, and from_graph then
+        # refuses it with KeyError.
+        if "fhirPath" not in row["relProps"] and row["relType"] in LOCAL_RELATIONSHIP_TYPES:
+            continue
+        if row["endProps"] is not None and row["end"] not in nodes:
+            nodes[row["end"]] = _node_from_row(
+                row["end"], row["endLabels"], row["endProps"], key, root_type
+            )
+        rels.append(
+            RelSpec(
+                row["relType"],
+                str(row["props"]["key"]),
+                row["end"],
+                _props_from_db(row["relProps"]),
+            )
+        )
+    return GraphFragment(root_key=key, nodes=tuple(nodes.values()), rels=tuple(rels))
 
 
 def _node_from_row(

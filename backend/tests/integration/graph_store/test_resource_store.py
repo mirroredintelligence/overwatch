@@ -358,6 +358,42 @@ async def test_a_missing_resource_reads_as_none_and_has_no_history(
     assert await _history(neo4j_driver, "Organization", ORG_ID) == []
 
 
+async def _get_many(driver: AsyncDriver, type_: str, ids: list[str]) -> dict[str, dict[str, Any]]:
+    async def work(tx: Any) -> dict[str, dict[str, Any]]:
+        return await ResourceStore(tx, FixedClock(AT)).get_many(type_, ids)
+
+    return await read_tx(driver, work)
+
+
+async def test_many_resources_are_read_in_one_pass_and_each_equals_the_single_read(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    other_id = "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d"
+    await _put(neo4j_driver, _org(), None)
+    await _put(neo4j_driver, {**_org("Second Trust"), "id": other_id}, None)
+    await _put(neo4j_driver, UCR_WEST, None)
+
+    many = await _get_many(neo4j_driver, "Organization", [ORG_ID, other_id, ORG_ID])
+
+    assert set(many) == {ORG_ID, other_id}
+    assert many[ORG_ID] == await _get(neo4j_driver, "Organization", ORG_ID)
+    assert many[other_id] == await _get(neo4j_driver, "Organization", other_id)
+    service = await _get_many(neo4j_driver, "HealthcareService", [SVC_ID])
+    assert service[SVC_ID] == await _get(neo4j_driver, "HealthcareService", SVC_ID)
+
+
+async def test_many_resources_leave_out_a_missing_id_and_an_unwritten_placeholder(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    await _put(neo4j_driver, UCR_WEST, None)  # leaves a placeholder for its organisation
+    absent = "2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6e"
+
+    many = await _get_many(neo4j_driver, "Organization", [ORG_ID, absent])
+
+    assert many == {}
+    assert await _get_many(neo4j_driver, "Organization", []) == {}
+
+
 async def test_no_stored_property_is_a_map_a_list_of_maps_or_a_json_string(
     neo4j_driver: AsyncDriver,
 ) -> None:
@@ -433,6 +469,7 @@ RES_TEMPLATES = frozenset(
         "Q-RES-GET",
         "Q-RES-HISTORY",
         "Q-RES-LINK-SHARED",
+        "Q-RES-LOAD-MANY",
         "Q-RES-LOAD-NODES",
         "Q-RES-LOAD-RELS",
         "Q-RES-LOCK",
@@ -882,6 +919,9 @@ async def test_key_lookups_of_one_resource_do_not_grow_with_the_number_of_tenant
         "Q-RES-HISTORY": {"key": "Organization/o3"},
         "Q-RES-CLEAR-ROOT-RELS": {"key": "Organization/o3"},
         "Q-RES-CLEAR-OWNED": {"key": "Organization/o3", "prefix": "Organization/o3#"},
+        "Q-RES-LOAD-MANY": {
+            "roots": [{"resourceKey": "Organization/o3", "key": "Organization/o3"}]
+        },
         "Q-RES-LOAD-NODES": {
             "resourceKey": "Organization/o3",
             "key": "Organization/o3",

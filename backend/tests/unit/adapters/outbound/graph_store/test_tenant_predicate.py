@@ -159,6 +159,8 @@ UNANCHORED_ENDS: dict[str, int] = {
     # are the steps of a path that begins at the tenant's own root and ends at a tenant's `c`.
     "Q-RES-CLEAR-OWNED": 2,
     "Q-RES-LOAD-NODES": 2,
+    # The same path as the two above, for many roots at once, and the relationships of its nodes.
+    "Q-RES-LOAD-MANY": 3,
     # Also reads the relationships of the nodes it loaded (`o`, a node of that path).
     "Q-RES-LOAD-RELS": 3,
     # Deletes the relationships that leave the tenant's own root; the other end is not touched.
@@ -240,6 +242,7 @@ def test_the_unanchored_ends_are_reached_from_an_anchored_root() -> None:
     statements = production_statements(REGISTRY)
     for query_id in UNANCHORED_ENDS:
         assert re.match(
-            r"MATCH \(\w+:Resource \{key: \$\w+, tenantId: \$tenant\}\)",
+            r"(?:UNWIND \$\w+ AS \w+ )?"
+            r"MATCH \(\w+:Resource \{key: (?:\$\w+|\w+\.\w+), tenantId: \$tenant\}\)",
             statements[query_id].cypher,
         ), query_id

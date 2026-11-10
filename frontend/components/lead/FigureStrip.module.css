@@ -2,7 +2,7 @@
 
 .strip {
   padding: var(--space-3) var(--space-4);
-  border-radius: 18px;
+  border-radius: var(--radius-card);
   background: var(--c-bg);
   color: var(--c-ink);
 }

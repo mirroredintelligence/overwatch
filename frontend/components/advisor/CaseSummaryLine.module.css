@@ -8,7 +8,7 @@
   max-width: 300px;
   padding: 22px;
   background: #fff;
-  border-radius: 22px;
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
 }
 

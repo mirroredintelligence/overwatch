@@ -50,13 +50,13 @@
   margin-bottom: var(--space-3);
   padding: 18px 22px;
   border: 2px solid var(--c-line);
-  border-radius: 20px;
+  border-radius: var(--radius-card);
   background: #fff;
 }
 
 .version[data-state='live'] .card {
   border-color: var(--c-primary);
-  box-shadow: 0 10px 28px rgba(11, 92, 140, 0.14);
+  box-shadow: var(--shadow-card);
 }
 
 .version[data-state='earlier'] .card {

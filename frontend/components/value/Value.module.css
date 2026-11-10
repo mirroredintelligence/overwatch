@@ -25,7 +25,7 @@
   justify-content: center;
   width: 44px;
   height: 44px;
-  border-radius: 14px;
+  border-radius: var(--radius);
   background: var(--c-rail);
 }
 

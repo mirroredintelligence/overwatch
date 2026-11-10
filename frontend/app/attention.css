@@ -1,0 +1,55 @@
+/* Attention on the advisor-side board and the service cards (DEC-1365; supersedes design-system section 13's
+   "no neon, no decorative animation" for these cards only). The wall board (/screen) does not use these classes.
+
+   A glow is added to the status shape and word, never instead of them. It is drawn on a layer around the
+   card (box-shadow outside the card edge), so it covers no text and changes no size, colour or order.
+   Stale (blue) and over capacity (red) pulse once every --glow-period (at least 2s) between 50% and 100%
+   strength: one smooth cycle, never off, never flashing. Limited and not accepting get a static ring.
+   Under reduced motion the pulse stops and the ring stays at full strength. */
+.attention {
+  position: relative;
+}
+
+.attention::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.attention-stale::after {
+  box-shadow: 0 0 0 3px var(--glow-stale), 0 0 24px 6px color-mix(in srgb, var(--glow-stale) 70%, transparent);
+  animation: attention-pulse var(--glow-period) ease-in-out infinite;
+}
+
+.attention-over::after {
+  box-shadow: 0 0 0 3px var(--glow-over), 0 0 24px 6px color-mix(in srgb, var(--glow-over) 70%, transparent);
+  animation: attention-pulse var(--glow-period) ease-in-out infinite;
+}
+
+.attention-limited::after {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-limited) 30%, transparent);
+}
+
+.attention-closed::after {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-closed) 30%, transparent);
+}
+
+@keyframes attention-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .attention-stale::after,
+  .attention-over::after {
+    animation: none;
+    opacity: 1;
+  }
+}

@@ -67,7 +67,7 @@
   color: var(--c-ink);
   background: #fff;
   border: 0;
-  border-radius: 20px;
+  border-radius: var(--radius-card);
   box-shadow: 0 1px 2px rgb(20 35 43 / 0.08);
   cursor: pointer;
   transition: background-color var(--dur-press) var(--ease-out);

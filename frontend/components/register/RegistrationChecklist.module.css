@@ -26,7 +26,7 @@
   box-sizing: border-box;
   padding: var(--space-3) var(--space-4);
   border: 2px solid transparent;
-  border-radius: 18px;
+  border-radius: var(--radius-card);
   background: #fff;
   color: var(--c-ink);
   text-decoration: none;

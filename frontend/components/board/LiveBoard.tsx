@@ -66,7 +66,7 @@ export function LiveBoard({
   });
   return (
     // The wall's dark ground (artboard WallBoard), in every state: current, stream paused and last known.
-    <div className={styles.wall} data-el="WALL-GROUND">
+    <div className={styles.wall} data-el="WALL-GROUND" data-surface="wall">
       {/* Status changes, said politely once (KI-56). */}
       <StatusAnnouncer board={board} lastKnown={assessment.mode === 'last-known'} />
       {assessment.mode === 'last-known' ? (

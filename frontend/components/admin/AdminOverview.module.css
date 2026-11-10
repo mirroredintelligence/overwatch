@@ -118,7 +118,7 @@
   justify-content: center;
   min-height: 52px;
   padding: 0 var(--space-5);
-  border-radius: 14px;
+  border-radius: var(--radius);
   font: inherit;
   font-weight: 700;
   text-decoration: none;
@@ -129,7 +129,7 @@
   border: 0;
   background: var(--c-primary);
   color: #fff;
-  box-shadow: 0 6px 16px rgba(11, 92, 140, 0.28);
+  box-shadow: 0 1px 2px rgb(11 42 61 / 0.2);
 }
 
 .secondary {

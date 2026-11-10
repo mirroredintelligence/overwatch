@@ -4,6 +4,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import type { OptionView } from '@/lib/advisor/options';
 import { categoryLabel, durationText } from '@/lib/board/format';
 import { lastReportedLine, reportingStrip } from '@/lib/advisor/reporting';
+import { attentionClass, attentionOf, type Attention } from '@/lib/attention';
 import { DayChart } from './DayChart';
 import { NetworkServiceLine } from './NetworkServiceLine';
 import { OptionBooking } from './OptionBooking';
@@ -49,6 +50,16 @@ export function numberText(option: OptionView): string {
   return '?';
 }
 
+// A late, old or unavailable figure is stale whatever status it last had (DEC-1343, DEC-1365).
+export function attentionFor(option: OptionView): Attention | null {
+  return attentionOf({ status: option.status, stale: option.figureUnavailable || option.staleWarning });
+}
+
+function glowClasses(option: OptionView): string {
+  const glow = attentionClass(attentionFor(option));
+  return glow === '' ? '' : ` ${glow}`;
+}
+
 function dataAgeLine(option: OptionView): string {
   if (option.dataAgeSeconds === null) return 'Data age: not known';
   return `Data age: ${durationText(Math.floor(option.dataAgeSeconds / 60))} ago`;
@@ -63,7 +74,12 @@ function rowCaption(option: OptionView): string {
 function ServiceRow({ option, openHref }: { option: OptionView; openHref?: string }) {
   const network = option.network;
   return (
-    <article className={`${styles.row} ${option.status === 'over-capacity' ? styles.rowSurge : ''}`} aria-label={option.name} data-el="ADV-OPT-CARD">
+    <article
+      className={`${styles.row} ${option.status === 'over-capacity' ? styles.rowSurge : ''}${glowClasses(option)}`}
+      aria-label={option.name}
+      data-el="ADV-OPT-CARD"
+      data-attention={attentionFor(option) ?? undefined}
+    >
       <div className={styles.rowBody}>
         <h3 className={styles.rowName}>{option.name}</h3>
         {network === null ? null : <p className={styles.caption}>{network.organisation}</p>}
@@ -101,7 +117,7 @@ export function ServiceCard({ caseId, option, variant = 'full', openHref, headin
     : option.checks;
 
   return (
-    <article className={styles.card} aria-label={option.name} data-el="ADV-OPT-CARD">
+    <article className={`${styles.card}${glowClasses(option)}`} aria-label={option.name} data-el="ADV-OPT-CARD" data-attention={attentionFor(option) ?? undefined}>
       <header className={styles.head}>
         <div className={styles.titles}>
           <Name className={styles.name}>{option.name}</Name>

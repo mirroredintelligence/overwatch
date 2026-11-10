@@ -131,7 +131,7 @@
 .what {
   padding: 16px 20px;
   border: 2px solid var(--c-limited);
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   background: var(--c-amber-tint);
   color: #4a2300;
 }
@@ -183,7 +183,7 @@
   min-height: 56px;
   padding: 14px 20px;
   border: 2px solid var(--c-line);
-  border-radius: 14px;
+  border-radius: var(--radius);
   background: #fff;
   font-size: 18px;
   font-weight: 700;
@@ -263,7 +263,7 @@
   min-height: 54px;
   padding: 0 28px;
   border: 2px solid var(--c-limited);
-  border-radius: 14px;
+  border-radius: var(--radius);
   background: var(--c-amber-tint);
   color: #4a2300;
   font: inherit;
@@ -300,7 +300,7 @@
   min-height: 54px;
   padding: 0 16px;
   border: 0;
-  border-radius: 14px;
+  border-radius: var(--radius);
   background: transparent;
   color: var(--c-ink-2);
   font: inherit;
@@ -319,7 +319,7 @@
 
 .fact {
   padding: 16px;
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   background: var(--c-bg);
 }
 

@@ -78,7 +78,7 @@
   min-height: var(--btn-h);
   padding: 0 var(--space-4);
   border: 2px solid var(--c-primary);
-  border-radius: 14px;
+  border-radius: var(--radius);
   background: #fff;
   color: var(--c-primary);
   font-size: var(--type-label-size);

@@ -100,7 +100,7 @@
   gap: var(--space-2);
   padding: 14px 16px;
   border: 2px solid var(--c-limited);
-  border-radius: 18px;
+  border-radius: var(--radius-card);
   background: var(--c-amber-tint);
   color: var(--c-ink);
 }

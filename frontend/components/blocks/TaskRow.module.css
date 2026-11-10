@@ -70,7 +70,7 @@
   border-color: var(--c-primary);
   background: var(--c-primary);
   color: #fff;
-  box-shadow: 0 6px 16px rgb(11 92 140 / 0.28);
+  box-shadow: 0 1px 2px rgb(11 42 61 / 0.2);
 }
 
 /* Narrow screens: the tag and the text stack above a full-width action. */

@@ -62,6 +62,6 @@
 .actions > button {
   width: 100%;
   min-height: 56px;
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   font-size: 19px;
 }

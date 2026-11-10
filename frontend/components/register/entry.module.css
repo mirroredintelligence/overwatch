@@ -116,7 +116,7 @@
 .amber {
   margin: 0;
   padding: 14px 16px;
-  border-radius: 18px;
+  border-radius: var(--radius-card);
   background: var(--c-amber-tint);
   font-size: 16px;
   line-height: 1.45;
@@ -148,7 +148,7 @@
   gap: var(--space-3) 14px;
   padding: 10px 14px;
   border: 2px solid var(--c-line);
-  border-radius: 16px;
+  border-radius: var(--radius-card);
 }
 
 .rowAttention {

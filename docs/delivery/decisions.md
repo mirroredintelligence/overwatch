@@ -7413,7 +7413,7 @@ Status: accepted (the owner's request and delegation, 2026-11-10, applied under 
 
 **Verified here.** Unit and stylesheet tests (`tokens.test.ts`, `attention.test.ts`, `lib/attention.test.ts`, `Tile.attention.test.tsx`, `Board.attention.test.tsx`, `ServiceCard.attention.test.tsx`), `tsc`, `eslint`, the whole vitest suite (`no-literals` flags `lib/map/landRings.ts` from DEC-1361, not this change; two timeout flakes under load passed when re-run alone), and browser screenshots before and after (evidence `DEC-1365.md`). Not run: the full Playwright suite, a real device, or the deployed site.
 
-## DEC-1362 The Map and Radar tabs are a zoomable OS Open Zoomstack map, served from our own origin; the schematic stays as the fallback (owner chose OS Open Zoomstack in object storage, 2026-11-10)
+## DEC-1369 (cited in the map code as DEC-1362) The Map and Radar tabs are a zoomable OS Open Zoomstack map, served from our own origin; the schematic stays as the fallback (owner chose OS Open Zoomstack in object storage, 2026-11-10)
 Status: accepted (decided 2026-11-10 under DEC-133) · Affects: `frontend/components/map/TileMap.tsx`, `frontend/lib/map/{style,geo}.ts`, `frontend/lib/map/tiles/`, `frontend/app/api/bff/map/tiles/route.ts`, `OptionsMap.tsx`, `RadarMap.tsx`, `frontend/public/map/`, `infra/azure/{apps.bicep,SETUP.md}`. Supersedes DEC-644's "tiles are a later change" and refines DEC-1361 (the ONS land stays under the schematic fallback).
 
 1. **Data.** OS Open Zoomstack (OGL v3.0), the owner's `OS_Open_Zoomstack.mbtiles` (vector tiles for GB, zoom 0 to 14), converted once to one PMTiles file (2.64 GB, `pmtiles` Python package) and stored as `OS_Open_Zoomstack.pmtiles` in the private `map-data` container of `stdiucspilot7k2q` (the container already held the mbtiles and the GeoPackage zip). Attribution, shown by the map: "Contains OS data © Crown copyright and database right 2026".
@@ -7444,7 +7444,7 @@ Status: accepted (decided 2026-11-10 under DEC-133; the owner approved the paral
 
 **Addendum to DEC-1366.** The invitation's redirect (`inviteRedirectUrl`) is now the organisation's own sign-in link, so a guest who accepts the invitation arrives at the sign-in already pointed at the right directory, and the administrator has nothing to send. The link on the Users and roles page stays for anyone who has already accepted, or who signs in again later. `GraphEntraGroups` takes the site's address from the consent link's origin.
 
-## DEC-1366 Advisor v2: Capacity and Find a Service at `/advisor/v2`, browse only (no case, nothing stored)
+## DEC-1370 (cited in the Advisor v2 code as DEC-1366) Advisor v2: Capacity and Find a Service at `/advisor/v2`, browse only (no case, nothing stored)
 Status: accepted (decided 2026-11-10 under DEC-133; the owner approved the parallel sessions) · Affects: `application/use_cases/find_services.py`, `adapters/inbound/fhir_rest/routes_advisor_v2.py`, `use_cases/lead_views.py` (one name made public), `frontend/app/(advisor-v2)/advisor/v2`, `components/advisor-v2`, `lib/advisor/v2`, `app/api/bff/advisor-v2`. Builds DEC-1362 item 3 from the SPoA design file of DEC-1343.
 
 1. **Browse only.** Advisor v2 opens no case and stores nothing: not the postcode, the district, the age band, the needs or the urgency. The page says so. The one record is an audit entry of what was shown (service ids, status, whether the figure was usable, criteria version, order), with no postcode, district, age band or need, as the v1 options write. (The v1 flow keeps its case; this does not replace it.)

@@ -20,7 +20,6 @@ import styles from './Analytics.module.css';
 
 type State = { kind: 'loading' } | { kind: 'ready'; overview: Overview; now: number } | { kind: 'failed' };
 
-const OVERVIEW_URL = '/api/bff/analytics/overview';
 const serviceHref = (serviceId: string) => `/analytics/services/${encodeURIComponent(serviceId)}`;
 
 function countOf(overview: Overview, status: StatusCode): number {
@@ -115,7 +114,7 @@ export function AnalyticsOverview() {
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch(OVERVIEW_URL, { cache: 'no-store', credentials: 'same-origin', signal: controller.signal })
+    fetch('/api/bff/analytics/overview', { cache: 'no-store', credentials: 'same-origin', signal: controller.signal })
       .then(async (response) => {
         if (!response.ok) throw new Error('refused');
         const overview = parseAnalyticsOverview(await response.json());

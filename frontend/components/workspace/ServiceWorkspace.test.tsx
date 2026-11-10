@@ -39,7 +39,7 @@ vi.mock('@/lib/storage/tenantStore', () => ({
 
 // The existing detail component is replaced by a stub that shows the id and the two labels it was given.
 vi.mock('@/components/service/ServiceDetail', () => ({
-  ServiceDetail: (props: { serviceId: string; backHref: string; backLabel: string; rootLabel: string }) => (
+  ServiceDetail: (props: { serviceId: string; backHref: string; backLabel: string; rootLabel: string; tabbed?: boolean }) => (
     <div data-testid="service-detail">
       <span>{props.serviceId}</span>
       <span>{props.backLabel}</span>
@@ -117,5 +117,13 @@ describe('ServiceWorkspace', () => {
     expect(within(log).getByText(SERVICE_REPLY)).toBeInTheDocument();
     expect(log.querySelector('[data-from="person"]')).toBeNull();
     expect(screen.getByRole('link', { name: 'Back to results' })).toHaveAttribute('href', RESULTS_HREF);
+  });
+
+  it('WS-SVC-T04b with no criteria set the thread offers "Find services for a patient", pointing to the first intake step', () => {
+    renderService(<ServiceWorkspace serviceId="svc-a" />);
+    expect(screen.getByRole('link', { name: 'Find services for a patient' })).toHaveAttribute(
+      'href',
+      '/advisor/v2?mode=find&view=find&step=age',
+    );
   });
 });

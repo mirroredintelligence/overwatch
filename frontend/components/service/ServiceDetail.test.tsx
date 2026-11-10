@@ -214,3 +214,36 @@ describe('ServiceDetail', () => {
     expect(await runAxe(container)).toHaveNoViolations();
   });
 });
+
+describe('ServiceDetail tabbed (workspace layout)', () => {
+  function renderTabbed() {
+    return render(
+      <ServiceDetail serviceId="svc-a" backHref="/x" backLabel="Back to results" rootLabel="Find a service" tabbed />,
+    );
+  }
+
+  it('has no breadcrumb and no second back control, and starts on Capacity', async () => {
+    serve();
+    renderTabbed();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Ward A' })).toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).toBeNull();
+    expect(screen.queryByRole('link', { name: /Back to results/ })).toBeNull();
+    expect(screen.getByRole('tab', { name: 'Capacity', selected: true })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Capacity remaining' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Referral criteria' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Contact' })).toBeNull();
+  });
+
+  it('shows one section at a time as the tabs are chosen', async () => {
+    serve();
+    renderTabbed();
+    const user = userEvent.setup();
+    await screen.findByRole('heading', { level: 1, name: 'Ward A' });
+    await user.click(screen.getByRole('tab', { name: 'Criteria' }));
+    expect(screen.getByRole('region', { name: 'Referral criteria' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Capacity remaining' })).toBeNull();
+    await user.click(screen.getByRole('tab', { name: 'Contact' }));
+    expect(screen.getByRole('region', { name: 'Contact' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Referral criteria' })).toBeNull();
+  });
+});

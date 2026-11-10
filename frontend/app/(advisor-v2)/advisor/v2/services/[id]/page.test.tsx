@@ -57,11 +57,11 @@ describe('the advisor v2 service detail page', () => {
     server.use(http.get('/api/bff/advisor/services/:id/detail', () => HttpResponse.json(DETAIL)));
     await renderPage('svc-a');
     expect(await screen.findByRole('heading', { level: 1, name: 'Ward A' })).toBeInTheDocument();
-    // The thread's chip has the same name and href, so the service's own back control is found on the canvas.
+    // One way back on the page body: the canvas has no back control of its own, the frame's Back and the thread's chip
+    // both point to the results.
     const canvas = screen.getByRole('main', { name: 'Canvas' });
-    expect(within(canvas).getByRole('link', { name: 'Back to results' })).toHaveAttribute(
-      'href',
-      '/advisor/v2?mode=find&view=list',
-    );
+    expect(within(canvas).queryByRole('link', { name: /Back/ })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/advisor/v2?mode=find&view=list');
+    expect(screen.getByRole('link', { name: 'Back to results' })).toHaveAttribute('href', '/advisor/v2?mode=find&view=list');
   });
 });

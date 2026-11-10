@@ -324,9 +324,9 @@ describe('CapacityOverview', () => {
     expect(beds).toHaveTextContent('2');
   });
 
-  it('says it opens no case and stores nothing, and shows no places total', async () => {
+  it('counts the services (the frame footer carries the browse note) and shows no places total', async () => {
     render(<CapacityOverview />);
-    expect(await screen.findByText(/opens no case and nothing is stored/i)).toBeInTheDocument();
+    expect(await screen.findByText(/\d+ services\./)).toBeInTheDocument();
     expect(screen.queryByText(/places available/i)).toBeNull();
   });
 

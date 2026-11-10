@@ -44,5 +44,5 @@
 }
 
 .unset {
-  color: var(--c-unknown);
+  color: var(--c-muted);
 }

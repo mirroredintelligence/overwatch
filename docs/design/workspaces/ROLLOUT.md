@@ -18,7 +18,7 @@ The earlier rail-based redesign (132 units) is mostly merged: the run log lists 
 |---|---|---|
 | Advisor find, capacity and service detail (`/advisor/v2/*`) | **Replace** with the workspace (WSP-01 to WSP-12). Delete `FindService` after verification. | Phase 1 |
 | Overview (`/analytics/*`) | **Wrap** in the workspace (WSP-13). Nothing deleted. | Phase 2 |
-| v1 call flow (`/advisor/*`) | **Keep.** Decide separately (decision 1 below). | Not planned |
+| v1 call flow (`/advisor/*`) | **To be retired (DEC-1378), not before the workspace can open, book and finish a case.** Phase 6. | Not planned until the phase 6 design exists |
 | Clinical (`/clinical/*`) | **Keep** until the clinical flag exists on Advisor. | With roles |
 | Lead, planning, criteria, admin, network-admin, network | **Keep** as the hubs. Add go-to intents and the pre-fill hand-overs. | Phase 3 |
 | Operator, console, wall, public, register, help | **Keep unchanged.** | none |
@@ -62,7 +62,7 @@ Tenancy applies throughout (DEC-130 to DEC-134): a mapping change must never wid
 
 ## Decisions I need from the owner
 
-1. **Is v1 to be retired, and if so what replaces call recording?** Until the workspace can open, book and finish a case, v1 stays. If yes, phase 6 is a design task first.
+1. **Decided (DEC-1378): v1 is to be retired.** Until the workspace can open, book and finish a case, v1 stays. Phase 6 is a design task first.
 2. **Pilot and gate.** Who is in the first pilot (the `advisor-v2` role?), how long, and what counts as success before the advisor's home changes.
 3. **Role consolidation: go, no-go, or later.** It buys a simpler admin mapping screen and removes rollout-flag roles; it costs a back-end migration across tenants.
 4. **Hubs.** Whether the Manager and Admin pages move to the rail-less frame, or keep the rail with only the assistant button added.

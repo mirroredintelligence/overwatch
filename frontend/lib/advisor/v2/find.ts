@@ -30,10 +30,27 @@ export type FoundService = {
   warnings: string[];
   phone: string | null;
   travel: { low: number; high: number; source: string } | null;
+  /** The service's site, for the map; null when it has none. */
+  position: LatLng | null;
+  /** The area a visiting service covers (the districts and the circle drawn for them); empty for a fixed site. */
+  coverage: { districts: string[]; circle: { lat: number; lon: number; radiusMeters: number } | null };
+};
+
+export type LatLng = { lat: number; lon: number };
+
+/** A service that did not take this patient, with why (DEC-1379). Nothing is hidden: found plus these is the whole board. */
+export type NotSuitable = {
+  serviceId: string;
+  name: string;
+  category: string;
+  status: StatusCode;
+  reasons: string[];
+  position: LatLng | null;
 };
 
 export type FindRead = {
   services: FoundService[];
+  notSuitable: NotSuitable[];
   notFound: boolean;
   generatedAt: string | null;
   /** How many services each group has in all (found or not), for "3 of 5 services". */
@@ -52,6 +69,43 @@ function travelOf(value: unknown): FoundService['travel'] {
   const low = whole(value.low);
   const high = whole(value.high);
   return low === null || high === null ? null : { low, high, source: str(value.source) ?? '' };
+}
+
+function num(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function positionOf(value: unknown): LatLng | null {
+  if (!isRecord(value)) return null;
+  const lat = num(value.lat);
+  const lon = num(value.lon);
+  return lat === null || lon === null || Math.abs(lat) > 90 || Math.abs(lon) > 180 ? null : { lat, lon };
+}
+
+function coverageOf(value: unknown): FoundService['coverage'] {
+  if (!isRecord(value)) return { districts: [], circle: null };
+  const circle = isRecord(value.circle) ? value.circle : null;
+  const at = circle === null ? null : positionOf(circle);
+  const radius = circle === null ? null : num(circle.radiusMeters);
+  return {
+    districts: strings(value.districts),
+    circle: at === null || radius === null || radius <= 0 ? null : { ...at, radiusMeters: radius },
+  };
+}
+
+function statusOfRaw(value: unknown): StatusCode {
+  const raw = str(value);
+  return raw !== null && (KNOWN_STATUS as readonly string[]).includes(raw) ? (raw as StatusCode) : 'not-updated';
+}
+
+function notSuitableOf(value: unknown): NotSuitable | null {
+  if (!isRecord(value)) return null;
+  const serviceId = str(value.serviceId);
+  const name = str(value.name);
+  const reasons = strings(value.reasons).filter((reason) => reason !== '');
+  // A service that was not suitable always has a reason; one without is not shown rather than shown unexplained.
+  if (serviceId === null || name === null || reasons.length === 0) return null;
+  return { serviceId, name, category: str(value.category) ?? 'other', status: statusOfRaw(value.status), reasons, position: positionOf(value.position) };
 }
 
 function serviceOf(value: unknown): FoundService | null {
@@ -85,6 +139,8 @@ function serviceOf(value: unknown): FoundService | null {
     warnings: strings(value.warnings),
     phone: phone !== null && PHONE_PATTERN.test(phone) ? phone : null,
     travel: travelOf(value.travel),
+    position: positionOf(value.position),
+    coverage: coverageOf(value.coverage),
   };
 }
 
@@ -98,7 +154,8 @@ export function parseFind(body: unknown): FindRead | null {
       if (typeof count === 'number' && Number.isInteger(count) && count >= 0 && /^[a-z][a-z0-9-]{0,63}$/.test(key)) groupTotals[key] = count;
     }
   }
-  return { services, notFound: body.notFound === true, generatedAt: str(body.generatedAt), groupTotals };
+  const notSuitable = Array.isArray(body.notSuitable) ? body.notSuitable.map(notSuitableOf).filter((item): item is NotSuitable => item !== null) : [];
+  return { services, notSuitable, notFound: body.notFound === true, generatedAt: str(body.generatedAt), groupTotals };
 }
 
 function travelText(travel: FoundService['travel']): string | null {

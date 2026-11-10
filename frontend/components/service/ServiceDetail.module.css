@@ -269,3 +269,43 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* The workspace layout: three tabs, one panel at a time. A tab is 44px tall and its edge is --c-unknown (3:1). */
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.tab {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--c-unknown);
+  border-radius: var(--radius-chip);
+  background: #fff;
+  color: var(--c-ink);
+  font: inherit;
+  font-weight: var(--type-label-weight);
+  cursor: pointer;
+}
+
+.tab[aria-selected='true'] {
+  border-color: var(--c-primary);
+  background: var(--c-tint);
+  color: var(--c-primary-dark);
+}
+
+.tab:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.tabPanel {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.headActions {
+  flex: 1 1 100%;
+}

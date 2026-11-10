@@ -1,10 +1,12 @@
-/* The assistant thread drawer and its collapsed button (WS-THD). Tokens only; no fixed pixel sizes except the
-   touch targets, which are 44px or more. */
+/* The assistant thread drawer and its collapsed button (WS-THD). It reads as a chat: plain assistant text beside a small
+   mark, the person's choices as filled bubbles on the right, one scrolling thread for the conversation, the card and the
+   suggested replies, and a bar pinned at the foot. Tokens only; touch targets are 44px or more, and a control's edge is
+   --c-unknown (3:1 or better on the drawer), never the hairline --c-line. */
 
 .drawer {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-3);
   min-height: 0;
   height: 100%;
   padding: var(--space-4);
@@ -16,6 +18,7 @@
 }
 
 .head {
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -35,7 +38,7 @@
   min-height: 44px;
   min-width: 44px;
   padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--c-line);
+  border: 1px solid var(--c-unknown);
   border-radius: var(--radius);
   background: #fff;
   color: var(--c-ink-2);
@@ -58,34 +61,86 @@
   outline-offset: 2px;
 }
 
+/* One scroll for the whole conversation: the log, the summary, the card and the replies. The newest turn is kept in
+   view by the component, and the page never scrolls because of the thread. */
+.scroll {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  overflow-y: auto;
+  padding-bottom: var(--space-2);
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll {
+    scroll-behavior: auto;
+  }
+}
+
 .log {
   display: flex;
   flex-direction: column;
+  gap: var(--space-3);
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
   gap: var(--space-2);
-  min-height: 0;
-  overflow-y: auto;
+  min-width: 0;
+}
+
+.rowPerson {
+  justify-content: flex-end;
+}
+
+.avatar {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--c-tint);
+  color: var(--c-primary-dark);
+  font-size: var(--type-caption-size);
+  line-height: 1;
 }
 
 .message {
   margin: 0;
-  max-width: 92%;
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-card);
-  box-sizing: border-box;
+  min-width: 0;
   overflow-wrap: anywhere;
+  animation: rise var(--dur-menu) var(--ease-out) both;
 }
 
 .messageAssistant {
-  align-self: flex-start;
-  background: var(--c-tint);
+  padding-top: 2px;
   color: var(--c-ink);
 }
 
 .messagePerson {
-  align-self: flex-end;
-  background: #fff;
-  border: var(--border-card);
-  color: var(--c-ink-2);
+  max-width: 85%;
+  padding: var(--space-2) var(--space-4);
+  border-radius: 18px 18px 4px 18px;
+  background: var(--c-primary);
+  color: #fff;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .summary {
@@ -120,6 +175,15 @@
   font-weight: var(--type-label-weight);
 }
 
+/* The card sits in the thread as the assistant's question, on a white surface so its choices read as controls. */
+.cardSlot {
+  padding: var(--space-4);
+  border: var(--border-card);
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;
@@ -135,7 +199,7 @@
   min-height: 44px;
   padding: var(--space-2) var(--space-4);
   border: 1px solid var(--c-primary);
-  border-radius: var(--radius-chip);
+  border-radius: 999px;
   background: #fff;
   color: var(--c-primary-dark);
   font-size: var(--type-label-size);
@@ -148,11 +212,34 @@
   background: var(--c-tint);
 }
 
-.hint {
+/* The bar at the foot, where a typed message would go. It is a note, not a text box: free text is off. */
+.composer {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  box-sizing: border-box;
+  min-height: 48px;
   margin: 0;
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-lh);
+  padding: 0 var(--space-2) 0 var(--space-4);
+  border: 1px solid var(--c-unknown);
+  border-radius: 24px;
+  background: #fff;
   color: var(--c-muted);
+  font-size: var(--type-body-size);
+}
+
+.send {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--c-tint);
+  color: var(--c-muted);
+  font-weight: var(--type-label-weight);
 }
 
 .assistantButton {

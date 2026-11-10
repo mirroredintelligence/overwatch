@@ -65,6 +65,7 @@
         { "when": {}, "reply": "Here is {serviceName}. Last updated {updated}. If the call allows, check that it is current." }
       ],
       "chips": [
+        { "label": "Find services for a patient", "intent": "advisor.intake.age", "when": { "criteriaSet": false } },
         { "label": "See it on the map", "intent": "advisor.map" },
         { "label": "Why {notSuitableWas} {notSuitable} not suitable?", "intent": "advisor.reasons", "when": { "notSuitable": { "gt": 0 } } },
         { "label": "Back to results", "intent": "advisor.results" }

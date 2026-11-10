@@ -148,3 +148,42 @@ describe('orderServices', () => {
     expect(list.map((item) => item.name)).toEqual(before);
   });
 });
+
+describe('parseFind map and reasons (DEC-1379)', () => {
+  const SERVICE = { serviceId: 's1', name: 'Alpha Team', status: 'accepting' };
+
+  it('reads each service position and coverage, and null when they are absent or not sound', () => {
+    const read = parseFind({
+      services: [
+        { ...SERVICE, position: { lat: 50.6, lon: -2.4 }, coverage: { districts: ['AB1', 'AB2'], circle: { lat: 50.5, lon: -2.3, radiusMeters: 8000 } } },
+        { ...SERVICE, serviceId: 's2', position: { lat: 999, lon: 0 }, coverage: { districts: [], circle: { lat: 50, lon: -2, radiusMeters: 0 } } },
+        { ...SERVICE, serviceId: 's3' },
+      ],
+    });
+    expect(read?.services[0].position).toEqual({ lat: 50.6, lon: -2.4 });
+    expect(read?.services[0].coverage).toEqual({ districts: ['AB1', 'AB2'], circle: { lat: 50.5, lon: -2.3, radiusMeters: 8000 } });
+    expect(read?.services[1].position).toBeNull();
+    expect(read?.services[1].coverage.circle).toBeNull();
+    expect(read?.services[2].position).toBeNull();
+    expect(read?.services[2].coverage).toEqual({ districts: [], circle: null });
+  });
+
+  it('reads the services that were not suitable with their reasons, and drops one with no reason', () => {
+    const read = parseFind({
+      services: [],
+      notSuitable: [
+        { serviceId: 'n1', name: 'Beta Team', category: 'virtual-beds', status: 'limited', reasons: ['Does not cover AB9'], position: { lat: 50, lon: -2 } },
+        { serviceId: 'n2', name: 'No Reason Team', status: 'accepting', reasons: [] },
+        { serviceId: 'n3', status: 'accepting', reasons: ['x'] },
+        'nonsense',
+      ],
+    });
+    expect(read?.notSuitable).toEqual([
+      { serviceId: 'n1', name: 'Beta Team', category: 'virtual-beds', status: 'limited', reasons: ['Does not cover AB9'], position: { lat: 50, lon: -2 } },
+    ]);
+  });
+
+  it('has no not-suitable list when the answer has none', () => {
+    expect(parseFind({ services: [] })?.notSuitable).toEqual([]);
+  });
+});

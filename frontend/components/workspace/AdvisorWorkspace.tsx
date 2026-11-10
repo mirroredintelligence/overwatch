@@ -1,19 +1,21 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactElement } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { PagedGrid, ServiceTile } from '@/components/advisor-v2/parts';
 import { PostcodePicker } from '@/components/advisor/PostcodePicker';
 import { AGE_BANDS, NEEDS, URGENCIES, type NeedCode } from '@/lib/advisor/codes';
 import { normalisePostcode, outwardCode } from '@/lib/advisor/postcode';
 import { locatePostcode, type PostcodeLocation, suggestPostcodes } from '@/lib/advisor/postcodeSuggest';
 import { findServices } from '@/lib/advisor/v2/browser';
-import { groupsOf, orderServices, toOption, type FindRead, type FoundService, type Group } from '@/lib/advisor/v2/find';
+import { orderServices, type FindRead, type FoundService } from '@/lib/advisor/v2/find';
 import { overdueText } from '@/lib/lead/format';
 import type { DialogContext } from '@/lib/workspace/dialog';
 import { parseAdvisorUrl, workspaceHref } from '@/lib/workspace/url';
 import { CriteriaSummary } from './CriteriaSummary';
 import styles from './AdvisorWorkspace.module.css';
+import { MapPane } from './MapPane';
+import { NotSuitableList } from './NotSuitableList';
+import { ResultsList, serviceHref } from './ResultsList';
 import { TriageCard } from './TriageCard';
 import { WorkspacePage } from './WorkspacePage';
 import { useWorkspace, type Opened } from './WorkspaceProvider';
@@ -38,6 +40,7 @@ const NOT_PLACED = 'The postcode could not be placed, so no travel time is shown
 const AGE_HREF = workspaceHref('advisor.intake.age');
 const NEED_HREF = workspaceHref('advisor.intake.need');
 const RESULTS_HREF = workspaceHref('advisor.results');
+const WHY_TITLE = 'Not suitable, and why';
 
 type Search = { key: string; kind: 'searching' } | { key: string; kind: 'failed' } | { key: string; kind: 'done'; read: FindRead };
 

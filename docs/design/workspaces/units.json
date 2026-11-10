@@ -158,7 +158,7 @@
     "test_writer": "haiku", "model": "haiku", "verifier": "sonnet",
     "why_model": "A thin wrapper around an existing component with the provider and page APIs fixed by the units it depends on.",
     "forbidden": ["frontend/components/service/ServiceDetail.tsx"],
-    "gaps": "ServiceDetail draws its own back link and breadcrumb as well as the frame's Back. Both go to the same place. Removing one needs a ServiceDetail change, which is not in this unit.",
+    "gaps": "Resolved by WSP-14 (DEC-1377): ServiceDetail has a tabbed layout with no breadcrumb and no second back control.",
     "notes": "Read the existing page.test.tsx and keep its intent.",
     "status": "todo"
   },
@@ -191,5 +191,20 @@
     "gaps": "Spec depth: outline. Refine WS-OVW-T01 to T05 into exact assertions before writing code, and report the refined list.",
     "notes": "Phase 2. Start after WSP-10 has been verified, so the patterns are settled. BLOCKED: read docs/design/workspaces/WS-OVW-analysis.md first. The dialog fixes in its section 3 (the area chip cannot carry its id, a second area-count key, a missing-organisation variant, an empty-counts variant) must land before this unit, and the file lists here must grow as that file says.",
     "status": "blocked"
+  },
+  {
+    "id": "WSP-14", "phase": 1, "surface": "workspace", "title": "Service page: tabs, one back control, Book a slot (check one patient in place) and Request capacity update (DEC-1377)",
+    "spec": "WS-SVC", "routes": ["/advisor/v2/services/[id]"], "boards": [],
+    "modify": ["frontend/components/service/ServiceDetail.tsx", "frontend/components/workspace/ServiceWorkspace.tsx", "frontend/lib/advisor/v2/browser.ts"],
+    "add": ["frontend/components/workspace/ServiceCheck.tsx", "frontend/components/workspace/ServiceActions.tsx", "frontend/lib/advisor/v2/check.ts", "frontend/app/api/bff/advisor-v2/services/[id]/check/route.ts", "frontend/app/api/bff/advisor-v2/services/[id]/ask/route.ts"],
+    "tests": ["frontend/components/workspace/ServiceCheck.test.tsx", "frontend/components/service/ServiceDetail.test.tsx", "frontend/components/workspace/ServiceWorkspace.test.tsx", "frontend/lib/advisor/v2/check.test.ts"],
+    "cases": ["WS-SVC-T06", "WS-SVC-T07", "WS-SVC-T08", "WS-SVC-T09", "WS-SVC-T10"],
+    "depends_on": ["WSP-11"], "wave": 5, "size": "M",
+    "test_writer": "sonnet", "model": "sonnet", "verifier": "sonnet",
+    "why_model": "Built by the orchestrator beside a back-end change (the check and ask routes, a tenancy and role change that follows the full delivery standard).",
+    "forbidden": [],
+    "gaps": "Booking is not made from this page: a fit says to phone. 'Start the booking' needs a way to carry the criteria into the v1 call flow without the URL or storage (open, DEC-1377).",
+    "notes": "Built and tested by the orchestrator; needs an independent verification. The back end is /advisor-v2/services/{id}/check and /ask.",
+    "status": "todo"
   }
 ]

@@ -21,7 +21,7 @@
   flex-direction: column;
   gap: var(--v2-vgap);
   box-sizing: border-box;
-  height: max(560px, calc(100dvh - 190px));
+  flex: 1 1 auto;
   min-height: 0;
   padding: 0 0 6px;
   overflow: hidden;
@@ -945,5 +945,13 @@
   .board[data-section='attention'] > :not(.attn),
   .board[data-section='groups'] > :not(.groupsCard) {
     display: none;
+  }
+}
+
+/* On a narrow screen the page scrolls, so the app needs a height of its own to fit its paged rows into. */
+@media (max-width: 899.98px) {
+  .app {
+    flex: none;
+    height: max(560px, calc(100dvh - 190px));
   }
 }

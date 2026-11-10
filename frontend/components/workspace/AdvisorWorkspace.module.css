@@ -60,7 +60,7 @@
   min-height: 44px;
   min-width: 44px;
   padding: 0 var(--space-3);
-  border: 1px solid var(--c-line);
+  border: 1px solid var(--c-unknown);
   border-radius: var(--radius-chip);
   background: var(--c-bg);
   color: var(--c-ink);
@@ -97,7 +97,7 @@
   width: 100%;
   min-height: 52px;
   padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--c-line);
+  border: 1px solid var(--c-unknown);
   border-radius: var(--radius-card);
   background: var(--c-bg);
   color: var(--c-ink);

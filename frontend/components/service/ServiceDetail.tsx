@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { DayChart } from '@/components/advisor/DayChart';
 import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -37,6 +37,8 @@ export function ServiceDetail({
   backHref,
   backLabel,
   rootLabel,
+  tabbed = false,
+  actions,
 }: {
   serviceId: string;
   backHref: string;
@@ -44,6 +46,13 @@ export function ServiceDetail({
   backLabel: string;
   /** The first crumb, which links to `backHref`, for example "Capacity Board". */
   rootLabel: string;
+  /**
+   * The workspace layout (DEC-1376): no breadcrumb or second back control (the frame has one), and the page shows one
+   * of Capacity, Criteria or Contact at a time so it fits a screen without scrolling.
+   */
+  tabbed?: boolean;
+  /** What the person can do with this service, drawn beside the status in the head (the workspace layout). */
+  actions?: ReactNode;
 }) {
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
 
@@ -70,24 +79,26 @@ export function ServiceDetail({
 
   return (
     <div className={styles.page}>
-      <div className={styles.crumbRow}>
-        <nav aria-label="Breadcrumb">
-          <ol className={styles.crumbs}>
-            <li>
-              <Link href={backHref}>{rootLabel}</Link>
-            </li>
-            {area === null ? null : <li>{area}</li>}
-            <li aria-current="page">Service capacity</li>
-          </ol>
-        </nav>
-        <Link href={backHref} className={styles.back}>
-          <span aria-hidden="true">&larr;</span>
-          {backLabel}
-        </Link>
-      </div>
+      {tabbed ? null : (
+        <div className={styles.crumbRow}>
+          <nav aria-label="Breadcrumb">
+            <ol className={styles.crumbs}>
+              <li>
+                <Link href={backHref}>{rootLabel}</Link>
+              </li>
+              {area === null ? null : <li>{area}</li>}
+              <li aria-current="page">Service capacity</li>
+            </ol>
+          </nav>
+          <Link href={backHref} className={styles.back}>
+            <span aria-hidden="true">&larr;</span>
+            {backLabel}
+          </Link>
+        </div>
+      )}
       {load.kind === 'loading' ? <p className={styles.note}>Loading the service.</p> : null}
       {load.kind === 'failed' ? <p className={styles.note}>The service could not be read.</p> : null}
-      {load.kind === 'ready' ? <Ready detail={load.detail} /> : null}
+      {load.kind === 'ready' ? <Ready detail={load.detail} tabbed={tabbed} actions={actions} /> : null}
     </div>
   );
 }
@@ -104,7 +115,15 @@ function Chips({ labels }: { labels: string[] }) {
   );
 }
 
-function Ready({ detail }: { detail: ServiceDetailView }) {
+type Tab = 'capacity' | 'criteria' | 'contact';
+const TABS: readonly (readonly [Tab, string])[] = [
+  ['capacity', 'Capacity'],
+  ['criteria', 'Criteria'],
+  ['contact', 'Contact'],
+];
+
+function Ready({ detail, tabbed, actions }: { detail: ServiceDetailView; tabbed: boolean; actions?: ReactNode }) {
+  const [tab, setTab] = useState<Tab>('capacity');
   const option = detailAsOption(detail);
   const strip = reportingStrip(option);
   const hours = openingHoursLines(detail.openingHours);
@@ -131,8 +150,110 @@ function Ready({ detail }: { detail: ServiceDetailView }) {
           <p className={styles.sub}>{sub}</p>
         </div>
         <StatusBadge status={detail.status} />
+        {actions === undefined ? null : <div className={styles.headActions}>{actions}</div>}
       </section>
 
+      {tabbed ? (
+        <>
+          <div role="tablist" aria-label="Service sections" className={styles.tabs}>
+            {TABS.map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                id={`sd-tab-${id}`}
+                aria-selected={tab === id}
+                aria-controls="sd-tabpanel"
+                className={styles.tab}
+                onClick={() => setTab(id)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div role="tabpanel" id="sd-tabpanel" aria-labelledby={`sd-tab-${tab}`} className={styles.tabPanel}>
+            {tab === 'capacity' ? (
+              <>
+      <div className={styles.overview}>
+        <section className={styles.panel} aria-labelledby="sd-capacity">
+          <h2 id="sd-capacity" className={styles.panelHeading}>
+            Capacity remaining
+          </h2>
+          {current ? (
+            <>
+              <p className={styles.fraction} aria-label={`${number} of ${detail.established} ${detail.unitLabel}`}>
+                <strong>{number}</strong>
+                <span>{`/ ${detail.established}`}</span>
+              </p>
+              <p className={styles.small}>
+                {over ? `${detail.unitLabel}, above normal capacity` : `${detail.unitLabel} remaining of normal capacity`}
+              </p>
+              {detail.used === null ? null : <p className={styles.inUse}>{`${detail.used} ${detail.unitLabel} in use`}</p>}
+            </>
+          ) : (
+            <>
+              <p className={styles.unavailable}>Current capacity unavailable</p>
+              <p className={styles.small}>{lastReportedLine(option)}</p>
+              <p className={styles.small}>{`Normal capacity: ${detail.established} ${detail.unitLabel}`}</p>
+            </>
+          )}
+        </section>
+        <div className={styles.panel}>
+          <DayChart serviceId={detail.serviceId} />
+        </div>
+      </div>
+
+      {strip === null ? null : (
+        <section className={styles.panel} aria-label="Capacity reporting">
+          <dl className={styles.strip}>
+            <div className={styles.stripItem}>
+              <dt>Last update</dt>
+              <dd>{strip.lastUpdate}</dd>
+            </div>
+            <div className={styles.stripItem}>
+              <dt>Frequency</dt>
+              <dd>{strip.frequency}</dd>
+            </div>
+            <div className={styles.stripItem}>
+              <dt>Next due</dt>
+              <dd>{strip.nextDue}</dd>
+            </div>
+            <div className={styles.stripItem}>
+              <dt>Schedule</dt>
+              <dd className={strip.overdue ? styles.overdue : undefined}>{strip.schedule}</dd>
+            </div>
+          </dl>
+        </section>
+      )}
+
+              </>
+            ) : null}
+            {tab === 'criteria' ? (
+        <section className={styles.panel} aria-label="Referral criteria">
+          <h2 className={styles.panelHeading}>Referral criteria</h2>
+          <h3 className={styles.subHeading}>Potentially accepts</h3>
+          {acceptsLabels.length === 0 ? <p className={styles.note}>{NO_CRITERIA}</p> : <Chips labels={acceptsLabels} />}
+          <hr className={styles.divider} />
+          <h3 className={styles.subHeading}>Example exclusions</h3>
+          {excludes === null ? (
+            <p className={styles.note}>{NO_CRITERIA}</p>
+          ) : excludes.length === 0 ? (
+            <p className={styles.note}>None listed</p>
+          ) : (
+            <Chips labels={excludes} />
+          )}
+          <p className={styles.caveat}>
+            The criteria are a guide. The receiving service confirms whether it can take the person.
+          </p>
+        </section>
+            ) : null}
+            {tab === 'contact' ? (
+        <ContactPanel phone={detail.phone} hours={hours} catchment={catchment} />
+            ) : null}
+          </div>
+        </>
+      ) : (
+        <>
       <div className={styles.overview}>
         <section className={styles.panel} aria-labelledby="sd-capacity">
           <h2 id="sd-capacity" className={styles.panelHeading}>
@@ -205,6 +326,8 @@ function Ready({ detail }: { detail: ServiceDetailView }) {
           </p>
         </section>
       </div>
+        </>
+      )}
     </>
   );
 }

@@ -6,7 +6,7 @@ import { Loading, Skeleton } from '@/components/ui/Skeleton';
 import { STATUS_LABELS } from '@/components/ui/StatusBadge';
 import { categoryLabel } from '@/lib/board/format';
 import { readOverview } from '@/lib/advisor/v2/browser';
-import { attentionShown, COUNTED_STATUSES, groupHref, groupsOfRows, locationCards, statusHref, V2_BROWSE_NOTE, type Overview } from '@/lib/advisor/v2/overview';
+import { attentionShown, COUNTED_STATUSES, groupHref, groupsOfRows, locationCards, statusHref, type Overview } from '@/lib/advisor/v2/overview';
 import { Dot, PagedGrid, StatusLegend, StatusRing } from './parts';
 import styles from './V2.module.css';
 
@@ -184,7 +184,7 @@ export function CapacityOverview() {
           </ul>
         </section>
       </div>
-      <p className={styles.footer}>{`${overview.services.length} services. ${V2_BROWSE_NOTE}`}</p>
+      <p className={styles.footer}>{`${overview.services.length} services.`}</p>
     </div>
   );
 }

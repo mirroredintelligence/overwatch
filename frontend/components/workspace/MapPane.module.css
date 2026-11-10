@@ -1,0 +1,196 @@
+/* The map half of the advisor map board (DEC-1379): a card with the layer toggle on top, the map, and the caption. */
+.pane {
+  --pin-shadow: 0 4px 12px rgb(11 42 61 / 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  box-sizing: border-box;
+  min-width: 0;
+  padding: var(--space-4);
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.title {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.3;
+  font-weight: 700;
+}
+
+.toggle {
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  font: inherit;
+  font-weight: 600;
+  color: var(--c-ink);
+  background: #fff;
+  border: 1px solid var(--c-muted);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.toggle[aria-pressed='true'] {
+  color: #fff;
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+}
+
+.toggle:focus-visible,
+.pin:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.picture {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 16rem;
+  aspect-ratio: 3 / 2;
+  overflow: hidden;
+  background: #e6eeea;
+  border: 1px solid var(--c-muted);
+  border-radius: 8px;
+}
+
+.svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  color: var(--c-primary);
+}
+
+.area {
+  fill: currentcolor;
+  fill-opacity: 0.1;
+  stroke: currentcolor;
+  stroke-width: 2;
+  stroke-dasharray: 6 6;
+}
+
+.empty {
+  margin: 0;
+  padding: var(--space-4) 0;
+  color: var(--c-muted);
+}
+
+.foot {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.caption {
+  margin: 0;
+  font-size: 14px;
+  color: var(--c-muted);
+}
+
+/* A pin is one button: the status marker above, the name below. Status is the shape and the word, not only colour. */
+.pin {
+  --pin: var(--c-primary);
+  position: absolute;
+  transform: translate(-50%, -100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--c-ink);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.pin[data-status='over-capacity'] {
+  --pin: var(--c-surge);
+}
+
+.pin[data-status='limited'] {
+  --pin: var(--c-limited);
+}
+
+.pin[data-status='not-accepting'],
+.pin[data-status='out-of-hours'],
+.pin[data-status='not-updated'],
+.pin[data-status='last-known'] {
+  --pin: var(--c-closed);
+}
+
+.marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  box-sizing: border-box;
+  color: #fff;
+  background: var(--pin);
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: var(--pin-shadow);
+}
+
+.marker svg {
+  width: 16px;
+  height: 16px;
+}
+
+.label {
+  max-width: 14rem;
+  padding: 5px 10px;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: #fff;
+  border: 2px solid var(--pin);
+  border-radius: 10px;
+  box-shadow: var(--pin-shadow);
+}
+
+.patient {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.patientDot {
+  width: 30px;
+  height: 30px;
+  box-sizing: border-box;
+  background: var(--c-ink);
+  border: 4px solid #fff;
+  border-radius: 50%;
+  box-shadow: var(--pin-shadow);
+}
+
+.patientLabel {
+  padding: 5px 10px;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  background: #fff;
+  border: 2px solid var(--c-ink);
+  border-radius: 10px;
+  box-shadow: var(--pin-shadow);
+}

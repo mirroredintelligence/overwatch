@@ -31,7 +31,7 @@ from overwatch.adapters.inbound.scheduler.scheduled_work_consumer import (
 )
 from overwatch.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
 from overwatch.adapters.outbound.cache_redis.code_store import RedisCodeStore
-from overwatch.adapters.outbound.cache_redis.redis_cache import RedisCache
+from overwatch.adapters.outbound.cache_redis.redis_cache import RedisCache, resilient_client
 from overwatch.adapters.outbound.cache_redis.sessions import RedisRateLimiter, RedisSessionStore
 from overwatch.adapters.outbound.clock_system.system_clock import SystemClock
 from overwatch.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
@@ -602,7 +602,7 @@ def travel_time_for(settings: Settings, cache: Cache, http: httpx.AsyncClient | 
 
 
 def _redis_client(url: str) -> Redis:
-    return Redis.from_url(url, decode_responses=True)
+    return resilient_client(url)
 
 
 def build(

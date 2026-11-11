@@ -139,6 +139,22 @@ def keepalive_options() -> dict[int, int]:
     return {getattr(socket, name): value for name, value in names if hasattr(socket, name)}
 
 
+def resilient_client(url: str) -> Redis:
+    """One long-lived client. An idle connection is closed by the network, and without these
+    settings every call after that fails until the process restarts (DEC-1333). A health check
+    finds dead idle connections, keepalive stops the network closing them, and a connection
+    error is retried on a fresh connection. Every Redis client in the process is made here."""
+    return Redis.from_url(
+        url,
+        decode_responses=True,
+        health_check_interval=HEALTH_CHECK_SECONDS,
+        socket_keepalive=True,
+        socket_keepalive_options=keepalive_options(),
+        retry=Retry(ExponentialBackoff(), RETRIES),
+        retry_on_error=[redis_errors.ConnectionError, redis_errors.TimeoutError],
+    )
+
+
 class RedisCache:
     """The Cache port on Redis. The client must decode responses (see from_url)."""
 
@@ -148,21 +164,7 @@ class RedisCache:
 
     @classmethod
     def from_url(cls, url: str) -> RedisCache:
-        # One long-lived client. An idle connection is closed by the network, and without these
-        # settings every call after that fails until the process restarts (DEC-1333). A health check
-        # finds dead idle connections, keepalive stops the network closing them, and a connection
-        # error is retried on a fresh connection.
-        return cls(
-            Redis.from_url(
-                url,
-                decode_responses=True,
-                health_check_interval=HEALTH_CHECK_SECONDS,
-                socket_keepalive=True,
-                socket_keepalive_options=keepalive_options(),
-                retry=Retry(ExponentialBackoff(), RETRIES),
-                retry_on_error=[redis_errors.ConnectionError, redis_errors.TimeoutError],
-            )
-        )
+        return cls(resilient_client(url))
 
     async def get(self, key: str) -> str | None:
         names = scoped_names()

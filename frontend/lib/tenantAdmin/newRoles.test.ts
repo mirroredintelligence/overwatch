@@ -19,6 +19,6 @@ describe('the role lists of the tenant administration', () => {
 
   it('says them in words', () => {
     expect(MAPPABLE_ROLE_WORDS).toContainEqual(['analytics-user', 'Analytics User']);
-    expect(MAPPABLE_ROLE_WORDS).toContainEqual(['advisor-v2', 'Advisor v2']);
+    expect(MAPPABLE_ROLE_WORDS).toContainEqual(['advisor-v2', 'Advisor v2 (full Advisor access)']);
   });
 });

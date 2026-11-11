@@ -42,7 +42,7 @@ describe('what is bound now', () => {
     await open();
     expect(screen.getByText(/The administrators are the members of the group the platform operator made for them/)).toBeInTheDocument();
     const select = screen.getByRole('combobox', { name: 'Role' });
-    expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual(['Advisor', 'Clinical lead', 'Shift lead', 'Criteria owner', 'Planning', 'Audit', 'Analytics User', 'Advisor v2']);
+    expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual(['Advisor', 'Clinical lead', 'Shift lead', 'Criteria owner', 'Planning', 'Audit', 'Analytics User', 'Advisor v2 (full Advisor access)']);
   });
 
   it('says it could not load, with no forms, when the read fails', async () => {

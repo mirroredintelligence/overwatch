@@ -29,7 +29,7 @@ const PREFIX_ROLES: ReadonlyMap<string, readonly Role[]> = new Map([
 const ADVISOR_V2_ROLES: readonly Role[] = ['advisor', 'advisor-v2'];
 
 const HOMES: Readonly<Partial<Record<Role, string>>> = {
-  advisor: '/advisor',
+  advisor: '/advisor/v2', // the v2 workspace is the advisor's home (DEC-1386); the v1 pages are no longer linked
   clinical: '/clinical',
   lead: '/lead',
   owner: '/criteria', // the landing page (DEC-1310)

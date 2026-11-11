@@ -35,7 +35,9 @@ describe('staff navigation', () => {
     expect(roleLabel('advisor-v2')).toBe('Advisor v2');
     expect(navFor('analytics-user')).toEqual([{ label: 'Home', href: '/analytics' }]);
     expect(navFor('advisor-v2')).toEqual([{ label: 'Home', href: '/advisor/v2' }]);
-    expect(navFor('advisor')).toContainEqual({ label: 'Advisor v2', href: '/advisor/v2' });
+    // The advisor's home is the v2 workspace (DEC-1386); the v1 pages are not in the navigation.
+    expect(navFor('advisor')[0]).toEqual({ label: 'Home', href: '/advisor/v2' });
+    expect(navFor('advisor').map((item) => item.href)).not.toContain('/advisor');
   });
 
   it('starts every role with its home', () => {

@@ -97,7 +97,7 @@ describe('canAccess', () => {
 
 describe('roleHome', () => {
   it.each([
-    ['advisor', '/advisor'],
+    ['advisor', '/advisor/v2'],
     ['clinical', '/clinical'],
     ['lead', '/lead'],
     ['owner', '/criteria'],

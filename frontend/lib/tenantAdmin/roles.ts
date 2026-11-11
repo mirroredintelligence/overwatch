@@ -10,5 +10,5 @@ export const MAPPABLE_ROLE_WORDS: readonly [string, string][] = [
   ['exec', 'Planning'],
   ['audit', 'Audit'],
   ['analytics-user', 'Analytics User'],
-  ['advisor-v2', 'Advisor v2'],
+  ['advisor-v2', 'Advisor v2 (full Advisor access)'],
 ];

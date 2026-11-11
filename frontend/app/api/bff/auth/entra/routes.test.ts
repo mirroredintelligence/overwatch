@@ -222,12 +222,12 @@ describe('GET /api/bff/auth/entra/callback: a good sign-in', () => {
     expect(outcome.response.headers.get('content-type')).toContain('text/html');
     expect(outcome.response.headers.get('cache-control')).toBe('no-store');
     expect(outcome.response.headers.get('referrer-policy')).toBe('no-referrer');
-    expect(outcome.body).toContain('http-equiv="refresh" content="0;url=/advisor"');
-    expect(outcome.body).toContain('href="/advisor"');
+    expect(outcome.body).toContain('http-equiv="refresh" content="0;url=/advisor/v2"');
+    expect(outcome.body).toContain('href="/advisor/v2"');
   });
 
   it.each([
-    ['advisor', ['Overwatch.Advisor'], 'advisor', '/advisor'],
+    ['advisor', ['Overwatch.Advisor'], 'advisor', '/advisor/v2'],
     ['clinical', ['Overwatch.Clinical'], 'clinical', '/clinical'],
     ['lead', ['Overwatch.Lead'], 'lead', '/lead'],
     ['owner', ['Overwatch.Owner'], 'owner', '/criteria'],
@@ -248,7 +248,7 @@ describe('GET /api/bff/auth/entra/callback: a good sign-in', () => {
     'goes to the role home, not to next=%s',
     async (next) => {
       const outcome = await signIn({ oid: OID_ADVISOR, roles: ['Overwatch.Advisor'], tid: DIRECTORY_A }, { fields: { next } });
-      expect(outcome.body).toContain('url=/advisor"');
+      expect(outcome.body).toContain('url=/advisor/v2"');
       expect(outcome.body).not.toContain('evil');
       expect(outcome.body).not.toContain('<script>');
     },
@@ -256,7 +256,7 @@ describe('GET /api/bff/auth/entra/callback: a good sign-in', () => {
 
   it('goes to the role home when next is a page the role may not open', async () => {
     const outcome = await signIn({ oid: OID_ADVISOR, roles: ['Overwatch.Advisor'], tid: DIRECTORY_A }, { fields: { next: '/lead' } });
-    expect(outcome.body).toContain('url=/advisor"');
+    expect(outcome.body).toContain('url=/advisor/v2"');
   });
 
   it('never makes a support session here: the operator console has its own door (TEN-043), from any directory', async () => {

@@ -23,9 +23,8 @@ const ROLE_LABELS: Readonly<Partial<Record<Role, string>>> = {
 
 const NAV: Readonly<Partial<Record<Role, readonly NavItem[]>>> = {
   advisor: [
-    { label: 'Home', href: '/advisor' },
+    { label: 'Home', href: '/advisor/v2' },
     { label: 'Wall board', href: '/advisor/board' },
-    { label: 'Advisor v2', href: '/advisor/v2' },
   ],
   'advisor-v2': [{ label: 'Home', href: '/advisor/v2' }],
   'analytics-user': [{ label: 'Home', href: '/analytics' }],

@@ -18,7 +18,7 @@ describe('safeNext', () => {
   it.each(['https://evil.example', '//evil', '/\\evil', 'javascript:alert(1)', '', 'lead'])(
     'sends %j to the role home',
     (next) => {
-      expect(safeNext(next, 'advisor')).toBe('/advisor');
+      expect(safeNext(next, 'advisor')).toBe('/advisor/v2');
       expect(safeNext(next, 'owner')).toBe('/criteria');
     },
   );
@@ -29,7 +29,7 @@ describe('safeNext', () => {
   });
 
   it('sends a path the role may not open to the role home', () => {
-    expect(safeNext('/lead', 'advisor')).toBe('/advisor');
+    expect(safeNext('/lead', 'advisor')).toBe('/advisor/v2');
     expect(safeNext('/console', 'lead')).toBe('/lead');
     expect(safeNext('/advisor/case/4821', 'lead')).toBe('/lead');
   });

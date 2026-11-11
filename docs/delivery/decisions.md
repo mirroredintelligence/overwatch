@@ -7646,3 +7646,12 @@ On the owner's answer that Advisor v2 may open a case and book while v1's adviso
 - **Follow-up:** the admin pages that map a group to a role still offer "Advisor v2" (`frontend/lib/tenantAdmin/bodies.ts`, `roles.ts`, `views.ts`, `operator/views.ts`) and say nothing of the widening; relabel it ("Advisor v2: gives the full Advisor role") or stop offering it, with WSP-28.
 - **Dead after the fold, left in place for tokens issued before it:** the `advisor-v2` entries in `access.ts`, `exchange.ts`, `session.ts`, `shell/nav.ts`, `shell/roleWords.ts` and the registry adapter. They go with the role (DEC-1376 consolidation).
 - **Tests added after the check:** the exhaustive one (over every one and two of the mappable roles, advisor-v2 is never given and the fold adds only the advisor) and the explicit sign-in as the advisor for a v2-mapped group.
+
+## DEC-1386 The advisor's home is the v2 workspace; the v1 pages are no longer linked, and are still there by address (2026-11-10)
+
+On the owner's choice ("flip the home now"), taken with the fold of Advisor v2 into Advisor (DEC-1385) so that nobody who signed in as Advisor v2 lands on v1.
+
+1. **The change.** `roleHome('advisor')` is `/advisor/v2` (the Capacity page, one click from Find a Service); the advisor's navigation starts with Home (v2) and keeps only the wall board among the v1 pages; the admin mapping offers the temporary role as "Advisor v2 (full Advisor access)", so a mapping says what it grants.
+2. **What stays.** The v1 pages (`/advisor`, the case, the board, ways, finish) and every back-end route behind them are unchanged and open to the advisor by address. Nothing redirects yet; the redirects are WSP-28, behind DEC-1378's gate.
+3. **What this is, said plainly.** Advisors are no longer taken to v1, and nothing in v2 links to it, so the v1 call recording (open a case, request a booking, finish) is reachable only by someone who knows or bookmarked the address. It is a retirement of the way in, ahead of the replacement (phase 6, DEC-1383). The owner chose it with that stated. Until phase 6 lands, a booking made through this tool is a phone call, and a call is not recorded here (hazard log H-1383).
+4. **Not changed.** The clinical advisor's home, the lead's, and every other role's.

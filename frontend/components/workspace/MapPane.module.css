@@ -5,7 +5,10 @@
   flex-direction: column;
   gap: var(--space-3);
   box-sizing: border-box;
+  /* Fills the card it is in (the card is a flex column): the picture takes what the header leaves. */
+  flex: 1 1 0;
   min-width: 0;
+  min-height: 0;
   padding: var(--space-4);
   background: #fff;
   border-radius: var(--radius-card);
@@ -55,8 +58,8 @@
   position: relative;
   box-sizing: border-box;
   width: 100%;
-  min-height: 16rem;
-  aspect-ratio: 3 / 2;
+  flex: 1 1 0;
+  min-height: 10rem;
   overflow: hidden;
   background: #e6eeea;
   border: 1px solid var(--c-muted);

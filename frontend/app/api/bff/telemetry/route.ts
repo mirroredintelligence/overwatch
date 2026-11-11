@@ -82,9 +82,29 @@ async function count(events: Event[], token: string): Promise<void> {
   }
 }
 
+/**
+ * The origins a batch may come from: the request's own, and the site's configured public addresses. Behind the
+ * proxy the request the server sees is http on the internal host while the page, and so the browser's Origin, is
+ * the public https address; comparing with the request alone refused every batch there (a 403 for each page).
+ * An address that is not a URL is ignored, so a bad setting can only narrow the list.
+ */
+function allowedOrigins(request: Request): Set<string> {
+  const allowed = new Set<string>([new URL(request.url).origin]);
+  for (const name of ['OVERWATCH_PUBLIC_URL', 'OVERWATCH_OPERATOR_PUBLIC_URL']) {
+    const value = process.env[name];
+    if (!value) continue;
+    try {
+      allowed.add(new URL(value).origin);
+    } catch {
+      // Not an address: it allows nothing.
+    }
+  }
+  return allowed;
+}
+
 export async function POST(request: Request): Promise<Response> {
   const origin = request.headers.get('origin');
-  if (origin !== null && origin !== new URL(request.url).origin) {
+  if (origin !== null && !allowedOrigins(request).has(origin)) {
     return new Response(null, { status: 403, headers: NO_STORE });
   }
   const session = await sessionFromRequest(request);

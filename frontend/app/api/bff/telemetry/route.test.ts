@@ -125,6 +125,42 @@ describe('POST /api/bff/telemetry', () => {
     expect(forwarded).toEqual([]);
   });
 
+  describe('the origin of a batch behind the proxy (the page is https, the request the server sees is http)', () => {
+    // The tenant's own host (the session is read only there), reached over http as the proxy passes it on.
+    const INTERNAL = `http://${TENANTS.A.host}/api/bff/telemetry`;
+    const PUBLIC = `https://${TENANTS.A.host}`;
+
+    async function postFrom(origin: string) {
+      const cookies = { [SESSION_COOKIE]: await sealSession(session('advisor')) };
+      return POST(
+        requestWithCookies(INTERNAL, cookies, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=UTF-8', Origin: origin },
+          body: JSON.stringify(batch({ 'element.id': 'ADV-REF-INPUT' })),
+        }),
+      );
+    }
+
+    it('accepts the configured public address of the site, and of the operator console', async () => {
+      vi.stubEnv('OVERWATCH_PUBLIC_URL', PUBLIC);
+      vi.stubEnv('OVERWATCH_OPERATOR_PUBLIC_URL', 'https://admin.test/');
+      expect((await postFrom(PUBLIC)).status).toBe(204);
+      expect((await postFrom('https://admin.test')).status).toBe(204);
+    });
+
+    it('still refuses every other origin, including the public address with another port or a longer name', async () => {
+      vi.stubEnv('OVERWATCH_PUBLIC_URL', PUBLIC);
+      for (const origin of ['https://evil.test', `${PUBLIC}:8443`, `${PUBLIC}.evil.test`]) {
+        expect((await postFrom(origin)).status).toBe(403);
+      }
+    });
+
+    it('ignores a setting that is not an address, and refuses the browser origin then', async () => {
+      vi.stubEnv('OVERWATCH_PUBLIC_URL', 'not a url');
+      expect((await postFrom(PUBLIC)).status).toBe(403);
+    });
+  });
+
   it('refuses an event name that is not one of the ui events in scope', async () => {
     await post({ events: [{ name: 'patient.lookup', at: 1, attributes: {} }] });
 

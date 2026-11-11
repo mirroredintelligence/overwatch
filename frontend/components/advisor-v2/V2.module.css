@@ -217,7 +217,10 @@
   display: grid;
   flex: 1;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr);
-  grid-template-rows: minmax(0, 1.9fr) minmax(0, 1fr);
+  /* Each row has a floor: a location card is 124px and its pager about 40, and the cards of the bottom row (a heading,
+     a note and a service) need about 170px. The locations page to what is left, so a shorter window shows fewer of
+     them, never squashed or half-drawn cards. Below 650px tall the page scrolls instead (the rule at the end). */
+  grid-template-rows: minmax(150px, 1.9fr) minmax(170px, 1fr);
   gap: var(--v2-vgap) var(--v2-gap);
   min-height: 0;
 }
@@ -1069,4 +1072,18 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
+}
+
+/* A window under 650px tall cannot hold the whole overview: the page scrolls rather than clipping a card. */
+@media (max-height: 649.98px) and (min-width: 900px) {
+  .app {
+    flex: none;
+    height: auto;
+    overflow: visible;
+  }
+
+  .board {
+    flex: none;
+    min-height: 360px;
+  }
 }

@@ -15,7 +15,7 @@ param neo4jUri string = 'neo4j+s://8cb817d8.databases.neo4j.io'
 // An Aura instance's username is its id, not "neo4j" (the settings default).
 param neo4jUser string = '8cb817d8'
 param baseUrl string = 'https://overwatch.mirroredintelligence.com'
-param operatorBaseUrl string = 'https://overwatch-admin.mirroredintelligence.com'
+param operatorBaseUrl string = 'https://overwatch.mirroredintelligence.com'
 // The map's tile file (DEC-1362): OS Open Zoomstack as one PMTiles blob in a private container, read by web with its own
 // identity (Storage Blob Data Reader on the container, see SETUP.md section 8). Empty switches the map off (the schematic stays).
 param mapTilesUrl string = 'https://stdiucspilot7k2q.blob.core.windows.net/map-data/OS_Open_Zoomstack.pmtiles'

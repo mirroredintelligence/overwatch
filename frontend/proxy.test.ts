@@ -376,20 +376,12 @@ describe('the operator console pages', () => {
   });
 });
 
-describe('the console host has no staff front door', () => {
+describe('one shared host serves the staff and the operator sign-in (DEC-1354)', () => {
   afterEach(() => vi.unstubAllEnvs());
 
-  it('sends the front page and the staff sign-in on the console host to the console', async () => {
-    vi.stubEnv('OVERWATCH_OPERATOR_PUBLIC_URL', 'https://admin.example.test');
-    const home = await proxy(await request('/', undefined, { headers: { host: 'admin.example.test' } }));
-    expect(redirectedTo(home)).toBe('/operator');
-    const signIn = await proxy(await request('/sign-in', undefined, { headers: { host: 'admin.example.test' } }));
-    expect(redirectedTo(signIn)).toBe('/operator/sign-in');
-  });
-
-  it('leaves a tenant host alone', async () => {
-    vi.stubEnv('OVERWATCH_OPERATOR_PUBLIC_URL', 'https://admin.example.test');
-    expect(passes(await proxy(await request('/', undefined, { headers: { host: 'capacity.example.test' } })))).toBe(true);
-    expect(passes(await proxy(await request('/sign-in', undefined, { headers: { host: 'capacity.example.test' } })))).toBe(true);
+  it('leaves the front page and the staff sign-in alone on the host the operator console is configured on', async () => {
+    vi.stubEnv('OVERWATCH_OPERATOR_PUBLIC_URL', 'https://shared.example.test');
+    expect(passes(await proxy(await request('/', undefined, { headers: { host: 'shared.example.test' } })))).toBe(true);
+    expect(passes(await proxy(await request('/sign-in', undefined, { headers: { host: 'shared.example.test' } })))).toBe(true);
   });
 });

@@ -305,6 +305,43 @@ async def test_the_highest_mapped_role_wins() -> None:
     assert issued.role is Role.LEAD
 
 
+async def test_a_member_of_the_advisor_v2_group_is_issued_the_advisor_role() -> None:
+    # DEC-1385: Advisor v2 folds into Advisor; the token carries the advisor role, never advisor-v2.
+    built = world(mappings=[mapping(G_ADVISOR, Role.ADVISOR_V2)])
+    verifier = accepting(identity(groups=(G_ADVISOR,)))
+
+    issued = await exchange(staff_use_case(built, verifier))
+
+    claims = decode_bff_token(issued.token, SIGNING, NOW)
+    assert issued.role is Role.ADVISOR
+    assert claims.role is Role.ADVISOR
+    assert issued.roles == (Role.ADVISOR,)
+
+
+async def test_a_member_of_the_advisor_v2_group_may_ask_for_the_advisor_role_by_name() -> None:
+    built = world(mappings=[mapping(G_ADVISOR, Role.ADVISOR_V2)])
+    verifier = accepting(identity(groups=(G_ADVISOR,)))
+    use_case = staff_use_case(built, verifier)
+
+    with bind_tenant(TENANT_A.id):
+        issued = await use_case.execute(
+            ExchangeStaffCommand(tenant=TENANT_A, credential=CREDENTIAL, role=Role.ADVISOR)
+        )
+
+    assert issued.role is Role.ADVISOR
+
+
+async def test_asking_for_advisor_v2_by_name_is_refused_because_it_is_never_given() -> None:
+    built = world(mappings=[mapping(G_ADVISOR, Role.ADVISOR_V2)])
+    verifier = accepting(identity(groups=(G_ADVISOR,)))
+    use_case = staff_use_case(built, verifier)
+
+    with bind_tenant(TENANT_A.id), pytest.raises(ExchangeRefused):
+        await use_case.execute(
+            ExchangeStaffCommand(tenant=TENANT_A, credential=CREDENTIAL, role=Role.ADVISOR_V2)
+        )
+
+
 async def test_a_read_only_suspended_tenants_administrator_gets_a_token_with_its_epoch() -> None:
     suspended = make_tenant(
         TenantStatus.SUSPENDED, id="tenant-a", epoch=5, suspend_mode=SuspendMode.READ_ONLY

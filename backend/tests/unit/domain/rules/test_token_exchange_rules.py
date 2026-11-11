@@ -37,6 +37,7 @@ from overwatch.domain.rules.token_exchange import (
     may_issue,
     operator_role,
     staff_role,
+    staff_roles,
     staff_subject,
 )
 from tests.support.tenant_samples import make_tenant
@@ -393,14 +394,60 @@ def test_the_analytics_user_and_advisor_v2_are_staff_roles_below_the_working_rol
     assert STAFF_ROLE_PRIORITY.index(Role.ADVISOR) < STAFF_ROLE_PRIORITY.index(Role.ADVISOR_V2)
 
 
-def test_a_group_mapped_to_the_analytics_user_or_advisor_v2_gives_that_role() -> None:
-    mappings = [mapping(G_EXEC, Role.ANALYTICS_USER), mapping(G_ADVISOR, Role.ADVISOR_V2)]
+def test_a_group_mapped_to_the_analytics_user_gives_that_role() -> None:
+    mappings = [mapping(G_EXEC, Role.ANALYTICS_USER)]
 
     assert staff_role(mappings, [G_EXEC]) is Role.ANALYTICS_USER
-    assert staff_role(mappings, [G_ADVISOR]) is Role.ADVISOR_V2
+
+
+def test_a_group_mapped_to_advisor_v2_gives_the_advisor_role_and_never_advisor_v2() -> None:
+    # DEC-1385: Advisor v2 folds into Advisor, so the person may open a case and book.
+    mappings = [mapping(G_ADVISOR, Role.ADVISOR_V2)]
+
+    assert staff_role(mappings, [G_ADVISOR]) is Role.ADVISOR
+    assert staff_roles(mappings, [G_ADVISOR]) == frozenset({Role.ADVISOR})
+
+
+def test_advisor_v2_and_advisor_groups_together_give_one_advisor_role_in_the_switch_list() -> None:
+    mappings = [mapping(G_EXEC, Role.ADVISOR_V2), mapping(G_ADVISOR, Role.ADVISOR)]
+
+    assert staff_roles(mappings, [G_EXEC, G_ADVISOR]) == frozenset({Role.ADVISOR})
+
+
+def test_the_fold_gives_nothing_else_and_never_the_roles_above_the_advisor() -> None:
+    mappings = [mapping(G_EXEC, Role.ADVISOR_V2), mapping(G_ADVISOR, Role.ANALYTICS_USER)]
+
+    assert staff_roles(mappings, [G_EXEC, G_ADVISOR]) == frozenset(
+        {Role.ADVISOR, Role.ANALYTICS_USER}
+    )
+    # A retired mapping of the v2 group folds into nothing.
+    assert (
+        staff_roles([mapping(G_EXEC, Role.ADVISOR_V2, MappingStatus.RETIRED)], [G_EXEC])
+        == frozenset()
+    )
 
 
 def test_an_advisor_who_also_holds_the_v2_group_signs_in_as_the_advisor() -> None:
     mappings = [mapping(G_EXEC, Role.ADVISOR_V2), mapping(G_ADVISOR, Role.ADVISOR)]
 
     assert staff_role(mappings, [G_EXEC, G_ADVISOR]) is Role.ADVISOR
+
+
+def test_advisor_v2_is_never_in_the_result_and_the_fold_adds_only_the_advisor() -> None:
+    from itertools import combinations
+
+    from overwatch.domain.model.tenant_records import ENTRA_MAPPABLE_ROLES
+
+    roles = sorted(ENTRA_MAPPABLE_ROLES, key=lambda role: role.value)
+    for size in (1, 2):
+        for chosen in combinations(roles, size):
+            mappings = [
+                mapping(f"{index:08x}-0000-0000-0000-000000000000", role)
+                for index, role in enumerate(chosen)
+            ]
+            groups = [f"{index:08x}-0000-0000-0000-000000000000" for index in range(len(chosen))]
+            given = staff_roles(mappings, groups)
+            assert Role.ADVISOR_V2 not in given
+            unfolded = {Role.ADVISOR if role is Role.ADVISOR_V2 else role for role in chosen}
+            assert given <= unfolded | {Role.ADVISOR}
+            assert set(given) - unfolded <= {Role.ADVISOR}

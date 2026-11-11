@@ -95,6 +95,12 @@ def staff_roles(
             given.add(mapping.role)
     if owns_network is not True:
         given.discard(Role.NETWORK_ADMIN)
+    # Advisor v2 folds into Advisor (DEC-1385, DEC-1376): a group mapped to the temporary role signs
+    # the person in as the advisor, who may open a case and book. The role itself is never issued; a
+    # token already issued with it keeps its own narrower rights until it expires.
+    if Role.ADVISOR_V2 in given:
+        given.discard(Role.ADVISOR_V2)
+        given.add(Role.ADVISOR)
     return frozenset(given)
 
 
